@@ -16,6 +16,14 @@ const (
 	FieldID = "id"
 	// FieldPlanID holds the string denoting the plan_id field in the database.
 	FieldPlanID = "plan_id"
+	// FieldCafeRoomID holds the string denoting the cafe_room_id field in the database.
+	FieldCafeRoomID = "cafe_room_id"
+	// FieldAssignedAccountID holds the string denoting the assigned_account_id field in the database.
+	FieldAssignedAccountID = "assigned_account_id"
+	// FieldRoomCodeSnapshot holds the string denoting the room_code_snapshot field in the database.
+	FieldRoomCodeSnapshot = "room_code_snapshot"
+	// FieldRoomNameSnapshot holds the string denoting the room_name_snapshot field in the database.
+	FieldRoomNameSnapshot = "room_name_snapshot"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
 	// FieldTotalShares holds the string denoting the total_shares field in the database.
@@ -36,6 +44,14 @@ const (
 	FieldStartedAt = "started_at"
 	// FieldClosedAt holds the string denoting the closed_at field in the database.
 	FieldClosedAt = "closed_at"
+	// FieldActivatedAt holds the string denoting the activated_at field in the database.
+	FieldActivatedAt = "activated_at"
+	// FieldEntitlementExpiresAt holds the string denoting the entitlement_expires_at field in the database.
+	FieldEntitlementExpiresAt = "entitlement_expires_at"
+	// FieldCompletedAt holds the string denoting the completed_at field in the database.
+	FieldCompletedAt = "completed_at"
+	// FieldActivationToken holds the string denoting the activation_token field in the database.
+	FieldActivationToken = "activation_token"
 	// FieldCloseReason holds the string denoting the close_reason field in the database.
 	FieldCloseReason = "close_reason"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -48,6 +64,12 @@ const (
 	EdgeSeats = "seats"
 	// EdgeEvents holds the string denoting the events edge name in mutations.
 	EdgeEvents = "events"
+	// EdgeCafeRoom holds the string denoting the cafe_room edge name in mutations.
+	EdgeCafeRoom = "cafe_room"
+	// EdgeAssignedAccount holds the string denoting the assigned_account edge name in mutations.
+	EdgeAssignedAccount = "assigned_account"
+	// EdgeAccountBindings holds the string denoting the account_bindings edge name in mutations.
+	EdgeAccountBindings = "account_bindings"
 	// Table holds the table name of the groupbuyround in the database.
 	Table = "group_buy_rounds"
 	// PlanTable is the table that holds the plan relation/edge.
@@ -71,12 +93,37 @@ const (
 	EventsInverseTable = "group_buy_events"
 	// EventsColumn is the table column denoting the events relation/edge.
 	EventsColumn = "round_id"
+	// CafeRoomTable is the table that holds the cafe_room relation/edge.
+	CafeRoomTable = "group_buy_rounds"
+	// CafeRoomInverseTable is the table name for the CafeRoom entity.
+	// It exists in this package in order to avoid circular dependency with the "caferoom" package.
+	CafeRoomInverseTable = "cafe_rooms"
+	// CafeRoomColumn is the table column denoting the cafe_room relation/edge.
+	CafeRoomColumn = "cafe_room_id"
+	// AssignedAccountTable is the table that holds the assigned_account relation/edge.
+	AssignedAccountTable = "group_buy_rounds"
+	// AssignedAccountInverseTable is the table name for the Account entity.
+	// It exists in this package in order to avoid circular dependency with the "account" package.
+	AssignedAccountInverseTable = "accounts"
+	// AssignedAccountColumn is the table column denoting the assigned_account relation/edge.
+	AssignedAccountColumn = "assigned_account_id"
+	// AccountBindingsTable is the table that holds the account_bindings relation/edge.
+	AccountBindingsTable = "api_key_account_bindings"
+	// AccountBindingsInverseTable is the table name for the APIKeyAccountBinding entity.
+	// It exists in this package in order to avoid circular dependency with the "apikeyaccountbinding" package.
+	AccountBindingsInverseTable = "api_key_account_bindings"
+	// AccountBindingsColumn is the table column denoting the account_bindings relation/edge.
+	AccountBindingsColumn = "round_id"
 )
 
 // Columns holds all SQL columns for groupbuyround fields.
 var Columns = []string{
 	FieldID,
 	FieldPlanID,
+	FieldCafeRoomID,
+	FieldAssignedAccountID,
+	FieldRoomCodeSnapshot,
+	FieldRoomNameSnapshot,
 	FieldStatus,
 	FieldTotalShares,
 	FieldPaidShares,
@@ -87,6 +134,10 @@ var Columns = []string{
 	FieldDeadlineAt,
 	FieldStartedAt,
 	FieldClosedAt,
+	FieldActivatedAt,
+	FieldEntitlementExpiresAt,
+	FieldCompletedAt,
+	FieldActivationToken,
 	FieldCloseReason,
 	FieldCreatedAt,
 	FieldUpdatedAt,
@@ -140,6 +191,26 @@ func ByPlanID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldPlanID, opts...).ToFunc()
 }
 
+// ByCafeRoomID orders the results by the cafe_room_id field.
+func ByCafeRoomID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCafeRoomID, opts...).ToFunc()
+}
+
+// ByAssignedAccountID orders the results by the assigned_account_id field.
+func ByAssignedAccountID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAssignedAccountID, opts...).ToFunc()
+}
+
+// ByRoomCodeSnapshot orders the results by the room_code_snapshot field.
+func ByRoomCodeSnapshot(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRoomCodeSnapshot, opts...).ToFunc()
+}
+
+// ByRoomNameSnapshot orders the results by the room_name_snapshot field.
+func ByRoomNameSnapshot(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRoomNameSnapshot, opts...).ToFunc()
+}
+
 // ByStatus orders the results by the status field.
 func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
@@ -188,6 +259,26 @@ func ByStartedAt(opts ...sql.OrderTermOption) OrderOption {
 // ByClosedAt orders the results by the closed_at field.
 func ByClosedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldClosedAt, opts...).ToFunc()
+}
+
+// ByActivatedAt orders the results by the activated_at field.
+func ByActivatedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldActivatedAt, opts...).ToFunc()
+}
+
+// ByEntitlementExpiresAt orders the results by the entitlement_expires_at field.
+func ByEntitlementExpiresAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEntitlementExpiresAt, opts...).ToFunc()
+}
+
+// ByCompletedAt orders the results by the completed_at field.
+func ByCompletedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCompletedAt, opts...).ToFunc()
+}
+
+// ByActivationToken orders the results by the activation_token field.
+func ByActivationToken(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldActivationToken, opts...).ToFunc()
 }
 
 // ByCloseReason orders the results by the close_reason field.
@@ -239,6 +330,34 @@ func ByEvents(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newEventsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByCafeRoomField orders the results by cafe_room field.
+func ByCafeRoomField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCafeRoomStep(), sql.OrderByField(field, opts...))
+	}
+}
+
+// ByAssignedAccountField orders the results by assigned_account field.
+func ByAssignedAccountField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAssignedAccountStep(), sql.OrderByField(field, opts...))
+	}
+}
+
+// ByAccountBindingsCount orders the results by account_bindings count.
+func ByAccountBindingsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAccountBindingsStep(), opts...)
+	}
+}
+
+// ByAccountBindings orders the results by account_bindings terms.
+func ByAccountBindings(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAccountBindingsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newPlanStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -258,5 +377,26 @@ func newEventsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(EventsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, EventsTable, EventsColumn),
+	)
+}
+func newCafeRoomStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CafeRoomInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, CafeRoomTable, CafeRoomColumn),
+	)
+}
+func newAssignedAccountStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AssignedAccountInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, AssignedAccountTable, AssignedAccountColumn),
+	)
+}
+func newAccountBindingsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AccountBindingsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AccountBindingsTable, AccountBindingsColumn),
 	)
 }

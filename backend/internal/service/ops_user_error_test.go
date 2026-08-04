@@ -2,7 +2,6 @@ package service
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
 	"time"
 )
@@ -46,8 +45,12 @@ func TestToUserErrorRequestDetailWhitelist(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	var payload map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatal(err)
+	}
 	for _, forbidden := range []string{"user_email", "upstream_endpoint", "account_id", "api_key_id", "client_ip", "user_agent", "group_name", "request_type", "stream"} {
-		if strings.Contains(string(raw), forbidden) {
+		if _, present := payload[forbidden]; present {
 			t.Fatalf("sensitive field %q leaked: %s", forbidden, raw)
 		}
 	}

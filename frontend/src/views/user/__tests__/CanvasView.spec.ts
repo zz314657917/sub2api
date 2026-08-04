@@ -216,6 +216,7 @@ describe('CanvasView', () => {
             name: 'OpenAI Images',
             description: null,
             platform: 'openai',
+            routing_scope: 'image',
             rate_multiplier: 1,
             is_exclusive: false,
             status: 'active',

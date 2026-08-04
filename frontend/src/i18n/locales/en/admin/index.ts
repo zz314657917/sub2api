@@ -25,6 +25,7 @@ import tlsFingerprintProfiles from './tlsFingerprintProfiles'
 import tickets from './tickets'
 import audit from './audit'
 import promptAudit from './promptAudit'
+import pixelCafe from './pixelCafe'
 
 export default {
   dashboard,
@@ -54,4 +55,5 @@ export default {
   tickets,
   audit,
   ...promptAudit,
+  pixelCafe,
 }

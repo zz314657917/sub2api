@@ -71,6 +71,7 @@ export interface GroupBuyPlan {
   quota_label: string
   max_shares_per_user: number
   target_group_id: number
+  fulfillment_mode?: 'aggregate_tier' | 'room_subscription' | string
   target_group?: GroupBuyGroupView
   tier_group_ids: Record<string, number>
   tier_groups: GroupBuyTier[]

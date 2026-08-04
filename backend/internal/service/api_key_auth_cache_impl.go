@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 16 // v16: include administrator-owned group model match patterns
+const apiKeyAuthSnapshotVersion = 17 // v17: include Cafe strict fixed-account binding facts
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -113,7 +113,11 @@ func (s *APIKeyService) getAuthCacheEntry(ctx context.Context, cacheKey string) 
 	if s.authCacheL1 != nil {
 		if val, ok := s.authCacheL1.Get(cacheKey); ok {
 			if entry, ok := val.(*APIKeyAuthCacheEntry); ok {
-				return entry, true
+				if authCacheEntryExpired(entry, time.Now()) {
+					s.authCacheL1.Del(cacheKey)
+				} else {
+					return entry, true
+				}
 			}
 		}
 	}
@@ -124,8 +128,51 @@ func (s *APIKeyService) getAuthCacheEntry(ctx context.Context, cacheKey string) 
 	if err != nil {
 		return nil, false
 	}
+	if authCacheEntryExpired(entry, time.Now()) {
+		_ = s.cache.DeleteAuthCache(ctx, cacheKey)
+		return nil, false
+	}
 	s.setAuthCacheL1(cacheKey, entry)
 	return entry, true
+}
+
+func authCacheEntryExpired(entry *APIKeyAuthCacheEntry, now time.Time) bool {
+	if entry == nil || entry.NotFound || entry.Snapshot == nil {
+		return false
+	}
+	snapshot := entry.Snapshot
+	if snapshot.ManagedSourceType == APIKeyManagedSourceCafeRoomSeat && snapshot.PinnedAccountID > 0 &&
+		(snapshot.ManagedBindingID <= 0 || snapshot.ManagedBindingExpiresAt == nil) {
+		return true
+	}
+	return snapshot.ManagedBindingExpiresAt != nil && !now.Before(*snapshot.ManagedBindingExpiresAt)
+}
+
+func authCacheTTLUntilBindingExpiry(entry *APIKeyAuthCacheEntry, ttl time.Duration, now time.Time) time.Duration {
+	if ttl <= 0 || entry == nil || entry.NotFound || entry.Snapshot == nil || entry.Snapshot.ManagedBindingExpiresAt == nil {
+		return ttl
+	}
+	if now.IsZero() {
+		now = time.Now()
+	}
+	remaining := entry.Snapshot.ManagedBindingExpiresAt.Sub(now)
+	if remaining <= 0 {
+		return 0
+	}
+	if remaining < ttl {
+		return remaining
+	}
+	return ttl
+}
+
+func (s *APIKeyService) authCacheTTL(entry *APIKeyAuthCacheEntry, ttl time.Duration) time.Duration {
+	ttl = authCacheTTLUntilBindingExpiry(entry, ttl, time.Now())
+	if ttl <= 0 {
+		return ttl
+	}
+	ttl = s.authCfg.jitterTTL(ttl)
+	// Jitter must never extend a Cafe Binding beyond its authoritative expiry.
+	return authCacheTTLUntilBindingExpiry(entry, ttl, time.Now())
 }
 
 func (s *APIKeyService) setAuthCacheL1(cacheKey string, entry *APIKeyAuthCacheEntry) {
@@ -136,7 +183,10 @@ func (s *APIKeyService) setAuthCacheL1(cacheKey string, entry *APIKeyAuthCacheEn
 	if entry.NotFound && s.authCfg.negativeTTL > 0 && s.authCfg.negativeTTL < ttl {
 		ttl = s.authCfg.negativeTTL
 	}
-	ttl = s.authCfg.jitterTTL(ttl)
+	ttl = s.authCacheTTL(entry, ttl)
+	if ttl <= 0 {
+		return
+	}
 	_ = s.authCacheL1.SetWithTTL(cacheKey, entry, 1, ttl)
 }
 
@@ -148,7 +198,11 @@ func (s *APIKeyService) setAuthCacheEntry(ctx context.Context, cacheKey string, 
 	if s.cache == nil || !s.authCfg.l2Enabled() {
 		return
 	}
-	_ = s.cache.SetAuthCache(ctx, cacheKey, entry, s.authCfg.jitterTTL(ttl))
+	ttl = s.authCacheTTL(entry, ttl)
+	if ttl <= 0 {
+		return
+	}
+	_ = s.cache.SetAuthCache(ctx, cacheKey, entry, ttl)
 }
 
 func (s *APIKeyService) deleteAuthCache(ctx context.Context, cacheKey string) {
@@ -195,6 +249,9 @@ func (s *APIKeyService) applyAuthCacheEntry(key string, entry *APIKeyAuthCacheEn
 	if entry.Snapshot == nil {
 		return nil, false, nil
 	}
+	if authCacheEntryExpired(entry, time.Now()) {
+		return nil, false, nil
+	}
 	if entry.Snapshot.Version != apiKeyAuthSnapshotVersion {
 		return nil, false, nil
 	}
@@ -206,22 +263,27 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 		return nil
 	}
 	snapshot := &APIKeyAuthSnapshot{
-		Version:             apiKeyAuthSnapshotVersion,
-		APIKeyID:            apiKey.ID,
-		UserID:              apiKey.UserID,
-		GroupID:             apiKey.GroupID,
-		MultiGroupRoutes:    apiKey.MultiGroupRoutes,
-		AccountPoolStrategy: NormalizeAccountPoolStrategy(apiKey.AccountPoolStrategy),
-		Name:                apiKey.Name,
-		Status:              apiKey.Status,
-		IPWhitelist:         apiKey.IPWhitelist,
-		IPBlacklist:         apiKey.IPBlacklist,
-		Quota:               apiKey.Quota,
-		QuotaUsed:           apiKey.QuotaUsed,
-		ExpiresAt:           apiKey.ExpiresAt,
-		RateLimit5h:         apiKey.RateLimit5h,
-		RateLimit1d:         apiKey.RateLimit1d,
-		RateLimit7d:         apiKey.RateLimit7d,
+		Version:                 apiKeyAuthSnapshotVersion,
+		APIKeyID:                apiKey.ID,
+		UserID:                  apiKey.UserID,
+		PinnedAccountID:         apiKey.PinnedAccountID,
+		ManagedBindingID:        apiKey.ManagedBindingID,
+		ManagedBindingExpiresAt: apiKey.ManagedBindingExpiresAt,
+		ManagedSourceType:       apiKey.ManagedSourceType,
+		ManagedSourceID:         apiKey.ManagedSourceID,
+		GroupID:                 apiKey.GroupID,
+		MultiGroupRoutes:        apiKey.MultiGroupRoutes,
+		AccountPoolStrategy:     NormalizeAccountPoolStrategy(apiKey.AccountPoolStrategy),
+		Name:                    apiKey.Name,
+		Status:                  apiKey.Status,
+		IPWhitelist:             apiKey.IPWhitelist,
+		IPBlacklist:             apiKey.IPBlacklist,
+		Quota:                   apiKey.Quota,
+		QuotaUsed:               apiKey.QuotaUsed,
+		ExpiresAt:               apiKey.ExpiresAt,
+		RateLimit5h:             apiKey.RateLimit5h,
+		RateLimit1d:             apiKey.RateLimit1d,
+		RateLimit7d:             apiKey.RateLimit7d,
 		User: APIKeyAuthUserSnapshot{
 			ID:                         apiKey.User.ID,
 			Status:                     apiKey.User.Status,
@@ -313,22 +375,27 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 		return nil
 	}
 	apiKey := &APIKey{
-		ID:                  snapshot.APIKeyID,
-		UserID:              snapshot.UserID,
-		GroupID:             snapshot.GroupID,
-		MultiGroupRoutes:    snapshot.MultiGroupRoutes,
-		AccountPoolStrategy: NormalizeAccountPoolStrategy(snapshot.AccountPoolStrategy),
-		Key:                 key,
-		Name:                snapshot.Name,
-		Status:              snapshot.Status,
-		IPWhitelist:         snapshot.IPWhitelist,
-		IPBlacklist:         snapshot.IPBlacklist,
-		Quota:               snapshot.Quota,
-		QuotaUsed:           snapshot.QuotaUsed,
-		ExpiresAt:           snapshot.ExpiresAt,
-		RateLimit5h:         snapshot.RateLimit5h,
-		RateLimit1d:         snapshot.RateLimit1d,
-		RateLimit7d:         snapshot.RateLimit7d,
+		ID:                      snapshot.APIKeyID,
+		UserID:                  snapshot.UserID,
+		PinnedAccountID:         snapshot.PinnedAccountID,
+		ManagedBindingID:        snapshot.ManagedBindingID,
+		ManagedBindingExpiresAt: snapshot.ManagedBindingExpiresAt,
+		ManagedSourceType:       snapshot.ManagedSourceType,
+		ManagedSourceID:         snapshot.ManagedSourceID,
+		GroupID:                 snapshot.GroupID,
+		MultiGroupRoutes:        snapshot.MultiGroupRoutes,
+		AccountPoolStrategy:     NormalizeAccountPoolStrategy(snapshot.AccountPoolStrategy),
+		Key:                     key,
+		Name:                    snapshot.Name,
+		Status:                  snapshot.Status,
+		IPWhitelist:             snapshot.IPWhitelist,
+		IPBlacklist:             snapshot.IPBlacklist,
+		Quota:                   snapshot.Quota,
+		QuotaUsed:               snapshot.QuotaUsed,
+		ExpiresAt:               snapshot.ExpiresAt,
+		RateLimit5h:             snapshot.RateLimit5h,
+		RateLimit1d:             snapshot.RateLimit1d,
+		RateLimit7d:             snapshot.RateLimit7d,
 		User: &User{
 			ID:                         snapshot.User.ID,
 			Status:                     snapshot.User.Status,

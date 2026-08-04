@@ -58,6 +58,18 @@ type GroupBuyPlan struct {
 	TimeoutMinutes int `json:"timeout_minutes,omitempty"`
 	// LaunchMode holds the value of the "launch_mode" field.
 	LaunchMode string `json:"launch_mode,omitempty"`
+	// Fulfillment mode: aggregate_tier or room_subscription.
+	FulfillmentMode string `json:"fulfillment_mode,omitempty"`
+	// RoomKeyQuotaUsd holds the value of the "room_key_quota_usd" field.
+	RoomKeyQuotaUsd float64 `json:"room_key_quota_usd,omitempty"`
+	// RoomKeyRateLimit5h holds the value of the "room_key_rate_limit_5h" field.
+	RoomKeyRateLimit5h float64 `json:"room_key_rate_limit_5h,omitempty"`
+	// RoomKeyRateLimit1d holds the value of the "room_key_rate_limit_1d" field.
+	RoomKeyRateLimit1d float64 `json:"room_key_rate_limit_1d,omitempty"`
+	// RoomKeyRateLimit7d holds the value of the "room_key_rate_limit_7d" field.
+	RoomKeyRateLimit7d float64 `json:"room_key_rate_limit_7d,omitempty"`
+	// AutoCreateRoomKey holds the value of the "auto_create_room_key" field.
+	AutoCreateRoomKey bool `json:"auto_create_room_key,omitempty"`
 	// RefundMode holds the value of the "refund_mode" field.
 	RefundMode string `json:"refund_mode,omitempty"`
 	// AgreementText holds the value of the "agreement_text" field.
@@ -86,9 +98,11 @@ type GroupBuyPlanEdges struct {
 	Seats []*GroupBuySeat `json:"seats,omitempty"`
 	// Events holds the value of the events edge.
 	Events []*GroupBuyEvent `json:"events,omitempty"`
+	// CafeRooms holds the value of the cafe_rooms edge.
+	CafeRooms []*CafeRoom `json:"cafe_rooms,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [4]bool
+	loadedTypes [5]bool
 }
 
 // TargetGroupOrErr returns the TargetGroup value or an error if the edge
@@ -129,6 +143,15 @@ func (e GroupBuyPlanEdges) EventsOrErr() ([]*GroupBuyEvent, error) {
 	return nil, &NotLoadedError{edge: "events"}
 }
 
+// CafeRoomsOrErr returns the CafeRooms value or an error if the edge
+// was not loaded in eager-loading.
+func (e GroupBuyPlanEdges) CafeRoomsOrErr() ([]*CafeRoom, error) {
+	if e.loadedTypes[4] {
+		return e.CafeRooms, nil
+	}
+	return nil, &NotLoadedError{edge: "cafe_rooms"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*GroupBuyPlan) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -136,11 +159,13 @@ func (*GroupBuyPlan) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case groupbuyplan.FieldTierGroupIds, groupbuyplan.FieldTierRules:
 			values[i] = new([]byte)
-		case groupbuyplan.FieldPricePerShare, groupbuyplan.FieldPricePerSeat:
+		case groupbuyplan.FieldAutoCreateRoomKey:
+			values[i] = new(sql.NullBool)
+		case groupbuyplan.FieldPricePerShare, groupbuyplan.FieldPricePerSeat, groupbuyplan.FieldRoomKeyQuotaUsd, groupbuyplan.FieldRoomKeyRateLimit5h, groupbuyplan.FieldRoomKeyRateLimit1d, groupbuyplan.FieldRoomKeyRateLimit7d:
 			values[i] = new(sql.NullFloat64)
 		case groupbuyplan.FieldID, groupbuyplan.FieldTotalShares, groupbuyplan.FieldSeatCount, groupbuyplan.FieldMaxSharesPerUser, groupbuyplan.FieldTargetGroupID, groupbuyplan.FieldValidityDays, groupbuyplan.FieldTimeoutMinutes, groupbuyplan.FieldSortOrder:
 			values[i] = new(sql.NullInt64)
-		case groupbuyplan.FieldTitle, groupbuyplan.FieldDescription, groupbuyplan.FieldProductKey, groupbuyplan.FieldPriceLabel, groupbuyplan.FieldQuotaPerShareLabel, groupbuyplan.FieldQuotaLabel, groupbuyplan.FieldLaunchMode, groupbuyplan.FieldRefundMode, groupbuyplan.FieldAgreementText, groupbuyplan.FieldStatus:
+		case groupbuyplan.FieldTitle, groupbuyplan.FieldDescription, groupbuyplan.FieldProductKey, groupbuyplan.FieldPriceLabel, groupbuyplan.FieldQuotaPerShareLabel, groupbuyplan.FieldQuotaLabel, groupbuyplan.FieldLaunchMode, groupbuyplan.FieldFulfillmentMode, groupbuyplan.FieldRefundMode, groupbuyplan.FieldAgreementText, groupbuyplan.FieldStatus:
 			values[i] = new(sql.NullString)
 		case groupbuyplan.FieldCreatedAt, groupbuyplan.FieldUpdatedAt, groupbuyplan.FieldLastRoundCreatedAt, groupbuyplan.FieldDeletedAt:
 			values[i] = new(sql.NullTime)
@@ -284,6 +309,42 @@ func (_m *GroupBuyPlan) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.LaunchMode = value.String
 			}
+		case groupbuyplan.FieldFulfillmentMode:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field fulfillment_mode", values[i])
+			} else if value.Valid {
+				_m.FulfillmentMode = value.String
+			}
+		case groupbuyplan.FieldRoomKeyQuotaUsd:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field room_key_quota_usd", values[i])
+			} else if value.Valid {
+				_m.RoomKeyQuotaUsd = value.Float64
+			}
+		case groupbuyplan.FieldRoomKeyRateLimit5h:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field room_key_rate_limit_5h", values[i])
+			} else if value.Valid {
+				_m.RoomKeyRateLimit5h = value.Float64
+			}
+		case groupbuyplan.FieldRoomKeyRateLimit1d:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field room_key_rate_limit_1d", values[i])
+			} else if value.Valid {
+				_m.RoomKeyRateLimit1d = value.Float64
+			}
+		case groupbuyplan.FieldRoomKeyRateLimit7d:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field room_key_rate_limit_7d", values[i])
+			} else if value.Valid {
+				_m.RoomKeyRateLimit7d = value.Float64
+			}
+		case groupbuyplan.FieldAutoCreateRoomKey:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field auto_create_room_key", values[i])
+			} else if value.Valid {
+				_m.AutoCreateRoomKey = value.Bool
+			}
 		case groupbuyplan.FieldRefundMode:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field refund_mode", values[i])
@@ -354,6 +415,11 @@ func (_m *GroupBuyPlan) QuerySeats() *GroupBuySeatQuery {
 // QueryEvents queries the "events" edge of the GroupBuyPlan entity.
 func (_m *GroupBuyPlan) QueryEvents() *GroupBuyEventQuery {
 	return NewGroupBuyPlanClient(_m.config).QueryEvents(_m)
+}
+
+// QueryCafeRooms queries the "cafe_rooms" edge of the GroupBuyPlan entity.
+func (_m *GroupBuyPlan) QueryCafeRooms() *CafeRoomQuery {
+	return NewGroupBuyPlanClient(_m.config).QueryCafeRooms(_m)
 }
 
 // Update returns a builder for updating this GroupBuyPlan.
@@ -437,6 +503,24 @@ func (_m *GroupBuyPlan) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("launch_mode=")
 	builder.WriteString(_m.LaunchMode)
+	builder.WriteString(", ")
+	builder.WriteString("fulfillment_mode=")
+	builder.WriteString(_m.FulfillmentMode)
+	builder.WriteString(", ")
+	builder.WriteString("room_key_quota_usd=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RoomKeyQuotaUsd))
+	builder.WriteString(", ")
+	builder.WriteString("room_key_rate_limit_5h=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RoomKeyRateLimit5h))
+	builder.WriteString(", ")
+	builder.WriteString("room_key_rate_limit_1d=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RoomKeyRateLimit1d))
+	builder.WriteString(", ")
+	builder.WriteString("room_key_rate_limit_7d=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RoomKeyRateLimit7d))
+	builder.WriteString(", ")
+	builder.WriteString("auto_create_room_key=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AutoCreateRoomKey))
 	builder.WriteString(", ")
 	builder.WriteString("refund_mode=")
 	builder.WriteString(_m.RefundMode)

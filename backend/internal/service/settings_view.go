@@ -157,6 +157,10 @@ type SystemSettings struct {
 	GroupBuyEnabled                  bool
 	GroupBuyProductName              string
 	GroupBuyDescription              string
+	PixelCafeEnabled                 bool
+	PixelCafeTitle                   string
+	PixelCafeDescription             string
+	PixelCafeHeaderVisible           bool
 	AccountShareOwnerRatePercent     float64
 	AccountShareFreezeHours          int
 	AccountShareAutoReview           bool
@@ -339,6 +343,10 @@ type PublicSettings struct {
 	GroupBuyEnabled          bool   `json:"group_buy_enabled"`
 	GroupBuyProductName      string `json:"group_buy_product_name"`
 	GroupBuyDescription      string `json:"group_buy_description"`
+	PixelCafeEnabled         bool   `json:"pixel_cafe_enabled"`
+	PixelCafeTitle           string `json:"pixel_cafe_title"`
+	PixelCafeDescription     string `json:"pixel_cafe_description"`
+	PixelCafeHeaderVisible   bool   `json:"pixel_cafe_header_visible"`
 
 	// Affiliate (邀请返利) feature toggle
 	AffiliateEnabled bool `json:"affiliate_enabled"`

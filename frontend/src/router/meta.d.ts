@@ -61,6 +61,9 @@ declare module 'vue-router' {
      */
     requiresGroupBuy?: boolean
 
+    /** Whether this route requires Pixel Cafe to be enabled */
+    requiresPixelCafe?: boolean
+
     /**
      * Whether this route requires user account sharing to be enabled
      * @default false

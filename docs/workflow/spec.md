@@ -2,117 +2,202 @@
 repo: sub2api
 project_type: web
 qa_mode: runtime
-last_verified: 2026-08-03 01:18 +08:00
+last_verified: 2026-08-04 02:35 +08:00
 ---
 
-## S142 Addendum: Prompt Audit/Qwen3Guard selective port
+## Pixel Cafe Phase 30 Addendum: configurable presentation chrome (S176)
+
+- Remove the user-facing "今日使用用户" lobby card from the Pixel Cafe page and stop its
+  page-local polling. Keep the existing anonymous lobby service and persistence behavior intact;
+  this is a presentation-only removal.
+- Add three settings through the existing public/admin settings chain: a title, an optional
+  description, and a header-visibility toggle. Existing installations with no new keys retain the
+  current title "像素网吧", description "把每个模型分组变成一间可订阅的数字包间。", and a visible
+  header. A disabled header hides the eyebrow, title, and description together.
+- The administrator Settings page owns the controls. Values must use normal Vue text interpolation;
+  no HTML rendering, schema/migration, room/order/payment, lobby API, or provider changes are in scope.
+- Acceptance requires focused settings/public-injection and PixelCafePage regressions, frontend
+  typecheck/build, an actual local browser screenshot after guarded container promotion, and Git
+  integrity checks. No remote deployment, push, image/volume pruning, or production setting update.
+
+### S176 QA Result
+
+- `BLOCKED / browser-tool`: focused Go/Vitest regressions, typecheck, production build, guarded local
+  image promotion, `/health`, PostgreSQL/Redis health, and public-settings HTTP fields passed. The
+  required browser screenshot could not be captured because Playwright Chrome exited, isolated
+  Chromium installation timed out, the in-app browser blocked localhost, and the Chrome extension
+  transport closed before tab creation. No browser or production setting was changed.
+
+## Pixel Cafe Phase 28 Addendum: registered gateway forwarding and usage attribution (S174)
+
+- A disposable PostgreSQL integration test must exercise the actual `RegisterGatewayRoutes`
+  and API-key middleware through one active managed Cafe Key, then forward a non-streaming
+  Anthropic API Key request to a loopback-only synthetic terminal using the real gateway and
+  HTTP upstream path.
+- The selected Account, upstream request authentication, and durable `usage_logs.account_id`
+  must all equal the Room Binding's fixed Account. An expired Binding or unschedulable pinned
+  Account must fail closed before upstream or usage mutation.
+- No real provider, merchant, payment sandbox, existing Key, shared database/Redis, deployment,
+  container update or production write is permitted. Contract:
+  `docs/workflow/tasks/pixel-cafe-phase28-gateway-usage-s174.md`.
+
+### S174 QA Result
+
+- `PASS / runtime-isolated`: fresh PostgreSQL plus actual registered gateway routes, API-key middleware,
+  pinned Account selection, repository HTTP transport and a loopback-only Anthropic terminal proved that
+  the request authentication and durable `usage_logs.account_id` both equal the Room Binding Account.
+  Expired Binding and disabled Account fail closed before upstream/usage mutation; the core test passed
+  once and across three fresh reruns. QA:
+  `docs/workflow/qa-reports/pixel-cafe-phase28-gateway-usage-s174-qa.md`.
+- This evidence is implementation-level, not a real provider, payment sandbox, capacity, staging,
+  deployment, rollback or production gate. A generic best-effort usage batch-state decode warning is
+  deliberately tracked separately and does not change the persisted Cafe attribution result.
+
+## Pixel Cafe Phase 29 Addendum: best-effort usage batch state (S175)
+
+- S174 observed a type mismatch in the generic best-effort usage batch state payload: the synthetic
+  SQL `input_idx` reaches `json_build_object` as a string while Go decodes it as an integer. The
+  existing synchronous fallback preserves durable usage, but it turns the normal batch path into an
+  avoidable warning and synchronous write.
+- S175 may correct only this synthetic input-index SQL type and add a regression. It must retain all
+  usage business fields, idempotency, billing, schema and gateway/provider behavior. Contract:
+  `docs/workflow/tasks/pixel-cafe-phase29-usage-batch-state-s175.md`.
+
+### S175 QA Result
+
+- `PASS / runtime-isolated`: the state-only best-effort query now casts its synthetic `input_idx`
+  parameter as PostgreSQL `integer`; the focused repository regression and adjacent route tests passed.
+  The registered Gateway usage integration passed once and across three fresh PostgreSQL reruns with
+  pinned Account authentication, durable `usage_logs.account_id`, Binding/Account fail-closed checks,
+  and no `best-effort batch state decode failed` warning. Formatting, diff and unmerged-index checks
+  passed; Docker's existing nine-container stack was unchanged and disposable testcontainers were
+  cleaned up. QA: `docs/workflow/qa-reports/pixel-cafe-phase29-usage-batch-state-s175-qa.md`.
+- This closes the generic batch-state type regression only. Real provider/payment, performance,
+  staging, deployment, rollback and production readiness remain outside this runtime-isolated gate.
+
+## Pixel Cafe Phase 27 Addendum: isolated JWT, gateway and Redis cross-instance smoke
 
 ### Goal
 
-- Adapt the upstream Prompt Audit behavior to the published local baseline,
-  including administrator controls, gateway hooks, Qwen3Guard execution, safe
-  off/async/blocking modes, and complete Chinese/English UI text.
+- Combine the existing Cafe JWT My Rooms boundary, managed-Key fixed-account auth boundary, and cache invalidation behavior in fresh PostgreSQL/Redis Testcontainers without any external provider call.
 
 ### Scope Boundary
 
-- Keep the change isolated to the Prompt Audit handlers, securityaudit package,
-  required gateway seams, admin routes, frontend feature, locales, and local
-  migrations `201`/`202`.
-- Preserve the existing management audit actions and body-omission rules. Do
-  not persist raw prompts, Guard credentials, cookies, bearer/API keys, or full
-  request bodies. The `202.full_prompt` column is compatibility-only and stores
-  bounded redacted text.
-- Blocking mode fails closed when configuration is unavailable or stale; off
-  and async modes preserve existing request behavior. SSRF and probe-token
-  isolation are mandatory.
-- Exclude Passkey/WebAuthn, deployment/dependencies, billing, SMTP, proxy
-  circuit, unrelated release changes, primary-worktree edits, and publication.
+- Use real Cafe user-route registration/JWT, real API-key auth plus gateway auth preflight, two APIKeyService instances, real Redis L2/Pub/Sub, and synthetic temporary entitlement facts only.
+- The terminal route returns locally after auth. It neither invokes `RegisterGatewayRoutes` provider handlers nor makes any provider, merchant or payment-sandbox request.
+- Exclude all production source, schema/migration/generated code, existing Key/Binding, shared containers/data, deployment, performance, staging, rollback and production validation.
 
 ### Acceptance Boundary
 
-- Focused backend securityaudit/handler/route/middleware regressions, compile,
-  frontend feature tests, typecheck/build, migration ordering/content,
-  redaction canaries, conflict/index/path gates pass.
-- No external Guard/provider, authenticated production browser, deployment,
-  container, production migration, commit, merge, or push is performed.
+- An authenticated temporary user can access only its own My Rooms facts, while unauthenticated traffic is rejected before Cafe data.
+- A temporary active managed Key reaches the local preflight with its one fixed Account pin. Cross-instance Redis invalidation must cause inactive rejection, valid re-enable recovery, and Binding-expiry fail-closed behavior through real middleware requests.
+- Disposable PostgreSQL, Redis, client and subscription resources are bounded and terminated; Docker before/after evidence records no impact to the existing local stack.
 
-## S141 Addendum: audit log display localization
+### S173 QA Result
+
+- `PASS / runtime-isolated`: the sole new integration test passed once and across three consecutive fresh PostgreSQL/Redis runs. It exercised real JWT My Rooms ownership, API-key/gateway auth preflight, L1/L2/Pub/Sub invalidation, inactive/re-enable and Binding-expiry fail-closed behavior with only synthetic facts and a local terminal response.
+- Provider traffic, payment sandbox, performance, staging, deployment, rollback and production validation remain excluded.
+
+## Pixel Cafe Phase 12 Addendum: last-Seat PostgreSQL transaction verification
 
 ### Goal
 
-- Localize administrator audit-log roles, authentication methods, fixed action
-  names, and known action segments while preserving raw operational identifiers.
+- Verify the existing Cafe last-Seat order transaction under concurrent PostgreSQL row locking, using a temporary database and without invoking payment providers.
 
 ### Scope Boundary
 
-- Change only `AuditLogView` display helpers, its Chinese/English audit locale
-  messages, focused locale/component regressions, and workflow evidence.
-- Do not change audit storage, backend action generation, API contracts,
-  filtering semantics, database migrations, deployment, or containers.
+- Invoke only `CafeRoomOrderService.lockSeatAndCreateOrder` with distinct active users against one open Cafe Round containing one Seat, then verify the committed Seat/Order/Round relations.
+- This Sprint does not validate a provider request, payment callback, paid-full activation, refund/expiry/migration lifecycle, managed Key enablement, HTTP/JWT, Redis, gateway routing, configuration, deployment, or production behavior.
 
 ### Acceptance Boundary
 
-- Known values render localized labels in both locales; unknown values safely
-  fall back to their raw identifiers. Exact dotted action names must not be
-  misread as Vue I18n paths or collide with unknown underscore identifiers.
-- Focused tests, typecheck, changed-file lint, production build, locale/action
-  coverage, and Git integrity/path gates pass.
+- A fresh Testcontainers PostgreSQL instance is populated by current Ent schema creation and destroyed by test cleanup.
+- At least 16 concurrent transaction calls leave exactly one locked Seat, one pending Order and one reserved Round capacity; every losing call returns the specific Cafe seat-unavailable conflict rather than an infrastructure error.
 
-## S140 Addendum: client IP trust-chain alignment
+## Pixel Cafe Phase 11 Addendum: isolated Testcontainers concurrency and Redis verification
 
 ### Goal
 
-- Adapt the upstream forwarded-client-IP behavior to the local security seams:
-  explicit trusted proxies, an opt-in raw-header compatibility mode, immutable
-  request snapshots, API-key ACL parity, audit/session binding, existing settings
-  persistence, and the administrator settings UI.
+- Verify the existing Room repository locking and anonymous Lobby Redis persistence against fresh, Testcontainers-managed PostgreSQL and Redis instances, without connecting to a configured application environment.
 
 ### Scope Boundary
 
-- Raw forwarded-header trust remains disabled by default and is never enabled by
-  an implicit legacy migration. Explicit empty or absent `server.trusted_proxies`
-  remains fail-closed.
-- Custom header names are validated, canonicalized, deduplicated, and capped at
-  16 entries. The request snapshot is the only source used by security consumers.
-- Passkey, prompt-audit, ingress-reject redesign, schema/migration, deployment,
-  container, and primary-worktree publication work are excluded.
+- Cover only two repository races: enabled Room assignment to one Account, and open Round creation for one Room. Cover the public Lobby recorder/snapshot projection using the harness's namespaced Redis client.
+- This Sprint adds no user HTTP/JWT route, payment/provider invocation, managed-Key enablement, gateway/auth-cache routing, Account health check, schema/migration, feature behavior, configuration, deployment, or production-container action.
+- A last-Seat order/payment race and full activation/expiry/refund/migration lifecycle require later service-level Testcontainers contracts; they are not inferred from these checks.
 
 ### Acceptance Boundary
 
-- Focused backend tests prove forged-header rejection, explicit proxy/custom-header
-  behavior, snapshot stability, ordinary/Google API-key ACL parity, and shared
-  audit/session IP semantics. Frontend settings regressions, typecheck/build,
-  diff/path/integrity checks must also pass.
+- The existing integration TestMain creates and cleans isolated PostgreSQL 18.1 and Redis 8.4 containers, applies migrations, and namespaces all Redis facts.
+- PostgreSQL evidence proves one committed result for each asserted Room/Round race; Redis evidence proves anonymous bounded projection and 72-hour TTLs after real persistence.
+- Existing local application containers, credentials, data, and configuration are not read or written.
 
-## S135 Addendum: OpenAI overload retry with linear backoff
+## Pixel Cafe Phase 10 Addendum: Pixi scene foundation
 
 ### Goal
 
-- Retry narrowly identified OpenAI server overload failures three times on the
-  same account with 1s, 2s, and 3s delays before existing account failover.
+- Replace the CSS-only Pixel Cafe room-grid scene with a route-lazy PixiJS enhancement that uses a local static pixel scene/layout, anonymous Lobby avatar anchors, bounded Room hotspots, DOM controls, and a deterministic fallback.
 
 ### Scope Boundary
 
-- Recognize only `server_is_overloaded`, `slow_down`, or the exact
-  `Our servers are currently overloaded` phrase.
-- Carry an overload-specific retry limit and linear backoff through existing
-  failover metadata across normal, passthrough, and pre-output stream paths.
-- Apply the same metadata to existing OpenAI compatibility/fallback
-  constructors for Chat Completions, Messages, Responses fallback, and Images
-  so endpoint adaptation does not change retry timing. Embeddings and Videos
-  remain on their existing capacity-only behavior until a pinned-account retry
-  seam is available.
-- Preserve capacity at five fixed 500ms retries and preserve generic pool retry
-  settings for every other error.
-- Do not change schema, configuration, scheduler, persistence, frontend,
-  deployment, containers, or the unrelated primary S134 worktree.
+- Render only existing public Cafe overview/Room/Lobby facts. Canvas has no private data, API requests, payment state, Key/account fields, live-presence meaning, or business-only controls.
+- PixiJS v8 is isolated in `features/pixelCafe/renderer/`; it is dynamically imported, its canvas/ticker/listeners are disposed on unmount, and a failed renderer preserves a keyboard-accessible DOM navigator.
+- Use a self-authored local scene asset and layout manifest. Do not import third-party artwork, remote assets, a tilemap engine, WebSocket, free controls, or a second rendering library.
+- Do not modify backend, API/types, schema/migration, Redis, Key enablement, auth/gateway/provider/payment behavior, configuration, deployment, or `knowledge/**`.
 
 ### Acceptance Boundary
 
-- Positive and negative service regressions cover all OpenAI response modes;
-  handler tests prove 1s/2s/3s delay calculation and switch-after-third logic.
-- Focused service/handler tests, repository compilation, formatting, diff,
-  conflict-marker, and allowed-path gates pass.
+- Focused renderer/page tests prove lazy initialization, bounded redacted data, hotspot selection, accessible DOM navigation, reduced-motion behavior, fallback, and destruction.
+- Frontend lint, typecheck, production build, lockfile review, integrity checks, plus mocked browser desktop/mobile screenshots and teardown checks pass.
+
+### S156 QA Result
+
+- `PASS / source-level + mocked-browser`: focused tests, lint, typecheck, an 1844-module production build, and local synthetic-response browser evidence passed. Canvas hotspot selection, DOM keyboard selection, reduced-motion, forced renderer fallback, 390px overflow containment, and route teardown were checked.
+- This result does not validate real JWT/API behavior, PostgreSQL, Redis, payment/provider, managed-Key routing, gateway usage, performance, deployment, or production readiness.
+
+## Pixel Cafe Phase 9 Addendum: today usage lobby activity
+
+### Goal
+
+- Implement the Pixel Cafe "今日使用用户" lobby facts from successful, persisted usage logs: a Redis day-scoped user ZSET and request counter, a strictly anonymous user API projection, overview aggregation, and visible-tab 60-second frontend refresh with a harmless Redis failure fallback.
+
+### Scope Boundary
+
+- Count only a usage log that was actually inserted; idempotent conflicts, failed upstream calls, browser page visits, and unauthenticated requests must not increment the lobby.
+- Redis holds internal user IDs only. Public responses expose date, timezone, counts, and bounded HMAC-derived avatar seeds with coarse activity buckets; they never expose user, API-key, Account, request, IP, email, timestamp, credential, or source-key fields.
+- Redis failure must neither fail usage logging/billing nor Cafe room discovery. The activity endpoint and overview return an explicit unavailable/empty lobby projection instead.
+- Do not add Pixi, canvas assets, WebSocket, live-presence semantics, API Key enablement, Account routing, payment, schema/migration, deployment, or production configuration changes.
+
+### Acceptance Boundary
+
+- Repository regression proves only inserted usage records update the date-scoped ZSET/counter with 72-hour TTL, and Redis write failure leaves usage-log persistence successful.
+- Service/handler regressions prove deterministic daily opaque seeds, no PII/raw IDs/timestamps, bounded display, correct date/timezone wording, endpoint/overview degradation, and feature-flag behavior.
+- Frontend regression proves initial lobby fetch, 60-second polling only while the document is visible, safe unavailable display, and no "online" terminology; typecheck/build remain green.
+
+## Pixel Cafe Phase 0 Addendum: audit and architecture baseline
+
+### Goal
+
+- Import the Pixel Cafe development package into `docs/pixel-cafe/` and audit the current repository before any business implementation.
+- Produce the Phase 0 ADR, lifecycle/auth call graphs, source-level file plan, baseline test evidence and explicit stop-at-review decision.
+
+### Scope Boundary
+
+- Documentation and read-only audit only; no backend/frontend/schema/migration/generated/deployment/container changes.
+- Preserve the existing S134/S138/S133 handoff and dirty paths; do not fetch, push, commit, deploy or update containers.
+- Do not enter Phase 1 until the Phase 0 report is reviewed.
+
+### Acceptance Boundary
+
+- Package copy matches the current download source by file list and SHA-256.
+- Current route, GroupBuy lifecycle, UserSubscription/auth-cache dependency, fixed-account insertion layer and provider bypass risks are evidenced from source.
+- Backend/frontend baseline commands and diff checks are executed and reported truthfully.
+- Allowed-path review shows only `docs/pixel-cafe/**` and this Sprint's workflow artifacts changed.
+
+### Contract
+
+- `docs/workflow/tasks/pixel-cafe-phase0-s139.md`
+
 ## S138 Addendum: hide empty user subscription panel
 
 ### Goal
@@ -1345,6 +1430,95 @@ view is opened with a `user_id` route query.
   full Go compilation must pass. No deploy, container update, push, or primary
   dirty-worktree changes are in scope.
 
+# S159 Addendum: Pixel Cafe payment callback and paid-full activation
+
+## Goal
+
+验证支付通知在真实 PostgreSQL 下的 Cafe 专属状态链：金额不匹配拒绝且不改变锁定订单，合法通知只完成一次订单与 Seat 付款，并在满员后创建保持 `disabled` 的受管 Key、strict Binding 和 active Round；相同通知重放必须幂等。
+
+## Boundary
+
+- 仅调用已验签之后的 `PaymentService.HandlePaymentNotification`，并复用真实 `GroupBuyService` 与 `CafeRoomActivationService`；不把 provider 签名、HTTP/JWT、真实支付商户、退款对账、Key enablement、网关路由或部署混入本 Sprint。
+- 使用隔离 Testcontainers PostgreSQL 与现有生成 Ent schema；共享本机 `sub2api-*` 容器保持不变。
+
+## S159 QA Result
+
+- `PASS / runtime-isolated`: the invalid-amount guard, one successful paid-full activation and exact callback replay passed against fresh PostgreSQL. Provider signature verification, provider-pending refunds, real HTTP/JWT/gateway usage, Key enablement and deployment remain separate contracts.
+
+# S160 Addendum: Pixel Cafe provider-pending refund reconciliation
+
+## Goal
+
+在隔离 PostgreSQL 中验证失败 Cafe Round 的 `pending_provider` refund：普通 GroupBuy lifecycle 必须隔离，Cafe lifecycle 对 query `pending` 保持可重试，对 query `success` 才完成 Order、Seat 和 GroupBuy refund，并在最终重放时不重复写入。
+
+## Boundary
+
+- 复用真实 `PaymentService.QueryAndFinalizeRefund` 和 Cafe lifecycle，仅使用进程内 query-provider fake；不接真实商户、webhook/HTTP、Key enablement、JWT/gateway、schema/migration 或部署。
+
+## S160 QA Result
+
+- `PASS / runtime-isolated`: ordinary GroupBuy reconciliation skipped the Cafe refund; query `pending` preserved retryable state and query `success` finalized Order/Seat/refund once against fresh PostgreSQL. Initial external refund submission, signature verification/HTTP, real merchant behavior, Key enablement and deployment remain separate gates.
+
+# S161 Addendum: Pixel Cafe initial provider-refund submission
+
+## Goal
+
+In isolated PostgreSQL, verify the first Cafe provider-refund submission through the real `processSeatRefund -> PrepareRefund -> ExecuteRefund` chain. A local fake's `Refund()` returns `pending`, a replay must not submit again, and the existing Cafe-only query reconciler may finalize only after a later local `success` response.
+
+## Boundary
+
+- Reuse the real Cafe lifecycle, GroupBuy state machine, Payment refund services and a fresh Testcontainers PostgreSQL schema. The provider fake and its temporary instance exist only in the test process/database.
+- Do not use an external merchant, credential, real payment provider, HTTP/webhook, Key enablement, JWT/gateway, migration/schema update, configuration, existing local container, deployment, or production write.
+
+## Acceptance Boundary
+
+- The initial pending response creates exactly one pending Order/refund/Seat/audit fact and one provider refund request with preserved request metadata. The pending replay is inert for provider submission and durable facts.
+- A later query success completes Order/refund/Seat/event once; terminal replay submits or queries nothing further. This is isolated fake-provider evidence, not payment sandbox or merchant validation.
+
+## S161 QA Result
+
+- `PASS / runtime-isolated`: fresh PostgreSQL evidence covered the real initial provider-refund submission, durable `pending` state, no-resubmit replay, later Cafe-only query success, and terminal no-op replay. Provider signature/HTTP, real merchant or sandbox behavior, failure/partial paths, Key enablement, JWT/gateway, deployment and production validation remain separate gates.
+
+# S162 Addendum: Pixel Cafe verified webhook handler boundary
+
+## Goal
+
+Use a real Gin Stripe webhook route and real PaymentService with local verifier and GroupBuy doubles to prove verifier failure is fail-closed, verified callback dispatches exactly once, and HTTP replay remains idempotent before the already-tested S159 Cafe activation service boundary.
+
+## Boundary
+
+- Use an in-memory Ent schema, registry provider double and GroupBuy call recorder only. Preserve raw body/header forwarding and payment order/audit facts through the actual handler and service code.
+- Exclude provider signature algorithms, merchant credentials, external callbacks, actual Cafe activation, Key enablement, schema/migration, shared containers, deployment and production writes.
+
+## Acceptance Boundary
+
+- The local verifier records exact body/header and permits one designated signature. Verified request becomes completed and is dispatched once; exact replay remains HTTP-successful without another GroupBuy dispatch/audit.
+- Forged signature returns 400 and preserves an independent pending order. This verifies handler sequencing, not real provider cryptography or merchant acceptance.
+
+## S162 QA Result
+
+- `PASS / handler-isolated`: a real Gin Stripe webhook route sent exact body/header to a local verifier; valid callback completed and dispatched once, replay was inert, and forged signature failed before mutation. The `unit` tag handler suite remains blocked by an unrelated missing `strconv` import, so it is not counted as passing evidence. Real provider cryptography, merchant callbacks, multi-instance selection, sandbox, Key enablement, JWT/gateway, deployment and production validation remain separate gates.
+
+# S163 Addendum: Stripe signed order-bound webhook selection
+
+## Goal
+
+Extract the `metadata.orderId` written on Stripe PaymentIntent creation before webhook provider lookup, so verified callbacks select the PaymentOrder's pinned Stripe instance in a multi-instance configuration.
+
+## Boundary
+
+- Use real Gin handler, PaymentService, encrypted temporary in-memory provider instances, and Stripe SDK local signature helpers. Assert only local handler/order/dispatch facts.
+- Exclude external Stripe API access, merchant configuration, route/schema changes, Key enablement, Cafe activation, shared containers, deployment and production writes.
+
+## Acceptance Boundary
+
+- A callback signed with the bound second instance's synthetic secret must complete and dispatch exactly once; the same event signed with the other instance's secret must return 400 before mutation. Replays are inert.
+- This proves local SDK cryptography plus order-bound candidate selection, not live Stripe webhook delivery or merchant endpoint configuration.
+
+## S163 QA Result
+
+- `PASS / handler-isolated`: Stripe `metadata.orderId` now selects the bound temporary provider instance before verification. The real Stripe SDK accepted the bound second instance's synthetic local signature, rejected the first instance's signature for a second-bound order, and retained replay idempotency. Live Stripe merchant behavior, other providers, sandbox, Key enablement, JWT/gateway, deployment and production validation remain separate gates.
+
 # S133 Addendum: administrator group duplication
 
 ## Goal
@@ -1387,34 +1561,80 @@ list response.
 - Existing `unit` API-contract assertions and the `integration` repository
   package are stale outside S133, so no claim is made for those broad suites or
   for a real PostgreSQL migration/runtime transaction.
+# Pixel Cafe Phase 18: Airwallex order-bound webhook evidence (S164)
 
-# S135 Addendum: v0.1.169 behavior-level wide integration
+- Validate the existing Airwallex `merchant_order_id` candidate extraction at the real Gin handler boundary with two encrypted temporary instances and distinct local HMAC secrets.
+- A valid callback must select the bound instance, verify before mutation, dispatch GroupBuy once, and remain idempotent on replay; a signature from the other enabled instance must fail before mutation.
+- This is local handler-isolated evidence only. It excludes Airwallex API access, merchant credentials, endpoint registration, Key enablement, shared containers, deployment, and all production writes.
 
-## Goal
+## Pixel Cafe Phase 19: WeChat Pay encrypted webhook candidates (S165)
 
-Integrate the user-approved direct `v0.1.169` behavior slices and only their
-required prerequisites without importing the release-wide upstream history.
+- Validate the existing all-enabled-candidate WeChat Pay callback path with locally generated RSA signatures and AES-256-GCM transaction resources. The second candidate must verify/decrypt and dispatch exactly once after the first candidate fails.
+- The wrong-instance signature over second-key ciphertext must return 400 before mutation; identical body/header replay must be idempotent.
+- This is offline handler evidence only. It excludes WeChat API/merchant access, real certificates, Key enablement, shared containers, deployment, and production writes.
 
-## Scope Boundary
+## Pixel Cafe Phase 20: EasyPay webhook pinned instance selection (S166)
 
-- Complete Passkey/WebAuthn, Prompt Audit/Qwen3Guard, and OpenAI proxy stream
-  circuit isolation against the local handler, scheduler, repository, and UI
-  topology.
-- Adapt the approved count-tokens, SMTP, Available Channels, cleanup logging,
-  Compose hardening, Claude validator, OAuth refresh scheduling, billing/test,
-  pricing, and packaged-resource changes where local behavior is missing.
-- Use migrations `200`, `201`, and `202`; keep the existing `199` migration
-  untouched.
-- Preserve blocking-only fail-closed Prompt Audit semantics and avoid storing
-  raw prompts or Guard credentials in PostgreSQL.
-- Do not merge the tag, publish, deploy, rebuild containers, run production
-  migrations, or overwrite the primary worktree.
+- Validate the existing EasyPay GET callback parser and order-bound provider selection at the real Gin handler boundary with two temporary encrypted instances and distinct local MD5 keys.
+- A valid second-instance callback must select the bound instance, verify before mutation, dispatch GroupBuy once, and remain idempotent on replay; a signature from the other enabled instance must fail before mutation.
+- This is local handler-isolated evidence only. It excludes EasyPay API access, merchant credentials, endpoint registration, Key enablement, shared containers, deployment, and all production writes.
 
-## Acceptance Boundary
+## S166 QA Result
 
-- Focused behavior regressions, backend compile/build, frontend test/typecheck/
-  build, migration and Git integrity checks, Compose hardening checks, and
-  packaged-resource checks must pass without new failures.
-- Browser and fake-Guard runtime checks are required only when the local
-  runtime prerequisites can be exercised without deployment or external-state
-  mutation; otherwise they remain explicitly unverified.
+- `PASS / handler-isolated`: a real Gin GET route, two temporary encrypted EasyPay instances, the real canonical MD5 verifier and PaymentService proved valid bound-instance fulfillment, exact replay idempotency, wrong-key rejection and malformed/blank parser handling. No production correction was required.
+- Whitespace-tolerant `out_trade_no` remains intentionally unimplemented: handler-only trimming cannot normalize the later provider notification value used by PaymentService. It requires a separately owned cross-layer contract.
+
+## Pixel Cafe Phase 21: Alipay webhook pinned instance selection (S167)
+
+- Validate the existing Alipay POST callback parser and order-bound provider selection at the real Gin handler boundary with two temporary encrypted instances and distinct locally generated RSA key pairs.
+- A valid second-instance RSA2 callback must select the bound instance, verify before mutation, dispatch GroupBuy once, and remain idempotent on replay; a signature from the other enabled instance must fail before mutation.
+- This is local handler-isolated evidence only. It excludes Alipay API access, merchant credentials, endpoint registration, Key enablement, shared containers, deployment, and all production writes.
+
+## S167 QA Result
+
+- `PASS / handler-isolated`: a real Gin POST route, two temporary encrypted Alipay instances, the real smartwalle RSA2 verifier and PaymentService proved valid bound-instance fulfillment, exact replay idempotency, wrong-key rejection and malformed/blank parser handling. No production correction was required.
+- The SDK provider tests require the existing `unit` build tag; the accepted tagged command covered configuration, merchant metadata and amount parsing. This is not merchant, endpoint, sandbox or production callback evidence.
+
+## Pixel Cafe Phase 22: Mocked browser user-flow evidence (S168)
+
+- Exercise the feature-enabled authenticated `/group-buy` page in an actual browser using only synthetic public settings, Room/Lobby/my-room payloads, and a locally intercepted order response. Prove Room discovery, zone change, accessible Room selection, empty-Seat selection, agreement gating, local payment-waiting UI, and 390px no-overflow behavior.
+- A fresh anonymous visit must redirect to login, and a false `pixel_cafe_enabled` setting must preserve the legacy Group Buy page. Screenshot evidence must remain under `output/playwright/pixel-cafe-s168/`.
+- This is mocked-browser UI evidence only. It excludes real JWT/API, database/Redis, payment/provider, Key activation/routing, performance, deployment, rollback, and production validation.
+
+## S168 QA Result
+
+- `PASS / mocked-browser`: local `/api/v1/**` fixtures exercised the actual Vue/Router feature-enabled Cafe page, Claude-zone Room discovery, keyboard Room selection, empty-Seat selection, agreement gate, local payment-waiting transition, anonymous redirect, disabled-feature legacy fallback, and a 390px no-overflow layout. The final clean session had zero console errors; the focused page suite passed `10/10` and frontend typecheck passed.
+- The browser assertion captured request construction only. No real JWT/API, persisted order or Seat lock, payment/provider confirmation, managed-Key activation/routing, database/Redis, performance, deployment, rollback, or production validation occurred.
+
+## Pixel Cafe Phase 23: authenticated HTTP ownership smoke (S169)
+
+- Exercise the registered production `/api/v1/cafe` routes through real Gin JWT authentication and fresh Testcontainers PostgreSQL data. Verify that each authenticated user receives only their own My Rooms membership while Room discovery remains redacted, and that an unauthenticated request is rejected before Cafe data is read.
+- Verify feature-disabled failure and the mandatory agreement guard before any payment provider or Seat mutation. This contract intentionally stops before successful payment/order creation because that requires a separate payment sandbox and provider configuration scope.
+- No shared-container data, real user session, managed-Key enablement, payment/provider call, schema/migration, deployment, rollback, staging, or production operation is permitted.
+
+## S169 QA Result
+
+- `PASS / runtime-isolated`: an integration-tagged test used actual `RegisterUserRoutes`, real JWT signing/validation and UserRepository, real Cafe public queries, and fresh Testcontainers PostgreSQL. Each persisted user saw only its own My Rooms membership; public projections excluded deliberate private metadata; absent auth, disabled feature, and pre-payment agreement failures were enforced at the registered HTTP route.
+- The temporary test database received the existing `user_avatars` table shape needed by the actual repository, not a migration-file or shared-database operation. Successful order creation/payment, Key activation/routing, external provider behavior, shared Redis, performance, deployment, rollback, and production remain unverified.
+
+## Pixel Cafe Phase 24: authenticated server-side order creation (S170)
+
+- Exercise the registered authenticated Cafe order route with fresh Testcontainers PostgreSQL, real JWT/UserRepository/idempotency persistence, real payment configuration/instance selection, real Cafe Seat locking and a temporary enabled EasyPay `popup` provider instance. The real provider may construct only its hosted `submit.php` URL from synthetic non-routable values; it must not issue any HTTP request or contact a merchant.
+- A successful request must persist one pending group-buy PaymentOrder and one locked Seat/reservation. A byte-identical request with the same `Idempotency-Key` must replay the stored response without a second Order, Seat, event, audit, or durable idempotency record. A separately configured provider-construction failure must persist `failed`, release the Seat, and clear reservations.
+- This is isolated route/order evidence only. It excludes payment confirmation/callback, real provider credentials/endpoints, Key activation/routing, Redis, refund/lifecycle, schema/migration, shared containers, performance, deployment, rollback, staging, and production writes.
+
+## S170 QA Result
+
+- `PASS / runtime-isolated`: the integration-tagged registered route used real JWT middleware, `UserRepository`, SQL-backed idempotency, payment selection, `PaymentService`, `GroupBuyService`, and `CafeRoomOrderService` against fresh Testcontainers PostgreSQL. The successful request persisted one pending group-buy PaymentOrder, locked Seat/reservation, lock event and creation audit; same-key replay returned the same semantic success envelope with the replay header and did not duplicate those facts.
+- A separately configured temporary EasyPay popup instance reached real provider construction, failed on missing required configuration without network access, and left its Order `failed`, its Seat `released`, and the Round reservation counters at zero. The fixture adds only the migration 057 timestamp defaults in its disposable database; no production code, migration, schema, provider, shared container, Key state, Redis, payment callback, deployment, or production data was changed.
+
+## Pixel Cafe Phase 25: PostgreSQL concurrency convergence (S171)
+
+- Extend S158/S159 evidence without changing those tests: release 100 distinct final-Seat requests together under bounded database concurrency, require exactly one durable winner and 99 explicit `CAFE_SEAT_UNAVAILABLE` losers, then release 100 paid-full activation retries together and require one coherent active Round.
+- The activation result must have exactly one disabled managed Key and one active strict Binding per Seat, one activation event, stable activation timing/token facts, and no ordinary subscription. Infrastructure errors cannot count as expected losers.
+- This is fresh Testcontainers PostgreSQL evidence only. It excludes payment/provider/callback, Key enablement or gateway use, Redis, frontend, schema/migration, shared containers, performance benchmarking, deployment, and production readiness.
+
+## S171 QA Result
+
+- `PASS / runtime-isolated`: one fresh PostgreSQL run classified 100 final-Seat requests as one durable winner and 99 explicit unavailable losers, and 100 paid-full activation calls converged to one active four-Seat Round with exactly four disabled managed Keys, four active strict Bindings and one activation event.
+- Three additional consecutive fresh runs also passed. No product correction was needed. This closes the bounded concurrency correctness gap but does not prove performance, provider/payment, enabled-Key gateway usage, Redis, deployment or production readiness.

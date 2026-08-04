@@ -37,6 +37,8 @@ type GroupBuySeat struct {
 	Status string `json:"status,omitempty"`
 	// ShareCount holds the value of the "share_count" field.
 	ShareCount int `json:"share_count,omitempty"`
+	// SeatNo holds the value of the "seat_no" field.
+	SeatNo *int `json:"seat_no,omitempty"`
 	// PolicySnapshot holds the value of the "policy_snapshot" field.
 	PolicySnapshot domain.GroupBuyPolicySnapshot `json:"policy_snapshot,omitempty"`
 	// SubscriptionID holds the value of the "subscription_id" field.
@@ -85,9 +87,11 @@ type GroupBuySeatEdges struct {
 	Refunds []*GroupBuyRefund `json:"refunds,omitempty"`
 	// Events holds the value of the events edge.
 	Events []*GroupBuyEvent `json:"events,omitempty"`
+	// AccountBindings holds the value of the account_bindings edge.
+	AccountBindings []*APIKeyAccountBinding `json:"account_bindings,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [8]bool
+	loadedTypes [9]bool
 }
 
 // RoundOrErr returns the Round value or an error if the edge
@@ -174,6 +178,15 @@ func (e GroupBuySeatEdges) EventsOrErr() ([]*GroupBuyEvent, error) {
 	return nil, &NotLoadedError{edge: "events"}
 }
 
+// AccountBindingsOrErr returns the AccountBindings value or an error if the edge
+// was not loaded in eager-loading.
+func (e GroupBuySeatEdges) AccountBindingsOrErr() ([]*APIKeyAccountBinding, error) {
+	if e.loadedTypes[8] {
+		return e.AccountBindings, nil
+	}
+	return nil, &NotLoadedError{edge: "account_bindings"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*GroupBuySeat) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -181,7 +194,7 @@ func (*GroupBuySeat) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case groupbuyseat.FieldPolicySnapshot:
 			values[i] = new([]byte)
-		case groupbuyseat.FieldID, groupbuyseat.FieldRoundID, groupbuyseat.FieldPlanID, groupbuyseat.FieldUserID, groupbuyseat.FieldOrderID, groupbuyseat.FieldShareCount, groupbuyseat.FieldSubscriptionID, groupbuyseat.FieldBoundAPIKeyID:
+		case groupbuyseat.FieldID, groupbuyseat.FieldRoundID, groupbuyseat.FieldPlanID, groupbuyseat.FieldUserID, groupbuyseat.FieldOrderID, groupbuyseat.FieldShareCount, groupbuyseat.FieldSeatNo, groupbuyseat.FieldSubscriptionID, groupbuyseat.FieldBoundAPIKeyID:
 			values[i] = new(sql.NullInt64)
 		case groupbuyseat.FieldStatus, groupbuyseat.FieldRefundNote:
 			values[i] = new(sql.NullString)
@@ -244,6 +257,13 @@ func (_m *GroupBuySeat) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field share_count", values[i])
 			} else if value.Valid {
 				_m.ShareCount = int(value.Int64)
+			}
+		case groupbuyseat.FieldSeatNo:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field seat_no", values[i])
+			} else if value.Valid {
+				_m.SeatNo = new(int)
+				*_m.SeatNo = int(value.Int64)
 			}
 		case groupbuyseat.FieldPolicySnapshot:
 			if value, ok := values[i].(*[]byte); !ok {
@@ -381,6 +401,11 @@ func (_m *GroupBuySeat) QueryEvents() *GroupBuyEventQuery {
 	return NewGroupBuySeatClient(_m.config).QueryEvents(_m)
 }
 
+// QueryAccountBindings queries the "account_bindings" edge of the GroupBuySeat entity.
+func (_m *GroupBuySeat) QueryAccountBindings() *APIKeyAccountBindingQuery {
+	return NewGroupBuySeatClient(_m.config).QueryAccountBindings(_m)
+}
+
 // Update returns a builder for updating this GroupBuySeat.
 // Note that you need to call GroupBuySeat.Unwrap() before calling this method if this GroupBuySeat
 // was returned from a transaction, and the transaction was committed or rolled back.
@@ -423,6 +448,11 @@ func (_m *GroupBuySeat) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("share_count=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ShareCount))
+	builder.WriteString(", ")
+	if v := _m.SeatNo; v != nil {
+		builder.WriteString("seat_no=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("policy_snapshot=")
 	builder.WriteString(fmt.Sprintf("%v", _m.PolicySnapshot))

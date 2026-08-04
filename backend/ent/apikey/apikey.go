@@ -65,6 +65,10 @@ const (
 	FieldWindow7dStart = "window_7d_start"
 	// FieldMultiGroupRoutes holds the string denoting the multi_group_routes field in the database.
 	FieldMultiGroupRoutes = "multi_group_routes"
+	// FieldManagedSourceType holds the string denoting the managed_source_type field in the database.
+	FieldManagedSourceType = "managed_source_type"
+	// FieldManagedSourceID holds the string denoting the managed_source_id field in the database.
+	FieldManagedSourceID = "managed_source_id"
 	// EdgeUser holds the string denoting the user edge name in mutations.
 	EdgeUser = "user"
 	// EdgeGroup holds the string denoting the group edge name in mutations.
@@ -75,6 +79,8 @@ const (
 	EdgeGroupBuySeats = "group_buy_seats"
 	// EdgeGroupBuyEntitlements holds the string denoting the group_buy_entitlements edge name in mutations.
 	EdgeGroupBuyEntitlements = "group_buy_entitlements"
+	// EdgeAccountBindings holds the string denoting the account_bindings edge name in mutations.
+	EdgeAccountBindings = "account_bindings"
 	// Table holds the table name of the apikey in the database.
 	Table = "api_keys"
 	// UserTable is the table that holds the user relation/edge.
@@ -112,6 +118,13 @@ const (
 	GroupBuyEntitlementsInverseTable = "group_buy_entitlements"
 	// GroupBuyEntitlementsColumn is the table column denoting the group_buy_entitlements relation/edge.
 	GroupBuyEntitlementsColumn = "bound_api_key_id"
+	// AccountBindingsTable is the table that holds the account_bindings relation/edge.
+	AccountBindingsTable = "api_key_account_bindings"
+	// AccountBindingsInverseTable is the table name for the APIKeyAccountBinding entity.
+	// It exists in this package in order to avoid circular dependency with the "apikeyaccountbinding" package.
+	AccountBindingsInverseTable = "api_key_account_bindings"
+	// AccountBindingsColumn is the table column denoting the account_bindings relation/edge.
+	AccountBindingsColumn = "api_key_id"
 )
 
 // Columns holds all SQL columns for apikey fields.
@@ -142,6 +155,8 @@ var Columns = []string{
 	FieldWindow1dStart,
 	FieldWindow7dStart,
 	FieldMultiGroupRoutes,
+	FieldManagedSourceType,
+	FieldManagedSourceID,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -196,6 +211,10 @@ var (
 	DefaultUsage1d float64
 	// DefaultUsage7d holds the default value on creation for the "usage_7d" field.
 	DefaultUsage7d float64
+	// DefaultManagedSourceType holds the default value on creation for the "managed_source_type" field.
+	DefaultManagedSourceType string
+	// ManagedSourceTypeValidator is a validator for the "managed_source_type" field. It is called by the builders before save.
+	ManagedSourceTypeValidator func(string) error
 )
 
 // OrderOption defines the ordering options for the APIKey queries.
@@ -316,6 +335,16 @@ func ByWindow7dStart(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldWindow7dStart, opts...).ToFunc()
 }
 
+// ByManagedSourceType orders the results by the managed_source_type field.
+func ByManagedSourceType(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldManagedSourceType, opts...).ToFunc()
+}
+
+// ByManagedSourceID orders the results by the managed_source_id field.
+func ByManagedSourceID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldManagedSourceID, opts...).ToFunc()
+}
+
 // ByUserField orders the results by user field.
 func ByUserField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -371,6 +400,20 @@ func ByGroupBuyEntitlements(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOpt
 		sqlgraph.OrderByNeighborTerms(s, newGroupBuyEntitlementsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByAccountBindingsCount orders the results by account_bindings count.
+func ByAccountBindingsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAccountBindingsStep(), opts...)
+	}
+}
+
+// ByAccountBindings orders the results by account_bindings terms.
+func ByAccountBindings(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAccountBindingsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newUserStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -404,5 +447,12 @@ func newGroupBuyEntitlementsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(GroupBuyEntitlementsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, GroupBuyEntitlementsTable, GroupBuyEntitlementsColumn),
+	)
+}
+func newAccountBindingsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AccountBindingsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AccountBindingsTable, AccountBindingsColumn),
 	)
 }

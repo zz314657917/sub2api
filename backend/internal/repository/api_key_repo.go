@@ -10,8 +10,12 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
@@ -75,6 +79,12 @@ func (r *apiKeyRepository) Create(ctx context.Context, key *service.APIKey) erro
 		SetRateLimit5h(key.RateLimit5h).
 		SetRateLimit1d(key.RateLimit1d).
 		SetRateLimit7d(key.RateLimit7d)
+	if key.ManagedSourceType != "" {
+		builder.SetManagedSourceType(key.ManagedSourceType)
+	}
+	if key.ManagedSourceID != nil {
+		builder.SetManagedSourceID(*key.ManagedSourceID)
+	}
 
 	if len(key.IPWhitelist) > 0 {
 		builder.SetIPWhitelist(key.IPWhitelist)
@@ -168,6 +178,7 @@ func (r *apiKeyRepository) GetByKey(ctx context.Context, key string) (*service.A
 }
 
 func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*service.APIKey, error) {
+	now := time.Now()
 	m, err := r.activeQuery().
 		Where(apikey.KeyEQ(key)).
 		Select(
@@ -184,6 +195,8 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 			apikey.FieldRateLimit5h,
 			apikey.FieldRateLimit1d,
 			apikey.FieldRateLimit7d,
+			apikey.FieldManagedSourceType,
+			apikey.FieldManagedSourceID,
 		).
 		WithUser(func(q *dbent.UserQuery) {
 			q.Select(
@@ -246,6 +259,18 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 				group.FieldPeakRateMultiplier,
 			)
 		}).
+		WithAccountBindings(func(q *dbent.APIKeyAccountBindingQuery) {
+			q.Where(
+				apikeyaccountbinding.StatusEQ("active"),
+				apikeyaccountbinding.StartsAtLTE(now),
+				apikeyaccountbinding.ExpiresAtGT(now),
+			)
+			q.WithAccount()
+			q.WithGroup()
+			q.WithSeat(func(sq *dbent.GroupBuySeatQuery) {
+				sq.WithRound()
+			})
+		}).
 		Only(ctx)
 	if err != nil {
 		if dbent.IsNotFound(err) {
@@ -254,6 +279,23 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 		return nil, err
 	}
 	out := apiKeyEntityToService(m)
+	if out.IsCafeRoomManaged() && len(m.Edges.AccountBindings) == 1 {
+		binding := m.Edges.AccountBindings[0]
+		if binding != nil && binding.StrictMode && binding.Status == "active" &&
+			binding.APIKeyID == out.ID && binding.UserID == out.UserID && out.GroupID != nil && binding.GroupID == *out.GroupID &&
+			out.ManagedSourceID != nil && binding.SeatID == *out.ManagedSourceID &&
+			binding.Edges.Account != nil && binding.Edges.Account.ID == binding.AccountID &&
+			binding.Edges.Group != nil && binding.Edges.Group.ID == binding.GroupID &&
+			binding.Edges.Seat != nil && binding.Edges.Seat.ID == binding.SeatID && binding.Edges.Seat.UserID == out.UserID && binding.Edges.Seat.RoundID == binding.RoundID && binding.Edges.Seat.Status == "active" &&
+			binding.Edges.Seat.Edges.Round != nil && binding.Edges.Seat.Edges.Round.ID == binding.RoundID && binding.Edges.Seat.Edges.Round.Status == "active" &&
+			binding.Edges.Seat.Edges.Round.CafeRoomID != nil && *binding.Edges.Seat.Edges.Round.CafeRoomID == binding.CafeRoomID &&
+			binding.Edges.Seat.Edges.Round.AssignedAccountID != nil && *binding.Edges.Seat.Edges.Round.AssignedAccountID == binding.AccountID {
+			out.PinnedAccountID = binding.AccountID
+			out.ManagedBindingID = binding.ID
+			expiresAt := binding.ExpiresAt
+			out.ManagedBindingExpiresAt = &expiresAt
+		}
+	}
 	if err := r.loadAPIKeyMultiGroupRoutes(ctx, out); err != nil {
 		return nil, err
 	}
@@ -348,6 +390,191 @@ func (r *apiKeyRepository) Update(ctx context.Context, key *service.APIKey) erro
 	// 使用同一时间戳回填，避免并发删除导致二次查询失败。
 	key.UpdatedAt = now
 	return nil
+}
+
+func (r *apiKeyRepository) UpdateCafeManagedAPIKey(ctx context.Context, key *service.APIKey, desiredStatus string, now time.Time) error {
+	if key == nil || key.ID <= 0 || key.UserID <= 0 || key.ManagedSourceID == nil || *key.ManagedSourceID <= 0 ||
+		key.ManagedSourceType != service.APIKeyManagedSourceCafeRoomSeat {
+		return service.ErrCafeManagedKeyStateUnavailable
+	}
+	if desiredStatus != service.StatusAPIKeyActive && desiredStatus != "inactive" {
+		return service.ErrCafeManagedKeyStatusInvalid
+	}
+
+	tx, err := r.client.Tx(ctx)
+	if err != nil {
+		return fmt.Errorf("begin cafe managed key update: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	txCtx := dbent.NewTxContext(ctx, tx)
+
+	// Read only the immutable round reference first, then acquire locks in the
+	// same order as Cafe expiry: Round -> Seat -> Binding -> Key.
+	seatRef, err := tx.GroupBuySeat.Query().
+		Where(groupbuyseat.IDEQ(*key.ManagedSourceID)).
+		Select(groupbuyseat.FieldID, groupbuyseat.FieldRoundID).
+		Only(txCtx)
+	if err != nil {
+		if isEntLookupMiss(err) {
+			return cafeManagedKeyStateError(key.ID, "managed seat is missing")
+		}
+		return fmt.Errorf("load managed seat %d for cafe key %d: %w", *key.ManagedSourceID, key.ID, err)
+	}
+	roundQuery := tx.GroupBuyRound.Query().Where(groupbuyround.IDEQ(seatRef.RoundID))
+	if r.client.Driver().Dialect() != dialect.SQLite {
+		roundQuery = roundQuery.ForUpdate()
+	}
+	round, err := roundQuery.Only(txCtx)
+	if err != nil {
+		if isEntLookupMiss(err) {
+			return cafeManagedKeyStateError(key.ID, "managed round is missing")
+		}
+		return fmt.Errorf("lock managed round %d for cafe key %d: %w", seatRef.RoundID, key.ID, err)
+	}
+	seatQuery := tx.GroupBuySeat.Query().Where(groupbuyseat.IDEQ(seatRef.ID))
+	if r.client.Driver().Dialect() != dialect.SQLite {
+		seatQuery = seatQuery.ForUpdate()
+	}
+	seat, err := seatQuery.Only(txCtx)
+	if err != nil {
+		if isEntLookupMiss(err) {
+			return cafeManagedKeyStateError(key.ID, "managed seat could not be locked")
+		}
+		return fmt.Errorf("lock managed seat %d for cafe key %d: %w", seatRef.ID, key.ID, err)
+	}
+
+	var binding *dbent.APIKeyAccountBinding
+	if desiredStatus == service.StatusAPIKeyActive {
+		bindingQuery := tx.APIKeyAccountBinding.Query().Where(
+			apikeyaccountbinding.SeatIDEQ(seat.ID),
+			apikeyaccountbinding.StatusEQ("active"),
+		)
+		if r.client.Driver().Dialect() != dialect.SQLite {
+			bindingQuery = bindingQuery.ForUpdate()
+		}
+		binding, err = bindingQuery.Only(txCtx)
+		if err != nil {
+			if isEntLookupMiss(err) {
+				return cafeManagedKeyEnableError(key.ID, "active binding is missing or ambiguous")
+			}
+			return fmt.Errorf("lock active managed binding for cafe key %d: %w", key.ID, err)
+		}
+	}
+
+	persistedQuery := tx.APIKey.Query().Where(apikey.IDEQ(key.ID), apikey.DeletedAtIsNil())
+	if r.client.Driver().Dialect() != dialect.SQLite {
+		persistedQuery = persistedQuery.ForUpdate()
+	}
+	persisted, err := persistedQuery.Only(txCtx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return service.ErrAPIKeyNotFound
+		}
+		return fmt.Errorf("lock cafe managed key %d: %w", key.ID, err)
+	}
+	if persisted.UserID != key.UserID || persisted.ManagedSourceType != service.APIKeyManagedSourceCafeRoomSeat ||
+		persisted.ManagedSourceID == nil || *persisted.ManagedSourceID != seat.ID {
+		return cafeManagedKeyStateError(key.ID, "managed key ownership or source does not match")
+	}
+	switch persisted.Status {
+	case service.StatusAPIKeyActive, service.StatusAPIKeyDisabled, "inactive":
+		// User-controlled transitions are allowed only from recoverable states.
+	default:
+		return cafeManagedKeyStateError(key.ID, "managed key is in a terminal state")
+	}
+
+	if desiredStatus == service.StatusAPIKeyActive {
+		if err := validateCafeManagedKeyEnableFacts(txCtx, tx, persisted, round, seat, binding, now); err != nil {
+			return err
+		}
+	}
+
+	update := tx.APIKey.UpdateOneID(persisted.ID).
+		SetName(key.Name).
+		SetStatus(desiredStatus).
+		SetUpdatedAt(now)
+	if len(key.IPWhitelist) > 0 {
+		update.SetIPWhitelist(key.IPWhitelist)
+	} else {
+		update.ClearIPWhitelist()
+	}
+	if len(key.IPBlacklist) > 0 {
+		update.SetIPBlacklist(key.IPBlacklist)
+	} else {
+		update.ClearIPBlacklist()
+	}
+	if _, err := update.Save(txCtx); err != nil {
+		return fmt.Errorf("update cafe managed key %d: %w", persisted.ID, err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit cafe managed key %d update: %w", persisted.ID, err)
+	}
+	return nil
+}
+
+func validateCafeManagedKeyEnableFacts(ctx context.Context, tx *dbent.Tx, key *dbent.APIKey, round *dbent.GroupBuyRound, seat *dbent.GroupBuySeat, binding *dbent.APIKeyAccountBinding, now time.Time) error {
+	if key == nil || round == nil || seat == nil || binding == nil || key.GroupID == nil || key.ExpiresAt == nil ||
+		round.CafeRoomID == nil || round.AssignedAccountID == nil || round.EntitlementExpiresAt == nil || seat.BoundAPIKeyID == nil || seat.ExpiresAt == nil {
+		return cafeManagedKeyEnableError(cafeManagedKeyID(key), "managed entitlement facts are incomplete")
+	}
+	if round.Status != service.GroupBuyRoundStatusActive || seat.Status != service.GroupBuySeatStatusActive || binding.Status != "active" || !binding.StrictMode ||
+		seat.RoundID != round.ID || seat.UserID != key.UserID || *seat.BoundAPIKeyID != key.ID ||
+		binding.APIKeyID != key.ID || binding.UserID != key.UserID || binding.GroupID != *key.GroupID || binding.AccountID != *round.AssignedAccountID ||
+		binding.CafeRoomID != *round.CafeRoomID || binding.RoundID != round.ID || binding.SeatID != seat.ID ||
+		binding.StartsAt.After(now) || !binding.ExpiresAt.After(now) || !seat.ExpiresAt.After(now) || !key.ExpiresAt.After(now) || !round.EntitlementExpiresAt.After(now) ||
+		!binding.ExpiresAt.Equal(*seat.ExpiresAt) || !binding.ExpiresAt.Equal(*key.ExpiresAt) || !binding.ExpiresAt.Equal(*round.EntitlementExpiresAt) {
+		return cafeManagedKeyEnableError(key.ID, "managed entitlement is inactive, expired or inconsistent")
+	}
+	managedGroup, err := tx.Group.Query().Where(group.IDEQ(binding.GroupID)).Only(ctx)
+	if err != nil {
+		if isEntLookupMiss(err) {
+			return cafeManagedKeyEnableError(key.ID, "managed group is unavailable")
+		}
+		return fmt.Errorf("load managed group %d for cafe key %d: %w", binding.GroupID, key.ID, err)
+	}
+	if managedGroup.Status != service.StatusActive || managedGroup.AccessMode != service.CafeRoomGroupAccessMode {
+		return cafeManagedKeyEnableError(key.ID, "managed group is unavailable")
+	}
+	assignedAccount, err := tx.Account.Query().Where(
+		account.IDEQ(binding.AccountID),
+		account.StatusEQ(service.StatusActive),
+		account.HasGroupsWith(group.IDEQ(binding.GroupID)),
+	).Only(ctx)
+	if err != nil {
+		if isEntLookupMiss(err) {
+			return cafeManagedKeyEnableError(key.ID, "assigned account is unavailable")
+		}
+		return fmt.Errorf("load assigned account %d for cafe key %d: %w", binding.AccountID, key.ID, err)
+	}
+	if assignedAccount.ID != binding.AccountID {
+		return cafeManagedKeyEnableError(key.ID, "assigned account is unavailable")
+	}
+	return nil
+}
+
+func isEntLookupMiss(err error) bool {
+	return dbent.IsNotFound(err) || dbent.IsNotSingular(err)
+}
+
+func cafeManagedKeyID(key *dbent.APIKey) int64 {
+	if key == nil {
+		return 0
+	}
+	return key.ID
+}
+
+func cafeManagedKeyStateError(keyID int64, reason string) error {
+	return service.ErrCafeManagedKeyStateUnavailable.WithMetadata(map[string]string{
+		"key_id": fmt.Sprint(keyID),
+		"reason": reason,
+	})
+}
+
+func cafeManagedKeyEnableError(keyID int64, reason string) error {
+	return service.ErrCafeManagedKeyEnableUnavailable.WithMetadata(map[string]string{
+		"key_id": fmt.Sprint(keyID),
+		"reason": reason,
+	})
 }
 
 func (r *apiKeyRepository) Delete(ctx context.Context, id int64) error {
@@ -963,6 +1190,8 @@ func apiKeyEntityToService(m *dbent.APIKey) *service.APIKey {
 		Window5hStart:       m.Window5hStart,
 		Window1dStart:       m.Window1dStart,
 		Window7dStart:       m.Window7dStart,
+		ManagedSourceType:   m.ManagedSourceType,
+		ManagedSourceID:     m.ManagedSourceID,
 	}
 	if m.Edges.User != nil {
 		out.User = userEntityToService(m.Edges.User)

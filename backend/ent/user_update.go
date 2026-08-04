@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyentitlement"
@@ -668,6 +669,21 @@ func (_u *UserUpdate) AddGroupBuyRefunds(v ...*GroupBuyRefund) *UserUpdate {
 	return _u.AddGroupBuyRefundIDs(ids...)
 }
 
+// AddAccountBindingIDs adds the "account_bindings" edge to the APIKeyAccountBinding entity by IDs.
+func (_u *UserUpdate) AddAccountBindingIDs(ids ...int64) *UserUpdate {
+	_u.mutation.AddAccountBindingIDs(ids...)
+	return _u
+}
+
+// AddAccountBindings adds the "account_bindings" edges to the APIKeyAccountBinding entity.
+func (_u *UserUpdate) AddAccountBindings(v ...*APIKeyAccountBinding) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAccountBindingIDs(ids...)
+}
+
 // AddInvoiceRequestIDs adds the "invoice_requests" edge to the InvoiceRequest entity by IDs.
 func (_u *UserUpdate) AddInvoiceRequestIDs(ids ...int64) *UserUpdate {
 	_u.mutation.AddInvoiceRequestIDs(ids...)
@@ -1025,6 +1041,27 @@ func (_u *UserUpdate) RemoveGroupBuyRefunds(v ...*GroupBuyRefund) *UserUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveGroupBuyRefundIDs(ids...)
+}
+
+// ClearAccountBindings clears all "account_bindings" edges to the APIKeyAccountBinding entity.
+func (_u *UserUpdate) ClearAccountBindings() *UserUpdate {
+	_u.mutation.ClearAccountBindings()
+	return _u
+}
+
+// RemoveAccountBindingIDs removes the "account_bindings" edge to APIKeyAccountBinding entities by IDs.
+func (_u *UserUpdate) RemoveAccountBindingIDs(ids ...int64) *UserUpdate {
+	_u.mutation.RemoveAccountBindingIDs(ids...)
+	return _u
+}
+
+// RemoveAccountBindings removes "account_bindings" edges to APIKeyAccountBinding entities.
+func (_u *UserUpdate) RemoveAccountBindings(v ...*APIKeyAccountBinding) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAccountBindingIDs(ids...)
 }
 
 // ClearInvoiceRequests clears all "invoice_requests" edges to the InvoiceRequest entity.
@@ -1960,6 +1997,51 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.AccountBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AccountBindingsTable,
+			Columns: []string{user.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAccountBindingsIDs(); len(nodes) > 0 && !_u.mutation.AccountBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AccountBindingsTable,
+			Columns: []string{user.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AccountBindingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AccountBindingsTable,
+			Columns: []string{user.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.InvoiceRequestsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -2783,6 +2865,21 @@ func (_u *UserUpdateOne) AddGroupBuyRefunds(v ...*GroupBuyRefund) *UserUpdateOne
 	return _u.AddGroupBuyRefundIDs(ids...)
 }
 
+// AddAccountBindingIDs adds the "account_bindings" edge to the APIKeyAccountBinding entity by IDs.
+func (_u *UserUpdateOne) AddAccountBindingIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.AddAccountBindingIDs(ids...)
+	return _u
+}
+
+// AddAccountBindings adds the "account_bindings" edges to the APIKeyAccountBinding entity.
+func (_u *UserUpdateOne) AddAccountBindings(v ...*APIKeyAccountBinding) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAccountBindingIDs(ids...)
+}
+
 // AddInvoiceRequestIDs adds the "invoice_requests" edge to the InvoiceRequest entity by IDs.
 func (_u *UserUpdateOne) AddInvoiceRequestIDs(ids ...int64) *UserUpdateOne {
 	_u.mutation.AddInvoiceRequestIDs(ids...)
@@ -3140,6 +3237,27 @@ func (_u *UserUpdateOne) RemoveGroupBuyRefunds(v ...*GroupBuyRefund) *UserUpdate
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveGroupBuyRefundIDs(ids...)
+}
+
+// ClearAccountBindings clears all "account_bindings" edges to the APIKeyAccountBinding entity.
+func (_u *UserUpdateOne) ClearAccountBindings() *UserUpdateOne {
+	_u.mutation.ClearAccountBindings()
+	return _u
+}
+
+// RemoveAccountBindingIDs removes the "account_bindings" edge to APIKeyAccountBinding entities by IDs.
+func (_u *UserUpdateOne) RemoveAccountBindingIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.RemoveAccountBindingIDs(ids...)
+	return _u
+}
+
+// RemoveAccountBindings removes "account_bindings" edges to APIKeyAccountBinding entities.
+func (_u *UserUpdateOne) RemoveAccountBindings(v ...*APIKeyAccountBinding) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAccountBindingIDs(ids...)
 }
 
 // ClearInvoiceRequests clears all "invoice_requests" edges to the InvoiceRequest entity.
@@ -4098,6 +4216,51 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(groupbuyrefund.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AccountBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AccountBindingsTable,
+			Columns: []string{user.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAccountBindingsIDs(); len(nodes) > 0 && !_u.mutation.AccountBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AccountBindingsTable,
+			Columns: []string{user.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AccountBindingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AccountBindingsTable,
+			Columns: []string{user.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

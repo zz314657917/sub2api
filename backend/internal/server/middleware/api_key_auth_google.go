@@ -56,7 +56,6 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 			abortWithGoogleError(c, 401, "User account is not active")
 			return
 		}
-
 		// Keep Gemini native API-key authentication aligned with the primary
 		// API-key path so a native endpoint cannot bypass IP ACLs.
 		if len(apiKey.IPWhitelist) > 0 || len(apiKey.IPBlacklist) > 0 {
@@ -71,6 +70,12 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 				abortWithGoogleError(c, 403, fmt.Sprintf("Access denied. Your IP is %s", clientIP))
 				return
 			}
+		}
+		if apiKey.IsCafeRoomManaged() && apiKey.PinnedAccountID <= 0 {
+			// Google native endpoints use a different response envelope, but must
+			// fail closed under the same stable Cafe account-unavailable code.
+			abortWithGoogleError(c, 403, "CAFE_ACCOUNT_UNAVAILABLE")
+			return
 		}
 		apiKey = resolveAPIKeyForRequest(c, apiKeyService, apiKey)
 		if _, message, ok := validateAPIKeyGroupAvailable(apiKey); !ok {

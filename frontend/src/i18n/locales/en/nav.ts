@@ -55,6 +55,7 @@ export default {
     buySubscription: 'Buy Credits / Subscription',
     groupBuy: 'Token Pin',
     groupBuyManagement: 'Group Buy',
+    pixelCafeRooms: 'Cafe Rooms',
     docs: 'Docs',
     myOrders: 'My Orders',
     orderManagement: 'Orders',

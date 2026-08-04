@@ -1471,6 +1471,9 @@ func (s *OpenAIGatewayService) SelectAccountForModel(ctx context.Context, groupI
 // SelectAccountForModelWithExclusions selects an account supporting the requested model while excluding specified accounts.
 // SelectAccountForModelWithExclusions 选择支持指定模型的账号，同时排除指定的账号。
 func (s *OpenAIGatewayService) SelectAccountForModelWithExclusions(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*Account, error) {
+	if pinnedID, ok := pinnedAccountIDFromContext(ctx); ok {
+		return s.pinnedOpenAIAccount(ctx, pinnedID, groupID, requestedModel, excludedIDs, OpenAIUpstreamTransportAny, "", "", AccountCapabilityChat, false, PlatformOpenAI)
+	}
 	ctx = s.withOpenAIQuotaAutoPauseContext(ctx)
 	if accountPoolStrategyIsPrivateFirst(ctx) {
 		account, err := s.selectAccountForModelWithExclusions(withAccountPoolStrategy(ctx, AccountPoolStrategyPrivateOnly), groupID, PlatformOpenAI, sessionHash, requestedModel, excludedIDs, false, 0, "", AccountCapabilityChat)
@@ -2056,6 +2059,9 @@ func (s *OpenAIGatewayService) isBetterAccount(candidate, current *Account) bool
 
 // SelectAccountWithLoadAwareness selects an account with load-awareness and wait plan.
 func (s *OpenAIGatewayService) SelectAccountWithLoadAwareness(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*AccountSelectionResult, error) {
+	if pinnedID, ok := pinnedAccountIDFromContext(ctx); ok {
+		return s.selectPinnedOpenAIAccount(ctx, pinnedID, groupID, requestedModel, excludedIDs, OpenAIUpstreamTransportAny, "", "", AccountCapabilityChat, false, PlatformOpenAI)
+	}
 	ctx = s.withOpenAIQuotaAutoPauseContext(ctx)
 	if accountPoolStrategyIsPrivateFirst(ctx) {
 		result, err := s.selectAccountWithLoadAwareness(withAccountPoolStrategy(ctx, AccountPoolStrategyPrivateOnly), groupID, PlatformOpenAI, sessionHash, requestedModel, excludedIDs, false, AccountCapabilityChat)

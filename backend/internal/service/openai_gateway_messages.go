@@ -927,6 +927,30 @@ func (s *OpenAIGatewayService) handleAnthropicStreamingResponse(
 		}
 	}
 	missingTerminalErr := func() (*OpenAIForwardResult, error) {
+		// A deferred response.created still needs one downstream write at EOF. It
+		// distinguishes a disconnected client from an upstream stream that ended
+		// before output, without committing the preamble before a rate-limit event.
+		if len(pendingEvents) > 0 && !clientDisconnected {
+			for _, evt := range pendingEvents {
+				sse, err := apicompat.ResponsesAnthropicEventToSSE(evt)
+				if err != nil {
+					continue
+				}
+				writeStreamHeaders()
+				if _, err := fmt.Fprint(c.Writer, sse); err != nil {
+					clientDisconnected = true
+					logger.L().Info("openai messages stream: client disconnected while flushing pending preamble",
+						zap.String("request_id", requestID),
+					)
+					break
+				}
+				clientOutputStarted = true
+			}
+			pendingEvents = nil
+			if !clientDisconnected {
+				c.Writer.Flush()
+			}
+		}
 		result := resultWithUsage()
 		if clientDisconnected {
 			return result, fmt.Errorf("stream usage incomplete: missing terminal event")

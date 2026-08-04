@@ -17,8 +17,10 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
+	"github.com/Wei-Shaw/sub2api/ent/caferoom"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitor"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
@@ -69,12 +71,14 @@ const (
 
 	// Node types.
 	TypeAPIKey                        = "APIKey"
+	TypeAPIKeyAccountBinding          = "APIKeyAccountBinding"
 	TypeAccount                       = "Account"
 	TypeAccountGroup                  = "AccountGroup"
 	TypeAnnouncement                  = "Announcement"
 	TypeAnnouncementRead              = "AnnouncementRead"
 	TypeAuthIdentity                  = "AuthIdentity"
 	TypeAuthIdentityChannel           = "AuthIdentityChannel"
+	TypeCafeRoom                      = "CafeRoom"
 	TypeChannelMonitor                = "ChannelMonitor"
 	TypeChannelMonitorDailyRollup     = "ChannelMonitorDailyRollup"
 	TypeChannelMonitorHistory         = "ChannelMonitorHistory"
@@ -153,6 +157,9 @@ type APIKeyMutation struct {
 	window_7d_start               *time.Time
 	multi_group_routes            *[]domain.APIKeyMultiGroupRoute
 	appendmulti_group_routes      []domain.APIKeyMultiGroupRoute
+	managed_source_type           *string
+	managed_source_id             *int64
+	addmanaged_source_id          *int64
 	clearedFields                 map[string]struct{}
 	user                          *int64
 	cleareduser                   bool
@@ -167,6 +174,9 @@ type APIKeyMutation struct {
 	group_buy_entitlements        map[int64]struct{}
 	removedgroup_buy_entitlements map[int64]struct{}
 	clearedgroup_buy_entitlements bool
+	account_bindings              map[int64]struct{}
+	removedaccount_bindings       map[int64]struct{}
+	clearedaccount_bindings       bool
 	done                          bool
 	oldValue                      func(context.Context) (*APIKey, error)
 	predicates                    []predicate.APIKey
@@ -1508,6 +1518,112 @@ func (m *APIKeyMutation) ResetMultiGroupRoutes() {
 	delete(m.clearedFields, apikey.FieldMultiGroupRoutes)
 }
 
+// SetManagedSourceType sets the "managed_source_type" field.
+func (m *APIKeyMutation) SetManagedSourceType(s string) {
+	m.managed_source_type = &s
+}
+
+// ManagedSourceType returns the value of the "managed_source_type" field in the mutation.
+func (m *APIKeyMutation) ManagedSourceType() (r string, exists bool) {
+	v := m.managed_source_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldManagedSourceType returns the old "managed_source_type" field's value of the APIKey entity.
+// If the APIKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyMutation) OldManagedSourceType(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldManagedSourceType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldManagedSourceType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldManagedSourceType: %w", err)
+	}
+	return oldValue.ManagedSourceType, nil
+}
+
+// ResetManagedSourceType resets all changes to the "managed_source_type" field.
+func (m *APIKeyMutation) ResetManagedSourceType() {
+	m.managed_source_type = nil
+}
+
+// SetManagedSourceID sets the "managed_source_id" field.
+func (m *APIKeyMutation) SetManagedSourceID(i int64) {
+	m.managed_source_id = &i
+	m.addmanaged_source_id = nil
+}
+
+// ManagedSourceID returns the value of the "managed_source_id" field in the mutation.
+func (m *APIKeyMutation) ManagedSourceID() (r int64, exists bool) {
+	v := m.managed_source_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldManagedSourceID returns the old "managed_source_id" field's value of the APIKey entity.
+// If the APIKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyMutation) OldManagedSourceID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldManagedSourceID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldManagedSourceID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldManagedSourceID: %w", err)
+	}
+	return oldValue.ManagedSourceID, nil
+}
+
+// AddManagedSourceID adds i to the "managed_source_id" field.
+func (m *APIKeyMutation) AddManagedSourceID(i int64) {
+	if m.addmanaged_source_id != nil {
+		*m.addmanaged_source_id += i
+	} else {
+		m.addmanaged_source_id = &i
+	}
+}
+
+// AddedManagedSourceID returns the value that was added to the "managed_source_id" field in this mutation.
+func (m *APIKeyMutation) AddedManagedSourceID() (r int64, exists bool) {
+	v := m.addmanaged_source_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearManagedSourceID clears the value of the "managed_source_id" field.
+func (m *APIKeyMutation) ClearManagedSourceID() {
+	m.managed_source_id = nil
+	m.addmanaged_source_id = nil
+	m.clearedFields[apikey.FieldManagedSourceID] = struct{}{}
+}
+
+// ManagedSourceIDCleared returns if the "managed_source_id" field was cleared in this mutation.
+func (m *APIKeyMutation) ManagedSourceIDCleared() bool {
+	_, ok := m.clearedFields[apikey.FieldManagedSourceID]
+	return ok
+}
+
+// ResetManagedSourceID resets all changes to the "managed_source_id" field.
+func (m *APIKeyMutation) ResetManagedSourceID() {
+	m.managed_source_id = nil
+	m.addmanaged_source_id = nil
+	delete(m.clearedFields, apikey.FieldManagedSourceID)
+}
+
 // ClearUser clears the "user" edge to the User entity.
 func (m *APIKeyMutation) ClearUser() {
 	m.cleareduser = true
@@ -1724,6 +1840,60 @@ func (m *APIKeyMutation) ResetGroupBuyEntitlements() {
 	m.removedgroup_buy_entitlements = nil
 }
 
+// AddAccountBindingIDs adds the "account_bindings" edge to the APIKeyAccountBinding entity by ids.
+func (m *APIKeyMutation) AddAccountBindingIDs(ids ...int64) {
+	if m.account_bindings == nil {
+		m.account_bindings = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.account_bindings[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAccountBindings clears the "account_bindings" edge to the APIKeyAccountBinding entity.
+func (m *APIKeyMutation) ClearAccountBindings() {
+	m.clearedaccount_bindings = true
+}
+
+// AccountBindingsCleared reports if the "account_bindings" edge to the APIKeyAccountBinding entity was cleared.
+func (m *APIKeyMutation) AccountBindingsCleared() bool {
+	return m.clearedaccount_bindings
+}
+
+// RemoveAccountBindingIDs removes the "account_bindings" edge to the APIKeyAccountBinding entity by IDs.
+func (m *APIKeyMutation) RemoveAccountBindingIDs(ids ...int64) {
+	if m.removedaccount_bindings == nil {
+		m.removedaccount_bindings = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.account_bindings, ids[i])
+		m.removedaccount_bindings[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAccountBindings returns the removed IDs of the "account_bindings" edge to the APIKeyAccountBinding entity.
+func (m *APIKeyMutation) RemovedAccountBindingsIDs() (ids []int64) {
+	for id := range m.removedaccount_bindings {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AccountBindingsIDs returns the "account_bindings" edge IDs in the mutation.
+func (m *APIKeyMutation) AccountBindingsIDs() (ids []int64) {
+	for id := range m.account_bindings {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAccountBindings resets all changes to the "account_bindings" edge.
+func (m *APIKeyMutation) ResetAccountBindings() {
+	m.account_bindings = nil
+	m.clearedaccount_bindings = false
+	m.removedaccount_bindings = nil
+}
+
 // Where appends a list predicates to the APIKeyMutation builder.
 func (m *APIKeyMutation) Where(ps ...predicate.APIKey) {
 	m.predicates = append(m.predicates, ps...)
@@ -1758,7 +1928,7 @@ func (m *APIKeyMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *APIKeyMutation) Fields() []string {
-	fields := make([]string, 0, 25)
+	fields := make([]string, 0, 27)
 	if m.created_at != nil {
 		fields = append(fields, apikey.FieldCreatedAt)
 	}
@@ -1834,6 +2004,12 @@ func (m *APIKeyMutation) Fields() []string {
 	if m.multi_group_routes != nil {
 		fields = append(fields, apikey.FieldMultiGroupRoutes)
 	}
+	if m.managed_source_type != nil {
+		fields = append(fields, apikey.FieldManagedSourceType)
+	}
+	if m.managed_source_id != nil {
+		fields = append(fields, apikey.FieldManagedSourceID)
+	}
 	return fields
 }
 
@@ -1892,6 +2068,10 @@ func (m *APIKeyMutation) Field(name string) (ent.Value, bool) {
 		return m.Window7dStart()
 	case apikey.FieldMultiGroupRoutes:
 		return m.MultiGroupRoutes()
+	case apikey.FieldManagedSourceType:
+		return m.ManagedSourceType()
+	case apikey.FieldManagedSourceID:
+		return m.ManagedSourceID()
 	}
 	return nil, false
 }
@@ -1951,6 +2131,10 @@ func (m *APIKeyMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldWindow7dStart(ctx)
 	case apikey.FieldMultiGroupRoutes:
 		return m.OldMultiGroupRoutes(ctx)
+	case apikey.FieldManagedSourceType:
+		return m.OldManagedSourceType(ctx)
+	case apikey.FieldManagedSourceID:
+		return m.OldManagedSourceID(ctx)
 	}
 	return nil, fmt.Errorf("unknown APIKey field %s", name)
 }
@@ -2135,6 +2319,20 @@ func (m *APIKeyMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetMultiGroupRoutes(v)
 		return nil
+	case apikey.FieldManagedSourceType:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetManagedSourceType(v)
+		return nil
+	case apikey.FieldManagedSourceID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetManagedSourceID(v)
+		return nil
 	}
 	return fmt.Errorf("unknown APIKey field %s", name)
 }
@@ -2167,6 +2365,9 @@ func (m *APIKeyMutation) AddedFields() []string {
 	if m.addusage_7d != nil {
 		fields = append(fields, apikey.FieldUsage7d)
 	}
+	if m.addmanaged_source_id != nil {
+		fields = append(fields, apikey.FieldManagedSourceID)
+	}
 	return fields
 }
 
@@ -2191,6 +2392,8 @@ func (m *APIKeyMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedUsage1d()
 	case apikey.FieldUsage7d:
 		return m.AddedUsage7d()
+	case apikey.FieldManagedSourceID:
+		return m.AddedManagedSourceID()
 	}
 	return nil, false
 }
@@ -2256,6 +2459,13 @@ func (m *APIKeyMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddUsage7d(v)
 		return nil
+	case apikey.FieldManagedSourceID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddManagedSourceID(v)
+		return nil
 	}
 	return fmt.Errorf("unknown APIKey numeric field %s", name)
 }
@@ -2293,6 +2503,9 @@ func (m *APIKeyMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(apikey.FieldMultiGroupRoutes) {
 		fields = append(fields, apikey.FieldMultiGroupRoutes)
+	}
+	if m.FieldCleared(apikey.FieldManagedSourceID) {
+		fields = append(fields, apikey.FieldManagedSourceID)
 	}
 	return fields
 }
@@ -2337,6 +2550,9 @@ func (m *APIKeyMutation) ClearField(name string) error {
 		return nil
 	case apikey.FieldMultiGroupRoutes:
 		m.ClearMultiGroupRoutes()
+		return nil
+	case apikey.FieldManagedSourceID:
+		m.ClearManagedSourceID()
 		return nil
 	}
 	return fmt.Errorf("unknown APIKey nullable field %s", name)
@@ -2421,13 +2637,19 @@ func (m *APIKeyMutation) ResetField(name string) error {
 	case apikey.FieldMultiGroupRoutes:
 		m.ResetMultiGroupRoutes()
 		return nil
+	case apikey.FieldManagedSourceType:
+		m.ResetManagedSourceType()
+		return nil
+	case apikey.FieldManagedSourceID:
+		m.ResetManagedSourceID()
+		return nil
 	}
 	return fmt.Errorf("unknown APIKey field %s", name)
 }
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *APIKeyMutation) AddedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.user != nil {
 		edges = append(edges, apikey.EdgeUser)
 	}
@@ -2442,6 +2664,9 @@ func (m *APIKeyMutation) AddedEdges() []string {
 	}
 	if m.group_buy_entitlements != nil {
 		edges = append(edges, apikey.EdgeGroupBuyEntitlements)
+	}
+	if m.account_bindings != nil {
+		edges = append(edges, apikey.EdgeAccountBindings)
 	}
 	return edges
 }
@@ -2476,13 +2701,19 @@ func (m *APIKeyMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case apikey.EdgeAccountBindings:
+		ids := make([]ent.Value, 0, len(m.account_bindings))
+		for id := range m.account_bindings {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *APIKeyMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.removedusage_logs != nil {
 		edges = append(edges, apikey.EdgeUsageLogs)
 	}
@@ -2491,6 +2722,9 @@ func (m *APIKeyMutation) RemovedEdges() []string {
 	}
 	if m.removedgroup_buy_entitlements != nil {
 		edges = append(edges, apikey.EdgeGroupBuyEntitlements)
+	}
+	if m.removedaccount_bindings != nil {
+		edges = append(edges, apikey.EdgeAccountBindings)
 	}
 	return edges
 }
@@ -2517,13 +2751,19 @@ func (m *APIKeyMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case apikey.EdgeAccountBindings:
+		ids := make([]ent.Value, 0, len(m.removedaccount_bindings))
+		for id := range m.removedaccount_bindings {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *APIKeyMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.cleareduser {
 		edges = append(edges, apikey.EdgeUser)
 	}
@@ -2538,6 +2778,9 @@ func (m *APIKeyMutation) ClearedEdges() []string {
 	}
 	if m.clearedgroup_buy_entitlements {
 		edges = append(edges, apikey.EdgeGroupBuyEntitlements)
+	}
+	if m.clearedaccount_bindings {
+		edges = append(edges, apikey.EdgeAccountBindings)
 	}
 	return edges
 }
@@ -2556,6 +2799,8 @@ func (m *APIKeyMutation) EdgeCleared(name string) bool {
 		return m.clearedgroup_buy_seats
 	case apikey.EdgeGroupBuyEntitlements:
 		return m.clearedgroup_buy_entitlements
+	case apikey.EdgeAccountBindings:
+		return m.clearedaccount_bindings
 	}
 	return false
 }
@@ -2593,8 +2838,1501 @@ func (m *APIKeyMutation) ResetEdge(name string) error {
 	case apikey.EdgeGroupBuyEntitlements:
 		m.ResetGroupBuyEntitlements()
 		return nil
+	case apikey.EdgeAccountBindings:
+		m.ResetAccountBindings()
+		return nil
 	}
 	return fmt.Errorf("unknown APIKey edge %s", name)
+}
+
+// APIKeyAccountBindingMutation represents an operation that mutates the APIKeyAccountBinding nodes in the graph.
+type APIKeyAccountBindingMutation struct {
+	config
+	op                        Op
+	typ                       string
+	id                        *int64
+	created_at                *time.Time
+	updated_at                *time.Time
+	status                    *string
+	strict_mode               *bool
+	starts_at                 *time.Time
+	expires_at                *time.Time
+	replaced_by_binding_id    *int64
+	addreplaced_by_binding_id *int64
+	migrated_at               *time.Time
+	clearedFields             map[string]struct{}
+	api_key                   *int64
+	clearedapi_key            bool
+	user                      *int64
+	cleareduser               bool
+	group                     *int64
+	clearedgroup              bool
+	account                   *int64
+	clearedaccount            bool
+	cafe_room                 *int64
+	clearedcafe_room          bool
+	round                     *int64
+	clearedround              bool
+	seat                      *int64
+	clearedseat               bool
+	done                      bool
+	oldValue                  func(context.Context) (*APIKeyAccountBinding, error)
+	predicates                []predicate.APIKeyAccountBinding
+}
+
+var _ ent.Mutation = (*APIKeyAccountBindingMutation)(nil)
+
+// apikeyaccountbindingOption allows management of the mutation configuration using functional options.
+type apikeyaccountbindingOption func(*APIKeyAccountBindingMutation)
+
+// newAPIKeyAccountBindingMutation creates new mutation for the APIKeyAccountBinding entity.
+func newAPIKeyAccountBindingMutation(c config, op Op, opts ...apikeyaccountbindingOption) *APIKeyAccountBindingMutation {
+	m := &APIKeyAccountBindingMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeAPIKeyAccountBinding,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withAPIKeyAccountBindingID sets the ID field of the mutation.
+func withAPIKeyAccountBindingID(id int64) apikeyaccountbindingOption {
+	return func(m *APIKeyAccountBindingMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *APIKeyAccountBinding
+		)
+		m.oldValue = func(ctx context.Context) (*APIKeyAccountBinding, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().APIKeyAccountBinding.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withAPIKeyAccountBinding sets the old APIKeyAccountBinding of the mutation.
+func withAPIKeyAccountBinding(node *APIKeyAccountBinding) apikeyaccountbindingOption {
+	return func(m *APIKeyAccountBindingMutation) {
+		m.oldValue = func(context.Context) (*APIKeyAccountBinding, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m APIKeyAccountBindingMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m APIKeyAccountBindingMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *APIKeyAccountBindingMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *APIKeyAccountBindingMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().APIKeyAccountBinding.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *APIKeyAccountBindingMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *APIKeyAccountBindingMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the APIKeyAccountBinding entity.
+// If the APIKeyAccountBinding object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyAccountBindingMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *APIKeyAccountBindingMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *APIKeyAccountBindingMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *APIKeyAccountBindingMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the APIKeyAccountBinding entity.
+// If the APIKeyAccountBinding object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyAccountBindingMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *APIKeyAccountBindingMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetAPIKeyID sets the "api_key_id" field.
+func (m *APIKeyAccountBindingMutation) SetAPIKeyID(i int64) {
+	m.api_key = &i
+}
+
+// APIKeyID returns the value of the "api_key_id" field in the mutation.
+func (m *APIKeyAccountBindingMutation) APIKeyID() (r int64, exists bool) {
+	v := m.api_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAPIKeyID returns the old "api_key_id" field's value of the APIKeyAccountBinding entity.
+// If the APIKeyAccountBinding object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyAccountBindingMutation) OldAPIKeyID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAPIKeyID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAPIKeyID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAPIKeyID: %w", err)
+	}
+	return oldValue.APIKeyID, nil
+}
+
+// ResetAPIKeyID resets all changes to the "api_key_id" field.
+func (m *APIKeyAccountBindingMutation) ResetAPIKeyID() {
+	m.api_key = nil
+}
+
+// SetUserID sets the "user_id" field.
+func (m *APIKeyAccountBindingMutation) SetUserID(i int64) {
+	m.user = &i
+}
+
+// UserID returns the value of the "user_id" field in the mutation.
+func (m *APIKeyAccountBindingMutation) UserID() (r int64, exists bool) {
+	v := m.user
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserID returns the old "user_id" field's value of the APIKeyAccountBinding entity.
+// If the APIKeyAccountBinding object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyAccountBindingMutation) OldUserID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// ResetUserID resets all changes to the "user_id" field.
+func (m *APIKeyAccountBindingMutation) ResetUserID() {
+	m.user = nil
+}
+
+// SetGroupID sets the "group_id" field.
+func (m *APIKeyAccountBindingMutation) SetGroupID(i int64) {
+	m.group = &i
+}
+
+// GroupID returns the value of the "group_id" field in the mutation.
+func (m *APIKeyAccountBindingMutation) GroupID() (r int64, exists bool) {
+	v := m.group
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGroupID returns the old "group_id" field's value of the APIKeyAccountBinding entity.
+// If the APIKeyAccountBinding object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyAccountBindingMutation) OldGroupID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGroupID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGroupID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGroupID: %w", err)
+	}
+	return oldValue.GroupID, nil
+}
+
+// ResetGroupID resets all changes to the "group_id" field.
+func (m *APIKeyAccountBindingMutation) ResetGroupID() {
+	m.group = nil
+}
+
+// SetAccountID sets the "account_id" field.
+func (m *APIKeyAccountBindingMutation) SetAccountID(i int64) {
+	m.account = &i
+}
+
+// AccountID returns the value of the "account_id" field in the mutation.
+func (m *APIKeyAccountBindingMutation) AccountID() (r int64, exists bool) {
+	v := m.account
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAccountID returns the old "account_id" field's value of the APIKeyAccountBinding entity.
+// If the APIKeyAccountBinding object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyAccountBindingMutation) OldAccountID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAccountID: %w", err)
+	}
+	return oldValue.AccountID, nil
+}
+
+// ResetAccountID resets all changes to the "account_id" field.
+func (m *APIKeyAccountBindingMutation) ResetAccountID() {
+	m.account = nil
+}
+
+// SetCafeRoomID sets the "cafe_room_id" field.
+func (m *APIKeyAccountBindingMutation) SetCafeRoomID(i int64) {
+	m.cafe_room = &i
+}
+
+// CafeRoomID returns the value of the "cafe_room_id" field in the mutation.
+func (m *APIKeyAccountBindingMutation) CafeRoomID() (r int64, exists bool) {
+	v := m.cafe_room
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCafeRoomID returns the old "cafe_room_id" field's value of the APIKeyAccountBinding entity.
+// If the APIKeyAccountBinding object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyAccountBindingMutation) OldCafeRoomID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCafeRoomID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCafeRoomID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCafeRoomID: %w", err)
+	}
+	return oldValue.CafeRoomID, nil
+}
+
+// ResetCafeRoomID resets all changes to the "cafe_room_id" field.
+func (m *APIKeyAccountBindingMutation) ResetCafeRoomID() {
+	m.cafe_room = nil
+}
+
+// SetRoundID sets the "round_id" field.
+func (m *APIKeyAccountBindingMutation) SetRoundID(i int64) {
+	m.round = &i
+}
+
+// RoundID returns the value of the "round_id" field in the mutation.
+func (m *APIKeyAccountBindingMutation) RoundID() (r int64, exists bool) {
+	v := m.round
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRoundID returns the old "round_id" field's value of the APIKeyAccountBinding entity.
+// If the APIKeyAccountBinding object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyAccountBindingMutation) OldRoundID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRoundID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRoundID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRoundID: %w", err)
+	}
+	return oldValue.RoundID, nil
+}
+
+// ResetRoundID resets all changes to the "round_id" field.
+func (m *APIKeyAccountBindingMutation) ResetRoundID() {
+	m.round = nil
+}
+
+// SetSeatID sets the "seat_id" field.
+func (m *APIKeyAccountBindingMutation) SetSeatID(i int64) {
+	m.seat = &i
+}
+
+// SeatID returns the value of the "seat_id" field in the mutation.
+func (m *APIKeyAccountBindingMutation) SeatID() (r int64, exists bool) {
+	v := m.seat
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSeatID returns the old "seat_id" field's value of the APIKeyAccountBinding entity.
+// If the APIKeyAccountBinding object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyAccountBindingMutation) OldSeatID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSeatID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSeatID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSeatID: %w", err)
+	}
+	return oldValue.SeatID, nil
+}
+
+// ResetSeatID resets all changes to the "seat_id" field.
+func (m *APIKeyAccountBindingMutation) ResetSeatID() {
+	m.seat = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *APIKeyAccountBindingMutation) SetStatus(s string) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *APIKeyAccountBindingMutation) Status() (r string, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the APIKeyAccountBinding entity.
+// If the APIKeyAccountBinding object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyAccountBindingMutation) OldStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *APIKeyAccountBindingMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetStrictMode sets the "strict_mode" field.
+func (m *APIKeyAccountBindingMutation) SetStrictMode(b bool) {
+	m.strict_mode = &b
+}
+
+// StrictMode returns the value of the "strict_mode" field in the mutation.
+func (m *APIKeyAccountBindingMutation) StrictMode() (r bool, exists bool) {
+	v := m.strict_mode
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStrictMode returns the old "strict_mode" field's value of the APIKeyAccountBinding entity.
+// If the APIKeyAccountBinding object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyAccountBindingMutation) OldStrictMode(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStrictMode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStrictMode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStrictMode: %w", err)
+	}
+	return oldValue.StrictMode, nil
+}
+
+// ResetStrictMode resets all changes to the "strict_mode" field.
+func (m *APIKeyAccountBindingMutation) ResetStrictMode() {
+	m.strict_mode = nil
+}
+
+// SetStartsAt sets the "starts_at" field.
+func (m *APIKeyAccountBindingMutation) SetStartsAt(t time.Time) {
+	m.starts_at = &t
+}
+
+// StartsAt returns the value of the "starts_at" field in the mutation.
+func (m *APIKeyAccountBindingMutation) StartsAt() (r time.Time, exists bool) {
+	v := m.starts_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStartsAt returns the old "starts_at" field's value of the APIKeyAccountBinding entity.
+// If the APIKeyAccountBinding object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyAccountBindingMutation) OldStartsAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStartsAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStartsAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStartsAt: %w", err)
+	}
+	return oldValue.StartsAt, nil
+}
+
+// ResetStartsAt resets all changes to the "starts_at" field.
+func (m *APIKeyAccountBindingMutation) ResetStartsAt() {
+	m.starts_at = nil
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (m *APIKeyAccountBindingMutation) SetExpiresAt(t time.Time) {
+	m.expires_at = &t
+}
+
+// ExpiresAt returns the value of the "expires_at" field in the mutation.
+func (m *APIKeyAccountBindingMutation) ExpiresAt() (r time.Time, exists bool) {
+	v := m.expires_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExpiresAt returns the old "expires_at" field's value of the APIKeyAccountBinding entity.
+// If the APIKeyAccountBinding object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyAccountBindingMutation) OldExpiresAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExpiresAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExpiresAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExpiresAt: %w", err)
+	}
+	return oldValue.ExpiresAt, nil
+}
+
+// ResetExpiresAt resets all changes to the "expires_at" field.
+func (m *APIKeyAccountBindingMutation) ResetExpiresAt() {
+	m.expires_at = nil
+}
+
+// SetReplacedByBindingID sets the "replaced_by_binding_id" field.
+func (m *APIKeyAccountBindingMutation) SetReplacedByBindingID(i int64) {
+	m.replaced_by_binding_id = &i
+	m.addreplaced_by_binding_id = nil
+}
+
+// ReplacedByBindingID returns the value of the "replaced_by_binding_id" field in the mutation.
+func (m *APIKeyAccountBindingMutation) ReplacedByBindingID() (r int64, exists bool) {
+	v := m.replaced_by_binding_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReplacedByBindingID returns the old "replaced_by_binding_id" field's value of the APIKeyAccountBinding entity.
+// If the APIKeyAccountBinding object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyAccountBindingMutation) OldReplacedByBindingID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReplacedByBindingID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReplacedByBindingID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReplacedByBindingID: %w", err)
+	}
+	return oldValue.ReplacedByBindingID, nil
+}
+
+// AddReplacedByBindingID adds i to the "replaced_by_binding_id" field.
+func (m *APIKeyAccountBindingMutation) AddReplacedByBindingID(i int64) {
+	if m.addreplaced_by_binding_id != nil {
+		*m.addreplaced_by_binding_id += i
+	} else {
+		m.addreplaced_by_binding_id = &i
+	}
+}
+
+// AddedReplacedByBindingID returns the value that was added to the "replaced_by_binding_id" field in this mutation.
+func (m *APIKeyAccountBindingMutation) AddedReplacedByBindingID() (r int64, exists bool) {
+	v := m.addreplaced_by_binding_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearReplacedByBindingID clears the value of the "replaced_by_binding_id" field.
+func (m *APIKeyAccountBindingMutation) ClearReplacedByBindingID() {
+	m.replaced_by_binding_id = nil
+	m.addreplaced_by_binding_id = nil
+	m.clearedFields[apikeyaccountbinding.FieldReplacedByBindingID] = struct{}{}
+}
+
+// ReplacedByBindingIDCleared returns if the "replaced_by_binding_id" field was cleared in this mutation.
+func (m *APIKeyAccountBindingMutation) ReplacedByBindingIDCleared() bool {
+	_, ok := m.clearedFields[apikeyaccountbinding.FieldReplacedByBindingID]
+	return ok
+}
+
+// ResetReplacedByBindingID resets all changes to the "replaced_by_binding_id" field.
+func (m *APIKeyAccountBindingMutation) ResetReplacedByBindingID() {
+	m.replaced_by_binding_id = nil
+	m.addreplaced_by_binding_id = nil
+	delete(m.clearedFields, apikeyaccountbinding.FieldReplacedByBindingID)
+}
+
+// SetMigratedAt sets the "migrated_at" field.
+func (m *APIKeyAccountBindingMutation) SetMigratedAt(t time.Time) {
+	m.migrated_at = &t
+}
+
+// MigratedAt returns the value of the "migrated_at" field in the mutation.
+func (m *APIKeyAccountBindingMutation) MigratedAt() (r time.Time, exists bool) {
+	v := m.migrated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMigratedAt returns the old "migrated_at" field's value of the APIKeyAccountBinding entity.
+// If the APIKeyAccountBinding object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyAccountBindingMutation) OldMigratedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMigratedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMigratedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMigratedAt: %w", err)
+	}
+	return oldValue.MigratedAt, nil
+}
+
+// ClearMigratedAt clears the value of the "migrated_at" field.
+func (m *APIKeyAccountBindingMutation) ClearMigratedAt() {
+	m.migrated_at = nil
+	m.clearedFields[apikeyaccountbinding.FieldMigratedAt] = struct{}{}
+}
+
+// MigratedAtCleared returns if the "migrated_at" field was cleared in this mutation.
+func (m *APIKeyAccountBindingMutation) MigratedAtCleared() bool {
+	_, ok := m.clearedFields[apikeyaccountbinding.FieldMigratedAt]
+	return ok
+}
+
+// ResetMigratedAt resets all changes to the "migrated_at" field.
+func (m *APIKeyAccountBindingMutation) ResetMigratedAt() {
+	m.migrated_at = nil
+	delete(m.clearedFields, apikeyaccountbinding.FieldMigratedAt)
+}
+
+// ClearAPIKey clears the "api_key" edge to the APIKey entity.
+func (m *APIKeyAccountBindingMutation) ClearAPIKey() {
+	m.clearedapi_key = true
+	m.clearedFields[apikeyaccountbinding.FieldAPIKeyID] = struct{}{}
+}
+
+// APIKeyCleared reports if the "api_key" edge to the APIKey entity was cleared.
+func (m *APIKeyAccountBindingMutation) APIKeyCleared() bool {
+	return m.clearedapi_key
+}
+
+// APIKeyIDs returns the "api_key" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// APIKeyID instead. It exists only for internal usage by the builders.
+func (m *APIKeyAccountBindingMutation) APIKeyIDs() (ids []int64) {
+	if id := m.api_key; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAPIKey resets all changes to the "api_key" edge.
+func (m *APIKeyAccountBindingMutation) ResetAPIKey() {
+	m.api_key = nil
+	m.clearedapi_key = false
+}
+
+// ClearUser clears the "user" edge to the User entity.
+func (m *APIKeyAccountBindingMutation) ClearUser() {
+	m.cleareduser = true
+	m.clearedFields[apikeyaccountbinding.FieldUserID] = struct{}{}
+}
+
+// UserCleared reports if the "user" edge to the User entity was cleared.
+func (m *APIKeyAccountBindingMutation) UserCleared() bool {
+	return m.cleareduser
+}
+
+// UserIDs returns the "user" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// UserID instead. It exists only for internal usage by the builders.
+func (m *APIKeyAccountBindingMutation) UserIDs() (ids []int64) {
+	if id := m.user; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetUser resets all changes to the "user" edge.
+func (m *APIKeyAccountBindingMutation) ResetUser() {
+	m.user = nil
+	m.cleareduser = false
+}
+
+// ClearGroup clears the "group" edge to the Group entity.
+func (m *APIKeyAccountBindingMutation) ClearGroup() {
+	m.clearedgroup = true
+	m.clearedFields[apikeyaccountbinding.FieldGroupID] = struct{}{}
+}
+
+// GroupCleared reports if the "group" edge to the Group entity was cleared.
+func (m *APIKeyAccountBindingMutation) GroupCleared() bool {
+	return m.clearedgroup
+}
+
+// GroupIDs returns the "group" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// GroupID instead. It exists only for internal usage by the builders.
+func (m *APIKeyAccountBindingMutation) GroupIDs() (ids []int64) {
+	if id := m.group; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetGroup resets all changes to the "group" edge.
+func (m *APIKeyAccountBindingMutation) ResetGroup() {
+	m.group = nil
+	m.clearedgroup = false
+}
+
+// ClearAccount clears the "account" edge to the Account entity.
+func (m *APIKeyAccountBindingMutation) ClearAccount() {
+	m.clearedaccount = true
+	m.clearedFields[apikeyaccountbinding.FieldAccountID] = struct{}{}
+}
+
+// AccountCleared reports if the "account" edge to the Account entity was cleared.
+func (m *APIKeyAccountBindingMutation) AccountCleared() bool {
+	return m.clearedaccount
+}
+
+// AccountIDs returns the "account" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// AccountID instead. It exists only for internal usage by the builders.
+func (m *APIKeyAccountBindingMutation) AccountIDs() (ids []int64) {
+	if id := m.account; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAccount resets all changes to the "account" edge.
+func (m *APIKeyAccountBindingMutation) ResetAccount() {
+	m.account = nil
+	m.clearedaccount = false
+}
+
+// ClearCafeRoom clears the "cafe_room" edge to the CafeRoom entity.
+func (m *APIKeyAccountBindingMutation) ClearCafeRoom() {
+	m.clearedcafe_room = true
+	m.clearedFields[apikeyaccountbinding.FieldCafeRoomID] = struct{}{}
+}
+
+// CafeRoomCleared reports if the "cafe_room" edge to the CafeRoom entity was cleared.
+func (m *APIKeyAccountBindingMutation) CafeRoomCleared() bool {
+	return m.clearedcafe_room
+}
+
+// CafeRoomIDs returns the "cafe_room" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// CafeRoomID instead. It exists only for internal usage by the builders.
+func (m *APIKeyAccountBindingMutation) CafeRoomIDs() (ids []int64) {
+	if id := m.cafe_room; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetCafeRoom resets all changes to the "cafe_room" edge.
+func (m *APIKeyAccountBindingMutation) ResetCafeRoom() {
+	m.cafe_room = nil
+	m.clearedcafe_room = false
+}
+
+// ClearRound clears the "round" edge to the GroupBuyRound entity.
+func (m *APIKeyAccountBindingMutation) ClearRound() {
+	m.clearedround = true
+	m.clearedFields[apikeyaccountbinding.FieldRoundID] = struct{}{}
+}
+
+// RoundCleared reports if the "round" edge to the GroupBuyRound entity was cleared.
+func (m *APIKeyAccountBindingMutation) RoundCleared() bool {
+	return m.clearedround
+}
+
+// RoundIDs returns the "round" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// RoundID instead. It exists only for internal usage by the builders.
+func (m *APIKeyAccountBindingMutation) RoundIDs() (ids []int64) {
+	if id := m.round; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetRound resets all changes to the "round" edge.
+func (m *APIKeyAccountBindingMutation) ResetRound() {
+	m.round = nil
+	m.clearedround = false
+}
+
+// ClearSeat clears the "seat" edge to the GroupBuySeat entity.
+func (m *APIKeyAccountBindingMutation) ClearSeat() {
+	m.clearedseat = true
+	m.clearedFields[apikeyaccountbinding.FieldSeatID] = struct{}{}
+}
+
+// SeatCleared reports if the "seat" edge to the GroupBuySeat entity was cleared.
+func (m *APIKeyAccountBindingMutation) SeatCleared() bool {
+	return m.clearedseat
+}
+
+// SeatIDs returns the "seat" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// SeatID instead. It exists only for internal usage by the builders.
+func (m *APIKeyAccountBindingMutation) SeatIDs() (ids []int64) {
+	if id := m.seat; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetSeat resets all changes to the "seat" edge.
+func (m *APIKeyAccountBindingMutation) ResetSeat() {
+	m.seat = nil
+	m.clearedseat = false
+}
+
+// Where appends a list predicates to the APIKeyAccountBindingMutation builder.
+func (m *APIKeyAccountBindingMutation) Where(ps ...predicate.APIKeyAccountBinding) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the APIKeyAccountBindingMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *APIKeyAccountBindingMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.APIKeyAccountBinding, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *APIKeyAccountBindingMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *APIKeyAccountBindingMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (APIKeyAccountBinding).
+func (m *APIKeyAccountBindingMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *APIKeyAccountBindingMutation) Fields() []string {
+	fields := make([]string, 0, 15)
+	if m.created_at != nil {
+		fields = append(fields, apikeyaccountbinding.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, apikeyaccountbinding.FieldUpdatedAt)
+	}
+	if m.api_key != nil {
+		fields = append(fields, apikeyaccountbinding.FieldAPIKeyID)
+	}
+	if m.user != nil {
+		fields = append(fields, apikeyaccountbinding.FieldUserID)
+	}
+	if m.group != nil {
+		fields = append(fields, apikeyaccountbinding.FieldGroupID)
+	}
+	if m.account != nil {
+		fields = append(fields, apikeyaccountbinding.FieldAccountID)
+	}
+	if m.cafe_room != nil {
+		fields = append(fields, apikeyaccountbinding.FieldCafeRoomID)
+	}
+	if m.round != nil {
+		fields = append(fields, apikeyaccountbinding.FieldRoundID)
+	}
+	if m.seat != nil {
+		fields = append(fields, apikeyaccountbinding.FieldSeatID)
+	}
+	if m.status != nil {
+		fields = append(fields, apikeyaccountbinding.FieldStatus)
+	}
+	if m.strict_mode != nil {
+		fields = append(fields, apikeyaccountbinding.FieldStrictMode)
+	}
+	if m.starts_at != nil {
+		fields = append(fields, apikeyaccountbinding.FieldStartsAt)
+	}
+	if m.expires_at != nil {
+		fields = append(fields, apikeyaccountbinding.FieldExpiresAt)
+	}
+	if m.replaced_by_binding_id != nil {
+		fields = append(fields, apikeyaccountbinding.FieldReplacedByBindingID)
+	}
+	if m.migrated_at != nil {
+		fields = append(fields, apikeyaccountbinding.FieldMigratedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *APIKeyAccountBindingMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case apikeyaccountbinding.FieldCreatedAt:
+		return m.CreatedAt()
+	case apikeyaccountbinding.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case apikeyaccountbinding.FieldAPIKeyID:
+		return m.APIKeyID()
+	case apikeyaccountbinding.FieldUserID:
+		return m.UserID()
+	case apikeyaccountbinding.FieldGroupID:
+		return m.GroupID()
+	case apikeyaccountbinding.FieldAccountID:
+		return m.AccountID()
+	case apikeyaccountbinding.FieldCafeRoomID:
+		return m.CafeRoomID()
+	case apikeyaccountbinding.FieldRoundID:
+		return m.RoundID()
+	case apikeyaccountbinding.FieldSeatID:
+		return m.SeatID()
+	case apikeyaccountbinding.FieldStatus:
+		return m.Status()
+	case apikeyaccountbinding.FieldStrictMode:
+		return m.StrictMode()
+	case apikeyaccountbinding.FieldStartsAt:
+		return m.StartsAt()
+	case apikeyaccountbinding.FieldExpiresAt:
+		return m.ExpiresAt()
+	case apikeyaccountbinding.FieldReplacedByBindingID:
+		return m.ReplacedByBindingID()
+	case apikeyaccountbinding.FieldMigratedAt:
+		return m.MigratedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *APIKeyAccountBindingMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case apikeyaccountbinding.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case apikeyaccountbinding.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case apikeyaccountbinding.FieldAPIKeyID:
+		return m.OldAPIKeyID(ctx)
+	case apikeyaccountbinding.FieldUserID:
+		return m.OldUserID(ctx)
+	case apikeyaccountbinding.FieldGroupID:
+		return m.OldGroupID(ctx)
+	case apikeyaccountbinding.FieldAccountID:
+		return m.OldAccountID(ctx)
+	case apikeyaccountbinding.FieldCafeRoomID:
+		return m.OldCafeRoomID(ctx)
+	case apikeyaccountbinding.FieldRoundID:
+		return m.OldRoundID(ctx)
+	case apikeyaccountbinding.FieldSeatID:
+		return m.OldSeatID(ctx)
+	case apikeyaccountbinding.FieldStatus:
+		return m.OldStatus(ctx)
+	case apikeyaccountbinding.FieldStrictMode:
+		return m.OldStrictMode(ctx)
+	case apikeyaccountbinding.FieldStartsAt:
+		return m.OldStartsAt(ctx)
+	case apikeyaccountbinding.FieldExpiresAt:
+		return m.OldExpiresAt(ctx)
+	case apikeyaccountbinding.FieldReplacedByBindingID:
+		return m.OldReplacedByBindingID(ctx)
+	case apikeyaccountbinding.FieldMigratedAt:
+		return m.OldMigratedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown APIKeyAccountBinding field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *APIKeyAccountBindingMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case apikeyaccountbinding.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case apikeyaccountbinding.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case apikeyaccountbinding.FieldAPIKeyID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAPIKeyID(v)
+		return nil
+	case apikeyaccountbinding.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserID(v)
+		return nil
+	case apikeyaccountbinding.FieldGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGroupID(v)
+		return nil
+	case apikeyaccountbinding.FieldAccountID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAccountID(v)
+		return nil
+	case apikeyaccountbinding.FieldCafeRoomID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCafeRoomID(v)
+		return nil
+	case apikeyaccountbinding.FieldRoundID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRoundID(v)
+		return nil
+	case apikeyaccountbinding.FieldSeatID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSeatID(v)
+		return nil
+	case apikeyaccountbinding.FieldStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case apikeyaccountbinding.FieldStrictMode:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStrictMode(v)
+		return nil
+	case apikeyaccountbinding.FieldStartsAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStartsAt(v)
+		return nil
+	case apikeyaccountbinding.FieldExpiresAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExpiresAt(v)
+		return nil
+	case apikeyaccountbinding.FieldReplacedByBindingID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReplacedByBindingID(v)
+		return nil
+	case apikeyaccountbinding.FieldMigratedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMigratedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown APIKeyAccountBinding field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *APIKeyAccountBindingMutation) AddedFields() []string {
+	var fields []string
+	if m.addreplaced_by_binding_id != nil {
+		fields = append(fields, apikeyaccountbinding.FieldReplacedByBindingID)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *APIKeyAccountBindingMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case apikeyaccountbinding.FieldReplacedByBindingID:
+		return m.AddedReplacedByBindingID()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *APIKeyAccountBindingMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case apikeyaccountbinding.FieldReplacedByBindingID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddReplacedByBindingID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown APIKeyAccountBinding numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *APIKeyAccountBindingMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(apikeyaccountbinding.FieldReplacedByBindingID) {
+		fields = append(fields, apikeyaccountbinding.FieldReplacedByBindingID)
+	}
+	if m.FieldCleared(apikeyaccountbinding.FieldMigratedAt) {
+		fields = append(fields, apikeyaccountbinding.FieldMigratedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *APIKeyAccountBindingMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *APIKeyAccountBindingMutation) ClearField(name string) error {
+	switch name {
+	case apikeyaccountbinding.FieldReplacedByBindingID:
+		m.ClearReplacedByBindingID()
+		return nil
+	case apikeyaccountbinding.FieldMigratedAt:
+		m.ClearMigratedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown APIKeyAccountBinding nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *APIKeyAccountBindingMutation) ResetField(name string) error {
+	switch name {
+	case apikeyaccountbinding.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case apikeyaccountbinding.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case apikeyaccountbinding.FieldAPIKeyID:
+		m.ResetAPIKeyID()
+		return nil
+	case apikeyaccountbinding.FieldUserID:
+		m.ResetUserID()
+		return nil
+	case apikeyaccountbinding.FieldGroupID:
+		m.ResetGroupID()
+		return nil
+	case apikeyaccountbinding.FieldAccountID:
+		m.ResetAccountID()
+		return nil
+	case apikeyaccountbinding.FieldCafeRoomID:
+		m.ResetCafeRoomID()
+		return nil
+	case apikeyaccountbinding.FieldRoundID:
+		m.ResetRoundID()
+		return nil
+	case apikeyaccountbinding.FieldSeatID:
+		m.ResetSeatID()
+		return nil
+	case apikeyaccountbinding.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case apikeyaccountbinding.FieldStrictMode:
+		m.ResetStrictMode()
+		return nil
+	case apikeyaccountbinding.FieldStartsAt:
+		m.ResetStartsAt()
+		return nil
+	case apikeyaccountbinding.FieldExpiresAt:
+		m.ResetExpiresAt()
+		return nil
+	case apikeyaccountbinding.FieldReplacedByBindingID:
+		m.ResetReplacedByBindingID()
+		return nil
+	case apikeyaccountbinding.FieldMigratedAt:
+		m.ResetMigratedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown APIKeyAccountBinding field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *APIKeyAccountBindingMutation) AddedEdges() []string {
+	edges := make([]string, 0, 7)
+	if m.api_key != nil {
+		edges = append(edges, apikeyaccountbinding.EdgeAPIKey)
+	}
+	if m.user != nil {
+		edges = append(edges, apikeyaccountbinding.EdgeUser)
+	}
+	if m.group != nil {
+		edges = append(edges, apikeyaccountbinding.EdgeGroup)
+	}
+	if m.account != nil {
+		edges = append(edges, apikeyaccountbinding.EdgeAccount)
+	}
+	if m.cafe_room != nil {
+		edges = append(edges, apikeyaccountbinding.EdgeCafeRoom)
+	}
+	if m.round != nil {
+		edges = append(edges, apikeyaccountbinding.EdgeRound)
+	}
+	if m.seat != nil {
+		edges = append(edges, apikeyaccountbinding.EdgeSeat)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *APIKeyAccountBindingMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case apikeyaccountbinding.EdgeAPIKey:
+		if id := m.api_key; id != nil {
+			return []ent.Value{*id}
+		}
+	case apikeyaccountbinding.EdgeUser:
+		if id := m.user; id != nil {
+			return []ent.Value{*id}
+		}
+	case apikeyaccountbinding.EdgeGroup:
+		if id := m.group; id != nil {
+			return []ent.Value{*id}
+		}
+	case apikeyaccountbinding.EdgeAccount:
+		if id := m.account; id != nil {
+			return []ent.Value{*id}
+		}
+	case apikeyaccountbinding.EdgeCafeRoom:
+		if id := m.cafe_room; id != nil {
+			return []ent.Value{*id}
+		}
+	case apikeyaccountbinding.EdgeRound:
+		if id := m.round; id != nil {
+			return []ent.Value{*id}
+		}
+	case apikeyaccountbinding.EdgeSeat:
+		if id := m.seat; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *APIKeyAccountBindingMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 7)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *APIKeyAccountBindingMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *APIKeyAccountBindingMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 7)
+	if m.clearedapi_key {
+		edges = append(edges, apikeyaccountbinding.EdgeAPIKey)
+	}
+	if m.cleareduser {
+		edges = append(edges, apikeyaccountbinding.EdgeUser)
+	}
+	if m.clearedgroup {
+		edges = append(edges, apikeyaccountbinding.EdgeGroup)
+	}
+	if m.clearedaccount {
+		edges = append(edges, apikeyaccountbinding.EdgeAccount)
+	}
+	if m.clearedcafe_room {
+		edges = append(edges, apikeyaccountbinding.EdgeCafeRoom)
+	}
+	if m.clearedround {
+		edges = append(edges, apikeyaccountbinding.EdgeRound)
+	}
+	if m.clearedseat {
+		edges = append(edges, apikeyaccountbinding.EdgeSeat)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *APIKeyAccountBindingMutation) EdgeCleared(name string) bool {
+	switch name {
+	case apikeyaccountbinding.EdgeAPIKey:
+		return m.clearedapi_key
+	case apikeyaccountbinding.EdgeUser:
+		return m.cleareduser
+	case apikeyaccountbinding.EdgeGroup:
+		return m.clearedgroup
+	case apikeyaccountbinding.EdgeAccount:
+		return m.clearedaccount
+	case apikeyaccountbinding.EdgeCafeRoom:
+		return m.clearedcafe_room
+	case apikeyaccountbinding.EdgeRound:
+		return m.clearedround
+	case apikeyaccountbinding.EdgeSeat:
+		return m.clearedseat
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *APIKeyAccountBindingMutation) ClearEdge(name string) error {
+	switch name {
+	case apikeyaccountbinding.EdgeAPIKey:
+		m.ClearAPIKey()
+		return nil
+	case apikeyaccountbinding.EdgeUser:
+		m.ClearUser()
+		return nil
+	case apikeyaccountbinding.EdgeGroup:
+		m.ClearGroup()
+		return nil
+	case apikeyaccountbinding.EdgeAccount:
+		m.ClearAccount()
+		return nil
+	case apikeyaccountbinding.EdgeCafeRoom:
+		m.ClearCafeRoom()
+		return nil
+	case apikeyaccountbinding.EdgeRound:
+		m.ClearRound()
+		return nil
+	case apikeyaccountbinding.EdgeSeat:
+		m.ClearSeat()
+		return nil
+	}
+	return fmt.Errorf("unknown APIKeyAccountBinding unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *APIKeyAccountBindingMutation) ResetEdge(name string) error {
+	switch name {
+	case apikeyaccountbinding.EdgeAPIKey:
+		m.ResetAPIKey()
+		return nil
+	case apikeyaccountbinding.EdgeUser:
+		m.ResetUser()
+		return nil
+	case apikeyaccountbinding.EdgeGroup:
+		m.ResetGroup()
+		return nil
+	case apikeyaccountbinding.EdgeAccount:
+		m.ResetAccount()
+		return nil
+	case apikeyaccountbinding.EdgeCafeRoom:
+		m.ResetCafeRoom()
+		return nil
+	case apikeyaccountbinding.EdgeRound:
+		m.ResetRound()
+		return nil
+	case apikeyaccountbinding.EdgeSeat:
+		m.ResetSeat()
+		return nil
+	}
+	return fmt.Errorf("unknown APIKeyAccountBinding edge %s", name)
 }
 
 // AccountMutation represents an operation that mutates the Account nodes in the graph.
@@ -2647,6 +4385,15 @@ type AccountMutation struct {
 	usage_logs                map[int64]struct{}
 	removedusage_logs         map[int64]struct{}
 	clearedusage_logs         bool
+	cafe_rooms                map[int64]struct{}
+	removedcafe_rooms         map[int64]struct{}
+	clearedcafe_rooms         bool
+	cafe_rounds               map[int64]struct{}
+	removedcafe_rounds        map[int64]struct{}
+	clearedcafe_rounds        bool
+	account_bindings          map[int64]struct{}
+	removedaccount_bindings   map[int64]struct{}
+	clearedaccount_bindings   bool
 	done                      bool
 	oldValue                  func(context.Context) (*Account, error)
 	predicates                []predicate.Account
@@ -4311,6 +6058,168 @@ func (m *AccountMutation) ResetUsageLogs() {
 	m.removedusage_logs = nil
 }
 
+// AddCafeRoomIDs adds the "cafe_rooms" edge to the CafeRoom entity by ids.
+func (m *AccountMutation) AddCafeRoomIDs(ids ...int64) {
+	if m.cafe_rooms == nil {
+		m.cafe_rooms = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.cafe_rooms[ids[i]] = struct{}{}
+	}
+}
+
+// ClearCafeRooms clears the "cafe_rooms" edge to the CafeRoom entity.
+func (m *AccountMutation) ClearCafeRooms() {
+	m.clearedcafe_rooms = true
+}
+
+// CafeRoomsCleared reports if the "cafe_rooms" edge to the CafeRoom entity was cleared.
+func (m *AccountMutation) CafeRoomsCleared() bool {
+	return m.clearedcafe_rooms
+}
+
+// RemoveCafeRoomIDs removes the "cafe_rooms" edge to the CafeRoom entity by IDs.
+func (m *AccountMutation) RemoveCafeRoomIDs(ids ...int64) {
+	if m.removedcafe_rooms == nil {
+		m.removedcafe_rooms = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.cafe_rooms, ids[i])
+		m.removedcafe_rooms[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedCafeRooms returns the removed IDs of the "cafe_rooms" edge to the CafeRoom entity.
+func (m *AccountMutation) RemovedCafeRoomsIDs() (ids []int64) {
+	for id := range m.removedcafe_rooms {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// CafeRoomsIDs returns the "cafe_rooms" edge IDs in the mutation.
+func (m *AccountMutation) CafeRoomsIDs() (ids []int64) {
+	for id := range m.cafe_rooms {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetCafeRooms resets all changes to the "cafe_rooms" edge.
+func (m *AccountMutation) ResetCafeRooms() {
+	m.cafe_rooms = nil
+	m.clearedcafe_rooms = false
+	m.removedcafe_rooms = nil
+}
+
+// AddCafeRoundIDs adds the "cafe_rounds" edge to the GroupBuyRound entity by ids.
+func (m *AccountMutation) AddCafeRoundIDs(ids ...int64) {
+	if m.cafe_rounds == nil {
+		m.cafe_rounds = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.cafe_rounds[ids[i]] = struct{}{}
+	}
+}
+
+// ClearCafeRounds clears the "cafe_rounds" edge to the GroupBuyRound entity.
+func (m *AccountMutation) ClearCafeRounds() {
+	m.clearedcafe_rounds = true
+}
+
+// CafeRoundsCleared reports if the "cafe_rounds" edge to the GroupBuyRound entity was cleared.
+func (m *AccountMutation) CafeRoundsCleared() bool {
+	return m.clearedcafe_rounds
+}
+
+// RemoveCafeRoundIDs removes the "cafe_rounds" edge to the GroupBuyRound entity by IDs.
+func (m *AccountMutation) RemoveCafeRoundIDs(ids ...int64) {
+	if m.removedcafe_rounds == nil {
+		m.removedcafe_rounds = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.cafe_rounds, ids[i])
+		m.removedcafe_rounds[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedCafeRounds returns the removed IDs of the "cafe_rounds" edge to the GroupBuyRound entity.
+func (m *AccountMutation) RemovedCafeRoundsIDs() (ids []int64) {
+	for id := range m.removedcafe_rounds {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// CafeRoundsIDs returns the "cafe_rounds" edge IDs in the mutation.
+func (m *AccountMutation) CafeRoundsIDs() (ids []int64) {
+	for id := range m.cafe_rounds {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetCafeRounds resets all changes to the "cafe_rounds" edge.
+func (m *AccountMutation) ResetCafeRounds() {
+	m.cafe_rounds = nil
+	m.clearedcafe_rounds = false
+	m.removedcafe_rounds = nil
+}
+
+// AddAccountBindingIDs adds the "account_bindings" edge to the APIKeyAccountBinding entity by ids.
+func (m *AccountMutation) AddAccountBindingIDs(ids ...int64) {
+	if m.account_bindings == nil {
+		m.account_bindings = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.account_bindings[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAccountBindings clears the "account_bindings" edge to the APIKeyAccountBinding entity.
+func (m *AccountMutation) ClearAccountBindings() {
+	m.clearedaccount_bindings = true
+}
+
+// AccountBindingsCleared reports if the "account_bindings" edge to the APIKeyAccountBinding entity was cleared.
+func (m *AccountMutation) AccountBindingsCleared() bool {
+	return m.clearedaccount_bindings
+}
+
+// RemoveAccountBindingIDs removes the "account_bindings" edge to the APIKeyAccountBinding entity by IDs.
+func (m *AccountMutation) RemoveAccountBindingIDs(ids ...int64) {
+	if m.removedaccount_bindings == nil {
+		m.removedaccount_bindings = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.account_bindings, ids[i])
+		m.removedaccount_bindings[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAccountBindings returns the removed IDs of the "account_bindings" edge to the APIKeyAccountBinding entity.
+func (m *AccountMutation) RemovedAccountBindingsIDs() (ids []int64) {
+	for id := range m.removedaccount_bindings {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AccountBindingsIDs returns the "account_bindings" edge IDs in the mutation.
+func (m *AccountMutation) AccountBindingsIDs() (ids []int64) {
+	for id := range m.account_bindings {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAccountBindings resets all changes to the "account_bindings" edge.
+func (m *AccountMutation) ResetAccountBindings() {
+	m.account_bindings = nil
+	m.clearedaccount_bindings = false
+	m.removedaccount_bindings = nil
+}
+
 // Where appends a list predicates to the AccountMutation builder.
 func (m *AccountMutation) Where(ps ...predicate.Account) {
 	m.predicates = append(m.predicates, ps...)
@@ -5116,7 +7025,7 @@ func (m *AccountMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *AccountMutation) AddedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 6)
 	if m.groups != nil {
 		edges = append(edges, account.EdgeGroups)
 	}
@@ -5125,6 +7034,15 @@ func (m *AccountMutation) AddedEdges() []string {
 	}
 	if m.usage_logs != nil {
 		edges = append(edges, account.EdgeUsageLogs)
+	}
+	if m.cafe_rooms != nil {
+		edges = append(edges, account.EdgeCafeRooms)
+	}
+	if m.cafe_rounds != nil {
+		edges = append(edges, account.EdgeCafeRounds)
+	}
+	if m.account_bindings != nil {
+		edges = append(edges, account.EdgeAccountBindings)
 	}
 	return edges
 }
@@ -5149,18 +7067,45 @@ func (m *AccountMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case account.EdgeCafeRooms:
+		ids := make([]ent.Value, 0, len(m.cafe_rooms))
+		for id := range m.cafe_rooms {
+			ids = append(ids, id)
+		}
+		return ids
+	case account.EdgeCafeRounds:
+		ids := make([]ent.Value, 0, len(m.cafe_rounds))
+		for id := range m.cafe_rounds {
+			ids = append(ids, id)
+		}
+		return ids
+	case account.EdgeAccountBindings:
+		ids := make([]ent.Value, 0, len(m.account_bindings))
+		for id := range m.account_bindings {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *AccountMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 6)
 	if m.removedgroups != nil {
 		edges = append(edges, account.EdgeGroups)
 	}
 	if m.removedusage_logs != nil {
 		edges = append(edges, account.EdgeUsageLogs)
+	}
+	if m.removedcafe_rooms != nil {
+		edges = append(edges, account.EdgeCafeRooms)
+	}
+	if m.removedcafe_rounds != nil {
+		edges = append(edges, account.EdgeCafeRounds)
+	}
+	if m.removedaccount_bindings != nil {
+		edges = append(edges, account.EdgeAccountBindings)
 	}
 	return edges
 }
@@ -5181,13 +7126,31 @@ func (m *AccountMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case account.EdgeCafeRooms:
+		ids := make([]ent.Value, 0, len(m.removedcafe_rooms))
+		for id := range m.removedcafe_rooms {
+			ids = append(ids, id)
+		}
+		return ids
+	case account.EdgeCafeRounds:
+		ids := make([]ent.Value, 0, len(m.removedcafe_rounds))
+		for id := range m.removedcafe_rounds {
+			ids = append(ids, id)
+		}
+		return ids
+	case account.EdgeAccountBindings:
+		ids := make([]ent.Value, 0, len(m.removedaccount_bindings))
+		for id := range m.removedaccount_bindings {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *AccountMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 6)
 	if m.clearedgroups {
 		edges = append(edges, account.EdgeGroups)
 	}
@@ -5196,6 +7159,15 @@ func (m *AccountMutation) ClearedEdges() []string {
 	}
 	if m.clearedusage_logs {
 		edges = append(edges, account.EdgeUsageLogs)
+	}
+	if m.clearedcafe_rooms {
+		edges = append(edges, account.EdgeCafeRooms)
+	}
+	if m.clearedcafe_rounds {
+		edges = append(edges, account.EdgeCafeRounds)
+	}
+	if m.clearedaccount_bindings {
+		edges = append(edges, account.EdgeAccountBindings)
 	}
 	return edges
 }
@@ -5210,6 +7182,12 @@ func (m *AccountMutation) EdgeCleared(name string) bool {
 		return m.clearedproxy
 	case account.EdgeUsageLogs:
 		return m.clearedusage_logs
+	case account.EdgeCafeRooms:
+		return m.clearedcafe_rooms
+	case account.EdgeCafeRounds:
+		return m.clearedcafe_rounds
+	case account.EdgeAccountBindings:
+		return m.clearedaccount_bindings
 	}
 	return false
 }
@@ -5237,6 +7215,15 @@ func (m *AccountMutation) ResetEdge(name string) error {
 		return nil
 	case account.EdgeUsageLogs:
 		m.ResetUsageLogs()
+		return nil
+	case account.EdgeCafeRooms:
+		m.ResetCafeRooms()
+		return nil
+	case account.EdgeCafeRounds:
+		m.ResetCafeRounds()
+		return nil
+	case account.EdgeAccountBindings:
+		m.ResetAccountBindings()
 		return nil
 	}
 	return fmt.Errorf("unknown Account edge %s", name)
@@ -9283,6 +11270,1379 @@ func (m *AuthIdentityChannelMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown AuthIdentityChannel edge %s", name)
+}
+
+// CafeRoomMutation represents an operation that mutates the CafeRoom nodes in the graph.
+type CafeRoomMutation struct {
+	config
+	op                      Op
+	typ                     string
+	id                      *int64
+	created_at              *time.Time
+	updated_at              *time.Time
+	deleted_at              *time.Time
+	code                    *string
+	name                    *string
+	zone_key                *string
+	theme_key               *string
+	scene_slot_key          *string
+	status                  *string
+	featured                *bool
+	sort_order              *int
+	addsort_order           *int
+	metadata                *map[string]interface{}
+	clearedFields           map[string]struct{}
+	plan                    *int64
+	clearedplan             bool
+	account                 *int64
+	clearedaccount          bool
+	rounds                  map[int64]struct{}
+	removedrounds           map[int64]struct{}
+	clearedrounds           bool
+	account_bindings        map[int64]struct{}
+	removedaccount_bindings map[int64]struct{}
+	clearedaccount_bindings bool
+	done                    bool
+	oldValue                func(context.Context) (*CafeRoom, error)
+	predicates              []predicate.CafeRoom
+}
+
+var _ ent.Mutation = (*CafeRoomMutation)(nil)
+
+// caferoomOption allows management of the mutation configuration using functional options.
+type caferoomOption func(*CafeRoomMutation)
+
+// newCafeRoomMutation creates new mutation for the CafeRoom entity.
+func newCafeRoomMutation(c config, op Op, opts ...caferoomOption) *CafeRoomMutation {
+	m := &CafeRoomMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeCafeRoom,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withCafeRoomID sets the ID field of the mutation.
+func withCafeRoomID(id int64) caferoomOption {
+	return func(m *CafeRoomMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *CafeRoom
+		)
+		m.oldValue = func(ctx context.Context) (*CafeRoom, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().CafeRoom.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withCafeRoom sets the old CafeRoom of the mutation.
+func withCafeRoom(node *CafeRoom) caferoomOption {
+	return func(m *CafeRoomMutation) {
+		m.oldValue = func(context.Context) (*CafeRoom, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m CafeRoomMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m CafeRoomMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *CafeRoomMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *CafeRoomMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().CafeRoom.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *CafeRoomMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *CafeRoomMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the CafeRoom entity.
+// If the CafeRoom object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CafeRoomMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *CafeRoomMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *CafeRoomMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *CafeRoomMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the CafeRoom entity.
+// If the CafeRoom object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CafeRoomMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *CafeRoomMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetDeletedAt sets the "deleted_at" field.
+func (m *CafeRoomMutation) SetDeletedAt(t time.Time) {
+	m.deleted_at = &t
+}
+
+// DeletedAt returns the value of the "deleted_at" field in the mutation.
+func (m *CafeRoomMutation) DeletedAt() (r time.Time, exists bool) {
+	v := m.deleted_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDeletedAt returns the old "deleted_at" field's value of the CafeRoom entity.
+// If the CafeRoom object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CafeRoomMutation) OldDeletedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDeletedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDeletedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDeletedAt: %w", err)
+	}
+	return oldValue.DeletedAt, nil
+}
+
+// ClearDeletedAt clears the value of the "deleted_at" field.
+func (m *CafeRoomMutation) ClearDeletedAt() {
+	m.deleted_at = nil
+	m.clearedFields[caferoom.FieldDeletedAt] = struct{}{}
+}
+
+// DeletedAtCleared returns if the "deleted_at" field was cleared in this mutation.
+func (m *CafeRoomMutation) DeletedAtCleared() bool {
+	_, ok := m.clearedFields[caferoom.FieldDeletedAt]
+	return ok
+}
+
+// ResetDeletedAt resets all changes to the "deleted_at" field.
+func (m *CafeRoomMutation) ResetDeletedAt() {
+	m.deleted_at = nil
+	delete(m.clearedFields, caferoom.FieldDeletedAt)
+}
+
+// SetCode sets the "code" field.
+func (m *CafeRoomMutation) SetCode(s string) {
+	m.code = &s
+}
+
+// Code returns the value of the "code" field in the mutation.
+func (m *CafeRoomMutation) Code() (r string, exists bool) {
+	v := m.code
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCode returns the old "code" field's value of the CafeRoom entity.
+// If the CafeRoom object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CafeRoomMutation) OldCode(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCode: %w", err)
+	}
+	return oldValue.Code, nil
+}
+
+// ResetCode resets all changes to the "code" field.
+func (m *CafeRoomMutation) ResetCode() {
+	m.code = nil
+}
+
+// SetName sets the "name" field.
+func (m *CafeRoomMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *CafeRoomMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the CafeRoom entity.
+// If the CafeRoom object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CafeRoomMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *CafeRoomMutation) ResetName() {
+	m.name = nil
+}
+
+// SetPlanID sets the "plan_id" field.
+func (m *CafeRoomMutation) SetPlanID(i int64) {
+	m.plan = &i
+}
+
+// PlanID returns the value of the "plan_id" field in the mutation.
+func (m *CafeRoomMutation) PlanID() (r int64, exists bool) {
+	v := m.plan
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPlanID returns the old "plan_id" field's value of the CafeRoom entity.
+// If the CafeRoom object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CafeRoomMutation) OldPlanID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPlanID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPlanID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPlanID: %w", err)
+	}
+	return oldValue.PlanID, nil
+}
+
+// ResetPlanID resets all changes to the "plan_id" field.
+func (m *CafeRoomMutation) ResetPlanID() {
+	m.plan = nil
+}
+
+// SetAccountID sets the "account_id" field.
+func (m *CafeRoomMutation) SetAccountID(i int64) {
+	m.account = &i
+}
+
+// AccountID returns the value of the "account_id" field in the mutation.
+func (m *CafeRoomMutation) AccountID() (r int64, exists bool) {
+	v := m.account
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAccountID returns the old "account_id" field's value of the CafeRoom entity.
+// If the CafeRoom object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CafeRoomMutation) OldAccountID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAccountID: %w", err)
+	}
+	return oldValue.AccountID, nil
+}
+
+// ClearAccountID clears the value of the "account_id" field.
+func (m *CafeRoomMutation) ClearAccountID() {
+	m.account = nil
+	m.clearedFields[caferoom.FieldAccountID] = struct{}{}
+}
+
+// AccountIDCleared returns if the "account_id" field was cleared in this mutation.
+func (m *CafeRoomMutation) AccountIDCleared() bool {
+	_, ok := m.clearedFields[caferoom.FieldAccountID]
+	return ok
+}
+
+// ResetAccountID resets all changes to the "account_id" field.
+func (m *CafeRoomMutation) ResetAccountID() {
+	m.account = nil
+	delete(m.clearedFields, caferoom.FieldAccountID)
+}
+
+// SetZoneKey sets the "zone_key" field.
+func (m *CafeRoomMutation) SetZoneKey(s string) {
+	m.zone_key = &s
+}
+
+// ZoneKey returns the value of the "zone_key" field in the mutation.
+func (m *CafeRoomMutation) ZoneKey() (r string, exists bool) {
+	v := m.zone_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldZoneKey returns the old "zone_key" field's value of the CafeRoom entity.
+// If the CafeRoom object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CafeRoomMutation) OldZoneKey(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldZoneKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldZoneKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldZoneKey: %w", err)
+	}
+	return oldValue.ZoneKey, nil
+}
+
+// ResetZoneKey resets all changes to the "zone_key" field.
+func (m *CafeRoomMutation) ResetZoneKey() {
+	m.zone_key = nil
+}
+
+// SetThemeKey sets the "theme_key" field.
+func (m *CafeRoomMutation) SetThemeKey(s string) {
+	m.theme_key = &s
+}
+
+// ThemeKey returns the value of the "theme_key" field in the mutation.
+func (m *CafeRoomMutation) ThemeKey() (r string, exists bool) {
+	v := m.theme_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldThemeKey returns the old "theme_key" field's value of the CafeRoom entity.
+// If the CafeRoom object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CafeRoomMutation) OldThemeKey(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldThemeKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldThemeKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldThemeKey: %w", err)
+	}
+	return oldValue.ThemeKey, nil
+}
+
+// ResetThemeKey resets all changes to the "theme_key" field.
+func (m *CafeRoomMutation) ResetThemeKey() {
+	m.theme_key = nil
+}
+
+// SetSceneSlotKey sets the "scene_slot_key" field.
+func (m *CafeRoomMutation) SetSceneSlotKey(s string) {
+	m.scene_slot_key = &s
+}
+
+// SceneSlotKey returns the value of the "scene_slot_key" field in the mutation.
+func (m *CafeRoomMutation) SceneSlotKey() (r string, exists bool) {
+	v := m.scene_slot_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSceneSlotKey returns the old "scene_slot_key" field's value of the CafeRoom entity.
+// If the CafeRoom object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CafeRoomMutation) OldSceneSlotKey(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSceneSlotKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSceneSlotKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSceneSlotKey: %w", err)
+	}
+	return oldValue.SceneSlotKey, nil
+}
+
+// ResetSceneSlotKey resets all changes to the "scene_slot_key" field.
+func (m *CafeRoomMutation) ResetSceneSlotKey() {
+	m.scene_slot_key = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *CafeRoomMutation) SetStatus(s string) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *CafeRoomMutation) Status() (r string, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the CafeRoom entity.
+// If the CafeRoom object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CafeRoomMutation) OldStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *CafeRoomMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetFeatured sets the "featured" field.
+func (m *CafeRoomMutation) SetFeatured(b bool) {
+	m.featured = &b
+}
+
+// Featured returns the value of the "featured" field in the mutation.
+func (m *CafeRoomMutation) Featured() (r bool, exists bool) {
+	v := m.featured
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFeatured returns the old "featured" field's value of the CafeRoom entity.
+// If the CafeRoom object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CafeRoomMutation) OldFeatured(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFeatured is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFeatured requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFeatured: %w", err)
+	}
+	return oldValue.Featured, nil
+}
+
+// ResetFeatured resets all changes to the "featured" field.
+func (m *CafeRoomMutation) ResetFeatured() {
+	m.featured = nil
+}
+
+// SetSortOrder sets the "sort_order" field.
+func (m *CafeRoomMutation) SetSortOrder(i int) {
+	m.sort_order = &i
+	m.addsort_order = nil
+}
+
+// SortOrder returns the value of the "sort_order" field in the mutation.
+func (m *CafeRoomMutation) SortOrder() (r int, exists bool) {
+	v := m.sort_order
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSortOrder returns the old "sort_order" field's value of the CafeRoom entity.
+// If the CafeRoom object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CafeRoomMutation) OldSortOrder(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSortOrder is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSortOrder requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSortOrder: %w", err)
+	}
+	return oldValue.SortOrder, nil
+}
+
+// AddSortOrder adds i to the "sort_order" field.
+func (m *CafeRoomMutation) AddSortOrder(i int) {
+	if m.addsort_order != nil {
+		*m.addsort_order += i
+	} else {
+		m.addsort_order = &i
+	}
+}
+
+// AddedSortOrder returns the value that was added to the "sort_order" field in this mutation.
+func (m *CafeRoomMutation) AddedSortOrder() (r int, exists bool) {
+	v := m.addsort_order
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSortOrder resets all changes to the "sort_order" field.
+func (m *CafeRoomMutation) ResetSortOrder() {
+	m.sort_order = nil
+	m.addsort_order = nil
+}
+
+// SetMetadata sets the "metadata" field.
+func (m *CafeRoomMutation) SetMetadata(value map[string]interface{}) {
+	m.metadata = &value
+}
+
+// Metadata returns the value of the "metadata" field in the mutation.
+func (m *CafeRoomMutation) Metadata() (r map[string]interface{}, exists bool) {
+	v := m.metadata
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMetadata returns the old "metadata" field's value of the CafeRoom entity.
+// If the CafeRoom object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CafeRoomMutation) OldMetadata(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMetadata is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMetadata requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMetadata: %w", err)
+	}
+	return oldValue.Metadata, nil
+}
+
+// ResetMetadata resets all changes to the "metadata" field.
+func (m *CafeRoomMutation) ResetMetadata() {
+	m.metadata = nil
+}
+
+// ClearPlan clears the "plan" edge to the GroupBuyPlan entity.
+func (m *CafeRoomMutation) ClearPlan() {
+	m.clearedplan = true
+	m.clearedFields[caferoom.FieldPlanID] = struct{}{}
+}
+
+// PlanCleared reports if the "plan" edge to the GroupBuyPlan entity was cleared.
+func (m *CafeRoomMutation) PlanCleared() bool {
+	return m.clearedplan
+}
+
+// PlanIDs returns the "plan" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// PlanID instead. It exists only for internal usage by the builders.
+func (m *CafeRoomMutation) PlanIDs() (ids []int64) {
+	if id := m.plan; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetPlan resets all changes to the "plan" edge.
+func (m *CafeRoomMutation) ResetPlan() {
+	m.plan = nil
+	m.clearedplan = false
+}
+
+// ClearAccount clears the "account" edge to the Account entity.
+func (m *CafeRoomMutation) ClearAccount() {
+	m.clearedaccount = true
+	m.clearedFields[caferoom.FieldAccountID] = struct{}{}
+}
+
+// AccountCleared reports if the "account" edge to the Account entity was cleared.
+func (m *CafeRoomMutation) AccountCleared() bool {
+	return m.AccountIDCleared() || m.clearedaccount
+}
+
+// AccountIDs returns the "account" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// AccountID instead. It exists only for internal usage by the builders.
+func (m *CafeRoomMutation) AccountIDs() (ids []int64) {
+	if id := m.account; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAccount resets all changes to the "account" edge.
+func (m *CafeRoomMutation) ResetAccount() {
+	m.account = nil
+	m.clearedaccount = false
+}
+
+// AddRoundIDs adds the "rounds" edge to the GroupBuyRound entity by ids.
+func (m *CafeRoomMutation) AddRoundIDs(ids ...int64) {
+	if m.rounds == nil {
+		m.rounds = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.rounds[ids[i]] = struct{}{}
+	}
+}
+
+// ClearRounds clears the "rounds" edge to the GroupBuyRound entity.
+func (m *CafeRoomMutation) ClearRounds() {
+	m.clearedrounds = true
+}
+
+// RoundsCleared reports if the "rounds" edge to the GroupBuyRound entity was cleared.
+func (m *CafeRoomMutation) RoundsCleared() bool {
+	return m.clearedrounds
+}
+
+// RemoveRoundIDs removes the "rounds" edge to the GroupBuyRound entity by IDs.
+func (m *CafeRoomMutation) RemoveRoundIDs(ids ...int64) {
+	if m.removedrounds == nil {
+		m.removedrounds = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.rounds, ids[i])
+		m.removedrounds[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedRounds returns the removed IDs of the "rounds" edge to the GroupBuyRound entity.
+func (m *CafeRoomMutation) RemovedRoundsIDs() (ids []int64) {
+	for id := range m.removedrounds {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// RoundsIDs returns the "rounds" edge IDs in the mutation.
+func (m *CafeRoomMutation) RoundsIDs() (ids []int64) {
+	for id := range m.rounds {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetRounds resets all changes to the "rounds" edge.
+func (m *CafeRoomMutation) ResetRounds() {
+	m.rounds = nil
+	m.clearedrounds = false
+	m.removedrounds = nil
+}
+
+// AddAccountBindingIDs adds the "account_bindings" edge to the APIKeyAccountBinding entity by ids.
+func (m *CafeRoomMutation) AddAccountBindingIDs(ids ...int64) {
+	if m.account_bindings == nil {
+		m.account_bindings = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.account_bindings[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAccountBindings clears the "account_bindings" edge to the APIKeyAccountBinding entity.
+func (m *CafeRoomMutation) ClearAccountBindings() {
+	m.clearedaccount_bindings = true
+}
+
+// AccountBindingsCleared reports if the "account_bindings" edge to the APIKeyAccountBinding entity was cleared.
+func (m *CafeRoomMutation) AccountBindingsCleared() bool {
+	return m.clearedaccount_bindings
+}
+
+// RemoveAccountBindingIDs removes the "account_bindings" edge to the APIKeyAccountBinding entity by IDs.
+func (m *CafeRoomMutation) RemoveAccountBindingIDs(ids ...int64) {
+	if m.removedaccount_bindings == nil {
+		m.removedaccount_bindings = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.account_bindings, ids[i])
+		m.removedaccount_bindings[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAccountBindings returns the removed IDs of the "account_bindings" edge to the APIKeyAccountBinding entity.
+func (m *CafeRoomMutation) RemovedAccountBindingsIDs() (ids []int64) {
+	for id := range m.removedaccount_bindings {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AccountBindingsIDs returns the "account_bindings" edge IDs in the mutation.
+func (m *CafeRoomMutation) AccountBindingsIDs() (ids []int64) {
+	for id := range m.account_bindings {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAccountBindings resets all changes to the "account_bindings" edge.
+func (m *CafeRoomMutation) ResetAccountBindings() {
+	m.account_bindings = nil
+	m.clearedaccount_bindings = false
+	m.removedaccount_bindings = nil
+}
+
+// Where appends a list predicates to the CafeRoomMutation builder.
+func (m *CafeRoomMutation) Where(ps ...predicate.CafeRoom) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the CafeRoomMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *CafeRoomMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.CafeRoom, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *CafeRoomMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *CafeRoomMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (CafeRoom).
+func (m *CafeRoomMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *CafeRoomMutation) Fields() []string {
+	fields := make([]string, 0, 14)
+	if m.created_at != nil {
+		fields = append(fields, caferoom.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, caferoom.FieldUpdatedAt)
+	}
+	if m.deleted_at != nil {
+		fields = append(fields, caferoom.FieldDeletedAt)
+	}
+	if m.code != nil {
+		fields = append(fields, caferoom.FieldCode)
+	}
+	if m.name != nil {
+		fields = append(fields, caferoom.FieldName)
+	}
+	if m.plan != nil {
+		fields = append(fields, caferoom.FieldPlanID)
+	}
+	if m.account != nil {
+		fields = append(fields, caferoom.FieldAccountID)
+	}
+	if m.zone_key != nil {
+		fields = append(fields, caferoom.FieldZoneKey)
+	}
+	if m.theme_key != nil {
+		fields = append(fields, caferoom.FieldThemeKey)
+	}
+	if m.scene_slot_key != nil {
+		fields = append(fields, caferoom.FieldSceneSlotKey)
+	}
+	if m.status != nil {
+		fields = append(fields, caferoom.FieldStatus)
+	}
+	if m.featured != nil {
+		fields = append(fields, caferoom.FieldFeatured)
+	}
+	if m.sort_order != nil {
+		fields = append(fields, caferoom.FieldSortOrder)
+	}
+	if m.metadata != nil {
+		fields = append(fields, caferoom.FieldMetadata)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *CafeRoomMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case caferoom.FieldCreatedAt:
+		return m.CreatedAt()
+	case caferoom.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case caferoom.FieldDeletedAt:
+		return m.DeletedAt()
+	case caferoom.FieldCode:
+		return m.Code()
+	case caferoom.FieldName:
+		return m.Name()
+	case caferoom.FieldPlanID:
+		return m.PlanID()
+	case caferoom.FieldAccountID:
+		return m.AccountID()
+	case caferoom.FieldZoneKey:
+		return m.ZoneKey()
+	case caferoom.FieldThemeKey:
+		return m.ThemeKey()
+	case caferoom.FieldSceneSlotKey:
+		return m.SceneSlotKey()
+	case caferoom.FieldStatus:
+		return m.Status()
+	case caferoom.FieldFeatured:
+		return m.Featured()
+	case caferoom.FieldSortOrder:
+		return m.SortOrder()
+	case caferoom.FieldMetadata:
+		return m.Metadata()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *CafeRoomMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case caferoom.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case caferoom.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case caferoom.FieldDeletedAt:
+		return m.OldDeletedAt(ctx)
+	case caferoom.FieldCode:
+		return m.OldCode(ctx)
+	case caferoom.FieldName:
+		return m.OldName(ctx)
+	case caferoom.FieldPlanID:
+		return m.OldPlanID(ctx)
+	case caferoom.FieldAccountID:
+		return m.OldAccountID(ctx)
+	case caferoom.FieldZoneKey:
+		return m.OldZoneKey(ctx)
+	case caferoom.FieldThemeKey:
+		return m.OldThemeKey(ctx)
+	case caferoom.FieldSceneSlotKey:
+		return m.OldSceneSlotKey(ctx)
+	case caferoom.FieldStatus:
+		return m.OldStatus(ctx)
+	case caferoom.FieldFeatured:
+		return m.OldFeatured(ctx)
+	case caferoom.FieldSortOrder:
+		return m.OldSortOrder(ctx)
+	case caferoom.FieldMetadata:
+		return m.OldMetadata(ctx)
+	}
+	return nil, fmt.Errorf("unknown CafeRoom field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CafeRoomMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case caferoom.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case caferoom.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case caferoom.FieldDeletedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDeletedAt(v)
+		return nil
+	case caferoom.FieldCode:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCode(v)
+		return nil
+	case caferoom.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case caferoom.FieldPlanID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPlanID(v)
+		return nil
+	case caferoom.FieldAccountID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAccountID(v)
+		return nil
+	case caferoom.FieldZoneKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetZoneKey(v)
+		return nil
+	case caferoom.FieldThemeKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetThemeKey(v)
+		return nil
+	case caferoom.FieldSceneSlotKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSceneSlotKey(v)
+		return nil
+	case caferoom.FieldStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case caferoom.FieldFeatured:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFeatured(v)
+		return nil
+	case caferoom.FieldSortOrder:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSortOrder(v)
+		return nil
+	case caferoom.FieldMetadata:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMetadata(v)
+		return nil
+	}
+	return fmt.Errorf("unknown CafeRoom field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *CafeRoomMutation) AddedFields() []string {
+	var fields []string
+	if m.addsort_order != nil {
+		fields = append(fields, caferoom.FieldSortOrder)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *CafeRoomMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case caferoom.FieldSortOrder:
+		return m.AddedSortOrder()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CafeRoomMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case caferoom.FieldSortOrder:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSortOrder(v)
+		return nil
+	}
+	return fmt.Errorf("unknown CafeRoom numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *CafeRoomMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(caferoom.FieldDeletedAt) {
+		fields = append(fields, caferoom.FieldDeletedAt)
+	}
+	if m.FieldCleared(caferoom.FieldAccountID) {
+		fields = append(fields, caferoom.FieldAccountID)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *CafeRoomMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *CafeRoomMutation) ClearField(name string) error {
+	switch name {
+	case caferoom.FieldDeletedAt:
+		m.ClearDeletedAt()
+		return nil
+	case caferoom.FieldAccountID:
+		m.ClearAccountID()
+		return nil
+	}
+	return fmt.Errorf("unknown CafeRoom nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *CafeRoomMutation) ResetField(name string) error {
+	switch name {
+	case caferoom.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case caferoom.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case caferoom.FieldDeletedAt:
+		m.ResetDeletedAt()
+		return nil
+	case caferoom.FieldCode:
+		m.ResetCode()
+		return nil
+	case caferoom.FieldName:
+		m.ResetName()
+		return nil
+	case caferoom.FieldPlanID:
+		m.ResetPlanID()
+		return nil
+	case caferoom.FieldAccountID:
+		m.ResetAccountID()
+		return nil
+	case caferoom.FieldZoneKey:
+		m.ResetZoneKey()
+		return nil
+	case caferoom.FieldThemeKey:
+		m.ResetThemeKey()
+		return nil
+	case caferoom.FieldSceneSlotKey:
+		m.ResetSceneSlotKey()
+		return nil
+	case caferoom.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case caferoom.FieldFeatured:
+		m.ResetFeatured()
+		return nil
+	case caferoom.FieldSortOrder:
+		m.ResetSortOrder()
+		return nil
+	case caferoom.FieldMetadata:
+		m.ResetMetadata()
+		return nil
+	}
+	return fmt.Errorf("unknown CafeRoom field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *CafeRoomMutation) AddedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.plan != nil {
+		edges = append(edges, caferoom.EdgePlan)
+	}
+	if m.account != nil {
+		edges = append(edges, caferoom.EdgeAccount)
+	}
+	if m.rounds != nil {
+		edges = append(edges, caferoom.EdgeRounds)
+	}
+	if m.account_bindings != nil {
+		edges = append(edges, caferoom.EdgeAccountBindings)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *CafeRoomMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case caferoom.EdgePlan:
+		if id := m.plan; id != nil {
+			return []ent.Value{*id}
+		}
+	case caferoom.EdgeAccount:
+		if id := m.account; id != nil {
+			return []ent.Value{*id}
+		}
+	case caferoom.EdgeRounds:
+		ids := make([]ent.Value, 0, len(m.rounds))
+		for id := range m.rounds {
+			ids = append(ids, id)
+		}
+		return ids
+	case caferoom.EdgeAccountBindings:
+		ids := make([]ent.Value, 0, len(m.account_bindings))
+		for id := range m.account_bindings {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *CafeRoomMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.removedrounds != nil {
+		edges = append(edges, caferoom.EdgeRounds)
+	}
+	if m.removedaccount_bindings != nil {
+		edges = append(edges, caferoom.EdgeAccountBindings)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *CafeRoomMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case caferoom.EdgeRounds:
+		ids := make([]ent.Value, 0, len(m.removedrounds))
+		for id := range m.removedrounds {
+			ids = append(ids, id)
+		}
+		return ids
+	case caferoom.EdgeAccountBindings:
+		ids := make([]ent.Value, 0, len(m.removedaccount_bindings))
+		for id := range m.removedaccount_bindings {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *CafeRoomMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.clearedplan {
+		edges = append(edges, caferoom.EdgePlan)
+	}
+	if m.clearedaccount {
+		edges = append(edges, caferoom.EdgeAccount)
+	}
+	if m.clearedrounds {
+		edges = append(edges, caferoom.EdgeRounds)
+	}
+	if m.clearedaccount_bindings {
+		edges = append(edges, caferoom.EdgeAccountBindings)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *CafeRoomMutation) EdgeCleared(name string) bool {
+	switch name {
+	case caferoom.EdgePlan:
+		return m.clearedplan
+	case caferoom.EdgeAccount:
+		return m.clearedaccount
+	case caferoom.EdgeRounds:
+		return m.clearedrounds
+	case caferoom.EdgeAccountBindings:
+		return m.clearedaccount_bindings
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *CafeRoomMutation) ClearEdge(name string) error {
+	switch name {
+	case caferoom.EdgePlan:
+		m.ClearPlan()
+		return nil
+	case caferoom.EdgeAccount:
+		m.ClearAccount()
+		return nil
+	}
+	return fmt.Errorf("unknown CafeRoom unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *CafeRoomMutation) ResetEdge(name string) error {
+	switch name {
+	case caferoom.EdgePlan:
+		m.ResetPlan()
+		return nil
+	case caferoom.EdgeAccount:
+		m.ResetAccount()
+		return nil
+	case caferoom.EdgeRounds:
+		m.ResetRounds()
+		return nil
+	case caferoom.EdgeAccountBindings:
+		m.ResetAccountBindings()
+		return nil
+	}
+	return fmt.Errorf("unknown CafeRoom edge %s", name)
 }
 
 // ChannelMonitorMutation represents an operation that mutates the ChannelMonitor nodes in the graph.
@@ -15302,6 +18662,7 @@ type GroupMutation struct {
 	addpeak_rate_multiplier                 *float64
 	is_exclusive                            *bool
 	status                                  *string
+	access_mode                             *string
 	duplicate_operation_id                  *string
 	platform                                *string
 	subscription_type                       *string
@@ -15366,6 +18727,12 @@ type GroupMutation struct {
 	group_buy_entitlements                  map[int64]struct{}
 	removedgroup_buy_entitlements           map[int64]struct{}
 	clearedgroup_buy_entitlements           bool
+	cafe_rooms                              map[int64]struct{}
+	removedcafe_rooms                       map[int64]struct{}
+	clearedcafe_rooms                       bool
+	account_bindings                        map[int64]struct{}
+	removedaccount_bindings                 map[int64]struct{}
+	clearedaccount_bindings                 bool
 	accounts                                map[int64]struct{}
 	removedaccounts                         map[int64]struct{}
 	clearedaccounts                         bool
@@ -15971,6 +19338,42 @@ func (m *GroupMutation) OldStatus(ctx context.Context) (v string, err error) {
 // ResetStatus resets all changes to the "status" field.
 func (m *GroupMutation) ResetStatus() {
 	m.status = nil
+}
+
+// SetAccessMode sets the "access_mode" field.
+func (m *GroupMutation) SetAccessMode(s string) {
+	m.access_mode = &s
+}
+
+// AccessMode returns the value of the "access_mode" field in the mutation.
+func (m *GroupMutation) AccessMode() (r string, exists bool) {
+	v := m.access_mode
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAccessMode returns the old "access_mode" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldAccessMode(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAccessMode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAccessMode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAccessMode: %w", err)
+	}
+	return oldValue.AccessMode, nil
+}
+
+// ResetAccessMode resets all changes to the "access_mode" field.
+func (m *GroupMutation) ResetAccessMode() {
+	m.access_mode = nil
 }
 
 // SetDuplicateOperationID sets the "duplicate_operation_id" field.
@@ -17821,6 +21224,114 @@ func (m *GroupMutation) ResetGroupBuyEntitlements() {
 	m.removedgroup_buy_entitlements = nil
 }
 
+// AddCafeRoomIDs adds the "cafe_rooms" edge to the CafeRoom entity by ids.
+func (m *GroupMutation) AddCafeRoomIDs(ids ...int64) {
+	if m.cafe_rooms == nil {
+		m.cafe_rooms = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.cafe_rooms[ids[i]] = struct{}{}
+	}
+}
+
+// ClearCafeRooms clears the "cafe_rooms" edge to the CafeRoom entity.
+func (m *GroupMutation) ClearCafeRooms() {
+	m.clearedcafe_rooms = true
+}
+
+// CafeRoomsCleared reports if the "cafe_rooms" edge to the CafeRoom entity was cleared.
+func (m *GroupMutation) CafeRoomsCleared() bool {
+	return m.clearedcafe_rooms
+}
+
+// RemoveCafeRoomIDs removes the "cafe_rooms" edge to the CafeRoom entity by IDs.
+func (m *GroupMutation) RemoveCafeRoomIDs(ids ...int64) {
+	if m.removedcafe_rooms == nil {
+		m.removedcafe_rooms = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.cafe_rooms, ids[i])
+		m.removedcafe_rooms[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedCafeRooms returns the removed IDs of the "cafe_rooms" edge to the CafeRoom entity.
+func (m *GroupMutation) RemovedCafeRoomsIDs() (ids []int64) {
+	for id := range m.removedcafe_rooms {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// CafeRoomsIDs returns the "cafe_rooms" edge IDs in the mutation.
+func (m *GroupMutation) CafeRoomsIDs() (ids []int64) {
+	for id := range m.cafe_rooms {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetCafeRooms resets all changes to the "cafe_rooms" edge.
+func (m *GroupMutation) ResetCafeRooms() {
+	m.cafe_rooms = nil
+	m.clearedcafe_rooms = false
+	m.removedcafe_rooms = nil
+}
+
+// AddAccountBindingIDs adds the "account_bindings" edge to the APIKeyAccountBinding entity by ids.
+func (m *GroupMutation) AddAccountBindingIDs(ids ...int64) {
+	if m.account_bindings == nil {
+		m.account_bindings = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.account_bindings[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAccountBindings clears the "account_bindings" edge to the APIKeyAccountBinding entity.
+func (m *GroupMutation) ClearAccountBindings() {
+	m.clearedaccount_bindings = true
+}
+
+// AccountBindingsCleared reports if the "account_bindings" edge to the APIKeyAccountBinding entity was cleared.
+func (m *GroupMutation) AccountBindingsCleared() bool {
+	return m.clearedaccount_bindings
+}
+
+// RemoveAccountBindingIDs removes the "account_bindings" edge to the APIKeyAccountBinding entity by IDs.
+func (m *GroupMutation) RemoveAccountBindingIDs(ids ...int64) {
+	if m.removedaccount_bindings == nil {
+		m.removedaccount_bindings = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.account_bindings, ids[i])
+		m.removedaccount_bindings[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAccountBindings returns the removed IDs of the "account_bindings" edge to the APIKeyAccountBinding entity.
+func (m *GroupMutation) RemovedAccountBindingsIDs() (ids []int64) {
+	for id := range m.removedaccount_bindings {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AccountBindingsIDs returns the "account_bindings" edge IDs in the mutation.
+func (m *GroupMutation) AccountBindingsIDs() (ids []int64) {
+	for id := range m.account_bindings {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAccountBindings resets all changes to the "account_bindings" edge.
+func (m *GroupMutation) ResetAccountBindings() {
+	m.account_bindings = nil
+	m.clearedaccount_bindings = false
+	m.removedaccount_bindings = nil
+}
+
 // AddAccountIDs adds the "accounts" edge to the Account entity by ids.
 func (m *GroupMutation) AddAccountIDs(ids ...int64) {
 	if m.accounts == nil {
@@ -17963,7 +21474,7 @@ func (m *GroupMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupMutation) Fields() []string {
-	fields := make([]string, 0, 43)
+	fields := make([]string, 0, 44)
 	if m.created_at != nil {
 		fields = append(fields, group.FieldCreatedAt)
 	}
@@ -17999,6 +21510,9 @@ func (m *GroupMutation) Fields() []string {
 	}
 	if m.status != nil {
 		fields = append(fields, group.FieldStatus)
+	}
+	if m.access_mode != nil {
+		fields = append(fields, group.FieldAccessMode)
 	}
 	if m.duplicate_operation_id != nil {
 		fields = append(fields, group.FieldDuplicateOperationID)
@@ -18125,6 +21639,8 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
 		return m.IsExclusive()
 	case group.FieldStatus:
 		return m.Status()
+	case group.FieldAccessMode:
+		return m.AccessMode()
 	case group.FieldDuplicateOperationID:
 		return m.DuplicateOperationID()
 	case group.FieldPlatform:
@@ -18220,6 +21736,8 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldIsExclusive(ctx)
 	case group.FieldStatus:
 		return m.OldStatus(ctx)
+	case group.FieldAccessMode:
+		return m.OldAccessMode(ctx)
 	case group.FieldDuplicateOperationID:
 		return m.OldDuplicateOperationID(ctx)
 	case group.FieldPlatform:
@@ -18374,6 +21892,13 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetStatus(v)
+		return nil
+	case group.FieldAccessMode:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAccessMode(v)
 		return nil
 	case group.FieldDuplicateOperationID:
 		v, ok := value.(string)
@@ -18923,6 +22448,9 @@ func (m *GroupMutation) ResetField(name string) error {
 	case group.FieldStatus:
 		m.ResetStatus()
 		return nil
+	case group.FieldAccessMode:
+		m.ResetAccessMode()
+		return nil
 	case group.FieldDuplicateOperationID:
 		m.ResetDuplicateOperationID()
 		return nil
@@ -19022,7 +22550,7 @@ func (m *GroupMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *GroupMutation) AddedEdges() []string {
-	edges := make([]string, 0, 8)
+	edges := make([]string, 0, 10)
 	if m.api_keys != nil {
 		edges = append(edges, group.EdgeAPIKeys)
 	}
@@ -19040,6 +22568,12 @@ func (m *GroupMutation) AddedEdges() []string {
 	}
 	if m.group_buy_entitlements != nil {
 		edges = append(edges, group.EdgeGroupBuyEntitlements)
+	}
+	if m.cafe_rooms != nil {
+		edges = append(edges, group.EdgeCafeRooms)
+	}
+	if m.account_bindings != nil {
+		edges = append(edges, group.EdgeAccountBindings)
 	}
 	if m.accounts != nil {
 		edges = append(edges, group.EdgeAccounts)
@@ -19090,6 +22624,18 @@ func (m *GroupMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case group.EdgeCafeRooms:
+		ids := make([]ent.Value, 0, len(m.cafe_rooms))
+		for id := range m.cafe_rooms {
+			ids = append(ids, id)
+		}
+		return ids
+	case group.EdgeAccountBindings:
+		ids := make([]ent.Value, 0, len(m.account_bindings))
+		for id := range m.account_bindings {
+			ids = append(ids, id)
+		}
+		return ids
 	case group.EdgeAccounts:
 		ids := make([]ent.Value, 0, len(m.accounts))
 		for id := range m.accounts {
@@ -19108,7 +22654,7 @@ func (m *GroupMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *GroupMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 8)
+	edges := make([]string, 0, 10)
 	if m.removedapi_keys != nil {
 		edges = append(edges, group.EdgeAPIKeys)
 	}
@@ -19126,6 +22672,12 @@ func (m *GroupMutation) RemovedEdges() []string {
 	}
 	if m.removedgroup_buy_entitlements != nil {
 		edges = append(edges, group.EdgeGroupBuyEntitlements)
+	}
+	if m.removedcafe_rooms != nil {
+		edges = append(edges, group.EdgeCafeRooms)
+	}
+	if m.removedaccount_bindings != nil {
+		edges = append(edges, group.EdgeAccountBindings)
 	}
 	if m.removedaccounts != nil {
 		edges = append(edges, group.EdgeAccounts)
@@ -19176,6 +22728,18 @@ func (m *GroupMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case group.EdgeCafeRooms:
+		ids := make([]ent.Value, 0, len(m.removedcafe_rooms))
+		for id := range m.removedcafe_rooms {
+			ids = append(ids, id)
+		}
+		return ids
+	case group.EdgeAccountBindings:
+		ids := make([]ent.Value, 0, len(m.removedaccount_bindings))
+		for id := range m.removedaccount_bindings {
+			ids = append(ids, id)
+		}
+		return ids
 	case group.EdgeAccounts:
 		ids := make([]ent.Value, 0, len(m.removedaccounts))
 		for id := range m.removedaccounts {
@@ -19194,7 +22758,7 @@ func (m *GroupMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *GroupMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 8)
+	edges := make([]string, 0, 10)
 	if m.clearedapi_keys {
 		edges = append(edges, group.EdgeAPIKeys)
 	}
@@ -19212,6 +22776,12 @@ func (m *GroupMutation) ClearedEdges() []string {
 	}
 	if m.clearedgroup_buy_entitlements {
 		edges = append(edges, group.EdgeGroupBuyEntitlements)
+	}
+	if m.clearedcafe_rooms {
+		edges = append(edges, group.EdgeCafeRooms)
+	}
+	if m.clearedaccount_bindings {
+		edges = append(edges, group.EdgeAccountBindings)
 	}
 	if m.clearedaccounts {
 		edges = append(edges, group.EdgeAccounts)
@@ -19238,6 +22808,10 @@ func (m *GroupMutation) EdgeCleared(name string) bool {
 		return m.clearedgroup_buy_plans
 	case group.EdgeGroupBuyEntitlements:
 		return m.clearedgroup_buy_entitlements
+	case group.EdgeCafeRooms:
+		return m.clearedcafe_rooms
+	case group.EdgeAccountBindings:
+		return m.clearedaccount_bindings
 	case group.EdgeAccounts:
 		return m.clearedaccounts
 	case group.EdgeAllowedUsers:
@@ -19275,6 +22849,12 @@ func (m *GroupMutation) ResetEdge(name string) error {
 		return nil
 	case group.EdgeGroupBuyEntitlements:
 		m.ResetGroupBuyEntitlements()
+		return nil
+	case group.EdgeCafeRooms:
+		m.ResetCafeRooms()
+		return nil
+	case group.EdgeAccountBindings:
+		m.ResetAccountBindings()
 		return nil
 	case group.EdgeAccounts:
 		m.ResetAccounts()
@@ -21743,57 +25323,70 @@ func (m *GroupBuyEventMutation) ResetEdge(name string) error {
 // GroupBuyPlanMutation represents an operation that mutates the GroupBuyPlan nodes in the graph.
 type GroupBuyPlanMutation struct {
 	config
-	op                     Op
-	typ                    string
-	id                     *int64
-	created_at             *time.Time
-	updated_at             *time.Time
-	title                  *string
-	description            *string
-	product_key            *string
-	total_shares           *int
-	addtotal_shares        *int
-	seat_count             *int
-	addseat_count          *int
-	price_per_share        *float64
-	addprice_per_share     *float64
-	price_per_seat         *float64
-	addprice_per_seat      *float64
-	price_label            *string
-	quota_per_share_label  *string
-	quota_label            *string
-	max_shares_per_user    *int
-	addmax_shares_per_user *int
-	tier_group_ids         *map[string]int64
-	tier_rules             *[]domain.GroupBuyTierRule
-	appendtier_rules       []domain.GroupBuyTierRule
-	validity_days          *int
-	addvalidity_days       *int
-	timeout_minutes        *int
-	addtimeout_minutes     *int
-	launch_mode            *string
-	refund_mode            *string
-	agreement_text         *string
-	status                 *string
-	sort_order             *int
-	addsort_order          *int
-	last_round_created_at  *time.Time
-	deleted_at             *time.Time
-	clearedFields          map[string]struct{}
-	target_group           *int64
-	clearedtarget_group    bool
-	rounds                 map[int64]struct{}
-	removedrounds          map[int64]struct{}
-	clearedrounds          bool
-	seats                  map[int64]struct{}
-	removedseats           map[int64]struct{}
-	clearedseats           bool
-	events                 map[int64]struct{}
-	removedevents          map[int64]struct{}
-	clearedevents          bool
-	done                   bool
-	oldValue               func(context.Context) (*GroupBuyPlan, error)
-	predicates             []predicate.GroupBuyPlan
+	op                        Op
+	typ                       string
+	id                        *int64
+	created_at                *time.Time
+	updated_at                *time.Time
+	title                     *string
+	description               *string
+	product_key               *string
+	total_shares              *int
+	addtotal_shares           *int
+	seat_count                *int
+	addseat_count             *int
+	price_per_share           *float64
+	addprice_per_share        *float64
+	price_per_seat            *float64
+	addprice_per_seat         *float64
+	price_label               *string
+	quota_per_share_label     *string
+	quota_label               *string
+	max_shares_per_user       *int
+	addmax_shares_per_user    *int
+	tier_group_ids            *map[string]int64
+	tier_rules                *[]domain.GroupBuyTierRule
+	appendtier_rules          []domain.GroupBuyTierRule
+	validity_days             *int
+	addvalidity_days          *int
+	timeout_minutes           *int
+	addtimeout_minutes        *int
+	launch_mode               *string
+	fulfillment_mode          *string
+	room_key_quota_usd        *float64
+	addroom_key_quota_usd     *float64
+	room_key_rate_limit_5h    *float64
+	addroom_key_rate_limit_5h *float64
+	room_key_rate_limit_1d    *float64
+	addroom_key_rate_limit_1d *float64
+	room_key_rate_limit_7d    *float64
+	addroom_key_rate_limit_7d *float64
+	auto_create_room_key      *bool
+	refund_mode               *string
+	agreement_text            *string
+	status                    *string
+	sort_order                *int
+	addsort_order             *int
+	last_round_created_at     *time.Time
+	deleted_at                *time.Time
+	clearedFields             map[string]struct{}
+	target_group              *int64
+	clearedtarget_group       bool
+	rounds                    map[int64]struct{}
+	removedrounds             map[int64]struct{}
+	clearedrounds             bool
+	seats                     map[int64]struct{}
+	removedseats              map[int64]struct{}
+	clearedseats              bool
+	events                    map[int64]struct{}
+	removedevents             map[int64]struct{}
+	clearedevents             bool
+	cafe_rooms                map[int64]struct{}
+	removedcafe_rooms         map[int64]struct{}
+	clearedcafe_rooms         bool
+	done                      bool
+	oldValue                  func(context.Context) (*GroupBuyPlan, error)
+	predicates                []predicate.GroupBuyPlan
 }
 
 var _ ent.Mutation = (*GroupBuyPlanMutation)(nil)
@@ -22773,6 +26366,302 @@ func (m *GroupBuyPlanMutation) ResetLaunchMode() {
 	m.launch_mode = nil
 }
 
+// SetFulfillmentMode sets the "fulfillment_mode" field.
+func (m *GroupBuyPlanMutation) SetFulfillmentMode(s string) {
+	m.fulfillment_mode = &s
+}
+
+// FulfillmentMode returns the value of the "fulfillment_mode" field in the mutation.
+func (m *GroupBuyPlanMutation) FulfillmentMode() (r string, exists bool) {
+	v := m.fulfillment_mode
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFulfillmentMode returns the old "fulfillment_mode" field's value of the GroupBuyPlan entity.
+// If the GroupBuyPlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyPlanMutation) OldFulfillmentMode(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFulfillmentMode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFulfillmentMode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFulfillmentMode: %w", err)
+	}
+	return oldValue.FulfillmentMode, nil
+}
+
+// ResetFulfillmentMode resets all changes to the "fulfillment_mode" field.
+func (m *GroupBuyPlanMutation) ResetFulfillmentMode() {
+	m.fulfillment_mode = nil
+}
+
+// SetRoomKeyQuotaUsd sets the "room_key_quota_usd" field.
+func (m *GroupBuyPlanMutation) SetRoomKeyQuotaUsd(f float64) {
+	m.room_key_quota_usd = &f
+	m.addroom_key_quota_usd = nil
+}
+
+// RoomKeyQuotaUsd returns the value of the "room_key_quota_usd" field in the mutation.
+func (m *GroupBuyPlanMutation) RoomKeyQuotaUsd() (r float64, exists bool) {
+	v := m.room_key_quota_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRoomKeyQuotaUsd returns the old "room_key_quota_usd" field's value of the GroupBuyPlan entity.
+// If the GroupBuyPlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyPlanMutation) OldRoomKeyQuotaUsd(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRoomKeyQuotaUsd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRoomKeyQuotaUsd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRoomKeyQuotaUsd: %w", err)
+	}
+	return oldValue.RoomKeyQuotaUsd, nil
+}
+
+// AddRoomKeyQuotaUsd adds f to the "room_key_quota_usd" field.
+func (m *GroupBuyPlanMutation) AddRoomKeyQuotaUsd(f float64) {
+	if m.addroom_key_quota_usd != nil {
+		*m.addroom_key_quota_usd += f
+	} else {
+		m.addroom_key_quota_usd = &f
+	}
+}
+
+// AddedRoomKeyQuotaUsd returns the value that was added to the "room_key_quota_usd" field in this mutation.
+func (m *GroupBuyPlanMutation) AddedRoomKeyQuotaUsd() (r float64, exists bool) {
+	v := m.addroom_key_quota_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRoomKeyQuotaUsd resets all changes to the "room_key_quota_usd" field.
+func (m *GroupBuyPlanMutation) ResetRoomKeyQuotaUsd() {
+	m.room_key_quota_usd = nil
+	m.addroom_key_quota_usd = nil
+}
+
+// SetRoomKeyRateLimit5h sets the "room_key_rate_limit_5h" field.
+func (m *GroupBuyPlanMutation) SetRoomKeyRateLimit5h(f float64) {
+	m.room_key_rate_limit_5h = &f
+	m.addroom_key_rate_limit_5h = nil
+}
+
+// RoomKeyRateLimit5h returns the value of the "room_key_rate_limit_5h" field in the mutation.
+func (m *GroupBuyPlanMutation) RoomKeyRateLimit5h() (r float64, exists bool) {
+	v := m.room_key_rate_limit_5h
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRoomKeyRateLimit5h returns the old "room_key_rate_limit_5h" field's value of the GroupBuyPlan entity.
+// If the GroupBuyPlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyPlanMutation) OldRoomKeyRateLimit5h(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRoomKeyRateLimit5h is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRoomKeyRateLimit5h requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRoomKeyRateLimit5h: %w", err)
+	}
+	return oldValue.RoomKeyRateLimit5h, nil
+}
+
+// AddRoomKeyRateLimit5h adds f to the "room_key_rate_limit_5h" field.
+func (m *GroupBuyPlanMutation) AddRoomKeyRateLimit5h(f float64) {
+	if m.addroom_key_rate_limit_5h != nil {
+		*m.addroom_key_rate_limit_5h += f
+	} else {
+		m.addroom_key_rate_limit_5h = &f
+	}
+}
+
+// AddedRoomKeyRateLimit5h returns the value that was added to the "room_key_rate_limit_5h" field in this mutation.
+func (m *GroupBuyPlanMutation) AddedRoomKeyRateLimit5h() (r float64, exists bool) {
+	v := m.addroom_key_rate_limit_5h
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRoomKeyRateLimit5h resets all changes to the "room_key_rate_limit_5h" field.
+func (m *GroupBuyPlanMutation) ResetRoomKeyRateLimit5h() {
+	m.room_key_rate_limit_5h = nil
+	m.addroom_key_rate_limit_5h = nil
+}
+
+// SetRoomKeyRateLimit1d sets the "room_key_rate_limit_1d" field.
+func (m *GroupBuyPlanMutation) SetRoomKeyRateLimit1d(f float64) {
+	m.room_key_rate_limit_1d = &f
+	m.addroom_key_rate_limit_1d = nil
+}
+
+// RoomKeyRateLimit1d returns the value of the "room_key_rate_limit_1d" field in the mutation.
+func (m *GroupBuyPlanMutation) RoomKeyRateLimit1d() (r float64, exists bool) {
+	v := m.room_key_rate_limit_1d
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRoomKeyRateLimit1d returns the old "room_key_rate_limit_1d" field's value of the GroupBuyPlan entity.
+// If the GroupBuyPlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyPlanMutation) OldRoomKeyRateLimit1d(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRoomKeyRateLimit1d is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRoomKeyRateLimit1d requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRoomKeyRateLimit1d: %w", err)
+	}
+	return oldValue.RoomKeyRateLimit1d, nil
+}
+
+// AddRoomKeyRateLimit1d adds f to the "room_key_rate_limit_1d" field.
+func (m *GroupBuyPlanMutation) AddRoomKeyRateLimit1d(f float64) {
+	if m.addroom_key_rate_limit_1d != nil {
+		*m.addroom_key_rate_limit_1d += f
+	} else {
+		m.addroom_key_rate_limit_1d = &f
+	}
+}
+
+// AddedRoomKeyRateLimit1d returns the value that was added to the "room_key_rate_limit_1d" field in this mutation.
+func (m *GroupBuyPlanMutation) AddedRoomKeyRateLimit1d() (r float64, exists bool) {
+	v := m.addroom_key_rate_limit_1d
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRoomKeyRateLimit1d resets all changes to the "room_key_rate_limit_1d" field.
+func (m *GroupBuyPlanMutation) ResetRoomKeyRateLimit1d() {
+	m.room_key_rate_limit_1d = nil
+	m.addroom_key_rate_limit_1d = nil
+}
+
+// SetRoomKeyRateLimit7d sets the "room_key_rate_limit_7d" field.
+func (m *GroupBuyPlanMutation) SetRoomKeyRateLimit7d(f float64) {
+	m.room_key_rate_limit_7d = &f
+	m.addroom_key_rate_limit_7d = nil
+}
+
+// RoomKeyRateLimit7d returns the value of the "room_key_rate_limit_7d" field in the mutation.
+func (m *GroupBuyPlanMutation) RoomKeyRateLimit7d() (r float64, exists bool) {
+	v := m.room_key_rate_limit_7d
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRoomKeyRateLimit7d returns the old "room_key_rate_limit_7d" field's value of the GroupBuyPlan entity.
+// If the GroupBuyPlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyPlanMutation) OldRoomKeyRateLimit7d(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRoomKeyRateLimit7d is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRoomKeyRateLimit7d requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRoomKeyRateLimit7d: %w", err)
+	}
+	return oldValue.RoomKeyRateLimit7d, nil
+}
+
+// AddRoomKeyRateLimit7d adds f to the "room_key_rate_limit_7d" field.
+func (m *GroupBuyPlanMutation) AddRoomKeyRateLimit7d(f float64) {
+	if m.addroom_key_rate_limit_7d != nil {
+		*m.addroom_key_rate_limit_7d += f
+	} else {
+		m.addroom_key_rate_limit_7d = &f
+	}
+}
+
+// AddedRoomKeyRateLimit7d returns the value that was added to the "room_key_rate_limit_7d" field in this mutation.
+func (m *GroupBuyPlanMutation) AddedRoomKeyRateLimit7d() (r float64, exists bool) {
+	v := m.addroom_key_rate_limit_7d
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRoomKeyRateLimit7d resets all changes to the "room_key_rate_limit_7d" field.
+func (m *GroupBuyPlanMutation) ResetRoomKeyRateLimit7d() {
+	m.room_key_rate_limit_7d = nil
+	m.addroom_key_rate_limit_7d = nil
+}
+
+// SetAutoCreateRoomKey sets the "auto_create_room_key" field.
+func (m *GroupBuyPlanMutation) SetAutoCreateRoomKey(b bool) {
+	m.auto_create_room_key = &b
+}
+
+// AutoCreateRoomKey returns the value of the "auto_create_room_key" field in the mutation.
+func (m *GroupBuyPlanMutation) AutoCreateRoomKey() (r bool, exists bool) {
+	v := m.auto_create_room_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAutoCreateRoomKey returns the old "auto_create_room_key" field's value of the GroupBuyPlan entity.
+// If the GroupBuyPlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyPlanMutation) OldAutoCreateRoomKey(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAutoCreateRoomKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAutoCreateRoomKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAutoCreateRoomKey: %w", err)
+	}
+	return oldValue.AutoCreateRoomKey, nil
+}
+
+// ResetAutoCreateRoomKey resets all changes to the "auto_create_room_key" field.
+func (m *GroupBuyPlanMutation) ResetAutoCreateRoomKey() {
+	m.auto_create_room_key = nil
+}
+
 // SetRefundMode sets the "refund_mode" field.
 func (m *GroupBuyPlanMutation) SetRefundMode(s string) {
 	m.refund_mode = &s
@@ -23237,6 +27126,60 @@ func (m *GroupBuyPlanMutation) ResetEvents() {
 	m.removedevents = nil
 }
 
+// AddCafeRoomIDs adds the "cafe_rooms" edge to the CafeRoom entity by ids.
+func (m *GroupBuyPlanMutation) AddCafeRoomIDs(ids ...int64) {
+	if m.cafe_rooms == nil {
+		m.cafe_rooms = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.cafe_rooms[ids[i]] = struct{}{}
+	}
+}
+
+// ClearCafeRooms clears the "cafe_rooms" edge to the CafeRoom entity.
+func (m *GroupBuyPlanMutation) ClearCafeRooms() {
+	m.clearedcafe_rooms = true
+}
+
+// CafeRoomsCleared reports if the "cafe_rooms" edge to the CafeRoom entity was cleared.
+func (m *GroupBuyPlanMutation) CafeRoomsCleared() bool {
+	return m.clearedcafe_rooms
+}
+
+// RemoveCafeRoomIDs removes the "cafe_rooms" edge to the CafeRoom entity by IDs.
+func (m *GroupBuyPlanMutation) RemoveCafeRoomIDs(ids ...int64) {
+	if m.removedcafe_rooms == nil {
+		m.removedcafe_rooms = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.cafe_rooms, ids[i])
+		m.removedcafe_rooms[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedCafeRooms returns the removed IDs of the "cafe_rooms" edge to the CafeRoom entity.
+func (m *GroupBuyPlanMutation) RemovedCafeRoomsIDs() (ids []int64) {
+	for id := range m.removedcafe_rooms {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// CafeRoomsIDs returns the "cafe_rooms" edge IDs in the mutation.
+func (m *GroupBuyPlanMutation) CafeRoomsIDs() (ids []int64) {
+	for id := range m.cafe_rooms {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetCafeRooms resets all changes to the "cafe_rooms" edge.
+func (m *GroupBuyPlanMutation) ResetCafeRooms() {
+	m.cafe_rooms = nil
+	m.clearedcafe_rooms = false
+	m.removedcafe_rooms = nil
+}
+
 // Where appends a list predicates to the GroupBuyPlanMutation builder.
 func (m *GroupBuyPlanMutation) Where(ps ...predicate.GroupBuyPlan) {
 	m.predicates = append(m.predicates, ps...)
@@ -23271,7 +27214,7 @@ func (m *GroupBuyPlanMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupBuyPlanMutation) Fields() []string {
-	fields := make([]string, 0, 25)
+	fields := make([]string, 0, 31)
 	if m.created_at != nil {
 		fields = append(fields, groupbuyplan.FieldCreatedAt)
 	}
@@ -23328,6 +27271,24 @@ func (m *GroupBuyPlanMutation) Fields() []string {
 	}
 	if m.launch_mode != nil {
 		fields = append(fields, groupbuyplan.FieldLaunchMode)
+	}
+	if m.fulfillment_mode != nil {
+		fields = append(fields, groupbuyplan.FieldFulfillmentMode)
+	}
+	if m.room_key_quota_usd != nil {
+		fields = append(fields, groupbuyplan.FieldRoomKeyQuotaUsd)
+	}
+	if m.room_key_rate_limit_5h != nil {
+		fields = append(fields, groupbuyplan.FieldRoomKeyRateLimit5h)
+	}
+	if m.room_key_rate_limit_1d != nil {
+		fields = append(fields, groupbuyplan.FieldRoomKeyRateLimit1d)
+	}
+	if m.room_key_rate_limit_7d != nil {
+		fields = append(fields, groupbuyplan.FieldRoomKeyRateLimit7d)
+	}
+	if m.auto_create_room_key != nil {
+		fields = append(fields, groupbuyplan.FieldAutoCreateRoomKey)
 	}
 	if m.refund_mode != nil {
 		fields = append(fields, groupbuyplan.FieldRefundMode)
@@ -23393,6 +27354,18 @@ func (m *GroupBuyPlanMutation) Field(name string) (ent.Value, bool) {
 		return m.TimeoutMinutes()
 	case groupbuyplan.FieldLaunchMode:
 		return m.LaunchMode()
+	case groupbuyplan.FieldFulfillmentMode:
+		return m.FulfillmentMode()
+	case groupbuyplan.FieldRoomKeyQuotaUsd:
+		return m.RoomKeyQuotaUsd()
+	case groupbuyplan.FieldRoomKeyRateLimit5h:
+		return m.RoomKeyRateLimit5h()
+	case groupbuyplan.FieldRoomKeyRateLimit1d:
+		return m.RoomKeyRateLimit1d()
+	case groupbuyplan.FieldRoomKeyRateLimit7d:
+		return m.RoomKeyRateLimit7d()
+	case groupbuyplan.FieldAutoCreateRoomKey:
+		return m.AutoCreateRoomKey()
 	case groupbuyplan.FieldRefundMode:
 		return m.RefundMode()
 	case groupbuyplan.FieldAgreementText:
@@ -23452,6 +27425,18 @@ func (m *GroupBuyPlanMutation) OldField(ctx context.Context, name string) (ent.V
 		return m.OldTimeoutMinutes(ctx)
 	case groupbuyplan.FieldLaunchMode:
 		return m.OldLaunchMode(ctx)
+	case groupbuyplan.FieldFulfillmentMode:
+		return m.OldFulfillmentMode(ctx)
+	case groupbuyplan.FieldRoomKeyQuotaUsd:
+		return m.OldRoomKeyQuotaUsd(ctx)
+	case groupbuyplan.FieldRoomKeyRateLimit5h:
+		return m.OldRoomKeyRateLimit5h(ctx)
+	case groupbuyplan.FieldRoomKeyRateLimit1d:
+		return m.OldRoomKeyRateLimit1d(ctx)
+	case groupbuyplan.FieldRoomKeyRateLimit7d:
+		return m.OldRoomKeyRateLimit7d(ctx)
+	case groupbuyplan.FieldAutoCreateRoomKey:
+		return m.OldAutoCreateRoomKey(ctx)
 	case groupbuyplan.FieldRefundMode:
 		return m.OldRefundMode(ctx)
 	case groupbuyplan.FieldAgreementText:
@@ -23606,6 +27591,48 @@ func (m *GroupBuyPlanMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetLaunchMode(v)
 		return nil
+	case groupbuyplan.FieldFulfillmentMode:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFulfillmentMode(v)
+		return nil
+	case groupbuyplan.FieldRoomKeyQuotaUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRoomKeyQuotaUsd(v)
+		return nil
+	case groupbuyplan.FieldRoomKeyRateLimit5h:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRoomKeyRateLimit5h(v)
+		return nil
+	case groupbuyplan.FieldRoomKeyRateLimit1d:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRoomKeyRateLimit1d(v)
+		return nil
+	case groupbuyplan.FieldRoomKeyRateLimit7d:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRoomKeyRateLimit7d(v)
+		return nil
+	case groupbuyplan.FieldAutoCreateRoomKey:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAutoCreateRoomKey(v)
+		return nil
 	case groupbuyplan.FieldRefundMode:
 		v, ok := value.(string)
 		if !ok {
@@ -23677,6 +27704,18 @@ func (m *GroupBuyPlanMutation) AddedFields() []string {
 	if m.addtimeout_minutes != nil {
 		fields = append(fields, groupbuyplan.FieldTimeoutMinutes)
 	}
+	if m.addroom_key_quota_usd != nil {
+		fields = append(fields, groupbuyplan.FieldRoomKeyQuotaUsd)
+	}
+	if m.addroom_key_rate_limit_5h != nil {
+		fields = append(fields, groupbuyplan.FieldRoomKeyRateLimit5h)
+	}
+	if m.addroom_key_rate_limit_1d != nil {
+		fields = append(fields, groupbuyplan.FieldRoomKeyRateLimit1d)
+	}
+	if m.addroom_key_rate_limit_7d != nil {
+		fields = append(fields, groupbuyplan.FieldRoomKeyRateLimit7d)
+	}
 	if m.addsort_order != nil {
 		fields = append(fields, groupbuyplan.FieldSortOrder)
 	}
@@ -23702,6 +27741,14 @@ func (m *GroupBuyPlanMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedValidityDays()
 	case groupbuyplan.FieldTimeoutMinutes:
 		return m.AddedTimeoutMinutes()
+	case groupbuyplan.FieldRoomKeyQuotaUsd:
+		return m.AddedRoomKeyQuotaUsd()
+	case groupbuyplan.FieldRoomKeyRateLimit5h:
+		return m.AddedRoomKeyRateLimit5h()
+	case groupbuyplan.FieldRoomKeyRateLimit1d:
+		return m.AddedRoomKeyRateLimit1d()
+	case groupbuyplan.FieldRoomKeyRateLimit7d:
+		return m.AddedRoomKeyRateLimit7d()
 	case groupbuyplan.FieldSortOrder:
 		return m.AddedSortOrder()
 	}
@@ -23761,6 +27808,34 @@ func (m *GroupBuyPlanMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddTimeoutMinutes(v)
+		return nil
+	case groupbuyplan.FieldRoomKeyQuotaUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRoomKeyQuotaUsd(v)
+		return nil
+	case groupbuyplan.FieldRoomKeyRateLimit5h:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRoomKeyRateLimit5h(v)
+		return nil
+	case groupbuyplan.FieldRoomKeyRateLimit1d:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRoomKeyRateLimit1d(v)
+		return nil
+	case groupbuyplan.FieldRoomKeyRateLimit7d:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRoomKeyRateLimit7d(v)
 		return nil
 	case groupbuyplan.FieldSortOrder:
 		v, ok := value.(int)
@@ -23892,6 +27967,24 @@ func (m *GroupBuyPlanMutation) ResetField(name string) error {
 	case groupbuyplan.FieldLaunchMode:
 		m.ResetLaunchMode()
 		return nil
+	case groupbuyplan.FieldFulfillmentMode:
+		m.ResetFulfillmentMode()
+		return nil
+	case groupbuyplan.FieldRoomKeyQuotaUsd:
+		m.ResetRoomKeyQuotaUsd()
+		return nil
+	case groupbuyplan.FieldRoomKeyRateLimit5h:
+		m.ResetRoomKeyRateLimit5h()
+		return nil
+	case groupbuyplan.FieldRoomKeyRateLimit1d:
+		m.ResetRoomKeyRateLimit1d()
+		return nil
+	case groupbuyplan.FieldRoomKeyRateLimit7d:
+		m.ResetRoomKeyRateLimit7d()
+		return nil
+	case groupbuyplan.FieldAutoCreateRoomKey:
+		m.ResetAutoCreateRoomKey()
+		return nil
 	case groupbuyplan.FieldRefundMode:
 		m.ResetRefundMode()
 		return nil
@@ -23916,7 +28009,7 @@ func (m *GroupBuyPlanMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *GroupBuyPlanMutation) AddedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.target_group != nil {
 		edges = append(edges, groupbuyplan.EdgeTargetGroup)
 	}
@@ -23928,6 +28021,9 @@ func (m *GroupBuyPlanMutation) AddedEdges() []string {
 	}
 	if m.events != nil {
 		edges = append(edges, groupbuyplan.EdgeEvents)
+	}
+	if m.cafe_rooms != nil {
+		edges = append(edges, groupbuyplan.EdgeCafeRooms)
 	}
 	return edges
 }
@@ -23958,13 +28054,19 @@ func (m *GroupBuyPlanMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case groupbuyplan.EdgeCafeRooms:
+		ids := make([]ent.Value, 0, len(m.cafe_rooms))
+		for id := range m.cafe_rooms {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *GroupBuyPlanMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.removedrounds != nil {
 		edges = append(edges, groupbuyplan.EdgeRounds)
 	}
@@ -23973,6 +28075,9 @@ func (m *GroupBuyPlanMutation) RemovedEdges() []string {
 	}
 	if m.removedevents != nil {
 		edges = append(edges, groupbuyplan.EdgeEvents)
+	}
+	if m.removedcafe_rooms != nil {
+		edges = append(edges, groupbuyplan.EdgeCafeRooms)
 	}
 	return edges
 }
@@ -23999,13 +28104,19 @@ func (m *GroupBuyPlanMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case groupbuyplan.EdgeCafeRooms:
+		ids := make([]ent.Value, 0, len(m.removedcafe_rooms))
+		for id := range m.removedcafe_rooms {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *GroupBuyPlanMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.clearedtarget_group {
 		edges = append(edges, groupbuyplan.EdgeTargetGroup)
 	}
@@ -24017,6 +28128,9 @@ func (m *GroupBuyPlanMutation) ClearedEdges() []string {
 	}
 	if m.clearedevents {
 		edges = append(edges, groupbuyplan.EdgeEvents)
+	}
+	if m.clearedcafe_rooms {
+		edges = append(edges, groupbuyplan.EdgeCafeRooms)
 	}
 	return edges
 }
@@ -24033,6 +28147,8 @@ func (m *GroupBuyPlanMutation) EdgeCleared(name string) bool {
 		return m.clearedseats
 	case groupbuyplan.EdgeEvents:
 		return m.clearedevents
+	case groupbuyplan.EdgeCafeRooms:
+		return m.clearedcafe_rooms
 	}
 	return false
 }
@@ -24063,6 +28179,9 @@ func (m *GroupBuyPlanMutation) ResetEdge(name string) error {
 		return nil
 	case groupbuyplan.EdgeEvents:
 		m.ResetEvents()
+		return nil
+	case groupbuyplan.EdgeCafeRooms:
+		m.ResetCafeRooms()
 		return nil
 	}
 	return fmt.Errorf("unknown GroupBuyPlan edge %s", name)
@@ -25179,40 +29298,53 @@ func (m *GroupBuyRefundMutation) ResetEdge(name string) error {
 // GroupBuyRoundMutation represents an operation that mutates the GroupBuyRound nodes in the graph.
 type GroupBuyRoundMutation struct {
 	config
-	op                 Op
-	typ                string
-	id                 *int64
-	status             *string
-	total_shares       *int
-	addtotal_shares    *int
-	paid_shares        *int
-	addpaid_shares     *int
-	reserved_shares    *int
-	addreserved_shares *int
-	total_seats        *int
-	addtotal_seats     *int
-	paid_seats         *int
-	addpaid_seats      *int
-	reserved_seats     *int
-	addreserved_seats  *int
-	deadline_at        *time.Time
-	started_at         *time.Time
-	closed_at          *time.Time
-	close_reason       *string
-	created_at         *time.Time
-	updated_at         *time.Time
-	clearedFields      map[string]struct{}
-	plan               *int64
-	clearedplan        bool
-	seats              map[int64]struct{}
-	removedseats       map[int64]struct{}
-	clearedseats       bool
-	events             map[int64]struct{}
-	removedevents      map[int64]struct{}
-	clearedevents      bool
-	done               bool
-	oldValue           func(context.Context) (*GroupBuyRound, error)
-	predicates         []predicate.GroupBuyRound
+	op                      Op
+	typ                     string
+	id                      *int64
+	room_code_snapshot      *string
+	room_name_snapshot      *string
+	status                  *string
+	total_shares            *int
+	addtotal_shares         *int
+	paid_shares             *int
+	addpaid_shares          *int
+	reserved_shares         *int
+	addreserved_shares      *int
+	total_seats             *int
+	addtotal_seats          *int
+	paid_seats              *int
+	addpaid_seats           *int
+	reserved_seats          *int
+	addreserved_seats       *int
+	deadline_at             *time.Time
+	started_at              *time.Time
+	closed_at               *time.Time
+	activated_at            *time.Time
+	entitlement_expires_at  *time.Time
+	completed_at            *time.Time
+	activation_token        *string
+	close_reason            *string
+	created_at              *time.Time
+	updated_at              *time.Time
+	clearedFields           map[string]struct{}
+	plan                    *int64
+	clearedplan             bool
+	seats                   map[int64]struct{}
+	removedseats            map[int64]struct{}
+	clearedseats            bool
+	events                  map[int64]struct{}
+	removedevents           map[int64]struct{}
+	clearedevents           bool
+	cafe_room               *int64
+	clearedcafe_room        bool
+	assigned_account        *int64
+	clearedassigned_account bool
+	account_bindings        map[int64]struct{}
+	removedaccount_bindings map[int64]struct{}
+	clearedaccount_bindings bool
+	done                    bool
+	oldValue                func(context.Context) (*GroupBuyRound, error)
+	predicates              []predicate.GroupBuyRound
 }
 
 var _ ent.Mutation = (*GroupBuyRoundMutation)(nil)
@@ -25347,6 +29479,202 @@ func (m *GroupBuyRoundMutation) OldPlanID(ctx context.Context) (v int64, err err
 // ResetPlanID resets all changes to the "plan_id" field.
 func (m *GroupBuyRoundMutation) ResetPlanID() {
 	m.plan = nil
+}
+
+// SetCafeRoomID sets the "cafe_room_id" field.
+func (m *GroupBuyRoundMutation) SetCafeRoomID(i int64) {
+	m.cafe_room = &i
+}
+
+// CafeRoomID returns the value of the "cafe_room_id" field in the mutation.
+func (m *GroupBuyRoundMutation) CafeRoomID() (r int64, exists bool) {
+	v := m.cafe_room
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCafeRoomID returns the old "cafe_room_id" field's value of the GroupBuyRound entity.
+// If the GroupBuyRound object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyRoundMutation) OldCafeRoomID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCafeRoomID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCafeRoomID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCafeRoomID: %w", err)
+	}
+	return oldValue.CafeRoomID, nil
+}
+
+// ClearCafeRoomID clears the value of the "cafe_room_id" field.
+func (m *GroupBuyRoundMutation) ClearCafeRoomID() {
+	m.cafe_room = nil
+	m.clearedFields[groupbuyround.FieldCafeRoomID] = struct{}{}
+}
+
+// CafeRoomIDCleared returns if the "cafe_room_id" field was cleared in this mutation.
+func (m *GroupBuyRoundMutation) CafeRoomIDCleared() bool {
+	_, ok := m.clearedFields[groupbuyround.FieldCafeRoomID]
+	return ok
+}
+
+// ResetCafeRoomID resets all changes to the "cafe_room_id" field.
+func (m *GroupBuyRoundMutation) ResetCafeRoomID() {
+	m.cafe_room = nil
+	delete(m.clearedFields, groupbuyround.FieldCafeRoomID)
+}
+
+// SetAssignedAccountID sets the "assigned_account_id" field.
+func (m *GroupBuyRoundMutation) SetAssignedAccountID(i int64) {
+	m.assigned_account = &i
+}
+
+// AssignedAccountID returns the value of the "assigned_account_id" field in the mutation.
+func (m *GroupBuyRoundMutation) AssignedAccountID() (r int64, exists bool) {
+	v := m.assigned_account
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAssignedAccountID returns the old "assigned_account_id" field's value of the GroupBuyRound entity.
+// If the GroupBuyRound object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyRoundMutation) OldAssignedAccountID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAssignedAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAssignedAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAssignedAccountID: %w", err)
+	}
+	return oldValue.AssignedAccountID, nil
+}
+
+// ClearAssignedAccountID clears the value of the "assigned_account_id" field.
+func (m *GroupBuyRoundMutation) ClearAssignedAccountID() {
+	m.assigned_account = nil
+	m.clearedFields[groupbuyround.FieldAssignedAccountID] = struct{}{}
+}
+
+// AssignedAccountIDCleared returns if the "assigned_account_id" field was cleared in this mutation.
+func (m *GroupBuyRoundMutation) AssignedAccountIDCleared() bool {
+	_, ok := m.clearedFields[groupbuyround.FieldAssignedAccountID]
+	return ok
+}
+
+// ResetAssignedAccountID resets all changes to the "assigned_account_id" field.
+func (m *GroupBuyRoundMutation) ResetAssignedAccountID() {
+	m.assigned_account = nil
+	delete(m.clearedFields, groupbuyround.FieldAssignedAccountID)
+}
+
+// SetRoomCodeSnapshot sets the "room_code_snapshot" field.
+func (m *GroupBuyRoundMutation) SetRoomCodeSnapshot(s string) {
+	m.room_code_snapshot = &s
+}
+
+// RoomCodeSnapshot returns the value of the "room_code_snapshot" field in the mutation.
+func (m *GroupBuyRoundMutation) RoomCodeSnapshot() (r string, exists bool) {
+	v := m.room_code_snapshot
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRoomCodeSnapshot returns the old "room_code_snapshot" field's value of the GroupBuyRound entity.
+// If the GroupBuyRound object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyRoundMutation) OldRoomCodeSnapshot(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRoomCodeSnapshot is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRoomCodeSnapshot requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRoomCodeSnapshot: %w", err)
+	}
+	return oldValue.RoomCodeSnapshot, nil
+}
+
+// ClearRoomCodeSnapshot clears the value of the "room_code_snapshot" field.
+func (m *GroupBuyRoundMutation) ClearRoomCodeSnapshot() {
+	m.room_code_snapshot = nil
+	m.clearedFields[groupbuyround.FieldRoomCodeSnapshot] = struct{}{}
+}
+
+// RoomCodeSnapshotCleared returns if the "room_code_snapshot" field was cleared in this mutation.
+func (m *GroupBuyRoundMutation) RoomCodeSnapshotCleared() bool {
+	_, ok := m.clearedFields[groupbuyround.FieldRoomCodeSnapshot]
+	return ok
+}
+
+// ResetRoomCodeSnapshot resets all changes to the "room_code_snapshot" field.
+func (m *GroupBuyRoundMutation) ResetRoomCodeSnapshot() {
+	m.room_code_snapshot = nil
+	delete(m.clearedFields, groupbuyround.FieldRoomCodeSnapshot)
+}
+
+// SetRoomNameSnapshot sets the "room_name_snapshot" field.
+func (m *GroupBuyRoundMutation) SetRoomNameSnapshot(s string) {
+	m.room_name_snapshot = &s
+}
+
+// RoomNameSnapshot returns the value of the "room_name_snapshot" field in the mutation.
+func (m *GroupBuyRoundMutation) RoomNameSnapshot() (r string, exists bool) {
+	v := m.room_name_snapshot
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRoomNameSnapshot returns the old "room_name_snapshot" field's value of the GroupBuyRound entity.
+// If the GroupBuyRound object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyRoundMutation) OldRoomNameSnapshot(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRoomNameSnapshot is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRoomNameSnapshot requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRoomNameSnapshot: %w", err)
+	}
+	return oldValue.RoomNameSnapshot, nil
+}
+
+// ClearRoomNameSnapshot clears the value of the "room_name_snapshot" field.
+func (m *GroupBuyRoundMutation) ClearRoomNameSnapshot() {
+	m.room_name_snapshot = nil
+	m.clearedFields[groupbuyround.FieldRoomNameSnapshot] = struct{}{}
+}
+
+// RoomNameSnapshotCleared returns if the "room_name_snapshot" field was cleared in this mutation.
+func (m *GroupBuyRoundMutation) RoomNameSnapshotCleared() bool {
+	_, ok := m.clearedFields[groupbuyround.FieldRoomNameSnapshot]
+	return ok
+}
+
+// ResetRoomNameSnapshot resets all changes to the "room_name_snapshot" field.
+func (m *GroupBuyRoundMutation) ResetRoomNameSnapshot() {
+	m.room_name_snapshot = nil
+	delete(m.clearedFields, groupbuyround.FieldRoomNameSnapshot)
 }
 
 // SetStatus sets the "status" field.
@@ -25855,6 +30183,202 @@ func (m *GroupBuyRoundMutation) ResetClosedAt() {
 	delete(m.clearedFields, groupbuyround.FieldClosedAt)
 }
 
+// SetActivatedAt sets the "activated_at" field.
+func (m *GroupBuyRoundMutation) SetActivatedAt(t time.Time) {
+	m.activated_at = &t
+}
+
+// ActivatedAt returns the value of the "activated_at" field in the mutation.
+func (m *GroupBuyRoundMutation) ActivatedAt() (r time.Time, exists bool) {
+	v := m.activated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActivatedAt returns the old "activated_at" field's value of the GroupBuyRound entity.
+// If the GroupBuyRound object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyRoundMutation) OldActivatedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActivatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActivatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActivatedAt: %w", err)
+	}
+	return oldValue.ActivatedAt, nil
+}
+
+// ClearActivatedAt clears the value of the "activated_at" field.
+func (m *GroupBuyRoundMutation) ClearActivatedAt() {
+	m.activated_at = nil
+	m.clearedFields[groupbuyround.FieldActivatedAt] = struct{}{}
+}
+
+// ActivatedAtCleared returns if the "activated_at" field was cleared in this mutation.
+func (m *GroupBuyRoundMutation) ActivatedAtCleared() bool {
+	_, ok := m.clearedFields[groupbuyround.FieldActivatedAt]
+	return ok
+}
+
+// ResetActivatedAt resets all changes to the "activated_at" field.
+func (m *GroupBuyRoundMutation) ResetActivatedAt() {
+	m.activated_at = nil
+	delete(m.clearedFields, groupbuyround.FieldActivatedAt)
+}
+
+// SetEntitlementExpiresAt sets the "entitlement_expires_at" field.
+func (m *GroupBuyRoundMutation) SetEntitlementExpiresAt(t time.Time) {
+	m.entitlement_expires_at = &t
+}
+
+// EntitlementExpiresAt returns the value of the "entitlement_expires_at" field in the mutation.
+func (m *GroupBuyRoundMutation) EntitlementExpiresAt() (r time.Time, exists bool) {
+	v := m.entitlement_expires_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEntitlementExpiresAt returns the old "entitlement_expires_at" field's value of the GroupBuyRound entity.
+// If the GroupBuyRound object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyRoundMutation) OldEntitlementExpiresAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEntitlementExpiresAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEntitlementExpiresAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEntitlementExpiresAt: %w", err)
+	}
+	return oldValue.EntitlementExpiresAt, nil
+}
+
+// ClearEntitlementExpiresAt clears the value of the "entitlement_expires_at" field.
+func (m *GroupBuyRoundMutation) ClearEntitlementExpiresAt() {
+	m.entitlement_expires_at = nil
+	m.clearedFields[groupbuyround.FieldEntitlementExpiresAt] = struct{}{}
+}
+
+// EntitlementExpiresAtCleared returns if the "entitlement_expires_at" field was cleared in this mutation.
+func (m *GroupBuyRoundMutation) EntitlementExpiresAtCleared() bool {
+	_, ok := m.clearedFields[groupbuyround.FieldEntitlementExpiresAt]
+	return ok
+}
+
+// ResetEntitlementExpiresAt resets all changes to the "entitlement_expires_at" field.
+func (m *GroupBuyRoundMutation) ResetEntitlementExpiresAt() {
+	m.entitlement_expires_at = nil
+	delete(m.clearedFields, groupbuyround.FieldEntitlementExpiresAt)
+}
+
+// SetCompletedAt sets the "completed_at" field.
+func (m *GroupBuyRoundMutation) SetCompletedAt(t time.Time) {
+	m.completed_at = &t
+}
+
+// CompletedAt returns the value of the "completed_at" field in the mutation.
+func (m *GroupBuyRoundMutation) CompletedAt() (r time.Time, exists bool) {
+	v := m.completed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCompletedAt returns the old "completed_at" field's value of the GroupBuyRound entity.
+// If the GroupBuyRound object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyRoundMutation) OldCompletedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCompletedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCompletedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCompletedAt: %w", err)
+	}
+	return oldValue.CompletedAt, nil
+}
+
+// ClearCompletedAt clears the value of the "completed_at" field.
+func (m *GroupBuyRoundMutation) ClearCompletedAt() {
+	m.completed_at = nil
+	m.clearedFields[groupbuyround.FieldCompletedAt] = struct{}{}
+}
+
+// CompletedAtCleared returns if the "completed_at" field was cleared in this mutation.
+func (m *GroupBuyRoundMutation) CompletedAtCleared() bool {
+	_, ok := m.clearedFields[groupbuyround.FieldCompletedAt]
+	return ok
+}
+
+// ResetCompletedAt resets all changes to the "completed_at" field.
+func (m *GroupBuyRoundMutation) ResetCompletedAt() {
+	m.completed_at = nil
+	delete(m.clearedFields, groupbuyround.FieldCompletedAt)
+}
+
+// SetActivationToken sets the "activation_token" field.
+func (m *GroupBuyRoundMutation) SetActivationToken(s string) {
+	m.activation_token = &s
+}
+
+// ActivationToken returns the value of the "activation_token" field in the mutation.
+func (m *GroupBuyRoundMutation) ActivationToken() (r string, exists bool) {
+	v := m.activation_token
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActivationToken returns the old "activation_token" field's value of the GroupBuyRound entity.
+// If the GroupBuyRound object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyRoundMutation) OldActivationToken(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActivationToken is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActivationToken requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActivationToken: %w", err)
+	}
+	return oldValue.ActivationToken, nil
+}
+
+// ClearActivationToken clears the value of the "activation_token" field.
+func (m *GroupBuyRoundMutation) ClearActivationToken() {
+	m.activation_token = nil
+	m.clearedFields[groupbuyround.FieldActivationToken] = struct{}{}
+}
+
+// ActivationTokenCleared returns if the "activation_token" field was cleared in this mutation.
+func (m *GroupBuyRoundMutation) ActivationTokenCleared() bool {
+	_, ok := m.clearedFields[groupbuyround.FieldActivationToken]
+	return ok
+}
+
+// ResetActivationToken resets all changes to the "activation_token" field.
+func (m *GroupBuyRoundMutation) ResetActivationToken() {
+	m.activation_token = nil
+	delete(m.clearedFields, groupbuyround.FieldActivationToken)
+}
+
 // SetCloseReason sets the "close_reason" field.
 func (m *GroupBuyRoundMutation) SetCloseReason(s string) {
 	m.close_reason = &s
@@ -26111,6 +30635,114 @@ func (m *GroupBuyRoundMutation) ResetEvents() {
 	m.removedevents = nil
 }
 
+// ClearCafeRoom clears the "cafe_room" edge to the CafeRoom entity.
+func (m *GroupBuyRoundMutation) ClearCafeRoom() {
+	m.clearedcafe_room = true
+	m.clearedFields[groupbuyround.FieldCafeRoomID] = struct{}{}
+}
+
+// CafeRoomCleared reports if the "cafe_room" edge to the CafeRoom entity was cleared.
+func (m *GroupBuyRoundMutation) CafeRoomCleared() bool {
+	return m.CafeRoomIDCleared() || m.clearedcafe_room
+}
+
+// CafeRoomIDs returns the "cafe_room" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// CafeRoomID instead. It exists only for internal usage by the builders.
+func (m *GroupBuyRoundMutation) CafeRoomIDs() (ids []int64) {
+	if id := m.cafe_room; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetCafeRoom resets all changes to the "cafe_room" edge.
+func (m *GroupBuyRoundMutation) ResetCafeRoom() {
+	m.cafe_room = nil
+	m.clearedcafe_room = false
+}
+
+// ClearAssignedAccount clears the "assigned_account" edge to the Account entity.
+func (m *GroupBuyRoundMutation) ClearAssignedAccount() {
+	m.clearedassigned_account = true
+	m.clearedFields[groupbuyround.FieldAssignedAccountID] = struct{}{}
+}
+
+// AssignedAccountCleared reports if the "assigned_account" edge to the Account entity was cleared.
+func (m *GroupBuyRoundMutation) AssignedAccountCleared() bool {
+	return m.AssignedAccountIDCleared() || m.clearedassigned_account
+}
+
+// AssignedAccountIDs returns the "assigned_account" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// AssignedAccountID instead. It exists only for internal usage by the builders.
+func (m *GroupBuyRoundMutation) AssignedAccountIDs() (ids []int64) {
+	if id := m.assigned_account; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAssignedAccount resets all changes to the "assigned_account" edge.
+func (m *GroupBuyRoundMutation) ResetAssignedAccount() {
+	m.assigned_account = nil
+	m.clearedassigned_account = false
+}
+
+// AddAccountBindingIDs adds the "account_bindings" edge to the APIKeyAccountBinding entity by ids.
+func (m *GroupBuyRoundMutation) AddAccountBindingIDs(ids ...int64) {
+	if m.account_bindings == nil {
+		m.account_bindings = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.account_bindings[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAccountBindings clears the "account_bindings" edge to the APIKeyAccountBinding entity.
+func (m *GroupBuyRoundMutation) ClearAccountBindings() {
+	m.clearedaccount_bindings = true
+}
+
+// AccountBindingsCleared reports if the "account_bindings" edge to the APIKeyAccountBinding entity was cleared.
+func (m *GroupBuyRoundMutation) AccountBindingsCleared() bool {
+	return m.clearedaccount_bindings
+}
+
+// RemoveAccountBindingIDs removes the "account_bindings" edge to the APIKeyAccountBinding entity by IDs.
+func (m *GroupBuyRoundMutation) RemoveAccountBindingIDs(ids ...int64) {
+	if m.removedaccount_bindings == nil {
+		m.removedaccount_bindings = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.account_bindings, ids[i])
+		m.removedaccount_bindings[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAccountBindings returns the removed IDs of the "account_bindings" edge to the APIKeyAccountBinding entity.
+func (m *GroupBuyRoundMutation) RemovedAccountBindingsIDs() (ids []int64) {
+	for id := range m.removedaccount_bindings {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AccountBindingsIDs returns the "account_bindings" edge IDs in the mutation.
+func (m *GroupBuyRoundMutation) AccountBindingsIDs() (ids []int64) {
+	for id := range m.account_bindings {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAccountBindings resets all changes to the "account_bindings" edge.
+func (m *GroupBuyRoundMutation) ResetAccountBindings() {
+	m.account_bindings = nil
+	m.clearedaccount_bindings = false
+	m.removedaccount_bindings = nil
+}
+
 // Where appends a list predicates to the GroupBuyRoundMutation builder.
 func (m *GroupBuyRoundMutation) Where(ps ...predicate.GroupBuyRound) {
 	m.predicates = append(m.predicates, ps...)
@@ -26145,9 +30777,21 @@ func (m *GroupBuyRoundMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupBuyRoundMutation) Fields() []string {
-	fields := make([]string, 0, 14)
+	fields := make([]string, 0, 22)
 	if m.plan != nil {
 		fields = append(fields, groupbuyround.FieldPlanID)
+	}
+	if m.cafe_room != nil {
+		fields = append(fields, groupbuyround.FieldCafeRoomID)
+	}
+	if m.assigned_account != nil {
+		fields = append(fields, groupbuyround.FieldAssignedAccountID)
+	}
+	if m.room_code_snapshot != nil {
+		fields = append(fields, groupbuyround.FieldRoomCodeSnapshot)
+	}
+	if m.room_name_snapshot != nil {
+		fields = append(fields, groupbuyround.FieldRoomNameSnapshot)
 	}
 	if m.status != nil {
 		fields = append(fields, groupbuyround.FieldStatus)
@@ -26179,6 +30823,18 @@ func (m *GroupBuyRoundMutation) Fields() []string {
 	if m.closed_at != nil {
 		fields = append(fields, groupbuyround.FieldClosedAt)
 	}
+	if m.activated_at != nil {
+		fields = append(fields, groupbuyround.FieldActivatedAt)
+	}
+	if m.entitlement_expires_at != nil {
+		fields = append(fields, groupbuyround.FieldEntitlementExpiresAt)
+	}
+	if m.completed_at != nil {
+		fields = append(fields, groupbuyround.FieldCompletedAt)
+	}
+	if m.activation_token != nil {
+		fields = append(fields, groupbuyround.FieldActivationToken)
+	}
 	if m.close_reason != nil {
 		fields = append(fields, groupbuyround.FieldCloseReason)
 	}
@@ -26198,6 +30854,14 @@ func (m *GroupBuyRoundMutation) Field(name string) (ent.Value, bool) {
 	switch name {
 	case groupbuyround.FieldPlanID:
 		return m.PlanID()
+	case groupbuyround.FieldCafeRoomID:
+		return m.CafeRoomID()
+	case groupbuyround.FieldAssignedAccountID:
+		return m.AssignedAccountID()
+	case groupbuyround.FieldRoomCodeSnapshot:
+		return m.RoomCodeSnapshot()
+	case groupbuyround.FieldRoomNameSnapshot:
+		return m.RoomNameSnapshot()
 	case groupbuyround.FieldStatus:
 		return m.Status()
 	case groupbuyround.FieldTotalShares:
@@ -26218,6 +30882,14 @@ func (m *GroupBuyRoundMutation) Field(name string) (ent.Value, bool) {
 		return m.StartedAt()
 	case groupbuyround.FieldClosedAt:
 		return m.ClosedAt()
+	case groupbuyround.FieldActivatedAt:
+		return m.ActivatedAt()
+	case groupbuyround.FieldEntitlementExpiresAt:
+		return m.EntitlementExpiresAt()
+	case groupbuyround.FieldCompletedAt:
+		return m.CompletedAt()
+	case groupbuyround.FieldActivationToken:
+		return m.ActivationToken()
 	case groupbuyround.FieldCloseReason:
 		return m.CloseReason()
 	case groupbuyround.FieldCreatedAt:
@@ -26235,6 +30907,14 @@ func (m *GroupBuyRoundMutation) OldField(ctx context.Context, name string) (ent.
 	switch name {
 	case groupbuyround.FieldPlanID:
 		return m.OldPlanID(ctx)
+	case groupbuyround.FieldCafeRoomID:
+		return m.OldCafeRoomID(ctx)
+	case groupbuyround.FieldAssignedAccountID:
+		return m.OldAssignedAccountID(ctx)
+	case groupbuyround.FieldRoomCodeSnapshot:
+		return m.OldRoomCodeSnapshot(ctx)
+	case groupbuyround.FieldRoomNameSnapshot:
+		return m.OldRoomNameSnapshot(ctx)
 	case groupbuyround.FieldStatus:
 		return m.OldStatus(ctx)
 	case groupbuyround.FieldTotalShares:
@@ -26255,6 +30935,14 @@ func (m *GroupBuyRoundMutation) OldField(ctx context.Context, name string) (ent.
 		return m.OldStartedAt(ctx)
 	case groupbuyround.FieldClosedAt:
 		return m.OldClosedAt(ctx)
+	case groupbuyround.FieldActivatedAt:
+		return m.OldActivatedAt(ctx)
+	case groupbuyround.FieldEntitlementExpiresAt:
+		return m.OldEntitlementExpiresAt(ctx)
+	case groupbuyround.FieldCompletedAt:
+		return m.OldCompletedAt(ctx)
+	case groupbuyround.FieldActivationToken:
+		return m.OldActivationToken(ctx)
 	case groupbuyround.FieldCloseReason:
 		return m.OldCloseReason(ctx)
 	case groupbuyround.FieldCreatedAt:
@@ -26276,6 +30964,34 @@ func (m *GroupBuyRoundMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetPlanID(v)
+		return nil
+	case groupbuyround.FieldCafeRoomID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCafeRoomID(v)
+		return nil
+	case groupbuyround.FieldAssignedAccountID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAssignedAccountID(v)
+		return nil
+	case groupbuyround.FieldRoomCodeSnapshot:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRoomCodeSnapshot(v)
+		return nil
+	case groupbuyround.FieldRoomNameSnapshot:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRoomNameSnapshot(v)
 		return nil
 	case groupbuyround.FieldStatus:
 		v, ok := value.(string)
@@ -26346,6 +31062,34 @@ func (m *GroupBuyRoundMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetClosedAt(v)
+		return nil
+	case groupbuyround.FieldActivatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActivatedAt(v)
+		return nil
+	case groupbuyround.FieldEntitlementExpiresAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEntitlementExpiresAt(v)
+		return nil
+	case groupbuyround.FieldCompletedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCompletedAt(v)
+		return nil
+	case groupbuyround.FieldActivationToken:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActivationToken(v)
 		return nil
 	case groupbuyround.FieldCloseReason:
 		v, ok := value.(string)
@@ -26473,11 +31217,35 @@ func (m *GroupBuyRoundMutation) AddField(name string, value ent.Value) error {
 // mutation.
 func (m *GroupBuyRoundMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(groupbuyround.FieldCafeRoomID) {
+		fields = append(fields, groupbuyround.FieldCafeRoomID)
+	}
+	if m.FieldCleared(groupbuyround.FieldAssignedAccountID) {
+		fields = append(fields, groupbuyround.FieldAssignedAccountID)
+	}
+	if m.FieldCleared(groupbuyround.FieldRoomCodeSnapshot) {
+		fields = append(fields, groupbuyround.FieldRoomCodeSnapshot)
+	}
+	if m.FieldCleared(groupbuyround.FieldRoomNameSnapshot) {
+		fields = append(fields, groupbuyround.FieldRoomNameSnapshot)
+	}
 	if m.FieldCleared(groupbuyround.FieldStartedAt) {
 		fields = append(fields, groupbuyround.FieldStartedAt)
 	}
 	if m.FieldCleared(groupbuyround.FieldClosedAt) {
 		fields = append(fields, groupbuyround.FieldClosedAt)
+	}
+	if m.FieldCleared(groupbuyround.FieldActivatedAt) {
+		fields = append(fields, groupbuyround.FieldActivatedAt)
+	}
+	if m.FieldCleared(groupbuyround.FieldEntitlementExpiresAt) {
+		fields = append(fields, groupbuyround.FieldEntitlementExpiresAt)
+	}
+	if m.FieldCleared(groupbuyround.FieldCompletedAt) {
+		fields = append(fields, groupbuyround.FieldCompletedAt)
+	}
+	if m.FieldCleared(groupbuyround.FieldActivationToken) {
+		fields = append(fields, groupbuyround.FieldActivationToken)
 	}
 	if m.FieldCleared(groupbuyround.FieldCloseReason) {
 		fields = append(fields, groupbuyround.FieldCloseReason)
@@ -26496,11 +31264,35 @@ func (m *GroupBuyRoundMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *GroupBuyRoundMutation) ClearField(name string) error {
 	switch name {
+	case groupbuyround.FieldCafeRoomID:
+		m.ClearCafeRoomID()
+		return nil
+	case groupbuyround.FieldAssignedAccountID:
+		m.ClearAssignedAccountID()
+		return nil
+	case groupbuyround.FieldRoomCodeSnapshot:
+		m.ClearRoomCodeSnapshot()
+		return nil
+	case groupbuyround.FieldRoomNameSnapshot:
+		m.ClearRoomNameSnapshot()
+		return nil
 	case groupbuyround.FieldStartedAt:
 		m.ClearStartedAt()
 		return nil
 	case groupbuyround.FieldClosedAt:
 		m.ClearClosedAt()
+		return nil
+	case groupbuyround.FieldActivatedAt:
+		m.ClearActivatedAt()
+		return nil
+	case groupbuyround.FieldEntitlementExpiresAt:
+		m.ClearEntitlementExpiresAt()
+		return nil
+	case groupbuyround.FieldCompletedAt:
+		m.ClearCompletedAt()
+		return nil
+	case groupbuyround.FieldActivationToken:
+		m.ClearActivationToken()
 		return nil
 	case groupbuyround.FieldCloseReason:
 		m.ClearCloseReason()
@@ -26515,6 +31307,18 @@ func (m *GroupBuyRoundMutation) ResetField(name string) error {
 	switch name {
 	case groupbuyround.FieldPlanID:
 		m.ResetPlanID()
+		return nil
+	case groupbuyround.FieldCafeRoomID:
+		m.ResetCafeRoomID()
+		return nil
+	case groupbuyround.FieldAssignedAccountID:
+		m.ResetAssignedAccountID()
+		return nil
+	case groupbuyround.FieldRoomCodeSnapshot:
+		m.ResetRoomCodeSnapshot()
+		return nil
+	case groupbuyround.FieldRoomNameSnapshot:
+		m.ResetRoomNameSnapshot()
 		return nil
 	case groupbuyround.FieldStatus:
 		m.ResetStatus()
@@ -26546,6 +31350,18 @@ func (m *GroupBuyRoundMutation) ResetField(name string) error {
 	case groupbuyround.FieldClosedAt:
 		m.ResetClosedAt()
 		return nil
+	case groupbuyround.FieldActivatedAt:
+		m.ResetActivatedAt()
+		return nil
+	case groupbuyround.FieldEntitlementExpiresAt:
+		m.ResetEntitlementExpiresAt()
+		return nil
+	case groupbuyround.FieldCompletedAt:
+		m.ResetCompletedAt()
+		return nil
+	case groupbuyround.FieldActivationToken:
+		m.ResetActivationToken()
+		return nil
 	case groupbuyround.FieldCloseReason:
 		m.ResetCloseReason()
 		return nil
@@ -26561,7 +31377,7 @@ func (m *GroupBuyRoundMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *GroupBuyRoundMutation) AddedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 6)
 	if m.plan != nil {
 		edges = append(edges, groupbuyround.EdgePlan)
 	}
@@ -26570,6 +31386,15 @@ func (m *GroupBuyRoundMutation) AddedEdges() []string {
 	}
 	if m.events != nil {
 		edges = append(edges, groupbuyround.EdgeEvents)
+	}
+	if m.cafe_room != nil {
+		edges = append(edges, groupbuyround.EdgeCafeRoom)
+	}
+	if m.assigned_account != nil {
+		edges = append(edges, groupbuyround.EdgeAssignedAccount)
+	}
+	if m.account_bindings != nil {
+		edges = append(edges, groupbuyround.EdgeAccountBindings)
 	}
 	return edges
 }
@@ -26594,18 +31419,35 @@ func (m *GroupBuyRoundMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case groupbuyround.EdgeCafeRoom:
+		if id := m.cafe_room; id != nil {
+			return []ent.Value{*id}
+		}
+	case groupbuyround.EdgeAssignedAccount:
+		if id := m.assigned_account; id != nil {
+			return []ent.Value{*id}
+		}
+	case groupbuyround.EdgeAccountBindings:
+		ids := make([]ent.Value, 0, len(m.account_bindings))
+		for id := range m.account_bindings {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *GroupBuyRoundMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 6)
 	if m.removedseats != nil {
 		edges = append(edges, groupbuyround.EdgeSeats)
 	}
 	if m.removedevents != nil {
 		edges = append(edges, groupbuyround.EdgeEvents)
+	}
+	if m.removedaccount_bindings != nil {
+		edges = append(edges, groupbuyround.EdgeAccountBindings)
 	}
 	return edges
 }
@@ -26626,13 +31468,19 @@ func (m *GroupBuyRoundMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case groupbuyround.EdgeAccountBindings:
+		ids := make([]ent.Value, 0, len(m.removedaccount_bindings))
+		for id := range m.removedaccount_bindings {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *GroupBuyRoundMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 6)
 	if m.clearedplan {
 		edges = append(edges, groupbuyround.EdgePlan)
 	}
@@ -26641,6 +31489,15 @@ func (m *GroupBuyRoundMutation) ClearedEdges() []string {
 	}
 	if m.clearedevents {
 		edges = append(edges, groupbuyround.EdgeEvents)
+	}
+	if m.clearedcafe_room {
+		edges = append(edges, groupbuyround.EdgeCafeRoom)
+	}
+	if m.clearedassigned_account {
+		edges = append(edges, groupbuyround.EdgeAssignedAccount)
+	}
+	if m.clearedaccount_bindings {
+		edges = append(edges, groupbuyround.EdgeAccountBindings)
 	}
 	return edges
 }
@@ -26655,6 +31512,12 @@ func (m *GroupBuyRoundMutation) EdgeCleared(name string) bool {
 		return m.clearedseats
 	case groupbuyround.EdgeEvents:
 		return m.clearedevents
+	case groupbuyround.EdgeCafeRoom:
+		return m.clearedcafe_room
+	case groupbuyround.EdgeAssignedAccount:
+		return m.clearedassigned_account
+	case groupbuyround.EdgeAccountBindings:
+		return m.clearedaccount_bindings
 	}
 	return false
 }
@@ -26665,6 +31528,12 @@ func (m *GroupBuyRoundMutation) ClearEdge(name string) error {
 	switch name {
 	case groupbuyround.EdgePlan:
 		m.ClearPlan()
+		return nil
+	case groupbuyround.EdgeCafeRoom:
+		m.ClearCafeRoom()
+		return nil
+	case groupbuyround.EdgeAssignedAccount:
+		m.ClearAssignedAccount()
 		return nil
 	}
 	return fmt.Errorf("unknown GroupBuyRound unique edge %s", name)
@@ -26683,6 +31552,15 @@ func (m *GroupBuyRoundMutation) ResetEdge(name string) error {
 	case groupbuyround.EdgeEvents:
 		m.ResetEvents()
 		return nil
+	case groupbuyround.EdgeCafeRoom:
+		m.ResetCafeRoom()
+		return nil
+	case groupbuyround.EdgeAssignedAccount:
+		m.ResetAssignedAccount()
+		return nil
+	case groupbuyround.EdgeAccountBindings:
+		m.ResetAccountBindings()
+		return nil
 	}
 	return fmt.Errorf("unknown GroupBuyRound edge %s", name)
 }
@@ -26690,44 +31568,49 @@ func (m *GroupBuyRoundMutation) ResetEdge(name string) error {
 // GroupBuySeatMutation represents an operation that mutates the GroupBuySeat nodes in the graph.
 type GroupBuySeatMutation struct {
 	config
-	op                   Op
-	typ                  string
-	id                   *int64
-	status               *string
-	share_count          *int
-	addshare_count       *int
-	policy_snapshot      *domain.GroupBuyPolicySnapshot
-	locked_until         *time.Time
-	paid_at              *time.Time
-	activated_at         *time.Time
-	expires_at           *time.Time
-	bound_at             *time.Time
-	refund_processed_at  *time.Time
-	refund_note          *string
-	created_at           *time.Time
-	updated_at           *time.Time
-	clearedFields        map[string]struct{}
-	round                *int64
-	clearedround         bool
-	plan                 *int64
-	clearedplan          bool
-	user                 *int64
-	cleareduser          bool
-	_order               *int64
-	cleared_order        bool
-	subscription         *int64
-	clearedsubscription  bool
-	bound_api_key        *int64
-	clearedbound_api_key bool
-	refunds              map[int64]struct{}
-	removedrefunds       map[int64]struct{}
-	clearedrefunds       bool
-	events               map[int64]struct{}
-	removedevents        map[int64]struct{}
-	clearedevents        bool
-	done                 bool
-	oldValue             func(context.Context) (*GroupBuySeat, error)
-	predicates           []predicate.GroupBuySeat
+	op                      Op
+	typ                     string
+	id                      *int64
+	status                  *string
+	share_count             *int
+	addshare_count          *int
+	seat_no                 *int
+	addseat_no              *int
+	policy_snapshot         *domain.GroupBuyPolicySnapshot
+	locked_until            *time.Time
+	paid_at                 *time.Time
+	activated_at            *time.Time
+	expires_at              *time.Time
+	bound_at                *time.Time
+	refund_processed_at     *time.Time
+	refund_note             *string
+	created_at              *time.Time
+	updated_at              *time.Time
+	clearedFields           map[string]struct{}
+	round                   *int64
+	clearedround            bool
+	plan                    *int64
+	clearedplan             bool
+	user                    *int64
+	cleareduser             bool
+	_order                  *int64
+	cleared_order           bool
+	subscription            *int64
+	clearedsubscription     bool
+	bound_api_key           *int64
+	clearedbound_api_key    bool
+	refunds                 map[int64]struct{}
+	removedrefunds          map[int64]struct{}
+	clearedrefunds          bool
+	events                  map[int64]struct{}
+	removedevents           map[int64]struct{}
+	clearedevents           bool
+	account_bindings        map[int64]struct{}
+	removedaccount_bindings map[int64]struct{}
+	clearedaccount_bindings bool
+	done                    bool
+	oldValue                func(context.Context) (*GroupBuySeat, error)
+	predicates              []predicate.GroupBuySeat
 }
 
 var _ ent.Mutation = (*GroupBuySeatMutation)(nil)
@@ -27075,6 +31958,76 @@ func (m *GroupBuySeatMutation) AddedShareCount() (r int, exists bool) {
 func (m *GroupBuySeatMutation) ResetShareCount() {
 	m.share_count = nil
 	m.addshare_count = nil
+}
+
+// SetSeatNo sets the "seat_no" field.
+func (m *GroupBuySeatMutation) SetSeatNo(i int) {
+	m.seat_no = &i
+	m.addseat_no = nil
+}
+
+// SeatNo returns the value of the "seat_no" field in the mutation.
+func (m *GroupBuySeatMutation) SeatNo() (r int, exists bool) {
+	v := m.seat_no
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSeatNo returns the old "seat_no" field's value of the GroupBuySeat entity.
+// If the GroupBuySeat object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuySeatMutation) OldSeatNo(ctx context.Context) (v *int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSeatNo is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSeatNo requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSeatNo: %w", err)
+	}
+	return oldValue.SeatNo, nil
+}
+
+// AddSeatNo adds i to the "seat_no" field.
+func (m *GroupBuySeatMutation) AddSeatNo(i int) {
+	if m.addseat_no != nil {
+		*m.addseat_no += i
+	} else {
+		m.addseat_no = &i
+	}
+}
+
+// AddedSeatNo returns the value that was added to the "seat_no" field in this mutation.
+func (m *GroupBuySeatMutation) AddedSeatNo() (r int, exists bool) {
+	v := m.addseat_no
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearSeatNo clears the value of the "seat_no" field.
+func (m *GroupBuySeatMutation) ClearSeatNo() {
+	m.seat_no = nil
+	m.addseat_no = nil
+	m.clearedFields[groupbuyseat.FieldSeatNo] = struct{}{}
+}
+
+// SeatNoCleared returns if the "seat_no" field was cleared in this mutation.
+func (m *GroupBuySeatMutation) SeatNoCleared() bool {
+	_, ok := m.clearedFields[groupbuyseat.FieldSeatNo]
+	return ok
+}
+
+// ResetSeatNo resets all changes to the "seat_no" field.
+func (m *GroupBuySeatMutation) ResetSeatNo() {
+	m.seat_no = nil
+	m.addseat_no = nil
+	delete(m.clearedFields, groupbuyseat.FieldSeatNo)
 }
 
 // SetPolicySnapshot sets the "policy_snapshot" field.
@@ -27909,6 +32862,60 @@ func (m *GroupBuySeatMutation) ResetEvents() {
 	m.removedevents = nil
 }
 
+// AddAccountBindingIDs adds the "account_bindings" edge to the APIKeyAccountBinding entity by ids.
+func (m *GroupBuySeatMutation) AddAccountBindingIDs(ids ...int64) {
+	if m.account_bindings == nil {
+		m.account_bindings = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.account_bindings[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAccountBindings clears the "account_bindings" edge to the APIKeyAccountBinding entity.
+func (m *GroupBuySeatMutation) ClearAccountBindings() {
+	m.clearedaccount_bindings = true
+}
+
+// AccountBindingsCleared reports if the "account_bindings" edge to the APIKeyAccountBinding entity was cleared.
+func (m *GroupBuySeatMutation) AccountBindingsCleared() bool {
+	return m.clearedaccount_bindings
+}
+
+// RemoveAccountBindingIDs removes the "account_bindings" edge to the APIKeyAccountBinding entity by IDs.
+func (m *GroupBuySeatMutation) RemoveAccountBindingIDs(ids ...int64) {
+	if m.removedaccount_bindings == nil {
+		m.removedaccount_bindings = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.account_bindings, ids[i])
+		m.removedaccount_bindings[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAccountBindings returns the removed IDs of the "account_bindings" edge to the APIKeyAccountBinding entity.
+func (m *GroupBuySeatMutation) RemovedAccountBindingsIDs() (ids []int64) {
+	for id := range m.removedaccount_bindings {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AccountBindingsIDs returns the "account_bindings" edge IDs in the mutation.
+func (m *GroupBuySeatMutation) AccountBindingsIDs() (ids []int64) {
+	for id := range m.account_bindings {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAccountBindings resets all changes to the "account_bindings" edge.
+func (m *GroupBuySeatMutation) ResetAccountBindings() {
+	m.account_bindings = nil
+	m.clearedaccount_bindings = false
+	m.removedaccount_bindings = nil
+}
+
 // Where appends a list predicates to the GroupBuySeatMutation builder.
 func (m *GroupBuySeatMutation) Where(ps ...predicate.GroupBuySeat) {
 	m.predicates = append(m.predicates, ps...)
@@ -27943,7 +32950,7 @@ func (m *GroupBuySeatMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupBuySeatMutation) Fields() []string {
-	fields := make([]string, 0, 18)
+	fields := make([]string, 0, 19)
 	if m.round != nil {
 		fields = append(fields, groupbuyseat.FieldRoundID)
 	}
@@ -27961,6 +32968,9 @@ func (m *GroupBuySeatMutation) Fields() []string {
 	}
 	if m.share_count != nil {
 		fields = append(fields, groupbuyseat.FieldShareCount)
+	}
+	if m.seat_no != nil {
+		fields = append(fields, groupbuyseat.FieldSeatNo)
 	}
 	if m.policy_snapshot != nil {
 		fields = append(fields, groupbuyseat.FieldPolicySnapshot)
@@ -28018,6 +33028,8 @@ func (m *GroupBuySeatMutation) Field(name string) (ent.Value, bool) {
 		return m.Status()
 	case groupbuyseat.FieldShareCount:
 		return m.ShareCount()
+	case groupbuyseat.FieldSeatNo:
+		return m.SeatNo()
 	case groupbuyseat.FieldPolicySnapshot:
 		return m.PolicySnapshot()
 	case groupbuyseat.FieldSubscriptionID:
@@ -28063,6 +33075,8 @@ func (m *GroupBuySeatMutation) OldField(ctx context.Context, name string) (ent.V
 		return m.OldStatus(ctx)
 	case groupbuyseat.FieldShareCount:
 		return m.OldShareCount(ctx)
+	case groupbuyseat.FieldSeatNo:
+		return m.OldSeatNo(ctx)
 	case groupbuyseat.FieldPolicySnapshot:
 		return m.OldPolicySnapshot(ctx)
 	case groupbuyseat.FieldSubscriptionID:
@@ -28137,6 +33151,13 @@ func (m *GroupBuySeatMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetShareCount(v)
+		return nil
+	case groupbuyseat.FieldSeatNo:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSeatNo(v)
 		return nil
 	case groupbuyseat.FieldPolicySnapshot:
 		v, ok := value.(domain.GroupBuyPolicySnapshot)
@@ -28233,6 +33254,9 @@ func (m *GroupBuySeatMutation) AddedFields() []string {
 	if m.addshare_count != nil {
 		fields = append(fields, groupbuyseat.FieldShareCount)
 	}
+	if m.addseat_no != nil {
+		fields = append(fields, groupbuyseat.FieldSeatNo)
+	}
 	return fields
 }
 
@@ -28243,6 +33267,8 @@ func (m *GroupBuySeatMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
 	case groupbuyseat.FieldShareCount:
 		return m.AddedShareCount()
+	case groupbuyseat.FieldSeatNo:
+		return m.AddedSeatNo()
 	}
 	return nil, false
 }
@@ -28259,6 +33285,13 @@ func (m *GroupBuySeatMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddShareCount(v)
 		return nil
+	case groupbuyseat.FieldSeatNo:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSeatNo(v)
+		return nil
 	}
 	return fmt.Errorf("unknown GroupBuySeat numeric field %s", name)
 }
@@ -28269,6 +33302,9 @@ func (m *GroupBuySeatMutation) ClearedFields() []string {
 	var fields []string
 	if m.FieldCleared(groupbuyseat.FieldOrderID) {
 		fields = append(fields, groupbuyseat.FieldOrderID)
+	}
+	if m.FieldCleared(groupbuyseat.FieldSeatNo) {
+		fields = append(fields, groupbuyseat.FieldSeatNo)
 	}
 	if m.FieldCleared(groupbuyseat.FieldPolicySnapshot) {
 		fields = append(fields, groupbuyseat.FieldPolicySnapshot)
@@ -28316,6 +33352,9 @@ func (m *GroupBuySeatMutation) ClearField(name string) error {
 	switch name {
 	case groupbuyseat.FieldOrderID:
 		m.ClearOrderID()
+		return nil
+	case groupbuyseat.FieldSeatNo:
+		m.ClearSeatNo()
 		return nil
 	case groupbuyseat.FieldPolicySnapshot:
 		m.ClearPolicySnapshot()
@@ -28373,6 +33412,9 @@ func (m *GroupBuySeatMutation) ResetField(name string) error {
 	case groupbuyseat.FieldShareCount:
 		m.ResetShareCount()
 		return nil
+	case groupbuyseat.FieldSeatNo:
+		m.ResetSeatNo()
+		return nil
 	case groupbuyseat.FieldPolicySnapshot:
 		m.ResetPolicySnapshot()
 		return nil
@@ -28415,7 +33457,7 @@ func (m *GroupBuySeatMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *GroupBuySeatMutation) AddedEdges() []string {
-	edges := make([]string, 0, 8)
+	edges := make([]string, 0, 9)
 	if m.round != nil {
 		edges = append(edges, groupbuyseat.EdgeRound)
 	}
@@ -28439,6 +33481,9 @@ func (m *GroupBuySeatMutation) AddedEdges() []string {
 	}
 	if m.events != nil {
 		edges = append(edges, groupbuyseat.EdgeEvents)
+	}
+	if m.account_bindings != nil {
+		edges = append(edges, groupbuyseat.EdgeAccountBindings)
 	}
 	return edges
 }
@@ -28483,18 +33528,27 @@ func (m *GroupBuySeatMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case groupbuyseat.EdgeAccountBindings:
+		ids := make([]ent.Value, 0, len(m.account_bindings))
+		for id := range m.account_bindings {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *GroupBuySeatMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 8)
+	edges := make([]string, 0, 9)
 	if m.removedrefunds != nil {
 		edges = append(edges, groupbuyseat.EdgeRefunds)
 	}
 	if m.removedevents != nil {
 		edges = append(edges, groupbuyseat.EdgeEvents)
+	}
+	if m.removedaccount_bindings != nil {
+		edges = append(edges, groupbuyseat.EdgeAccountBindings)
 	}
 	return edges
 }
@@ -28515,13 +33569,19 @@ func (m *GroupBuySeatMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case groupbuyseat.EdgeAccountBindings:
+		ids := make([]ent.Value, 0, len(m.removedaccount_bindings))
+		for id := range m.removedaccount_bindings {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *GroupBuySeatMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 8)
+	edges := make([]string, 0, 9)
 	if m.clearedround {
 		edges = append(edges, groupbuyseat.EdgeRound)
 	}
@@ -28546,6 +33606,9 @@ func (m *GroupBuySeatMutation) ClearedEdges() []string {
 	if m.clearedevents {
 		edges = append(edges, groupbuyseat.EdgeEvents)
 	}
+	if m.clearedaccount_bindings {
+		edges = append(edges, groupbuyseat.EdgeAccountBindings)
+	}
 	return edges
 }
 
@@ -28569,6 +33632,8 @@ func (m *GroupBuySeatMutation) EdgeCleared(name string) bool {
 		return m.clearedrefunds
 	case groupbuyseat.EdgeEvents:
 		return m.clearedevents
+	case groupbuyseat.EdgeAccountBindings:
+		return m.clearedaccount_bindings
 	}
 	return false
 }
@@ -28626,6 +33691,9 @@ func (m *GroupBuySeatMutation) ResetEdge(name string) error {
 		return nil
 	case groupbuyseat.EdgeEvents:
 		m.ResetEvents()
+		return nil
+	case groupbuyseat.EdgeAccountBindings:
+		m.ResetAccountBindings()
 		return nil
 	}
 	return fmt.Errorf("unknown GroupBuySeat edge %s", name)
@@ -52769,6 +57837,9 @@ type UserMutation struct {
 	group_buy_refunds             map[int64]struct{}
 	removedgroup_buy_refunds      map[int64]struct{}
 	clearedgroup_buy_refunds      bool
+	account_bindings              map[int64]struct{}
+	removedaccount_bindings       map[int64]struct{}
+	clearedaccount_bindings       bool
 	invoice_requests              map[int64]struct{}
 	removedinvoice_requests       map[int64]struct{}
 	clearedinvoice_requests       bool
@@ -54755,6 +59826,60 @@ func (m *UserMutation) ResetGroupBuyRefunds() {
 	m.removedgroup_buy_refunds = nil
 }
 
+// AddAccountBindingIDs adds the "account_bindings" edge to the APIKeyAccountBinding entity by ids.
+func (m *UserMutation) AddAccountBindingIDs(ids ...int64) {
+	if m.account_bindings == nil {
+		m.account_bindings = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.account_bindings[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAccountBindings clears the "account_bindings" edge to the APIKeyAccountBinding entity.
+func (m *UserMutation) ClearAccountBindings() {
+	m.clearedaccount_bindings = true
+}
+
+// AccountBindingsCleared reports if the "account_bindings" edge to the APIKeyAccountBinding entity was cleared.
+func (m *UserMutation) AccountBindingsCleared() bool {
+	return m.clearedaccount_bindings
+}
+
+// RemoveAccountBindingIDs removes the "account_bindings" edge to the APIKeyAccountBinding entity by IDs.
+func (m *UserMutation) RemoveAccountBindingIDs(ids ...int64) {
+	if m.removedaccount_bindings == nil {
+		m.removedaccount_bindings = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.account_bindings, ids[i])
+		m.removedaccount_bindings[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAccountBindings returns the removed IDs of the "account_bindings" edge to the APIKeyAccountBinding entity.
+func (m *UserMutation) RemovedAccountBindingsIDs() (ids []int64) {
+	for id := range m.removedaccount_bindings {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AccountBindingsIDs returns the "account_bindings" edge IDs in the mutation.
+func (m *UserMutation) AccountBindingsIDs() (ids []int64) {
+	for id := range m.account_bindings {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAccountBindings resets all changes to the "account_bindings" edge.
+func (m *UserMutation) ResetAccountBindings() {
+	m.account_bindings = nil
+	m.clearedaccount_bindings = false
+	m.removedaccount_bindings = nil
+}
+
 // AddInvoiceRequestIDs adds the "invoice_requests" edge to the InvoiceRequest entity by ids.
 func (m *UserMutation) AddInvoiceRequestIDs(ids ...int64) {
 	if m.invoice_requests == nil {
@@ -55631,7 +60756,7 @@ func (m *UserMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *UserMutation) AddedEdges() []string {
-	edges := make([]string, 0, 18)
+	edges := make([]string, 0, 19)
 	if m.api_keys != nil {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -55673,6 +60798,9 @@ func (m *UserMutation) AddedEdges() []string {
 	}
 	if m.group_buy_refunds != nil {
 		edges = append(edges, user.EdgeGroupBuyRefunds)
+	}
+	if m.account_bindings != nil {
+		edges = append(edges, user.EdgeAccountBindings)
 	}
 	if m.invoice_requests != nil {
 		edges = append(edges, user.EdgeInvoiceRequests)
@@ -55777,6 +60905,12 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeAccountBindings:
+		ids := make([]ent.Value, 0, len(m.account_bindings))
+		for id := range m.account_bindings {
+			ids = append(ids, id)
+		}
+		return ids
 	case user.EdgeInvoiceRequests:
 		ids := make([]ent.Value, 0, len(m.invoice_requests))
 		for id := range m.invoice_requests {
@@ -55807,7 +60941,7 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *UserMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 18)
+	edges := make([]string, 0, 19)
 	if m.removedapi_keys != nil {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -55849,6 +60983,9 @@ func (m *UserMutation) RemovedEdges() []string {
 	}
 	if m.removedgroup_buy_refunds != nil {
 		edges = append(edges, user.EdgeGroupBuyRefunds)
+	}
+	if m.removedaccount_bindings != nil {
+		edges = append(edges, user.EdgeAccountBindings)
 	}
 	if m.removedinvoice_requests != nil {
 		edges = append(edges, user.EdgeInvoiceRequests)
@@ -55953,6 +61090,12 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeAccountBindings:
+		ids := make([]ent.Value, 0, len(m.removedaccount_bindings))
+		for id := range m.removedaccount_bindings {
+			ids = append(ids, id)
+		}
+		return ids
 	case user.EdgeInvoiceRequests:
 		ids := make([]ent.Value, 0, len(m.removedinvoice_requests))
 		for id := range m.removedinvoice_requests {
@@ -55983,7 +61126,7 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *UserMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 18)
+	edges := make([]string, 0, 19)
 	if m.clearedapi_keys {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -56025,6 +61168,9 @@ func (m *UserMutation) ClearedEdges() []string {
 	}
 	if m.clearedgroup_buy_refunds {
 		edges = append(edges, user.EdgeGroupBuyRefunds)
+	}
+	if m.clearedaccount_bindings {
+		edges = append(edges, user.EdgeAccountBindings)
 	}
 	if m.clearedinvoice_requests {
 		edges = append(edges, user.EdgeInvoiceRequests)
@@ -56073,6 +61219,8 @@ func (m *UserMutation) EdgeCleared(name string) bool {
 		return m.clearedgroup_buy_entitlements
 	case user.EdgeGroupBuyRefunds:
 		return m.clearedgroup_buy_refunds
+	case user.EdgeAccountBindings:
+		return m.clearedaccount_bindings
 	case user.EdgeInvoiceRequests:
 		return m.clearedinvoice_requests
 	case user.EdgeAuthIdentities:
@@ -56138,6 +61286,9 @@ func (m *UserMutation) ResetEdge(name string) error {
 		return nil
 	case user.EdgeGroupBuyRefunds:
 		m.ResetGroupBuyRefunds()
+		return nil
+	case user.EdgeAccountBindings:
+		m.ResetAccountBindings()
 		return nil
 	case user.EdgeInvoiceRequests:
 		m.ResetInvoiceRequests()

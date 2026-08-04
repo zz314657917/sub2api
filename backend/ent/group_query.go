@@ -16,6 +16,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/accountgroup"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
+	"github.com/Wei-Shaw/sub2api/ent/caferoom"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyentitlement"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
@@ -40,6 +42,8 @@ type GroupQuery struct {
 	withUsageLogs            *UsageLogQuery
 	withGroupBuyPlans        *GroupBuyPlanQuery
 	withGroupBuyEntitlements *GroupBuyEntitlementQuery
+	withCafeRooms            *CafeRoomQuery
+	withAccountBindings      *APIKeyAccountBindingQuery
 	withAccounts             *AccountQuery
 	withAllowedUsers         *UserQuery
 	withAccountGroups        *AccountGroupQuery
@@ -206,6 +210,50 @@ func (_q *GroupQuery) QueryGroupBuyEntitlements() *GroupBuyEntitlementQuery {
 			sqlgraph.From(group.Table, group.FieldID, selector),
 			sqlgraph.To(groupbuyentitlement.Table, groupbuyentitlement.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, group.GroupBuyEntitlementsTable, group.GroupBuyEntitlementsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryCafeRooms chains the current query on the "cafe_rooms" edge.
+func (_q *GroupQuery) QueryCafeRooms() *CafeRoomQuery {
+	query := (&CafeRoomClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(group.Table, group.FieldID, selector),
+			sqlgraph.To(caferoom.Table, caferoom.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, group.CafeRoomsTable, group.CafeRoomsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryAccountBindings chains the current query on the "account_bindings" edge.
+func (_q *GroupQuery) QueryAccountBindings() *APIKeyAccountBindingQuery {
+	query := (&APIKeyAccountBindingClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(group.Table, group.FieldID, selector),
+			sqlgraph.To(apikeyaccountbinding.Table, apikeyaccountbinding.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, group.AccountBindingsTable, group.AccountBindingsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -499,6 +547,8 @@ func (_q *GroupQuery) Clone() *GroupQuery {
 		withUsageLogs:            _q.withUsageLogs.Clone(),
 		withGroupBuyPlans:        _q.withGroupBuyPlans.Clone(),
 		withGroupBuyEntitlements: _q.withGroupBuyEntitlements.Clone(),
+		withCafeRooms:            _q.withCafeRooms.Clone(),
+		withAccountBindings:      _q.withAccountBindings.Clone(),
 		withAccounts:             _q.withAccounts.Clone(),
 		withAllowedUsers:         _q.withAllowedUsers.Clone(),
 		withAccountGroups:        _q.withAccountGroups.Clone(),
@@ -572,6 +622,28 @@ func (_q *GroupQuery) WithGroupBuyEntitlements(opts ...func(*GroupBuyEntitlement
 		opt(query)
 	}
 	_q.withGroupBuyEntitlements = query
+	return _q
+}
+
+// WithCafeRooms tells the query-builder to eager-load the nodes that are connected to
+// the "cafe_rooms" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *GroupQuery) WithCafeRooms(opts ...func(*CafeRoomQuery)) *GroupQuery {
+	query := (&CafeRoomClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withCafeRooms = query
+	return _q
+}
+
+// WithAccountBindings tells the query-builder to eager-load the nodes that are connected to
+// the "account_bindings" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *GroupQuery) WithAccountBindings(opts ...func(*APIKeyAccountBindingQuery)) *GroupQuery {
+	query := (&APIKeyAccountBindingClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withAccountBindings = query
 	return _q
 }
 
@@ -697,13 +769,15 @@ func (_q *GroupQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Group,
 	var (
 		nodes       = []*Group{}
 		_spec       = _q.querySpec()
-		loadedTypes = [10]bool{
+		loadedTypes = [12]bool{
 			_q.withAPIKeys != nil,
 			_q.withRedeemCodes != nil,
 			_q.withSubscriptions != nil,
 			_q.withUsageLogs != nil,
 			_q.withGroupBuyPlans != nil,
 			_q.withGroupBuyEntitlements != nil,
+			_q.withCafeRooms != nil,
+			_q.withAccountBindings != nil,
 			_q.withAccounts != nil,
 			_q.withAllowedUsers != nil,
 			_q.withAccountGroups != nil,
@@ -772,6 +846,20 @@ func (_q *GroupQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Group,
 			func(n *Group, e *GroupBuyEntitlement) {
 				n.Edges.GroupBuyEntitlements = append(n.Edges.GroupBuyEntitlements, e)
 			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withCafeRooms; query != nil {
+		if err := _q.loadCafeRooms(ctx, query, nodes,
+			func(n *Group) { n.Edges.CafeRooms = []*CafeRoom{} },
+			func(n *Group, e *CafeRoom) { n.Edges.CafeRooms = append(n.Edges.CafeRooms, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withAccountBindings; query != nil {
+		if err := _q.loadAccountBindings(ctx, query, nodes,
+			func(n *Group) { n.Edges.AccountBindings = []*APIKeyAccountBinding{} },
+			func(n *Group, e *APIKeyAccountBinding) { n.Edges.AccountBindings = append(n.Edges.AccountBindings, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -993,6 +1081,67 @@ func (_q *GroupQuery) loadGroupBuyEntitlements(ctx context.Context, query *Group
 		node, ok := nodeids[*fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "target_group_id" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *GroupQuery) loadCafeRooms(ctx context.Context, query *CafeRoomQuery, nodes []*Group, init func(*Group), assign func(*Group, *CafeRoom)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*Group)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	query.withFKs = true
+	query.Where(predicate.CafeRoom(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(group.CafeRoomsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.group_cafe_rooms
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "group_cafe_rooms" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "group_cafe_rooms" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *GroupQuery) loadAccountBindings(ctx context.Context, query *APIKeyAccountBindingQuery, nodes []*Group, init func(*Group), assign func(*Group, *APIKeyAccountBinding)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*Group)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(apikeyaccountbinding.FieldGroupID)
+	}
+	query.Where(predicate.APIKeyAccountBinding(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(group.AccountBindingsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.GroupID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "group_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
 	}

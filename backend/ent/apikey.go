@@ -71,6 +71,10 @@ type APIKey struct {
 	Window7dStart *time.Time `json:"window_7d_start,omitempty"`
 	// API key multi-group routing configuration
 	MultiGroupRoutes []domain.APIKeyMultiGroupRoute `json:"multi_group_routes,omitempty"`
+	// Managed API key source namespace; empty means user-managed.
+	ManagedSourceType string `json:"managed_source_type,omitempty"`
+	// ManagedSourceID holds the value of the "managed_source_id" field.
+	ManagedSourceID *int64 `json:"managed_source_id,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the APIKeyQuery when eager-loading is set.
 	Edges        APIKeyEdges `json:"edges"`
@@ -89,9 +93,11 @@ type APIKeyEdges struct {
 	GroupBuySeats []*GroupBuySeat `json:"group_buy_seats,omitempty"`
 	// GroupBuyEntitlements holds the value of the group_buy_entitlements edge.
 	GroupBuyEntitlements []*GroupBuyEntitlement `json:"group_buy_entitlements,omitempty"`
+	// AccountBindings holds the value of the account_bindings edge.
+	AccountBindings []*APIKeyAccountBinding `json:"account_bindings,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [5]bool
+	loadedTypes [6]bool
 }
 
 // UserOrErr returns the User value or an error if the edge
@@ -143,6 +149,15 @@ func (e APIKeyEdges) GroupBuyEntitlementsOrErr() ([]*GroupBuyEntitlement, error)
 	return nil, &NotLoadedError{edge: "group_buy_entitlements"}
 }
 
+// AccountBindingsOrErr returns the AccountBindings value or an error if the edge
+// was not loaded in eager-loading.
+func (e APIKeyEdges) AccountBindingsOrErr() ([]*APIKeyAccountBinding, error) {
+	if e.loadedTypes[5] {
+		return e.AccountBindings, nil
+	}
+	return nil, &NotLoadedError{edge: "account_bindings"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*APIKey) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -152,9 +167,9 @@ func (*APIKey) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case apikey.FieldQuota, apikey.FieldQuotaUsed, apikey.FieldRateLimit5h, apikey.FieldRateLimit1d, apikey.FieldRateLimit7d, apikey.FieldUsage5h, apikey.FieldUsage1d, apikey.FieldUsage7d:
 			values[i] = new(sql.NullFloat64)
-		case apikey.FieldID, apikey.FieldUserID, apikey.FieldGroupID:
+		case apikey.FieldID, apikey.FieldUserID, apikey.FieldGroupID, apikey.FieldManagedSourceID:
 			values[i] = new(sql.NullInt64)
-		case apikey.FieldKey, apikey.FieldName, apikey.FieldAccountPoolStrategy, apikey.FieldStatus:
+		case apikey.FieldKey, apikey.FieldName, apikey.FieldAccountPoolStrategy, apikey.FieldStatus, apikey.FieldManagedSourceType:
 			values[i] = new(sql.NullString)
 		case apikey.FieldCreatedAt, apikey.FieldUpdatedAt, apikey.FieldDeletedAt, apikey.FieldLastUsedAt, apikey.FieldExpiresAt, apikey.FieldWindow5hStart, apikey.FieldWindow1dStart, apikey.FieldWindow7dStart:
 			values[i] = new(sql.NullTime)
@@ -342,6 +357,19 @@ func (_m *APIKey) assignValues(columns []string, values []any) error {
 					return fmt.Errorf("unmarshal field multi_group_routes: %w", err)
 				}
 			}
+		case apikey.FieldManagedSourceType:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field managed_source_type", values[i])
+			} else if value.Valid {
+				_m.ManagedSourceType = value.String
+			}
+		case apikey.FieldManagedSourceID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field managed_source_id", values[i])
+			} else if value.Valid {
+				_m.ManagedSourceID = new(int64)
+				*_m.ManagedSourceID = value.Int64
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -378,6 +406,11 @@ func (_m *APIKey) QueryGroupBuySeats() *GroupBuySeatQuery {
 // QueryGroupBuyEntitlements queries the "group_buy_entitlements" edge of the APIKey entity.
 func (_m *APIKey) QueryGroupBuyEntitlements() *GroupBuyEntitlementQuery {
 	return NewAPIKeyClient(_m.config).QueryGroupBuyEntitlements(_m)
+}
+
+// QueryAccountBindings queries the "account_bindings" edge of the APIKey entity.
+func (_m *APIKey) QueryAccountBindings() *APIKeyAccountBindingQuery {
+	return NewAPIKeyClient(_m.config).QueryAccountBindings(_m)
 }
 
 // Update returns a builder for updating this APIKey.
@@ -491,6 +524,14 @@ func (_m *APIKey) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("multi_group_routes=")
 	builder.WriteString(fmt.Sprintf("%v", _m.MultiGroupRoutes))
+	builder.WriteString(", ")
+	builder.WriteString("managed_source_type=")
+	builder.WriteString(_m.ManagedSourceType)
+	builder.WriteString(", ")
+	if v := _m.ManagedSourceID; v != nil {
+		builder.WriteString("managed_source_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

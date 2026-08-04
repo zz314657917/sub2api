@@ -30,7 +30,7 @@ describe('admin settings tabs dark theme', () => {
     expect(settingsView).toContain('dark:text-slate-400')
     expect(settingsView).toContain('.settings-tab:is(.dark *)::before')
     expect(settingsView).toContain('.settings-tab-active:is(.dark *)')
-    expect(settingsView).toContain('rgb(20 184 166 / 0.18)')
+    expect(settingsView).toContain('rgb(204 120 92 / 0.18)')
     expect(settingsView).toContain('.settings-tab:is(.dark *):hover')
   })
 })

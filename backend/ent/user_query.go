@@ -15,6 +15,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyentitlement"
@@ -56,6 +57,7 @@ type UserQuery struct {
 	withGroupBuyEvents        *GroupBuyEventQuery
 	withGroupBuyEntitlements  *GroupBuyEntitlementQuery
 	withGroupBuyRefunds       *GroupBuyRefundQuery
+	withAccountBindings       *APIKeyAccountBindingQuery
 	withInvoiceRequests       *InvoiceRequestQuery
 	withAuthIdentities        *AuthIdentityQuery
 	withPendingAuthSessions   *PendingAuthSessionQuery
@@ -406,6 +408,28 @@ func (_q *UserQuery) QueryGroupBuyRefunds() *GroupBuyRefundQuery {
 	return query
 }
 
+// QueryAccountBindings chains the current query on the "account_bindings" edge.
+func (_q *UserQuery) QueryAccountBindings() *APIKeyAccountBindingQuery {
+	query := (&APIKeyAccountBindingClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(apikeyaccountbinding.Table, apikeyaccountbinding.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.AccountBindingsTable, user.AccountBindingsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
 // QueryInvoiceRequests chains the current query on the "invoice_requests" edge.
 func (_q *UserQuery) QueryInvoiceRequests() *InvoiceRequestQuery {
 	query := (&InvoiceRequestClient{config: _q.config}).Query()
@@ -722,6 +746,7 @@ func (_q *UserQuery) Clone() *UserQuery {
 		withGroupBuyEvents:        _q.withGroupBuyEvents.Clone(),
 		withGroupBuyEntitlements:  _q.withGroupBuyEntitlements.Clone(),
 		withGroupBuyRefunds:       _q.withGroupBuyRefunds.Clone(),
+		withAccountBindings:       _q.withAccountBindings.Clone(),
 		withInvoiceRequests:       _q.withInvoiceRequests.Clone(),
 		withAuthIdentities:        _q.withAuthIdentities.Clone(),
 		withPendingAuthSessions:   _q.withPendingAuthSessions.Clone(),
@@ -887,6 +912,17 @@ func (_q *UserQuery) WithGroupBuyRefunds(opts ...func(*GroupBuyRefundQuery)) *Us
 	return _q
 }
 
+// WithAccountBindings tells the query-builder to eager-load the nodes that are connected to
+// the "account_bindings" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserQuery) WithAccountBindings(opts ...func(*APIKeyAccountBindingQuery)) *UserQuery {
+	query := (&APIKeyAccountBindingClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withAccountBindings = query
+	return _q
+}
+
 // WithInvoiceRequests tells the query-builder to eager-load the nodes that are connected to
 // the "invoice_requests" edge. The optional arguments are used to configure the query builder of the edge.
 func (_q *UserQuery) WithInvoiceRequests(opts ...func(*InvoiceRequestQuery)) *UserQuery {
@@ -1020,7 +1056,7 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 	var (
 		nodes       = []*User{}
 		_spec       = _q.querySpec()
-		loadedTypes = [19]bool{
+		loadedTypes = [20]bool{
 			_q.withAPIKeys != nil,
 			_q.withRedeemCodes != nil,
 			_q.withSubscriptions != nil,
@@ -1035,6 +1071,7 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 			_q.withGroupBuyEvents != nil,
 			_q.withGroupBuyEntitlements != nil,
 			_q.withGroupBuyRefunds != nil,
+			_q.withAccountBindings != nil,
 			_q.withInvoiceRequests != nil,
 			_q.withAuthIdentities != nil,
 			_q.withPendingAuthSessions != nil,
@@ -1162,6 +1199,13 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 		if err := _q.loadGroupBuyRefunds(ctx, query, nodes,
 			func(n *User) { n.Edges.GroupBuyRefunds = []*GroupBuyRefund{} },
 			func(n *User, e *GroupBuyRefund) { n.Edges.GroupBuyRefunds = append(n.Edges.GroupBuyRefunds, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withAccountBindings; query != nil {
+		if err := _q.loadAccountBindings(ctx, query, nodes,
+			func(n *User) { n.Edges.AccountBindings = []*APIKeyAccountBinding{} },
+			func(n *User, e *APIKeyAccountBinding) { n.Edges.AccountBindings = append(n.Edges.AccountBindings, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -1650,6 +1694,36 @@ func (_q *UserQuery) loadGroupBuyRefunds(ctx context.Context, query *GroupBuyRef
 	}
 	query.Where(predicate.GroupBuyRefund(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(user.GroupBuyRefundsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.UserID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *UserQuery) loadAccountBindings(ctx context.Context, query *APIKeyAccountBindingQuery, nodes []*User, init func(*User), assign func(*User, *APIKeyAccountBinding)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(apikeyaccountbinding.FieldUserID)
+	}
+	query.Where(predicate.APIKeyAccountBinding(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.AccountBindingsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

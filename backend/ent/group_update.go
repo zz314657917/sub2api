@@ -14,6 +14,8 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
+	"github.com/Wei-Shaw/sub2api/ent/caferoom"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyentitlement"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
@@ -206,6 +208,20 @@ func (_u *GroupUpdate) SetStatus(v string) *GroupUpdate {
 func (_u *GroupUpdate) SetNillableStatus(v *string) *GroupUpdate {
 	if v != nil {
 		_u.SetStatus(*v)
+	}
+	return _u
+}
+
+// SetAccessMode sets the "access_mode" field.
+func (_u *GroupUpdate) SetAccessMode(v string) *GroupUpdate {
+	_u.mutation.SetAccessMode(v)
+	return _u
+}
+
+// SetNillableAccessMode sets the "access_mode" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableAccessMode(v *string) *GroupUpdate {
+	if v != nil {
+		_u.SetAccessMode(*v)
 	}
 	return _u
 }
@@ -846,6 +862,36 @@ func (_u *GroupUpdate) AddGroupBuyEntitlements(v ...*GroupBuyEntitlement) *Group
 	return _u.AddGroupBuyEntitlementIDs(ids...)
 }
 
+// AddCafeRoomIDs adds the "cafe_rooms" edge to the CafeRoom entity by IDs.
+func (_u *GroupUpdate) AddCafeRoomIDs(ids ...int64) *GroupUpdate {
+	_u.mutation.AddCafeRoomIDs(ids...)
+	return _u
+}
+
+// AddCafeRooms adds the "cafe_rooms" edges to the CafeRoom entity.
+func (_u *GroupUpdate) AddCafeRooms(v ...*CafeRoom) *GroupUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddCafeRoomIDs(ids...)
+}
+
+// AddAccountBindingIDs adds the "account_bindings" edge to the APIKeyAccountBinding entity by IDs.
+func (_u *GroupUpdate) AddAccountBindingIDs(ids ...int64) *GroupUpdate {
+	_u.mutation.AddAccountBindingIDs(ids...)
+	return _u
+}
+
+// AddAccountBindings adds the "account_bindings" edges to the APIKeyAccountBinding entity.
+func (_u *GroupUpdate) AddAccountBindings(v ...*APIKeyAccountBinding) *GroupUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAccountBindingIDs(ids...)
+}
+
 // AddAccountIDs adds the "accounts" edge to the Account entity by IDs.
 func (_u *GroupUpdate) AddAccountIDs(ids ...int64) *GroupUpdate {
 	_u.mutation.AddAccountIDs(ids...)
@@ -1007,6 +1053,48 @@ func (_u *GroupUpdate) RemoveGroupBuyEntitlements(v ...*GroupBuyEntitlement) *Gr
 	return _u.RemoveGroupBuyEntitlementIDs(ids...)
 }
 
+// ClearCafeRooms clears all "cafe_rooms" edges to the CafeRoom entity.
+func (_u *GroupUpdate) ClearCafeRooms() *GroupUpdate {
+	_u.mutation.ClearCafeRooms()
+	return _u
+}
+
+// RemoveCafeRoomIDs removes the "cafe_rooms" edge to CafeRoom entities by IDs.
+func (_u *GroupUpdate) RemoveCafeRoomIDs(ids ...int64) *GroupUpdate {
+	_u.mutation.RemoveCafeRoomIDs(ids...)
+	return _u
+}
+
+// RemoveCafeRooms removes "cafe_rooms" edges to CafeRoom entities.
+func (_u *GroupUpdate) RemoveCafeRooms(v ...*CafeRoom) *GroupUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCafeRoomIDs(ids...)
+}
+
+// ClearAccountBindings clears all "account_bindings" edges to the APIKeyAccountBinding entity.
+func (_u *GroupUpdate) ClearAccountBindings() *GroupUpdate {
+	_u.mutation.ClearAccountBindings()
+	return _u
+}
+
+// RemoveAccountBindingIDs removes the "account_bindings" edge to APIKeyAccountBinding entities by IDs.
+func (_u *GroupUpdate) RemoveAccountBindingIDs(ids ...int64) *GroupUpdate {
+	_u.mutation.RemoveAccountBindingIDs(ids...)
+	return _u
+}
+
+// RemoveAccountBindings removes "account_bindings" edges to APIKeyAccountBinding entities.
+func (_u *GroupUpdate) RemoveAccountBindings(v ...*APIKeyAccountBinding) *GroupUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAccountBindingIDs(ids...)
+}
+
 // ClearAccounts clears all "accounts" edges to the Account entity.
 func (_u *GroupUpdate) ClearAccounts() *GroupUpdate {
 	_u.mutation.ClearAccounts()
@@ -1113,6 +1201,11 @@ func (_u *GroupUpdate) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Group.status": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.AccessMode(); ok {
+		if err := group.AccessModeValidator(v); err != nil {
+			return &ValidationError{Name: "access_mode", err: fmt.Errorf(`ent: validator failed for field "Group.access_mode": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Platform(); ok {
 		if err := group.PlatformValidator(v); err != nil {
 			return &ValidationError{Name: "platform", err: fmt.Errorf(`ent: validator failed for field "Group.platform": %w`, err)}
@@ -1192,6 +1285,9 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(group.FieldStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.AccessMode(); ok {
+		_spec.SetField(group.FieldAccessMode, field.TypeString, value)
 	}
 	if _u.mutation.DuplicateOperationIDCleared() {
 		_spec.ClearField(group.FieldDuplicateOperationID, field.TypeString)
@@ -1629,6 +1725,96 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.CafeRoomsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.CafeRoomsTable,
+			Columns: []string{group.CafeRoomsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoom.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCafeRoomsIDs(); len(nodes) > 0 && !_u.mutation.CafeRoomsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.CafeRoomsTable,
+			Columns: []string{group.CafeRoomsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoom.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CafeRoomsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.CafeRoomsTable,
+			Columns: []string{group.CafeRoomsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoom.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AccountBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.AccountBindingsTable,
+			Columns: []string{group.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAccountBindingsIDs(); len(nodes) > 0 && !_u.mutation.AccountBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.AccountBindingsTable,
+			Columns: []string{group.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AccountBindingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.AccountBindingsTable,
+			Columns: []string{group.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.AccountsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2M,
@@ -1931,6 +2117,20 @@ func (_u *GroupUpdateOne) SetStatus(v string) *GroupUpdateOne {
 func (_u *GroupUpdateOne) SetNillableStatus(v *string) *GroupUpdateOne {
 	if v != nil {
 		_u.SetStatus(*v)
+	}
+	return _u
+}
+
+// SetAccessMode sets the "access_mode" field.
+func (_u *GroupUpdateOne) SetAccessMode(v string) *GroupUpdateOne {
+	_u.mutation.SetAccessMode(v)
+	return _u
+}
+
+// SetNillableAccessMode sets the "access_mode" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableAccessMode(v *string) *GroupUpdateOne {
+	if v != nil {
+		_u.SetAccessMode(*v)
 	}
 	return _u
 }
@@ -2571,6 +2771,36 @@ func (_u *GroupUpdateOne) AddGroupBuyEntitlements(v ...*GroupBuyEntitlement) *Gr
 	return _u.AddGroupBuyEntitlementIDs(ids...)
 }
 
+// AddCafeRoomIDs adds the "cafe_rooms" edge to the CafeRoom entity by IDs.
+func (_u *GroupUpdateOne) AddCafeRoomIDs(ids ...int64) *GroupUpdateOne {
+	_u.mutation.AddCafeRoomIDs(ids...)
+	return _u
+}
+
+// AddCafeRooms adds the "cafe_rooms" edges to the CafeRoom entity.
+func (_u *GroupUpdateOne) AddCafeRooms(v ...*CafeRoom) *GroupUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddCafeRoomIDs(ids...)
+}
+
+// AddAccountBindingIDs adds the "account_bindings" edge to the APIKeyAccountBinding entity by IDs.
+func (_u *GroupUpdateOne) AddAccountBindingIDs(ids ...int64) *GroupUpdateOne {
+	_u.mutation.AddAccountBindingIDs(ids...)
+	return _u
+}
+
+// AddAccountBindings adds the "account_bindings" edges to the APIKeyAccountBinding entity.
+func (_u *GroupUpdateOne) AddAccountBindings(v ...*APIKeyAccountBinding) *GroupUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAccountBindingIDs(ids...)
+}
+
 // AddAccountIDs adds the "accounts" edge to the Account entity by IDs.
 func (_u *GroupUpdateOne) AddAccountIDs(ids ...int64) *GroupUpdateOne {
 	_u.mutation.AddAccountIDs(ids...)
@@ -2732,6 +2962,48 @@ func (_u *GroupUpdateOne) RemoveGroupBuyEntitlements(v ...*GroupBuyEntitlement) 
 	return _u.RemoveGroupBuyEntitlementIDs(ids...)
 }
 
+// ClearCafeRooms clears all "cafe_rooms" edges to the CafeRoom entity.
+func (_u *GroupUpdateOne) ClearCafeRooms() *GroupUpdateOne {
+	_u.mutation.ClearCafeRooms()
+	return _u
+}
+
+// RemoveCafeRoomIDs removes the "cafe_rooms" edge to CafeRoom entities by IDs.
+func (_u *GroupUpdateOne) RemoveCafeRoomIDs(ids ...int64) *GroupUpdateOne {
+	_u.mutation.RemoveCafeRoomIDs(ids...)
+	return _u
+}
+
+// RemoveCafeRooms removes "cafe_rooms" edges to CafeRoom entities.
+func (_u *GroupUpdateOne) RemoveCafeRooms(v ...*CafeRoom) *GroupUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCafeRoomIDs(ids...)
+}
+
+// ClearAccountBindings clears all "account_bindings" edges to the APIKeyAccountBinding entity.
+func (_u *GroupUpdateOne) ClearAccountBindings() *GroupUpdateOne {
+	_u.mutation.ClearAccountBindings()
+	return _u
+}
+
+// RemoveAccountBindingIDs removes the "account_bindings" edge to APIKeyAccountBinding entities by IDs.
+func (_u *GroupUpdateOne) RemoveAccountBindingIDs(ids ...int64) *GroupUpdateOne {
+	_u.mutation.RemoveAccountBindingIDs(ids...)
+	return _u
+}
+
+// RemoveAccountBindings removes "account_bindings" edges to APIKeyAccountBinding entities.
+func (_u *GroupUpdateOne) RemoveAccountBindings(v ...*APIKeyAccountBinding) *GroupUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAccountBindingIDs(ids...)
+}
+
 // ClearAccounts clears all "accounts" edges to the Account entity.
 func (_u *GroupUpdateOne) ClearAccounts() *GroupUpdateOne {
 	_u.mutation.ClearAccounts()
@@ -2851,6 +3123,11 @@ func (_u *GroupUpdateOne) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Group.status": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.AccessMode(); ok {
+		if err := group.AccessModeValidator(v); err != nil {
+			return &ValidationError{Name: "access_mode", err: fmt.Errorf(`ent: validator failed for field "Group.access_mode": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Platform(); ok {
 		if err := group.PlatformValidator(v); err != nil {
 			return &ValidationError{Name: "platform", err: fmt.Errorf(`ent: validator failed for field "Group.platform": %w`, err)}
@@ -2947,6 +3224,9 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(group.FieldStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.AccessMode(); ok {
+		_spec.SetField(group.FieldAccessMode, field.TypeString, value)
 	}
 	if _u.mutation.DuplicateOperationIDCleared() {
 		_spec.ClearField(group.FieldDuplicateOperationID, field.TypeString)
@@ -3377,6 +3657,96 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.CafeRoomsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.CafeRoomsTable,
+			Columns: []string{group.CafeRoomsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoom.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCafeRoomsIDs(); len(nodes) > 0 && !_u.mutation.CafeRoomsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.CafeRoomsTable,
+			Columns: []string{group.CafeRoomsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoom.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CafeRoomsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.CafeRoomsTable,
+			Columns: []string{group.CafeRoomsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoom.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AccountBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.AccountBindingsTable,
+			Columns: []string{group.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAccountBindingsIDs(); len(nodes) > 0 && !_u.mutation.AccountBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.AccountBindingsTable,
+			Columns: []string{group.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AccountBindingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.AccountBindingsTable,
+			Columns: []string{group.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

@@ -1759,6 +1759,75 @@ func HasUsageLogsWith(preds ...predicate.UsageLog) predicate.Account {
 	})
 }
 
+// HasCafeRooms applies the HasEdge predicate on the "cafe_rooms" edge.
+func HasCafeRooms() predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, CafeRoomsTable, CafeRoomsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCafeRoomsWith applies the HasEdge predicate on the "cafe_rooms" edge with a given conditions (other predicates).
+func HasCafeRoomsWith(preds ...predicate.CafeRoom) predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := newCafeRoomsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasCafeRounds applies the HasEdge predicate on the "cafe_rounds" edge.
+func HasCafeRounds() predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, CafeRoundsTable, CafeRoundsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCafeRoundsWith applies the HasEdge predicate on the "cafe_rounds" edge with a given conditions (other predicates).
+func HasCafeRoundsWith(preds ...predicate.GroupBuyRound) predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := newCafeRoundsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasAccountBindings applies the HasEdge predicate on the "account_bindings" edge.
+func HasAccountBindings() predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AccountBindingsTable, AccountBindingsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAccountBindingsWith applies the HasEdge predicate on the "account_bindings" edge with a given conditions (other predicates).
+func HasAccountBindingsWith(preds ...predicate.APIKeyAccountBinding) predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := newAccountBindingsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasAccountGroups applies the HasEdge predicate on the "account_groups" edge.
 func HasAccountGroups() predicate.Account {
 	return predicate.Account(func(s *sql.Selector) {

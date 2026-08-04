@@ -95,6 +95,8 @@ const (
 	EdgeGroupBuyEntitlements = "group_buy_entitlements"
 	// EdgeGroupBuyRefunds holds the string denoting the group_buy_refunds edge name in mutations.
 	EdgeGroupBuyRefunds = "group_buy_refunds"
+	// EdgeAccountBindings holds the string denoting the account_bindings edge name in mutations.
+	EdgeAccountBindings = "account_bindings"
 	// EdgeInvoiceRequests holds the string denoting the invoice_requests edge name in mutations.
 	EdgeInvoiceRequests = "invoice_requests"
 	// EdgeAuthIdentities holds the string denoting the auth_identities edge name in mutations.
@@ -203,6 +205,13 @@ const (
 	GroupBuyRefundsInverseTable = "group_buy_refunds"
 	// GroupBuyRefundsColumn is the table column denoting the group_buy_refunds relation/edge.
 	GroupBuyRefundsColumn = "user_id"
+	// AccountBindingsTable is the table that holds the account_bindings relation/edge.
+	AccountBindingsTable = "api_key_account_bindings"
+	// AccountBindingsInverseTable is the table name for the APIKeyAccountBinding entity.
+	// It exists in this package in order to avoid circular dependency with the "apikeyaccountbinding" package.
+	AccountBindingsInverseTable = "api_key_account_bindings"
+	// AccountBindingsColumn is the table column denoting the account_bindings relation/edge.
+	AccountBindingsColumn = "user_id"
 	// InvoiceRequestsTable is the table that holds the invoice_requests relation/edge.
 	InvoiceRequestsTable = "invoice_requests"
 	// InvoiceRequestsInverseTable is the table name for the InvoiceRequest entity.
@@ -685,6 +694,20 @@ func ByGroupBuyRefunds(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByAccountBindingsCount orders the results by account_bindings count.
+func ByAccountBindingsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAccountBindingsStep(), opts...)
+	}
+}
+
+// ByAccountBindings orders the results by account_bindings terms.
+func ByAccountBindings(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAccountBindingsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByInvoiceRequestsCount orders the results by invoice_requests count.
 func ByInvoiceRequestsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -850,6 +873,13 @@ func newGroupBuyRefundsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(GroupBuyRefundsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, GroupBuyRefundsTable, GroupBuyRefundsColumn),
+	)
+}
+func newAccountBindingsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AccountBindingsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AccountBindingsTable, AccountBindingsColumn),
 	)
 }
 func newInvoiceRequestsStep() *sqlgraph.Step {

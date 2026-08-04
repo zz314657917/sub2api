@@ -1817,6 +1817,29 @@ func HasGroupBuyRefundsWith(preds ...predicate.GroupBuyRefund) predicate.User {
 	})
 }
 
+// HasAccountBindings applies the HasEdge predicate on the "account_bindings" edge.
+func HasAccountBindings() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AccountBindingsTable, AccountBindingsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAccountBindingsWith applies the HasEdge predicate on the "account_bindings" edge with a given conditions (other predicates).
+func HasAccountBindingsWith(preds ...predicate.APIKeyAccountBinding) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newAccountBindingsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasInvoiceRequests applies the HasEdge predicate on the "invoice_requests" edge.
 func HasInvoiceRequests() predicate.User {
 	return predicate.User(func(s *sql.Selector) {

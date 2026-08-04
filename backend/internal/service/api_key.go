@@ -69,6 +69,22 @@ type APIKey struct {
 	Window5hStart *time.Time // Start of current 5h window
 	Window1dStart *time.Time // Start of current 1d window
 	Window7dStart *time.Time // Start of current 7d window
+
+	// ManagedSourceType/ID identify keys owned by a server-side entitlement.
+	// An empty type means the user owns all key policy fields.
+	ManagedSourceType string
+	ManagedSourceID   *int64
+	// PinnedAccountID/ManagedBindingID are populated by the auth-only query for
+	// strict Cafe managed-key routing. Zero means the key has no usable pin.
+	PinnedAccountID         int64
+	ManagedBindingID        int64
+	ManagedBindingExpiresAt *time.Time
+}
+
+const APIKeyManagedSourceCafeRoomSeat = "cafe_room_seat"
+
+func (k *APIKey) IsCafeRoomManaged() bool {
+	return k != nil && k.ManagedSourceType == APIKeyManagedSourceCafeRoomSeat && k.ManagedSourceID != nil
 }
 
 func (k *APIKey) WithUnavailableRouteGroups(groupIDs map[int64]struct{}) *APIKey {

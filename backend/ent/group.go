@@ -43,6 +43,8 @@ type Group struct {
 	IsExclusive bool `json:"is_exclusive,omitempty"`
 	// Status holds the value of the "status" field.
 	Status string `json:"status,omitempty"`
+	// Group access mode: normal or room_managed.
+	AccessMode string `json:"access_mode,omitempty"`
 	// 内部幂等恢复标识，不对 API 暴露
 	DuplicateOperationID *string `json:"duplicate_operation_id,omitempty"`
 	// Platform holds the value of the "platform" field.
@@ -125,6 +127,10 @@ type GroupEdges struct {
 	GroupBuyPlans []*GroupBuyPlan `json:"group_buy_plans,omitempty"`
 	// GroupBuyEntitlements holds the value of the group_buy_entitlements edge.
 	GroupBuyEntitlements []*GroupBuyEntitlement `json:"group_buy_entitlements,omitempty"`
+	// CafeRooms holds the value of the cafe_rooms edge.
+	CafeRooms []*CafeRoom `json:"cafe_rooms,omitempty"`
+	// AccountBindings holds the value of the account_bindings edge.
+	AccountBindings []*APIKeyAccountBinding `json:"account_bindings,omitempty"`
 	// Accounts holds the value of the accounts edge.
 	Accounts []*Account `json:"accounts,omitempty"`
 	// AllowedUsers holds the value of the allowed_users edge.
@@ -135,7 +141,7 @@ type GroupEdges struct {
 	UserAllowedGroups []*UserAllowedGroup `json:"user_allowed_groups,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [10]bool
+	loadedTypes [12]bool
 }
 
 // APIKeysOrErr returns the APIKeys value or an error if the edge
@@ -192,10 +198,28 @@ func (e GroupEdges) GroupBuyEntitlementsOrErr() ([]*GroupBuyEntitlement, error) 
 	return nil, &NotLoadedError{edge: "group_buy_entitlements"}
 }
 
+// CafeRoomsOrErr returns the CafeRooms value or an error if the edge
+// was not loaded in eager-loading.
+func (e GroupEdges) CafeRoomsOrErr() ([]*CafeRoom, error) {
+	if e.loadedTypes[6] {
+		return e.CafeRooms, nil
+	}
+	return nil, &NotLoadedError{edge: "cafe_rooms"}
+}
+
+// AccountBindingsOrErr returns the AccountBindings value or an error if the edge
+// was not loaded in eager-loading.
+func (e GroupEdges) AccountBindingsOrErr() ([]*APIKeyAccountBinding, error) {
+	if e.loadedTypes[7] {
+		return e.AccountBindings, nil
+	}
+	return nil, &NotLoadedError{edge: "account_bindings"}
+}
+
 // AccountsOrErr returns the Accounts value or an error if the edge
 // was not loaded in eager-loading.
 func (e GroupEdges) AccountsOrErr() ([]*Account, error) {
-	if e.loadedTypes[6] {
+	if e.loadedTypes[8] {
 		return e.Accounts, nil
 	}
 	return nil, &NotLoadedError{edge: "accounts"}
@@ -204,7 +228,7 @@ func (e GroupEdges) AccountsOrErr() ([]*Account, error) {
 // AllowedUsersOrErr returns the AllowedUsers value or an error if the edge
 // was not loaded in eager-loading.
 func (e GroupEdges) AllowedUsersOrErr() ([]*User, error) {
-	if e.loadedTypes[7] {
+	if e.loadedTypes[9] {
 		return e.AllowedUsers, nil
 	}
 	return nil, &NotLoadedError{edge: "allowed_users"}
@@ -213,7 +237,7 @@ func (e GroupEdges) AllowedUsersOrErr() ([]*User, error) {
 // AccountGroupsOrErr returns the AccountGroups value or an error if the edge
 // was not loaded in eager-loading.
 func (e GroupEdges) AccountGroupsOrErr() ([]*AccountGroup, error) {
-	if e.loadedTypes[8] {
+	if e.loadedTypes[10] {
 		return e.AccountGroups, nil
 	}
 	return nil, &NotLoadedError{edge: "account_groups"}
@@ -222,7 +246,7 @@ func (e GroupEdges) AccountGroupsOrErr() ([]*AccountGroup, error) {
 // UserAllowedGroupsOrErr returns the UserAllowedGroups value or an error if the edge
 // was not loaded in eager-loading.
 func (e GroupEdges) UserAllowedGroupsOrErr() ([]*UserAllowedGroup, error) {
-	if e.loadedTypes[9] {
+	if e.loadedTypes[11] {
 		return e.UserAllowedGroups, nil
 	}
 	return nil, &NotLoadedError{edge: "user_allowed_groups"}
@@ -241,7 +265,7 @@ func (*Group) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullFloat64)
 		case group.FieldID, group.FieldDefaultValidityDays, group.FieldFallbackGroupID, group.FieldFallbackGroupIDOnInvalidRequest, group.FieldSortOrder, group.FieldRpmLimit:
 			values[i] = new(sql.NullInt64)
-		case group.FieldName, group.FieldDescription, group.FieldPeakStart, group.FieldPeakEnd, group.FieldStatus, group.FieldDuplicateOperationID, group.FieldPlatform, group.FieldSubscriptionType, group.FieldRoutingScope, group.FieldDefaultMappedModel:
+		case group.FieldName, group.FieldDescription, group.FieldPeakStart, group.FieldPeakEnd, group.FieldStatus, group.FieldAccessMode, group.FieldDuplicateOperationID, group.FieldPlatform, group.FieldSubscriptionType, group.FieldRoutingScope, group.FieldDefaultMappedModel:
 			values[i] = new(sql.NullString)
 		case group.FieldCreatedAt, group.FieldUpdatedAt, group.FieldDeletedAt:
 			values[i] = new(sql.NullTime)
@@ -339,6 +363,12 @@ func (_m *Group) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field status", values[i])
 			} else if value.Valid {
 				_m.Status = value.String
+			}
+		case group.FieldAccessMode:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field access_mode", values[i])
+			} else if value.Valid {
+				_m.AccessMode = value.String
 			}
 		case group.FieldDuplicateOperationID:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -588,6 +618,16 @@ func (_m *Group) QueryGroupBuyEntitlements() *GroupBuyEntitlementQuery {
 	return NewGroupClient(_m.config).QueryGroupBuyEntitlements(_m)
 }
 
+// QueryCafeRooms queries the "cafe_rooms" edge of the Group entity.
+func (_m *Group) QueryCafeRooms() *CafeRoomQuery {
+	return NewGroupClient(_m.config).QueryCafeRooms(_m)
+}
+
+// QueryAccountBindings queries the "account_bindings" edge of the Group entity.
+func (_m *Group) QueryAccountBindings() *APIKeyAccountBindingQuery {
+	return NewGroupClient(_m.config).QueryAccountBindings(_m)
+}
+
 // QueryAccounts queries the "accounts" edge of the Group entity.
 func (_m *Group) QueryAccounts() *AccountQuery {
 	return NewGroupClient(_m.config).QueryAccounts(_m)
@@ -670,6 +710,9 @@ func (_m *Group) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(_m.Status)
+	builder.WriteString(", ")
+	builder.WriteString("access_mode=")
+	builder.WriteString(_m.AccessMode)
 	builder.WriteString(", ")
 	if v := _m.DuplicateOperationID; v != nil {
 		builder.WriteString("duplicate_operation_id=")

@@ -81,6 +81,134 @@ func TestAPIKeyRepository_CreateWithLastUsedAt(t *testing.T) {
 	require.WithinDuration(t, lastUsed, *got.LastUsedAt, time.Second)
 }
 
+func TestAPIKeyRepository_ManagedSourceRoundTripsThroughUserAndAuthQueries(t *testing.T) {
+	repo, client := newAPIKeyRepoSQLite(t)
+	ctx := context.Background()
+	user := mustCreateAPIKeyRepoUser(t, ctx, client, "managed-source@test.com")
+	managedSourceID := int64(77)
+	key := &service.APIKey{
+		UserID:              user.ID,
+		Key:                 "sk-managed-source",
+		Name:                "Managed source",
+		Status:              service.StatusAPIKeyDisabled,
+		ManagedSourceType:   service.APIKeyManagedSourceCafeRoomSeat,
+		ManagedSourceID:     &managedSourceID,
+		AccountPoolStrategy: service.AccountPoolStrategySharedOnly,
+	}
+
+	require.NoError(t, repo.Create(ctx, key))
+	got, err := repo.GetByID(ctx, key.ID)
+	require.NoError(t, err)
+	require.True(t, got.IsCafeRoomManaged())
+	require.Equal(t, managedSourceID, *got.ManagedSourceID)
+
+	authKey, err := repo.GetByKeyForAuth(ctx, key.Key)
+	require.NoError(t, err)
+	require.True(t, authKey.IsCafeRoomManaged())
+	require.Equal(t, managedSourceID, *authKey.ManagedSourceID)
+}
+
+func TestAPIKeyRepository_GetByKeyForAuth_LoadsActiveCafeBindingPin(t *testing.T) {
+	repo, client := newAPIKeyRepoSQLite(t)
+	ctx := context.Background()
+	user := mustCreateAPIKeyRepoUser(t, ctx, client, "managed-pin@test.com")
+	group := mustCreateAPIKeyRepoGroup(t, ctx, client, "managed-pin-group")
+	account, err := client.Account.Create().
+		SetName("managed-pin-account").
+		SetPlatform(service.PlatformOpenAI).
+		SetType("api_key").
+		SetStatus(service.StatusActive).
+		SetSchedulable(true).
+		AddGroupIDs(group.ID).
+		Save(ctx)
+	require.NoError(t, err)
+	plan, err := client.GroupBuyPlan.Create().
+		SetTitle("managed-pin-plan").
+		SetTargetGroupID(group.ID).
+		SetPricePerShare(1).
+		SetPricePerSeat(1).
+		Save(ctx)
+	require.NoError(t, err)
+	room, err := client.CafeRoom.Create().
+		SetCode("PIN-1").
+		SetName("managed-pin-room").
+		SetPlanID(plan.ID).
+		SetAccountID(account.ID).
+		SetStatus("enabled").
+		Save(ctx)
+	require.NoError(t, err)
+	now := time.Now().UTC().Truncate(time.Second)
+	round, err := client.GroupBuyRound.Create().
+		SetPlanID(plan.ID).
+		SetCafeRoomID(room.ID).
+		SetAssignedAccountID(account.ID).
+		SetStatus("active").
+		SetTotalShares(1).
+		SetTotalSeats(1).
+		SetDeadlineAt(now.Add(time.Hour)).
+		Save(ctx)
+	require.NoError(t, err)
+	seat, err := client.GroupBuySeat.Create().
+		SetRoundID(round.ID).
+		SetPlanID(plan.ID).
+		SetUserID(user.ID).
+		SetStatus("active").
+		SetShareCount(1).
+		SetSeatNo(1).
+		Save(ctx)
+	require.NoError(t, err)
+	managedSourceID := seat.ID
+	key := &service.APIKey{
+		UserID:            user.ID,
+		Key:               "sk-managed-pin",
+		Name:              "Managed pin",
+		GroupID:           &group.ID,
+		Status:            service.StatusAPIKeyActive,
+		ManagedSourceType: service.APIKeyManagedSourceCafeRoomSeat,
+		ManagedSourceID:   &managedSourceID,
+	}
+	require.NoError(t, repo.Create(ctx, key))
+	binding, err := client.APIKeyAccountBinding.Create().
+		SetAPIKeyID(key.ID).
+		SetUserID(user.ID).
+		SetGroupID(group.ID).
+		SetAccountID(account.ID).
+		SetCafeRoomID(room.ID).
+		SetRoundID(round.ID).
+		SetSeatID(seat.ID).
+		SetStatus("active").
+		SetStrictMode(true).
+		SetStartsAt(now).
+		SetExpiresAt(now.AddDate(0, 0, 30)).
+		Save(ctx)
+	require.NoError(t, err)
+
+	authKey, err := repo.GetByKeyForAuth(ctx, key.Key)
+	require.NoError(t, err)
+	require.Equal(t, account.ID, authKey.PinnedAccountID)
+	require.Greater(t, authKey.ManagedBindingID, int64(0))
+
+	_, err = client.APIKey.UpdateOneID(key.ID).
+		SetManagedSourceID(seat.ID + 1).
+		Save(ctx)
+	require.NoError(t, err)
+	authKey, err = repo.GetByKeyForAuth(ctx, key.Key)
+	require.NoError(t, err)
+	require.Zero(t, authKey.PinnedAccountID, "a binding for another source seat must not pin the Key")
+
+	_, err = client.APIKey.UpdateOneID(key.ID).
+		SetManagedSourceID(seat.ID).
+		Save(ctx)
+	require.NoError(t, err)
+	_, err = client.APIKeyAccountBinding.UpdateOneID(binding.ID).
+		SetExpiresAt(now.Add(-time.Minute)).
+		Save(ctx)
+	require.NoError(t, err)
+	authKey, err = repo.GetByKeyForAuth(ctx, key.Key)
+	require.NoError(t, err)
+	require.Zero(t, authKey.PinnedAccountID, "an expired binding must not pin the Key")
+}
+
 func TestAPIKeyRepository_UpdateLastUsed(t *testing.T) {
 	repo, client := newAPIKeyRepoSQLite(t)
 	ctx := context.Background()

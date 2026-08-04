@@ -255,6 +255,10 @@ type SystemSettings struct {
 	GroupBuyEnabled          bool   `json:"group_buy_enabled"`
 	GroupBuyProductName      string `json:"group_buy_product_name"`
 	GroupBuyDescription      string `json:"group_buy_description"`
+	PixelCafeEnabled         bool   `json:"pixel_cafe_enabled"`
+	PixelCafeTitle           string `json:"pixel_cafe_title"`
+	PixelCafeDescription     string `json:"pixel_cafe_description"`
+	PixelCafeHeaderVisible   bool   `json:"pixel_cafe_header_visible"`
 
 	LeaderboardRewardMode                    string  `json:"reward_mode"`
 	LeaderboardRedPacketPoolAmount           float64 `json:"red_packet_pool_amount"`
@@ -400,6 +404,10 @@ type PublicSettings struct {
 	GroupBuyEnabled          bool   `json:"group_buy_enabled"`
 	GroupBuyProductName      string `json:"group_buy_product_name"`
 	GroupBuyDescription      string `json:"group_buy_description"`
+	PixelCafeEnabled         bool   `json:"pixel_cafe_enabled"`
+	PixelCafeTitle           string `json:"pixel_cafe_title"`
+	PixelCafeDescription     string `json:"pixel_cafe_description"`
+	PixelCafeHeaderVisible   bool   `json:"pixel_cafe_header_visible"`
 
 	AffiliateEnabled bool `json:"affiliate_enabled"`
 

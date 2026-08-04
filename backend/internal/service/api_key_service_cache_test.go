@@ -127,6 +127,7 @@ func (s *authRepoStub) GetRateLimitData(ctx context.Context, id int64) (*APIKeyR
 type authCacheStub struct {
 	getAuthCache   func(ctx context.Context, key string) (*APIKeyAuthCacheEntry, error)
 	setAuthKeys    []string
+	setAuthTTLs    []time.Duration
 	deleteAuthKeys []string
 }
 
@@ -171,6 +172,7 @@ func (s *authCacheStub) GetAuthCache(ctx context.Context, key string) (*APIKeyAu
 
 func (s *authCacheStub) SetAuthCache(ctx context.Context, key string, entry *APIKeyAuthCacheEntry, ttl time.Duration) error {
 	s.setAuthKeys = append(s.setAuthKeys, key)
+	s.setAuthTTLs = append(s.setAuthTTLs, ttl)
 	return nil
 }
 
@@ -488,6 +490,74 @@ func TestAPIKeyService_GetByKey_CacheMissStoresL2(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(5), apiKey.ID)
 	require.Len(t, cache.setAuthKeys, 1)
+}
+
+func TestAPIKeyService_CafeBindingExpiryBoundsAuthCacheTTL(t *testing.T) {
+	cache := &authCacheStub{}
+	expiresAt := time.Now().Add(5 * time.Second)
+	repo := &authRepoStub{
+		getByKeyForAuth: func(ctx context.Context, key string) (*APIKey, error) {
+			return &APIKey{
+				ID:                      31,
+				UserID:                  41,
+				Status:                  StatusAPIKeyActive,
+				PinnedAccountID:         51,
+				ManagedBindingID:        61,
+				ManagedBindingExpiresAt: &expiresAt,
+				ManagedSourceType:       APIKeyManagedSourceCafeRoomSeat,
+				User:                    &User{ID: 41, Status: StatusActive, Role: RoleUser},
+			}, nil
+		},
+	}
+	cfg := &config.Config{APIKeyAuth: config.APIKeyAuthCacheConfig{L1TTLSeconds: 60, L2TTLSeconds: 60}}
+	svc := NewAPIKeyService(repo, nil, nil, nil, nil, cache, cfg)
+	cache.getAuthCache = func(ctx context.Context, key string) (*APIKeyAuthCacheEntry, error) {
+		return nil, redis.Nil
+	}
+
+	_, err := svc.GetByKey(context.Background(), "cafe-expiry-key")
+	require.NoError(t, err)
+	require.Len(t, cache.setAuthTTLs, 1)
+	require.Greater(t, cache.setAuthTTLs[0], time.Duration(0))
+	require.LessOrEqual(t, cache.setAuthTTLs[0], time.Until(expiresAt))
+	require.LessOrEqual(t, svc.authCacheTTL(&APIKeyAuthCacheEntry{Snapshot: &APIKeyAuthSnapshot{ManagedBindingExpiresAt: &expiresAt}}, time.Minute), time.Until(expiresAt))
+}
+
+func TestAPIKeyService_ExpiredCafeBindingSnapshotForcesAuthReload(t *testing.T) {
+	cache := &authCacheStub{}
+	expiresAt := time.Now().Add(-time.Second)
+	var repoCalls int32
+	repo := &authRepoStub{
+		getByKeyForAuth: func(ctx context.Context, key string) (*APIKey, error) {
+			atomic.AddInt32(&repoCalls, 1)
+			return &APIKey{
+				ID:     32,
+				UserID: 42,
+				Status: StatusAPIKeyActive,
+				User:   &User{ID: 42, Status: StatusActive, Role: RoleUser},
+			}, nil
+		},
+	}
+	cfg := &config.Config{APIKeyAuth: config.APIKeyAuthCacheConfig{L2TTLSeconds: 60}}
+	svc := NewAPIKeyService(repo, nil, nil, nil, nil, cache, cfg)
+	cache.getAuthCache = func(ctx context.Context, key string) (*APIKeyAuthCacheEntry, error) {
+		return &APIKeyAuthCacheEntry{Snapshot: &APIKeyAuthSnapshot{
+			Version:                 apiKeyAuthSnapshotVersion,
+			APIKeyID:                32,
+			UserID:                  42,
+			Status:                  StatusAPIKeyActive,
+			ManagedBindingID:        61,
+			PinnedAccountID:         51,
+			ManagedBindingExpiresAt: &expiresAt,
+			User:                    APIKeyAuthUserSnapshot{ID: 42, Status: StatusActive, Role: RoleUser},
+		}}, nil
+	}
+
+	apiKey, err := svc.GetByKey(context.Background(), "expired-cafe-key")
+	require.NoError(t, err)
+	require.Equal(t, int32(1), atomic.LoadInt32(&repoCalls))
+	require.Equal(t, int64(32), apiKey.ID)
+	require.Len(t, cache.deleteAuthKeys, 1)
 }
 
 func TestAPIKeyService_GetByKey_UsesL1Cache(t *testing.T) {

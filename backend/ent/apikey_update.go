@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyentitlement"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
@@ -473,6 +474,47 @@ func (_u *APIKeyUpdate) ClearMultiGroupRoutes() *APIKeyUpdate {
 	return _u
 }
 
+// SetManagedSourceType sets the "managed_source_type" field.
+func (_u *APIKeyUpdate) SetManagedSourceType(v string) *APIKeyUpdate {
+	_u.mutation.SetManagedSourceType(v)
+	return _u
+}
+
+// SetNillableManagedSourceType sets the "managed_source_type" field if the given value is not nil.
+func (_u *APIKeyUpdate) SetNillableManagedSourceType(v *string) *APIKeyUpdate {
+	if v != nil {
+		_u.SetManagedSourceType(*v)
+	}
+	return _u
+}
+
+// SetManagedSourceID sets the "managed_source_id" field.
+func (_u *APIKeyUpdate) SetManagedSourceID(v int64) *APIKeyUpdate {
+	_u.mutation.ResetManagedSourceID()
+	_u.mutation.SetManagedSourceID(v)
+	return _u
+}
+
+// SetNillableManagedSourceID sets the "managed_source_id" field if the given value is not nil.
+func (_u *APIKeyUpdate) SetNillableManagedSourceID(v *int64) *APIKeyUpdate {
+	if v != nil {
+		_u.SetManagedSourceID(*v)
+	}
+	return _u
+}
+
+// AddManagedSourceID adds value to the "managed_source_id" field.
+func (_u *APIKeyUpdate) AddManagedSourceID(v int64) *APIKeyUpdate {
+	_u.mutation.AddManagedSourceID(v)
+	return _u
+}
+
+// ClearManagedSourceID clears the value of the "managed_source_id" field.
+func (_u *APIKeyUpdate) ClearManagedSourceID() *APIKeyUpdate {
+	_u.mutation.ClearManagedSourceID()
+	return _u
+}
+
 // SetUser sets the "user" edge to the User entity.
 func (_u *APIKeyUpdate) SetUser(v *User) *APIKeyUpdate {
 	return _u.SetUserID(v.ID)
@@ -526,6 +568,21 @@ func (_u *APIKeyUpdate) AddGroupBuyEntitlements(v ...*GroupBuyEntitlement) *APIK
 		ids[i] = v[i].ID
 	}
 	return _u.AddGroupBuyEntitlementIDs(ids...)
+}
+
+// AddAccountBindingIDs adds the "account_bindings" edge to the APIKeyAccountBinding entity by IDs.
+func (_u *APIKeyUpdate) AddAccountBindingIDs(ids ...int64) *APIKeyUpdate {
+	_u.mutation.AddAccountBindingIDs(ids...)
+	return _u
+}
+
+// AddAccountBindings adds the "account_bindings" edges to the APIKeyAccountBinding entity.
+func (_u *APIKeyUpdate) AddAccountBindings(v ...*APIKeyAccountBinding) *APIKeyUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAccountBindingIDs(ids...)
 }
 
 // Mutation returns the APIKeyMutation object of the builder.
@@ -608,6 +665,27 @@ func (_u *APIKeyUpdate) RemoveGroupBuyEntitlements(v ...*GroupBuyEntitlement) *A
 	return _u.RemoveGroupBuyEntitlementIDs(ids...)
 }
 
+// ClearAccountBindings clears all "account_bindings" edges to the APIKeyAccountBinding entity.
+func (_u *APIKeyUpdate) ClearAccountBindings() *APIKeyUpdate {
+	_u.mutation.ClearAccountBindings()
+	return _u
+}
+
+// RemoveAccountBindingIDs removes the "account_bindings" edge to APIKeyAccountBinding entities by IDs.
+func (_u *APIKeyUpdate) RemoveAccountBindingIDs(ids ...int64) *APIKeyUpdate {
+	_u.mutation.RemoveAccountBindingIDs(ids...)
+	return _u
+}
+
+// RemoveAccountBindings removes "account_bindings" edges to APIKeyAccountBinding entities.
+func (_u *APIKeyUpdate) RemoveAccountBindings(v ...*APIKeyAccountBinding) *APIKeyUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAccountBindingIDs(ids...)
+}
+
 // Save executes the query and returns the number of nodes affected by the update operation.
 func (_u *APIKeyUpdate) Save(ctx context.Context) (int, error) {
 	if err := _u.defaults(); err != nil {
@@ -670,6 +748,11 @@ func (_u *APIKeyUpdate) check() error {
 	if v, ok := _u.mutation.Status(); ok {
 		if err := apikey.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "APIKey.status": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ManagedSourceType(); ok {
+		if err := apikey.ManagedSourceTypeValidator(v); err != nil {
+			return &ValidationError{Name: "managed_source_type", err: fmt.Errorf(`ent: validator failed for field "APIKey.managed_source_type": %w`, err)}
 		}
 	}
 	if _u.mutation.UserCleared() && len(_u.mutation.UserIDs()) > 0 {
@@ -821,6 +904,18 @@ func (_u *APIKeyUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.MultiGroupRoutesCleared() {
 		_spec.ClearField(apikey.FieldMultiGroupRoutes, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.ManagedSourceType(); ok {
+		_spec.SetField(apikey.FieldManagedSourceType, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.ManagedSourceID(); ok {
+		_spec.SetField(apikey.FieldManagedSourceID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedManagedSourceID(); ok {
+		_spec.AddField(apikey.FieldManagedSourceID, field.TypeInt64, value)
+	}
+	if _u.mutation.ManagedSourceIDCleared() {
+		_spec.ClearField(apikey.FieldManagedSourceID, field.TypeInt64)
 	}
 	if _u.mutation.UserCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1008,6 +1103,51 @@ func (_u *APIKeyUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AccountBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.AccountBindingsTable,
+			Columns: []string{apikey.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAccountBindingsIDs(); len(nodes) > 0 && !_u.mutation.AccountBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.AccountBindingsTable,
+			Columns: []string{apikey.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AccountBindingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.AccountBindingsTable,
+			Columns: []string{apikey.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {
@@ -1473,6 +1613,47 @@ func (_u *APIKeyUpdateOne) ClearMultiGroupRoutes() *APIKeyUpdateOne {
 	return _u
 }
 
+// SetManagedSourceType sets the "managed_source_type" field.
+func (_u *APIKeyUpdateOne) SetManagedSourceType(v string) *APIKeyUpdateOne {
+	_u.mutation.SetManagedSourceType(v)
+	return _u
+}
+
+// SetNillableManagedSourceType sets the "managed_source_type" field if the given value is not nil.
+func (_u *APIKeyUpdateOne) SetNillableManagedSourceType(v *string) *APIKeyUpdateOne {
+	if v != nil {
+		_u.SetManagedSourceType(*v)
+	}
+	return _u
+}
+
+// SetManagedSourceID sets the "managed_source_id" field.
+func (_u *APIKeyUpdateOne) SetManagedSourceID(v int64) *APIKeyUpdateOne {
+	_u.mutation.ResetManagedSourceID()
+	_u.mutation.SetManagedSourceID(v)
+	return _u
+}
+
+// SetNillableManagedSourceID sets the "managed_source_id" field if the given value is not nil.
+func (_u *APIKeyUpdateOne) SetNillableManagedSourceID(v *int64) *APIKeyUpdateOne {
+	if v != nil {
+		_u.SetManagedSourceID(*v)
+	}
+	return _u
+}
+
+// AddManagedSourceID adds value to the "managed_source_id" field.
+func (_u *APIKeyUpdateOne) AddManagedSourceID(v int64) *APIKeyUpdateOne {
+	_u.mutation.AddManagedSourceID(v)
+	return _u
+}
+
+// ClearManagedSourceID clears the value of the "managed_source_id" field.
+func (_u *APIKeyUpdateOne) ClearManagedSourceID() *APIKeyUpdateOne {
+	_u.mutation.ClearManagedSourceID()
+	return _u
+}
+
 // SetUser sets the "user" edge to the User entity.
 func (_u *APIKeyUpdateOne) SetUser(v *User) *APIKeyUpdateOne {
 	return _u.SetUserID(v.ID)
@@ -1526,6 +1707,21 @@ func (_u *APIKeyUpdateOne) AddGroupBuyEntitlements(v ...*GroupBuyEntitlement) *A
 		ids[i] = v[i].ID
 	}
 	return _u.AddGroupBuyEntitlementIDs(ids...)
+}
+
+// AddAccountBindingIDs adds the "account_bindings" edge to the APIKeyAccountBinding entity by IDs.
+func (_u *APIKeyUpdateOne) AddAccountBindingIDs(ids ...int64) *APIKeyUpdateOne {
+	_u.mutation.AddAccountBindingIDs(ids...)
+	return _u
+}
+
+// AddAccountBindings adds the "account_bindings" edges to the APIKeyAccountBinding entity.
+func (_u *APIKeyUpdateOne) AddAccountBindings(v ...*APIKeyAccountBinding) *APIKeyUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAccountBindingIDs(ids...)
 }
 
 // Mutation returns the APIKeyMutation object of the builder.
@@ -1608,6 +1804,27 @@ func (_u *APIKeyUpdateOne) RemoveGroupBuyEntitlements(v ...*GroupBuyEntitlement)
 	return _u.RemoveGroupBuyEntitlementIDs(ids...)
 }
 
+// ClearAccountBindings clears all "account_bindings" edges to the APIKeyAccountBinding entity.
+func (_u *APIKeyUpdateOne) ClearAccountBindings() *APIKeyUpdateOne {
+	_u.mutation.ClearAccountBindings()
+	return _u
+}
+
+// RemoveAccountBindingIDs removes the "account_bindings" edge to APIKeyAccountBinding entities by IDs.
+func (_u *APIKeyUpdateOne) RemoveAccountBindingIDs(ids ...int64) *APIKeyUpdateOne {
+	_u.mutation.RemoveAccountBindingIDs(ids...)
+	return _u
+}
+
+// RemoveAccountBindings removes "account_bindings" edges to APIKeyAccountBinding entities.
+func (_u *APIKeyUpdateOne) RemoveAccountBindings(v ...*APIKeyAccountBinding) *APIKeyUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAccountBindingIDs(ids...)
+}
+
 // Where appends a list predicates to the APIKeyUpdate builder.
 func (_u *APIKeyUpdateOne) Where(ps ...predicate.APIKey) *APIKeyUpdateOne {
 	_u.mutation.Where(ps...)
@@ -1683,6 +1900,11 @@ func (_u *APIKeyUpdateOne) check() error {
 	if v, ok := _u.mutation.Status(); ok {
 		if err := apikey.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "APIKey.status": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ManagedSourceType(); ok {
+		if err := apikey.ManagedSourceTypeValidator(v); err != nil {
+			return &ValidationError{Name: "managed_source_type", err: fmt.Errorf(`ent: validator failed for field "APIKey.managed_source_type": %w`, err)}
 		}
 	}
 	if _u.mutation.UserCleared() && len(_u.mutation.UserIDs()) > 0 {
@@ -1851,6 +2073,18 @@ func (_u *APIKeyUpdateOne) sqlSave(ctx context.Context) (_node *APIKey, err erro
 	}
 	if _u.mutation.MultiGroupRoutesCleared() {
 		_spec.ClearField(apikey.FieldMultiGroupRoutes, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.ManagedSourceType(); ok {
+		_spec.SetField(apikey.FieldManagedSourceType, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.ManagedSourceID(); ok {
+		_spec.SetField(apikey.FieldManagedSourceID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedManagedSourceID(); ok {
+		_spec.AddField(apikey.FieldManagedSourceID, field.TypeInt64, value)
+	}
+	if _u.mutation.ManagedSourceIDCleared() {
+		_spec.ClearField(apikey.FieldManagedSourceID, field.TypeInt64)
 	}
 	if _u.mutation.UserCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -2038,6 +2272,51 @@ func (_u *APIKeyUpdateOne) sqlSave(ctx context.Context) (_node *APIKey, err erro
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AccountBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.AccountBindingsTable,
+			Columns: []string{apikey.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAccountBindingsIDs(); len(nodes) > 0 && !_u.mutation.AccountBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.AccountBindingsTable,
+			Columns: []string{apikey.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AccountBindingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.AccountBindingsTable,
+			Columns: []string{apikey.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

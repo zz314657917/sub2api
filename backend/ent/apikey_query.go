@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyentitlement"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
@@ -34,6 +35,7 @@ type APIKeyQuery struct {
 	withUsageLogs            *UsageLogQuery
 	withGroupBuySeats        *GroupBuySeatQuery
 	withGroupBuyEntitlements *GroupBuyEntitlementQuery
+	withAccountBindings      *APIKeyAccountBindingQuery
 	modifiers                []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -174,6 +176,28 @@ func (_q *APIKeyQuery) QueryGroupBuyEntitlements() *GroupBuyEntitlementQuery {
 			sqlgraph.From(apikey.Table, apikey.FieldID, selector),
 			sqlgraph.To(groupbuyentitlement.Table, groupbuyentitlement.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, apikey.GroupBuyEntitlementsTable, apikey.GroupBuyEntitlementsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryAccountBindings chains the current query on the "account_bindings" edge.
+func (_q *APIKeyQuery) QueryAccountBindings() *APIKeyAccountBindingQuery {
+	query := (&APIKeyAccountBindingClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(apikey.Table, apikey.FieldID, selector),
+			sqlgraph.To(apikeyaccountbinding.Table, apikeyaccountbinding.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, apikey.AccountBindingsTable, apikey.AccountBindingsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -378,6 +402,7 @@ func (_q *APIKeyQuery) Clone() *APIKeyQuery {
 		withUsageLogs:            _q.withUsageLogs.Clone(),
 		withGroupBuySeats:        _q.withGroupBuySeats.Clone(),
 		withGroupBuyEntitlements: _q.withGroupBuyEntitlements.Clone(),
+		withAccountBindings:      _q.withAccountBindings.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -436,6 +461,17 @@ func (_q *APIKeyQuery) WithGroupBuyEntitlements(opts ...func(*GroupBuyEntitlemen
 		opt(query)
 	}
 	_q.withGroupBuyEntitlements = query
+	return _q
+}
+
+// WithAccountBindings tells the query-builder to eager-load the nodes that are connected to
+// the "account_bindings" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *APIKeyQuery) WithAccountBindings(opts ...func(*APIKeyAccountBindingQuery)) *APIKeyQuery {
+	query := (&APIKeyAccountBindingClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withAccountBindings = query
 	return _q
 }
 
@@ -517,12 +553,13 @@ func (_q *APIKeyQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*APIKe
 	var (
 		nodes       = []*APIKey{}
 		_spec       = _q.querySpec()
-		loadedTypes = [5]bool{
+		loadedTypes = [6]bool{
 			_q.withUser != nil,
 			_q.withGroup != nil,
 			_q.withUsageLogs != nil,
 			_q.withGroupBuySeats != nil,
 			_q.withGroupBuyEntitlements != nil,
+			_q.withAccountBindings != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -578,6 +615,13 @@ func (_q *APIKeyQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*APIKe
 			func(n *APIKey, e *GroupBuyEntitlement) {
 				n.Edges.GroupBuyEntitlements = append(n.Edges.GroupBuyEntitlements, e)
 			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withAccountBindings; query != nil {
+		if err := _q.loadAccountBindings(ctx, query, nodes,
+			func(n *APIKey) { n.Edges.AccountBindings = []*APIKeyAccountBinding{} },
+			func(n *APIKey, e *APIKeyAccountBinding) { n.Edges.AccountBindings = append(n.Edges.AccountBindings, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -736,6 +780,36 @@ func (_q *APIKeyQuery) loadGroupBuyEntitlements(ctx context.Context, query *Grou
 		node, ok := nodeids[*fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "bound_api_key_id" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *APIKeyQuery) loadAccountBindings(ctx context.Context, query *APIKeyAccountBindingQuery, nodes []*APIKey, init func(*APIKey), assign func(*APIKey, *APIKeyAccountBinding)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*APIKey)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(apikeyaccountbinding.FieldAPIKeyID)
+	}
+	query.Where(predicate.APIKeyAccountBinding(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(apikey.AccountBindingsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.APIKeyID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "api_key_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
 	}

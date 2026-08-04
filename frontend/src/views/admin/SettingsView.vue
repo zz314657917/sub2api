@@ -5368,6 +5368,71 @@
           </div>
         </div>
 
+        <div class="card" data-testid="pixel-cafe-feature-settings">
+          <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              像素网吧
+            </h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              开启新的像素网吧入口；关闭时用户继续使用旧版拼团页面。
+            </p>
+          </div>
+          <div class="p-6">
+            <div class="space-y-5">
+              <div class="flex items-center justify-between gap-4">
+                <div>
+                  <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    启用像素网吧
+                  </label>
+                  <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                    开启后用户端使用像素网吧页面；关闭时继续使用旧版拼团页面。
+                  </p>
+                </div>
+                <Toggle v-model="form.pixel_cafe_enabled" data-testid="pixel-cafe-enabled" />
+              </div>
+              <div>
+                <label class="input-label">页面标题</label>
+                <input
+                  v-model.trim="form.pixel_cafe_title"
+                  type="text"
+                  maxlength="80"
+                  class="input"
+                  placeholder="像素网吧"
+                  data-testid="pixel-cafe-title"
+                />
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  展示在像素网吧页面顶部；留空时恢复默认标题。
+                </p>
+              </div>
+              <div>
+                <label class="input-label">页面说明</label>
+                <textarea
+                  v-model.trim="form.pixel_cafe_description"
+                  rows="2"
+                  maxlength="240"
+                  class="input"
+                  placeholder="把每个模型分组变成一间可订阅的数字包间。"
+                  data-testid="pixel-cafe-description"
+                />
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  展示在标题下方；留空即可隐藏说明文字。
+                </p>
+              </div>
+              <div class="flex items-center justify-between gap-4">
+                <div>
+                  <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    显示页面标题区
+                  </label>
+                  <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                    关闭后隐藏标题上方标识、标题和说明，房间内容仍保留。
+                  </p>
+                </div>
+                <Toggle v-model="form.pixel_cafe_header_visible" data-testid="pixel-cafe-header-visible" />
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="card" data-testid="group-buy-feature-settings">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
@@ -8682,6 +8747,10 @@ const form = reactive<SettingsForm>({
   group_buy_enabled: true,
   group_buy_product_name: 'Token拼拼拼',
   group_buy_description: '按份额拼团，满份后开通 Token拼拼拼 权益；使用自己的平台 API Key。',
+  pixel_cafe_enabled: false,
+  pixel_cafe_title: '像素网吧',
+  pixel_cafe_description: '把每个模型分组变成一间可订阅的数字包间。',
+  pixel_cafe_header_visible: true,
   risk_control_enabled: false,
   payment_min_amount: 1,
   payment_max_amount: 10000,
@@ -10752,6 +10821,10 @@ async function saveSettings() {
       group_buy_enabled: form.group_buy_enabled,
       group_buy_product_name: form.group_buy_product_name?.trim() || 'Token拼拼拼',
       group_buy_description: form.group_buy_description?.trim() || '',
+      pixel_cafe_enabled: form.pixel_cafe_enabled,
+      pixel_cafe_title: form.pixel_cafe_title?.trim() || '像素网吧',
+      pixel_cafe_description: form.pixel_cafe_description?.trim() || '',
+      pixel_cafe_header_visible: form.pixel_cafe_header_visible,
       risk_control_enabled: form.risk_control_enabled,
       payment_min_amount: Number(form.payment_min_amount) || 0,
       payment_max_amount: Number(form.payment_max_amount) || 0,

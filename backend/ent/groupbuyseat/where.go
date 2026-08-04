@@ -85,6 +85,11 @@ func ShareCount(v int) predicate.GroupBuySeat {
 	return predicate.GroupBuySeat(sql.FieldEQ(FieldShareCount, v))
 }
 
+// SeatNo applies equality check predicate on the "seat_no" field. It's identical to SeatNoEQ.
+func SeatNo(v int) predicate.GroupBuySeat {
+	return predicate.GroupBuySeat(sql.FieldEQ(FieldSeatNo, v))
+}
+
 // SubscriptionID applies equality check predicate on the "subscription_id" field. It's identical to SubscriptionIDEQ.
 func SubscriptionID(v int64) predicate.GroupBuySeat {
 	return predicate.GroupBuySeat(sql.FieldEQ(FieldSubscriptionID, v))
@@ -333,6 +338,56 @@ func ShareCountLT(v int) predicate.GroupBuySeat {
 // ShareCountLTE applies the LTE predicate on the "share_count" field.
 func ShareCountLTE(v int) predicate.GroupBuySeat {
 	return predicate.GroupBuySeat(sql.FieldLTE(FieldShareCount, v))
+}
+
+// SeatNoEQ applies the EQ predicate on the "seat_no" field.
+func SeatNoEQ(v int) predicate.GroupBuySeat {
+	return predicate.GroupBuySeat(sql.FieldEQ(FieldSeatNo, v))
+}
+
+// SeatNoNEQ applies the NEQ predicate on the "seat_no" field.
+func SeatNoNEQ(v int) predicate.GroupBuySeat {
+	return predicate.GroupBuySeat(sql.FieldNEQ(FieldSeatNo, v))
+}
+
+// SeatNoIn applies the In predicate on the "seat_no" field.
+func SeatNoIn(vs ...int) predicate.GroupBuySeat {
+	return predicate.GroupBuySeat(sql.FieldIn(FieldSeatNo, vs...))
+}
+
+// SeatNoNotIn applies the NotIn predicate on the "seat_no" field.
+func SeatNoNotIn(vs ...int) predicate.GroupBuySeat {
+	return predicate.GroupBuySeat(sql.FieldNotIn(FieldSeatNo, vs...))
+}
+
+// SeatNoGT applies the GT predicate on the "seat_no" field.
+func SeatNoGT(v int) predicate.GroupBuySeat {
+	return predicate.GroupBuySeat(sql.FieldGT(FieldSeatNo, v))
+}
+
+// SeatNoGTE applies the GTE predicate on the "seat_no" field.
+func SeatNoGTE(v int) predicate.GroupBuySeat {
+	return predicate.GroupBuySeat(sql.FieldGTE(FieldSeatNo, v))
+}
+
+// SeatNoLT applies the LT predicate on the "seat_no" field.
+func SeatNoLT(v int) predicate.GroupBuySeat {
+	return predicate.GroupBuySeat(sql.FieldLT(FieldSeatNo, v))
+}
+
+// SeatNoLTE applies the LTE predicate on the "seat_no" field.
+func SeatNoLTE(v int) predicate.GroupBuySeat {
+	return predicate.GroupBuySeat(sql.FieldLTE(FieldSeatNo, v))
+}
+
+// SeatNoIsNil applies the IsNil predicate on the "seat_no" field.
+func SeatNoIsNil() predicate.GroupBuySeat {
+	return predicate.GroupBuySeat(sql.FieldIsNull(FieldSeatNo))
+}
+
+// SeatNoNotNil applies the NotNil predicate on the "seat_no" field.
+func SeatNoNotNil() predicate.GroupBuySeat {
+	return predicate.GroupBuySeat(sql.FieldNotNull(FieldSeatNo))
 }
 
 // PolicySnapshotIsNil applies the IsNil predicate on the "policy_snapshot" field.
@@ -1036,6 +1091,29 @@ func HasEvents() predicate.GroupBuySeat {
 func HasEventsWith(preds ...predicate.GroupBuyEvent) predicate.GroupBuySeat {
 	return predicate.GroupBuySeat(func(s *sql.Selector) {
 		step := newEventsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasAccountBindings applies the HasEdge predicate on the "account_bindings" edge.
+func HasAccountBindings() predicate.GroupBuySeat {
+	return predicate.GroupBuySeat(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AccountBindingsTable, AccountBindingsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAccountBindingsWith applies the HasEdge predicate on the "account_bindings" edge with a given conditions (other predicates).
+func HasAccountBindingsWith(preds ...predicate.APIKeyAccountBinding) predicate.GroupBuySeat {
+	return predicate.GroupBuySeat(func(s *sql.Selector) {
+		step := newAccountBindingsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

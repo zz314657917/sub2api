@@ -217,9 +217,10 @@ func appendUsageLogModelQueryFilter(query string, args []any, model, source stri
 }
 
 type usageLogRepository struct {
-	client *dbent.Client
-	sql    sqlExecutor
-	db     *sql.DB
+	client             *dbent.Client
+	sql                sqlExecutor
+	db                 *sql.DB
+	lobbyUsageRecorder service.CafeLobbyUsageRecorder
 
 	createBatchOnce     sync.Once
 	createBatchCh       chan usageLogCreateRequest
@@ -253,6 +254,7 @@ type usageLogCreateResult struct {
 }
 
 type usageLogBestEffortRequest struct {
+	log      *service.UsageLog
 	prepared usageLogInsertPrepared
 	apiKeyID int64
 	resultCh chan error
@@ -292,6 +294,14 @@ const (
 
 func NewUsageLogRepository(client *dbent.Client, sqlDB *sql.DB) service.UsageLogRepository {
 	return newUsageLogRepositoryWithSQL(client, sqlDB)
+}
+
+// ProvideUsageLogRepository adds the optional, non-blocking Cafe activity observer
+// without changing the public usage-log repository contract.
+func ProvideUsageLogRepository(client *dbent.Client, sqlDB *sql.DB, lobbyUsageRecorder service.CafeLobbyUsageRecorder) service.UsageLogRepository {
+	repo := newUsageLogRepositoryWithSQL(client, sqlDB)
+	repo.lobbyUsageRecorder = lobbyUsageRecorder
+	return repo
 }
 
 func newUsageLogRepositoryWithSQL(client *dbent.Client, sqlq sqlExecutor) *usageLogRepository {
@@ -364,6 +374,7 @@ func (r *usageLogRepository) CreateBestEffort(ctx context.Context, log *service.
 	}
 
 	req := usageLogBestEffortRequest{
+		log:      log,
 		prepared: prepareUsageLogInsert(log),
 		apiKeyID: log.APIKeyID,
 		resultCh: make(chan error, 1),
@@ -528,6 +539,7 @@ func (r *usageLogRepository) createSingle(ctx context.Context, sqlq sqlExecutor,
 		}
 	}
 	log.RateMultiplier = prepared.rateMultiplier
+	r.recordPersistedUsage(log.UserID, log.CreatedAt)
 	return true, nil
 }
 
@@ -754,6 +766,9 @@ func (r *usageLogRepository) flushCreateBatch(db *sql.DB, batch []usageLogCreate
 					req.log.ID = state.ID
 					req.log.CreatedAt = state.CreatedAt
 					req.log.RateMultiplier = preparedByKey[key].rateMultiplier
+					if idx == 0 && insertedMap[key] {
+						r.recordPersistedUsage(req.log.UserID, req.log.CreatedAt)
+					}
 					completeUsageLogCreateRequest(req, usageLogCreateResult{
 						inserted: idx == 0 && insertedMap[key],
 						err:      nil,
@@ -781,9 +796,11 @@ func (r *usageLogRepository) flushBestEffortBatch(db *sql.DB, batch []usageLogBe
 	}
 
 	type bestEffortGroup struct {
+		log      *service.UsageLog
 		prepared usageLogInsertPrepared
 		apiKeyID int64
 		key      string
+		inputIdx int
 		reqs     []usageLogBestEffortRequest
 	}
 
@@ -800,9 +817,11 @@ func (r *usageLogRepository) flushBestEffortBatch(db *sql.DB, batch []usageLogBe
 		group, exists := groupsByKey[key]
 		if !exists {
 			group = &bestEffortGroup{
+				log:      req.log,
 				prepared: prepared,
 				apiKeyID: req.apiKeyID,
 				key:      key,
+				inputIdx: len(preparedList),
 			}
 			groupsByKey[key] = group
 			groupOrder = append(groupOrder, group)
@@ -821,11 +840,17 @@ func (r *usageLogRepository) flushBestEffortBatch(db *sql.DB, batch []usageLogBe
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	query, args := buildUsageLogBestEffortInsertQuery(preparedList)
-	if _, err := db.ExecContext(ctx, query, args...); err != nil {
+	query, args := buildUsageLogBestEffortInsertStateQuery(preparedList)
+	var payload []byte
+	if err := db.QueryRowContext(ctx, query, args...).Scan(&payload); err != nil {
 		logger.LegacyPrintf("repository.usage_log", "best-effort batch insert failed: %v", err)
 		for _, group := range groupOrder {
-			singleErr := execUsageLogInsertNoResult(ctx, db, group.prepared)
+			var singleErr error
+			if group.log != nil {
+				_, singleErr = r.createSingle(ctx, db, group.log)
+			} else {
+				singleErr = execUsageLogInsertNoResult(ctx, db, group.prepared)
+			}
 			if singleErr != nil {
 				logger.LegacyPrintf("repository.usage_log", "best-effort single fallback insert failed: %v", singleErr)
 			} else if group.prepared.requestID != "" && r != nil && r.bestEffortRecent != nil {
@@ -837,7 +862,24 @@ func (r *usageLogRepository) flushBestEffortBatch(db *sql.DB, batch []usageLogBe
 		}
 		return
 	}
+	var rows []usageLogBestEffortBatchRow
+	if err := json.Unmarshal(payload, &rows); err != nil {
+		logger.LegacyPrintf("repository.usage_log", "best-effort batch state decode failed: %v", err)
+		for _, group := range groupOrder {
+			for _, req := range group.reqs {
+				sendUsageLogBestEffortResult(req.resultCh, nil)
+			}
+		}
+		return
+	}
+	rowsByInput := make(map[int]usageLogBestEffortBatchRow, len(rows))
+	for _, row := range rows {
+		rowsByInput[row.InputIdx] = row
+	}
 	for _, group := range groupOrder {
+		if row, ok := rowsByInput[group.inputIdx]; ok && row.Inserted {
+			r.recordPersistedUsage(row.UserID, row.CreatedAt)
+		}
 		if group.prepared.requestID != "" && r != nil && r.bestEffortRecent != nil {
 			r.bestEffortRecent.SetDefault(group.key, struct{}{})
 		}
@@ -845,6 +887,20 @@ func (r *usageLogRepository) flushBestEffortBatch(db *sql.DB, batch []usageLogBe
 			sendUsageLogBestEffortResult(req.resultCh, nil)
 		}
 	}
+}
+
+type usageLogBestEffortBatchRow struct {
+	InputIdx  int       `json:"input_idx"`
+	UserID    int64     `json:"user_id"`
+	CreatedAt time.Time `json:"created_at"`
+	Inserted  bool      `json:"inserted"`
+}
+
+func (r *usageLogRepository) recordPersistedUsage(userID int64, createdAt time.Time) {
+	if r == nil || r.lobbyUsageRecorder == nil || userID <= 0 {
+		return
+	}
+	r.lobbyUsageRecorder.RecordPersistedUsage(userID, createdAt)
 }
 
 func sendUsageLogBestEffortResult(ch chan error, err error) {
@@ -1188,10 +1244,22 @@ func buildUsageLogBatchInsertQuery(keys []string, preparedByKey map[string]usage
 }
 
 func buildUsageLogBestEffortInsertQuery(preparedList []usageLogInsertPrepared) (string, []any) {
+	return buildUsageLogBestEffortInsertQueryInternal(preparedList, false)
+}
+
+func buildUsageLogBestEffortInsertStateQuery(preparedList []usageLogInsertPrepared) (string, []any) {
+	return buildUsageLogBestEffortInsertQueryInternal(preparedList, true)
+}
+
+func buildUsageLogBestEffortInsertQueryInternal(preparedList []usageLogInsertPrepared, withState bool) (string, []any) {
 	var query strings.Builder
 	_, _ = query.WriteString(`
 		WITH input (
-			user_id,
+			`)
+	if withState {
+		_, _ = query.WriteString("input_idx,\n\t\t\t")
+	}
+	_, _ = query.WriteString(`user_id,
 			api_key_id,
 			account_id,
 			request_id,
@@ -1247,15 +1315,26 @@ func buildUsageLogBestEffortInsertQuery(preparedList []usageLogInsertPrepared) (
 			created_at
 		) AS (VALUES `)
 
-	args := make([]any, 0, len(preparedList)*len(usageLogInsertArgTypes))
+	argSize := len(preparedList) * len(usageLogInsertArgTypes)
+	if withState {
+		argSize += len(preparedList)
+	}
+	args := make([]any, 0, argSize)
 	argPos := 1
 	for idx, prepared := range preparedList {
 		if idx > 0 {
 			_, _ = query.WriteString(",")
 		}
 		_, _ = query.WriteString("(")
+		if withState {
+			_, _ = query.WriteString("$")
+			_, _ = query.WriteString(strconv.Itoa(argPos))
+			_, _ = query.WriteString("::integer")
+			args = append(args, idx)
+			argPos++
+		}
 		for i := 0; i < len(prepared.args); i++ {
-			if i > 0 {
+			if i > 0 || withState {
 				_, _ = query.WriteString(",")
 			}
 			_, _ = query.WriteString("$")
@@ -1439,9 +1518,40 @@ func buildUsageLogBestEffortInsertQuery(preparedList []usageLogInsertPrepared) (
 				night_requests = user_usage_daily_stats.night_requests + EXCLUDED.night_requests,
 				updated_at = NOW()
 			RETURNING 1
+		)`)
+	if withState {
+		_, _ = query.WriteString(`,
+		resolved AS (
+			SELECT
+				input.input_idx,
+				input.user_id,
+				COALESCE(inserted.created_at, input.created_at) AS created_at,
+				(input.request_id IS NULL OR inserted.id IS NOT NULL) AS inserted
+			FROM input
+			LEFT JOIN inserted
+				ON input.request_id IS NOT NULL
+				AND inserted.request_id = input.request_id
+				AND inserted.api_key_id = input.api_key_id
 		)
+		SELECT COALESCE(
+			json_agg(
+				json_build_object(
+					'input_idx', resolved.input_idx,
+					'user_id', resolved.user_id,
+					'created_at', resolved.created_at,
+					'inserted', resolved.inserted
+				)
+				ORDER BY resolved.input_idx
+			),
+			'[]'::json
+		)
+		FROM resolved
+	`)
+	} else {
+		_, _ = query.WriteString(`
 		SELECT COUNT(*) FROM inserted
 	`)
+	}
 	args = append(args, usageStatsTimezoneName())
 
 	return query.String(), args

@@ -4340,6 +4340,12 @@ func (s *OpenAIGatewayService) SelectAccountByPreviousResponseIDForCapability(
 	if s == nil {
 		return nil, nil
 	}
+	// A Cafe managed key may only use its bound account. previous_response_id
+	// is a cross-request sticky hint, so it must not select an historical
+	// account before the normal pinned scheduler path runs.
+	if _, pinned := pinnedAccountIDFromContext(ctx); pinned {
+		return nil, nil
+	}
 	ctx = s.withOpenAIQuotaAutoPauseContext(ctx)
 	responseID := strings.TrimSpace(previousResponseID)
 	if responseID == "" {

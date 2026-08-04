@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyrefund"
@@ -87,6 +88,20 @@ func (_c *GroupBuySeatCreate) SetShareCount(v int) *GroupBuySeatCreate {
 func (_c *GroupBuySeatCreate) SetNillableShareCount(v *int) *GroupBuySeatCreate {
 	if v != nil {
 		_c.SetShareCount(*v)
+	}
+	return _c
+}
+
+// SetSeatNo sets the "seat_no" field.
+func (_c *GroupBuySeatCreate) SetSeatNo(v int) *GroupBuySeatCreate {
+	_c.mutation.SetSeatNo(v)
+	return _c
+}
+
+// SetNillableSeatNo sets the "seat_no" field if the given value is not nil.
+func (_c *GroupBuySeatCreate) SetNillableSeatNo(v *int) *GroupBuySeatCreate {
+	if v != nil {
+		_c.SetSeatNo(*v)
 	}
 	return _c
 }
@@ -319,6 +334,21 @@ func (_c *GroupBuySeatCreate) AddEvents(v ...*GroupBuyEvent) *GroupBuySeatCreate
 	return _c.AddEventIDs(ids...)
 }
 
+// AddAccountBindingIDs adds the "account_bindings" edge to the APIKeyAccountBinding entity by IDs.
+func (_c *GroupBuySeatCreate) AddAccountBindingIDs(ids ...int64) *GroupBuySeatCreate {
+	_c.mutation.AddAccountBindingIDs(ids...)
+	return _c
+}
+
+// AddAccountBindings adds the "account_bindings" edges to the APIKeyAccountBinding entity.
+func (_c *GroupBuySeatCreate) AddAccountBindings(v ...*APIKeyAccountBinding) *GroupBuySeatCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAccountBindingIDs(ids...)
+}
+
 // Mutation returns the GroupBuySeatMutation object of the builder.
 func (_c *GroupBuySeatCreate) Mutation() *GroupBuySeatMutation {
 	return _c.mutation
@@ -443,6 +473,10 @@ func (_c *GroupBuySeatCreate) createSpec() (*GroupBuySeat, *sqlgraph.CreateSpec)
 	if value, ok := _c.mutation.ShareCount(); ok {
 		_spec.SetField(groupbuyseat.FieldShareCount, field.TypeInt, value)
 		_node.ShareCount = value
+	}
+	if value, ok := _c.mutation.SeatNo(); ok {
+		_spec.SetField(groupbuyseat.FieldSeatNo, field.TypeInt, value)
+		_node.SeatNo = &value
 	}
 	if value, ok := _c.mutation.PolicySnapshot(); ok {
 		_spec.SetField(groupbuyseat.FieldPolicySnapshot, field.TypeJSON, value)
@@ -618,6 +652,22 @@ func (_c *GroupBuySeatCreate) createSpec() (*GroupBuySeat, *sqlgraph.CreateSpec)
 		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
+	if nodes := _c.mutation.AccountBindingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyseat.AccountBindingsTable,
+			Columns: []string{groupbuyseat.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
 	return _node, _spec
 }
 
@@ -751,6 +801,30 @@ func (u *GroupBuySeatUpsert) UpdateShareCount() *GroupBuySeatUpsert {
 // AddShareCount adds v to the "share_count" field.
 func (u *GroupBuySeatUpsert) AddShareCount(v int) *GroupBuySeatUpsert {
 	u.Add(groupbuyseat.FieldShareCount, v)
+	return u
+}
+
+// SetSeatNo sets the "seat_no" field.
+func (u *GroupBuySeatUpsert) SetSeatNo(v int) *GroupBuySeatUpsert {
+	u.Set(groupbuyseat.FieldSeatNo, v)
+	return u
+}
+
+// UpdateSeatNo sets the "seat_no" field to the value that was provided on create.
+func (u *GroupBuySeatUpsert) UpdateSeatNo() *GroupBuySeatUpsert {
+	u.SetExcluded(groupbuyseat.FieldSeatNo)
+	return u
+}
+
+// AddSeatNo adds v to the "seat_no" field.
+func (u *GroupBuySeatUpsert) AddSeatNo(v int) *GroupBuySeatUpsert {
+	u.Add(groupbuyseat.FieldSeatNo, v)
+	return u
+}
+
+// ClearSeatNo clears the value of the "seat_no" field.
+func (u *GroupBuySeatUpsert) ClearSeatNo() *GroupBuySeatUpsert {
+	u.SetNull(groupbuyseat.FieldSeatNo)
 	return u
 }
 
@@ -1086,6 +1160,34 @@ func (u *GroupBuySeatUpsertOne) AddShareCount(v int) *GroupBuySeatUpsertOne {
 func (u *GroupBuySeatUpsertOne) UpdateShareCount() *GroupBuySeatUpsertOne {
 	return u.Update(func(s *GroupBuySeatUpsert) {
 		s.UpdateShareCount()
+	})
+}
+
+// SetSeatNo sets the "seat_no" field.
+func (u *GroupBuySeatUpsertOne) SetSeatNo(v int) *GroupBuySeatUpsertOne {
+	return u.Update(func(s *GroupBuySeatUpsert) {
+		s.SetSeatNo(v)
+	})
+}
+
+// AddSeatNo adds v to the "seat_no" field.
+func (u *GroupBuySeatUpsertOne) AddSeatNo(v int) *GroupBuySeatUpsertOne {
+	return u.Update(func(s *GroupBuySeatUpsert) {
+		s.AddSeatNo(v)
+	})
+}
+
+// UpdateSeatNo sets the "seat_no" field to the value that was provided on create.
+func (u *GroupBuySeatUpsertOne) UpdateSeatNo() *GroupBuySeatUpsertOne {
+	return u.Update(func(s *GroupBuySeatUpsert) {
+		s.UpdateSeatNo()
+	})
+}
+
+// ClearSeatNo clears the value of the "seat_no" field.
+func (u *GroupBuySeatUpsertOne) ClearSeatNo() *GroupBuySeatUpsertOne {
+	return u.Update(func(s *GroupBuySeatUpsert) {
+		s.ClearSeatNo()
 	})
 }
 
@@ -1619,6 +1721,34 @@ func (u *GroupBuySeatUpsertBulk) AddShareCount(v int) *GroupBuySeatUpsertBulk {
 func (u *GroupBuySeatUpsertBulk) UpdateShareCount() *GroupBuySeatUpsertBulk {
 	return u.Update(func(s *GroupBuySeatUpsert) {
 		s.UpdateShareCount()
+	})
+}
+
+// SetSeatNo sets the "seat_no" field.
+func (u *GroupBuySeatUpsertBulk) SetSeatNo(v int) *GroupBuySeatUpsertBulk {
+	return u.Update(func(s *GroupBuySeatUpsert) {
+		s.SetSeatNo(v)
+	})
+}
+
+// AddSeatNo adds v to the "seat_no" field.
+func (u *GroupBuySeatUpsertBulk) AddSeatNo(v int) *GroupBuySeatUpsertBulk {
+	return u.Update(func(s *GroupBuySeatUpsert) {
+		s.AddSeatNo(v)
+	})
+}
+
+// UpdateSeatNo sets the "seat_no" field to the value that was provided on create.
+func (u *GroupBuySeatUpsertBulk) UpdateSeatNo() *GroupBuySeatUpsertBulk {
+	return u.Update(func(s *GroupBuySeatUpsert) {
+		s.UpdateSeatNo()
+	})
+}
+
+// ClearSeatNo clears the value of the "seat_no" field.
+func (u *GroupBuySeatUpsertBulk) ClearSeatNo() *GroupBuySeatUpsertBulk {
+	return u.Update(func(s *GroupBuySeatUpsert) {
+		s.ClearSeatNo()
 	})
 }
 

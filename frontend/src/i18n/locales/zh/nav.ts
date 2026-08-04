@@ -55,6 +55,7 @@ export default {
     buySubscription: '充值/订阅',
     groupBuy: 'Token拼拼拼',
     groupBuyManagement: '拼团管理',
+    pixelCafeRooms: '网吧房间',
     docs: '文档',
     myOrders: '我的订单',
     orderManagement: '订单管理',

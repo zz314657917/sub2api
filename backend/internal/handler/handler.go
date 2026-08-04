@@ -41,6 +41,7 @@ type AdminHandlers struct {
 	Payment                *admin.PaymentHandler
 	Affiliate              *admin.AffiliateHandler
 	GroupBuy               *admin.GroupBuyHandler
+	CafeRoom               *admin.CafeRoomHandler
 	ImageCreatorStorage    *admin.ImageCreatorStorageGovernanceHandler
 	Ticket                 *admin.TicketHandler
 	AuditLog               *admin.AuditLogHandler
@@ -72,6 +73,7 @@ type Handlers struct {
 	Totp             *TotpHandler
 	Payment          *PaymentHandler
 	GroupBuy         *GroupBuyHandler
+	Cafe             *CafeHandler
 	PaymentWebhook   *PaymentWebhookHandler
 	Membership       *MembershipHandler
 	AvailableChannel *AvailableChannelHandler

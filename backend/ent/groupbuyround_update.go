@@ -11,6 +11,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/account"
+	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
+	"github.com/Wei-Shaw/sub2api/ent/caferoom"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
@@ -42,6 +45,86 @@ func (_u *GroupBuyRoundUpdate) SetNillablePlanID(v *int64) *GroupBuyRoundUpdate 
 	if v != nil {
 		_u.SetPlanID(*v)
 	}
+	return _u
+}
+
+// SetCafeRoomID sets the "cafe_room_id" field.
+func (_u *GroupBuyRoundUpdate) SetCafeRoomID(v int64) *GroupBuyRoundUpdate {
+	_u.mutation.SetCafeRoomID(v)
+	return _u
+}
+
+// SetNillableCafeRoomID sets the "cafe_room_id" field if the given value is not nil.
+func (_u *GroupBuyRoundUpdate) SetNillableCafeRoomID(v *int64) *GroupBuyRoundUpdate {
+	if v != nil {
+		_u.SetCafeRoomID(*v)
+	}
+	return _u
+}
+
+// ClearCafeRoomID clears the value of the "cafe_room_id" field.
+func (_u *GroupBuyRoundUpdate) ClearCafeRoomID() *GroupBuyRoundUpdate {
+	_u.mutation.ClearCafeRoomID()
+	return _u
+}
+
+// SetAssignedAccountID sets the "assigned_account_id" field.
+func (_u *GroupBuyRoundUpdate) SetAssignedAccountID(v int64) *GroupBuyRoundUpdate {
+	_u.mutation.SetAssignedAccountID(v)
+	return _u
+}
+
+// SetNillableAssignedAccountID sets the "assigned_account_id" field if the given value is not nil.
+func (_u *GroupBuyRoundUpdate) SetNillableAssignedAccountID(v *int64) *GroupBuyRoundUpdate {
+	if v != nil {
+		_u.SetAssignedAccountID(*v)
+	}
+	return _u
+}
+
+// ClearAssignedAccountID clears the value of the "assigned_account_id" field.
+func (_u *GroupBuyRoundUpdate) ClearAssignedAccountID() *GroupBuyRoundUpdate {
+	_u.mutation.ClearAssignedAccountID()
+	return _u
+}
+
+// SetRoomCodeSnapshot sets the "room_code_snapshot" field.
+func (_u *GroupBuyRoundUpdate) SetRoomCodeSnapshot(v string) *GroupBuyRoundUpdate {
+	_u.mutation.SetRoomCodeSnapshot(v)
+	return _u
+}
+
+// SetNillableRoomCodeSnapshot sets the "room_code_snapshot" field if the given value is not nil.
+func (_u *GroupBuyRoundUpdate) SetNillableRoomCodeSnapshot(v *string) *GroupBuyRoundUpdate {
+	if v != nil {
+		_u.SetRoomCodeSnapshot(*v)
+	}
+	return _u
+}
+
+// ClearRoomCodeSnapshot clears the value of the "room_code_snapshot" field.
+func (_u *GroupBuyRoundUpdate) ClearRoomCodeSnapshot() *GroupBuyRoundUpdate {
+	_u.mutation.ClearRoomCodeSnapshot()
+	return _u
+}
+
+// SetRoomNameSnapshot sets the "room_name_snapshot" field.
+func (_u *GroupBuyRoundUpdate) SetRoomNameSnapshot(v string) *GroupBuyRoundUpdate {
+	_u.mutation.SetRoomNameSnapshot(v)
+	return _u
+}
+
+// SetNillableRoomNameSnapshot sets the "room_name_snapshot" field if the given value is not nil.
+func (_u *GroupBuyRoundUpdate) SetNillableRoomNameSnapshot(v *string) *GroupBuyRoundUpdate {
+	if v != nil {
+		_u.SetRoomNameSnapshot(*v)
+	}
+	return _u
+}
+
+// ClearRoomNameSnapshot clears the value of the "room_name_snapshot" field.
+func (_u *GroupBuyRoundUpdate) ClearRoomNameSnapshot() *GroupBuyRoundUpdate {
+	_u.mutation.ClearRoomNameSnapshot()
 	return _u
 }
 
@@ -239,6 +322,86 @@ func (_u *GroupBuyRoundUpdate) ClearClosedAt() *GroupBuyRoundUpdate {
 	return _u
 }
 
+// SetActivatedAt sets the "activated_at" field.
+func (_u *GroupBuyRoundUpdate) SetActivatedAt(v time.Time) *GroupBuyRoundUpdate {
+	_u.mutation.SetActivatedAt(v)
+	return _u
+}
+
+// SetNillableActivatedAt sets the "activated_at" field if the given value is not nil.
+func (_u *GroupBuyRoundUpdate) SetNillableActivatedAt(v *time.Time) *GroupBuyRoundUpdate {
+	if v != nil {
+		_u.SetActivatedAt(*v)
+	}
+	return _u
+}
+
+// ClearActivatedAt clears the value of the "activated_at" field.
+func (_u *GroupBuyRoundUpdate) ClearActivatedAt() *GroupBuyRoundUpdate {
+	_u.mutation.ClearActivatedAt()
+	return _u
+}
+
+// SetEntitlementExpiresAt sets the "entitlement_expires_at" field.
+func (_u *GroupBuyRoundUpdate) SetEntitlementExpiresAt(v time.Time) *GroupBuyRoundUpdate {
+	_u.mutation.SetEntitlementExpiresAt(v)
+	return _u
+}
+
+// SetNillableEntitlementExpiresAt sets the "entitlement_expires_at" field if the given value is not nil.
+func (_u *GroupBuyRoundUpdate) SetNillableEntitlementExpiresAt(v *time.Time) *GroupBuyRoundUpdate {
+	if v != nil {
+		_u.SetEntitlementExpiresAt(*v)
+	}
+	return _u
+}
+
+// ClearEntitlementExpiresAt clears the value of the "entitlement_expires_at" field.
+func (_u *GroupBuyRoundUpdate) ClearEntitlementExpiresAt() *GroupBuyRoundUpdate {
+	_u.mutation.ClearEntitlementExpiresAt()
+	return _u
+}
+
+// SetCompletedAt sets the "completed_at" field.
+func (_u *GroupBuyRoundUpdate) SetCompletedAt(v time.Time) *GroupBuyRoundUpdate {
+	_u.mutation.SetCompletedAt(v)
+	return _u
+}
+
+// SetNillableCompletedAt sets the "completed_at" field if the given value is not nil.
+func (_u *GroupBuyRoundUpdate) SetNillableCompletedAt(v *time.Time) *GroupBuyRoundUpdate {
+	if v != nil {
+		_u.SetCompletedAt(*v)
+	}
+	return _u
+}
+
+// ClearCompletedAt clears the value of the "completed_at" field.
+func (_u *GroupBuyRoundUpdate) ClearCompletedAt() *GroupBuyRoundUpdate {
+	_u.mutation.ClearCompletedAt()
+	return _u
+}
+
+// SetActivationToken sets the "activation_token" field.
+func (_u *GroupBuyRoundUpdate) SetActivationToken(v string) *GroupBuyRoundUpdate {
+	_u.mutation.SetActivationToken(v)
+	return _u
+}
+
+// SetNillableActivationToken sets the "activation_token" field if the given value is not nil.
+func (_u *GroupBuyRoundUpdate) SetNillableActivationToken(v *string) *GroupBuyRoundUpdate {
+	if v != nil {
+		_u.SetActivationToken(*v)
+	}
+	return _u
+}
+
+// ClearActivationToken clears the value of the "activation_token" field.
+func (_u *GroupBuyRoundUpdate) ClearActivationToken() *GroupBuyRoundUpdate {
+	_u.mutation.ClearActivationToken()
+	return _u
+}
+
 // SetCloseReason sets the "close_reason" field.
 func (_u *GroupBuyRoundUpdate) SetCloseReason(v string) *GroupBuyRoundUpdate {
 	_u.mutation.SetCloseReason(v)
@@ -300,6 +463,31 @@ func (_u *GroupBuyRoundUpdate) AddEvents(v ...*GroupBuyEvent) *GroupBuyRoundUpda
 	return _u.AddEventIDs(ids...)
 }
 
+// SetCafeRoom sets the "cafe_room" edge to the CafeRoom entity.
+func (_u *GroupBuyRoundUpdate) SetCafeRoom(v *CafeRoom) *GroupBuyRoundUpdate {
+	return _u.SetCafeRoomID(v.ID)
+}
+
+// SetAssignedAccount sets the "assigned_account" edge to the Account entity.
+func (_u *GroupBuyRoundUpdate) SetAssignedAccount(v *Account) *GroupBuyRoundUpdate {
+	return _u.SetAssignedAccountID(v.ID)
+}
+
+// AddAccountBindingIDs adds the "account_bindings" edge to the APIKeyAccountBinding entity by IDs.
+func (_u *GroupBuyRoundUpdate) AddAccountBindingIDs(ids ...int64) *GroupBuyRoundUpdate {
+	_u.mutation.AddAccountBindingIDs(ids...)
+	return _u
+}
+
+// AddAccountBindings adds the "account_bindings" edges to the APIKeyAccountBinding entity.
+func (_u *GroupBuyRoundUpdate) AddAccountBindings(v ...*APIKeyAccountBinding) *GroupBuyRoundUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAccountBindingIDs(ids...)
+}
+
 // Mutation returns the GroupBuyRoundMutation object of the builder.
 func (_u *GroupBuyRoundUpdate) Mutation() *GroupBuyRoundMutation {
 	return _u.mutation
@@ -351,6 +539,39 @@ func (_u *GroupBuyRoundUpdate) RemoveEvents(v ...*GroupBuyEvent) *GroupBuyRoundU
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveEventIDs(ids...)
+}
+
+// ClearCafeRoom clears the "cafe_room" edge to the CafeRoom entity.
+func (_u *GroupBuyRoundUpdate) ClearCafeRoom() *GroupBuyRoundUpdate {
+	_u.mutation.ClearCafeRoom()
+	return _u
+}
+
+// ClearAssignedAccount clears the "assigned_account" edge to the Account entity.
+func (_u *GroupBuyRoundUpdate) ClearAssignedAccount() *GroupBuyRoundUpdate {
+	_u.mutation.ClearAssignedAccount()
+	return _u
+}
+
+// ClearAccountBindings clears all "account_bindings" edges to the APIKeyAccountBinding entity.
+func (_u *GroupBuyRoundUpdate) ClearAccountBindings() *GroupBuyRoundUpdate {
+	_u.mutation.ClearAccountBindings()
+	return _u
+}
+
+// RemoveAccountBindingIDs removes the "account_bindings" edge to APIKeyAccountBinding entities by IDs.
+func (_u *GroupBuyRoundUpdate) RemoveAccountBindingIDs(ids ...int64) *GroupBuyRoundUpdate {
+	_u.mutation.RemoveAccountBindingIDs(ids...)
+	return _u
+}
+
+// RemoveAccountBindings removes "account_bindings" edges to APIKeyAccountBinding entities.
+func (_u *GroupBuyRoundUpdate) RemoveAccountBindings(v ...*APIKeyAccountBinding) *GroupBuyRoundUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAccountBindingIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -424,6 +645,18 @@ func (_u *GroupBuyRoundUpdate) sqlSave(ctx context.Context) (_node int, err erro
 			}
 		}
 	}
+	if value, ok := _u.mutation.RoomCodeSnapshot(); ok {
+		_spec.SetField(groupbuyround.FieldRoomCodeSnapshot, field.TypeString, value)
+	}
+	if _u.mutation.RoomCodeSnapshotCleared() {
+		_spec.ClearField(groupbuyround.FieldRoomCodeSnapshot, field.TypeString)
+	}
+	if value, ok := _u.mutation.RoomNameSnapshot(); ok {
+		_spec.SetField(groupbuyround.FieldRoomNameSnapshot, field.TypeString, value)
+	}
+	if _u.mutation.RoomNameSnapshotCleared() {
+		_spec.ClearField(groupbuyround.FieldRoomNameSnapshot, field.TypeString)
+	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(groupbuyround.FieldStatus, field.TypeString, value)
 	}
@@ -477,6 +710,30 @@ func (_u *GroupBuyRoundUpdate) sqlSave(ctx context.Context) (_node int, err erro
 	}
 	if _u.mutation.ClosedAtCleared() {
 		_spec.ClearField(groupbuyround.FieldClosedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.ActivatedAt(); ok {
+		_spec.SetField(groupbuyround.FieldActivatedAt, field.TypeTime, value)
+	}
+	if _u.mutation.ActivatedAtCleared() {
+		_spec.ClearField(groupbuyround.FieldActivatedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.EntitlementExpiresAt(); ok {
+		_spec.SetField(groupbuyround.FieldEntitlementExpiresAt, field.TypeTime, value)
+	}
+	if _u.mutation.EntitlementExpiresAtCleared() {
+		_spec.ClearField(groupbuyround.FieldEntitlementExpiresAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.CompletedAt(); ok {
+		_spec.SetField(groupbuyround.FieldCompletedAt, field.TypeTime, value)
+	}
+	if _u.mutation.CompletedAtCleared() {
+		_spec.ClearField(groupbuyround.FieldCompletedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.ActivationToken(); ok {
+		_spec.SetField(groupbuyround.FieldActivationToken, field.TypeString, value)
+	}
+	if _u.mutation.ActivationTokenCleared() {
+		_spec.ClearField(groupbuyround.FieldActivationToken, field.TypeString)
 	}
 	if value, ok := _u.mutation.CloseReason(); ok {
 		_spec.SetField(groupbuyround.FieldCloseReason, field.TypeString, value)
@@ -606,6 +863,109 @@ func (_u *GroupBuyRoundUpdate) sqlSave(ctx context.Context) (_node int, err erro
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.CafeRoomCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   groupbuyround.CafeRoomTable,
+			Columns: []string{groupbuyround.CafeRoomColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoom.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CafeRoomIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   groupbuyround.CafeRoomTable,
+			Columns: []string{groupbuyround.CafeRoomColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoom.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AssignedAccountCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   groupbuyround.AssignedAccountTable,
+			Columns: []string{groupbuyround.AssignedAccountColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AssignedAccountIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   groupbuyround.AssignedAccountTable,
+			Columns: []string{groupbuyround.AssignedAccountColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AccountBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyround.AccountBindingsTable,
+			Columns: []string{groupbuyround.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAccountBindingsIDs(); len(nodes) > 0 && !_u.mutation.AccountBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyround.AccountBindingsTable,
+			Columns: []string{groupbuyround.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AccountBindingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyround.AccountBindingsTable,
+			Columns: []string{groupbuyround.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{groupbuyround.Label}
@@ -637,6 +997,86 @@ func (_u *GroupBuyRoundUpdateOne) SetNillablePlanID(v *int64) *GroupBuyRoundUpda
 	if v != nil {
 		_u.SetPlanID(*v)
 	}
+	return _u
+}
+
+// SetCafeRoomID sets the "cafe_room_id" field.
+func (_u *GroupBuyRoundUpdateOne) SetCafeRoomID(v int64) *GroupBuyRoundUpdateOne {
+	_u.mutation.SetCafeRoomID(v)
+	return _u
+}
+
+// SetNillableCafeRoomID sets the "cafe_room_id" field if the given value is not nil.
+func (_u *GroupBuyRoundUpdateOne) SetNillableCafeRoomID(v *int64) *GroupBuyRoundUpdateOne {
+	if v != nil {
+		_u.SetCafeRoomID(*v)
+	}
+	return _u
+}
+
+// ClearCafeRoomID clears the value of the "cafe_room_id" field.
+func (_u *GroupBuyRoundUpdateOne) ClearCafeRoomID() *GroupBuyRoundUpdateOne {
+	_u.mutation.ClearCafeRoomID()
+	return _u
+}
+
+// SetAssignedAccountID sets the "assigned_account_id" field.
+func (_u *GroupBuyRoundUpdateOne) SetAssignedAccountID(v int64) *GroupBuyRoundUpdateOne {
+	_u.mutation.SetAssignedAccountID(v)
+	return _u
+}
+
+// SetNillableAssignedAccountID sets the "assigned_account_id" field if the given value is not nil.
+func (_u *GroupBuyRoundUpdateOne) SetNillableAssignedAccountID(v *int64) *GroupBuyRoundUpdateOne {
+	if v != nil {
+		_u.SetAssignedAccountID(*v)
+	}
+	return _u
+}
+
+// ClearAssignedAccountID clears the value of the "assigned_account_id" field.
+func (_u *GroupBuyRoundUpdateOne) ClearAssignedAccountID() *GroupBuyRoundUpdateOne {
+	_u.mutation.ClearAssignedAccountID()
+	return _u
+}
+
+// SetRoomCodeSnapshot sets the "room_code_snapshot" field.
+func (_u *GroupBuyRoundUpdateOne) SetRoomCodeSnapshot(v string) *GroupBuyRoundUpdateOne {
+	_u.mutation.SetRoomCodeSnapshot(v)
+	return _u
+}
+
+// SetNillableRoomCodeSnapshot sets the "room_code_snapshot" field if the given value is not nil.
+func (_u *GroupBuyRoundUpdateOne) SetNillableRoomCodeSnapshot(v *string) *GroupBuyRoundUpdateOne {
+	if v != nil {
+		_u.SetRoomCodeSnapshot(*v)
+	}
+	return _u
+}
+
+// ClearRoomCodeSnapshot clears the value of the "room_code_snapshot" field.
+func (_u *GroupBuyRoundUpdateOne) ClearRoomCodeSnapshot() *GroupBuyRoundUpdateOne {
+	_u.mutation.ClearRoomCodeSnapshot()
+	return _u
+}
+
+// SetRoomNameSnapshot sets the "room_name_snapshot" field.
+func (_u *GroupBuyRoundUpdateOne) SetRoomNameSnapshot(v string) *GroupBuyRoundUpdateOne {
+	_u.mutation.SetRoomNameSnapshot(v)
+	return _u
+}
+
+// SetNillableRoomNameSnapshot sets the "room_name_snapshot" field if the given value is not nil.
+func (_u *GroupBuyRoundUpdateOne) SetNillableRoomNameSnapshot(v *string) *GroupBuyRoundUpdateOne {
+	if v != nil {
+		_u.SetRoomNameSnapshot(*v)
+	}
+	return _u
+}
+
+// ClearRoomNameSnapshot clears the value of the "room_name_snapshot" field.
+func (_u *GroupBuyRoundUpdateOne) ClearRoomNameSnapshot() *GroupBuyRoundUpdateOne {
+	_u.mutation.ClearRoomNameSnapshot()
 	return _u
 }
 
@@ -834,6 +1274,86 @@ func (_u *GroupBuyRoundUpdateOne) ClearClosedAt() *GroupBuyRoundUpdateOne {
 	return _u
 }
 
+// SetActivatedAt sets the "activated_at" field.
+func (_u *GroupBuyRoundUpdateOne) SetActivatedAt(v time.Time) *GroupBuyRoundUpdateOne {
+	_u.mutation.SetActivatedAt(v)
+	return _u
+}
+
+// SetNillableActivatedAt sets the "activated_at" field if the given value is not nil.
+func (_u *GroupBuyRoundUpdateOne) SetNillableActivatedAt(v *time.Time) *GroupBuyRoundUpdateOne {
+	if v != nil {
+		_u.SetActivatedAt(*v)
+	}
+	return _u
+}
+
+// ClearActivatedAt clears the value of the "activated_at" field.
+func (_u *GroupBuyRoundUpdateOne) ClearActivatedAt() *GroupBuyRoundUpdateOne {
+	_u.mutation.ClearActivatedAt()
+	return _u
+}
+
+// SetEntitlementExpiresAt sets the "entitlement_expires_at" field.
+func (_u *GroupBuyRoundUpdateOne) SetEntitlementExpiresAt(v time.Time) *GroupBuyRoundUpdateOne {
+	_u.mutation.SetEntitlementExpiresAt(v)
+	return _u
+}
+
+// SetNillableEntitlementExpiresAt sets the "entitlement_expires_at" field if the given value is not nil.
+func (_u *GroupBuyRoundUpdateOne) SetNillableEntitlementExpiresAt(v *time.Time) *GroupBuyRoundUpdateOne {
+	if v != nil {
+		_u.SetEntitlementExpiresAt(*v)
+	}
+	return _u
+}
+
+// ClearEntitlementExpiresAt clears the value of the "entitlement_expires_at" field.
+func (_u *GroupBuyRoundUpdateOne) ClearEntitlementExpiresAt() *GroupBuyRoundUpdateOne {
+	_u.mutation.ClearEntitlementExpiresAt()
+	return _u
+}
+
+// SetCompletedAt sets the "completed_at" field.
+func (_u *GroupBuyRoundUpdateOne) SetCompletedAt(v time.Time) *GroupBuyRoundUpdateOne {
+	_u.mutation.SetCompletedAt(v)
+	return _u
+}
+
+// SetNillableCompletedAt sets the "completed_at" field if the given value is not nil.
+func (_u *GroupBuyRoundUpdateOne) SetNillableCompletedAt(v *time.Time) *GroupBuyRoundUpdateOne {
+	if v != nil {
+		_u.SetCompletedAt(*v)
+	}
+	return _u
+}
+
+// ClearCompletedAt clears the value of the "completed_at" field.
+func (_u *GroupBuyRoundUpdateOne) ClearCompletedAt() *GroupBuyRoundUpdateOne {
+	_u.mutation.ClearCompletedAt()
+	return _u
+}
+
+// SetActivationToken sets the "activation_token" field.
+func (_u *GroupBuyRoundUpdateOne) SetActivationToken(v string) *GroupBuyRoundUpdateOne {
+	_u.mutation.SetActivationToken(v)
+	return _u
+}
+
+// SetNillableActivationToken sets the "activation_token" field if the given value is not nil.
+func (_u *GroupBuyRoundUpdateOne) SetNillableActivationToken(v *string) *GroupBuyRoundUpdateOne {
+	if v != nil {
+		_u.SetActivationToken(*v)
+	}
+	return _u
+}
+
+// ClearActivationToken clears the value of the "activation_token" field.
+func (_u *GroupBuyRoundUpdateOne) ClearActivationToken() *GroupBuyRoundUpdateOne {
+	_u.mutation.ClearActivationToken()
+	return _u
+}
+
 // SetCloseReason sets the "close_reason" field.
 func (_u *GroupBuyRoundUpdateOne) SetCloseReason(v string) *GroupBuyRoundUpdateOne {
 	_u.mutation.SetCloseReason(v)
@@ -895,6 +1415,31 @@ func (_u *GroupBuyRoundUpdateOne) AddEvents(v ...*GroupBuyEvent) *GroupBuyRoundU
 	return _u.AddEventIDs(ids...)
 }
 
+// SetCafeRoom sets the "cafe_room" edge to the CafeRoom entity.
+func (_u *GroupBuyRoundUpdateOne) SetCafeRoom(v *CafeRoom) *GroupBuyRoundUpdateOne {
+	return _u.SetCafeRoomID(v.ID)
+}
+
+// SetAssignedAccount sets the "assigned_account" edge to the Account entity.
+func (_u *GroupBuyRoundUpdateOne) SetAssignedAccount(v *Account) *GroupBuyRoundUpdateOne {
+	return _u.SetAssignedAccountID(v.ID)
+}
+
+// AddAccountBindingIDs adds the "account_bindings" edge to the APIKeyAccountBinding entity by IDs.
+func (_u *GroupBuyRoundUpdateOne) AddAccountBindingIDs(ids ...int64) *GroupBuyRoundUpdateOne {
+	_u.mutation.AddAccountBindingIDs(ids...)
+	return _u
+}
+
+// AddAccountBindings adds the "account_bindings" edges to the APIKeyAccountBinding entity.
+func (_u *GroupBuyRoundUpdateOne) AddAccountBindings(v ...*APIKeyAccountBinding) *GroupBuyRoundUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAccountBindingIDs(ids...)
+}
+
 // Mutation returns the GroupBuyRoundMutation object of the builder.
 func (_u *GroupBuyRoundUpdateOne) Mutation() *GroupBuyRoundMutation {
 	return _u.mutation
@@ -946,6 +1491,39 @@ func (_u *GroupBuyRoundUpdateOne) RemoveEvents(v ...*GroupBuyEvent) *GroupBuyRou
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveEventIDs(ids...)
+}
+
+// ClearCafeRoom clears the "cafe_room" edge to the CafeRoom entity.
+func (_u *GroupBuyRoundUpdateOne) ClearCafeRoom() *GroupBuyRoundUpdateOne {
+	_u.mutation.ClearCafeRoom()
+	return _u
+}
+
+// ClearAssignedAccount clears the "assigned_account" edge to the Account entity.
+func (_u *GroupBuyRoundUpdateOne) ClearAssignedAccount() *GroupBuyRoundUpdateOne {
+	_u.mutation.ClearAssignedAccount()
+	return _u
+}
+
+// ClearAccountBindings clears all "account_bindings" edges to the APIKeyAccountBinding entity.
+func (_u *GroupBuyRoundUpdateOne) ClearAccountBindings() *GroupBuyRoundUpdateOne {
+	_u.mutation.ClearAccountBindings()
+	return _u
+}
+
+// RemoveAccountBindingIDs removes the "account_bindings" edge to APIKeyAccountBinding entities by IDs.
+func (_u *GroupBuyRoundUpdateOne) RemoveAccountBindingIDs(ids ...int64) *GroupBuyRoundUpdateOne {
+	_u.mutation.RemoveAccountBindingIDs(ids...)
+	return _u
+}
+
+// RemoveAccountBindings removes "account_bindings" edges to APIKeyAccountBinding entities.
+func (_u *GroupBuyRoundUpdateOne) RemoveAccountBindings(v ...*APIKeyAccountBinding) *GroupBuyRoundUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAccountBindingIDs(ids...)
 }
 
 // Where appends a list predicates to the GroupBuyRoundUpdate builder.
@@ -1049,6 +1627,18 @@ func (_u *GroupBuyRoundUpdateOne) sqlSave(ctx context.Context) (_node *GroupBuyR
 			}
 		}
 	}
+	if value, ok := _u.mutation.RoomCodeSnapshot(); ok {
+		_spec.SetField(groupbuyround.FieldRoomCodeSnapshot, field.TypeString, value)
+	}
+	if _u.mutation.RoomCodeSnapshotCleared() {
+		_spec.ClearField(groupbuyround.FieldRoomCodeSnapshot, field.TypeString)
+	}
+	if value, ok := _u.mutation.RoomNameSnapshot(); ok {
+		_spec.SetField(groupbuyround.FieldRoomNameSnapshot, field.TypeString, value)
+	}
+	if _u.mutation.RoomNameSnapshotCleared() {
+		_spec.ClearField(groupbuyround.FieldRoomNameSnapshot, field.TypeString)
+	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(groupbuyround.FieldStatus, field.TypeString, value)
 	}
@@ -1102,6 +1692,30 @@ func (_u *GroupBuyRoundUpdateOne) sqlSave(ctx context.Context) (_node *GroupBuyR
 	}
 	if _u.mutation.ClosedAtCleared() {
 		_spec.ClearField(groupbuyround.FieldClosedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.ActivatedAt(); ok {
+		_spec.SetField(groupbuyround.FieldActivatedAt, field.TypeTime, value)
+	}
+	if _u.mutation.ActivatedAtCleared() {
+		_spec.ClearField(groupbuyround.FieldActivatedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.EntitlementExpiresAt(); ok {
+		_spec.SetField(groupbuyround.FieldEntitlementExpiresAt, field.TypeTime, value)
+	}
+	if _u.mutation.EntitlementExpiresAtCleared() {
+		_spec.ClearField(groupbuyround.FieldEntitlementExpiresAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.CompletedAt(); ok {
+		_spec.SetField(groupbuyround.FieldCompletedAt, field.TypeTime, value)
+	}
+	if _u.mutation.CompletedAtCleared() {
+		_spec.ClearField(groupbuyround.FieldCompletedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.ActivationToken(); ok {
+		_spec.SetField(groupbuyround.FieldActivationToken, field.TypeString, value)
+	}
+	if _u.mutation.ActivationTokenCleared() {
+		_spec.ClearField(groupbuyround.FieldActivationToken, field.TypeString)
 	}
 	if value, ok := _u.mutation.CloseReason(); ok {
 		_spec.SetField(groupbuyround.FieldCloseReason, field.TypeString, value)
@@ -1224,6 +1838,109 @@ func (_u *GroupBuyRoundUpdateOne) sqlSave(ctx context.Context) (_node *GroupBuyR
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(groupbuyevent.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.CafeRoomCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   groupbuyround.CafeRoomTable,
+			Columns: []string{groupbuyround.CafeRoomColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoom.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CafeRoomIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   groupbuyround.CafeRoomTable,
+			Columns: []string{groupbuyround.CafeRoomColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoom.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AssignedAccountCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   groupbuyround.AssignedAccountTable,
+			Columns: []string{groupbuyround.AssignedAccountColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AssignedAccountIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   groupbuyround.AssignedAccountTable,
+			Columns: []string{groupbuyround.AssignedAccountColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AccountBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyround.AccountBindingsTable,
+			Columns: []string{groupbuyround.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAccountBindingsIDs(); len(nodes) > 0 && !_u.mutation.AccountBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyround.AccountBindingsTable,
+			Columns: []string{groupbuyround.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AccountBindingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyround.AccountBindingsTable,
+			Columns: []string{groupbuyround.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

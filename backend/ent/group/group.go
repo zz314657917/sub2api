@@ -40,6 +40,8 @@ const (
 	FieldIsExclusive = "is_exclusive"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
+	// FieldAccessMode holds the string denoting the access_mode field in the database.
+	FieldAccessMode = "access_mode"
 	// FieldDuplicateOperationID holds the string denoting the duplicate_operation_id field in the database.
 	FieldDuplicateOperationID = "duplicate_operation_id"
 	// FieldPlatform holds the string denoting the platform field in the database.
@@ -114,6 +116,10 @@ const (
 	EdgeGroupBuyPlans = "group_buy_plans"
 	// EdgeGroupBuyEntitlements holds the string denoting the group_buy_entitlements edge name in mutations.
 	EdgeGroupBuyEntitlements = "group_buy_entitlements"
+	// EdgeCafeRooms holds the string denoting the cafe_rooms edge name in mutations.
+	EdgeCafeRooms = "cafe_rooms"
+	// EdgeAccountBindings holds the string denoting the account_bindings edge name in mutations.
+	EdgeAccountBindings = "account_bindings"
 	// EdgeAccounts holds the string denoting the accounts edge name in mutations.
 	EdgeAccounts = "accounts"
 	// EdgeAllowedUsers holds the string denoting the allowed_users edge name in mutations.
@@ -166,6 +172,20 @@ const (
 	GroupBuyEntitlementsInverseTable = "group_buy_entitlements"
 	// GroupBuyEntitlementsColumn is the table column denoting the group_buy_entitlements relation/edge.
 	GroupBuyEntitlementsColumn = "target_group_id"
+	// CafeRoomsTable is the table that holds the cafe_rooms relation/edge.
+	CafeRoomsTable = "cafe_rooms"
+	// CafeRoomsInverseTable is the table name for the CafeRoom entity.
+	// It exists in this package in order to avoid circular dependency with the "caferoom" package.
+	CafeRoomsInverseTable = "cafe_rooms"
+	// CafeRoomsColumn is the table column denoting the cafe_rooms relation/edge.
+	CafeRoomsColumn = "group_cafe_rooms"
+	// AccountBindingsTable is the table that holds the account_bindings relation/edge.
+	AccountBindingsTable = "api_key_account_bindings"
+	// AccountBindingsInverseTable is the table name for the APIKeyAccountBinding entity.
+	// It exists in this package in order to avoid circular dependency with the "apikeyaccountbinding" package.
+	AccountBindingsInverseTable = "api_key_account_bindings"
+	// AccountBindingsColumn is the table column denoting the account_bindings relation/edge.
+	AccountBindingsColumn = "group_id"
 	// AccountsTable is the table that holds the accounts relation/edge. The primary key declared below.
 	AccountsTable = "account_groups"
 	// AccountsInverseTable is the table name for the Account entity.
@@ -207,6 +227,7 @@ var Columns = []string{
 	FieldPeakRateMultiplier,
 	FieldIsExclusive,
 	FieldStatus,
+	FieldAccessMode,
 	FieldDuplicateOperationID,
 	FieldPlatform,
 	FieldSubscriptionType,
@@ -295,6 +316,10 @@ var (
 	DefaultStatus string
 	// StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	StatusValidator func(string) error
+	// DefaultAccessMode holds the default value on creation for the "access_mode" field.
+	DefaultAccessMode string
+	// AccessModeValidator is a validator for the "access_mode" field. It is called by the builders before save.
+	AccessModeValidator func(string) error
 	// DuplicateOperationIDValidator is a validator for the "duplicate_operation_id" field. It is called by the builders before save.
 	DuplicateOperationIDValidator func(string) error
 	// DefaultPlatform holds the default value on creation for the "platform" field.
@@ -415,6 +440,11 @@ func ByIsExclusive(opts ...sql.OrderTermOption) OrderOption {
 // ByStatus orders the results by the status field.
 func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
+}
+
+// ByAccessMode orders the results by the access_mode field.
+func ByAccessMode(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAccessMode, opts...).ToFunc()
 }
 
 // ByDuplicateOperationID orders the results by the duplicate_operation_id field.
@@ -631,6 +661,34 @@ func ByGroupBuyEntitlements(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOpt
 	}
 }
 
+// ByCafeRoomsCount orders the results by cafe_rooms count.
+func ByCafeRoomsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newCafeRoomsStep(), opts...)
+	}
+}
+
+// ByCafeRooms orders the results by cafe_rooms terms.
+func ByCafeRooms(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCafeRoomsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByAccountBindingsCount orders the results by account_bindings count.
+func ByAccountBindingsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAccountBindingsStep(), opts...)
+	}
+}
+
+// ByAccountBindings orders the results by account_bindings terms.
+func ByAccountBindings(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAccountBindingsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByAccountsCount orders the results by accounts count.
 func ByAccountsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -726,6 +784,20 @@ func newGroupBuyEntitlementsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(GroupBuyEntitlementsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, GroupBuyEntitlementsTable, GroupBuyEntitlementsColumn),
+	)
+}
+func newCafeRoomsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CafeRoomsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, CafeRoomsTable, CafeRoomsColumn),
+	)
+}
+func newAccountBindingsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AccountBindingsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AccountBindingsTable, AccountBindingsColumn),
 	)
 }
 func newAccountsStep() *sqlgraph.Step {

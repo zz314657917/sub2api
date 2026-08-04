@@ -43,6 +43,10 @@ const (
 	// APIKeyUserID 当前 API Key 所属用户 ID，用于服务层识别“我的账号池”。
 	APIKeyUserID Key = "ctx_api_key_user_id"
 
+	// APIKeyPinnedAccountID is the strict account identity carried by a Cafe
+	// managed API key. Downstream selectors must fail closed when it is set.
+	APIKeyPinnedAccountID Key = "ctx_api_key_pinned_account_id"
+
 	// StudioBridgeGateway marks gateway requests authenticated by the internal studio bridge.
 	StudioBridgeGateway Key = "ctx_studio_bridge_gateway"
 

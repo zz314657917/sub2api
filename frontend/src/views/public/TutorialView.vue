@@ -457,6 +457,8 @@ import {
   type QuickstartTutorialConfig
 } from './tutorialQuickstart'
 
+type TutorialScrollBehavior = 'auto' | 'smooth'
+
 type DetailState = 'idle' | 'loading' | 'ready' | 'error' | 'notFound'
 
 const route = useRoute()
@@ -980,7 +982,7 @@ function routeHeadingId(): string {
   }
 }
 
-function scrollToHeading(id: string, behavior: ScrollBehavior = 'smooth'): boolean {
+function scrollToHeading(id: string, behavior: TutorialScrollBehavior = 'smooth'): boolean {
   const heading = findHeading(id)
   if (!heading) return false
   activeHeadingId.value = id
@@ -988,7 +990,7 @@ function scrollToHeading(id: string, behavior: ScrollBehavior = 'smooth'): boole
   return true
 }
 
-function scrollToRouteHash(behavior: ScrollBehavior = 'auto') {
+function scrollToRouteHash(behavior: TutorialScrollBehavior = 'auto') {
   const id = routeHeadingId()
   if (id) scrollToHeading(id, behavior)
 }

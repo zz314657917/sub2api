@@ -83,6 +83,12 @@ const (
 	EdgeProxy = "proxy"
 	// EdgeUsageLogs holds the string denoting the usage_logs edge name in mutations.
 	EdgeUsageLogs = "usage_logs"
+	// EdgeCafeRooms holds the string denoting the cafe_rooms edge name in mutations.
+	EdgeCafeRooms = "cafe_rooms"
+	// EdgeCafeRounds holds the string denoting the cafe_rounds edge name in mutations.
+	EdgeCafeRounds = "cafe_rounds"
+	// EdgeAccountBindings holds the string denoting the account_bindings edge name in mutations.
+	EdgeAccountBindings = "account_bindings"
 	// EdgeAccountGroups holds the string denoting the account_groups edge name in mutations.
 	EdgeAccountGroups = "account_groups"
 	// Table holds the table name of the account in the database.
@@ -106,6 +112,27 @@ const (
 	UsageLogsInverseTable = "usage_logs"
 	// UsageLogsColumn is the table column denoting the usage_logs relation/edge.
 	UsageLogsColumn = "account_id"
+	// CafeRoomsTable is the table that holds the cafe_rooms relation/edge.
+	CafeRoomsTable = "cafe_rooms"
+	// CafeRoomsInverseTable is the table name for the CafeRoom entity.
+	// It exists in this package in order to avoid circular dependency with the "caferoom" package.
+	CafeRoomsInverseTable = "cafe_rooms"
+	// CafeRoomsColumn is the table column denoting the cafe_rooms relation/edge.
+	CafeRoomsColumn = "account_id"
+	// CafeRoundsTable is the table that holds the cafe_rounds relation/edge.
+	CafeRoundsTable = "group_buy_rounds"
+	// CafeRoundsInverseTable is the table name for the GroupBuyRound entity.
+	// It exists in this package in order to avoid circular dependency with the "groupbuyround" package.
+	CafeRoundsInverseTable = "group_buy_rounds"
+	// CafeRoundsColumn is the table column denoting the cafe_rounds relation/edge.
+	CafeRoundsColumn = "assigned_account_id"
+	// AccountBindingsTable is the table that holds the account_bindings relation/edge.
+	AccountBindingsTable = "api_key_account_bindings"
+	// AccountBindingsInverseTable is the table name for the APIKeyAccountBinding entity.
+	// It exists in this package in order to avoid circular dependency with the "apikeyaccountbinding" package.
+	AccountBindingsInverseTable = "api_key_account_bindings"
+	// AccountBindingsColumn is the table column denoting the account_bindings relation/edge.
+	AccountBindingsColumn = "account_id"
 	// AccountGroupsTable is the table that holds the account_groups relation/edge.
 	AccountGroupsTable = "account_groups"
 	// AccountGroupsInverseTable is the table name for the AccountGroup entity.
@@ -405,6 +432,48 @@ func ByUsageLogs(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByCafeRoomsCount orders the results by cafe_rooms count.
+func ByCafeRoomsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newCafeRoomsStep(), opts...)
+	}
+}
+
+// ByCafeRooms orders the results by cafe_rooms terms.
+func ByCafeRooms(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCafeRoomsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByCafeRoundsCount orders the results by cafe_rounds count.
+func ByCafeRoundsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newCafeRoundsStep(), opts...)
+	}
+}
+
+// ByCafeRounds orders the results by cafe_rounds terms.
+func ByCafeRounds(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCafeRoundsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByAccountBindingsCount orders the results by account_bindings count.
+func ByAccountBindingsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAccountBindingsStep(), opts...)
+	}
+}
+
+// ByAccountBindings orders the results by account_bindings terms.
+func ByAccountBindings(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAccountBindingsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByAccountGroupsCount orders the results by account_groups count.
 func ByAccountGroupsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -437,6 +506,27 @@ func newUsageLogsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(UsageLogsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, UsageLogsTable, UsageLogsColumn),
+	)
+}
+func newCafeRoomsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CafeRoomsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, CafeRoomsTable, CafeRoomsColumn),
+	)
+}
+func newCafeRoundsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CafeRoundsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, CafeRoundsTable, CafeRoundsColumn),
+	)
+}
+func newAccountBindingsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AccountBindingsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AccountBindingsTable, AccountBindingsColumn),
 	)
 }
 func newAccountGroupsStep() *sqlgraph.Step {

@@ -237,6 +237,129 @@ func TestAPIKeyAuthSetsGroupContext(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 }
 
+func TestAPIKeyAuthCafeManagedPinSurvivesModelResolution(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	groupID := int64(101)
+	secondaryGroupID := int64(102)
+	managedSourceID := int64(701)
+	pinnedAccountID := int64(801)
+	user := &service.User{
+		ID:          7,
+		Role:        service.RoleUser,
+		Status:      service.StatusActive,
+		Balance:     10,
+		Concurrency: 3,
+	}
+	apiKey := &service.APIKey{
+		ID:                100,
+		UserID:            user.ID,
+		Key:               "cafe-pinned-key",
+		Status:            service.StatusActive,
+		User:              user,
+		GroupID:           &groupID,
+		ManagedSourceType: service.APIKeyManagedSourceCafeRoomSeat,
+		ManagedSourceID:   &managedSourceID,
+		PinnedAccountID:   pinnedAccountID,
+		Group: &service.Group{
+			ID:                 groupID,
+			Name:               "cafe-openai",
+			Status:             service.StatusActive,
+			Platform:           service.PlatformOpenAI,
+			Hydrated:           true,
+			ModelMatchPatterns: []string{"gpt-*"},
+		},
+		MultiGroupRouteGroups: []*service.Group{
+			{
+				ID:                 secondaryGroupID,
+				Name:               "alternate-openai",
+				Status:             service.StatusActive,
+				Platform:           service.PlatformOpenAI,
+				Hydrated:           true,
+				ModelMatchPatterns: []string{"gpt-*"},
+			},
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: secondaryGroupID, Enabled: true, Priority: 1, Weight: 1, ModelPatterns: []string{"gpt-*"}},
+		},
+	}
+	apiKeyService := service.NewAPIKeyService(&stubApiKeyRepo{
+		getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
+			if key != apiKey.Key {
+				return nil, service.ErrAPIKeyNotFound
+			}
+			clone := *apiKey
+			return &clone, nil
+		},
+	}, nil, nil, nil, nil, nil, &config.Config{RunMode: config.RunModeSimple})
+
+	router := gin.New()
+	router.Use(gin.HandlerFunc(NewAPIKeyAuthMiddleware(apiKeyService, nil, &config.Config{RunMode: config.RunModeSimple})))
+	router.POST("/v1/responses", func(c *gin.Context) {
+		pinnedID, ok := c.Request.Context().Value(ctxkey.APIKeyPinnedAccountID).(int64)
+		require.True(t, ok)
+		require.Equal(t, pinnedAccountID, pinnedID)
+
+		effectiveKey, ok := GetAPIKeyFromContext(c)
+		require.True(t, ok)
+		resolved, ok := ResolveAPIKeyForModelRequest(c, apiKeyService, effectiveKey, "gpt-5.4", false)
+		require.True(t, ok)
+		require.Equal(t, groupID, *resolved.GroupID)
+		require.Equal(t, pinnedAccountID, resolved.PinnedAccountID)
+		require.Empty(t, resolved.MultiGroupRoutes)
+		resolvedPinnedID, ok := c.Request.Context().Value(ctxkey.APIKeyPinnedAccountID).(int64)
+		require.True(t, ok)
+		require.Equal(t, pinnedAccountID, resolvedPinnedID)
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	req.Header.Set("x-api-key", apiKey.Key)
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestAPIKeyAuthCafeManagedKeyWithoutPinFailsClosed(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	managedSourceID := int64(701)
+	apiKey := &service.APIKey{
+		ID:                100,
+		UserID:            7,
+		Key:               "cafe-unbound-key",
+		Status:            service.StatusActive,
+		ManagedSourceType: service.APIKeyManagedSourceCafeRoomSeat,
+		ManagedSourceID:   &managedSourceID,
+		User: &service.User{
+			ID:          7,
+			Role:        service.RoleUser,
+			Status:      service.StatusActive,
+			Balance:     10,
+			Concurrency: 3,
+		},
+	}
+	apiKeyService := service.NewAPIKeyService(&stubApiKeyRepo{
+		getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
+			if key != apiKey.Key {
+				return nil, service.ErrAPIKeyNotFound
+			}
+			clone := *apiKey
+			return &clone, nil
+		},
+	}, nil, nil, nil, nil, nil, &config.Config{RunMode: config.RunModeSimple})
+
+	router := newAuthTestRouter(apiKeyService, nil, &config.Config{RunMode: config.RunModeSimple})
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/t", nil)
+	req.Header.Set("x-api-key", apiKey.Key)
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusForbidden, w.Code)
+	requireAPIKeyAuthError(t, w, "CAFE_ACCOUNT_UNAVAILABLE", "the cafe account is temporarily unavailable")
+}
+
 func TestAPIKeyAuthRejectsExclusiveGroupWhenUserNoLongerAllowed(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

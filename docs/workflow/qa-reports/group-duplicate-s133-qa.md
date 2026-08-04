@@ -9,13 +9,14 @@
   clones eligible account bindings and priorities atomically with the scheduler
   outbox event, and uses an internal operation identity for ambiguous retry
   recovery.
+- A test-only cleanup removed the unused `testing` import from
+  `backend/internal/repository/gateway_cache_live_test.go`, which unblocked the
+  repository integration package.
 - The full `unit` API-contract suite remains stale outside S133: its expected
   group/settings payloads omit current fields such as `allow_live` and newer
   settings. The duplicate endpoint itself is covered by the focused admin
   handler regression.
-- The repository integration package cannot compile because the unmodified
-  `gateway_cache_live_test.go` imports `testing` without using it. The new
-  rollback integration test therefore could not reach a PostgreSQL instance.
+- The rollback integration test now reaches a PostgreSQL instance and passes.
 
 ## Executed Checks
 
@@ -26,6 +27,8 @@
 - `go test ./internal/repository -run "Test.*Group.*Duplicate" -count=1`:
   PASS / compile only; the integration test is tag-gated and no default-tag
   repository test matched.
+- `go test -tags=integration ./internal/repository -run '^TestCreateGroupFromSourceRollsBackWhenOutboxInsertFails$' -count=1`:
+  PASS.
 - `go test ./... -run "^$"` and `go build ./...`: PASS.
 - `corepack.cmd pnpm --dir frontend exec vitest run ...`: PASS, 2 files and
   9 tests.
@@ -38,11 +41,8 @@
 
 - `go test -tags=unit ./internal/server -run "^TestAPIContracts$"` is blocked
   by pre-existing exact-payload drift unrelated to duplication.
-- `go test -tags=integration ./internal/repository ...` is blocked by the
-  pre-existing unused `testing` import in
-  `backend/internal/repository/gateway_cache_live_test.go`.
-- No real PostgreSQL migration/transaction, authenticated browser interaction,
-  production API, provider call, deployment, container update, or push ran.
+- No authenticated browser interaction, production API, provider call,
+  deployment, container update, or push ran.
 
 ## Contract Compliance
 
@@ -53,5 +53,6 @@
 
 ## Recommendation
 
-- `PASS / source-level`. Commit and merge into local `main` are appropriate;
-  retain the listed runtime and stale-suite gaps for a separately scoped task.
+- `PASS / source-level + PostgreSQL smoke`. Commit and merge into local `main`
+  are appropriate; retain the listed runtime and stale-suite gaps for a
+  separately scoped task.

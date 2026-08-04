@@ -545,6 +545,10 @@ export interface SystemSettings {
   group_buy_enabled: boolean;
   group_buy_product_name: string;
   group_buy_description: string;
+  pixel_cafe_enabled: boolean;
+  pixel_cafe_title: string;
+  pixel_cafe_description: string;
+  pixel_cafe_header_visible: boolean;
   risk_control_enabled: boolean;
   payment_min_amount: number;
   payment_max_amount: number;
@@ -819,6 +823,10 @@ export interface UpdateSettingsRequest {
   group_buy_enabled?: boolean;
   group_buy_product_name?: string;
   group_buy_description?: string;
+  pixel_cafe_enabled?: boolean;
+  pixel_cafe_title?: string;
+  pixel_cafe_description?: string;
+  pixel_cafe_header_visible?: boolean;
   risk_control_enabled?: boolean;
   payment_min_amount?: number;
   payment_max_amount?: number;

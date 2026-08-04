@@ -115,6 +115,10 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 			AbortWithError(c, 401, "USER_INACTIVE", "User account is not active")
 			return
 		}
+		if apiKey.IsCafeRoomManaged() && apiKey.PinnedAccountID <= 0 {
+			AbortWithError(c, http.StatusForbidden, "CAFE_ACCOUNT_UNAVAILABLE", "the cafe account is temporarily unavailable")
+			return
+		}
 		if cfg.RunMode != config.RunModeSimple && c.Request.URL.Path != "/v1/usage" {
 			apiKey = withUnavailableSubscriptionRouteGroups(c.Request.Context(), apiKey, subscriptionService)
 		}
@@ -319,6 +323,10 @@ func SetAPIKeyContext(c *gin.Context, apiKey *service.APIKey) {
 	}
 	c.Set(string(ContextKeyAPIKey), apiKey)
 	setAPIKeyAccountPoolContext(c, apiKey)
+	if apiKey.PinnedAccountID > 0 {
+		ctx := context.WithValue(c.Request.Context(), ctxkey.APIKeyPinnedAccountID, apiKey.PinnedAccountID)
+		c.Request = c.Request.WithContext(ctx)
+	}
 	setGroupContext(c, apiKey.Group)
 }
 
@@ -364,7 +372,7 @@ func setSubscriptionContext(c *gin.Context, subscription *service.UserSubscripti
 // the request model/body. It updates gin.Context and reloads subscription
 // context when the effective group changes.
 func ResolveAPIKeyForModelRequest(c *gin.Context, apiKeyService *service.APIKeyService, apiKey *service.APIKey, requestedModel string, imageIntent bool) (*service.APIKey, bool) {
-	if c == nil || apiKeyService == nil || apiKey == nil || len(apiKey.MultiGroupRoutes) == 0 {
+	if c == nil || apiKeyService == nil || apiKey == nil || (len(apiKey.MultiGroupRoutes) == 0 && apiKey.PinnedAccountID <= 0) {
 		return apiKey, true
 	}
 	forcePlatform, _ := GetForcePlatformFromContext(c)

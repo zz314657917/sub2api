@@ -95,11 +95,17 @@ type AccountEdges struct {
 	Proxy *Proxy `json:"proxy,omitempty"`
 	// UsageLogs holds the value of the usage_logs edge.
 	UsageLogs []*UsageLog `json:"usage_logs,omitempty"`
+	// CafeRooms holds the value of the cafe_rooms edge.
+	CafeRooms []*CafeRoom `json:"cafe_rooms,omitempty"`
+	// CafeRounds holds the value of the cafe_rounds edge.
+	CafeRounds []*GroupBuyRound `json:"cafe_rounds,omitempty"`
+	// AccountBindings holds the value of the account_bindings edge.
+	AccountBindings []*APIKeyAccountBinding `json:"account_bindings,omitempty"`
 	// AccountGroups holds the value of the account_groups edge.
 	AccountGroups []*AccountGroup `json:"account_groups,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [4]bool
+	loadedTypes [7]bool
 }
 
 // GroupsOrErr returns the Groups value or an error if the edge
@@ -131,10 +137,37 @@ func (e AccountEdges) UsageLogsOrErr() ([]*UsageLog, error) {
 	return nil, &NotLoadedError{edge: "usage_logs"}
 }
 
+// CafeRoomsOrErr returns the CafeRooms value or an error if the edge
+// was not loaded in eager-loading.
+func (e AccountEdges) CafeRoomsOrErr() ([]*CafeRoom, error) {
+	if e.loadedTypes[3] {
+		return e.CafeRooms, nil
+	}
+	return nil, &NotLoadedError{edge: "cafe_rooms"}
+}
+
+// CafeRoundsOrErr returns the CafeRounds value or an error if the edge
+// was not loaded in eager-loading.
+func (e AccountEdges) CafeRoundsOrErr() ([]*GroupBuyRound, error) {
+	if e.loadedTypes[4] {
+		return e.CafeRounds, nil
+	}
+	return nil, &NotLoadedError{edge: "cafe_rounds"}
+}
+
+// AccountBindingsOrErr returns the AccountBindings value or an error if the edge
+// was not loaded in eager-loading.
+func (e AccountEdges) AccountBindingsOrErr() ([]*APIKeyAccountBinding, error) {
+	if e.loadedTypes[5] {
+		return e.AccountBindings, nil
+	}
+	return nil, &NotLoadedError{edge: "account_bindings"}
+}
+
 // AccountGroupsOrErr returns the AccountGroups value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) AccountGroupsOrErr() ([]*AccountGroup, error) {
-	if e.loadedTypes[3] {
+	if e.loadedTypes[6] {
 		return e.AccountGroups, nil
 	}
 	return nil, &NotLoadedError{edge: "account_groups"}
@@ -410,6 +443,21 @@ func (_m *Account) QueryProxy() *ProxyQuery {
 // QueryUsageLogs queries the "usage_logs" edge of the Account entity.
 func (_m *Account) QueryUsageLogs() *UsageLogQuery {
 	return NewAccountClient(_m.config).QueryUsageLogs(_m)
+}
+
+// QueryCafeRooms queries the "cafe_rooms" edge of the Account entity.
+func (_m *Account) QueryCafeRooms() *CafeRoomQuery {
+	return NewAccountClient(_m.config).QueryCafeRooms(_m)
+}
+
+// QueryCafeRounds queries the "cafe_rounds" edge of the Account entity.
+func (_m *Account) QueryCafeRounds() *GroupBuyRoundQuery {
+	return NewAccountClient(_m.config).QueryCafeRounds(_m)
+}
+
+// QueryAccountBindings queries the "account_bindings" edge of the Account entity.
+func (_m *Account) QueryAccountBindings() *APIKeyAccountBindingQuery {
+	return NewAccountClient(_m.config).QueryAccountBindings(_m)
 }
 
 // QueryAccountGroups queries the "account_groups" edge of the Account entity.

@@ -122,6 +122,13 @@ func (APIKey) Fields() []ent.Field {
 		field.JSON("multi_group_routes", []domain.APIKeyMultiGroupRoute{}).
 			Optional().
 			Comment("API key multi-group routing configuration"),
+		field.String("managed_source_type").
+			MaxLen(64).
+			Default("").
+			Comment("Managed API key source namespace; empty means user-managed."),
+		field.Int64("managed_source_id").
+			Optional().
+			Nillable(),
 	}
 }
 
@@ -139,6 +146,7 @@ func (APIKey) Edges() []ent.Edge {
 		edge.To("usage_logs", UsageLog.Type),
 		edge.To("group_buy_seats", GroupBuySeat.Type),
 		edge.To("group_buy_entitlements", GroupBuyEntitlement.Type),
+		edge.To("account_bindings", APIKeyAccountBinding.Type),
 	}
 }
 
@@ -153,5 +161,8 @@ func (APIKey) Indexes() []ent.Index {
 		// Index for quota queries
 		index.Fields("quota", "quota_used"),
 		index.Fields("expires_at"),
+		index.Fields("managed_source_type", "managed_source_id").
+			Unique().
+			Annotations(entsql.IndexWhere("managed_source_type <> '' AND managed_source_id IS NOT NULL AND deleted_at IS NULL")),
 	}
 }

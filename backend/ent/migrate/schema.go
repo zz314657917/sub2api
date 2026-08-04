@@ -35,6 +35,8 @@ var (
 		{Name: "window_1d_start", Type: field.TypeTime, Nullable: true},
 		{Name: "window_7d_start", Type: field.TypeTime, Nullable: true},
 		{Name: "multi_group_routes", Type: field.TypeJSON, Nullable: true},
+		{Name: "managed_source_type", Type: field.TypeString, Size: 64, Default: ""},
+		{Name: "managed_source_id", Type: field.TypeInt64, Nullable: true},
 		{Name: "group_id", Type: field.TypeInt64, Nullable: true},
 		{Name: "user_id", Type: field.TypeInt64},
 	}
@@ -46,13 +48,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "api_keys_groups_api_keys",
-				Columns:    []*schema.Column{APIKeysColumns[24]},
+				Columns:    []*schema.Column{APIKeysColumns[26]},
 				RefColumns: []*schema.Column{GroupsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "api_keys_users_api_keys",
-				Columns:    []*schema.Column{APIKeysColumns[25]},
+				Columns:    []*schema.Column{APIKeysColumns[27]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -61,12 +63,12 @@ var (
 			{
 				Name:    "apikey_user_id",
 				Unique:  false,
-				Columns: []*schema.Column{APIKeysColumns[25]},
+				Columns: []*schema.Column{APIKeysColumns[27]},
 			},
 			{
 				Name:    "apikey_group_id",
 				Unique:  false,
-				Columns: []*schema.Column{APIKeysColumns[24]},
+				Columns: []*schema.Column{APIKeysColumns[26]},
 			},
 			{
 				Name:    "apikey_status",
@@ -92,6 +94,131 @@ var (
 				Name:    "apikey_expires_at",
 				Unique:  false,
 				Columns: []*schema.Column{APIKeysColumns[13]},
+			},
+			{
+				Name:    "apikey_managed_source_type_managed_source_id",
+				Unique:  true,
+				Columns: []*schema.Column{APIKeysColumns[24], APIKeysColumns[25]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "managed_source_type <> '' AND managed_source_id IS NOT NULL AND deleted_at IS NULL",
+				},
+			},
+		},
+	}
+	// APIKeyAccountBindingsColumns holds the columns for the "api_key_account_bindings" table.
+	APIKeyAccountBindingsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
+		{Name: "strict_mode", Type: field.TypeBool, Default: true},
+		{Name: "starts_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "expires_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "replaced_by_binding_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "migrated_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "api_key_id", Type: field.TypeInt64},
+		{Name: "account_id", Type: field.TypeInt64},
+		{Name: "cafe_room_id", Type: field.TypeInt64},
+		{Name: "group_id", Type: field.TypeInt64},
+		{Name: "round_id", Type: field.TypeInt64},
+		{Name: "seat_id", Type: field.TypeInt64},
+		{Name: "user_id", Type: field.TypeInt64},
+	}
+	// APIKeyAccountBindingsTable holds the schema information for the "api_key_account_bindings" table.
+	APIKeyAccountBindingsTable = &schema.Table{
+		Name:       "api_key_account_bindings",
+		Columns:    APIKeyAccountBindingsColumns,
+		PrimaryKey: []*schema.Column{APIKeyAccountBindingsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "api_key_account_bindings_api_keys_account_bindings",
+				Columns:    []*schema.Column{APIKeyAccountBindingsColumns[9]},
+				RefColumns: []*schema.Column{APIKeysColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "api_key_account_bindings_accounts_account_bindings",
+				Columns:    []*schema.Column{APIKeyAccountBindingsColumns[10]},
+				RefColumns: []*schema.Column{AccountsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "api_key_account_bindings_cafe_rooms_account_bindings",
+				Columns:    []*schema.Column{APIKeyAccountBindingsColumns[11]},
+				RefColumns: []*schema.Column{CafeRoomsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "api_key_account_bindings_groups_account_bindings",
+				Columns:    []*schema.Column{APIKeyAccountBindingsColumns[12]},
+				RefColumns: []*schema.Column{GroupsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "api_key_account_bindings_group_buy_rounds_account_bindings",
+				Columns:    []*schema.Column{APIKeyAccountBindingsColumns[13]},
+				RefColumns: []*schema.Column{GroupBuyRoundsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "api_key_account_bindings_group_buy_seats_account_bindings",
+				Columns:    []*schema.Column{APIKeyAccountBindingsColumns[14]},
+				RefColumns: []*schema.Column{GroupBuySeatsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "api_key_account_bindings_users_account_bindings",
+				Columns:    []*schema.Column{APIKeyAccountBindingsColumns[15]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "idx_api_key_account_bindings_active_key",
+				Unique:  true,
+				Columns: []*schema.Column{APIKeyAccountBindingsColumns[9]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "status = 'active'",
+				},
+			},
+			{
+				Name:    "idx_api_key_account_bindings_active_seat",
+				Unique:  true,
+				Columns: []*schema.Column{APIKeyAccountBindingsColumns[14]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "status = 'active'",
+				},
+			},
+			{
+				Name:    "apikeyaccountbinding_user_id_group_id_status",
+				Unique:  false,
+				Columns: []*schema.Column{APIKeyAccountBindingsColumns[15], APIKeyAccountBindingsColumns[12], APIKeyAccountBindingsColumns[3]},
+			},
+			{
+				Name:    "apikeyaccountbinding_account_id_status",
+				Unique:  false,
+				Columns: []*schema.Column{APIKeyAccountBindingsColumns[10], APIKeyAccountBindingsColumns[3]},
+			},
+			{
+				Name:    "apikeyaccountbinding_cafe_room_id_status",
+				Unique:  false,
+				Columns: []*schema.Column{APIKeyAccountBindingsColumns[11], APIKeyAccountBindingsColumns[3]},
+			},
+			{
+				Name:    "apikeyaccountbinding_round_id",
+				Unique:  false,
+				Columns: []*schema.Column{APIKeyAccountBindingsColumns[13]},
+			},
+			{
+				Name:    "apikeyaccountbinding_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{APIKeyAccountBindingsColumns[6]},
+			},
+			{
+				Name:    "apikeyaccountbinding_replaced_by_binding_id",
+				Unique:  false,
+				Columns: []*schema.Column{APIKeyAccountBindingsColumns[7]},
 			},
 		},
 	}
@@ -436,6 +563,91 @@ var (
 			},
 		},
 	}
+	// CafeRoomsColumns holds the columns for the "cafe_rooms" table.
+	CafeRoomsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "code", Type: field.TypeString, Size: 64},
+		{Name: "name", Type: field.TypeString, Size: 120},
+		{Name: "zone_key", Type: field.TypeString, Size: 32, Default: "featured"},
+		{Name: "theme_key", Type: field.TypeString, Size: 64, Default: "warm_wood"},
+		{Name: "scene_slot_key", Type: field.TypeString, Size: 120, Default: ""},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "draft"},
+		{Name: "featured", Type: field.TypeBool, Default: false},
+		{Name: "sort_order", Type: field.TypeInt, Default: 0},
+		{Name: "metadata", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "account_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "group_cafe_rooms", Type: field.TypeInt64, Nullable: true},
+		{Name: "plan_id", Type: field.TypeInt64},
+	}
+	// CafeRoomsTable holds the schema information for the "cafe_rooms" table.
+	CafeRoomsTable = &schema.Table{
+		Name:       "cafe_rooms",
+		Columns:    CafeRoomsColumns,
+		PrimaryKey: []*schema.Column{CafeRoomsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "cafe_rooms_accounts_cafe_rooms",
+				Columns:    []*schema.Column{CafeRoomsColumns[13]},
+				RefColumns: []*schema.Column{AccountsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "cafe_rooms_groups_cafe_rooms",
+				Columns:    []*schema.Column{CafeRoomsColumns[14]},
+				RefColumns: []*schema.Column{GroupsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "cafe_rooms_group_buy_plans_cafe_rooms",
+				Columns:    []*schema.Column{CafeRoomsColumns[15]},
+				RefColumns: []*schema.Column{GroupBuyPlansColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "idx_cafe_rooms_code_active",
+				Unique:  true,
+				Columns: []*schema.Column{CafeRoomsColumns[4]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "deleted_at IS NULL",
+				},
+			},
+			{
+				Name:    "caferoom_zone_key_status_sort_order",
+				Unique:  false,
+				Columns: []*schema.Column{CafeRoomsColumns[6], CafeRoomsColumns[9], CafeRoomsColumns[11]},
+			},
+			{
+				Name:    "caferoom_plan_id",
+				Unique:  false,
+				Columns: []*schema.Column{CafeRoomsColumns[15]},
+			},
+			{
+				Name:    "caferoom_account_id",
+				Unique:  false,
+				Columns: []*schema.Column{CafeRoomsColumns[13]},
+			},
+			{
+				Name:    "caferoom_status",
+				Unique:  false,
+				Columns: []*schema.Column{CafeRoomsColumns[9]},
+			},
+			{
+				Name:    "caferoom_featured_sort_order",
+				Unique:  false,
+				Columns: []*schema.Column{CafeRoomsColumns[10], CafeRoomsColumns[11]},
+			},
+			{
+				Name:    "caferoom_deleted_at",
+				Unique:  false,
+				Columns: []*schema.Column{CafeRoomsColumns[3]},
+			},
+		},
+	}
 	// ChannelMonitorsColumns holds the columns for the "channel_monitors" table.
 	ChannelMonitorsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -651,6 +863,7 @@ var (
 		{Name: "peak_rate_multiplier", Type: field.TypeFloat64, Default: 1, SchemaType: map[string]string{"postgres": "decimal(10,4)"}},
 		{Name: "is_exclusive", Type: field.TypeBool, Default: false},
 		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
+		{Name: "access_mode", Type: field.TypeString, Size: 20, Default: "normal"},
 		{Name: "duplicate_operation_id", Type: field.TypeString, Nullable: true, Size: 64},
 		{Name: "platform", Type: field.TypeString, Size: 50, Default: "anthropic"},
 		{Name: "subscription_type", Type: field.TypeString, Size: 20, Default: "standard"},
@@ -695,19 +908,24 @@ var (
 				Columns: []*schema.Column{GroupsColumns[12]},
 			},
 			{
-				Name:    "group_platform",
+				Name:    "group_access_mode",
 				Unique:  false,
-				Columns: []*schema.Column{GroupsColumns[14]},
+				Columns: []*schema.Column{GroupsColumns[13]},
 			},
 			{
-				Name:    "group_subscription_type",
+				Name:    "group_platform",
 				Unique:  false,
 				Columns: []*schema.Column{GroupsColumns[15]},
 			},
 			{
-				Name:    "group_routing_scope",
+				Name:    "group_subscription_type",
 				Unique:  false,
 				Columns: []*schema.Column{GroupsColumns[16]},
+			},
+			{
+				Name:    "group_routing_scope",
+				Unique:  false,
+				Columns: []*schema.Column{GroupsColumns[17]},
 			},
 			{
 				Name:    "group_is_exclusive",
@@ -722,12 +940,12 @@ var (
 			{
 				Name:    "group_sort_order",
 				Unique:  false,
-				Columns: []*schema.Column{GroupsColumns[35]},
+				Columns: []*schema.Column{GroupsColumns[36]},
 			},
 			{
 				Name:    "idx_groups_duplicate_operation_id_active",
 				Unique:  true,
-				Columns: []*schema.Column{GroupsColumns[13]},
+				Columns: []*schema.Column{GroupsColumns[14]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "duplicate_operation_id IS NOT NULL AND deleted_at IS NULL",
 				},
@@ -924,6 +1142,12 @@ var (
 		{Name: "validity_days", Type: field.TypeInt, Default: 30},
 		{Name: "timeout_minutes", Type: field.TypeInt, Default: 1440},
 		{Name: "launch_mode", Type: field.TypeString, Size: 16, Default: "auto"},
+		{Name: "fulfillment_mode", Type: field.TypeString, Size: 32, Default: "aggregate_tier"},
+		{Name: "room_key_quota_usd", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
+		{Name: "room_key_rate_limit_5h", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
+		{Name: "room_key_rate_limit_1d", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
+		{Name: "room_key_rate_limit_7d", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
+		{Name: "auto_create_room_key", Type: field.TypeBool, Default: true},
 		{Name: "refund_mode", Type: field.TypeString, Size: 32, Default: "balance_credit"},
 		{Name: "agreement_text", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
 		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
@@ -940,7 +1164,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "group_buy_plans_groups_group_buy_plans",
-				Columns:    []*schema.Column{GroupBuyPlansColumns[25]},
+				Columns:    []*schema.Column{GroupBuyPlansColumns[31]},
 				RefColumns: []*schema.Column{GroupsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -954,22 +1178,27 @@ var (
 			{
 				Name:    "groupbuyplan_status",
 				Unique:  false,
-				Columns: []*schema.Column{GroupBuyPlansColumns[21]},
+				Columns: []*schema.Column{GroupBuyPlansColumns[27]},
 			},
 			{
 				Name:    "groupbuyplan_sort_order",
 				Unique:  false,
-				Columns: []*schema.Column{GroupBuyPlansColumns[22]},
+				Columns: []*schema.Column{GroupBuyPlansColumns[28]},
 			},
 			{
 				Name:    "groupbuyplan_target_group_id",
 				Unique:  false,
-				Columns: []*schema.Column{GroupBuyPlansColumns[25]},
+				Columns: []*schema.Column{GroupBuyPlansColumns[31]},
+			},
+			{
+				Name:    "groupbuyplan_fulfillment_mode",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyPlansColumns[19]},
 			},
 			{
 				Name:    "groupbuyplan_deleted_at",
 				Unique:  false,
-				Columns: []*schema.Column{GroupBuyPlansColumns[24]},
+				Columns: []*schema.Column{GroupBuyPlansColumns[30]},
 			},
 		},
 	}
@@ -1044,6 +1273,8 @@ var (
 	// GroupBuyRoundsColumns holds the columns for the "group_buy_rounds" table.
 	GroupBuyRoundsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "room_code_snapshot", Type: field.TypeString, Nullable: true},
+		{Name: "room_name_snapshot", Type: field.TypeString, Nullable: true},
 		{Name: "status", Type: field.TypeString, Size: 20, Default: "open"},
 		{Name: "total_shares", Type: field.TypeInt},
 		{Name: "paid_shares", Type: field.TypeInt, Default: 0},
@@ -1054,9 +1285,15 @@ var (
 		{Name: "deadline_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "started_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "closed_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "activated_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "entitlement_expires_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "completed_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "activation_token", Type: field.TypeString, Nullable: true},
 		{Name: "close_reason", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
 		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "assigned_account_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "cafe_room_id", Type: field.TypeInt64, Nullable: true},
 		{Name: "plan_id", Type: field.TypeInt64},
 	}
 	// GroupBuyRoundsTable holds the schema information for the "group_buy_rounds" table.
@@ -1066,8 +1303,20 @@ var (
 		PrimaryKey: []*schema.Column{GroupBuyRoundsColumns[0]},
 		ForeignKeys: []*schema.ForeignKey{
 			{
+				Symbol:     "group_buy_rounds_accounts_cafe_rounds",
+				Columns:    []*schema.Column{GroupBuyRoundsColumns[20]},
+				RefColumns: []*schema.Column{AccountsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "group_buy_rounds_cafe_rooms_rounds",
+				Columns:    []*schema.Column{GroupBuyRoundsColumns[21]},
+				RefColumns: []*schema.Column{CafeRoomsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
 				Symbol:     "group_buy_rounds_group_buy_plans_rounds",
-				Columns:    []*schema.Column{GroupBuyRoundsColumns[14]},
+				Columns:    []*schema.Column{GroupBuyRoundsColumns[22]},
 				RefColumns: []*schema.Column{GroupBuyPlansColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -1076,22 +1325,40 @@ var (
 			{
 				Name:    "groupbuyround_plan_id",
 				Unique:  false,
-				Columns: []*schema.Column{GroupBuyRoundsColumns[14]},
+				Columns: []*schema.Column{GroupBuyRoundsColumns[22]},
+			},
+			{
+				Name:    "groupbuyround_cafe_room_id",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyRoundsColumns[21]},
+			},
+			{
+				Name:    "groupbuyround_assigned_account_id",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyRoundsColumns[20]},
+			},
+			{
+				Name:    "groupbuyround_activation_token",
+				Unique:  true,
+				Columns: []*schema.Column{GroupBuyRoundsColumns[16]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "activation_token IS NOT NULL",
+				},
 			},
 			{
 				Name:    "groupbuyround_status",
 				Unique:  false,
-				Columns: []*schema.Column{GroupBuyRoundsColumns[1]},
+				Columns: []*schema.Column{GroupBuyRoundsColumns[3]},
 			},
 			{
 				Name:    "groupbuyround_deadline_at",
 				Unique:  false,
-				Columns: []*schema.Column{GroupBuyRoundsColumns[8]},
+				Columns: []*schema.Column{GroupBuyRoundsColumns[10]},
 			},
 			{
 				Name:    "groupbuyround_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{GroupBuyRoundsColumns[12]},
+				Columns: []*schema.Column{GroupBuyRoundsColumns[18]},
 			},
 		},
 	}
@@ -1100,6 +1367,7 @@ var (
 		{Name: "id", Type: field.TypeInt64, Increment: true},
 		{Name: "status", Type: field.TypeString, Size: 24, Default: "locked"},
 		{Name: "share_count", Type: field.TypeInt, Default: 1},
+		{Name: "seat_no", Type: field.TypeInt, Nullable: true},
 		{Name: "policy_snapshot", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
 		{Name: "locked_until", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "paid_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
@@ -1125,37 +1393,37 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "group_buy_seats_api_keys_group_buy_seats",
-				Columns:    []*schema.Column{GroupBuySeatsColumns[13]},
+				Columns:    []*schema.Column{GroupBuySeatsColumns[14]},
 				RefColumns: []*schema.Column{APIKeysColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "group_buy_seats_group_buy_plans_seats",
-				Columns:    []*schema.Column{GroupBuySeatsColumns[14]},
+				Columns:    []*schema.Column{GroupBuySeatsColumns[15]},
 				RefColumns: []*schema.Column{GroupBuyPlansColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "group_buy_seats_group_buy_rounds_seats",
-				Columns:    []*schema.Column{GroupBuySeatsColumns[15]},
+				Columns:    []*schema.Column{GroupBuySeatsColumns[16]},
 				RefColumns: []*schema.Column{GroupBuyRoundsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "group_buy_seats_payment_orders_group_buy_seat",
-				Columns:    []*schema.Column{GroupBuySeatsColumns[16]},
+				Columns:    []*schema.Column{GroupBuySeatsColumns[17]},
 				RefColumns: []*schema.Column{PaymentOrdersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "group_buy_seats_users_group_buy_seats",
-				Columns:    []*schema.Column{GroupBuySeatsColumns[17]},
+				Columns:    []*schema.Column{GroupBuySeatsColumns[18]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "group_buy_seats_user_subscriptions_group_buy_seats",
-				Columns:    []*schema.Column{GroupBuySeatsColumns[18]},
+				Columns:    []*schema.Column{GroupBuySeatsColumns[19]},
 				RefColumns: []*schema.Column{UserSubscriptionsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -1164,22 +1432,22 @@ var (
 			{
 				Name:    "groupbuyseat_round_id",
 				Unique:  false,
-				Columns: []*schema.Column{GroupBuySeatsColumns[15]},
+				Columns: []*schema.Column{GroupBuySeatsColumns[16]},
 			},
 			{
 				Name:    "groupbuyseat_plan_id",
 				Unique:  false,
-				Columns: []*schema.Column{GroupBuySeatsColumns[14]},
+				Columns: []*schema.Column{GroupBuySeatsColumns[15]},
 			},
 			{
 				Name:    "groupbuyseat_user_id",
 				Unique:  false,
-				Columns: []*schema.Column{GroupBuySeatsColumns[17]},
+				Columns: []*schema.Column{GroupBuySeatsColumns[18]},
 			},
 			{
 				Name:    "groupbuyseat_order_id",
 				Unique:  true,
-				Columns: []*schema.Column{GroupBuySeatsColumns[16]},
+				Columns: []*schema.Column{GroupBuySeatsColumns[17]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "order_id IS NOT NULL",
 				},
@@ -1192,17 +1460,25 @@ var (
 			{
 				Name:    "groupbuyseat_locked_until",
 				Unique:  false,
-				Columns: []*schema.Column{GroupBuySeatsColumns[4]},
+				Columns: []*schema.Column{GroupBuySeatsColumns[5]},
 			},
 			{
 				Name:    "groupbuyseat_expires_at",
 				Unique:  false,
-				Columns: []*schema.Column{GroupBuySeatsColumns[7]},
+				Columns: []*schema.Column{GroupBuySeatsColumns[8]},
 			},
 			{
 				Name:    "groupbuyseat_round_id_user_id",
 				Unique:  false,
-				Columns: []*schema.Column{GroupBuySeatsColumns[15], GroupBuySeatsColumns[17]},
+				Columns: []*schema.Column{GroupBuySeatsColumns[16], GroupBuySeatsColumns[18]},
+			},
+			{
+				Name:    "groupbuyseat_round_id_seat_no",
+				Unique:  true,
+				Columns: []*schema.Column{GroupBuySeatsColumns[16], GroupBuySeatsColumns[3]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "seat_no IS NOT NULL AND status IN ('locked', 'paid', 'active', 'refund_pending', 'refund_processing')",
+				},
 			},
 		},
 	}
@@ -2384,12 +2660,14 @@ var (
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		APIKeysTable,
+		APIKeyAccountBindingsTable,
 		AccountsTable,
 		AccountGroupsTable,
 		AnnouncementsTable,
 		AnnouncementReadsTable,
 		AuthIdentitiesTable,
 		AuthIdentityChannelsTable,
+		CafeRoomsTable,
 		ChannelMonitorsTable,
 		ChannelMonitorDailyRollupsTable,
 		ChannelMonitorHistoriesTable,
@@ -2435,6 +2713,16 @@ func init() {
 	APIKeysTable.Annotation = &entsql.Annotation{
 		Table: "api_keys",
 	}
+	APIKeyAccountBindingsTable.ForeignKeys[0].RefTable = APIKeysTable
+	APIKeyAccountBindingsTable.ForeignKeys[1].RefTable = AccountsTable
+	APIKeyAccountBindingsTable.ForeignKeys[2].RefTable = CafeRoomsTable
+	APIKeyAccountBindingsTable.ForeignKeys[3].RefTable = GroupsTable
+	APIKeyAccountBindingsTable.ForeignKeys[4].RefTable = GroupBuyRoundsTable
+	APIKeyAccountBindingsTable.ForeignKeys[5].RefTable = GroupBuySeatsTable
+	APIKeyAccountBindingsTable.ForeignKeys[6].RefTable = UsersTable
+	APIKeyAccountBindingsTable.Annotation = &entsql.Annotation{
+		Table: "api_key_account_bindings",
+	}
 	AccountsTable.ForeignKeys[0].RefTable = ProxiesTable
 	AccountsTable.Annotation = &entsql.Annotation{
 		Table: "accounts",
@@ -2459,6 +2747,12 @@ func init() {
 	AuthIdentityChannelsTable.ForeignKeys[0].RefTable = AuthIdentitiesTable
 	AuthIdentityChannelsTable.Annotation = &entsql.Annotation{
 		Table: "auth_identity_channels",
+	}
+	CafeRoomsTable.ForeignKeys[0].RefTable = AccountsTable
+	CafeRoomsTable.ForeignKeys[1].RefTable = GroupsTable
+	CafeRoomsTable.ForeignKeys[2].RefTable = GroupBuyPlansTable
+	CafeRoomsTable.Annotation = &entsql.Annotation{
+		Table: "cafe_rooms",
 	}
 	ChannelMonitorsTable.ForeignKeys[0].RefTable = ChannelMonitorRequestTemplatesTable
 	ChannelMonitorsTable.Annotation = &entsql.Annotation{
@@ -2506,7 +2800,9 @@ func init() {
 	GroupBuyRefundsTable.Annotation = &entsql.Annotation{
 		Table: "group_buy_refunds",
 	}
-	GroupBuyRoundsTable.ForeignKeys[0].RefTable = GroupBuyPlansTable
+	GroupBuyRoundsTable.ForeignKeys[0].RefTable = AccountsTable
+	GroupBuyRoundsTable.ForeignKeys[1].RefTable = CafeRoomsTable
+	GroupBuyRoundsTable.ForeignKeys[2].RefTable = GroupBuyPlansTable
 	GroupBuyRoundsTable.Annotation = &entsql.Annotation{
 		Table: "group_buy_rounds",
 	}

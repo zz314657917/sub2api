@@ -38,6 +38,9 @@ func (GroupBuySeat) Fields() []ent.Field {
 			Default("locked"),
 		field.Int("share_count").
 			Default(1),
+		field.Int("seat_no").
+			Optional().
+			Nillable(),
 		field.JSON("policy_snapshot", domain.GroupBuyPolicySnapshot{}).
 			Optional().
 			SchemaType(map[string]string{dialect.Postgres: "jsonb"}),
@@ -117,6 +120,7 @@ func (GroupBuySeat) Edges() []ent.Edge {
 			Unique(),
 		edge.To("refunds", GroupBuyRefund.Type),
 		edge.To("events", GroupBuyEvent.Type),
+		edge.To("account_bindings", APIKeyAccountBinding.Type),
 	}
 }
 
@@ -132,5 +136,8 @@ func (GroupBuySeat) Indexes() []ent.Index {
 		index.Fields("locked_until"),
 		index.Fields("expires_at"),
 		index.Fields("round_id", "user_id"),
+		index.Fields("round_id", "seat_no").
+			Unique().
+			Annotations(entsql.IndexWhere("seat_no IS NOT NULL AND status IN ('locked', 'paid', 'active', 'refund_pending', 'refund_processing')")),
 	}
 }
