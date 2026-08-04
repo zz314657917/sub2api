@@ -152,6 +152,40 @@ func TestAccountIsModelSupported(t *testing.T) {
 			requestedModel: "any-model",
 			expected:       true,
 		},
+		{
+			name:           "openai oauth empty mapping rejects kimi code k3",
+			platform:       PlatformOpenAI,
+			accountType:    AccountTypeOAuth,
+			credentials:    map[string]any{},
+			requestedModel: "k3",
+			expected:       false,
+		},
+		{
+			name:           "openai oauth empty mapping rejects prefixed kimi code k3",
+			platform:       PlatformOpenAI,
+			accountType:    AccountTypeOAuth,
+			credentials:    map[string]any{},
+			requestedModel: "provider/k3-256k",
+			expected:       false,
+		},
+		{
+			name:           "openai oauth empty mapping keeps custom k3-like alias",
+			platform:       PlatformOpenAI,
+			accountType:    AccountTypeOAuth,
+			credentials:    map[string]any{},
+			requestedModel: "my-k3-alias",
+			expected:       true,
+		},
+		{
+			name:        "openai oauth explicit kimi code mapping remains supported",
+			platform:    PlatformOpenAI,
+			accountType: AccountTypeOAuth,
+			credentials: map[string]any{
+				"model_mapping": map[string]any{"k3": "gpt-5.6-sol"},
+			},
+			requestedModel: "k3",
+			expected:       true,
+		},
 
 		// 精确匹配
 		{

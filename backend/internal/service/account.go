@@ -756,6 +756,12 @@ func (a *Account) IsModelSupported(requestedModel string) bool {
 	}
 	mapping := a.GetModelMapping()
 	if len(mapping) == 0 {
+		// The Codex OAuth upstream cannot serve Kimi Code's exact bare model
+		// identifiers. Skip only these known IDs so compatible custom aliases
+		// keep the local no-mapping behavior and can still reach API-key accounts.
+		if a.IsOpenAIOAuth() && isKimiK3CodeModel(requestedModel) {
+			return false
+		}
 		return true // 无映射 = 允许所有
 	}
 	if mappingSupportsRequestedModel(mapping, requestedModel) {
@@ -766,6 +772,15 @@ func (a *Account) IsModelSupported(requestedModel string) bool {
 	}
 	normalized := normalizeRequestedModelForLookup(a.Platform, requestedModel)
 	return normalized != requestedModel && mappingSupportsRequestedModel(mapping, normalized)
+}
+
+func isKimiK3CodeModel(requestedModel string) bool {
+	switch strings.ToLower(lastOpenAIModelSegment(requestedModel)) {
+	case "k3", "k3-256k":
+		return true
+	default:
+		return false
+	}
 }
 
 // GetMappedModel 获取映射后的模型名（支持通配符，最长优先匹配）

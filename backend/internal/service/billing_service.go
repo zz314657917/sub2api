@@ -310,6 +310,13 @@ func (s *BillingService) initFallbackPricing() {
 	s.fallbackPrices["glm-4.5-flash"] = &ModelPricing{InputPricePerToken: 0, OutputPricePerToken: 0}
 	s.fallbackPrices["glm-4-32b-0414-128k"] = &ModelPricing{InputPricePerToken: 0.1e-6, OutputPricePerToken: 0.1e-6}
 
+	// Kimi Code bare aliases use the Kimi API Platform K3 pricing as a fallback.
+	s.fallbackPrices["kimi-k3"] = &ModelPricing{
+		InputPricePerToken:     3e-6,
+		OutputPricePerToken:    15e-6,
+		CacheReadPricePerToken: 0.30e-6,
+		SupportsCacheBreakdown: false,
+	}
 	s.fallbackPrices["kimi-k2.6"] = &ModelPricing{InputPricePerToken: 0.95e-6, OutputPricePerToken: 4e-6, CacheReadPricePerToken: 0.15e-6}
 	s.fallbackPrices["kimi-for-coding"] = &ModelPricing{InputPricePerToken: 0.95e-6, OutputPricePerToken: 4e-6, CacheReadPricePerToken: 0.15e-6}
 	s.fallbackPrices["kimi-k2.5"] = &ModelPricing{InputPricePerToken: 0.60e-6, OutputPricePerToken: 3e-6, CacheReadPricePerToken: 0.098e-6}
@@ -463,6 +470,14 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 
 	if strings.Contains(modelLower, "kimi-for-coding") {
 		return s.fallbackPrices["kimi-for-coding"]
+	}
+	// K3 must be checked before K2. Bare Code aliases are exact to avoid
+	// charging unknown K3-like model names. The [1m] suffix is client syntax,
+	// not a Kimi API model ID, so it deliberately does not match here.
+	if modelLower == "kimi-k3" || strings.HasSuffix(modelLower, "/kimi-k3") ||
+		modelLower == "k3" || modelLower == "k3-256k" ||
+		strings.HasSuffix(modelLower, "/k3") || strings.HasSuffix(modelLower, "/k3-256k") {
+		return s.fallbackPrices["kimi-k3"]
 	}
 	if strings.Contains(modelLower, "kimi-k2.6") || strings.Contains(modelLower, "kimi-k2-6") {
 		return s.fallbackPrices["kimi-k2.6"]

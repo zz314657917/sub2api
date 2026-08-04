@@ -478,6 +478,10 @@ func TestGetFallbackPricing_FamilyMatching(t *testing.T) {
 		{name: "glm 5.1", model: "glm-5.1", expectedInput: 1.4e-6, expectedOutput: floatPtr(4.4e-6), expectedCacheRead: floatPtr(0.26e-6)},
 		{name: "glm 4.5 airx", model: "glm-4.5-airx", expectedInput: 1.1e-6, expectedOutput: floatPtr(4.5e-6), expectedCacheRead: floatPtr(0.22e-6)},
 		{name: "glm 4.7 flash free", model: "glm-4.7-flash", expectedInput: 0, expectedOutput: floatPtr(0)},
+		{name: "kimi k3", model: "kimi-k3", expectedInput: 3e-6, expectedOutput: floatPtr(15e-6), expectedCacheRead: floatPtr(0.30e-6)},
+		{name: "kimi code k3", model: "k3", expectedInput: 3e-6, expectedOutput: floatPtr(15e-6), expectedCacheRead: floatPtr(0.30e-6)},
+		{name: "kimi code k3 256k", model: "k3-256k", expectedInput: 3e-6, expectedOutput: floatPtr(15e-6), expectedCacheRead: floatPtr(0.30e-6)},
+		{name: "kimi k3 path suffix", model: "moonshot/kimi-k3", expectedInput: 3e-6, expectedOutput: floatPtr(15e-6), expectedCacheRead: floatPtr(0.30e-6)},
 		{name: "kimi for coding", model: "kimi-for-coding", expectedInput: 0.95e-6, expectedOutput: floatPtr(4e-6), expectedCacheRead: floatPtr(0.15e-6)},
 		{name: "kimi k2.6", model: "kimi-k2.6", expectedInput: 0.95e-6, expectedOutput: floatPtr(4e-6), expectedCacheRead: floatPtr(0.15e-6)},
 		{name: "kimi k2 thinking", model: "kimi-k2-thinking-preview", expectedInput: 0.56e-6, expectedOutput: floatPtr(2.24e-6), expectedCacheRead: floatPtr(0.14e-6)},
@@ -486,6 +490,9 @@ func TestGetFallbackPricing_FamilyMatching(t *testing.T) {
 		{name: "doubao embedding vision", model: "doubao-embedding-vision-251215", expectedInput: 0.098e-6, expectedOutput: floatPtr(0)},
 		{name: "non supported family", model: "qwen-max", expectNilPricing: true},
 		{name: "doubao text embedding no fallback", model: "doubao-embedding-text-240515", expectNilPricing: true},
+		{name: "k3-like unknown no fallback", model: "foo-k3-bar", expectNilPricing: true},
+		{name: "kimi k30 unknown no fallback", model: "kimi-k30", expectNilPricing: true},
+		{name: "kimi k3 client 1m syntax no fallback", model: "kimi-k3[1m]", expectNilPricing: true},
 	}
 
 	for _, tt := range tests {
