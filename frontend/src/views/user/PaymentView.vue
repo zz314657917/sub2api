@@ -299,74 +299,6 @@
                 </article>
               </div>
 
-              <div v-if="selectedPlan" class="pricing-confirm-panel rounded-3xl p-5 sm:p-6">
-                <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">
-                  <div>
-                    <p class="text-sm font-bold text-[#a9583e] dark:text-primary-100">{{ pt('confirmTitle') }}</p>
-                    <h3 class="pricing-strong mt-2 text-2xl font-black">{{ selectedPlan.name }}</h3>
-                    <p class="pricing-muted mt-2 text-sm">{{ selectedPlan.description || pt('planDefaultDesc') }}</p>
-
-                    <div v-if="subMethodOptions.length > 1" class="mt-5 space-y-3">
-                      <p class="pricing-strong text-sm font-bold">{{ t('payment.paymentMethod') }}</p>
-                      <div class="grid gap-2 sm:grid-cols-2">
-                        <button
-                          v-for="method in subMethodOptions"
-                          :key="method.type"
-                          type="button"
-                          class="pricing-method-option rounded-lg border px-3 py-2 text-left text-sm transition"
-                          :class="[
-                            selectedMethod === method.type
-                              ? 'pricing-method-option--selected'
-                              : 'pricing-method-option--idle',
-                            method.available ? '' : 'cursor-not-allowed opacity-45'
-                          ]"
-                          :disabled="!method.available"
-                          @click="selectedMethod = method.type"
-                        >
-                          <span class="block font-semibold">{{ paymentMethodLabel(method.type) }}</span>
-                          <span v-if="method.fee_rate > 0" class="pricing-caption mt-1 block text-xs">{{ t('payment.fee') }} {{ method.fee_rate }}%</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="pricing-summary rounded-2xl p-5">
-                    <div class="space-y-3 text-sm">
-                      <div class="flex justify-between gap-4">
-                        <span class="pricing-muted">{{ pt('selectedPlan') }}</span>
-                        <span class="pricing-strong font-semibold">{{ selectedPlan.name }}</span>
-                      </div>
-                      <div class="flex justify-between gap-4">
-                        <span class="pricing-muted">{{ pt('subtotal') }}</span>
-                        <span class="pricing-strong font-semibold">{{ formatDisplayPaymentAmount(selectedPlan.price) }}</span>
-                      </div>
-                      <div v-if="planHasPeakRate(selectedPlan)" class="flex justify-between gap-4">
-                        <span class="pricing-muted">{{ t('payment.planCard.peakRate') }}</span>
-                        <span class="pricing-strong text-right font-semibold text-amber-700 dark:text-amber-300">{{ planPeakRateLabel(selectedPlan) }}</span>
-                      </div>
-                      <div v-if="feeRate > 0 && selectedPlan.price > 0" class="flex justify-between gap-4">
-                        <span class="pricing-muted">{{ t('payment.fee') }} ({{ feeRate }}%)</span>
-                        <span class="pricing-strong font-semibold">{{ formatDisplayPaymentAmount(subFeeAmount) }}</span>
-                      </div>
-                      <div class="pricing-divider border-t border-dashed pt-5">
-                        <div class="flex items-end justify-between gap-4">
-                          <span class="pricing-muted">{{ pt('totalPayable') }}</span>
-                          <span class="min-w-0 break-words text-right text-3xl font-black text-[#a9583e] tabular-nums dark:text-primary-300">{{ formatDisplayPaymentAmount(subTotalAmount) }}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="mt-6 grid gap-2 sm:grid-cols-2">
-                      <button :class="['btn inline-flex items-center justify-center gap-2 py-3 text-sm font-bold', paymentButtonClass]" :disabled="!canSubmitSubscription || submitting" @click="confirmSubscribe">
-                        <span v-if="submitting" class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                        <Icon v-else name="shield" size="sm" />
-                        {{ submitting ? t('common.processing') : pt('subscribeCta') }}
-                      </button>
-                      <button class="btn btn-secondary py-3 text-sm font-bold" type="button" @click="selectedPlan = null">{{ t('common.cancel') }}</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               <div v-if="activeSubscriptions.length > 0">
                 <p class="pricing-muted mb-3 text-sm font-bold">{{ t('payment.activeSubscription') }}</p>
                 <div class="grid gap-2 md:grid-cols-2">
@@ -498,6 +430,82 @@
         </template>
       </div>
     </div>
+    <BaseDialog
+      :show="selectedPlan !== null && paymentPhase === 'select'"
+      :title="pt('confirmTitle')"
+      width="wide"
+      :close-on-escape="!submitting"
+      :close-on-click-outside="!submitting"
+      @close="closeSubscriptionDialog"
+    >
+      <div v-if="selectedPlan" class="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(18rem,0.8fr)] md:gap-6">
+        <div class="min-w-0">
+          <span :class="['inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold', platformBadgeLightClass(selectedPlan.group_platform || '')]">
+            {{ platformLabel(selectedPlan.group_platform || '') }}
+          </span>
+          <h3 class="pricing-strong mt-4 break-words text-2xl font-black">{{ selectedPlan.name }}</h3>
+          <p class="pricing-muted mt-2 text-sm leading-6">{{ selectedPlan.description || pt('planDefaultDesc') }}</p>
+
+          <div v-if="subMethodOptions.length > 1" class="mt-6 space-y-3">
+            <p class="pricing-strong text-sm font-bold">{{ t('payment.paymentMethod') }}</p>
+            <div class="grid gap-2 sm:grid-cols-2">
+              <button
+                v-for="method in subMethodOptions"
+                :key="method.type"
+                type="button"
+                class="pricing-method-option rounded-lg border px-3 py-2.5 text-left text-sm transition"
+                :class="[
+                  selectedMethod === method.type
+                    ? 'pricing-method-option--selected'
+                    : 'pricing-method-option--idle',
+                  method.available ? '' : 'cursor-not-allowed opacity-45'
+                ]"
+                :disabled="!method.available"
+                @click="selectedMethod = method.type"
+              >
+                <span class="block font-semibold">{{ paymentMethodLabel(method.type) }}</span>
+                <span v-if="method.fee_rate > 0" class="pricing-caption mt-1 block text-xs">{{ t('payment.fee') }} {{ method.fee_rate }}%</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="pricing-summary rounded-lg p-4 sm:p-5">
+          <div class="space-y-3 text-sm">
+            <div class="flex justify-between gap-4">
+              <span class="pricing-muted">{{ pt('selectedPlan') }}</span>
+              <span class="pricing-strong min-w-0 break-words text-right font-semibold">{{ selectedPlan.name }}</span>
+            </div>
+            <div class="flex justify-between gap-4">
+              <span class="pricing-muted">{{ pt('subtotal') }}</span>
+              <span class="pricing-strong min-w-0 break-words text-right font-semibold">{{ formatDisplayPaymentAmount(selectedPlan.price) }}</span>
+            </div>
+            <div v-if="planHasPeakRate(selectedPlan)" class="flex justify-between gap-4">
+              <span class="pricing-muted">{{ t('payment.planCard.peakRate') }}</span>
+              <span class="pricing-strong text-right font-semibold text-amber-700 dark:text-amber-300">{{ planPeakRateLabel(selectedPlan) }}</span>
+            </div>
+            <div v-if="feeRate > 0 && selectedPlan.price > 0" class="flex justify-between gap-4">
+              <span class="pricing-muted">{{ t('payment.fee') }} ({{ feeRate }}%)</span>
+              <span class="pricing-strong min-w-0 break-words text-right font-semibold">{{ formatDisplayPaymentAmount(subFeeAmount) }}</span>
+            </div>
+            <div class="pricing-divider border-t border-dashed pt-5">
+              <div class="flex items-end justify-between gap-4">
+                <span class="pricing-muted">{{ pt('totalPayable') }}</span>
+                <span class="min-w-0 break-words text-right text-3xl font-black text-[#a9583e] tabular-nums dark:text-primary-300">{{ formatDisplayPaymentAmount(subTotalAmount) }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="mt-6 grid gap-2 sm:grid-cols-2">
+            <button type="button" :class="['btn inline-flex items-center justify-center gap-2 py-3 text-sm font-bold', paymentButtonClass]" :disabled="!canSubmitSubscription || submitting" @click="confirmSubscribe">
+              <span v-if="submitting" class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+              <Icon v-else name="shield" size="sm" />
+              {{ submitting ? t('common.processing') : pt('subscribeCta') }}
+            </button>
+            <button class="btn btn-secondary py-3 text-sm font-bold" type="button" :disabled="submitting" @click="closeSubscriptionDialog">{{ t('common.cancel') }}</button>
+          </div>
+        </div>
+      </div>
+    </BaseDialog>
     <!-- Renewal Plan Selection Modal -->
     <Teleport to="body">
       <Transition name="modal">
@@ -615,6 +623,7 @@ import SubscriptionPlanCard from '@/components/payment/SubscriptionPlanCard.vue'
 import PaymentStatusPanel from '@/components/payment/PaymentStatusPanel.vue'
 import OrderTable from '@/components/payment/OrderTable.vue'
 import Icon from '@/components/icons/Icon.vue'
+import BaseDialog from '@/components/common/BaseDialog.vue'
 import { formatPaymentAmountCompact, normalizePaymentCurrency } from '@/components/payment/currency'
 import { planValiditySuffix } from '@/components/payment/validity'
 import { formatCreditAmount } from '@/utils/credits'
@@ -1534,6 +1543,11 @@ function selectPlan(plan: SubscriptionPlan) {
   errorMessage.value = ''
 }
 
+function closeSubscriptionDialog() {
+  if (submitting.value) return
+  selectedPlan.value = null
+}
+
 function selectPlanFromModal(plan: SubscriptionPlan) {
   showRenewalModal.value = false
   renewGroupId.value = null
@@ -2103,8 +2117,7 @@ onMounted(async () => {
 .pricing-plan-card,
 .pricing-subpanel,
 .pricing-summary,
-.pricing-subscription-card,
-.pricing-confirm-panel {
+.pricing-subscription-card {
   border: 1px solid rgba(216, 206, 194, 0.74);
   background: rgba(250, 249, 245, 0.9);
   box-shadow: 0 18px 44px rgba(75, 52, 40, 0.07);
@@ -2115,8 +2128,7 @@ onMounted(async () => {
 :global(.dark .pricing-plan-card),
 :global(.dark .pricing-subpanel),
 :global(.dark .pricing-summary),
-:global(.dark .pricing-subscription-card),
-:global(.dark .pricing-confirm-panel) {
+:global(.dark .pricing-subscription-card) {
   border-color: rgba(51, 65, 85, 0.9);
   background: rgba(17, 24, 39, 0.84);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
@@ -2382,16 +2394,6 @@ onMounted(async () => {
 
 :global(.dark .pricing-feature-list) {
   color: #e2e8f0;
-}
-
-.pricing-confirm-panel {
-  border-color: rgba(204, 120, 92, 0.36);
-  background: rgba(243, 231, 223, 0.58);
-}
-
-:global(.dark .pricing-confirm-panel) {
-  border-color: rgba(204, 120, 92, 0.42);
-  background: rgba(204, 120, 92, 0.12);
 }
 
 .pricing-empty-icon {

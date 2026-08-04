@@ -771,3 +771,8 @@
 260804 1513 | pixel-cafe-phase30-presentation-settings-s176 | guarded-promotion | Evaluator | S176 image promoted with rollback tag; sub2api, PostgreSQL, Redis healthy; /health and public-settings HTTP checks passed
 260804 1513 | pixel-cafe-phase30-presentation-settings-s176 | final-qa | Evaluator | BLOCKED/browser-tool; Playwright/in-app/Chrome browser transports could not open a local tab, so no screenshot or live visual assertion
 260804 1900 | git-branch-consolidation-s177 | integration-qa | Evaluator | origin/main plus Pixel Cafe snapshot integrated in an isolated worktree; S157/S132/S135/S169 retained after conflict audit, S178 restores missing-terminal client-disconnect handling, scoped checks and full Vitest pass
+260804 2010 | subscription-checkout-modal-s179 | contract-draft | Planner | docs/workflow/tasks/subscription-checkout-modal-s179.md
+260804 2010 | subscription-checkout-modal-s179 | contract-approved | Evaluator | PASS; existing BaseDialog and PaymentView state provide an isolated frontend-only implementation path
+260804 2305 | subscription-checkout-modal-s179 | contract-refined | Evaluator | full typecheck/build retained as Airwallex dependency baseline risk; scoped acceptance uses focused test, lint, Vite transform, Edge browser and request evidence
+260804 2305 | subscription-checkout-modal-s179 | build | Generator | migrated inline subscription confirmation into existing BaseDialog without changing price or payment payload semantics
+260804 2305 | subscription-checkout-modal-s179 | final-qa | Evaluator | PASS/browser-mocked; desktop/mobile layout, Escape/cancel/backdrop close, submit-to-payment transition and exact subscription request passed; full build remains blocked by missing Airwallex package
