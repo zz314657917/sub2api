@@ -183,7 +183,7 @@
 
 ## 验证记录
 
-- 分支整合本轮：classifier、发布安全资源与代理流熔断均完成合同 allowlist 审计、定向测试、`git diff --check` 和无冲突索引检查；代理切片额外通过 `go test -p 1 ./... -run '^$'` 与 `go build ./...`。快进后 `main@199be5cba` 仅保留原有 `main-log.md`/`outputs/` 脏改动；`git worktree list` 仅剩主工作树，`git branch --no-merged main` 为空。
+- 分支整合本轮：classifier、发布安全资源与代理流熔断均完成合同 allowlist 审计、定向测试、`git diff --check` 和无冲突索引检查；代理切片额外通过 `go test -p 1 ./... -run '^$'` 与 `go build ./...`。快进后 `main@199be5cba` 仅保留原有 `main-log.md`/`outputs/` 脏改动；`git worktree list` 仅剩主工作树，`git branch --no-merged main` 仅保留预留的 `backup/pre-s121-split-4161d254b`。
 
 - S177：`main@8ced00f75`；S156-S161 后端全仓 compile-only、聚焦 alias/OAuth/notification/ops
   tests、Wire generation、前端 4 files / 43 tests、typecheck、1864-module build、gofmt/diff/unmerged
