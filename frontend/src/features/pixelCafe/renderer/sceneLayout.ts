@@ -64,3 +64,9 @@ export function getRoomHotspot(sceneSlotKey: string, index: number): CafeRoomHot
 export function getLobbySeat(seatIndex: number): CafeScenePoint {
   return lobbySeats[Math.abs(seatIndex) % lobbySeats.length]
 }
+
+export function getAvatarToneIndex(seed: string): number {
+  let hash = 0
+  for (const char of seed) hash = (hash * 31 + char.charCodeAt(0)) >>> 0
+  return hash % 5
+}

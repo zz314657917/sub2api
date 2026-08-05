@@ -7,6 +7,7 @@ const lobbyActivity = vi.hoisted(() => vi.fn())
 const listRooms = vi.hoisted(() => vi.fn())
 const listMyRooms = vi.hoisted(() => vi.fn())
 const createOrder = vi.hoisted(() => vi.fn())
+const routeQuery = vi.hoisted(() => ({} as Record<string, string>))
 const cachedPublicSettings = vi.hoisted(() => ({
   pixel_cafe_title: '像素网吧',
   pixel_cafe_description: '把每个模型分组变成一间可订阅的数字包间。',
@@ -15,7 +16,10 @@ const cachedPublicSettings = vi.hoisted(() => ({
 
 vi.mock('@/api/cafe', () => ({ cafeAPI: { overview, lobbyActivity, listRooms, listMyRooms, createOrder } }))
 vi.mock('@/stores', () => ({ useAppStore: () => ({ cachedPublicSettings }) }))
-vi.mock('vue-router', () => ({ useRouter: () => ({ resolve: () => ({ href: '/payment/stripe' }) }) }))
+vi.mock('vue-router', () => ({
+  useRoute: () => ({ query: routeQuery }),
+  useRouter: () => ({ resolve: () => ({ href: '/payment/stripe' }) }),
+}))
 vi.mock('@/components/layout/AppLayout.vue', () => ({ default: { template: '<main><slot /></main>' } }))
 vi.mock('@/components/icons/Icon.vue', () => ({ default: { template: '<i />' } }))
 vi.mock('@/components/payment/PaymentStatusPanel.vue', () => ({ default: { template: '<section data-testid="payment-status-panel" />' } }))
@@ -83,6 +87,7 @@ function mountPage() {
 
 describe('PixelCafePage', () => {
   beforeEach(() => {
+    Object.keys(routeQuery).forEach(key => delete routeQuery[key])
     Object.defineProperty(window, 'matchMedia', {
       configurable: true,
       value: vi.fn(() => ({ matches: false })),
@@ -121,6 +126,24 @@ describe('PixelCafePage', () => {
     expect(wrapper.text()).not.toContain('abcdef1234567890')
   })
 
+  it('shows five local-only demo rooms with waiting groups without calling the room API', async () => {
+    routeQuery.demo = '1'
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(overview).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-testid="pixel-cafe-demo-badge"]').text()).toContain('本地演示数据')
+    expect(wrapper.find('[data-testid="pixel-cafe-room-navigator"]').findAll('.pixel-cafe-room')).toHaveLength(5)
+    expect(wrapper.findAll('[data-testid="pixel-cafe-lobby-avatar"]')).toHaveLength(10)
+    expect(wrapper.text()).toContain('Claude 深夜包间')
+    expect(wrapper.text()).toContain('等待拼团')
+    expect(wrapper.find('.pixel-cafe-scene-art').exists()).toBe(true)
+
+    await wrapper.find('.pixel-cafe-room').trigger('click')
+    expect(wrapper.text()).toContain('本地演示不创建订单')
+    expect((wrapper.find('.pixel-cafe-primary').element as HTMLButtonElement).disabled).toBe(true)
+  })
+
   it('renders configured header copy and can hide the entire header block', async () => {
     cachedPublicSettings.pixel_cafe_title = '模型包间'
     cachedPublicSettings.pixel_cafe_description = '按模型选择独立房间。'
@@ -138,6 +161,14 @@ describe('PixelCafePage', () => {
     expect(hiddenWrapper.find('.pixel-cafe-header > div').exists()).toBe(false)
     expect(hiddenWrapper.find('h1').exists()).toBe(false)
     hiddenWrapper.unmount()
+  })
+
+  it('does not render the legacy group-buy entry', async () => {
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(wrapper.find('.pixel-cafe-legacy').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('旧版拼团')
   })
 
   it('contains horizontal overflow only while the cafe route is mounted', () => {
@@ -207,6 +238,7 @@ describe('PixelCafePage', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-testid="pixel-cafe-empty"]').exists()).toBe(true)
+    expect(wrapper.find('.pixel-cafe-scene-art').exists()).toBe(true)
   })
 
   it('submits only a selected empty seat with agreement and opens payment waiting state', async () => {

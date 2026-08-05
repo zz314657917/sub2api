@@ -25,6 +25,15 @@ describe('AppSidebar custom SVG styles', () => {
   })
 })
 
+describe('AppSidebar Pixel Cafe navigation label', () => {
+  it('uses the configured Pixel Cafe title when the feature is enabled', () => {
+    expect(componentSource).toContain('const pixelCafeNavigationLabel = computed(() => {')
+    expect(componentSource).toContain('appStore.cachedPublicSettings?.pixel_cafe_title')
+    expect(componentSource).toContain("value.trim() : '像素网吧'")
+    expect(componentSource).toContain('pixelCafeEnabled.value ? pixelCafeNavigationLabel.value : groupBuyProductName.value')
+  })
+})
+
 describe('AppSidebar header styles', () => {
   it('does not clip the version badge dropdown', () => {
     const sidebarHeaderBlockMatch = styleSource.match(/\.sidebar-header\s*\{[\s\S]*?\n {2}\}/)

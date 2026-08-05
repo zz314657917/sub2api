@@ -1,5 +1,5 @@
 <template>
-  <nav class="pixel-cafe-room-navigator" :aria-label="`${activeZoneLabel} 房间导航`" data-testid="pixel-cafe-room-navigator">
+  <nav v-if="displayedRooms.length > 0" class="pixel-cafe-room-navigator" :aria-label="`${activeZoneLabel} 房间导航`" data-testid="pixel-cafe-room-navigator">
     <p class="pixel-cafe-room-navigator-label">房间导航</p>
     <div class="pixel-cafe-room-grid">
       <button
@@ -13,7 +13,7 @@
       >
         <span class="pixel-cafe-room-sign">{{ room.code }}</span>
         <span class="pixel-cafe-room-name">{{ room.name }}</span>
-        <span class="pixel-cafe-room-meta">{{ roomSeatLabel(room) }} · {{ purchaseStateLabel(room.purchase_state) }}</span>
+        <span class="pixel-cafe-room-meta">{{ roomSeatLabel(room) }} · {{ roomProgressLabel(room) }}</span>
         <span class="pixel-cafe-room-lamp" aria-hidden="true"></span>
       </button>
     </div>
@@ -49,6 +49,13 @@ function purchaseStateLabel(state: string): string {
     activating: '开通中',
     active: '已开通',
   } as Record<string, string>)[state] || '暂不可用'
+}
+
+function roomProgressLabel(room: CafePublicRoom): string {
+  if (room.round?.status === 'open') return '等待拼团'
+  if (room.round?.status === 'activating') return '开通中'
+  if (room.round?.status === 'active') return '已开通'
+  return purchaseStateLabel(room.purchase_state)
 }
 
 function roomTone(room: CafePublicRoom): string {

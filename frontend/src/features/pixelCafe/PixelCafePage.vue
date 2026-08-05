@@ -7,10 +7,6 @@
           <h1>{{ pixelCafeTitle }}</h1>
           <p v-if="pixelCafeDescription" class="pixel-cafe-subtitle">{{ pixelCafeDescription }}</p>
         </div>
-        <router-link class="pixel-cafe-legacy" to="/group-buy?legacy=1">
-          <Icon name="gift" size="sm" />
-          旧版拼团
-        </router-link>
       </header>
 
       <section class="pixel-cafe-my-rooms" aria-label="我的包间">
@@ -75,22 +71,22 @@
         <div class="pixel-cafe-scene">
           <div class="pixel-cafe-scene-topline">
             <span>大厅 / {{ activeZone.name }}</span>
-            <span class="pixel-cafe-status"><i aria-hidden="true"></i>{{ loading ? '加载中' : '实时房间' }}</span>
+            <span class="pixel-cafe-status"><i aria-hidden="true"></i>{{ loading ? '加载中' : isLocalDemoMode ? '本地演示' : '实时房间' }}</span>
           </div>
-          <div v-if="loading" class="pixel-cafe-empty" data-testid="pixel-cafe-loading">正在加载房间...</div>
-          <div v-else-if="errorMessage" class="pixel-cafe-empty pixel-cafe-error" data-testid="pixel-cafe-error">
-            <p>{{ errorMessage }}</p>
-            <button type="button" class="pixel-cafe-retry" @click="loadOverview">重试</button>
-          </div>
-          <div v-else-if="rooms.length === 0" class="pixel-cafe-empty" data-testid="pixel-cafe-empty">当前区域暂时没有可展示的房间。</div>
           <CafeScene
-            v-else
             :rooms="rooms"
             :lobby-avatars="lobby.available ? lobby.avatars : []"
             :active-zone-label="activeZone.name"
             :selected-room-id="selectedRoom?.id"
             @select-room="openRoom"
           />
+          <div v-if="loading" class="pixel-cafe-empty pixel-cafe-scene-overlay" data-testid="pixel-cafe-loading">正在加载房间...</div>
+          <div v-else-if="errorMessage" class="pixel-cafe-empty pixel-cafe-error pixel-cafe-scene-overlay" data-testid="pixel-cafe-error">
+            <p>{{ errorMessage }}</p>
+            <button type="button" class="pixel-cafe-retry" @click="loadOverview">重试</button>
+          </div>
+          <div v-else-if="rooms.length === 0" class="pixel-cafe-empty pixel-cafe-scene-overlay" data-testid="pixel-cafe-empty">当前区域暂时没有可展示的房间。</div>
+          <p v-if="isLocalDemoMode" class="pixel-cafe-demo-badge" data-testid="pixel-cafe-demo-badge">本地演示数据 · 不创建真实订单</p>
         </div>
 
         <aside class="pixel-cafe-inspector">
@@ -103,7 +99,7 @@
             <p class="pixel-cafe-room-code">{{ selectedRoom.code }} / {{ activeZone.name }}</p>
             <dl class="pixel-cafe-stats">
               <div><dt>座位</dt><dd>{{ roomSeatLabel(selectedRoom) }}</dd></div>
-              <div><dt>状态</dt><dd>{{ purchaseStateLabel(selectedRoom.purchase_state) }}</dd></div>
+              <div><dt>状态</dt><dd>{{ roomProgressLabel(selectedRoom) }}</dd></div>
               <div><dt>周期</dt><dd>{{ selectedRoom.plan.validity_days }} 天</dd></div>
             </dl>
             <template v-if="paymentPhase === 'paying'">
@@ -148,10 +144,10 @@
               <button
                 type="button"
                 class="pixel-cafe-primary"
-                :disabled="submitting || !selectedSeatNo || !agreementAccepted"
+                :disabled="isLocalDemoMode || submitting || !selectedSeatNo || !agreementAccepted"
                 @click="submitOrder"
               >
-                {{ submitting ? '正在创建订单' : '确认座位并付款' }}
+                {{ isLocalDemoMode ? '本地演示不创建订单' : submitting ? '正在创建订单' : '确认座位并付款' }}
               </button>
             </template>
             <p v-else class="pixel-cafe-muted">当前房间暂不接受新座位。</p>
@@ -167,7 +163,7 @@
         <div class="pixel-cafe-notice-icon"><Icon name="infoCircle" size="sm" /></div>
         <div>
           <strong>房间发现已接入</strong>
-          <p>当前仅展示公开房间信息；选座、支付和受管 Key 会在后续阶段接入，旧版拼团入口始终保留。</p>
+          <p>当前展示公开房间信息；选座、支付和受管 Key 按房间状态和账户权益开放。</p>
         </div>
       </section>
     </div>
@@ -176,11 +172,12 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import PaymentStatusPanel from '@/components/payment/PaymentStatusPanel.vue'
 import CafeScene from './components/CafeScene.vue'
+import { createPixelCafeDemoOverview, isLocalPixelCafeDemo } from './demoData'
 import { cafeAPI } from '@/api/cafe'
 import { useAppStore } from '@/stores'
 import { extractApiErrorMessage } from '@/utils/apiError'
@@ -199,6 +196,7 @@ import type { CafeLobbyActivity, CafeMyRoom, CafeMyRoomFilter, CafePublicRoom, C
 type PaymentOutcome = 'success' | 'cancelled' | 'expired'
 
 const router = useRouter()
+const route = useRoute()
 
 const zones = ref<CafePublicZone[]>([])
 const rooms = ref<CafePublicRoom[]>([])
@@ -252,6 +250,7 @@ const pixelCafeDescription = computed(() => {
   const value = appStore.cachedPublicSettings?.pixel_cafe_description
   return typeof value === 'string' ? value.trim() : '把每个模型分组变成一间可订阅的数字包间。'
 })
+const isLocalDemoMode = computed(() => isLocalPixelCafeDemo(route.query))
 
 const activeZone = computed<CafePublicZone>(() => zones.value.find(zone => zone.key === selectedZone.value) ?? {
   key: selectedZone.value,
@@ -265,14 +264,16 @@ async function loadOverview(): Promise<void> {
   errorMessage.value = ''
   selectedRoom.value = null
   try {
-    const response = await cafeAPI.overview({ room_limit: 8 })
-    zones.value = Array.isArray(response.data.zones) ? response.data.zones : []
-    lobby.value = normalizeLobbyActivity(response.data.lobby)
+    const overview = isLocalDemoMode.value
+      ? createPixelCafeDemoOverview()
+      : (await cafeAPI.overview({ room_limit: 8 })).data
+    zones.value = Array.isArray(overview.zones) ? overview.zones : []
+    lobby.value = normalizeLobbyActivity(overview.lobby)
     const preferredZone = zones.value.some(zone => zone.key === 'featured')
       ? 'featured'
       : zones.value[0]?.key || 'featured'
     selectedZone.value = preferredZone
-    await loadRooms(preferredZone, response.data.rooms)
+    await loadRooms(preferredZone, overview.rooms)
   } catch (error) {
     rooms.value = []
     errorMessage.value = extractApiErrorMessage(error, '加载房间失败')
@@ -333,6 +334,13 @@ async function loadRooms(zone: string, overviewRooms?: CafePublicRoom[]): Promis
   loading.value = true
   errorMessage.value = ''
   try {
+    if (isLocalDemoMode.value) {
+      const demoRooms = createPixelCafeDemoOverview().rooms
+      if (requestID === roomRequest) {
+        rooms.value = zone === 'featured' ? demoRooms : demoRooms.filter(room => room.zone_key === zone)
+      }
+      return
+    }
     if (zone === 'featured' && overviewRooms) {
       if (requestID === roomRequest) rooms.value = overviewRooms
       return
@@ -504,6 +512,13 @@ function purchaseStateLabel(state: string): string {
   return labels[state] || '暂不可用'
 }
 
+function roomProgressLabel(room: CafePublicRoom): string {
+  if (room.round?.status === 'open') return '等待拼团'
+  if (room.round?.status === 'activating') return '开通中'
+  if (room.round?.status === 'active') return '已开通'
+  return purchaseStateLabel(room.purchase_state)
+}
+
 function paymentMethodLabel(method: string): string {
   const normalized = method.toLowerCase()
   if (normalized.includes('wxpay')) return '微信支付'
@@ -546,8 +561,6 @@ onUnmounted(() => {
 .pixel-cafe-kicker { margin: 0 0 .35rem; color: #8f624f; font: 700 .72rem/1 monospace; letter-spacing: .12em; }
 .pixel-cafe-header h1 { margin: 0; font-size: clamp(1.8rem, 4vw, 2.7rem); line-height: 1.05; }
 .pixel-cafe-subtitle { margin: .5rem 0 0; color: #716b64; font-size: .95rem; }
-.pixel-cafe-legacy { display: inline-flex; align-items: center; gap: .45rem; padding: .65rem .85rem; border: 1px solid #d3c8b8; color: #66584d; background: #fffdf8; text-decoration: none; font-size: .85rem; }
-.pixel-cafe-legacy:hover { border-color: #b67b61; color: #8f624f; }
 .pixel-cafe-my-rooms { max-width: 1400px; margin: 0 auto 1rem; padding: .9rem 1rem; border-top: 2px solid #cc785c; border-bottom: 1px solid #d6cbbb; background: #fffdf8; }
 .pixel-cafe-my-rooms-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }.pixel-cafe-my-rooms-heading h2 { margin: .3rem 0 0; font-size: 1rem; }.pixel-cafe-my-rooms-tabs { display: flex; border: 1px solid #d7cdbf; }.pixel-cafe-my-rooms-tab { min-width: 4.25rem; padding: .45rem .65rem; border: 0; border-right: 1px solid #d7cdbf; color: #74695d; background: #fffdf8; cursor: pointer; font-size: .76rem; }.pixel-cafe-my-rooms-tab:last-child { border-right: 0; }.pixel-cafe-my-rooms-tab.active { color: #fffdf8; background: #9a644f; }.pixel-cafe-my-rooms-state { margin: .8rem 0 0; color: #776e65; font-size: .8rem; }.pixel-cafe-my-rooms-error { display: flex; align-items: center; gap: .7rem; color: #a94d48; }.pixel-cafe-my-rooms-retry { padding: .35rem .55rem; border: 1px solid #b97867; color: #824d40; background: #fffdf8; cursor: pointer; font-size: .75rem; }.pixel-cafe-my-rooms-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .75rem; margin: .85rem 0 0; padding: 0; list-style: none; }.pixel-cafe-my-room { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .3rem .7rem; padding: .65rem .75rem; border-left: 3px solid #b97960; background: #f4f0e8; }.pixel-cafe-my-room-title { min-width: 0; }.pixel-cafe-my-room-title strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .82rem; }.pixel-cafe-my-room-code, .pixel-cafe-my-room-meta, .pixel-cafe-my-room-key { color: #776e65; font-size: .7rem; }.pixel-cafe-my-room-state { align-self: center; padding: .18rem .35rem; border: 1px solid #c8b5a2; color: #745646; background: #fffdf8; font-size: .68rem; }.pixel-cafe-my-room-state.state-active { border-color: #789275; color: #3e6849; }.pixel-cafe-my-room-state.state-refunded, .pixel-cafe-my-room-state.state-cancelled, .pixel-cafe-my-room-state.state-released { border-color: #b99c98; color: #8b5d58; }.pixel-cafe-my-room-meta, .pixel-cafe-my-room-key { grid-column: 1 / -1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pixel-cafe-zones { display: flex; gap: .5rem; max-width: 1400px; margin: 0 auto 1rem; overflow-x: auto; }
@@ -559,11 +572,11 @@ onUnmounted(() => {
 .pixel-cafe-scene { position: relative; min-height: 500px; overflow: hidden; background-color: #e7ded0; background-image: linear-gradient(#d8cbbc 1px, transparent 1px), linear-gradient(90deg, #d8cbbc 1px, transparent 1px); background-size: 24px 24px; }
 .pixel-cafe-scene-topline { display: flex; justify-content: space-between; padding: .75rem 1rem; border-bottom: 1px solid #cfc1b2; color: #74695d; background: rgba(255, 253, 248, .88); font-size: .78rem; }
 .pixel-cafe-status { display: inline-flex; align-items: center; gap: .35rem; }.pixel-cafe-status i { width: .5rem; height: .5rem; border-radius: 999px; background: #c28d4c; }
-.pixel-cafe-empty { display: grid; min-height: 240px; padding: 2rem; place-items: center; color: #776e65; text-align: center; }
+.pixel-cafe-empty { display: grid; min-height: 240px; padding: 2rem; place-items: center; color: #776e65; text-align: center; }.pixel-cafe-scene-overlay { position: absolute; z-index: 5; inset: 3rem 0 0; min-height: 0; color: #fff6e5; background: rgba(31, 40, 55, .68); text-shadow: 1px 1px 0 rgba(24, 29, 38, .8); }.pixel-cafe-demo-badge { position: absolute; z-index: 6; right: .75rem; bottom: .75rem; margin: 0; padding: .35rem .5rem; border: 1px solid rgba(255, 246, 229, .48); color: #fff6e5; background: rgba(37, 48, 65, .82); font: 700 .68rem/1 monospace; }
 .pixel-cafe-error { gap: .75rem; color: #a94d48; }.pixel-cafe-error p { margin: 0; }.pixel-cafe-retry { padding: .5rem .75rem; border: 1px solid #b97867; color: #824d40; background: #fffdf8; cursor: pointer; }
 .pixel-cafe-inspector { padding: 1.2rem; }.pixel-cafe-inspector-heading { display: flex; justify-content: space-between; color: #9a6a53; }.pixel-cafe-label { font: 700 .7rem monospace; text-transform: uppercase; }.pixel-cafe-inspector h2 { margin: 1.25rem 0 .3rem; font-size: 1.25rem; }.pixel-cafe-room-code { margin: 0; color: #8c8278; font: .75rem monospace; }.pixel-cafe-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin: 1.5rem 0; }.pixel-cafe-stats div { padding: .55rem .4rem; border: 1px solid #e0d6c8; text-align: center; }.pixel-cafe-stats dt { color: #8c8278; font-size: .68rem; }.pixel-cafe-stats dd { margin: .25rem 0 0; font-size: .78rem; font-weight: 700; }.pixel-cafe-primary { width: 100%; padding: .7rem; border: 0; color: #fffdf8; background: #a9785d; font-weight: 700; }.pixel-cafe-primary:disabled { cursor: not-allowed; opacity: .72; }.pixel-cafe-muted { color: #82786e; font-size: .86rem; line-height: 1.6; }
 .pixel-cafe-seat-picker { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .45rem; margin: 1rem 0; }.pixel-cafe-seat-button { min-height: 2.2rem; border: 1px solid #c9bdac; color: #5d5148; background: #fffdf8; cursor: pointer; font: 700 .8rem monospace; }.pixel-cafe-seat-button:hover, .pixel-cafe-seat-button:focus-visible, .pixel-cafe-seat-button.active { border-color: #9a644f; color: #fffdf8; background: #a9785d; outline: 0; }.pixel-cafe-payment-label { display: grid; gap: .35rem; margin: 1rem 0; color: #74695d; font-size: .78rem; }.pixel-cafe-payment-select { width: 100%; min-height: 2.3rem; border: 1px solid #cfc1b2; border-radius: 0; color: #473d36; background: #fffdf8; }.pixel-cafe-agreement { display: flex; align-items: flex-start; gap: .45rem; margin: 1rem 0; color: #74695d; font-size: .76rem; line-height: 1.45; }.pixel-cafe-agreement input { margin-top: .1rem; accent-color: #9a644f; }.pixel-cafe-inline-error { margin: .75rem 0; color: #a94d48; font-size: .78rem; line-height: 1.4; }
 .pixel-cafe-notice { display: flex; gap: .75rem; align-items: flex-start; max-width: 1400px; margin: 1rem auto 0; padding: .85rem 1rem; }.pixel-cafe-notice-icon { display: grid; width: 1.8rem; height: 1.8rem; place-items: center; color: #8f624f; background: #f1e0d3; }.pixel-cafe-notice strong { font-size: .82rem; }.pixel-cafe-notice p { margin: .25rem 0 0; color: #776e65; font-size: .78rem; }
 @media (max-width: 900px) { .pixel-cafe-workbench { grid-template-columns: 1fr; }.pixel-cafe-inspector { min-height: 0; }.pixel-cafe-scene { min-height: 430px; } }
-@media (max-width: 620px) { .pixel-cafe-page { padding: .85rem; }.pixel-cafe-header { align-items: stretch; flex-direction: column; }.pixel-cafe-legacy { align-self: flex-start; }.pixel-cafe-my-rooms-heading { align-items: flex-start; flex-direction: column; }.pixel-cafe-my-rooms-list { grid-template-columns: 1fr; } }
+@media (max-width: 620px) { .pixel-cafe-page { padding: .85rem; }.pixel-cafe-header { align-items: stretch; flex-direction: column; }.pixel-cafe-my-rooms-heading { align-items: flex-start; flex-direction: column; }.pixel-cafe-my-rooms-list { grid-template-columns: 1fr; } }
 </style>

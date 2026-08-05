@@ -455,7 +455,11 @@ const siteVersion = computed(() => appStore.siteVersion)
 const settingsLoaded = computed(() => appStore.publicSettingsLoaded)
 const groupBuyProductName = computed(() => resolveGroupBuyProductName(appStore.cachedPublicSettings))
 const pixelCafeEnabled = computed(() => appStore.cachedPublicSettings?.pixel_cafe_enabled === true)
-const groupBuyNavigationLabel = computed(() => pixelCafeEnabled.value ? '像素网吧' : groupBuyProductName.value)
+const pixelCafeNavigationLabel = computed(() => {
+  const value = appStore.cachedPublicSettings?.pixel_cafe_title
+  return typeof value === 'string' && value.trim() ? value.trim() : '像素网吧'
+})
+const groupBuyNavigationLabel = computed(() => pixelCafeEnabled.value ? pixelCafeNavigationLabel.value : groupBuyProductName.value)
 
 // Console navigation uses line icons for legibility; the public homepage keeps the pixel icon system.
 const DashboardIcon: IconName = 'grid'

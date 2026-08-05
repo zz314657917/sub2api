@@ -1,5 +1,5 @@
 import type { CafeLobbyAvatar, CafePublicRoom } from '@/types/pixelCafe'
-import { CAFE_SCENE_DESIGN_HEIGHT, CAFE_SCENE_DESIGN_WIDTH, CAFE_SCENE_ROOM_LIMIT, getLobbySeat, getRoomHotspot } from './sceneLayout'
+import { CAFE_SCENE_DESIGN_HEIGHT, CAFE_SCENE_DESIGN_WIDTH, CAFE_SCENE_ROOM_LIMIT, getAvatarToneIndex, getLobbySeat, getRoomHotspot } from './sceneLayout'
 
 export interface CafeSceneData {
   rooms: CafePublicRoom[]
@@ -20,9 +20,7 @@ interface AnimatedAvatar {
 }
 
 function avatarColor(seed: string): number {
-  let hash = 0
-  for (const char of seed) hash = (hash * 31 + char.charCodeAt(0)) >>> 0
-  return [0xb87565, 0x6f9a83, 0x7b91bb, 0xcb9d59, 0x9d7ab1][hash % 5]
+  return [0xb87565, 0x6f9a83, 0x7b91bb, 0xcb9d59, 0x9d7ab1][getAvatarToneIndex(seed)]
 }
 
 function roomColor(state: string): number {
