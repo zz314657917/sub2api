@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-04 20:12 +08:00
+最后更新：2026-08-05 +08:00
 
 ## 背景
 
@@ -10,16 +10,29 @@
 
 ## 当前目标
 
-- S177 本地分支整合已收口到 `main@8ced00f75`：先完成 S135/S136 历史可达性整合，再把已逐 Sprint
-  验证的 S156-S161 邮件功能栈作为明确的堆叠 merge 合入。S156/S157、client-IP S140、i18n S143、
-  path-guard S136、等价原始 S135 及临时整合分支/worktree 已清理；四份脏改动先保存为命名 stash。
-  `backup/pre-s177-main-20260804` 与 `backup/pre-s157-merge-20260804` 保留。仅 S132、S169 继续
-  保留；detached 429 WIP 已证实被当前主线覆盖、保存为 `abeba42fc` stash 后清理。未执行 push、远端删除、
-  Docker、数据库、部署或生产操作。
-  QA：`docs/workflow/qa-reports/git-branch-consolidation-s177-qa.md`。
+- S177 本地分支整合当前收口到 `main@e3b0ad86c`。在 S135/S136 与 S156-S161 的既有整合基础上，本轮已把
+  Model Plaza 与 S169 的五项独立修复按合同分别快进合入。S132 的并发更新、Passkey、Kimi K3、Model Plaza
+  和 Codex manifest 都已由更新的主线提交覆盖，原始本地 S132 分支/worktree 已删除；远端追溯分支保留。
+  `backup/pre-s177-main-20260804` 与 `backup/pre-s157-merge-20260804` 保留。未执行 push、远端删除、Docker、
+  数据库、部署或生产操作。QA：`docs/workflow/qa-reports/git-branch-consolidation-s177-qa.md` 与
+  `docs/workflow/qa-reports/upstream-v0169-independent-fixes-s169-integration-qa.md`。
 
 - S176 已完成源代码实现、聚焦测试和受保护的本地容器更新：用户页移除“今日使用用户”卡片及独立轮询；管理员可配置标题、说明和整个标题区显示；默认值保持原页面。合同：`docs/workflow/tasks/pixel-cafe-phase30-presentation-settings-s176.md`。
 - S176 当前仅剩浏览器验收阻断：源码/Vitest、typecheck/build、Linux amd64 编译、Docker 健康、`/health` 和 public settings HTTP 证据均通过；Playwright Chrome、内置浏览器和 Chrome 扩展均未能打开本地标签页，未生成截图。QA：`docs/workflow/qa-reports/pixel-cafe-phase30-presentation-settings-s176-qa.md`。
+
+## 已确认事实
+
+- 本地 `main` 已有 22 个未推送的功能或合同提交；主工作树仍只保留用户原有的 `docs/workflow/main-log.md` 和 `outputs/` 未提交改动。
+- 唯一剩余的非备份本地候选是 `codex/v0169-behavior-wide`。它含未合入 Prompt Audit、代理流熔断、SMTP 等独立行为，以及 4 个未提交 Prompt Audit 前端文件，不能整支合并或清理。
+
+## 待验证点
+
+- S176 仍需恢复可用浏览器并完成桌面截图验收；现有源码、运行态和容器证据不能替代该门禁。
+- 如要接收 `codex/v0169-behavior-wide` 的任一独立功能，必须先按功能建立新合同、从当前 `main` 重建并运行相应验收；不得把其未提交 Prompt Audit 文件并入主线。
+
+## 当前结论
+
+- 分支整理已完成所有可证明覆盖或已验证独立切片的本地合入与清理；剩余宽分支必须按独立功能重新评审，不存在安全的直接 merge。
 
 - S175 contract approved：修复 S174 运行中明确观测到的通用 best-effort usage batch-state `input_idx` JSON 类型错误。现有同步 fallback 已保证 S174 durable Cafe usage attribution，但批处理路径每次触发 warning/降级，需要以 repository SQL 类型最小修复和 fresh S174 rerun 证明直接 batch state decode 恢复；不得修改 usage 业务字段、schema/migration、gateway/provider、支付或共享资源。合同：`docs/workflow/tasks/pixel-cafe-phase29-usage-batch-state-s175.md`。
 - S175 已关闭为 `PASS / runtime-isolated`：`backend/internal/repository/usage_log_repo.go` 仅在 state query 的 synthetic `input_idx` 参数增加 `::integer`；新增 `usage_log_repo_best_effort_state_test.go` 锁定 state/non-state 查询边界。聚焦 repository、verbose fresh PostgreSQL Gateway（单次及三次）、相邻 Gateway/Cafe 路由、gofmt、`git diff --check` 和未合并索引均通过；所有 fresh Gateway 日志不再出现 batch-state decode warning。QA：`docs/workflow/qa-reports/pixel-cafe-phase29-usage-batch-state-s175-qa.md`。
@@ -69,6 +82,9 @@
 - 现有 60 秒 `GroupBuyLifecycleService` 在普通 Round expiry 后、旧 entitlement refresh 前运行 Cafe expiry；这里记录的是 S152 当时的 `disabled` 约束，已由 S172 的受控 `active/inactive` 状态机取代。
 
 ## 本次已完成
+
+- 本轮将 Model Plaza 提交 `aad349f84` 与 S169 独立修复提交 `e3b0ad86c` 快进合入本地 `main`。后者覆盖 Anthropic count-token 参数清理、Composite 可用渠道展开、OPS 成功日志、Claude Code security-monitor 识别及不可调度账号 token refresh 跳过；合同和 QA 分别在 `docs/workflow/tasks/upstream-v0169-independent-fixes-s169-integration.md`、`docs/workflow/qa-reports/upstream-v0169-independent-fixes-s169-integration-qa.md`。
+- 已删除本地 S132 分支及其 Git worktree 注册。Windows 留下的非 Git 残留目录删除被本地安全策略阻断；目录不在 worktree 列表且不含 `.git`，未对其执行绕过性清理。
 
 - S173 新增唯一 `integration` route 测试 `backend/internal/server/routes/cafe_jwt_gateway_redis_smoke_integration_test.go`。它复用 disposable S169 Cafe/JWT PostgreSQL 组装并自行启动 fresh Redis，使用两个真实 APIKeyService 实例和本地 preflight terminal 证明跨实例 cache/Pub/Sub、状态变更、pin 与 Binding TTL 语义。单次和连续三次运行均清理 PostgreSQL、Redis 和 Ryuk；Docker 前后原有 9 个容器 ID 未变。
 
@@ -155,16 +171,17 @@
 
 ## 下一步
 
-1. 如继续整理高风险候选，先为 S132 的独立功能切片建立单独合同并从当前 `main` 重建 -> 验证：不得
-   整支合并 S132/S169，Passkey 迁移与 S169 的重复实现必须二选一。
-1. 恢复一个可操作的本地浏览器会话并完成 S176 手动验收 -> 验证：捕获桌面截图，确认 `/group-buy` 无“今日使用用户”、可见/隐藏标题区均保留房间内容，`/admin/settings` 显示标题/说明/开关控件。
-2. 浏览器验收通过后更新 S176 QA/status/main-log/current-task 为 `PASS / browser` -> 验证：QA 首行 PASS、截图存在、容器健康和回滚标签仍可见；本轮 Docker guard 已释放。
+1. 如继续接收宽分支功能，先为 Prompt Audit、代理流熔断或 SMTP 中的一个独立切片建立合同并从当前 `main` 重建 -> 验证：`git apply --check`、allowlist、定向回归和完整 build 均通过；不得合并 `codex/v0169-behavior-wide` 整支或其未提交文件。
+2. 恢复一个可操作的本地浏览器会话并完成 S176 手动验收 -> 验证：捕获桌面截图，确认 `/group-buy` 无“今日使用用户”、可见/隐藏标题区均保留房间内容，`/admin/settings` 显示标题/说明/开关控件。
+3. 浏览器验收通过后更新 S176 QA/status/main-log/current-task 为 `PASS / browser` -> 验证：QA 首行 PASS、截图存在、容器健康和回滚标签仍可见；本轮 Docker guard 已释放。
 
 1. 无需新增本地 Pixel Cafe 功能 Sprint；验证：已批准的 S143-S175 合同和 QA 已闭合，S175 当前 workflow 为 `done`。
 2. 如需继续提升 readiness，先取得商户 sandbox 凭据和 callback endpoint 的明确授权；验证：在非生产环境完成支付创建、验签回调、失败释放、重放和 Key 激活端到端证据，禁止生产商户或生产写入。
 3. 获得非生产部署授权后，再定义性能、staging/canary 与回滚合同；验证：获得负载、观测、容器发布及回滚演练事实，不操作本机现有 Key。
 
 ## 验证记录
+
+- 分支整合本轮：S169 独立修复的 focused service/handler tests、`go test ./... -run '^$'`、`go build ./...`、`git diff --check`、`git ls-files -u` 和 allowlist 审计均 PASS；快进后 `main@e3b0ad86c` 仅保留原有 `main-log.md`/`outputs/` 脏改动。S132 的五项产品功能对应 `a2055945d`、`d04b4dc02`、`4ba0ff75a`、`aad349f84`、`85c766530` 全部已是 `main` 祖先。
 
 - S177：`main@8ced00f75`；S156-S161 后端全仓 compile-only、聚焦 alias/OAuth/notification/ops
   tests、Wire generation、前端 4 files / 43 tests、typecheck、1864-module build、gofmt/diff/unmerged
