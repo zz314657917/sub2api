@@ -10,20 +10,21 @@
 
 ## 当前目标
 
-- S177 本地分支整合已收口到 `main@199be5cba`。在既有合入基础上，本轮按独立合同快进了 classifier 回归
+- S177 本地分支整合已收口并推送到 `origin/main@09c9971e7`。在既有合入基础上，本轮按独立合同快进了 classifier 回归
   `c92dcc13d`、发布安全资源 `618cc3bf9` 与 OpenAI 代理流熔断 `199be5cba`。S132、Passkey、Kimi K3、
   Model Plaza、Codex manifest、SMTP 与其余已覆盖行为均不重复合入；远端追溯引用和 `backup/*` 保留。
-  未执行 push、远端删除、Docker、数据库、部署或生产操作。QA：
+  基线测试夹具修正已作为 `09c9971e7` 追加：安全审计 AST consumer 名称、异步图片 uploader 与注册风控显式 `RemoteAddr`。
+  未执行远端删除、数据库、部署或生产操作。QA：
   `docs/workflow/qa-reports/upstream-v0169-classifier-regression-integration-qa.md`、
   `docs/workflow/qa-reports/upstream-v0169-release-security-integration-qa.md`、
   `docs/workflow/qa-reports/upstream-v0169-proxy-stream-circuit-integration-qa.md`。
 
-- S176 已完成源代码实现、聚焦测试和受保护的本地容器更新：用户页移除“今日使用用户”卡片及独立轮询；管理员可配置标题、说明和整个标题区显示；默认值保持原页面。合同：`docs/workflow/tasks/pixel-cafe-phase30-presentation-settings-s176.md`。
-- S176 当前仅剩浏览器验收阻断：源码/Vitest、typecheck/build、Linux amd64 编译、Docker 健康、`/health` 和 public settings HTTP 证据均通过；Playwright Chrome、内置浏览器和 Chrome 扩展均未能打开本地标签页，未生成截图。QA：`docs/workflow/qa-reports/pixel-cafe-phase30-presentation-settings-s176-qa.md`。
+- S176 已完成源代码实现、聚焦测试和受保护的本地容器更新：用户页移除“今日使用用户”卡片及独立轮询；管理员可配置标题、说明和整个标题区显示；默认值保持原页面。合同：`docs/workflow/tasks/pixel-cafe-phase30-presentation-settings-s176.md`。本机 `sub2api` 已更新为 `sub2api:codex-20260805-main-36e35a7bb`，在 `127.0.0.1:62080` healthy；旧镜像保留为 `sub2api:rollback-before-codex-20260805-main`。
+- S176 仍缺登录态浏览器验收：内置浏览器已确认 `/group-buy` 按设计跳转 `/login?redirect=/group-buy`，公开 settings 返回 Pixel Cafe 开关、标题、说明和 header visible；未使用管理员凭据，因此尚无用户页/管理员设置页截图。宿主 `frontend/node_modules` 缺 `vue-tsc`，两次 Docker frontend-builder 均超时，故本轮没有新增前端 typecheck/build 证据。QA：`docs/workflow/qa-reports/pixel-cafe-phase30-presentation-settings-s176-qa.md`。
 
 ## 已确认事实
 
-- 本地 `main` 领先 `origin/main`，本轮未执行 push；主工作树仍只保留用户原有的 `docs/workflow/main-log.md` 和 `outputs/` 未提交改动。
+- `main` 与 `origin/main` 已同步至 `09c9971e7`；`git diff --check`、`git fsck --no-dangling`、全量默认 `go test -p 1 ./...`、`go build ./...`、稳定容器 `/health` 均通过。主工作树仍只保留用户原有的 `docs/workflow/main-log.md` 和 `outputs/` 未提交改动。
 - 本地分支仅剩 `main` 与三个 `backup/*`。三个临时集成 worktree 已删除；原始宽分支已删除，其 4 个未提交 Prompt Audit 文件保存在命名 `stash@{0}`。
 - Windows 本机策略拒绝递归删除 `E:/codex-worktrees/sub2api-v0169-behavior-wide` 的 993 项脱离 Git 的残留副本；它不在 `git worktree list`，且不含 `.git`。不得绕过该策略强删。
 
