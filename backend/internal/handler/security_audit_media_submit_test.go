@@ -70,7 +70,8 @@ func blockingHandlerPromptEngine() *handlerPromptEngine {
 func TestAsyncImagePromptGuardRunsBeforeTaskCreation(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	store := &asyncImageMemoryStore{tasks: map[string]*service.ImageTaskRecord{}}
-	tasks := service.NewImageTaskServiceWithUploader(store, nil, time.Hour, time.Minute)
+	uploader := service.NewImageResultUploader(asyncImageResultStorage{}, "images/", 1024, nil)
+	tasks := service.NewImageTaskServiceWithUploader(store, uploader, time.Hour, time.Minute)
 	engine := blockingHandlerPromptEngine()
 	openAI := &OpenAIGatewayHandler{securityAuditCoordinator: securityaudit.NewCoordinator(nil, engine)}
 	h := &AsyncImageHandler{tasks: tasks, openAI: openAI}
@@ -98,7 +99,8 @@ func TestAsyncImagePromptGuardRunsBeforeTaskCreation(t *testing.T) {
 func TestAsyncImageSuccessfulPrecheckIsNotRepeatedByDetachedExecution(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	store := &asyncImageMemoryStore{tasks: map[string]*service.ImageTaskRecord{}}
-	tasks := service.NewImageTaskServiceWithUploader(store, nil, time.Hour, time.Minute)
+	uploader := service.NewImageResultUploader(asyncImageResultStorage{}, "images/", 1024, nil)
+	tasks := service.NewImageTaskServiceWithUploader(store, uploader, time.Hour, time.Minute)
 	engine := &handlerPromptEngine{mode: securityaudit.ModeBlocking, decision: &securityaudit.PromptDecision{Kind: securityaudit.DecisionAllow, AllowNextStage: true}}
 	openAI := &OpenAIGatewayHandler{securityAuditCoordinator: securityaudit.NewCoordinator(nil, engine)}
 	h := &AsyncImageHandler{tasks: tasks, openAI: openAI}
@@ -142,7 +144,8 @@ func TestAsyncImageSuccessfulPrecheckIsNotRepeatedByDetachedExecution(t *testing
 func TestAsyncImagePromptGuardUsesSanitizedBodyBeforePersistence(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	store := &asyncImageMemoryStore{tasks: map[string]*service.ImageTaskRecord{}}
-	tasks := service.NewImageTaskServiceWithUploader(store, nil, time.Hour, time.Minute)
+	uploader := service.NewImageResultUploader(asyncImageResultStorage{}, "images/", 1024, nil)
+	tasks := service.NewImageTaskServiceWithUploader(store, uploader, time.Hour, time.Minute)
 	engine := blockingHandlerPromptEngine()
 	openAI := &OpenAIGatewayHandler{
 		gatewayService:           &service.OpenAIGatewayService{},

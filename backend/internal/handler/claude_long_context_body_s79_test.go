@@ -24,7 +24,7 @@ func TestS79AnthropicNormalizedBodyPropagation(t *testing.T) {
 			"GatewayHandler.Messages": {
 				"SetClaudeCodeClientContext": false,
 				"setOpsRequestContext":       false,
-				"checkContentModeration":     false,
+				"checkSecurityAudit":         false,
 			},
 			"GatewayHandler.CountTokens": {
 				"SetClaudeCodeClientContext": false,

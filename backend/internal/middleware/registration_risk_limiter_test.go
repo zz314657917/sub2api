@@ -98,6 +98,7 @@ func newRegistrationRiskTestRouter(redis registrationRiskRedis, cfg config.Regis
 
 func performRegistrationRiskRequest(router *gin.Engine, body string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(body))
+	req.RemoteAddr = "203.0.113.20:12345"
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "risk-test-agent")
 	req.Header.Set("CF-Connecting-IP", "203.0.113.20")
