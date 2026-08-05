@@ -23,7 +23,7 @@
 
 ## 已确认事实
 
-- 本地 `main` 比 `origin/main` 超前 26 提交；主工作树仍只保留用户原有的 `docs/workflow/main-log.md` 和 `outputs/` 未提交改动。
+- 本地 `main` 领先 `origin/main`，本轮未执行 push；主工作树仍只保留用户原有的 `docs/workflow/main-log.md` 和 `outputs/` 未提交改动。
 - 本地分支仅剩 `main` 与三个 `backup/*`。三个临时集成 worktree 已删除；原始宽分支已删除，其 4 个未提交 Prompt Audit 文件保存在命名 `stash@{0}`。
 - Windows 本机策略拒绝递归删除 `E:/codex-worktrees/sub2api-v0169-behavior-wide` 的 993 项脱离 Git 的残留副本；它不在 `git worktree list`，且不含 `.git`。不得绕过该策略强删。
 
