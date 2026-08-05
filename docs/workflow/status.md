@@ -23,9 +23,10 @@ last_verified: 2026-08-05 15:33 +08:00
 
 # Pixel Cafe Phase 30 Presentation Settings S176
 
-- S176 source checks, focused regressions, frontend build, guarded image promotion, container health,
-  and public-settings HTTP evidence passed. QA is `BLOCKED / browser-tool`: the in-app browser rejects
-  localhost and the Chrome/Playwright transports could not open a tab, so no desktop screenshot exists.
+- S176 is closed as `PASS / browser-local`: source checks, focused regressions, frontend build, guarded image
+  promotion, container health and public-settings HTTP evidence passed. Recovered authenticated Chrome proof
+  showed no `今日使用用户` card and retained the visible room region; desktop evidence is under
+  `output/playwright/pixel-cafe-s176/group-buy-desktop.png`.
 - The implementation is deployed as `sub2api:codex-20260804-145526-pixel-cafe-s176`; rollback tag
   `sub2api:rollback-before-20260804-145526-pixel-cafe-s176` and `deploy_sub2api_data` are retained.
 - QA report: `docs/workflow/qa-reports/pixel-cafe-phase30-presentation-settings-s176-qa.md`.
