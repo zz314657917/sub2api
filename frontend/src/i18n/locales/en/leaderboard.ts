@@ -77,7 +77,7 @@ export default {
       headlineUnranked: 'Not ranked yet, used {tokens}',
       distanceToBoard: 'Tokens to rank',
       waitingDraw: 'Awaiting draw',
-      waitingDrawNextRank: 'Awaiting draw, next rank is',
+      waitingDrawNextRank: 'Lead over next rank',
       distanceToTopThree: 'Tokens to top three',
       distanceToSecond: 'Tokens to second place',
       distanceToFirst: 'Tokens to first place',

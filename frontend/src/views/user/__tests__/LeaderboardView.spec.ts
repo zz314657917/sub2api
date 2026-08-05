@@ -84,7 +84,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.record.headlineUnranked': '暂未上榜，消耗 {tokens}',
     'leaderboard.record.distanceToBoard': '距离上榜还差',
     'leaderboard.record.waitingDraw': '等待开奖',
-    'leaderboard.record.waitingDrawNextRank': '等待开奖，下一名距离你',
+    'leaderboard.record.waitingDrawNextRank': '领先下一名',
     'leaderboard.record.distanceToTopThree': '距离前三还差',
     'leaderboard.record.distanceToSecond': '距离第二还差',
     'leaderboard.record.distanceToFirst': '距离第一还差',
@@ -510,6 +510,9 @@ describe('LeaderboardView', () => {
     await flushPromises()
 
     const record = wrapper.get('[data-testid="leaderboard-my-record"]')
+    const banner = wrapper.get('[data-testid="leaderboard-ranking-illustration"]')
+    expect(banner.find('[data-testid="leaderboard-my-record"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="leaderboard-my-info"]').find('[data-testid="leaderboard-my-record"]').exists()).toBe(false)
     expect(record.text()).toContain('你的战绩')
     expect(record.text()).toContain('当前第 28 名，消耗 <0.1M')
     expect(record.text()).toContain('等待开奖')
@@ -542,12 +545,10 @@ describe('LeaderboardView', () => {
     expect(record.text()).toContain('等待开奖')
     expect(record.text()).not.toContain('掌控token的神')
     expect(record.text()).not.toContain('Alice')
-    const thursdayBanner = wrapper.get('[data-testid="leaderboard-thursday-banner"]')
-    expect(thursdayBanner.text()).toContain('疯狂星期四')
-    expect(thursdayBanner.text()).toContain('V你50')
-    expect(thursdayBanner.get('img').attributes('alt')).toBe('')
-    expect(thursdayBanner.get('.leaderboard-thursday-banner-copy').attributes('aria-label')).toBe('疯狂星期四 V你50')
-    expect(thursdayBanner.element.compareDocumentPosition(record.element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const banner = wrapper.get('[data-testid="leaderboard-ranking-illustration"]')
+    expect(banner.get('img').attributes('alt')).toBe('')
+    expect(banner.find('[data-testid="leaderboard-my-record"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="leaderboard-thursday-banner"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).not.toContain('$11.00')
     expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).not.toContain('余额')
     expect(wrapper.find('[data-testid="leaderboard-my-info"]').findAll('[data-testid="leaderboard-my-token"]')).toHaveLength(0)
@@ -669,7 +670,8 @@ describe('LeaderboardView', () => {
     await flushPromises()
 
     const record = wrapper.get('[data-testid="leaderboard-my-record"]')
-    expect(record.text()).toContain('等待开奖，下一名距离你')
+    expect(record.text()).toContain('领先下一名')
+    expect(record.text()).not.toContain('等待开奖，下一名距离你')
     expect(record.text()).toContain('301')
     expect(record.text()).toContain('token')
     expect(record.text()).not.toContain('距离第一还差')

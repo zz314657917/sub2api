@@ -776,3 +776,7 @@
 260804 2305 | subscription-checkout-modal-s179 | contract-refined | Evaluator | full typecheck/build retained as Airwallex dependency baseline risk; scoped acceptance uses focused test, lint, Vite transform, Edge browser and request evidence
 260804 2305 | subscription-checkout-modal-s179 | build | Generator | migrated inline subscription confirmation into existing BaseDialog without changing price or payment payload semantics
 260804 2305 | subscription-checkout-modal-s179 | final-qa | Evaluator | PASS/browser-mocked; desktop/mobile layout, Escape/cancel/backdrop close, submit-to-payment transition and exact subscription request passed; full build remains blocked by missing Airwallex package
+260805 1444 | leaderboard-record-banner-s180 | contract-draft | Planner | docs/workflow/tasks/leaderboard-record-banner-s180.md
+260805 1444 | leaderboard-record-banner-s180 | contract-approved | Evaluator | PASS; existing record computed state can move into a text-free left banner while the right weekly reward panel remains behaviorally intact
+260805 1533 | leaderboard-record-banner-s180 | build | Generator | generated a text-free 1600x500 banner, moved dynamic record copy into the left illustration, removed the right promotion/record card, expanded weekly top 10; focused tests, typecheck and build passed
+260805 1533 | leaderboard-record-banner-s180 | final-qa | Evaluator | BLOCKED/browser-resource; local synthetic route opened but desktop/mobile assertions and screenshots stopped after user reported CPU saturation; S180 browser/preview processes closed

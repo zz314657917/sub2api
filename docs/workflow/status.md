@@ -1,13 +1,25 @@
 ---
 phase: qa
-current_sprint: pixel-cafe-phase30-presentation-settings-s176
-total_sprints: 176
-pending_action: Restore local browser verification for S176 and capture the required desktop screenshot; do not mark done from source/runtime evidence alone.
+current_sprint: leaderboard-record-banner-s180
+total_sprints: 180
+pending_action: After the unrelated high-CPU Playwright session is resolved, run one minimal desktop/mobile browser pass for S180 and capture the required screenshots.
 project_type: backend
 qa_mode: browser
 approval_required: false
-last_verified: 2026-08-04 15:13 +08:00
+last_verified: 2026-08-05 15:33 +08:00
 ---
+
+# Leaderboard Record Banner S180
+
+- S180 implementation is complete within the frontend allowlist: the generated text-free wide banner owns the
+  existing dynamic personal record, the right Thursday image and standalone record card are removed, and the
+  weekly reward panel retains the full top 10 and existing behavior.
+- Focused `38/38` tests, typecheck, production build, image inspection and Git integrity checks passed.
+- QA is `BLOCKED / browser-resource`: the local synthetic route was reached, but the user reported CPU saturation
+  before final desktop/mobile assertions and screenshots. S180's browser and preview processes were closed; the
+  high-CPU Chrome belonged to the separate `beads-task026-browserqa` session and was left untouched.
+- Contract: `docs/workflow/tasks/leaderboard-record-banner-s180.md`. QA:
+  `docs/workflow/qa-reports/leaderboard-record-banner-s180-qa.md`.
 
 # Pixel Cafe Phase 30 Presentation Settings S176
 

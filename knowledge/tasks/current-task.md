@@ -22,6 +22,9 @@
 - S176 已完成源代码实现、聚焦测试和受保护的本地容器更新：用户页移除“今日使用用户”卡片及独立轮询；管理员可配置标题、说明和整个标题区显示；默认值保持原页面。合同：`docs/workflow/tasks/pixel-cafe-phase30-presentation-settings-s176.md`。本机 `sub2api` 已更新为 `sub2api:codex-20260805-main-36e35a7bb`，在 `127.0.0.1:62080` healthy；旧镜像保留为 `sub2api:rollback-before-codex-20260805-main`。
 - S176 仍缺登录态浏览器验收：内置浏览器已确认 `/group-buy` 按设计跳转 `/login?redirect=/group-buy`，公开 settings 返回 Pixel Cafe 开关、标题、说明和 header visible；未使用管理员凭据，因此尚无用户页/管理员设置页截图。宿主 `frontend/node_modules` 缺 `vue-tsc`，两次 Docker frontend-builder 均超时，故本轮没有新增前端 typecheck/build 证据。QA：`docs/workflow/qa-reports/pixel-cafe-phase30-presentation-settings-s176-qa.md`。
 
+- S180 排行榜展示实现已完成：动态“你的战绩”移入左侧新生成的无文字长条横幅，右侧疯狂星期四图片和独立战绩卡已删除，右栏只保留完整 Top 10/奖励信息；文案“等待开奖，下一名距离你”收紧为“领先下一名”。聚焦 `38/38` 测试、typecheck、build 与 Git integrity 均通过。
+- S180 当前为 `BLOCKED / browser-resource`：本地 synthetic `/leaderboard` 已打开，但在完成桌面/移动端 DOM 几何断言和截图前，用户报告机器 CPU 饱和。S180 的 `lb-s180` 与 `62081` 进程已关闭；高占用来源是另一个 `beads-task026-browserqa` 会话，未越权关闭。QA：`docs/workflow/qa-reports/leaderboard-record-banner-s180-qa.md`。
+
 ## 已确认事实
 
 - `main` 与 `origin/main` 已同步至 `09c9971e7`；`git diff --check`、`git fsck --no-dangling`、全量默认 `go test -p 1 ./...`、`go build ./...`、稳定容器 `/health` 均通过。主工作树仍只保留用户原有的 `docs/workflow/main-log.md` 和 `outputs/` 未提交改动。
@@ -30,7 +33,7 @@
 
 ## 待验证点
 
-- S176 仍需恢复可用浏览器并完成桌面截图验收；现有源码、运行态和容器证据不能替代该门禁。
+- S180 仍需在 CPU 异常解除后只启动一个最小 Playwright 会话，完成 `1920x1080` 与 `390x844` 的横向溢出、文字/图片碰撞、Top 10 行数和截图验收。
 - 如需恢复已归档 Prompt Audit WIP，先审阅 `stash@{0}`，再建立新的独立合同、从当前 `main` 重建并运行验收；不得直接恢复到主工作树。
 
 ## 当前结论

@@ -72,11 +72,11 @@ describe('leaderboard visual identity', () => {
     expect(leaderboardView).toContain('leaderboard-token-tooltip')
     expect(leaderboardView).toContain('leaderboard-token-tooltip-table')
     expect(leaderboardView).toContain('role="table"')
-    expect(leaderboardView).toContain("import leaderboardRushBannerUrl from '@/assets/leaderboard/leaderboard-rush-banner.jpg'")
+    expect(leaderboardView).toContain("import leaderboardRecordBannerUrl from '@/assets/leaderboard/leaderboard-record-banner.png'")
     expect(leaderboardView).toContain('data-testid="leaderboard-ranking-illustration"')
     expect(leaderboardView).toContain('leaderboard-token-ranking-card--with-illustration')
-    expect(leaderboardView).toContain('min-height: 5.8rem')
-    expect(leaderboardView).toContain('max-height: 7.4rem')
+    expect(leaderboardView).toContain('height: clamp(8.75rem, 10vw, 10.5rem)')
+    expect(leaderboardView).toContain('min-height: 8.75rem')
     expect(leaderboardView).toContain('margin-top: auto')
     expect(leaderboardView).toContain('padding-bottom: 1.05rem')
     expect(leaderboardView).toContain(':global(.dark .leaderboard-ranking-illustration)')
@@ -104,15 +104,15 @@ describe('leaderboard visual identity', () => {
     expect(leaderboardView).not.toContain("t('leaderboard.viewLabel')")
   })
 
-  it('uses a concise record card instead of the old personal info stack', () => {
+  it('places the concise record inside the left ranking banner', () => {
     expect(leaderboardView).toContain('data-testid="leaderboard-my-record"')
-    expect(leaderboardView).toContain('leaderboard-record-card')
+    expect(leaderboardView).toContain('leaderboard-record-overlay')
     expect(leaderboardView).toContain('myRecordHeadline')
     expect(leaderboardView).toContain('myRecordProgress')
     expect(leaderboardView).toContain('leaderboard-record-kicker')
     expect(leaderboardView).toContain('leaderboard-record-headline')
     expect(leaderboardView).toContain('leaderboard-record-progress')
-    expect(leaderboardView).toContain('font-size: clamp(0.98rem, 1.5vw, 1.12rem)')
+    expect(leaderboardView).toContain('font-size: clamp(1rem, 1.35vw, 1.18rem)')
     expect(leaderboardView).toContain("t('leaderboard.record.deity')")
     expect(leaderboardView).toContain('function buildRecordProgress')
     expect(leaderboardView).toContain('function findLeaderboardEntryByRank')
@@ -120,20 +120,18 @@ describe('leaderboard visual identity', () => {
     expect(leaderboardView).not.toContain('data-testid="leaderboard-my-token"')
     expect(leaderboardView).not.toContain('data-testid="leaderboard-my-badge-icon"')
     expect(leaderboardView).not.toContain('leaderboard-side-profile')
-  })
-
-  it('keeps the Thursday promo as a compact right-side banner', () => {
-    expect(leaderboardView).toContain("import crazyThursdayBannerUrl from '@/assets/leaderboard/crazy-thursday-v50.png'")
-    expect(leaderboardView).toContain('data-testid="leaderboard-thursday-banner"')
-    expect(leaderboardView).toContain('leaderboard-thursday-banner-copy')
-    expect(leaderboardView).toContain('疯狂星期四')
-    expect(leaderboardView).toContain('V你50')
-    expect(leaderboardView).toContain('height: 5.75rem')
-    expect(leaderboardView).toContain('object-fit: cover')
-    expect(leaderboardView.indexOf('data-testid="leaderboard-thursday-banner"')).toBeLessThan(
+    expect(leaderboardView.indexOf('data-testid="leaderboard-ranking-illustration"')).toBeLessThan(
       leaderboardView.indexOf('data-testid="leaderboard-my-record"'),
     )
-    expect(leaderboardView).toContain(':global(.dark .leaderboard-thursday-banner)')
+    expect(leaderboardView).not.toContain('leaderboard-record-card')
+  })
+
+  it('removes the right-side promotion and uses its space for the full weekly top 10', () => {
+    expect(leaderboardView).not.toContain("import crazyThursdayBannerUrl from '@/assets/leaderboard/crazy-thursday-v50.png'")
+    expect(leaderboardView).not.toContain('data-testid="leaderboard-thursday-banner"')
+    expect(leaderboardView).not.toContain('leaderboard-thursday-banner-copy')
+    expect(leaderboardView).toContain('max-height: calc(10 * 2.14rem + 9 * 0.55rem)')
+    expect(leaderboardView).toContain('data-testid="leaderboard-weekly-top10"')
   })
 
   it('shows last week top 10 token usage and reward-mode panels instead of old rank reward cards', () => {
@@ -145,7 +143,7 @@ describe('leaderboard visual identity', () => {
     expect(leaderboardView).toContain('leaderboard-weekly-winner-avatar')
     expect(leaderboardView).toContain('leaderboard-weekly-winner-stat')
     expect(leaderboardView).toContain('leaderboard-weekly-winner-row--placeholder')
-    expect(leaderboardView).toContain('max-height: calc(5 * 2.14rem + 4 * 0.45rem)')
+    expect(leaderboardView).toContain('max-height: calc(10 * 2.14rem + 9 * 0.55rem)')
     expect(leaderboardView).toContain('leaderboardRewardMode === \'red_packet\'')
     expect(leaderboardView).toContain('data-testid="leaderboard-red-packet-reward"')
     expect(leaderboardView).toContain('leaderboardRewardMode === \'lottery\'')

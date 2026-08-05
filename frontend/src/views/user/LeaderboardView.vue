@@ -250,8 +250,27 @@
                   </article>
                 </div>
 
-                <div class="leaderboard-ranking-illustration" data-testid="leaderboard-ranking-illustration" aria-hidden="true">
-                  <img :src="leaderboardRushBannerUrl" alt="" loading="lazy">
+                <div class="leaderboard-ranking-illustration" data-testid="leaderboard-ranking-illustration">
+                  <img :src="leaderboardRecordBannerUrl" alt="" loading="lazy">
+                  <div v-if="showRewardExtras" class="leaderboard-record-overlay" data-testid="leaderboard-my-record">
+                    <p class="leaderboard-record-kicker">{{ t('leaderboard.record.title') }}</p>
+                    <p class="leaderboard-record-headline">{{ myRecordHeadline }}</p>
+                    <p
+                      class="leaderboard-record-progress"
+                      :class="{ 'leaderboard-record-progress--deity': myRecordProgress.isDeity }"
+                    >
+                      <template v-if="myRecordProgress.isDeity">
+                        <strong>{{ myRecordProgress.value }}</strong>
+                      </template>
+                      <template v-else>
+                        <span>{{ myRecordProgress.prefix }}</span>
+                        <span v-if="myRecordProgress.showDistance !== false">
+                          <strong>{{ myRecordProgress.value }}</strong>
+                          <span v-if="myRecordProgress.suffix" class="leaderboard-record-unit">{{ myRecordProgress.suffix }}</span>
+                        </span>
+                      </template>
+                    </p>
+                  </div>
                 </div>
               </section>
             </template>
@@ -259,34 +278,6 @@
 
           <aside class="leaderboard-side-stack xl:sticky xl:top-20 xl:self-start">
             <section class="card leaderboard-side-card p-5" data-testid="leaderboard-my-info">
-              <div v-if="showRewardExtras" class="leaderboard-thursday-banner" data-testid="leaderboard-thursday-banner">
-                <img :src="crazyThursdayBannerUrl" alt="" loading="lazy">
-                <div class="leaderboard-thursday-banner-copy" aria-label="疯狂星期四 V你50">
-                  <span>疯狂星期四</span>
-                  <strong>V你50</strong>
-                </div>
-              </div>
-
-              <div v-if="showRewardExtras" class="leaderboard-record-card" data-testid="leaderboard-my-record">
-                <p class="leaderboard-record-kicker">{{ t('leaderboard.record.title') }}</p>
-                <p class="leaderboard-record-headline">{{ myRecordHeadline }}</p>
-                <p
-                  class="leaderboard-record-progress"
-                  :class="{ 'leaderboard-record-progress--deity': myRecordProgress.isDeity }"
-                >
-                  <template v-if="myRecordProgress.isDeity">
-                    <strong>{{ myRecordProgress.value }}</strong>
-                  </template>
-                  <template v-else>
-                    <span>{{ myRecordProgress.prefix }}</span>
-                    <span v-if="myRecordProgress.showDistance !== false">
-                      <strong>{{ myRecordProgress.value }}</strong>
-                      <span v-if="myRecordProgress.suffix" class="leaderboard-record-unit">{{ myRecordProgress.suffix }}</span>
-                    </span>
-                  </template>
-                </p>
-              </div>
-
               <div v-if="dailyRewards" class="leaderboard-reward-panel" data-testid="leaderboard-daily-reward">
                 <div v-if="showRewardExtras" class="leaderboard-reward-head">
                   <div class="min-w-0">
@@ -545,8 +536,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { formatDateTime, formatNumber, formatTime } from '@/utils/format'
 import { formatCreditAmount } from '@/utils/credits'
-import crazyThursdayBannerUrl from '@/assets/leaderboard/crazy-thursday-v50.png'
-import leaderboardRushBannerUrl from '@/assets/leaderboard/leaderboard-rush-banner.jpg'
+import leaderboardRecordBannerUrl from '@/assets/leaderboard/leaderboard-record-banner.png'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler)
 
@@ -2254,9 +2244,9 @@ onUnmounted(() => {
 
 .leaderboard-ranking-illustration {
   position: relative;
-  min-height: 5.8rem;
-  max-height: 7.4rem;
-  flex: 1 1 auto;
+  height: clamp(8.75rem, 10vw, 10.5rem);
+  min-height: 8.75rem;
+  flex: 0 0 auto;
   overflow: hidden;
   border: 1px solid rgb(214 202 186 / 0.38);
   border-radius: 0.58rem;
@@ -2268,8 +2258,8 @@ onUnmounted(() => {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg, rgb(255 253 248 / 0.42), transparent 36%, rgb(116 61 45 / 0.08)),
-    linear-gradient(180deg, transparent, rgb(35 32 28 / 0.06));
+    linear-gradient(90deg, rgb(255 253 248 / 0.96) 0%, rgb(255 253 248 / 0.86) 31%, rgb(255 253 248 / 0.18) 57%, transparent 75%),
+    linear-gradient(180deg, rgb(255 253 248 / 0.04), rgb(35 32 28 / 0.08));
   pointer-events: none;
   content: "";
 }
@@ -2279,7 +2269,7 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 58%;
+  object-position: center;
 }
 
 .leaderboard-token-rank-row {
@@ -2578,96 +2568,30 @@ onUnmounted(() => {
   box-shadow: 0 0.25rem 0.8rem rgb(60 49 36 / 0.025);
 }
 
-.leaderboard-record-card {
-  min-width: 0;
-  border: 1px solid rgb(214 202 186 / 0.42);
-  border-radius: 0.72rem;
-  background:
-    linear-gradient(135deg, rgb(255 253 248 / 0.92), rgb(239 235 226 / 0.64)),
-    rgb(250 247 239);
-  padding: 1.05rem 1.12rem;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.75),
-    0 0.45rem 1.25rem rgb(60 49 36 / 0.04);
-}
-
-.leaderboard-thursday-banner {
-  position: relative;
-  height: 5.75rem;
-  overflow: hidden;
-  border: 1px solid rgb(218 184 132 / 0.35);
-  border-radius: 0.5rem;
-  background: rgb(247 240 229);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.55),
-    0 0.35rem 0.9rem rgb(196 111 80 / 0.08);
-}
-
-.leaderboard-thursday-banner + .leaderboard-record-card {
-  margin-top: 0.85rem;
-}
-
-.leaderboard-thursday-banner img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center 56%;
-}
-
-.leaderboard-thursday-banner::after {
+.leaderboard-record-overlay {
   position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, rgb(112 39 27 / 0.7), rgb(112 39 27 / 0.32) 42%, transparent 76%);
-  pointer-events: none;
-  content: "";
-}
-
-.leaderboard-thursday-banner-copy {
-  position: absolute;
+  z-index: 2;
   inset: 0 auto 0 0;
-  z-index: 1;
   display: flex;
-  width: 48%;
-  min-width: 8.6rem;
+  width: min(48%, 34rem);
+  min-width: 19rem;
   flex-direction: column;
   justify-content: center;
-  padding: 0.75rem 0.8rem 0.78rem;
-  color: rgb(255 253 248);
-  line-height: 1;
-  text-shadow: 0 1px 0 rgb(68 41 32 / 0.28);
-}
-
-.leaderboard-thursday-banner-copy span,
-.leaderboard-thursday-banner-copy strong {
-  display: block;
-  overflow-wrap: anywhere;
-  letter-spacing: 0;
-}
-
-.leaderboard-thursday-banner-copy span {
-  font-size: 0.82rem;
-  font-weight: 900;
-}
-
-.leaderboard-thursday-banner-copy strong {
-  margin-top: 0.34rem;
-  font-size: 1.72rem;
-  font-weight: 950;
+  padding: 1rem clamp(1rem, 2vw, 1.65rem);
 }
 
 .leaderboard-record-kicker {
-  color: rgb(109 103 93);
+  color: rgb(116 61 45);
   font-size: 0.78rem;
-  font-weight: 500;
-  letter-spacing: 0.08em;
+  font-weight: 800;
+  letter-spacing: 0;
   line-height: 1.35;
 }
 
 .leaderboard-record-headline {
   margin-top: 0.6rem;
   color: rgb(35 32 28);
-  font-size: clamp(0.98rem, 1.5vw, 1.12rem);
+  font-size: clamp(1rem, 1.35vw, 1.18rem);
   font-weight: 900;
   letter-spacing: 0;
   line-height: 1.38;
@@ -2677,17 +2601,17 @@ onUnmounted(() => {
   display: flex;
   min-width: 0;
   align-items: baseline;
+  flex-wrap: wrap;
   gap: 0.42rem;
-  margin-top: 0.72rem;
+  margin-top: 0.58rem;
   color: rgb(86 80 71);
   font-size: 0.92rem;
   line-height: 1.35;
-  white-space: nowrap;
 }
 
 .leaderboard-record-progress strong {
   color: rgb(178 67 54);
-  font-size: clamp(1.32rem, 2.6vw, 1.72rem);
+  font-size: clamp(1.25rem, 2vw, 1.68rem);
   font-weight: 900;
   letter-spacing: 0.01em;
   line-height: 1.1;
@@ -2711,9 +2635,7 @@ onUnmounted(() => {
 }
 
 .leaderboard-reward-panel {
-  margin-top: 1rem;
-  border-top: 1px solid rgb(214 202 186 / 0.44);
-  padding-top: 0.95rem;
+  margin-top: 0;
 }
 
 .leaderboard-reward-title {
@@ -2826,8 +2748,8 @@ onUnmounted(() => {
 
 .leaderboard-weekly-winners-list {
   display: grid;
-  gap: 0.45rem;
-  max-height: calc(5 * 2.14rem + 4 * 0.45rem);
+  gap: 0.55rem;
+  max-height: calc(10 * 2.14rem + 9 * 0.55rem);
   overflow-y: auto;
   padding-right: 0.18rem;
   scrollbar-color: rgb(181 166 143 / 0.7) transparent;
@@ -3493,8 +3415,8 @@ onUnmounted(() => {
 
 :global(.dark .leaderboard-ranking-illustration::after) {
   background:
-    linear-gradient(90deg, rgb(20 20 19 / 0.26), transparent 42%, rgb(0 0 0 / 0.18)),
-    linear-gradient(180deg, transparent, rgb(0 0 0 / 0.22));
+    linear-gradient(90deg, rgb(20 20 19 / 0.9) 0%, rgb(20 20 19 / 0.78) 32%, rgb(20 20 19 / 0.18) 59%, transparent 76%),
+    linear-gradient(180deg, rgb(20 20 19 / 0.08), rgb(0 0 0 / 0.28));
 }
 
 :global(.dark .leaderboard-token-rank-row-current) {
@@ -3518,18 +3440,8 @@ onUnmounted(() => {
   box-shadow: 0 0.35rem 1rem rgb(0 0 0 / 0.14);
 }
 
-:global(.dark .leaderboard-record-card) {
-  border-color: rgb(214 183 157 / 0.14);
-  background:
-    linear-gradient(135deg, rgb(35 32 28 / 0.74), rgb(20 20 19 / 0.56)),
-    rgb(20 20 19 / 0.72);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.04),
-    0 0.45rem 1rem rgb(0 0 0 / 0.12);
-}
-
 :global(.dark .leaderboard-record-kicker) {
-  color: rgb(168 159 145);
+  color: rgb(214 183 157);
 }
 
 :global(.dark .leaderboard-record-headline) {
@@ -3542,18 +3454,6 @@ onUnmounted(() => {
 
 :global(.dark .leaderboard-record-progress strong) {
   color: rgb(214 183 157);
-}
-
-:global(.dark .leaderboard-thursday-banner) {
-  border-color: rgb(214 183 157 / 0.18);
-  background: rgb(35 32 28);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.05),
-    0 0.45rem 1rem rgb(0 0 0 / 0.16);
-}
-
-:global(.dark .leaderboard-thursday-banner::after) {
-  background: linear-gradient(90deg, rgb(20 20 19 / 0.76), rgb(20 20 19 / 0.34) 42%, transparent 76%);
 }
 
 :global(.dark .leaderboard-side-label) {
@@ -3790,9 +3690,46 @@ onUnmounted(() => {
   }
 
   .leaderboard-ranking-illustration {
-    min-height: 5.15rem;
-    max-height: 5.15rem;
+    height: 8.5rem;
+    min-height: 8.5rem;
     margin-top: 0.82rem;
+  }
+
+  .leaderboard-ranking-illustration::after {
+    background:
+      linear-gradient(90deg, rgb(255 253 248 / 0.97) 0%, rgb(255 253 248 / 0.91) 53%, rgb(255 253 248 / 0.35) 75%, transparent 100%),
+      linear-gradient(180deg, rgb(255 253 248 / 0.04), rgb(35 32 28 / 0.08));
+  }
+
+  .leaderboard-ranking-illustration img {
+    object-position: 62% center;
+  }
+
+  .leaderboard-record-overlay {
+    width: 72%;
+    min-width: 0;
+    padding: 0.75rem 0.85rem;
+  }
+
+  .leaderboard-record-headline {
+    margin-top: 0.38rem;
+    font-size: 0.92rem;
+  }
+
+  .leaderboard-record-progress {
+    gap: 0.3rem;
+    margin-top: 0.42rem;
+    font-size: 0.8rem;
+  }
+
+  .leaderboard-record-progress strong {
+    font-size: 1.14rem;
+  }
+
+  :global(.dark .leaderboard-ranking-illustration::after) {
+    background:
+      linear-gradient(90deg, rgb(20 20 19 / 0.94) 0%, rgb(20 20 19 / 0.86) 52%, rgb(20 20 19 / 0.35) 76%, transparent 100%),
+      linear-gradient(180deg, rgb(20 20 19 / 0.08), rgb(0 0 0 / 0.28));
   }
 
   .leaderboard-token-rank-user {

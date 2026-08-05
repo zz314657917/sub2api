@@ -1638,3 +1638,18 @@ list response.
 
 - `PASS / runtime-isolated`: one fresh PostgreSQL run classified 100 final-Seat requests as one durable winner and 99 explicit unavailable losers, and 100 paid-full activation calls converged to one active four-Seat Round with exactly four disabled managed Keys, four active strict Bindings and one activation event.
 - Three additional consecutive fresh runs also passed. No product correction was needed. This closes the bounded concurrency correctness gap but does not prove performance, provider/payment, enabled-Key gateway usage, Redis, deployment or production readiness.
+# Leaderboard Record Banner Addendum (S180)
+
+## Goal
+
+Move the existing dynamic personal record into a new text-free wide banner at the bottom of the left ranking
+panel. Remove the right-side Thursday promotion and standalone record card so the right column focuses on the
+weekly top-10 and reward facts with more vertical space.
+
+## Boundary
+
+- Frontend presentation, localization, focused tests, generated raster and browser evidence only. Reuse current
+  record/reward computed state and APIs; no backend, settlement, claim, access, database, container or production
+  change is included.
+- The banner is decorative art with no embedded copy, logo or user data. Dynamic personal status remains HTML
+  text so every ranking and waiting state stays localized and accessible.

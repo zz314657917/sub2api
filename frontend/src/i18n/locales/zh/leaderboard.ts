@@ -77,7 +77,7 @@ export default {
       headlineUnranked: '暂未上榜，消耗 {tokens}',
       distanceToBoard: '距离上榜还差',
       waitingDraw: '等待开奖',
-      waitingDrawNextRank: '等待开奖，下一名距离你',
+      waitingDrawNextRank: '领先下一名',
       distanceToTopThree: '距离前三还差',
       distanceToSecond: '距离第二还差',
       distanceToFirst: '距离第一还差',
