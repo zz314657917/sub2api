@@ -197,6 +197,44 @@ describe('BulkEditAccountModal', () => {
     })
   })
 
+  it('OpenAI 账号可只批量更新 5h 自动暂停阈值和禁用开关', async () => {
+    const wrapper = mountModal({
+      selectedPlatforms: ['openai'],
+      selectedTypes: ['oauth']
+    })
+
+    await wrapper.get('#bulk-edit-openai-quota-auto-pause-5h-enabled').setValue(true)
+    await wrapper.get('[data-testid="bulk-edit-openai-quota-auto-pause-5h-threshold"]').setValue('0.82')
+    await wrapper.get('[data-testid="bulk-edit-openai-quota-auto-pause-5h-disabled"]').setValue(true)
+    await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(adminAPI.accounts.bulkUpdate).toHaveBeenCalledWith([1, 2], {
+      extra: {
+        auto_pause_5h_threshold: 0.82,
+        auto_pause_5h_disabled: true
+      }
+    })
+  })
+
+  it('OpenAI 账号可将 7d 配置恢复为全局默认并取消禁用', async () => {
+    const wrapper = mountModal({
+      selectedPlatforms: ['openai'],
+      selectedTypes: ['apikey']
+    })
+
+    await wrapper.get('#bulk-edit-openai-quota-auto-pause-7d-enabled').setValue(true)
+    await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(adminAPI.accounts.bulkUpdate).toHaveBeenCalledWith([1, 2], {
+      extra: {
+        auto_pause_7d_threshold: 0,
+        auto_pause_7d_disabled: false
+      }
+    })
+  })
+
   it('OpenAI API Key 批量编辑应提交 API Key 专属 WS mode 字段', async () => {
     const wrapper = mountModal({
       selectedPlatforms: ['openai'],

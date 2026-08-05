@@ -661,6 +661,104 @@
         </div>
       </div>
 
+      <!-- OpenAI quota auto-pause -->
+      <div v-if="allOpenAIPassthroughCapable" class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div class="mb-3">
+          <label class="input-label mb-0">{{ t('admin.accounts.openai.quotaAutoPause') }}</label>
+          <p class="input-hint">{{ t('admin.accounts.openai.quotaAutoPauseDesc') }}</p>
+        </div>
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <div class="mb-3 flex items-center justify-between">
+              <label
+                id="bulk-edit-openai-quota-auto-pause-5h-label"
+                class="input-label mb-0"
+                for="bulk-edit-openai-quota-auto-pause-5h-enabled"
+              >
+                {{ t('admin.accounts.openai.quotaAutoPause5h') }}
+              </label>
+              <input
+                v-model="enableOpenAIQuotaAutoPause5h"
+                id="bulk-edit-openai-quota-auto-pause-5h-enabled"
+                type="checkbox"
+                aria-controls="bulk-edit-openai-quota-auto-pause-5h"
+                class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+            </div>
+            <div
+              id="bulk-edit-openai-quota-auto-pause-5h"
+              :class="!enableOpenAIQuotaAutoPause5h && 'pointer-events-none opacity-50'"
+            >
+              <input
+                v-model.number="openAIQuotaAutoPause5hThreshold"
+                data-testid="bulk-edit-openai-quota-auto-pause-5h-threshold"
+                type="number"
+                min="0"
+                max="1"
+                step="0.01"
+                :disabled="openAIQuotaAutoPause5hDisabled"
+                class="input"
+                :placeholder="t('admin.accounts.openai.quotaAutoPauseInherit')"
+                aria-labelledby="bulk-edit-openai-quota-auto-pause-5h-label"
+              />
+              <label class="mt-2 flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                <input
+                  v-model="openAIQuotaAutoPause5hDisabled"
+                  data-testid="bulk-edit-openai-quota-auto-pause-5h-disabled"
+                  type="checkbox"
+                  class="rounded border-gray-300"
+                />
+                <span>{{ t('admin.accounts.openai.quotaAutoPauseDisable5h') }}</span>
+              </label>
+            </div>
+          </div>
+          <div>
+            <div class="mb-3 flex items-center justify-between">
+              <label
+                id="bulk-edit-openai-quota-auto-pause-7d-label"
+                class="input-label mb-0"
+                for="bulk-edit-openai-quota-auto-pause-7d-enabled"
+              >
+                {{ t('admin.accounts.openai.quotaAutoPause7d') }}
+              </label>
+              <input
+                v-model="enableOpenAIQuotaAutoPause7d"
+                id="bulk-edit-openai-quota-auto-pause-7d-enabled"
+                type="checkbox"
+                aria-controls="bulk-edit-openai-quota-auto-pause-7d"
+                class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+            </div>
+            <div
+              id="bulk-edit-openai-quota-auto-pause-7d"
+              :class="!enableOpenAIQuotaAutoPause7d && 'pointer-events-none opacity-50'"
+            >
+              <input
+                v-model.number="openAIQuotaAutoPause7dThreshold"
+                data-testid="bulk-edit-openai-quota-auto-pause-7d-threshold"
+                type="number"
+                min="0"
+                max="1"
+                step="0.01"
+                :disabled="openAIQuotaAutoPause7dDisabled"
+                class="input"
+                :placeholder="t('admin.accounts.openai.quotaAutoPauseInherit')"
+                aria-labelledby="bulk-edit-openai-quota-auto-pause-7d-label"
+              />
+              <label class="mt-2 flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                <input
+                  v-model="openAIQuotaAutoPause7dDisabled"
+                  data-testid="bulk-edit-openai-quota-auto-pause-7d-disabled"
+                  type="checkbox"
+                  class="rounded border-gray-300"
+                />
+                <span>{{ t('admin.accounts.openai.quotaAutoPauseDisable7d') }}</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- OpenAI OAuth WS mode -->
       <div v-if="allOpenAIOAuth" class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <div class="mb-3 flex items-center justify-between">
@@ -1252,6 +1350,8 @@ const enableOpenAIPassthrough = ref(false)
 const enableOpenAIWSMode = ref(false)
 const enableOpenAIAPIKeyWSMode = ref(false)
 const enableCodexCLIOnly = ref(false)
+const enableOpenAIQuotaAutoPause5h = ref(false)
+const enableOpenAIQuotaAutoPause7d = ref(false)
 const enableOpenAICompactMode = ref(false)
 const enableOpenAICompactModelMapping = ref(false)
 const enableRpmLimit = ref(false)
@@ -1280,6 +1380,10 @@ const openaiPassthroughEnabled = ref(false)
 const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
 const openaiAPIKeyResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
 const codexCLIOnlyEnabled = ref(false)
+const openAIQuotaAutoPause5hThreshold = ref<number | null>(null)
+const openAIQuotaAutoPause7dThreshold = ref<number | null>(null)
+const openAIQuotaAutoPause5hDisabled = ref(false)
+const openAIQuotaAutoPause7dDisabled = ref(false)
 const openAICompactMode = ref<OpenAICompactMode>('auto')
 const openAICompactModelMappings = ref<ModelMapping[]>([])
 const supportedCapabilities = ref<AccountCapability[]>([])
@@ -1422,6 +1526,14 @@ const buildOpenAICompactModelMapping = (): Record<string, string> | null => {
   return buildModelMappingPayload('mapping', [], openAICompactModelMappings.value)
 }
 
+const normalizeOpenAIQuotaAutoPauseThreshold = (value: number | null): number => {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    // Bulk updates merge JSONB values, so 0 intentionally restores the global default.
+    return 0
+  }
+  return Math.min(1, value)
+}
+
 const buildUpdatePayload = (): Record<string, unknown> | null => {
   const updates: Record<string, unknown> = {}
   const credentials: Record<string, unknown> = {}
@@ -1536,6 +1648,22 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
     extra.codex_cli_only = codexCLIOnlyEnabled.value
   }
 
+  if (enableOpenAIQuotaAutoPause5h.value) {
+    const extra = ensureExtra()
+    extra.auto_pause_5h_threshold = normalizeOpenAIQuotaAutoPauseThreshold(
+      openAIQuotaAutoPause5hThreshold.value
+    )
+    extra.auto_pause_5h_disabled = openAIQuotaAutoPause5hDisabled.value
+  }
+
+  if (enableOpenAIQuotaAutoPause7d.value) {
+    const extra = ensureExtra()
+    extra.auto_pause_7d_threshold = normalizeOpenAIQuotaAutoPauseThreshold(
+      openAIQuotaAutoPause7dThreshold.value
+    )
+    extra.auto_pause_7d_disabled = openAIQuotaAutoPause7dDisabled.value
+  }
+
   if (enableOpenAICompactMode.value) {
     const extra = ensureExtra()
     extra.openai_compact_mode = openAICompactMode.value
@@ -1642,6 +1770,8 @@ const handleSubmit = async () => {
     enableOpenAIWSMode.value ||
     enableOpenAIAPIKeyWSMode.value ||
     enableCodexCLIOnly.value ||
+    enableOpenAIQuotaAutoPause5h.value ||
+    enableOpenAIQuotaAutoPause7d.value ||
     enableOpenAICompactMode.value ||
     enableOpenAICompactModelMapping.value ||
     enableRpmLimit.value ||
@@ -1745,6 +1875,8 @@ watch(
       enableOpenAIWSMode.value = false
       enableOpenAIAPIKeyWSMode.value = false
       enableCodexCLIOnly.value = false
+      enableOpenAIQuotaAutoPause5h.value = false
+      enableOpenAIQuotaAutoPause7d.value = false
       enableOpenAICompactMode.value = false
       enableOpenAICompactModelMapping.value = false
       enableRpmLimit.value = false
@@ -1769,6 +1901,10 @@ watch(
       openaiOAuthResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
       openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
       codexCLIOnlyEnabled.value = false
+      openAIQuotaAutoPause5hThreshold.value = null
+      openAIQuotaAutoPause7dThreshold.value = null
+      openAIQuotaAutoPause5hDisabled.value = false
+      openAIQuotaAutoPause7dDisabled.value = false
       openAICompactMode.value = 'auto'
       openAICompactModelMappings.value = []
       supportedCapabilities.value = []
