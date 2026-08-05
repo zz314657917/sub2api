@@ -790,6 +790,22 @@ describe('user UsageView', () => {
     expect(wrapper.find('.table-headers').exists()).toBe(true)
   })
 
+  it('hides the subscription panel when only expired subscriptions exist', async () => {
+    getMySubscriptions.mockResolvedValueOnce([
+      {
+        ...activeSubscription,
+        status: 'expired',
+      },
+    ])
+
+    const wrapper = await mountUsageView()
+
+    expect(wrapper.find('[data-testid="user-subscriptions-panel"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Expired')
+    expect(wrapper.find('[data-test="user-usage-analytics"]').exists()).toBe(true)
+    expect(wrapper.find('.table-headers').exists()).toBe(true)
+  })
+
   it('renders the actual billing group with the row rate multiplier', async () => {
     const wrapper = await mountUsageView([baseUsageLog({ rate_multiplier: 1.25 })])
 

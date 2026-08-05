@@ -1,6 +1,6 @@
 <template>
   <section
-    v-if="loading || subscriptions.length > 0"
+    v-if="loading || activeSubscriptions.length > 0"
     class="space-y-4"
     data-testid="user-subscriptions-panel"
   >
@@ -12,7 +12,7 @@
 
     <div v-else class="grid gap-6 lg:grid-cols-2">
       <div
-        v-for="subscription in subscriptions"
+        v-for="subscription in activeSubscriptions"
         :key="subscription.id"
         class="overflow-hidden rounded-2xl border bg-white dark:bg-dark-800"
         :class="platformBorderClass(subscription.group?.platform || '')"
@@ -219,7 +219,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import subscriptionsAPI from '@/api/subscriptions'
@@ -248,6 +248,9 @@ const appStore = useAppStore()
 
 const subscriptions = ref<UserSubscription[]>([])
 const loading = ref(true)
+const activeSubscriptions = computed(() =>
+  subscriptions.value.filter((subscription) => subscription.status === 'active')
+)
 
 function platformAccentDotClass(p: string): string {
   switch (p) {
