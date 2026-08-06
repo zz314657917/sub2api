@@ -23,12 +23,8 @@ function avatarColor(seed: string): number {
   return [0xb87565, 0x6f9a83, 0x7b91bb, 0xcb9d59, 0x9d7ab1][getAvatarToneIndex(seed)]
 }
 
-function roomColor(state: string): number {
-  return ({ available: 0x6f9a83, full: 0xbb8065, activating: 0xc6a35a, active: 0x778bb2 } as Record<string, number>)[state] || 0x77757c
-}
-
 export async function createCafeRenderer(host: HTMLElement, initialData: CafeSceneData): Promise<CafeSceneRenderer> {
-  const { Application, Graphics, Text } = await import('pixi.js')
+  const { Application, Graphics } = await import('pixi.js')
   const app = new Application()
   const resolution = Math.min(window.devicePixelRatio || 1, 2)
   const initialWidth = Math.max(host.clientWidth, CAFE_SCENE_DESIGN_WIDTH)
@@ -87,20 +83,11 @@ export async function createCafeRenderer(host: HTMLElement, initialData: CafeSce
       const height = hotspot.height * scale
       const graphic = new Graphics()
         .rect(toX(hotspot.x), toY(hotspot.y), width, height)
-        .fill({ color: roomColor(room.purchase_state), alpha: .86 })
-        .rect(toX(hotspot.x + 4), toY(hotspot.y + 4), width - 8 * scale, height - 8 * scale)
-        .fill({ color: 0x2e3038, alpha: .88 })
+        .fill({ color: 0xffffff, alpha: .01 })
       graphic.eventMode = 'static'
       graphic.cursor = 'pointer'
       graphic.on('pointertap', () => current.onRoomSelect(room))
       app.stage.addChild(graphic)
-
-      const label = new Text({
-        text: room.code,
-        style: { fill: 0xfff5df, fontFamily: 'monospace', fontSize: Math.max(10, 13 * scale), fontWeight: '700' },
-      })
-      label.position.set(toX(hotspot.x + 10), toY(hotspot.y + 12))
-      app.stage.addChild(label)
     })
   }
 

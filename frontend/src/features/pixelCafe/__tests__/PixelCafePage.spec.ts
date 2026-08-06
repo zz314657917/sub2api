@@ -138,10 +138,23 @@ describe('PixelCafePage', () => {
     expect(wrapper.text()).toContain('Claude 深夜包间')
     expect(wrapper.text()).toContain('等待拼团')
     expect(wrapper.find('.pixel-cafe-scene-art').exists()).toBe(true)
+    expect(wrapper.find('.pixel-cafe-front-desk').text()).toContain('前台')
+    expect(wrapper.find('.pixel-cafe-workbench').exists()).toBe(true)
 
     await wrapper.find('.pixel-cafe-room').trigger('click')
     expect(wrapper.text()).toContain('本地演示不创建订单')
     expect((wrapper.find('.pixel-cafe-primary').element as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('uses occupied room seats as anonymous ambient avatars when lobby activity is unavailable', async () => {
+    overview.mockResolvedValueOnce({ data: {
+      ...overviewPayload().data,
+      lobby: { available: false, date: '2026-08-03', timezone: 'Asia/Shanghai', label: '', unique_users: 0, successful_requests: 0, display_max: 0, avatars: [] },
+    } })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(wrapper.findAll('[data-testid="pixel-cafe-lobby-avatar"]')).toHaveLength(1)
   })
 
   it('renders configured header copy and can hide the entire header block', async () => {

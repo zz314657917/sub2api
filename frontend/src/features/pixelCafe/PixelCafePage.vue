@@ -75,11 +75,18 @@
           </div>
           <CafeScene
             :rooms="rooms"
-            :lobby-avatars="lobby.available ? lobby.avatars : []"
+            :lobby-avatars="sceneAvatars"
             :active-zone-label="activeZone.name"
             :selected-room-id="selectedRoom?.id"
             @select-room="openRoom"
           />
+          <div class="pixel-cafe-front-desk" aria-label="网吧前台">
+            <span class="pixel-cafe-front-desk-lamp" aria-hidden="true"></span>
+            <div>
+              <p>前台</p>
+              <strong>选择一间包房，预留你的座位。</strong>
+            </div>
+          </div>
           <div v-if="loading" class="pixel-cafe-empty pixel-cafe-scene-overlay" data-testid="pixel-cafe-loading">正在加载房间...</div>
           <div v-else-if="errorMessage" class="pixel-cafe-empty pixel-cafe-error pixel-cafe-scene-overlay" data-testid="pixel-cafe-error">
             <p>{{ errorMessage }}</p>
@@ -182,6 +189,7 @@ import { cafeAPI } from '@/api/cafe'
 import { useAppStore } from '@/stores'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { isMobileDevice } from '@/utils/device'
+import { resolvePixelCafeTitle } from '@/utils/groupBuyProduct'
 import {
   PAYMENT_RECOVERY_STORAGE_KEY,
   clearPaymentRecoverySnapshot,
@@ -191,7 +199,7 @@ import {
   type PaymentRecoverySnapshot,
 } from '@/components/payment/paymentFlow'
 import { getPaymentPopupFeatures } from '@/components/payment/providerConfig'
-import type { CafeLobbyActivity, CafeMyRoom, CafeMyRoomFilter, CafePublicRoom, CafePublicSeatVisual, CafePublicZone, CreateCafeRoomOrderResult } from '@/types/pixelCafe'
+import type { CafeLobbyActivity, CafeLobbyAvatar, CafeMyRoom, CafeMyRoomFilter, CafePublicRoom, CafePublicSeatVisual, CafePublicZone, CreateCafeRoomOrderResult } from '@/types/pixelCafe'
 
 type PaymentOutcome = 'success' | 'cancelled' | 'expired'
 
@@ -242,15 +250,24 @@ let previousBodyOverflowX = ''
 
 const appStore = useAppStore()
 const pixelCafeHeaderVisible = computed(() => appStore.cachedPublicSettings?.pixel_cafe_header_visible !== false)
-const pixelCafeTitle = computed(() => {
-  const value = appStore.cachedPublicSettings?.pixel_cafe_title
-  return typeof value === 'string' && value.trim() ? value.trim() : '像素网吧'
-})
+const pixelCafeTitle = computed(() => resolvePixelCafeTitle(appStore.cachedPublicSettings))
 const pixelCafeDescription = computed(() => {
   const value = appStore.cachedPublicSettings?.pixel_cafe_description
   return typeof value === 'string' ? value.trim() : '把每个模型分组变成一间可订阅的数字包间。'
 })
 const isLocalDemoMode = computed(() => isLocalPixelCafeDemo(route.query))
+const sceneAvatars = computed<CafeLobbyAvatar[]>(() => {
+  if (lobby.value.available && lobby.value.avatars.length > 0) return lobby.value.avatars
+
+  return rooms.value.flatMap((room) => room.seat_visuals
+    .filter((seat) => seat.state !== 'empty')
+    .map((seat) => ({
+      avatar_seed: seat.avatar_seed || `room-${room.id}-seat-${seat.seat_no}`,
+      seat_index: (room.id * 17 + seat.seat_no) % 12,
+      activity: 'recent' as const,
+    })),
+  ).slice(0, 12)
+})
 
 const activeZone = computed<CafePublicZone>(() => zones.value.find(zone => zone.key === selectedZone.value) ?? {
   key: selectedZone.value,
@@ -579,4 +596,17 @@ onUnmounted(() => {
 .pixel-cafe-notice { display: flex; gap: .75rem; align-items: flex-start; max-width: 1400px; margin: 1rem auto 0; padding: .85rem 1rem; }.pixel-cafe-notice-icon { display: grid; width: 1.8rem; height: 1.8rem; place-items: center; color: #8f624f; background: #f1e0d3; }.pixel-cafe-notice strong { font-size: .82rem; }.pixel-cafe-notice p { margin: .25rem 0 0; color: #776e65; font-size: .78rem; }
 @media (max-width: 900px) { .pixel-cafe-workbench { grid-template-columns: 1fr; }.pixel-cafe-inspector { min-height: 0; }.pixel-cafe-scene { min-height: 430px; } }
 @media (max-width: 620px) { .pixel-cafe-page { padding: .85rem; }.pixel-cafe-header { align-items: stretch; flex-direction: column; }.pixel-cafe-my-rooms-heading { align-items: flex-start; flex-direction: column; }.pixel-cafe-my-rooms-list { grid-template-columns: 1fr; } }
+
+/* The lobby is the primary interaction surface; room and account details follow it. */
+.pixel-cafe-page { position: relative; display: flex; min-height: calc(100vh - 4rem); flex-direction: column; padding: 1.25rem; overflow: hidden; color: #edf4fb; background: #07111e; }
+.pixel-cafe-header { position: absolute; z-index: 6; top: 3.4rem; left: clamp(2rem, 5vw, 5rem); width: min(34rem, calc(100% - 5rem)); margin: 0; color: #fff7e5; pointer-events: none; text-shadow: 2px 2px 0 rgba(4, 12, 21, .72); }.pixel-cafe-kicker { margin: 0 0 .55rem; color: #f3c36d; font: 700 .72rem/1 monospace; letter-spacing: .12em; }.pixel-cafe-header h1 { margin: 0; font-size: clamp(2rem, 4vw, 3.2rem); line-height: 1.05; }.pixel-cafe-subtitle { margin: .65rem 0 0; max-width: 30rem; color: #c8d6e2; font-size: .95rem; line-height: 1.5; }
+.pixel-cafe-workbench { position: relative; order: 1; display: block; width: min(100%, 1600px); margin: 0 auto; }.pixel-cafe-scene { position: relative; min-height: 0; overflow: hidden; border: 1px solid #385369; background: #0b1d30; box-shadow: 0 14px 34px rgba(0, 0, 0, .32); }.pixel-cafe-scene-topline { position: absolute; z-index: 5; top: 1rem; right: 1rem; display: flex; gap: .75rem; align-items: center; padding: 0; border: 0; color: #c9d9e8; background: transparent; font: 700 .72rem/1 monospace; text-shadow: 1px 1px 0 #06101a; }.pixel-cafe-status { display: inline-flex; gap: .4rem; align-items: center; }.pixel-cafe-status i { width: .5rem; height: .5rem; border-radius: 0; background: #73d7a1; box-shadow: 0 0 0 2px rgba(115, 215, 161, .22); }
+.pixel-cafe-zones { position: absolute; z-index: 7; top: 1.15rem; right: clamp(1.7rem, 4vw, 4rem); display: flex; max-width: min(46rem, calc(100% - 4rem)); gap: .45rem; margin: 0; overflow-x: auto; }.pixel-cafe-zone { display: inline-flex; flex: 0 0 auto; gap: .45rem; align-items: center; min-height: 2.25rem; padding: .45rem .7rem; border: 1px solid rgba(204, 224, 238, .34); color: #dbe9f2; background: rgba(5, 16, 28, .78); cursor: pointer; font-size: .8rem; backdrop-filter: blur(4px); }.pixel-cafe-zone:hover, .pixel-cafe-zone:focus-visible, .pixel-cafe-zone.active { border-color: #f2b968; color: #fff7e5; background: rgba(48, 36, 25, .82); box-shadow: none; outline: 0; }.pixel-cafe-zone-dot { width: .55rem; height: .55rem; box-shadow: 2px 2px 0 rgba(0, 0, 0, .3); }
+.pixel-cafe-front-desk { position: absolute; z-index: 5; bottom: 1rem; left: 1rem; display: flex; gap: .7rem; align-items: center; max-width: 21rem; padding: .75rem .9rem; border: 1px solid rgba(245, 192, 105, .52); color: #f9efdb; background: rgba(26, 18, 13, .84); box-shadow: 4px 4px 0 rgba(0, 0, 0, .24); }.pixel-cafe-front-desk p { margin: 0 0 .2rem; color: #f2bd69; font: 700 .68rem/1 monospace; letter-spacing: .1em; }.pixel-cafe-front-desk strong { font-size: .78rem; line-height: 1.35; }.pixel-cafe-front-desk-lamp { width: .6rem; height: .6rem; flex: 0 0 auto; background: #f2bd69; box-shadow: 0 0 0 3px rgba(242, 189, 105, .18); }
+.pixel-cafe-empty { color: #fff6e5; }.pixel-cafe-scene-overlay { z-index: 8; inset: 0; color: #fff6e5; background: rgba(4, 12, 21, .78); text-shadow: 1px 1px 0 #02070d; }.pixel-cafe-demo-badge { z-index: 8; right: 1rem; bottom: 1rem; background: rgba(4, 12, 21, .8); }.pixel-cafe-error { color: #ffc2bd; }.pixel-cafe-retry { border-color: #df947e; color: #fff7e5; background: #6f3d37; }
+.pixel-cafe-inspector { position: absolute; z-index: 6; right: 1rem; bottom: 1rem; width: min(19rem, calc(100% - 2rem)); padding: 1rem; border: 1px solid rgba(190, 213, 230, .38); color: #eaf3fa; background: rgba(5, 16, 28, .9); box-shadow: 5px 5px 0 rgba(0, 0, 0, .26); backdrop-filter: blur(5px); }.pixel-cafe-inspector-heading { color: #f1c26f; }.pixel-cafe-inspector h2 { margin: 1rem 0 .3rem; color: #fff7e5; font-size: 1.15rem; }.pixel-cafe-room-code { color: #aebfcd; }.pixel-cafe-stats { margin: 1rem 0; }.pixel-cafe-stats div { border-color: rgba(190, 213, 230, .22); }.pixel-cafe-stats dt { color: #9fb2c1; }.pixel-cafe-primary { border: 1px solid #efbd68; color: #1c120b; background: #efbd68; font-weight: 800; }.pixel-cafe-primary:disabled { opacity: .58; }.pixel-cafe-muted { color: #c4d0da; }.pixel-cafe-seat-button { border-color: #5f788b; color: #dce8f0; background: #122a3e; }.pixel-cafe-seat-button:hover, .pixel-cafe-seat-button:focus-visible, .pixel-cafe-seat-button.active { border-color: #efbd68; color: #1c120b; background: #efbd68; }.pixel-cafe-payment-label, .pixel-cafe-agreement { color: #c8d5df; }.pixel-cafe-payment-select { border-color: #5f788b; color: #eff5fb; background: #102438; }.pixel-cafe-agreement input { accent-color: #efbd68; }.pixel-cafe-inline-error { color: #ffc2bd; }
+.pixel-cafe-my-rooms { order: 2; width: min(100%, 1600px); margin: 1.25rem auto 0; padding: 1rem 0 0; border-top: 1px solid rgba(164, 194, 218, .32); border-bottom: 0; background: transparent; }.pixel-cafe-my-rooms-heading h2 { color: #fff7e5; }.pixel-cafe-my-rooms-tabs { border-color: #385369; }.pixel-cafe-my-rooms-tab { border-color: #385369; color: #aec0ce; background: #0c1d2e; }.pixel-cafe-my-rooms-tab.active { color: #1c120b; background: #efbd68; }.pixel-cafe-my-rooms-state { color: #b6c7d4; }.pixel-cafe-my-rooms-error { color: #ffc2bd; }.pixel-cafe-my-rooms-retry { border-color: #df947e; color: #fff7e5; background: #6f3d37; }.pixel-cafe-my-room { border-left-color: #e3a962; background: #102238; }.pixel-cafe-my-room-code, .pixel-cafe-my-room-meta, .pixel-cafe-my-room-key { color: #aebfcd; }.pixel-cafe-my-room-state { border-color: #5f788b; color: #cbd8e2; background: #0b1928; }.pixel-cafe-my-room-state.state-active { border-color: #73c99a; color: #a2e0bc; }.pixel-cafe-my-room-state.state-refunded, .pixel-cafe-my-room-state.state-cancelled, .pixel-cafe-my-room-state.state-released { border-color: #d6807a; color: #ffb7b0; }
+.pixel-cafe-notice { order: 3; width: min(100%, 1600px); margin: 1rem auto 0; padding: .85rem 0; border-top: 1px solid rgba(164, 194, 218, .2); color: #bdd0dc; background: transparent; box-shadow: none; }.pixel-cafe-notice-icon { color: #efbd68; background: #102238; }.pixel-cafe-notice strong { color: #eff5fb; }.pixel-cafe-notice p { color: #bdd0dc; }
+@media (max-width: 900px) { .pixel-cafe-page { padding: .85rem; }.pixel-cafe-header { position: relative; top: auto; left: auto; order: 0; width: auto; margin: 0 0 .8rem; pointer-events: auto; }.pixel-cafe-zones { position: relative; top: auto; right: auto; order: 0; max-width: none; margin: 0 0 .75rem; }.pixel-cafe-workbench { width: 100%; }.pixel-cafe-scene { overflow: visible; }.pixel-cafe-scene-topline { top: .75rem; right: .75rem; }.pixel-cafe-front-desk { position: relative; right: auto; bottom: auto; left: auto; max-width: none; margin: .75rem 0 0; }.pixel-cafe-inspector { position: relative; right: auto; bottom: auto; width: auto; margin-top: 0; border-top: 0; box-shadow: none; }.pixel-cafe-demo-badge { position: relative; right: auto; bottom: auto; display: table; width: auto; margin: .65rem 0 0 auto; }.pixel-cafe-my-rooms { margin-top: 1rem; } }
+@media (max-width: 620px) { .pixel-cafe-page { padding: .7rem; }.pixel-cafe-header h1 { font-size: 2rem; }.pixel-cafe-front-desk { right: .75rem; bottom: .75rem; left: .75rem; max-width: none; }.pixel-cafe-scene-topline > span:first-child { display: none; }.pixel-cafe-inspector { padding: .85rem; }.pixel-cafe-my-rooms-list { grid-template-columns: 1fr; } }
 </style>

@@ -1,6 +1,8 @@
 export const CAFE_SCENE_DESIGN_WIDTH = 960
-export const CAFE_SCENE_DESIGN_HEIGHT = 540
+export const CAFE_SCENE_DESIGN_HEIGHT = 400
 export const CAFE_SCENE_ROOM_LIMIT = 12
+export const CAFE_SCENE_WORKSTATION_COUNT = 50
+export const CAFE_SCENE_WORKSTATION_COLUMNS = 10
 
 export interface CafeScenePoint {
   x: number
@@ -12,35 +14,31 @@ export interface CafeRoomHotspot extends CafeScenePoint {
   height: number
 }
 
-const defaultRoomHotspots: CafeRoomHotspot[] = [
-  { x: 88, y: 122, width: 148, height: 78 },
-  { x: 302, y: 114, width: 148, height: 78 },
-  { x: 516, y: 122, width: 148, height: 78 },
-  { x: 730, y: 114, width: 148, height: 78 },
-  { x: 142, y: 268, width: 148, height: 78 },
-  { x: 356, y: 260, width: 148, height: 78 },
-  { x: 570, y: 268, width: 148, height: 78 },
-  { x: 784, y: 260, width: 112, height: 78 },
-  { x: 248, y: 402, width: 148, height: 76 },
-  { x: 462, y: 394, width: 148, height: 76 },
-  { x: 676, y: 402, width: 148, height: 76 },
-  { x: 70, y: 402, width: 112, height: 76 },
-]
+const defaultRoomHotspots: CafeRoomHotspot[] = Array.from({ length: CAFE_SCENE_ROOM_LIMIT }, (_, index) => ({
+  x: 752 + (index % 2) * 102,
+  y: 58 + Math.floor(index / 2) * 50,
+  width: 94,
+  height: 42,
+}))
 
-const lobbySeats: CafeScenePoint[] = [
-  { x: 102, y: 342 },
-  { x: 164, y: 366 },
-  { x: 228, y: 340 },
-  { x: 292, y: 368 },
-  { x: 356, y: 344 },
-  { x: 420, y: 370 },
-  { x: 484, y: 346 },
-  { x: 548, y: 370 },
-  { x: 612, y: 344 },
-  { x: 676, y: 368 },
-  { x: 740, y: 342 },
-  { x: 804, y: 366 },
-]
+export interface CafeWorkstationSlot extends CafeScenePoint {
+  id: number
+}
+
+export const CAFE_SCENE_WORKSTATIONS: CafeWorkstationSlot[] = Array.from(
+  { length: CAFE_SCENE_WORKSTATION_COUNT },
+  (_, index) => {
+    const row = Math.floor(index / CAFE_SCENE_WORKSTATION_COLUMNS)
+    const column = index % CAFE_SCENE_WORKSTATION_COLUMNS
+    return {
+      id: index + 1,
+      // Keep the full 10-column grid inside the unobstructed floor; the room rail
+      // occupies the right side of the visual scene on desktop.
+      x: 110 + column * 66 + (row % 2) * 8,
+      y: 88 + row * 42,
+    }
+  },
+)
 
 const explicitRoomSlots: Record<string, CafeRoomHotspot> = {
   'featured-room-01': defaultRoomHotspots[0],
@@ -62,7 +60,7 @@ export function getRoomHotspot(sceneSlotKey: string, index: number): CafeRoomHot
 }
 
 export function getLobbySeat(seatIndex: number): CafeScenePoint {
-  return lobbySeats[Math.abs(seatIndex) % lobbySeats.length]
+  return CAFE_SCENE_WORKSTATIONS[Math.abs(seatIndex) % CAFE_SCENE_WORKSTATIONS.length]
 }
 
 export function getAvatarToneIndex(seed: string): number {

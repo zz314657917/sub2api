@@ -67,14 +67,11 @@ function roomTone(room: CafePublicRoom): string {
 </script>
 
 <style scoped>
-.pixel-cafe-room-navigator { position: relative; z-index: 3; padding: 1rem; background: rgba(255, 253, 248, .94); border-top: 1px solid rgba(69, 54, 44, .24); }
-.pixel-cafe-room-navigator-label { margin: 0 0 .7rem; color: #6d6258; font: 700 .68rem/1 monospace; text-transform: uppercase; }
-.pixel-cafe-room-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .65rem; }
-.pixel-cafe-room { position: relative; min-height: 96px; padding: .7rem .75rem; border: 2px solid #504237; color: #2b2927; background: #cf9c73; box-shadow: 3px 3px 0 rgba(79, 59, 45, .22); text-align: left; cursor: pointer; }
-.pixel-cafe-room:hover, .pixel-cafe-room:focus-visible, .pixel-cafe-room.active { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 rgba(79, 59, 45, .24); outline: 2px solid #8f624f; outline-offset: 2px; }
-.pixel-cafe-room.room-green { background: #9ebc9a; }.pixel-cafe-room.room-blue { background: #a3b5cb; }.pixel-cafe-room.room-night { background: #61667c; color: #f8f2e6; }
-.pixel-cafe-room-sign { display: block; color: rgba(43, 41, 39, .7); font: 700 .68rem/1 monospace; }.room-night .pixel-cafe-room-sign { color: #e5dfd2; }
-.pixel-cafe-room-name { display: block; min-width: 0; margin-top: .55rem; overflow: hidden; font-size: .82rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }.pixel-cafe-room-meta { display: block; margin-top: .3rem; overflow: hidden; font-size: .68rem; opacity: .8; text-overflow: ellipsis; white-space: nowrap; }
-.pixel-cafe-room-lamp { position: absolute; top: .6rem; right: .6rem; width: .45rem; height: .45rem; background: #f3cf72; box-shadow: 0 0 0 2px rgba(92, 74, 61, .18); }
-@media (max-width: 620px) { .pixel-cafe-room-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.pixel-cafe-room { min-height: 98px; } }
+.pixel-cafe-room-navigator { position: absolute; z-index: 3; top: 4rem; right: 1rem; bottom: auto; left: auto; width: min(16rem, calc(100% - 2rem)); padding: 0; background: transparent; }
+.pixel-cafe-room-navigator-label { margin: 0 0 .55rem; color: #f0c370; font: 700 .68rem/1 monospace; letter-spacing: .1em; text-shadow: 1px 1px 0 #050d15; text-transform: uppercase; }
+.pixel-cafe-room-grid { display: grid; grid-template-columns: 1fr; gap: .45rem; }
+.pixel-cafe-room { position: relative; min-width: 0; min-height: 58px; padding: .5rem .6rem; border: 1px solid rgba(193, 217, 233, .44); color: #eaf3fa; background: rgba(5, 16, 28, .86); box-shadow: 3px 3px 0 rgba(0, 0, 0, .28); text-align: left; cursor: pointer; backdrop-filter: blur(4px); }
+.pixel-cafe-room:hover, .pixel-cafe-room:focus-visible, .pixel-cafe-room.active { border-color: #f2bd69; background: rgba(56, 39, 23, .92); box-shadow: 4px 4px 0 rgba(0, 0, 0, .3); outline: 1px solid #f2bd69; outline-offset: 2px; }.pixel-cafe-room.room-green { border-color: rgba(111, 198, 151, .64); }.pixel-cafe-room.room-blue { border-color: rgba(126, 176, 231, .64); }.pixel-cafe-room.room-night { border-color: rgba(201, 156, 237, .64); }
+.pixel-cafe-room-sign { display: block; color: #f1c26f; font: 700 .68rem/1 monospace; }.pixel-cafe-room-name { display: block; min-width: 0; margin-top: .4rem; overflow: hidden; font-size: .78rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }.pixel-cafe-room-meta { display: block; margin-top: .25rem; overflow: hidden; color: #b7c9d7; font-size: .66rem; text-overflow: ellipsis; white-space: nowrap; }.pixel-cafe-room-lamp { position: absolute; top: .55rem; right: .55rem; width: .45rem; height: .45rem; background: #f3cf72; box-shadow: 0 0 0 2px rgba(243, 207, 114, .2); }
+@media (max-width: 900px) { .pixel-cafe-room-navigator { position: relative; top: auto; right: auto; bottom: auto; left: auto; margin-top: .85rem; }.pixel-cafe-room-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: visible; padding-bottom: 0; }.pixel-cafe-room { min-width: 0; flex: initial; } }@media (max-width: 620px) { .pixel-cafe-room-navigator { top: auto; right: auto; bottom: auto; left: auto; margin-top: .75rem; }.pixel-cafe-room { min-height: 64px; }.pixel-cafe-room-grid { gap: .4rem; } }
 </style>
