@@ -1,5 +1,5 @@
 import { i18n } from '@/i18n'
-import { resolveGroupBuyProductName } from '@/utils/groupBuyProduct'
+import { resolveGroupBuyProductName, resolvePixelCafeTitle } from '@/utils/groupBuyProduct'
 import type { PublicSettings } from '@/types'
 
 /**
@@ -16,7 +16,7 @@ export function resolveDocumentTitle(
 
   if (titleKey === 'nav.groupBuy') {
     const title = publicSettings?.pixel_cafe_enabled === true
-      ? '像素网吧'
+      ? resolvePixelCafeTitle(publicSettings)
       : resolveGroupBuyProductName(publicSettings)
     return `${title} - ${normalizedSiteName}`
   }

@@ -27,10 +27,15 @@ describe('AppSidebar custom SVG styles', () => {
 
 describe('AppSidebar Pixel Cafe navigation label', () => {
   it('uses the configured Pixel Cafe title when the feature is enabled', () => {
-    expect(componentSource).toContain('const pixelCafeNavigationLabel = computed(() => {')
-    expect(componentSource).toContain('appStore.cachedPublicSettings?.pixel_cafe_title')
-    expect(componentSource).toContain("value.trim() : '像素网吧'")
+    expect(componentSource).toContain("import { resolveGroupBuyProductName, resolvePixelCafeTitle } from '@/utils/groupBuyProduct'")
+    expect(componentSource).toContain('const pixelCafeNavigationLabel = computed(() => resolvePixelCafeTitle(appStore.cachedPublicSettings))')
     expect(componentSource).toContain('pixelCafeEnabled.value ? pixelCafeNavigationLabel.value : groupBuyProductName.value')
+  })
+
+  it('hides the redundant admin group-buy leaf when Pixel Cafe is enabled', () => {
+    expect(componentSource).toContain('const flagAdminGroupBuy = () => flagAdminPayment() !== false && !pixelCafeEnabled.value')
+    expect(componentSource).toContain("path: '/admin/group-buy', label: t('nav.groupBuyManagement'), icon: GiftIcon, hideInSimpleMode: true, featureFlag: flagAdminGroupBuy")
+    expect(componentSource).toContain("path: '/admin/pixel-cafe/rooms', label: t('nav.pixelCafeRooms')")
   })
 })
 

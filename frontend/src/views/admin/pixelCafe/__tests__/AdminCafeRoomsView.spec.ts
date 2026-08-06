@@ -160,6 +160,10 @@ function mountView() {
         BaseDialog: BaseDialogStub,
         ConfirmDialog: ConfirmDialogStub,
         Icon: true,
+        AdminGroupBuyView: {
+          props: { embedded: Boolean },
+          template: '<section data-testid="embedded-group-buy" :data-embedded="String(embedded)">拼团工作区</section>',
+        },
       },
     },
   })
@@ -200,6 +204,24 @@ describe('AdminCafeRoomsView', () => {
     await createButton?.trigger('click')
     expect(wrapper.text()).toContain('OpenAI Room 5 seats')
     expect(wrapper.text()).not.toContain('Legacy plan')
+  })
+
+  it('switches between room and embedded group-buy workspaces', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="cafe-workspace-rooms"]').attributes('aria-selected')).toBe('true')
+    expect(wrapper.text()).toContain('OpenAI 七号房')
+    expect(wrapper.find('[data-testid="embedded-group-buy"]').exists()).toBe(false)
+
+    await wrapper.find('[data-testid="cafe-workspace-group-buy"]').trigger('click')
+    expect(wrapper.find('[data-testid="cafe-workspace-group-buy"]').attributes('aria-selected')).toBe('true')
+    expect(wrapper.find('[data-testid="embedded-group-buy"]').attributes('data-embedded')).toBe('true')
+    expect(wrapper.text()).not.toContain('OpenAI 七号房')
+
+    await wrapper.find('[data-testid="cafe-workspace-rooms"]').trigger('click')
+    expect(wrapper.find('[data-testid="embedded-group-buy"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('OpenAI 七号房')
   })
 
   it('submits create input without client-owned price or group fields and opens a round', async () => {

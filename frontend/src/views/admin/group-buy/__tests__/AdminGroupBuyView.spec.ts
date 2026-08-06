@@ -183,4 +183,33 @@ describe('AdminGroupBuyView', () => {
     )
     wrapper.unmount()
   })
+
+  it('renders without AppLayout when embedded in the Pixel Cafe workspace', async () => {
+    const standalone = mount(AdminGroupBuyView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<main data-testid="group-buy-layout"><slot /></main>' },
+          Icon: { template: '<span />' },
+        },
+      },
+    })
+    await flushPromises()
+    expect(standalone.find('[data-testid="group-buy-layout"]').exists()).toBe(true)
+    standalone.unmount()
+
+    const wrapper = mount(AdminGroupBuyView, {
+      props: { embedded: true },
+      global: {
+        stubs: {
+          AppLayout: { template: '<main data-testid="group-buy-layout"><slot /></main>' },
+          Icon: { template: '<span />' },
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="group-buy-layout"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('拼团计划')
+    wrapper.unmount()
+  })
 })

@@ -1,6 +1,9 @@
 <template>
-  <AppLayout>
-    <div class="admin-group-buy -m-4 min-h-[calc(100vh-4rem)] md:-m-[1.35rem] lg:-m-[1.6rem]">
+  <component :is="embedded ? 'div' : AppLayout">
+    <div :class="[
+      'admin-group-buy min-h-[calc(100vh-4rem)]',
+      embedded ? 'py-1' : '-m-4 md:-m-[1.35rem] lg:-m-[1.6rem]',
+    ]">
       <div class="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <header class="admin-group-buy-header admin-group-buy-toolbar">
           <div class="admin-group-buy-actions">
@@ -315,7 +318,7 @@
         </div>
       </Transition>
     </Teleport>
-  </AppLayout>
+  </component>
 </template>
 
 <script setup lang="ts">
@@ -330,6 +333,12 @@ import { formatPaymentAmount } from '@/components/payment/currency'
 import type { AdminGroup, BasePaginationResponse } from '@/types'
 import type { GroupBuyAdminSeat, GroupBuyLaunchMode, GroupBuyPlan, GroupBuyPlanStatus, GroupBuyRefundMode, GroupBuyRound, GroupBuyRoundStatus, GroupBuySeatStatus, GroupBuyTier } from '@/types/groupBuy'
 import type { GroupBuyPlanPayload } from '@/api/admin/groupBuy'
+
+withDefaults(defineProps<{
+  embedded?: boolean
+}>(), {
+  embedded: false,
+})
 
 const appStore = useAppStore()
 

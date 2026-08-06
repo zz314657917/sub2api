@@ -1,6 +1,32 @@
 <template>
   <AppLayout>
-    <TablePageLayout>
+    <div class="space-y-4">
+      <div class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1 dark:border-dark-700 dark:bg-dark-900" role="tablist" aria-label="像素网吧管理工作区">
+        <button
+          type="button"
+          class="btn btn-sm"
+          :class="workspace === 'rooms' ? 'btn-primary' : 'btn-ghost'"
+          role="tab"
+          :aria-selected="workspace === 'rooms'"
+          data-testid="cafe-workspace-rooms"
+          @click="workspace = 'rooms'"
+        >
+          网吧房间
+        </button>
+        <button
+          type="button"
+          class="btn btn-sm"
+          :class="workspace === 'group-buy' ? 'btn-primary' : 'btn-ghost'"
+          role="tab"
+          :aria-selected="workspace === 'group-buy'"
+          data-testid="cafe-workspace-group-buy"
+          @click="workspace = 'group-buy'"
+        >
+          拼团管理
+        </button>
+      </div>
+
+      <TablePageLayout v-if="workspace === 'rooms'">
       <template #filters>
         <div class="flex flex-wrap items-center gap-3">
           <div class="min-w-56 flex-1 sm:max-w-72">
@@ -142,7 +168,10 @@
           @update:page-size="changePageSize"
         />
       </template>
-    </TablePageLayout>
+      </TablePageLayout>
+
+      <AdminGroupBuyView v-else embedded />
+    </div>
 
     <BaseDialog
       :show="roomDialogOpen"
@@ -327,10 +356,12 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
+import AdminGroupBuyView from '@/views/admin/group-buy/AdminGroupBuyView.vue'
 
 const { t } = useI18n()
 const appStore = useAppStore()
 
+const workspace = ref<'rooms' | 'group-buy'>('rooms')
 const rooms = ref<CafeRoom[]>([])
 const plans = ref<GroupBuyPlan[]>([])
 const accounts = ref<Account[]>([])

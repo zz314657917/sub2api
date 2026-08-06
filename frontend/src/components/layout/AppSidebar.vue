@@ -368,7 +368,7 @@ import { paymentAPI } from '@/api/payment'
 import { adminTicketsAPI } from '@/api/admin/tickets'
 import { sanitizeSvg } from '@/utils/sanitize'
 import { FeatureFlags, makeSidebarFlag } from '@/utils/featureFlags'
-import { resolveGroupBuyProductName } from '@/utils/groupBuyProduct'
+import { resolveGroupBuyProductName, resolvePixelCafeTitle } from '@/utils/groupBuyProduct'
 import { hasLeaderboardAccountAge } from '@/utils/leaderboardAccess'
 
 type IconName = InstanceType<typeof Icon>['$props']['name']
@@ -455,10 +455,7 @@ const siteVersion = computed(() => appStore.siteVersion)
 const settingsLoaded = computed(() => appStore.publicSettingsLoaded)
 const groupBuyProductName = computed(() => resolveGroupBuyProductName(appStore.cachedPublicSettings))
 const pixelCafeEnabled = computed(() => appStore.cachedPublicSettings?.pixel_cafe_enabled === true)
-const pixelCafeNavigationLabel = computed(() => {
-  const value = appStore.cachedPublicSettings?.pixel_cafe_title
-  return typeof value === 'string' && value.trim() ? value.trim() : '像素网吧'
-})
+const pixelCafeNavigationLabel = computed(() => resolvePixelCafeTitle(appStore.cachedPublicSettings))
 const groupBuyNavigationLabel = computed(() => pixelCafeEnabled.value ? pixelCafeNavigationLabel.value : groupBuyProductName.value)
 
 // Console navigation uses line icons for legibility; the public homepage keeps the pixel icon system.
@@ -517,6 +514,7 @@ const flagOpsMonitoring = () => adminSettingsStore.opsMonitoringEnabled
 const flagAdminPayment = () => adminSettingsStore.paymentEnabled
 const flagGroupBuyUser = () => flagPayment() !== false && flagGroupBuy() !== false
 const flagGroupBuyOrPixelCafe = () => pixelCafeEnabled.value ? flagPixelCafe() : flagGroupBuyUser()
+const flagAdminGroupBuy = () => flagAdminPayment() !== false && !pixelCafeEnabled.value
 const WELFARE_BADGE_REFRESH_MS = 60_000
 const TICKET_UNREAD_BADGE_REFRESH_MS = 60_000
 const SIDEBAR_TOUR_TARGET_EVENT = 'sub2api:sidebar-tour-target'
@@ -660,7 +658,7 @@ const adminNavItems = computed((): NavItem[] => {
       children: [
         { path: '/admin/subscriptions', label: t('nav.subscriptions'), icon: CreditCardIcon, hideInSimpleMode: true },
         { path: '/admin/orders/plans', label: t('nav.paymentPlans'), icon: PriceTagIcon, hideInSimpleMode: true, featureFlag: flagAdminPayment },
-        { path: '/admin/group-buy', label: t('nav.groupBuyManagement'), icon: GiftIcon, hideInSimpleMode: true, featureFlag: flagAdminPayment },
+        { path: '/admin/group-buy', label: t('nav.groupBuyManagement'), icon: GiftIcon, hideInSimpleMode: true, featureFlag: flagAdminGroupBuy },
         { path: '/admin/pixel-cafe/rooms', label: t('nav.pixelCafeRooms'), icon: GiftIcon, hideInSimpleMode: true, featureFlag: flagPixelCafe },
         { path: '/admin/redeem', label: t('nav.redeemCodes'), icon: TicketIcon, hideInSimpleMode: true },
         { path: '/admin/promo-codes', label: t('nav.promoCodes'), icon: GiftIcon, hideInSimpleMode: true },

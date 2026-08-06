@@ -25,4 +25,10 @@ describe('AppHeader public shortcuts', () => {
     expect(componentSource).toContain('@select="openAnnouncementDetail"')
     expect(componentSource).toContain('announcementBellRef.value?.openDetail(announcement)')
   })
+
+  it('uses the configured Pixel Cafe title for the GroupBuy header when enabled', () => {
+    expect(componentSource).toContain("import { resolveGroupBuyProductName, resolvePixelCafeTitle } from '@/utils/groupBuyProduct'")
+    expect(componentSource).toContain('appStore.cachedPublicSettings?.pixel_cafe_enabled === true')
+    expect(componentSource).toContain('resolvePixelCafeTitle(appStore.cachedPublicSettings)')
+  })
 })

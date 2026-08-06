@@ -28,4 +28,11 @@ describe('resolveDocumentTitle', () => {
       group_buy_product_name: '我的拼团',
     } as any)).toBe('我的拼团 - My Site')
   })
+
+  it('像素网吧启用时使用公开设置里的自定义标题', () => {
+    expect(resolveDocumentTitle('Group Buy', 'My Site', 'nav.groupBuy', {
+      pixel_cafe_enabled: true,
+      pixel_cafe_title: '  Token网咖  ',
+    } as any)).toBe('Token网咖 - My Site')
+  })
 })
