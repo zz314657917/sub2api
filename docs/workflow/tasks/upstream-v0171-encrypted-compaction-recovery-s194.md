@@ -1,0 +1,25 @@
+# Task Contract
+
+- Task ID: `upstream-v0171-encrypted-compaction-recovery-s194`
+- Role: Generator
+- Goal: Adapt upstream `fe2172586` so the existing one-time `invalid_encrypted_content` recovery removes stale encrypted Responses compaction items in addition to encrypted reasoning content.
+- Success Criteria:
+  - During the existing recovery retry only, encrypted `compaction` and `compaction_summary` input items are removed as whole items.
+  - Unencrypted compaction items, non-compaction inputs, and the existing reasoning-summary preservation behavior remain unchanged.
+  - Initial HTTP/WS requests retain the original encrypted compaction; only the single recovery retry receives the sanitized payload.
+  - Focused unit, HTTP, and WS regressions prove retry payload shape and one-time recovery behavior.
+- Allowed Paths:
+  - `backend/internal/service/openai_gateway_service.go`
+  - `backend/internal/service/openai_ws_protocol_forward_test.go`
+  - `docs/workflow/tasks/upstream-v0171-encrypted-compaction-recovery-s194.md`
+  - `docs/workflow/qa-reports/upstream-v0171-encrypted-compaction-recovery-s194-qa.md`
+  - `docs/workflow/main-log.md`
+- Denied Paths: upstream request routing, retry limits, account scheduling/rate-limit persistence, public API contracts, WebSocket protocol implementation, schemas, migrations, dependencies, frontend, containers, deployment, primary worktree, push, and merge to `main`.
+- Constraints: Do not pre-sanitize the first upstream request. Reuse the existing recovery helper and do not remove unencrypted compaction or unrelated input items. This must not change the behavior of errors other than `invalid_encrypted_content`.
+- Acceptance Commands:
+  - `go test ./internal/service -run 'Test(TrimOpenAIEncryptedReasoningItems|OpenAIGatewayService_Forward_HTTPIngressRetriesInvalidEncryptedContentOnce|OpenAIGatewayService_Forward_WSv2InvalidEncryptedContentRecoversOnce)' -count=1`
+  - `go test ./cmd/server -run '^TestNonExistent$' -count=0`
+  - `gofmt -w internal/service/openai_gateway_service.go internal/service/openai_ws_protocol_forward_test.go`
+  - `git diff --check`
+- Output: Scoped source-level QA report and one isolated integration commit after all acceptance commands pass.
+- Stop Rules: Stop if this requires changing first-attempt request shaping, retry/failover policy, WebSocket protocol architecture, account state, a dependency, schema/migration, deployment, or primary-worktree modification.

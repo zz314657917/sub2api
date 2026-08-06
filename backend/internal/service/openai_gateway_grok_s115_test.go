@@ -9,33 +9,51 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestHandleGrokAccountUpstreamError5xxRespectsPoolMode(t *testing.T) {
-	t.Run("pool mode keeps scheduling state", func(t *testing.T) {
-		account := &Account{
-			ID:       611,
-			Platform: PlatformGrok,
-			Type:     AccountTypeAPIKey,
-			Credentials: map[string]any{
-				"pool_mode": true,
-			},
-		}
-		svc := &OpenAIGatewayService{}
+func TestHandleGrokAccountUpstreamErrorDefaultCooldownsRespectPoolMode(t *testing.T) {
+	testCases := []struct {
+		name     string
+		status   int
+		headers  http.Header
+		reason   string
+		cooldown time.Duration
+	}{
+		{name: "unauthorized", status: http.StatusUnauthorized, reason: "grok oauth token unauthorized", cooldown: 10 * time.Minute},
+		{name: "payment required", status: http.StatusPaymentRequired, reason: "grok payment required", cooldown: 30 * time.Minute},
+		{name: "forbidden", status: http.StatusForbidden, reason: "grok entitlement or subscription tier denied", cooldown: 30 * time.Minute},
+		{name: "rate limited", status: http.StatusTooManyRequests, headers: http.Header{"Retry-After": []string{"45"}}, reason: "grok rate limited", cooldown: 45 * time.Second},
+		{name: "upstream error", status: http.StatusBadGateway, reason: "grok upstream temporary error", cooldown: 2 * time.Minute},
+	}
 
-		svc.handleGrokAccountUpstreamError(context.Background(), account, http.StatusBadGateway, nil, nil)
+	for _, tc := range testCases {
+		t.Run(tc.name+" pool mode keeps scheduling state", func(t *testing.T) {
+			account := &Account{
+				ID:       int64(611 + tc.status),
+				Platform: PlatformGrok,
+				Type:     AccountTypeAPIKey,
+				Credentials: map[string]any{
+					"pool_mode": true,
+				},
+			}
 
-		require.Nil(t, account.TempUnschedulableUntil)
-		require.Empty(t, account.TempUnschedulableReason)
-	})
+			(&OpenAIGatewayService{}).handleGrokAccountUpstreamError(
+				context.Background(), account, tc.status, tc.headers, nil,
+			)
 
-	t.Run("non-pool mode keeps two minute cooldown", func(t *testing.T) {
-		account := &Account{ID: 612, Platform: PlatformGrok, Type: AccountTypeAPIKey}
-		svc := &OpenAIGatewayService{}
-		before := time.Now()
+			require.Nil(t, account.TempUnschedulableUntil)
+			require.Empty(t, account.TempUnschedulableReason)
+		})
 
-		svc.handleGrokAccountUpstreamError(context.Background(), account, http.StatusBadGateway, nil, nil)
+		t.Run(tc.name+" non-pool mode keeps cooldown", func(t *testing.T) {
+			account := &Account{ID: int64(712 + tc.status), Platform: PlatformGrok, Type: AccountTypeAPIKey}
+			before := time.Now()
 
-		require.NotNil(t, account.TempUnschedulableUntil)
-		require.Equal(t, "grok upstream temporary error", account.TempUnschedulableReason)
-		require.WithinDuration(t, before.Add(2*time.Minute), *account.TempUnschedulableUntil, time.Second)
-	})
+			(&OpenAIGatewayService{}).handleGrokAccountUpstreamError(
+				context.Background(), account, tc.status, tc.headers, nil,
+			)
+
+			require.NotNil(t, account.TempUnschedulableUntil)
+			require.Equal(t, tc.reason, account.TempUnschedulableReason)
+			require.WithinDuration(t, before.Add(tc.cooldown), *account.TempUnschedulableUntil, time.Second)
+		})
+	}
 }

@@ -213,6 +213,9 @@ func TestForwardGrokResponsesStreamingUsesXAIResponsesAndSnapshots(t *testing.T)
 	upstreamBody := strings.Join([]string{
 		`data: {"type":"response.output_text.delta","sequence_number":0,"delta":"ok"}`,
 		"",
+		"event: ping",
+		`data: {"type":"ping","cost":"0.25"}`,
+		"",
 		`data: {"type":"response.completed","sequence_number":1,"response":{"id":"resp_grok","model":"grok-4.3","usage":{"input_tokens":5,"output_tokens":3,"input_tokens_details":{"cached_tokens":2}}}}`,
 		"",
 	}, "\n")
@@ -252,6 +255,9 @@ func TestForwardGrokResponsesStreamingUsesXAIResponsesAndSnapshots(t *testing.T)
 	require.Equal(t, "high", *result.ReasoningEffort)
 	require.Contains(t, recorder.Header().Get("Content-Type"), "text/event-stream")
 	require.Contains(t, recorder.Body.String(), "response.output_text.delta")
+	require.NotContains(t, recorder.Body.String(), "event: ping")
+	require.NotContains(t, recorder.Body.String(), `"type":"ping"`)
+	require.Contains(t, recorder.Body.String(), ": ping\n\n")
 	require.NotNil(t, repo.updates[52][grokQuotaSnapshotExtraKey])
 }
 

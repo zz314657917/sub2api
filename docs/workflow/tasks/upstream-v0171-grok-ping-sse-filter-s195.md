@@ -1,0 +1,30 @@
+# Task Contract
+
+- Task ID: `upstream-v0171-grok-ping-sse-filter-s195`
+- Role: Generator
+- Goal: Adapt upstream `30967d5d9` so Grok Responses `event: ping` frames are safely rewritten to SSE comments before either HTTP Responses streaming or the Grok WebSocket HTTP bridge exposes their `type=ping` payload to strict clients.
+- Success Criteria:
+  - Only Grok `event: ping` frames whose JSON data type is `ping` (or is absent/malformed) become `: ping\n\n`; frames declaring another data type and every non-ping frame remain byte-for-byte unchanged.
+  - The filtering decision buffers only a bounded candidate frame. A candidate with an unexpected SSE field or beyond the 16-line / 16 KiB cap replays unchanged and resumes streaming.
+  - `forwardGrokResponses` filters the existing HTTP Responses stream before generic SSE handling.
+  - `proxyOpenAIWSHTTPBridgeTurn` filters only a Grok bridge response before it scans and emits WebSocket JSON events, so the client receives no `type=ping` event while normal created/delta/completed events remain intact.
+  - Focused helper, HTTP Responses, and WebSocket bridge regressions prove the behavior without changing account policy, route registration, retry, or usage persistence.
+- Allowed Paths:
+  - `backend/internal/service/openai_gateway_grok_sse_filter.go`
+  - `backend/internal/service/openai_gateway_grok_sse_filter_test.go`
+  - `backend/internal/service/openai_gateway_grok.go`
+  - `backend/internal/service/openai_gateway_grok_test.go`
+  - `backend/internal/service/openai_ws_http_bridge.go`
+  - `backend/internal/service/openai_ws_http_bridge_test.go`
+  - `docs/workflow/tasks/upstream-v0171-grok-ping-sse-filter-s195.md`
+  - `docs/workflow/qa-reports/upstream-v0171-grok-ping-sse-filter-s195-qa.md`
+  - `docs/workflow/main-log.md`
+- Denied Paths: upstream request routing, account scheduling/rate-limit persistence, public API contracts, WebSocket protocol architecture, schemas, migrations, dependencies, frontend, containers, deployment, primary worktree, push, and merge to `main`.
+- Constraints: Reuse the configured SSE max-line limit and close the wrapped upstream body exactly once. Do not alter non-Grok streams, remap client-visible event types, or buffer arbitrary non-ping frames. This is a stream compatibility correction, not a generic SSE parser replacement.
+- Acceptance Commands:
+  - `go test ./internal/service -run 'Test(GrokResponsesBillingPingFilter|ForwardGrokResponsesStreamingUsesXAIResponsesAndSnapshots|ProxyResponsesWebSocketFromClientForGrokUsesXAIHTTPBridge)' -count=1`
+  - `go test ./cmd/server -run '^TestNonExistent$' -count=0`
+  - `gofmt -w internal/service/openai_gateway_grok_sse_filter.go internal/service/openai_gateway_grok_sse_filter_test.go internal/service/openai_gateway_grok.go internal/service/openai_gateway_grok_test.go internal/service/openai_ws_http_bridge.go internal/service/openai_ws_http_bridge_test.go`
+  - `git diff --check`
+- Output: Scoped source-level QA report and one isolated integration commit after all acceptance commands pass.
+- Stop Rules: Stop if filtering requires changing generic OpenAI SSE semantics, client WebSocket protocol behavior outside Grok, account policy/rate-limit state, a dependency/schema/configuration change, deployment, or primary-worktree modification.

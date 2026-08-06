@@ -194,6 +194,9 @@ func TestProxyResponsesWebSocketFromClientForGrokUsesXAIHTTPBridge(t *testing.T)
 	sseBody := strings.Join([]string{
 		`data: {"type":"response.created","response":{"id":"resp_grok_ws","model":"grok-4.3"}}`,
 		"",
+		"event: ping",
+		`data: {"type":"ping","cost":"0.25"}`,
+		"",
 		`data: {"type":"response.output_text.delta","response":{"id":"resp_grok_ws"},"delta":"ok"}`,
 		"",
 		`data: {"type":"response.completed","response":{"id":"resp_grok_ws","model":"grok-4.3","usage":{"input_tokens":4,"output_tokens":2}}}`,

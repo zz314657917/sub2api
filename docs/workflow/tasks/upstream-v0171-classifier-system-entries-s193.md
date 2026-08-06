@@ -1,0 +1,25 @@
+# Task Contract
+
+- Task ID: `upstream-v0171-classifier-system-entries-s193`
+- Role: Generator
+- Goal: Adapt upstream `2ef124629` so the Claude Code auto-mode security-monitor classifier remains recognized when the real client adds independent session-context `system` entries.
+- Success Criteria:
+  - Scan every `system` entry for one fully conforming security-monitor prompt instead of requiring exactly one entry.
+  - Keep the current strict predicate for a matching entry: `type=text`, 10k-character minimum, fixed prefix, and all eight monitor markers.
+  - Accept monitor prompts with either leading or trailing session context, while rejecting session context alone and a monitor prompt missing a required marker.
+  - Preserve existing Claude Code billing-block, user-agent, metadata, and category-element recognition behavior.
+- Allowed Paths:
+  - `backend/internal/service/claude_code_validator.go`
+  - `backend/internal/service/claude_code_validator_test.go`
+  - `docs/workflow/tasks/upstream-v0171-classifier-system-entries-s193.md`
+  - `docs/workflow/qa-reports/upstream-v0171-classifier-system-entries-s193-qa.md`
+  - `docs/workflow/main-log.md`
+- Denied Paths: group authorization policy, route/middleware behavior, prompt-audit configuration, schemas, migrations, dependencies, frontend, containers, deployment, primary worktree, push, and merge to `main`.
+- Constraints: This is a recognition compatibility correction, not a relaxation of the `claude_code_only` authorization boundary. Do not accept a system entry based only on length/prefix or add a generic multi-entry bypass.
+- Acceptance Commands:
+  - `go test ./internal/service -run '^TestClaudeCodeValidator' -count=1`
+  - `go test ./cmd/server -run '^TestNonExistent$' -count=0`
+  - `gofmt -w internal/service/claude_code_validator.go internal/service/claude_code_validator_test.go`
+  - `git diff --check`
+- Output: Scoped source-level QA report and one isolated integration commit after all acceptance commands pass.
+- Stop Rules: Stop if the change requires altering the Claude Code authorization policy, broadening the monitor signature beyond its current predicate, a configuration/schema/dependency change, deployment, or primary-worktree modification.

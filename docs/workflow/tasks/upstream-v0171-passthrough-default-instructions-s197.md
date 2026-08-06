@@ -1,0 +1,27 @@
+# Task Contract
+
+- Task ID: `upstream-v0171-passthrough-default-instructions-s197`
+- Role: Generator
+- Goal: Adapt upstream `dfdbc2770` so an OAuth Codex Responses passthrough request that omits `instructions` receives the existing model-aware default instead of being rejected before the upstream request.
+- Success Criteria:
+  - Only an absent top-level `instructions` field on a Codex-model OAuth passthrough body receives `defaultCodexSynthInstructions(reqModel)` before passthrough normalization.
+  - Explicit empty or non-string `instructions` remains rejected by the existing local policy; non-Codex and API-key passthrough behavior is unchanged.
+  - Both streaming Responses and unary compact passthrough requests reach the local upstream recorder with the expected default instructions and correct stream shape.
+  - Focused normalization tests cover omitted, empty, non-string, and supplied instruction fields.
+- Allowed Paths:
+  - `backend/internal/service/openai_gateway_service.go`
+  - `backend/internal/service/openai_oauth_passthrough_test.go`
+  - `backend/internal/service/openai_passthrough_normalization_test.go`
+  - `docs/workflow/tasks/upstream-v0171-passthrough-default-instructions-s197.md`
+  - `docs/workflow/qa-reports/upstream-v0171-passthrough-default-instructions-s197-qa.md`
+  - `docs/workflow/main-log.md`
+- Denied Paths: generic OAuth transform behavior, account selection/scheduling/rate-limit persistence, authorization policy other than omitted instructions, routes, WebSocket protocol implementation, schemas, migrations, dependencies, frontend, containers, deployment, primary worktree, push, and merge to `main`.
+- Constraints: Reuse the existing default instruction helper and JSON mutation dependency. Do not inject instructions into explicit empty/non-string requests, non-Codex models, API-key accounts, Messages bridges, or non-passthrough routes. Do not broaden the existing authorization exception beyond omission.
+- Acceptance Commands:
+  - `go test ./internal/service -run 'Test(OpenAIGatewayService_OAuthPassthrough_CodexMissingInstructionsGetsDefault|DetectOpenAIPassthroughInstructionsRejectReason|ForwardAsChatCompletions_OAuthDoesNotInjectDefaultInstructions)' -count=1`
+  - `go test ./internal/service -run 'Test(OpenAIGatewayService_Forward_FailoverReparsesCachedBodyForNextAccount|OpenAIGatewayService_OAuthPassthrough_UpstreamRequestIgnoresClientCancel)' -count=1`
+  - `go test ./cmd/server -run '^TestNonExistent$' -count=0`
+  - `gofmt -w internal/service/openai_gateway_service.go internal/service/openai_oauth_passthrough_test.go internal/service/openai_passthrough_normalization_test.go`
+  - `git diff --check`
+- Output: Scoped source-level QA report and one isolated integration commit after all acceptance commands pass.
+- Stop Rules: Stop if the change requires altering generic transform policy, accepting explicit invalid instructions, changing authorization outside the omitted-field case, a dependency/schema/configuration change, deployment, or primary-worktree modification.

@@ -1,0 +1,25 @@
+# Task Contract
+
+- Task ID: `upstream-v0171-grok-filter-lifecycle-tests-s196`
+- Role: Generator
+- Goal: Complete the local regression coverage corresponding to upstream `baaae8e12` / `77d4df954` for the S195 Grok SSE ping filter's lifecycle and framing boundaries.
+- Success Criteria:
+  - Closing the Grok wrapper closes its source exactly once; a source close error is returned to the caller.
+  - A completed non-ping SSE frame becomes readable without waiting for upstream EOF.
+  - Partial-at-EOF ping frames and CR/CRLF-delimited ping frames are rewritten, while the existing max-line-size error remains observable.
+  - The existing Grok-only, type-mismatch, bounded-buffer, HTTP Responses, and WebSocket bridge regressions remain green.
+- Allowed Paths:
+  - `backend/internal/service/openai_gateway_grok_sse_filter_test.go`
+  - `docs/workflow/tasks/upstream-v0171-grok-filter-lifecycle-tests-s196.md`
+  - `docs/workflow/qa-reports/upstream-v0171-grok-filter-lifecycle-tests-s196-qa.md`
+  - `docs/workflow/main-log.md`
+- Denied Paths: all production source, routing, account scheduling/rate-limit persistence, public API contracts, WebSocket protocol implementation, schemas, migrations, dependencies, frontend, containers, deployment, primary worktree, push, and merge to `main`.
+- Constraints: Keep tests deterministic and bounded; no real Grok request, sleep-based synchronization, or test-only production hook. If a test exposes an implementation defect, stop before changing production source and return to contract review.
+- Acceptance Commands:
+  - `go test ./internal/service -run '^TestGrokResponsesBillingPingFilter' -count=1`
+  - `go test ./internal/service -run 'Test(ForwardGrokResponsesStreamingUsesXAIResponsesAndSnapshots|ProxyResponsesWebSocketFromClientForGrokUsesXAIHTTPBridge)' -count=1`
+  - `go test ./cmd/server -run '^TestNonExistent$' -count=0`
+  - `gofmt -w internal/service/openai_gateway_grok_sse_filter_test.go`
+  - `git diff --check`
+- Output: Scoped source-level QA report and one isolated test-coverage commit after all acceptance commands pass.
+- Stop Rules: Stop if coverage requires production behavior changes, an unbounded or timing-sensitive test, a dependency/schema/configuration change, deployment, or primary-worktree modification.

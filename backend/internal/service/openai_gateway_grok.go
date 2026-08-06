@@ -97,6 +97,11 @@ func (s *OpenAIGatewayService) forwardGrokResponses(
 	var firstTokenMs *int
 	responseID := ""
 	if reqStream {
+		maxLineSize := defaultMaxLineSize
+		if s.cfg != nil && s.cfg.Gateway.MaxLineSize > 0 {
+			maxLineSize = s.cfg.Gateway.MaxLineSize
+		}
+		resp.Body = newGrokResponsesBillingPingFilterBody(resp.Body, account, maxLineSize)
 		streamResult, err := s.handleStreamingResponse(ctx, resp, c, account, startTime, originalModel, upstreamModel)
 		if err != nil {
 			return nil, err
@@ -241,6 +246,9 @@ func (s *OpenAIGatewayService) handleGrokAccountUpstreamError(ctx context.Contex
 	if s == nil || account == nil {
 		return
 	}
+	if account.IsPoolMode() {
+		return
+	}
 	switch statusCode {
 	case http.StatusUnauthorized:
 		s.tempUnscheduleGrok(ctx, account, 10*time.Minute, "grok oauth token unauthorized")
@@ -255,7 +263,7 @@ func (s *OpenAIGatewayService) handleGrokAccountUpstreamError(ctx context.Contex
 		}
 		s.tempUnscheduleGrok(ctx, account, cooldown, "grok rate limited")
 	default:
-		if statusCode >= 500 && !account.IsPoolMode() {
+		if statusCode >= 500 {
 			s.tempUnscheduleGrok(ctx, account, 2*time.Minute, "grok upstream temporary error")
 		}
 	}

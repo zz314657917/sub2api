@@ -1,0 +1,26 @@
+# Task Contract
+
+- Task ID: `upstream-v0171-grok-pool-cooldown-s198`
+- Role: Generator
+- Goal: Adapt the behavior of upstream `4d13925c9` and `5c9629ddb` to the local Grok error-handler topology so pool-mode API-key accounts retain their scheduling state on every default upstream cooldown status.
+- Success Criteria:
+  - A pool-mode Grok API-key account does not receive a temporary unschedule state for default `401`, `402`, `403`, `429`, or `5xx` upstream errors.
+  - A non-pool account retains its existing cooldown duration and reason for each affected status.
+  - The local `Retry-After` parsing behavior remains unused for pool mode but unchanged for non-pool `429` errors.
+  - Focused service tests cover the complete default cooldown status set and preserve the existing 5xx behavior.
+- Allowed Paths:
+  - `backend/internal/service/openai_gateway_grok.go`
+  - `backend/internal/service/openai_gateway_grok_s115_test.go`
+  - `docs/workflow/tasks/upstream-v0171-grok-pool-cooldown-s198.md`
+  - `docs/workflow/qa-reports/upstream-v0171-grok-pool-cooldown-s198-qa.md`
+  - `docs/workflow/main-log.md`
+- Denied Paths: account model/configuration semantics, generic scheduler behavior, Grok request routing, failover, OAuth handling, database/schema/migrations, frontend, containers, deployment, primary worktree, push, and merge to `main`.
+- Constraints: Use the existing `Account.IsPoolMode()` predicate. Do not add upstream features that have no local equivalent, including configurable Grok forbidden policies or quota-snapshot rate-limit persistence. Keep all non-pool outcomes unchanged.
+- Acceptance Commands:
+  - `go test ./internal/service -run '^TestHandleGrokAccountUpstreamError.*PoolMode' -count=1`
+  - `go test ./internal/service -run '^TestHandleGrokAccountUpstreamError' -count=1`
+  - `go test ./cmd/server -run '^TestNonExistent$' -count=0`
+  - `gofmt -w internal/service/openai_gateway_grok.go internal/service/openai_gateway_grok_s115_test.go`
+  - `git diff --check`
+- Output: Scoped source-level QA report and one isolated integration commit after all acceptance commands pass.
+- Stop Rules: Stop if the change requires altering account selection, a generic scheduler change, a new persistence/configuration contract, an upstream API call, deployment, or primary-worktree modification.

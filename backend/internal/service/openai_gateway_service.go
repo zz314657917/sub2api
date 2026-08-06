@@ -3574,6 +3574,13 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 	}
 
 	if account != nil && account.Type == AccountTypeOAuth {
+		if isOpenAICodexModel(reqModel) && !gjson.GetBytes(body, "instructions").Exists() {
+			nextBody, setErr := sjson.SetBytes(body, "instructions", defaultCodexSynthInstructions(reqModel))
+			if setErr != nil {
+				return nil, fmt.Errorf("set passthrough codex instructions: %w", setErr)
+			}
+			body = nextBody
+		}
 		if rejectReason := detectOpenAIPassthroughInstructionsRejectReason(reqModel, body); rejectReason != "" {
 			rejectMsg := "OpenAI codex passthrough requires a non-empty instructions field"
 			MarkOpsClientBusinessLimited(c, OpsClientBusinessLimitedReasonLocalPolicyDenied)
@@ -6545,7 +6552,14 @@ func sanitizeEncryptedReasoningInputItem(item any) (next any, changed bool, keep
 	}
 
 	itemType, _ := inputItem["type"].(string)
-	if strings.TrimSpace(itemType) != "reasoning" {
+	switch strings.TrimSpace(itemType) {
+	case "compaction", "compaction_summary":
+		if _, encrypted := inputItem["encrypted_content"]; encrypted {
+			return nil, true, false
+		}
+		return item, false, true
+	case "reasoning":
+	default:
 		return item, false, true
 	}
 
@@ -7670,14 +7684,13 @@ func normalizeOpenAIPassthroughOAuthBody(body []byte, compact bool) ([]byte, boo
 }
 
 func detectOpenAIPassthroughInstructionsRejectReason(reqModel string, body []byte) string {
-	model := strings.ToLower(strings.TrimSpace(reqModel))
-	if !strings.Contains(model, "codex") {
+	if !isOpenAICodexModel(reqModel) {
 		return ""
 	}
 
 	instructions := gjson.GetBytes(body, "instructions")
 	if !instructions.Exists() {
-		return "instructions_missing"
+		return ""
 	}
 	if instructions.Type != gjson.String {
 		return "instructions_not_string"
@@ -7686,6 +7699,10 @@ func detectOpenAIPassthroughInstructionsRejectReason(reqModel string, body []byt
 		return "instructions_empty"
 	}
 	return ""
+}
+
+func isOpenAICodexModel(model string) bool {
+	return strings.Contains(strings.ToLower(strings.TrimSpace(model)), "codex")
 }
 
 func extractOpenAIReasoningEffortFromBody(body []byte, modelCandidates ...string) *string {
