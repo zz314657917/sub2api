@@ -1,0 +1,35 @@
+# Task Contract
+
+- Task ID: `upstream-v0171-openai-quota-reset-recovery-s188`
+- Role: Generator
+- Goal: Adapt the safety-critical portion of upstream `a0802f00b` and `54a2bcfd1` so a successfully consumed OpenAI reset credit recovers the local account state first and completes bounded post-processing even when the panel client disconnects.
+- Success Criteria:
+  - The existing reset endpoint keeps its successful response compatibility while exposing optional refreshed quota/account/warning fields.
+  - After a successful upstream credit consumption, account recovery runs before cache refresh; a canceled client context does not cancel the bounded post-processing chain.
+  - A reset-credit snapshot is written only when its positive count contains expiration details; a failed cache/query/recovery leaves the already-consumed result successful and emits a stable warning code.
+  - The snapshot extra key is scheduler-neutral and the DI constructor receives the existing `RateLimitService`.
+  - The frontend reset call has a 90-second client timeout; no new API route or quota-card rehydration feature is added.
+  - Focused handler/service tests, frontend typecheck, formatting, staged diff, conflict-marker, and unmerged-index checks pass.
+- Allowed Paths:
+  - `backend/cmd/server/wire_gen.go`
+  - `backend/internal/handler/admin/openai_oauth_handler.go`
+  - `backend/internal/handler/admin/openai_oauth_handler_reset_quota_test.go`
+  - `backend/internal/handler/admin/openai_oauth_handler_quota_test.go`
+  - `backend/internal/repository/account_repo.go`
+  - `backend/internal/service/openai_quota_service.go`
+  - `backend/internal/service/openai_quota_reset_cache_test.go`
+  - `frontend/src/api/admin/accounts.ts`
+  - `docs/workflow/tasks/upstream-v0171-openai-quota-reset-recovery-s188.md`
+  - `docs/workflow/qa-reports/upstream-v0171-openai-quota-reset-recovery-s188-qa.md`
+  - `docs/workflow/main-log.md`
+- Denied Paths: new `/quota/refresh` route, frontend quota-card/cache UI, database schema/migration, generated Ent code, repository transaction changes, account-recovery semantics, dependencies, containers, deployment, and the primary worktree.
+- Constraints: Preserve the existing `ResetCredit` upstream call and all pre-consumption error responses. The post-consumption timeout applies only after a non-refundable credit succeeded. No database/container/network calls, push, deployment, or broad cherry-pick.
+- Acceptance Commands:
+  - `go test ./internal/handler/admin -run '^TestOpenAIOAuthHandlerResetQuota' -count=1`
+  - `go test ./internal/service -run '^TestOpenAIQuotaServiceCacheResetCreditsSnapshot' -count=1`
+  - `go test ./cmd/server -run '^TestNonExistent$' -count=0`
+  - `corepack.cmd pnpm --dir frontend exec vue-tsc --noEmit`
+  - `gofmt -w` on changed Go files
+  - `git diff --check`
+- Output: Scoped source-level QA report and an isolated integration commit only after all acceptance commands pass.
+- Stop Rules: Stop if preserving correctness requires a schema migration, a new public endpoint, a broad frontend cache feature, an account-recovery behavior change, or an external credential/provider call.

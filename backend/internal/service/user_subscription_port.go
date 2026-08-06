@@ -34,3 +34,13 @@ type UserSubscriptionRepository interface {
 
 	BatchUpdateExpiredStatus(ctx context.Context) (int64, error)
 }
+
+// ConditionalUserSubscriptionWindowRepository is an optional capability for
+// repositories that can reject stale window updates atomically. Keeping it
+// separate preserves the compatibility contract of existing test doubles.
+type ConditionalUserSubscriptionWindowRepository interface {
+	ActivateWindowsIfUninitialized(ctx context.Context, id int64, start time.Time) error
+	ResetDailyUsageIfWindowStart(ctx context.Context, id int64, expectedWindowStart *time.Time, newWindowStart time.Time) error
+	ResetWeeklyUsageIfWindowStart(ctx context.Context, id int64, expectedWindowStart *time.Time, newWindowStart time.Time) error
+	ResetMonthlyUsageIfWindowStart(ctx context.Context, id int64, expectedWindowStart *time.Time, newWindowStart time.Time) error
+}

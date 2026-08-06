@@ -423,6 +423,11 @@ func NewOpenAIGatewayService(
 	welfareService *WelfareService,
 	membershipService ...*MembershipService,
 ) *OpenAIGatewayService {
+	// All OAuth egress paths share enforceCodexIdentityHeaders, which cannot receive this service config.
+	// Publish the startup snapshot here; the negative flag keeps a zero-value Config protected by default.
+	if cfg != nil {
+		SetCodexOriginatorNormalizationEnabled(!cfg.Gateway.DisableCodexOriginatorNormalization)
+	}
 	var membership *MembershipService
 	if len(membershipService) > 0 {
 		membership = membershipService[0]

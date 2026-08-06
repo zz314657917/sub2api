@@ -41,7 +41,7 @@ func newOpenAIQuotaHandlerForTest(t *testing.T, upstream http.HandlerFunc, accou
 			return req.C().SetTimeout(time.Second), nil
 		},
 	)
-	return NewOpenAIOAuthHandler(nil, nil, quotaService)
+	return NewOpenAIOAuthHandler(nil, nil, quotaService, nil)
 }
 
 func serviceTestSetOpenAIQuotaURL(t *testing.T, serverURL string) func() {
@@ -90,7 +90,7 @@ func TestOpenAIOAuthHandlerQueryQuotaSuccess(t *testing.T) {
 
 func TestOpenAIOAuthHandlerResetQuotaInvalidID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	handler := NewOpenAIOAuthHandler(nil, nil, nil)
+	handler := NewOpenAIOAuthHandler(nil, nil, nil, nil)
 	router := gin.New()
 	router.POST("/admin/openai/accounts/:id/reset-quota", handler.ResetQuota)
 

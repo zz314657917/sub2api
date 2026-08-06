@@ -526,6 +526,70 @@ func TestUpdatePaymentConfig_PersistsVisibleMethodRouting(t *testing.T) {
 	}
 }
 
+func TestUpdatePaymentConfig_OmittedFieldsAreNotWritten(t *testing.T) {
+	wantPreserved := map[string]string{
+		SettingEnabledPaymentTypes:               "alipay,wxpay",
+		SettingBalancePayDisabled:                "true",
+		SettingPaymentVisibleMethodAlipayEnabled: "true",
+		SettingPaymentVisibleMethodAlipaySource:  VisibleMethodSourceEasyPayAlipay,
+		SettingPaymentVisibleMethodWxpayEnabled:  "false",
+		SettingPaymentVisibleMethodWxpaySource:   VisibleMethodSourceOfficialWechat,
+		SettingProductNamePrefix:                 "existing-prefix",
+		SettingCancelRateLimitOn:                 "true",
+	}
+	initial := make(map[string]string, len(wantPreserved))
+	for key, value := range wantPreserved {
+		initial[key] = value
+	}
+	repo := &paymentConfigSettingRepoStub{values: initial}
+	svc := &PaymentConfigService{settingRepo: repo}
+
+	enabled := true
+	if err := svc.UpdatePaymentConfig(context.Background(), UpdatePaymentConfigRequest{Enabled: &enabled}); err != nil {
+		t.Fatalf("UpdatePaymentConfig returned error: %v", err)
+	}
+	if len(repo.updates) != 1 || repo.updates[SettingPaymentEnabled] != "true" {
+		t.Fatalf("updates = %v, want only payment enabled=true", repo.updates)
+	}
+	for key, want := range wantPreserved {
+		if got := repo.values[key]; got != want {
+			t.Fatalf("preserved setting %q = %q, want %q", key, got, want)
+		}
+	}
+}
+
+func TestUpdatePaymentConfig_PersistsExplicitEmptyAndFalseValues(t *testing.T) {
+	repo := &paymentConfigSettingRepoStub{values: map[string]string{
+		SettingEnabledPaymentTypes: "alipay,wxpay",
+		SettingBalancePayDisabled:  "true",
+		SettingProductNamePrefix:   "existing-prefix",
+	}}
+	svc := &PaymentConfigService{settingRepo: repo}
+
+	falseValue := false
+	emptyString := ""
+	if err := svc.UpdatePaymentConfig(context.Background(), UpdatePaymentConfigRequest{
+		EnabledTypes:      []string{},
+		BalanceDisabled:   &falseValue,
+		ProductNamePrefix: &emptyString,
+	}); err != nil {
+		t.Fatalf("UpdatePaymentConfig returned error: %v", err)
+	}
+	want := map[string]string{
+		SettingEnabledPaymentTypes: "",
+		SettingBalancePayDisabled:  "false",
+		SettingProductNamePrefix:   "",
+	}
+	if len(repo.updates) != len(want) {
+		t.Fatalf("updates = %v, want exactly %v", repo.updates, want)
+	}
+	for key, value := range want {
+		if got := repo.updates[key]; got != value {
+			t.Fatalf("update %q = %q, want %q", key, got, value)
+		}
+	}
+}
+
 func paymentConfigStrPtr(value string) *string {
 	return &value
 }

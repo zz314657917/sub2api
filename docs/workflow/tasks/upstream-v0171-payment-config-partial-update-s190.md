@@ -1,0 +1,26 @@
+# Task Contract
+
+- Task ID: `upstream-v0171-payment-config-partial-update-s190`
+- Role: Generator
+- Goal: Adapt the applicable behavior from upstream `3deb2f17d` so a partial payment-settings update persists only explicitly supplied fields and cannot clear stored payment methods or routing configuration.
+- Success Criteria:
+  - `UpdatePaymentConfig` writes no setting for an omitted pointer field or omitted `EnabledTypes` slice.
+  - Explicit `false`, empty string, and empty `EnabledTypes` remain intentional updates and are persisted.
+  - Recharge-package and FAQ serialization retain their current explicit-presence behavior.
+  - Existing visible-method routing updates still persist when explicitly supplied.
+  - Focused service tests prove omitted settings remain unmodified and explicit zero-like values remain writable.
+- Allowed Paths:
+  - `backend/internal/service/payment_config_service.go`
+  - `backend/internal/service/payment_config_service_test.go`
+  - `docs/workflow/tasks/upstream-v0171-payment-config-partial-update-s190.md`
+  - `docs/workflow/qa-reports/upstream-v0171-payment-config-partial-update-s190-qa.md`
+  - `docs/workflow/main-log.md`
+- Denied Paths: payment routes/handlers, providers, payment order/refund behavior, Ent/schema/migrations, frontend, dependencies, containers, deployment, and the primary worktree.
+- Constraints: Preserve current validation and stored-value formatting. Do not turn this patch into a payment configuration redesign or change the meaning of an explicit empty value.
+- Acceptance Commands:
+  - `go test ./internal/service -run '^Test(UpdatePaymentConfig|GetPaymentConfig|ApplyVisibleMethod)' -count=1`
+  - `go test ./cmd/server -run '^TestNonExistent$' -count=0`
+  - `gofmt -w backend/internal/service/payment_config_service.go backend/internal/service/payment_config_service_test.go`
+  - `git diff --check`
+- Output: Scoped source-level QA report and an isolated integration commit only after all acceptance commands pass.
+- Stop Rules: Stop if a handler/API contract, provider configuration, migration, historical setting backfill, database operation, or deployment change is needed.

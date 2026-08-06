@@ -1,0 +1,33 @@
+# Task Contract
+
+- Task ID: `upstream-v0171-codex-originator-normalization-s187`
+- Role: Generator
+- Goal: Adapt the behavior of upstream `e1b76e224` to rewrite the observed load-shed Codex `originator` to the official CLI identity at the local shared OAuth egress boundary, while retaining a startup-time rollback switch.
+- Success Criteria:
+  - Only `codex-tui` (case-insensitive after the existing canonicalization) is normalized to `codex_cli_rs`; healthy official identities and non-official fallback behavior remain unchanged.
+  - The rewritten User-Agent stays paired with `originator`, retains version / OS / architecture / terminal data, removes only an official trailing client-identity group, and is idempotent.
+  - Normalization is enabled by default, can be disabled with `gateway.disable_codex_originator_normalization`, and the zero-value `config.Config` remains on the enabled side.
+  - HTTP request construction and WS forwarding regressions prove the same final identity behavior through their existing shared header-normalization boundary.
+  - Focused Go tests, formatting, diff, conflict-marker, and unmerged-index checks pass.
+- Allowed Paths:
+  - `backend/internal/config/config.go`
+  - `backend/internal/pkg/openai/request.go`
+  - `backend/internal/pkg/openai/request_load_shed_test.go`
+  - `backend/internal/service/openai_codex_identity.go`
+  - `backend/internal/service/openai_codex_identity_test.go`
+  - `backend/internal/service/openai_gateway_service.go`
+  - `backend/internal/service/openai_gateway_service_test.go`
+  - `backend/internal/service/openai_ws_forwarder_success_test.go`
+  - `deploy/config.example.yaml`
+  - `docs/workflow/tasks/upstream-v0171-codex-originator-normalization-s187.md`
+  - `docs/workflow/qa-reports/upstream-v0171-codex-originator-normalization-s187-qa.md`
+  - `docs/workflow/main-log.md`
+- Denied Paths: runtime settings refresh, HTTP/WS/Live handlers, repository/schema/migration, frontend/i18n, containers, deployment targets, dependencies, and the primary worktree.
+- Constraints: Port only behavior that maps to the local unified egress topology. The local tree has no upstream `setting_gateway_runtime.go` equivalent, so the switch is startup-time only. No database access, push, deployment, or broad cherry-pick.
+- Acceptance Commands:
+  - `go test ./internal/pkg/openai -run 'Test(IsCodexLoadShedOriginator|NormalizeCodexClientIdentityToCLI)' -count=1`
+  - `go test ./internal/service -run 'Test(EnsureCodexIdentityHeaders|EnforceCodexIdentityHeaders|CodexOriginatorNormalization|OpenAIBuildUpstreamRequestOAuthOfficialClientOriginatorCompatibility|OpenAIGatewayService_Forward_WSv2_OAuthOriginatorCompatibility)' -count=1`
+  - `gofmt -w` on changed Go files
+  - `git diff --check`
+- Output: Scoped source-level QA report and an isolated integration commit only after all acceptance commands pass.
+- Stop Rules: Stop if the change requires a runtime settings refresh path, an unshared per-egress identity rewrite, a dependency change, or a handler/config architecture expansion beyond the allowed paths.

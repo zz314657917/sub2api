@@ -1,0 +1,24 @@
+# Task Contract
+
+- Task ID: `upstream-v0171-payment-method-layout-s191`
+- Role: Generator
+- Goal: Adapt the layout-safety portion of upstream `8ed9f754c` so the payment method selector remains bounded when several methods are available at tablet and desktop widths.
+- Success Criteria:
+  - The method container uses stable responsive grid columns instead of a non-wrapping flex row.
+  - Each method button and label can shrink without changing selection, disabled, ordering, icon, fee, or emitted-event behavior.
+  - Method names truncate within the button and expose the full existing localized name in a title attribute.
+  - A focused component test locks the responsive grid, title, and label truncation contract; frontend typecheck passes.
+- Allowed Paths:
+  - `frontend/src/components/payment/PaymentMethodSelector.vue`
+  - `frontend/src/components/payment/__tests__/PaymentMethodSelector.spec.ts`
+  - `docs/workflow/tasks/upstream-v0171-payment-method-layout-s191.md`
+  - `docs/workflow/qa-reports/upstream-v0171-payment-method-layout-s191-qa.md`
+  - `docs/workflow/main-log.md`
+- Denied Paths: payment API payloads, payment types/providers, backend, translations, dependencies, global CSS, containers, deployment, and the primary worktree.
+- Constraints: Use the existing localized method-name expression and existing Tailwind conventions. Do not add a horizontal scrollbar, alter payment ordering, or introduce a new payment-method model.
+- Acceptance Commands:
+  - `corepack.cmd pnpm --dir frontend exec vitest run src/components/payment/__tests__/PaymentMethodSelector.spec.ts`
+  - `corepack.cmd pnpm --dir frontend exec vue-tsc --noEmit`
+  - `git diff --check`
+- Output: Scoped frontend QA report and an isolated integration commit only after all acceptance commands pass.
+- Stop Rules: Stop if implementing the layout requires a payment API/type change, global design-system change, external browser session, dependency change, or backend modification.

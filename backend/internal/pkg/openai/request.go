@@ -215,6 +215,43 @@ func canonicalizeCodexOriginator(name string) string {
 	return name
 }
 
+// CodexCLIOriginator 官方 Codex CLI 默认 originator（codex-rs DEFAULT_ORIGINATOR），
+// 也是身份归一化的目标身份。
+const CodexCLIOriginator = "codex_cli_rs"
+
+// codexLoadShedOriginators 是上游容量策略的快照而非协议常量。命中后上游可能推送
+// server_is_overloaded，网关会把它视为瞬时故障并冷却账号；因此需要在出站前归一化。
+var codexLoadShedOriginators = map[string]bool{
+	"codex-tui": true,
+}
+
+// IsCodexLoadShedOriginator 判断 originator 是否落在上游降载桶。
+func IsCodexLoadShedOriginator(originator string) bool {
+	return codexLoadShedOriginators[normalizeCodexClientHeader(originator)]
+}
+
+// NormalizeCodexClientIdentityToCLI 把落在降载桶的官方身份改写为 Codex CLI 身份。
+// 改写后的 UA 首段仍与 originator 配套，并仅裁掉尾部官方客户端身份组，保留版本、OS、架构与终端指纹。
+// 入参应为 PairCodexClientIdentity 已配对的输出；未命中降载桶时 changed=false。
+func NormalizeCodexClientIdentityToCLI(originator, userAgent string) (string, string, bool) {
+	if !IsCodexLoadShedOriginator(originator) {
+		return originator, userAgent, false
+	}
+	ua := strings.TrimSpace(userAgent)
+	slash := strings.IndexByte(ua, '/')
+	if slash <= 0 {
+		return CodexCLIOriginator, ua, true
+	}
+	rest := ua[slash:]
+	// 仅当尾部括号组确为官方客户端标识时才裁剪，避免误截合法 UA 尾巴。
+	if trailer := codexUATrailerName(ua); trailer != "" && IsCodexOfficialClientOriginator(trailer) {
+		if open := strings.LastIndex(rest, "("); open > 0 {
+			rest = strings.TrimRight(rest[:open], " ")
+		}
+	}
+	return CodexCLIOriginator, CodexCLIOriginator + rest, true
+}
+
 var codexEngineVersionPattern = regexp.MustCompile(`^(\d+\.\d+\.\d+)`)
 
 // ParseCodexEngineVersion 从 codex-rs 形态 UA 取引擎版本：

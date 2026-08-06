@@ -1,0 +1,25 @@
+# Task Contract
+
+- Task ID: `upstream-v0171-image-data-url-s189`
+- Role: Generator
+- Goal: Adapt the isolated compatibility behavior from upstream `d6467f6eb` so image-task result offload decodes valid `data:image/...;base64,...` URLs locally instead of sending them to the HTTP downloader.
+- Success Criteria:
+  - `ImageResultUploader` decodes a valid image data URL without making an HTTP request, then persists it through the existing storage boundary and rewrites the result URL.
+  - Parsing accepts case-insensitive media/base64 tokens and harmless media parameters, validates that the declared media type is `image/*`, enforces the existing decoded-size limit, and rejects malformed/non-base64 data URLs before any HTTP request.
+  - Existing `b64_json` precedence and remote HTTP URL behavior remain unchanged; detected image bytes remain authoritative for the stored content type.
+  - Focused service tests cover successful local decoding, malformed data URLs, size limits, and `b64_json` precedence.
+- Allowed Paths:
+  - `backend/internal/service/image_storage.go`
+  - `backend/internal/service/image_storage_data_url_test.go`
+  - `docs/workflow/tasks/upstream-v0171-image-data-url-s189.md`
+  - `docs/workflow/qa-reports/upstream-v0171-image-data-url-s189-qa.md`
+  - `docs/workflow/main-log.md`
+- Denied Paths: storage provider configuration, object-storage implementations, image API routes, database/schema/migrations, dependencies, frontend, containers, deployment, and the primary worktree.
+- Constraints: Do not use an external HTTP request for a data URL. Keep `b64_json` as the first-choice payload. The implementation must use the existing content-type and size-limit helpers rather than inventing a second storage path.
+- Acceptance Commands:
+  - `go test ./internal/service -run '^TestImageResultUploader' -count=1`
+  - `go test ./cmd/server -run '^TestNonExistent$' -count=0`
+  - `gofmt -w backend/internal/service/image_storage.go backend/internal/service/image_storage_data_url_test.go`
+  - `git diff --check`
+- Output: Scoped source-level QA report and an isolated integration commit only after all acceptance commands pass.
+- Stop Rules: Stop if the behavior requires an image-storage provider change, external network access, dependency upgrade, public API change, schema migration, or a broader image-generation workflow rewrite.

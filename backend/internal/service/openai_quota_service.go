@@ -42,8 +42,14 @@ var (
 	chatGPTRateLimitResetURL   = "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits/consume"
 )
 
+const openAIQuotaResetCreditsKey = "codex_reset_credit_snapshot"
+
 type openAIQuotaAccountReader interface {
 	GetByID(ctx context.Context, id int64) (*Account, error)
+}
+
+type openAIQuotaExtraWriter interface {
+	UpdateExtra(ctx context.Context, id int64, updates map[string]any) error
 }
 
 type openAIQuotaProxyReader interface {
@@ -240,6 +246,30 @@ func (s *OpenAIQuotaService) QueryUsage(ctx context.Context, accountID int64) (*
 		}
 	}
 	return &payload, nil
+}
+
+// CacheResetCreditsSnapshot keeps complete reset-credit expiration metadata for
+// the account row. A positive count without credit details is deliberately not
+// stored, because readers could otherwise offer already-expired credits.
+func (s *OpenAIQuotaService) CacheResetCreditsSnapshot(ctx context.Context, accountID int64, credits *OpenAIRateLimitResetCredits) error {
+	if credits == nil || (credits.AvailableCount > 0 && len(credits.Credits) == 0) {
+		return infraerrors.New(
+			http.StatusBadGateway,
+			"OPENAI_QUOTA_RESET_CREDITS_REFRESH_FAILED",
+			"failed to refresh reset-credit expiration details; cached data was preserved",
+		)
+	}
+	if s == nil || s.accountRepo == nil {
+		return infraerrors.New(http.StatusInternalServerError, "OPENAI_QUOTA_NOT_CONFIGURED", "openai quota service is not configured")
+	}
+	writer, ok := s.accountRepo.(openAIQuotaExtraWriter)
+	if !ok {
+		return infraerrors.New(http.StatusInternalServerError, "OPENAI_QUOTA_CACHE_WRITE_FAILED", "account repository does not support reset-credit cache writes")
+	}
+	if err := writer.UpdateExtra(ctx, accountID, map[string]any{openAIQuotaResetCreditsKey: credits}); err != nil {
+		return infraerrors.New(http.StatusInternalServerError, "OPENAI_QUOTA_CACHE_WRITE_FAILED", "failed to cache reset-credit details").WithCause(err)
+	}
+	return nil
 }
 
 func (s *OpenAIQuotaService) queryResetCreditDetails(ctx context.Context, client *req.Client, accessToken, chatGPTAccountID string, fedRAMP bool, accountID int64) *openAIRateLimitResetCreditDetails {

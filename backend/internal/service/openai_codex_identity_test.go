@@ -4,12 +4,14 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
 
 func TestEnforceCodexIdentityHeaders(t *testing.T) {
 	const tuiUA = "codex-tui/0.140.2 (Mac OS X 14.0; arm64) iTerm (codex-tui; 0.140.2)"
+	const tuiNormalizedUA = "codex_cli_rs/0.140.2 (Mac OS X 14.0; arm64) iTerm"
 
 	tests := []struct {
 		name           string
@@ -21,18 +23,25 @@ func TestEnforceCodexIdentityHeaders(t *testing.T) {
 		wantVersion    string
 	}{
 		{
-			name:           "错配 originator 按最终 UA 重配",
+			name:           "错配 originator 按最终 UA 重配后归一化",
 			originator:     "codex_cli_rs",
 			userAgent:      tuiUA,
-			wantOriginator: "codex-tui",
-			wantUA:         tuiUA,
+			wantOriginator: "codex_cli_rs",
+			wantUA:         tuiNormalizedUA,
 		},
 		{
-			name:           "官方配套身份原样保留",
+			name:           "降载身份改写为 CLI 身份",
 			originator:     "codex-tui",
 			userAgent:      tuiUA,
-			wantOriginator: "codex-tui",
-			wantUA:         tuiUA,
+			wantOriginator: "codex_cli_rs",
+			wantUA:         tuiNormalizedUA,
+		},
+		{
+			name:           "非降载官方身份原样保留",
+			originator:     "codex_vscode",
+			userAgent:      "codex_vscode/1.2.3 (Ubuntu 22.4.0; x86_64) vscode (codex_vscode; 1.2.3)",
+			wantOriginator: "codex_vscode",
+			wantUA:         "codex_vscode/1.2.3 (Ubuntu 22.4.0; x86_64) vscode (codex_vscode; 1.2.3)",
 		},
 		{
 			name:           "第三方 UA 整体回退默认身份",
@@ -48,11 +57,11 @@ func TestEnforceCodexIdentityHeaders(t *testing.T) {
 			wantUA:         codexCLIUserAgent,
 		},
 		{
-			name:           "originator override UA 首段被尾部真实身份重写",
+			name:           "originator override UA 首段被尾部真实身份重写后归一化",
 			originator:     "cccc",
 			userAgent:      "cccc/0.142.0 (Ubuntu 22.4.0; x86_64) screen (codex-tui; 0.142.0)",
-			wantOriginator: "codex-tui",
-			wantUA:         "codex-tui/0.142.0 (Ubuntu 22.4.0; x86_64) screen (codex-tui; 0.142.0)",
+			wantOriginator: "codex_cli_rs",
+			wantUA:         "codex_cli_rs/0.142.0 (Ubuntu 22.4.0; x86_64) screen",
 		},
 		{
 			name:           "低于门槛的 version 提升为内置版本",
@@ -101,6 +110,53 @@ func TestEnforceCodexIdentityHeaders(t *testing.T) {
 			require.Equal(t, tt.wantVersion, h.Get("version"))
 		})
 	}
+}
+
+// 开关是进程级快照，零值 Config（测试 / 工具手工构造，不经 viper）必须落在「归一化开启」
+// 一侧。开关类用例不能并行，因为它们会改写进程级状态。
+func TestCodexOriginatorNormalizationZeroValueConfigKeepsItEnabled(t *testing.T) {
+	var cfg config.Config
+	require.False(t, cfg.Gateway.DisableCodexOriginatorNormalization)
+
+	SetCodexOriginatorNormalizationEnabled(!cfg.Gateway.DisableCodexOriginatorNormalization)
+	t.Cleanup(func() { SetCodexOriginatorNormalizationEnabled(true) })
+
+	h := make(http.Header)
+	h.Set("originator", "codex-tui")
+	h.Set("user-agent", "codex-tui/0.140.2 (Mac OS X 14.0; arm64) iTerm (codex-tui; 0.140.2)")
+
+	enforceCodexIdentityHeaders(h)
+
+	require.Equal(t, openAIDefaultCodexOriginator, h.Get("originator"))
+}
+
+func TestEnforceCodexIdentityHeaders_NormalizationDisabled(t *testing.T) {
+	const tuiUA = "codex-tui/0.140.2 (Mac OS X 14.0; arm64) iTerm (codex-tui; 0.140.2)"
+
+	SetCodexOriginatorNormalizationEnabled(false)
+	t.Cleanup(func() { SetCodexOriginatorNormalizationEnabled(true) })
+
+	h := make(http.Header)
+	h.Set("originator", "codex-tui")
+	h.Set("user-agent", tuiUA)
+
+	enforceCodexIdentityHeaders(h)
+
+	require.Equal(t, "codex-tui", h.Get("originator"))
+	require.Equal(t, tuiUA, h.Get("user-agent"))
+}
+
+func TestEnforceCodexIdentityHeaders_NormalizationIsIdempotent(t *testing.T) {
+	h := make(http.Header)
+	h.Set("originator", "codex-tui")
+	h.Set("user-agent", "codex-tui/0.140.2 (Mac OS X 14.0; arm64) iTerm (codex-tui; 0.140.2)")
+
+	enforceCodexIdentityHeaders(h)
+	first := h.Get("user-agent")
+	enforceCodexIdentityHeaders(h)
+
+	require.Equal(t, first, h.Get("user-agent"))
+	require.Equal(t, openAIDefaultCodexOriginator, h.Get("originator"))
 }
 
 // compat messages bridge 故意不带 originator：收口必须保持 no-op，不得注入身份头。

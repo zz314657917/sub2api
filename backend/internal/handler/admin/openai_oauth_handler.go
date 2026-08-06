@@ -1,8 +1,12 @@
 package admin
 
 import (
+	"context"
+	"log/slog"
+	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
@@ -16,7 +20,42 @@ import (
 type OpenAIOAuthHandler struct {
 	openaiOAuthService *service.OpenAIOAuthService
 	adminService       service.AdminService
-	quotaService       *service.OpenAIQuotaService
+	quotaService       openAIQuotaService
+	rateLimitService   openAIAccountStateRecoverer
+}
+
+type openAIQuotaService interface {
+	QueryUsage(ctx context.Context, accountID int64) (*service.OpenAIQuotaUsage, error)
+	CacheResetCreditsSnapshot(ctx context.Context, accountID int64, credits *service.OpenAIRateLimitResetCredits) error
+	ResetCredit(ctx context.Context, accountID int64) (*service.OpenAIQuotaResetResult, error)
+}
+
+type openAIAccountStateRecoverer interface {
+	RecoverAccountState(ctx context.Context, accountID int64, options service.AccountRecoveryOptions) (*service.SuccessfulTestRecoveryResult, error)
+}
+
+const (
+	openAIQuotaResetWarningCacheRefreshFailed    = "reset_credit_cache_refresh_failed"
+	openAIQuotaResetWarningAccountRecoveryFailed = "account_state_recovery_failed"
+	openAIQuotaResetWarningAccountRefreshFailed  = "account_state_refresh_failed"
+	openAIQuotaResetPostProcessTimeout           = 8 * time.Second
+)
+
+type openAIQuotaResetResponse struct {
+	service.OpenAIQuotaResetResult
+	Quota                 *service.OpenAIQuotaUsage `json:"quota,omitempty"`
+	Account               *dto.Account              `json:"account,omitempty"`
+	CacheRefreshed        bool                      `json:"cache_refreshed"`
+	AccountStateRecovered bool                      `json:"account_state_recovered"`
+	WarningCode           string                    `json:"warning_code,omitempty"`
+}
+
+func openAIQuotaResetPostProcessContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	base := context.Background()
+	if ctx != nil {
+		base = context.WithoutCancel(ctx)
+	}
+	return context.WithTimeout(base, openAIQuotaResetPostProcessTimeout)
 }
 
 func oauthPlatformFromPath(c *gin.Context) string {
@@ -28,12 +67,19 @@ func NewOpenAIOAuthHandler(
 	openaiOAuthService *service.OpenAIOAuthService,
 	adminService service.AdminService,
 	quotaService *service.OpenAIQuotaService,
+	rateLimitService *service.RateLimitService,
 ) *OpenAIOAuthHandler {
-	return &OpenAIOAuthHandler{
+	h := &OpenAIOAuthHandler{
 		openaiOAuthService: openaiOAuthService,
 		adminService:       adminService,
-		quotaService:       quotaService,
 	}
+	if quotaService != nil {
+		h.quotaService = quotaService
+	}
+	if rateLimitService != nil {
+		h.rateLimitService = rateLimitService
+	}
+	return h
 }
 
 // OpenAIGenerateAuthURLRequest represents the request for generating OpenAI auth URL
@@ -306,5 +352,60 @@ func (h *OpenAIOAuthHandler) ResetQuota(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, result)
+	if result == nil {
+		response.Error(c, http.StatusInternalServerError, "openai quota reset returned an empty result")
+		return
+	}
+
+	resetResponse := openAIQuotaResetResponse{OpenAIQuotaResetResult: *result}
+	postCtx, cancelPost := openAIQuotaResetPostProcessContext(c.Request.Context())
+	defer cancelPost()
+
+	// A consumed credit is non-refundable. Restore scheduling state before optional
+	// display-cache work, and do not let a disconnected panel cancel recovery.
+	if h.rateLimitService == nil {
+		resetResponse.WarningCode = openAIQuotaResetWarningAccountRecoveryFailed
+		response.Success(c, resetResponse)
+		return
+	}
+	if _, err := h.rateLimitService.RecoverAccountState(postCtx, accountID, service.AccountRecoveryOptions{
+		InvalidateToken: true,
+	}); err != nil {
+		slog.Warn("openai_quota_reset_account_recovery_failed", "account_id", accountID, "error", err)
+		resetResponse.WarningCode = openAIQuotaResetWarningAccountRecoveryFailed
+		response.Success(c, resetResponse)
+		return
+	}
+	resetResponse.AccountStateRecovered = true
+
+	usage, usageErr := h.quotaService.QueryUsage(postCtx, accountID)
+	if usageErr != nil || usage == nil {
+		slog.Warn("openai_quota_reset_cache_refresh_failed", "account_id", accountID, "error", usageErr)
+		resetResponse.WarningCode = openAIQuotaResetWarningCacheRefreshFailed
+	} else if err := h.quotaService.CacheResetCreditsSnapshot(postCtx, accountID, usage.RateLimitResetCredits); err != nil {
+		slog.Warn("openai_quota_reset_cache_refresh_failed", "account_id", accountID, "error", err)
+		resetResponse.WarningCode = openAIQuotaResetWarningCacheRefreshFailed
+	} else {
+		resetResponse.Quota = usage
+		resetResponse.CacheRefreshed = true
+	}
+
+	if h.adminService == nil {
+		if resetResponse.WarningCode == "" {
+			resetResponse.WarningCode = openAIQuotaResetWarningAccountRefreshFailed
+		}
+		response.Success(c, resetResponse)
+		return
+	}
+	account, err := h.adminService.GetAccount(postCtx, accountID)
+	if err != nil {
+		slog.Warn("openai_quota_reset_account_refresh_failed", "account_id", accountID, "error", err)
+		if resetResponse.WarningCode == "" {
+			resetResponse.WarningCode = openAIQuotaResetWarningAccountRefreshFailed
+		}
+		response.Success(c, resetResponse)
+		return
+	}
+	resetResponse.Account = dto.AccountFromService(account)
+	response.Success(c, resetResponse)
 }

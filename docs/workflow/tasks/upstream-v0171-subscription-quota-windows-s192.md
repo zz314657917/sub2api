@@ -1,0 +1,30 @@
+# Task Contract
+
+- Task ID: `upstream-v0171-subscription-quota-windows-s192`
+- Role: Generator
+- Goal: Adapt the bounded subscription quota-window behavior from upstream `7b6111f2f` so quota periods align with the subscription term and cannot create a fresh automatic quota window at or after expiry.
+- Success Criteria:
+  - New, renewed, delayed-first-use, and administrator-reset window anchors retain their exact effective timestamp instead of truncating to local midnight.
+  - Automatic daily, weekly, and monthly reset calculation advances from the persisted anchor, preserves an explicit later manual anchor, supports legacy initial midnight anchors, and never resets at or beyond `ExpiresAt`.
+  - The real Ent repository uses conditional window updates to make stale activation/reset attempts no-ops while retaining `SUBSCRIPTION_NOT_FOUND` for missing subscriptions; existing repository test doubles remain compatible through an optional capability interface.
+  - Focused default-tag service regressions cover term end, partial final windows, exact reset timestamps, and legacy anchors; the backend server compile probe remains green.
+- Allowed Paths:
+  - `backend/internal/service/subscription_service.go`
+  - `backend/internal/service/user_subscription.go`
+  - `backend/internal/service/user_subscription_port.go`
+  - `backend/internal/service/subscription_reset_quota_test.go`
+  - `backend/internal/service/user_subscription_daily_quota_test.go`
+  - `backend/internal/service/subscription_quota_window_test.go`
+  - `backend/internal/repository/user_subscription_repo.go`
+  - `docs/workflow/tasks/upstream-v0171-subscription-quota-windows-s192.md`
+  - `docs/workflow/qa-reports/upstream-v0171-subscription-quota-windows-s192-qa.md`
+  - `docs/workflow/main-log.md`
+- Denied Paths: Ent schema/generated files, migrations, public subscription routes/API contracts, payment/recharge behavior, dependency manifests, frontend, containers, deployment, the primary worktree, push, and merge to `main`.
+- Constraints: Preserve one-time daily-quota behavior. Treat an unsuccessful conditional update for an existing subscription as a harmless stale operation. Do not widen the existing core repository interface; use an optional service capability so unrelated test repositories continue to compile.
+- Acceptance Commands:
+  - `go test ./internal/service -run 'Test(SubscriptionQuotaWindows|CheckAndResetWindows|ValidateAndCheckLimits|AssignOrExtendSubscription)' -count=1`
+  - `go test ./cmd/server -run '^TestNonExistent$' -count=0`
+  - `gofmt -w backend/internal/service/subscription_service.go backend/internal/service/user_subscription.go backend/internal/service/user_subscription_port.go backend/internal/service/user_subscription_daily_quota_test.go backend/internal/service/subscription_quota_window_test.go backend/internal/repository/user_subscription_repo.go`
+  - `git diff --check`
+- Output: Scoped source-level QA report and one isolated integration commit only after all acceptance commands pass.
+- Stop Rules: Stop if this requires a schema/migration change, public API contract change, payment flow change, broad test-double interface migration, dependency update, container/database operation, or primary-worktree modification.
