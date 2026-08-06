@@ -1,6 +1,7 @@
 package apicompat
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -8,6 +9,13 @@ import (
 	"strings"
 	"time"
 )
+
+const (
+	toolOutputMediaMarker      = "[Tool output media moved to the following user message]"
+	toolOutputMediaAttribution = "[Tool output media for call %s]"
+)
+
+type toolOutputMediaByCallID map[string][]ChatContentPart
 
 // ResponsesToChatCompletionsRequest converts a Responses API request into a
 // Chat Completions request for upstreams that only implement
@@ -148,6 +156,7 @@ func responsesInputToChatMessages(instructions string, inputRaw json.RawMessage)
 	if err := json.Unmarshal(inputRaw, &rawItems); err != nil {
 		return nil, fmt.Errorf("parse responses input: %w", err)
 	}
+	mediaByCallID := make(toolOutputMediaByCallID)
 
 	for _, raw := range rawItems {
 		raw = bytesTrimSpace(raw)
@@ -217,15 +226,25 @@ func responsesInputToChatMessages(instructions string, inputRaw json.RawMessage)
 			continue
 		case "function_call_output", "custom_tool_call_output", "tool_search_output":
 			outputRaw := bytesTrimSpace(item["output"])
-			outputText := rawString(outputRaw)
-			if outputText == "" && len(outputRaw) > 0 && string(outputRaw) != "null" && string(outputRaw) != `""` {
-				// 对象/数组形式的输出（如 tool_search 的结果列表）整体字符串化。
-				outputText = string(outputRaw)
+			callID := rawString(item["call_id"])
+			delete(mediaByCallID, callID)
+
+			outputText, media, rewritten := extractToolOutputMedia(outputRaw)
+			if rewritten {
+				if callID != "" {
+					mediaByCallID[callID] = media
+				}
+			} else {
+				outputText = rawString(outputRaw)
+				if outputText == "" && len(outputRaw) > 0 && string(outputRaw) != "null" && string(outputRaw) != `""` {
+					// 对象/数组形式的输出（如 tool_search 的结果列表）整体字符串化。
+					outputText = string(outputRaw)
+				}
 			}
 			content, _ := json.Marshal(outputText)
 			messages = append(messages, ChatMessage{
 				Role:       "tool",
-				ToolCallID: rawString(item["call_id"]),
+				ToolCallID: callID,
 				Content:    content,
 			})
 			continue
@@ -258,7 +277,221 @@ func responsesInputToChatMessages(instructions string, inputRaw json.RawMessage)
 		})
 	}
 
-	return messages, nil
+	return normalizeChatMessagesWithToolOutputMedia(messages, mediaByCallID), nil
+}
+
+// extractToolOutputMedia rewrites only recognized image nodes. Media-free
+// outputs return rewritten=false so the caller preserves the original output.
+func extractToolOutputMedia(outputRaw json.RawMessage) (string, []ChatContentPart, bool) {
+	outputRaw = bytesTrimSpace(outputRaw)
+	if len(outputRaw) == 0 || string(outputRaw) == "null" {
+		return "", nil, false
+	}
+
+	var outputString string
+	if err := json.Unmarshal(outputRaw, &outputString); err == nil {
+		if isToolOutputImageDataURL(outputString) {
+			return toolOutputMediaMarker, []ChatContentPart{toolOutputImagePart(outputString)}, true
+		}
+
+		nested, ok := decodeToolOutputJSON([]byte(outputString))
+		if !ok {
+			return "", nil, false
+		}
+		rewritten, media, changed := rewriteToolOutputMediaValue(nested)
+		if !changed {
+			return "", nil, false
+		}
+		encoded, err := json.Marshal(rewritten)
+		if err != nil {
+			return "", nil, false
+		}
+		return string(encoded), media, true
+	}
+
+	value, ok := decodeToolOutputJSON(outputRaw)
+	if !ok {
+		return "", nil, false
+	}
+	rewritten, media, changed := rewriteToolOutputMediaValue(value)
+	if !changed {
+		return "", nil, false
+	}
+	encoded, err := json.Marshal(rewritten)
+	if err != nil {
+		return "", nil, false
+	}
+	return string(encoded), media, true
+}
+
+func decodeToolOutputJSON(raw []byte) (any, bool) {
+	if !json.Valid(raw) {
+		return nil, false
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	var value any
+	if err := decoder.Decode(&value); err != nil {
+		return nil, false
+	}
+	return value, true
+}
+
+func rewriteToolOutputMediaValue(value any) (any, []ChatContentPart, bool) {
+	switch typed := value.(type) {
+	case []any:
+		var media []ChatContentPart
+		changed := false
+		for i, item := range typed {
+			rewritten, itemMedia, itemChanged := rewriteToolOutputMediaValue(item)
+			if !itemChanged {
+				continue
+			}
+			typed[i] = rewritten
+			media = append(media, itemMedia...)
+			changed = true
+		}
+		return typed, media, changed
+	case map[string]any:
+		if imageURL, ok := recognizedToolOutputImageURL(typed); ok {
+			return map[string]any{
+				"type": "input_text",
+				"text": toolOutputMediaMarker,
+			}, []ChatContentPart{toolOutputImagePart(imageURL)}, true
+		}
+
+		content, ok := typed["content"]
+		if !ok {
+			return typed, nil, false
+		}
+		rewritten, media, changed := rewriteToolOutputMediaValue(content)
+		if !changed {
+			return typed, nil, false
+		}
+		typed["content"] = rewritten
+		return typed, media, true
+	default:
+		return value, nil, false
+	}
+}
+
+func recognizedToolOutputImageURL(value map[string]any) (string, bool) {
+	partType, _ := value["type"].(string)
+	if partType != "input_image" && partType != "image_url" {
+		return "", false
+	}
+
+	switch imageURL := value["image_url"].(type) {
+	case string:
+		return imageURL, strings.TrimSpace(imageURL) != ""
+	case map[string]any:
+		url, _ := imageURL["url"].(string)
+		return url, strings.TrimSpace(url) != ""
+	default:
+		return "", false
+	}
+}
+
+func isToolOutputImageDataURL(value string) bool {
+	const prefix = "data:image/"
+	const separator = ";base64,"
+	if !strings.HasPrefix(value, prefix) {
+		return false
+	}
+	separatorIndex := strings.Index(value[len(prefix):], separator)
+	if separatorIndex <= 0 {
+		return false
+	}
+	payloadIndex := len(prefix) + separatorIndex + len(separator)
+	return payloadIndex < len(value)
+}
+
+func toolOutputImagePart(imageURL string) ChatContentPart {
+	return ChatContentPart{
+		Type:     "image_url",
+		ImageURL: &ChatImageURL{URL: imageURL},
+	}
+}
+
+// normalizeChatMessagesWithToolOutputMedia enforces the Chat Completions
+// tool-call invariant: an assistant tool-call batch is immediately followed by
+// its matching tool replies in call order. Any extracted media follows that
+// complete reply batch, never an individual sibling reply.
+func normalizeChatMessagesWithToolOutputMedia(messages []ChatMessage, mediaByCallID toolOutputMediaByCallID) []ChatMessage {
+	// Index every tool reply by its tool_call_id. A duplicate Responses output
+	// is interpreted as an update, so the final value wins.
+	replies := make(map[string]ChatMessage)
+	for _, message := range messages {
+		if message.Role == "tool" && message.ToolCallID != "" {
+			replies[message.ToolCallID] = message
+		}
+	}
+
+	out := make([]ChatMessage, 0, len(messages))
+	for _, message := range messages {
+		switch {
+		case message.Role == "tool":
+			// Bare Chat passthrough tool messages retain their position. Replies
+			// with call IDs are emitted next to their announcing assistant item;
+			// unannounced replies are invalid and are dropped.
+			if message.ToolCallID == "" {
+				out = append(out, message)
+			}
+			continue
+		case len(message.ToolCalls) > 0:
+			kept := make([]ChatToolCall, 0, len(message.ToolCalls))
+			for _, toolCall := range message.ToolCalls {
+				if toolCall.ID == "" {
+					continue
+				}
+				if _, ok := replies[toolCall.ID]; ok {
+					kept = append(kept, toolCall)
+				}
+			}
+			if len(kept) == 0 {
+				if isBlankChatContent(message.Content) {
+					continue
+				}
+				message.ToolCalls = nil
+				out = append(out, message)
+				continue
+			}
+
+			message.ToolCalls = kept
+			out = append(out, message)
+			for _, toolCall := range kept {
+				out = append(out, replies[toolCall.ID])
+			}
+
+			var mediaParts []ChatContentPart
+			for _, toolCall := range kept {
+				media := mediaByCallID[toolCall.ID]
+				if len(media) == 0 {
+					continue
+				}
+				mediaParts = append(mediaParts, ChatContentPart{
+					Type: "text",
+					Text: fmt.Sprintf(toolOutputMediaAttribution, toolCall.ID),
+				})
+				mediaParts = append(mediaParts, media...)
+			}
+			if len(mediaParts) > 0 {
+				content, _ := json.Marshal(mediaParts)
+				out = append(out, ChatMessage{Role: "user", Content: content})
+			}
+		default:
+			out = append(out, message)
+		}
+	}
+	return out
+}
+
+func isBlankChatContent(raw json.RawMessage) bool {
+	raw = bytesTrimSpace(raw)
+	if len(raw) == 0 || string(raw) == "null" || string(raw) == `""` {
+		return true
+	}
+	return chatMessageContentText(raw) == ""
 }
 
 func appendAssistantToolCall(messages []ChatMessage, toolCall ChatToolCall) []ChatMessage {

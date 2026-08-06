@@ -1,0 +1,28 @@
+# Task Contract
+
+- Task ID: `upstream-v0171-tool-output-media-s202`
+- Role: Generator
+- Goal: Port the behavior of upstream `2bf9c6d56` into the local Responses-to-Chat bridge without violating Chat tool-call/reply adjacency.
+- Success Criteria:
+  - A recognized image in `function_call_output`, `custom_tool_call_output`, or `tool_search_output` is replaced in the tool output by a stable marker and emitted as an `image_url` part in one user message after the matching tool-reply batch.
+  - Recognized forms include a direct image data URL, `input_image` / `image_url` objects, JSON-string encoded objects or arrays, and nested `content` containers. Unrecognized or media-free values preserve existing output behavior.
+  - The bridge rebuilds each answered assistant tool-call batch in call order, immediately followed by all matching tool replies; the optional media user message follows that complete reply batch. Orphan replies and unanswered calls do not leak media.
+  - Duplicate output IDs remain last-wins, and a later media-free output clears media remembered for the earlier reply.
+  - Focused bridge, service regression, server compile, formatting and Git integrity checks pass.
+  - No route, handler, database, schema, migration, dependency, configuration, frontend, container, deployment or primary-worktree changes occur.
+- Allowed Paths:
+  - `backend/internal/pkg/apicompat/chatcompletions_responses_bridge.go`
+  - `backend/internal/pkg/apicompat/chatcompletions_responses_tool_output_media_test.go`
+  - `docs/workflow/tasks/upstream-v0171-tool-output-media-s202.md`
+  - `docs/workflow/qa-reports/upstream-v0171-tool-output-media-s202-qa.md`
+  - `docs/workflow/main-log.md`
+- Denied Paths: all routes, handlers, database, schema, migrations, dependencies, configuration, frontend, containers, deployment targets, original E: worktree and primary worktree.
+- Constraints: This is a behavior-level port, not a cherry-pick. The user media message must never appear between sibling tool replies. Preserve `json.Number` while rewriting JSON so large numeric values do not lose precision. Keep the media-free output behavior unchanged.
+- Acceptance Commands:
+  - `go test ./internal/pkg/apicompat -count=1`
+  - `go test ./internal/service -run 'Test.*(Responses|ChatCompletions).*' -count=1`
+  - `go test ./cmd/server -run '^TestNonExistent$' -count=0`
+  - `gofmt -w internal/pkg/apicompat/chatcompletions_responses_bridge.go internal/pkg/apicompat/chatcompletions_responses_tool_output_media_test.go`
+  - `git diff --check`
+- Output: Scoped QA report and one isolated commit on `codex/upstream-v0171-integration-s183`, without push, deployment or primary-worktree modification.
+- Stop Rules: Stop if preserving tool-call adjacency requires route/provider changes, if an image format needs a dependency, if media-free output no longer round-trips as before, or if any change exceeds the allowed paths.
