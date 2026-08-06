@@ -1,0 +1,29 @@
+# Task Contract
+
+- Task ID: `upstream-v0171-codex-identity-probe-regression-s201`
+- Role: Generator
+- Goal: Reconcile integration regressions whose existing assertions predate S187's shared Codex load-shed identity normalization or S192's exact subscription-term window anchors.
+- Success Criteria:
+  - The image-account probe and Luna OAuth forwarding regression each expect the shared egress result: `originator=codex_cli_rs` and the paired normalized User-Agent with only its trailing official identity group removed.
+  - The image-account probe keeps asserting the ChatGPT Codex URL, account ID and streamed image completion behavior.
+  - The expired semantic subscription renewal regression expects each quota window to anchor exactly at the renewed `StartsAt`, not at the local-day midnight used before S192.
+  - No production source, runtime behavior, configuration, route, dependency, schema, migration, container, deployment or primary worktree changes occur.
+  - The focused probe test, the complete local service package, server compile probe and Git integrity checks pass.
+- Allowed Paths:
+  - `backend/internal/service/account_test_service_openai_compact_test.go`
+  - `backend/internal/service/openai_gateway_service_test.go`
+  - `backend/internal/service/subscription_assign_idempotency_test.go`
+  - `docs/workflow/tasks/upstream-v0171-codex-identity-probe-regression-s201.md`
+  - `docs/workflow/qa-reports/upstream-v0171-codex-identity-probe-regression-s201-qa.md`
+  - `docs/workflow/main-log.md`
+- Denied Paths: all production source, config, routes, dependencies, schema, migration, frontend, containers, deployment targets, original E: worktree and primary worktree.
+- Constraints: This is a regression-expectation repair for S187/S192, not an upstream feature port. Preserve the existing test fixtures and make no behavior change.
+- Acceptance Commands:
+  - `go test ./internal/service -run '^TestAccountTestService_TestAccountConnection_OpenAIImageOAuthEnforcesFinalCodexIdentity$' -count=1`
+  - `go test ./internal/service -run '^(TestOpenAIGatewayService_RecordLunaIdentityPairsOfficialCodexHeaders|TestAssignSubscriptionRenewsExpiredSemanticMatch)$' -count=1`
+  - `go test ./internal/service -count=1`
+  - `go test ./cmd/server -run '^TestNonExistent$' -count=0`
+  - `gofmt -w internal/service/account_test_service_openai_compact_test.go`
+  - `git diff --check`
+- Output: Scoped QA report and one isolated recovery commit, without push or deployment.
+- Stop Rules: Stop if the expected output differs from the S187/S192 contracts, if production code needs changing, or if a new upstream behavior is required.

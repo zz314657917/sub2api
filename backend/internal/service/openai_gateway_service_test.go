@@ -2724,8 +2724,8 @@ func TestOpenAIGatewayService_RecordLunaIdentityPairsOfficialCodexHeaders(t *tes
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.NotNil(t, upstream.lastReq)
-	require.Equal(t, "codex-tui/0.100.0 (Mac OS X 14.0; arm64) iTerm (codex-tui; 0.100.0)", upstream.lastReq.Header.Get("User-Agent"))
-	require.Equal(t, "codex-tui", upstream.lastReq.Header.Get("Originator"))
+	require.Equal(t, "codex_cli_rs/0.100.0 (Mac OS X 14.0; arm64) iTerm", upstream.lastReq.Header.Get("User-Agent"))
+	require.Equal(t, "codex_cli_rs", upstream.lastReq.Header.Get("Originator"))
 }
 
 // ==================== P1-08 修复：model 替换性能优化测试 ====================
