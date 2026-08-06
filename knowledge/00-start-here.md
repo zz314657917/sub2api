@@ -1,6 +1,6 @@
 # Sub2API 知识库入口
 
-最后更新：2026-07-24
+最后更新：2026-08-06
 
 ## 项目定位
 
@@ -35,7 +35,8 @@ Sub2API 是 AI API 网关平台，用于把上游 AI 账号、订阅额度和模
 
 ## 当前仓库状态提示
 
-- 当前默认续做主线已经继续前移到 2026-07-24 的 `S111 published + S112 PASS / source-only`；`S106-S109` 和独立 Agent Identity S108 已退成更早一层的已发布背景。
+- 当前默认续做主线已经继续前移到 2026-08-03 的 `Usage S135-S138` 与 `Pixel Cafe S139+`；`S111/S112` 和并行 `group-buy` 已退成更早一层背景。
+- 现在判断“仓库在做什么”，先看 `docs/workflow/status.md` 和 `knowledge/tasks/current-task.md`，再用 `knowledge/tasks/timeline.md` 补足最近阶段历史。
 - `knowledge/tasks/current-task.md` 应优先记录“现在默认从哪条主线继续”，不再适合停留在 2026-07-12 的 release push / fast-forward / cleanup 清单。
 - 遇到入口摘要与 workflow 文档冲突时，先以 `docs/workflow/status.md` 的当前 Sprint/phase 为准，再用 `knowledge/05-current-focus.md` 判断稳定主线，用 `knowledge/tasks/current-task.md` 判断当前会话快照。
 - 当前工作区仍存在并行 `group-buy` dirt：主工作树有 `frontend/src/views/admin/group-buy/AdminGroupBuyView.vue` 和对应测试目录未提交，且另有 `codex/group-buy-lifecycle-refund-hardening-s110` 独立工作树；开始新任务前先执行 `git status --short`，确认哪些文件属于本轮目标。
@@ -43,8 +44,8 @@ Sub2API 是 AI API 网关平台，用于把上游 AI 账号、订阅额度和模
 
 ## 当前默认心智
 
-- 当前最靠前的用户面变化已经前移到 `S111`：模型限流倒计时按天数/本地完整时间展示，`gpt-5.6-sol` 默认排序前移，Grok CC Switch 导入值和 endpoint 归一保持本地约束。
-- 当前最靠前的后端兼容变化已经前移到 `S112`：OpenAI OAuth passthrough 会把非数组 `input` 归一成 ChatGPT Codex 列表形态，但不改变数组输入、compact stream/store 语义、unsupported-field 清理和非 OAuth 路径。
+- 当前最靠前的用户面变化已经前移到 2026-08-03 的 Usage 与 Pixel Cafe 多阶段收口；`S111` 只作为更早背景保留。
+- 当前最靠前的后端兼容变化已经前移到 `S112`，但它已经退成背景层；后续继续做设置、网关、账号能力或 UI 时要先看最新 workflow 状态。
 - `S106-S109`、独立 Agent Identity S108、`S76-S81`、`S77` 和排行榜按小时刷新都已进入更早一层的稳定背景；继续排查设置、网关、账号能力或 UI 时不能回退到 7 月 20 日之前的 `S82-S86 publish pending` 心智。
 - 当前 workflow phase 是 `done`；`S111` 已 `PASS / published`，`S112` 是 `PASS / source-only` 但功能提交和发布收口都已在 `origin/main`。这仍不等于已部署、已更新容器或已做真实登录态/上游 smoke。
 - Studio Bridge / 落叶AI、暖白前端统一、共享账号渠道状态可见性、首充 bonus only、以及更早的上游 safe patches 仍然成立，但它们已经退成当前集成线之前的稳定背景层。

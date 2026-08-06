@@ -1,22 +1,25 @@
 # 当前主线
 
-最后更新：2026-07-24
+## 2026-08-03 之后
+
+- 默认续做心智已前移到 `Usage S135-S138` 与 `Pixel Cafe S139+`；`S111/S112`、`group-buy` 和更早的 Studio Bridge 语境只保留为背景。
+- 继续接手时，先看 `docs/workflow/status.md` 和 `knowledge/tasks/current-task.md`，再用 `knowledge/tasks/timeline.md` 回收最近阶段历史。
+
+最后更新：2026-08-06
 
 ## 当前阶段
 
-Sub2API 近期稳定主线再次前移。截至 2026-07-24，默认续做心智应先落在 `S111 PASS / published + S112 PASS / source-only（功能提交和发布收口已在 main）+ phase=done + 未部署/未更新容器 + 并行 S110/group-buy dirt 仍在工作树外/工作树内并存`，而不是继续停在 2026-07-20 的 `S82-S86 integration PASS + publish pending`。
+Sub2API 近期稳定主线再次前移。截至 2026-08-03，默认续做心智应先落在 `Usage S135-S138 + Pixel Cafe S139+ + phase=done + 当前 workflow/status 为准`，而不是继续停在 2026-07-24 的 `S111 PASS / published + S112 PASS / source-only` 语境。
 
 ## 当前重点
 
-1. `S111` 已成为当前最近一层已发布主线
-   - 已发布的四项行为是：Grok CC Switch 导入归一、Grok 402 冷却、按天数/本地完整时间显示的 model-rate-limit 倒计时，以及 `gpt-5.6-sol` 默认排序前移。
-   - 这条主线的结论是 `PASS / published`：功能提交 `15496ed12` 已在 `origin/main`，`HEAD`、`origin/main` 和远端 `main` 一致，分歧 `0/0`。
-   - 这仍不等于已部署、已更新容器、已做真实 Grok 请求或已完成登录态浏览器 smoke；知识入口不能把源码发布等同于运行环境发布。
+1. `Usage S135-S138` 已成为当前最近一层分析主线
+   - 最近 3 天的稳定变化集中在用户/管理员 Usage 分析、错误请求、Token 排行和相关 workflow 收口。
+   - 这条主线应以 `docs/workflow/status.md`、`knowledge/tasks/current-task.md` 和 `knowledge/tasks/timeline.md` 为准，入口知识只负责把默认语境抬到最新一层。
 
-2. `S112` 已成为当前最近一层 OpenAI OAuth passthrough 稳定兼容面
-   - S112 手工移植 `v0.1.164` 的 passthrough `input` 归一：非数组 `input` 会转成 ChatGPT Codex 列表形态，现有数组输入、compact stream/store 语义、unsupported-field 清理和非 OAuth 路径保持不变。
-   - 这条主线的裁决是 `PASS / source-only`，但功能提交 `2cd0f519c` 和发布收口都已在 `origin/main`；默认续做不能再把最新后端兼容面误写成 S86 或更早。
-   - 更广的 `go test ./internal/service -count=1` 仍保留既有 `TestPeakMultiplier*` 聚合跑失败；这是全局 timezone/test-order 基线风险，不是 S112 本身的阻断。
+2. `Pixel Cafe S139+` 已成为当前最近一层业务主线
+   - Pixel Cafe 已进入多阶段实现和浏览器验收语境，继续接手时不要再把仓库当成只有旧 group-buy 或旧 Studio Bridge 的主线。
+   - 这层变化更适合作为长期默认入口提示，而不是只留在 workflow 产物里。
 
 3. 并行 `S110 / group-buy` 已成为当前工作树边界的一部分
    - 另有 `codex/group-buy-lifecycle-refund-hardening-s110` 独立工作树，且主工作树当前存在 `frontend/src/views/admin/group-buy/AdminGroupBuyView.vue` 与对应测试目录的并行 dirt。
