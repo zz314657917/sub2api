@@ -1211,6 +1211,9 @@ func (s *groupBuyUserSubRepoStub) Create(context.Context, *UserSubscription) err
 func (s *groupBuyUserSubRepoStub) GetByID(context.Context, int64) (*UserSubscription, error) {
 	panic("unexpected GetByID call")
 }
+func (s *groupBuyUserSubRepoStub) GetByIDForUpdate(context.Context, int64) (*UserSubscription, error) {
+	panic("unexpected GetByIDForUpdate call")
+}
 func (s *groupBuyUserSubRepoStub) GetByUserIDAndGroupID(context.Context, int64, int64) (*UserSubscription, error) {
 	panic("unexpected GetByUserIDAndGroupID call")
 }

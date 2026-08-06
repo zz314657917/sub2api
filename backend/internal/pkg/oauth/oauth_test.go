@@ -1,10 +1,18 @@
 package oauth
 
 import (
+	"strings"
 	"sync"
 	"testing"
 	"time"
 )
+
+func TestBuildAuthorizationURLUsesCaiEndpoint(t *testing.T) {
+	authorizationURL := BuildAuthorizationURL("state", "challenge", ScopeOAuth)
+	if !strings.HasPrefix(authorizationURL, "https://claude.com/cai/oauth/authorize?") {
+		t.Fatalf("BuildAuthorizationURL() = %q, want claude.com/cai endpoint", authorizationURL)
+	}
+}
 
 func TestSessionStore_Stop_Idempotent(t *testing.T) {
 	store := NewSessionStore()

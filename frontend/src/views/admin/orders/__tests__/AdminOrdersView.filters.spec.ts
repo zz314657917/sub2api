@@ -21,4 +21,13 @@ describe('AdminOrdersView order date filters', () => {
     expect(viewSource).toContain("t('payment.admin.last30Days')")
     expect(viewSource).toContain('type="date"')
   })
+
+  it('keeps the refund dialog open when the backend requires explicit force confirmation', () => {
+    expect(viewSource).toContain(':require-force="refundRequireForce"')
+    expect(viewSource).toContain(':warning="refundWarning"')
+    expect(viewSource).toContain('function closeRefundDialog()')
+    expect(viewSource).toContain('if (res.data.require_force)')
+    expect(viewSource).toContain('refundRequireForce.value = true')
+    expect(viewSource).toContain("refundWarning.value = res.data.warning || ''")
+  })
 })

@@ -164,6 +164,93 @@ func TestPrepareRefundRejectsLegacyGuessedProviderInstance(t *testing.T) {
 	require.Equal(t, "REFUND_DISABLED", infraerrors.Reason(err))
 }
 
+func TestPrepDeductBalanceRequiresForceWhenBalanceIsInsufficient(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		balance     float64
+		force       bool
+		wantDeduct  float64
+		wantWarning bool
+	}{
+		{name: "insufficient balance", balance: 40, wantWarning: true},
+		{name: "forced insufficient balance", balance: 40, force: true, wantDeduct: 40},
+		{name: "equal balance", balance: 100, wantDeduct: 100},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			plan := &RefundPlan{RefundAmount: 100}
+			svc := &PaymentService{userRepo: &mockUserRepo{getByIDUser: &User{Balance: tc.balance}}}
+
+			result := svc.prepDeduct(context.Background(), &dbent.PaymentOrder{
+				UserID:    1,
+				OrderType: payment.OrderTypeBalance,
+			}, plan, tc.force)
+
+			if tc.wantWarning {
+				require.NotNil(t, result)
+				require.False(t, result.Success)
+				require.True(t, result.RequireForce)
+				require.Equal(t, "user balance is insufficient for deduction, use force", result.Warning)
+				require.Zero(t, plan.BalanceToDeduct)
+				return
+			}
+			require.Nil(t, result)
+			require.Equal(t, payment.DeductionTypeBalance, plan.DeductionType)
+			require.Equal(t, tc.wantDeduct, plan.BalanceToDeduct)
+		})
+	}
+}
+
+func TestExecuteRefundUsesActualAvailableBalanceDeduction(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	user, err := client.User.Create().
+		SetEmail("refund-execute-clamp@example.com").
+		SetPasswordHash("hash").
+		SetUsername("refund-execute-clamp").
+		Save(ctx)
+	require.NoError(t, err)
+	order, err := client.PaymentOrder.Create().
+		SetUserID(user.ID).
+		SetUserEmail(user.Email).
+		SetUserName(user.Username).
+		SetAmount(100).
+		SetPayAmount(100).
+		SetFeeRate(0).
+		SetRechargeCode("REFUND-EXECUTE-CLAMP").
+		SetOutTradeNo("refund_execute_clamp").
+		SetPaymentType(payment.TypeStripe).
+		SetPaymentTradeNo("").
+		SetOrderType(payment.OrderTypeBalance).
+		SetStatus(OrderStatusCompleted).
+		SetExpiresAt(time.Now().Add(time.Hour)).
+		SetPaidAt(time.Now()).
+		SetClientIP("127.0.0.1").
+		SetSrcHost("api.example.com").
+		Save(ctx)
+	require.NoError(t, err)
+
+	repo := &mockUserRepo{deductAvailableBalanceFn: func(_ context.Context, id int64, amount float64) (float64, error) {
+		require.Equal(t, user.ID, id)
+		require.Equal(t, 100.0, amount)
+		return 25, nil
+	}}
+	plan := &RefundPlan{
+		OrderID: order.ID, Order: order, RefundAmount: 100, GatewayAmount: 100,
+		Reason: "concurrent spend", Force: true, DeductionType: payment.DeductionTypeBalance, BalanceToDeduct: 100,
+	}
+
+	result, err := (&PaymentService{entClient: client, userRepo: repo}).ExecuteRefund(ctx, plan)
+	require.NoError(t, err)
+	require.True(t, result.Success)
+	require.Equal(t, 25.0, plan.BalanceToDeduct)
+	require.Equal(t, 25.0, result.BalanceDeducted)
+	audit, err := client.PaymentAuditLog.Query().
+		Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(order.ID, 10)), paymentauditlog.ActionEQ("REFUND_SUCCESS")).
+		Only(ctx)
+	require.NoError(t, err)
+	require.Contains(t, audit.Detail, "\"balanceDeducted\":25")
+}
+
 func TestGwRefundRejectsAlipayMerchantIdentitySnapshotMismatch(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)
@@ -518,9 +605,17 @@ func TestQueryAndFinalizeRefundUsesPendingAuditDeductionAmount(t *testing.T) {
 		SetProviderKey(payment.TypeStripe).
 		Save(ctx)
 	require.NoError(t, err)
+	membershipRepo := newMembershipRepoFake()
+	membershipSvc := NewMembershipService(membershipRepo, &settingRepoFake{}, nil, nil, nil)
+	_, err = membershipSvc.UpdateSettings(ctx, membershipTestSettings())
+	require.NoError(t, err)
+	membershipRepo.monthlyPaid = 120
+	require.NoError(t, membershipSvc.RecalculateForUser(ctx, user.ID, order.ID, "payment_completed"))
+	membershipRepo.monthlyPaid = 60
 	svc := &PaymentService{
-		entClient:    client,
-		loadBalancer: newWebhookProviderTestLoadBalancer(client),
+		entClient:     client,
+		loadBalancer:  newWebhookProviderTestLoadBalancer(client),
+		membershipSvc: membershipSvc,
 	}
 	svc.writeAuditLog(ctx, order.ID, "REFUND_PENDING", "admin", map[string]any{
 		"refundID":            "re_saved_pending",
@@ -534,10 +629,10 @@ func TestQueryAndFinalizeRefundUsesPendingAuditDeductionAmount(t *testing.T) {
 
 	var deducted float64
 	userRepo := &mockUserRepo{}
-	userRepo.deductBalanceFn = func(ctx context.Context, id int64, amount float64) error {
+	userRepo.deductAvailableBalanceFn = func(ctx context.Context, id int64, amount float64) (float64, error) {
 		require.Equal(t, user.ID, id)
 		deducted += amount
-		return nil
+		return amount, nil
 	}
 	queryProvider := &refundQueryProviderStub{
 		key:           payment.TypeStripe,
@@ -571,4 +666,8 @@ func TestQueryAndFinalizeRefundUsesPendingAuditDeductionAmount(t *testing.T) {
 		Count(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, successAudits)
+	status, err := membershipSvc.GetStatus(ctx, user.ID)
+	require.NoError(t, err)
+	require.Equal(t, MembershipTierVIP, status.CurrentTier)
+	require.Len(t, membershipRepo.revoked, 1)
 }
