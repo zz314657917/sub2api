@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-05 +08:00
+最后更新：2026-08-06 +08:00
 
 ## 背景
 
@@ -9,6 +9,15 @@
 - S157/S158 已补齐隔离 PostgreSQL/Redis 与最后一 Seat 运行态证据；Docker Desktop 曾在明确授权后重启，原有容器已恢复健康。
 
 ## 当前目标
+
+- v0.1.171 选择性上游整合已收口到本地 `main`：S181-S201 分为三组行为提交
+  `21c2d33d4`、`20c56753a`、`290a815ba` 和一组 regression/triage 提交 `194edd3f7`；此前 S202
+  媒体工具输出桥接保持在 `d6792b966`。本轮无推送、部署、数据库或生产操作，本地主线仍未推送到
+  `origin/main`。
+- 四个 `codex/upstream-v0171-*` 临时分支和全部 Git worktree 注册已删除，`backup/*` 保留。S182 的目录已删除；
+  `E:/codex-worktrees/sub2api/upstream-v0171-financial-integrity-s181` 与
+  `E:/codex-worktrees/sub2api/upstream-v0171-integration-s183` 是系统策略拒绝递归删除后留下的非 Git
+  残留目录，不能绕过策略强删。主工作树仅保留用户的未跟踪 `outputs/` JSON 文件。
 
 - S177 本地分支整合已收口并推送到 `origin/main@09c9971e7`。在既有合入基础上，本轮按独立合同快进了 classifier 回归
   `c92dcc13d`、发布安全资源 `618cc3bf9` 与 OpenAI 代理流熔断 `199be5cba`。S132、Passkey、Kimi K3、
@@ -27,7 +36,7 @@
 
 ## 已确认事实
 
-- `main` 与 `origin/main` 已同步至 `09c9971e7`；`git diff --check`、`git fsck --no-dangling`、全量默认 `go test -p 1 ./...`、`go build ./...`、稳定容器 `/health` 均通过。主工作树仍只保留用户原有的 `docs/workflow/main-log.md` 和 `outputs/` 未提交改动。
+- `main` 已包含 S202 及 S181-S201 选择性整合，而 `origin/main` 仍是 `d6f05667b`；本轮 `git diff --check`、`git fsck --no-dangling`、聚焦 Go 回归、前端 62 个 Vitest、typecheck 与 production build 均通过。主工作树只保留未跟踪的 `outputs/` JSON 文件。
 - 本地分支仅剩 `main` 与三个 `backup/*`。三个临时集成 worktree 已删除；原始宽分支已删除，其 4 个未提交 Prompt Audit 文件保存在命名 `stash@{0}`。
 - Windows 本机策略拒绝递归删除 `E:/codex-worktrees/sub2api-v0169-behavior-wide` 的 993 项脱离 Git 的残留副本；它不在 `git worktree list`，且不含 `.git`。不得绕过该策略强删。
 
