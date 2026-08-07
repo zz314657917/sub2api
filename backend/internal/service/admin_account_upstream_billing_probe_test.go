@@ -58,7 +58,7 @@ func (r *accountBillingSettingsAdminRepo) UpdateWithAccountBillingSettings(
 		updated.RateMultiplier = &value
 		r.lastExplicitRate = nil
 	default:
-		updated.RateMultiplier = cloneAccountValuePointer(current.RateMultiplier)
+		updated.RateMultiplier = cloneGroupValuePointer(current.RateMultiplier)
 		r.lastExplicitRate = nil
 	}
 	r.accounts[account.ID] = &updated

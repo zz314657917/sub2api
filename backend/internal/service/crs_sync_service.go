@@ -1063,6 +1063,7 @@ func reconcileCRSUpstreamBillingProbeExtra(
 	extra map[string]any,
 ) {
 	delete(extra, UpstreamBillingProbeEnabledExtraKey)
+	delete(extra, UpstreamBillingRateSyncEnabledExtraKey)
 	delete(extra, UpstreamBillingProbeExtraKey)
 	if existing == nil {
 		return
@@ -1072,6 +1073,9 @@ func reconcileCRSUpstreamBillingProbeExtra(
 	}
 	if enabled, ok := existing.Extra[UpstreamBillingProbeEnabledExtraKey]; ok {
 		extra[UpstreamBillingProbeEnabledExtraKey] = enabled
+	}
+	if enabled, ok := existing.Extra[UpstreamBillingRateSyncEnabledExtraKey]; ok {
+		extra[UpstreamBillingRateSyncEnabledExtraKey] = enabled
 	}
 	target := &Account{Platform: targetPlatform, Type: targetType, Credentials: targetCredentials}
 	if reflect.DeepEqual(upstreamBillingProbeIdentity(existing), upstreamBillingProbeIdentity(target)) {

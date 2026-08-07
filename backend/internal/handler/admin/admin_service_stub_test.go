@@ -21,6 +21,7 @@ type stubAdminService struct {
 	boundAuthIdentityFor       int64
 	createdAccounts            []*service.CreateAccountInput
 	updatedAccounts            []stubUpdatedAccount
+	lastUpdateAccountInput     *service.UpdateAccountInput
 	extraUpdates               []stubExtraUpdate
 	createdProxies             []*service.CreateProxyInput
 	updatedProxyIDs            []int64
@@ -399,6 +400,7 @@ func (s *stubAdminService) CreateAccount(ctx context.Context, input *service.Cre
 func (s *stubAdminService) UpdateAccount(ctx context.Context, id int64, input *service.UpdateAccountInput) (*service.Account, error) {
 	s.mu.Lock()
 	s.updatedAccounts = append(s.updatedAccounts, stubUpdatedAccount{id: id, input: input})
+	s.lastUpdateAccountInput = input
 	s.mu.Unlock()
 	if s.updateAccountErr != nil {
 		return nil, s.updateAccountErr

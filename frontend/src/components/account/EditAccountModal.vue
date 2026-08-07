@@ -2724,6 +2724,7 @@ const shareDisplay7dLimit = ref<number | null>(null)
 const shareDisplay7dUsed = ref<number | null>(null)
 const accountCapabilityValues: AccountCapability[] = ['chat', 'image', 'video', 'embedding']
 const upstreamBillingAutoProbeEnabled = ref(false)
+const upstreamBillingRateSyncEnabled = ref(false)
 
 function normalizeAccountCapabilities(value: unknown): AccountCapability[] {
   if (!Array.isArray(value)) {
@@ -3232,6 +3233,8 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   allowOverages.value = extra?.allow_overages === true
   accountSupportedCapabilities.value = normalizeAccountCapabilities(extra?.supported_capabilities)
   upstreamBillingAutoProbeEnabled.value = extra?.upstream_billing_probe_enabled === true
+  upstreamBillingRateSyncEnabled.value =
+    upstreamBillingAutoProbeEnabled.value && extra?.upstream_billing_rate_sync_enabled === true
 
   // Load OpenAI passthrough toggle (OpenAI OAuth/API Key)
   openaiPassthroughEnabled.value = false

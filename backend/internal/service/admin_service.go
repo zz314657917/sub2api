@@ -3268,6 +3268,7 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 
 	accountExtra := ApplyAccountSupportedCapabilities(input.Extra)
 	delete(accountExtra, UpstreamBillingProbeEnabledExtraKey)
+	delete(accountExtra, UpstreamBillingRateSyncEnabledExtraKey)
 	delete(accountExtra, UpstreamBillingProbeExtraKey)
 	if input.ProbeEnabled != nil {
 		if !isUpstreamBillingProbeAccount(&Account{Platform: input.Platform, Type: input.Type}) {
@@ -3363,6 +3364,10 @@ type accountProbeEnabledAtomicUpdater interface {
 	UpdateWithUpstreamBillingProbeEnabled(context.Context, *Account, bool) error
 }
 
+type accountBillingSettingsAtomicUpdater interface {
+	UpdateWithAccountBillingSettings(context.Context, *Account, *bool, *bool, *float64) error
+}
+
 func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *UpdateAccountInput) (*Account, error) {
 	account, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {
@@ -3387,10 +3392,11 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	}
 	// Extra 使用 map：需要区分“未提供(nil)”与“显式清空({})”。
 	// 关闭配额限制时前端会删除 quota_* 键并提交 extra:{}，此时也必须落库。
-	var requestedProbeEnabledUpdate *bool
+	requestedProbeEnabledUpdate := input.ProbeEnabled
+	requestedRateSyncEnabledUpdate := input.RateSyncEnabled
 	if input.Extra != nil {
 		requestedProbeEnabled, hasRequestedProbeEnabled := input.Extra[UpstreamBillingProbeEnabledExtraKey]
-		if hasRequestedProbeEnabled {
+		if requestedProbeEnabledUpdate == nil && hasRequestedProbeEnabled {
 			enabled, ok := requestedProbeEnabled.(bool)
 			if !ok {
 				return nil, infraerrors.BadRequest("INVALID_UPSTREAM_BILLING_PROBE_ENABLED", "upstream_billing_probe_enabled must be a boolean")
@@ -3398,13 +3404,14 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 			requestedProbeEnabledUpdate = &enabled
 		}
 		delete(input.Extra, UpstreamBillingProbeEnabledExtraKey)
+		delete(input.Extra, UpstreamBillingRateSyncEnabledExtraKey)
 		delete(input.Extra, UpstreamBillingProbeExtraKey)
 		// 保留配额用量字段，防止编辑账号时意外重置
 		for _, key := range []string{
 			"quota_used", "quota_daily_used", "quota_daily_start",
 			"quota_weekly_used", "quota_weekly_start",
 			"quota_monthly_used", "quota_monthly_start",
-			UpstreamBillingProbeEnabledExtraKey, UpstreamBillingProbeExtraKey,
+			UpstreamBillingProbeEnabledExtraKey, UpstreamBillingRateSyncEnabledExtraKey, UpstreamBillingProbeExtraKey,
 		} {
 			if v, ok := account.Extra[key]; ok {
 				input.Extra[key] = v
@@ -3415,6 +3422,13 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 				input.Extra[UpstreamBillingProbeEnabledExtraKey] = requestedProbeEnabled
 			} else {
 				delete(input.Extra, UpstreamBillingProbeEnabledExtraKey)
+			}
+		}
+		if requestedRateSyncEnabledUpdate != nil {
+			if isUpstreamBillingProbeAccount(account) {
+				input.Extra[UpstreamBillingRateSyncEnabledExtraKey] = *requestedRateSyncEnabledUpdate
+			} else {
+				delete(input.Extra, UpstreamBillingRateSyncEnabledExtraKey)
 			}
 		}
 		account.Extra = ApplyAccountSupportedCapabilities(input.Extra)
@@ -3449,6 +3463,7 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 		delete(account.Extra, UpstreamBillingProbeExtraKey)
 		if !isUpstreamBillingProbeAccount(account) {
 			delete(account.Extra, UpstreamBillingProbeEnabledExtraKey)
+			delete(account.Extra, UpstreamBillingRateSyncEnabledExtraKey)
 		}
 	}
 	// 只在指针非 nil 时更新 Concurrency（支持设置为 0）
@@ -3464,6 +3479,19 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 			return nil, errors.New("rate_multiplier must be >= 0")
 		}
 		account.RateMultiplier = input.RateMultiplier
+	}
+	if input.RateMultiplier != nil && upstreamBillingRateSyncEnabled(account) &&
+		!((requestedRateSyncEnabledUpdate != nil && !*requestedRateSyncEnabledUpdate) ||
+			(requestedProbeEnabledUpdate != nil && !*requestedProbeEnabledUpdate)) {
+		return nil, ErrUpstreamBillingRateSyncConflict
+	}
+	if requestedRateSyncEnabledUpdate != nil && isUpstreamBillingProbeAccount(account) && *requestedRateSyncEnabledUpdate {
+		if requestedProbeEnabledUpdate != nil && !*requestedProbeEnabledUpdate {
+			return nil, ErrUpstreamBillingRateSyncConflict
+		}
+		if input.RateMultiplier != nil {
+			return nil, ErrUpstreamBillingRateSyncConflict
+		}
 	}
 	if input.LoadFactor != nil {
 		if *input.LoadFactor <= 0 {
@@ -3503,23 +3531,34 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 		}
 	}
 
-	probeEnabledAppliedAtomically := false
-	if requestedProbeEnabledUpdate != nil && isUpstreamBillingProbeAccount(account) {
-		if updater, ok := s.accountRepo.(accountProbeEnabledAtomicUpdater); ok {
-			if err := updater.UpdateWithUpstreamBillingProbeEnabled(ctx, account, *requestedProbeEnabledUpdate); err != nil {
+	billingSettingsAppliedAtomically := false
+	if isUpstreamBillingProbeAccount(account) {
+		if updater, ok := s.accountRepo.(accountBillingSettingsAtomicUpdater); ok {
+			if err := updater.UpdateWithAccountBillingSettings(ctx, account, requestedProbeEnabledUpdate, requestedRateSyncEnabledUpdate, input.RateMultiplier); err != nil {
 				return nil, err
 			}
-			probeEnabledAppliedAtomically = true
+			billingSettingsAppliedAtomically = true
 		}
 	}
-	if !probeEnabledAppliedAtomically {
+	if !billingSettingsAppliedAtomically {
 		if err := s.accountRepo.Update(ctx, account); err != nil {
 			return nil, err
 		}
-		if requestedProbeEnabledUpdate != nil && isUpstreamBillingProbeAccount(account) {
-			if err := s.accountRepo.UpdateExtra(ctx, account.ID, map[string]any{
-				UpstreamBillingProbeEnabledExtraKey: *requestedProbeEnabledUpdate,
-			}); err != nil {
+		if (requestedProbeEnabledUpdate != nil || requestedRateSyncEnabledUpdate != nil) && isUpstreamBillingProbeAccount(account) {
+			updates := make(map[string]any, 2)
+			if requestedProbeEnabledUpdate != nil {
+				updates[UpstreamBillingProbeEnabledExtraKey] = *requestedProbeEnabledUpdate
+			}
+			if requestedRateSyncEnabledUpdate != nil {
+				updates[UpstreamBillingRateSyncEnabledExtraKey] = *requestedRateSyncEnabledUpdate
+			}
+			if requestedProbeEnabledUpdate == nil && requestedRateSyncEnabledUpdate != nil && *requestedRateSyncEnabledUpdate {
+				updates[UpstreamBillingProbeEnabledExtraKey] = true
+			}
+			if requestedProbeEnabledUpdate != nil && !*requestedProbeEnabledUpdate {
+				updates[UpstreamBillingRateSyncEnabledExtraKey] = false
+			}
+			if err := s.accountRepo.UpdateExtra(ctx, account.ID, updates); err != nil {
 				return nil, err
 			}
 		}
@@ -3545,6 +3584,13 @@ func (s *adminServiceImpl) UpdateAccountExtra(ctx context.Context, id int64, upd
 	if len(updates) == 0 {
 		return nil
 	}
+	updates = mergeMap(nil, updates)
+	delete(updates, UpstreamBillingProbeEnabledExtraKey)
+	delete(updates, UpstreamBillingRateSyncEnabledExtraKey)
+	delete(updates, UpstreamBillingProbeExtraKey)
+	if len(updates) == 0 {
+		return nil
+	}
 	return s.accountRepo.UpdateExtra(ctx, id, updates)
 }
 
@@ -3552,6 +3598,7 @@ func (s *adminServiceImpl) UpdateAccountExtra(ctx context.Context, id int64, upd
 // It merges credentials/extra keys instead of overwriting the whole object.
 func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUpdateAccountsInput) (*BulkUpdateAccountsResult, error) {
 	delete(input.Extra, UpstreamBillingProbeEnabledExtraKey)
+	delete(input.Extra, UpstreamBillingRateSyncEnabledExtraKey)
 	delete(input.Extra, UpstreamBillingProbeExtraKey)
 	if len(input.AccountIDs) == 0 && input.Filters != nil {
 		accountIDs, err := s.resolveBulkUpdateTargetIDs(ctx, input.Filters)
@@ -3577,7 +3624,7 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	}
 
 	needMixedChannelCheck := input.GroupIDs != nil && !input.SkipMixedChannelCheck
-	needAccountPreload := needMixedChannelCheck || input.ProbeEnabled != nil
+	needAccountPreload := needMixedChannelCheck || input.ProbeEnabled != nil || input.RateMultiplier != nil
 
 	// 预加载账号平台信息，以便在写入前完成混合渠道和探测资格校验。
 	accountsByID := make(map[int64]*Account, len(input.AccountIDs))
@@ -3600,6 +3647,17 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 			}
 			if !isUpstreamBillingProbeAccount(account) {
 				return nil, ErrUpstreamBillingProbeAccountInvalid
+			}
+		}
+	}
+	if input.RateMultiplier != nil {
+		for _, accountID := range input.AccountIDs {
+			account, ok := accountsByID[accountID]
+			if !ok {
+				return nil, ErrAccountNotFound
+			}
+			if upstreamBillingRateSyncEnabled(account) {
+				return nil, ErrUpstreamBillingRateSyncBulkConflict
 			}
 		}
 	}
@@ -3634,6 +3692,9 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 		}
 		repoUpdates.Extra[UpstreamBillingProbeEnabledExtraKey] = *input.ProbeEnabled
 		repoUpdates.ProbeEnabled = input.ProbeEnabled
+		if !*input.ProbeEnabled {
+			repoUpdates.Extra[UpstreamBillingRateSyncEnabledExtraKey] = false
+		}
 	}
 	if updatesUpstreamBillingProbeIdentity(input.Credentials) || input.ProxyID != nil {
 		if repoUpdates.Extra == nil {

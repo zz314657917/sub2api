@@ -62,10 +62,11 @@ var schedulerNeutralExtraKeyPrefixes = []string{
 }
 
 var schedulerNeutralExtraKeys = map[string]struct{}{
-	"codex_usage_updated_at":                    {},
-	"session_window_utilization":                {},
-	service.UpstreamBillingProbeExtraKey:        {},
-	service.UpstreamBillingProbeEnabledExtraKey: {},
+	"codex_usage_updated_at":                       {},
+	"session_window_utilization":                   {},
+	service.UpstreamBillingProbeExtraKey:           {},
+	service.UpstreamBillingProbeEnabledExtraKey:    {},
+	service.UpstreamBillingRateSyncEnabledExtraKey: {},
 }
 
 const postgresParameterBatchSize = 50000
@@ -374,7 +375,7 @@ func (r *accountRepository) updateAccount(
 		}
 	}
 
-	extra, err := lockAndMergeAccountProbeExtra(ctx, client, account, explicitProbeEnabled)
+	extra, err := lockAndMergeAccountProbeExtra(ctx, client, account, explicitProbeEnabled, explicitRateSyncEnabled)
 	if err != nil {
 		return translatePersistenceError(err, service.ErrAccountNotFound, nil)
 	}
@@ -506,6 +507,7 @@ func lockAndMergeAccountProbeExtra(
 			AND credentials = $4::jsonb
 			AND proxy_id IS NOT DISTINCT FROM $5,
 			extra -> 'upstream_billing_probe_enabled',
+			extra -> 'upstream_billing_rate_sync_enabled',
 			extra -> 'upstream_billing_probe'
 		FROM accounts
 		WHERE id = $1 AND deleted_at IS NULL
@@ -525,9 +527,10 @@ func lockAndMergeAccountProbeExtra(
 	var (
 		identityUnchanged bool
 		currentEnabled    []byte
+		currentRateSync   []byte
 		currentSnapshot   []byte
 	)
-	if err := rows.Scan(&identityUnchanged, &currentEnabled, &currentSnapshot); err != nil {
+	if err := rows.Scan(&identityUnchanged, &currentEnabled, &currentRateSync, &currentSnapshot); err != nil {
 		return nil, err
 	}
 	if err := rows.Err(); err != nil {
@@ -536,22 +539,53 @@ func lockAndMergeAccountProbeExtra(
 
 	extra := copyJSONMap(normalizeJSONMap(account.Extra))
 	delete(extra, service.UpstreamBillingProbeEnabledExtraKey)
+	delete(extra, service.UpstreamBillingRateSyncEnabledExtraKey)
 	delete(extra, service.UpstreamBillingProbeExtraKey)
-	probeExplicitlyDisabled := false
 	probeAccount := service.IsUpstreamBillingProbeIdentity(account.Platform, account.Type)
-	if probeAccount && explicitProbeEnabled != nil {
-		extra[service.UpstreamBillingProbeEnabledExtraKey] = *explicitProbeEnabled
-		probeExplicitlyDisabled = !*explicitProbeEnabled
-	} else if probeAccount && len(currentEnabled) > 0 && string(currentEnabled) != "null" {
-		var enabled any
-		if err := json.Unmarshal(currentEnabled, &enabled); err != nil {
-			return nil, err
+	probeEnabled, probeEnabledPresent := false, false
+	if probeAccount {
+		if len(currentEnabled) > 0 && string(currentEnabled) != "null" {
+			var enabled any
+			if err := json.Unmarshal(currentEnabled, &enabled); err != nil {
+				return nil, err
+			}
+			if value, ok := enabled.(bool); ok {
+				probeEnabled, probeEnabledPresent = value, true
+			}
 		}
-		extra[service.UpstreamBillingProbeEnabledExtraKey] = enabled
-		if value, ok := enabled.(bool); ok && !value {
-			probeExplicitlyDisabled = true
+		if explicitProbeEnabled != nil {
+			probeEnabled, probeEnabledPresent = *explicitProbeEnabled, true
 		}
 	}
+	rateSyncEnabled, rateSyncEnabledPresent := false, false
+	if probeAccount {
+		if len(currentRateSync) > 0 && string(currentRateSync) != "null" {
+			var enabled any
+			if err := json.Unmarshal(currentRateSync, &enabled); err != nil {
+				return nil, err
+			}
+			if value, ok := enabled.(bool); ok {
+				rateSyncEnabled, rateSyncEnabledPresent = value, true
+			}
+		}
+		if explicitRateSyncEnabled != nil {
+			rateSyncEnabled, rateSyncEnabledPresent = *explicitRateSyncEnabled, true
+		}
+		if explicitProbeEnabled != nil && !*explicitProbeEnabled {
+			rateSyncEnabled, rateSyncEnabledPresent = false, true
+		} else if explicitRateSyncEnabled != nil && *explicitRateSyncEnabled {
+			probeEnabled, probeEnabledPresent = true, true
+		} else if !probeEnabled {
+			rateSyncEnabled = false
+		}
+		if probeEnabledPresent {
+			extra[service.UpstreamBillingProbeEnabledExtraKey] = probeEnabled
+		}
+		if rateSyncEnabledPresent {
+			extra[service.UpstreamBillingRateSyncEnabledExtraKey] = rateSyncEnabled
+		}
+	}
+	probeExplicitlyDisabled := probeEnabledPresent && !probeEnabled
 	if !identityUnchanged || probeExplicitlyDisabled || len(currentSnapshot) == 0 || string(currentSnapshot) == "null" {
 		return extra, nil
 	}
@@ -2272,7 +2306,12 @@ func (r *accountRepository) UpdateExtra(ctx context.Context, id int64, updates m
 
 // UpdateUpstreamBillingProbeSnapshot stores a probe result only while the
 // network identity used by that probe is still current.
-func (r *accountRepository) UpdateUpstreamBillingProbeSnapshot(ctx context.Context, account *service.Account, snapshot *service.UpstreamBillingProbeSnapshot) error {
+func (r *accountRepository) UpdateUpstreamBillingProbeSnapshot(
+	ctx context.Context,
+	account *service.Account,
+	snapshot *service.UpstreamBillingProbeSnapshot,
+	rateMultiplier *float64,
+) error {
 	if account == nil || snapshot == nil {
 		return service.ErrAccountNilInput
 	}
@@ -2288,7 +2327,7 @@ func (r *accountRepository) UpdateUpstreamBillingProbeSnapshot(ctx context.Conte
 			return err
 		}
 		defer func() { _ = tx.Rollback() }()
-		if err := r.updateUpstreamBillingProbeSnapshotInTx(dbent.NewTxContext(ctx, tx), account, snapshot); err != nil {
+		if err := r.updateUpstreamBillingProbeSnapshotInTx(dbent.NewTxContext(ctx, tx), account, snapshot, rateMultiplier); err != nil {
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -2300,7 +2339,12 @@ func (r *accountRepository) UpdateUpstreamBillingProbeSnapshot(ctx context.Conte
 	return r.updateUpstreamBillingProbeSnapshotInTx(ctx, account, snapshot, rateMultiplier)
 }
 
-func (r *accountRepository) updateUpstreamBillingProbeSnapshotInTx(ctx context.Context, account *service.Account, snapshot *service.UpstreamBillingProbeSnapshot) error {
+func (r *accountRepository) updateUpstreamBillingProbeSnapshotInTx(
+	ctx context.Context,
+	account *service.Account,
+	snapshot *service.UpstreamBillingProbeSnapshot,
+	rateMultiplier *float64,
+) error {
 	payload, err := json.Marshal(map[string]any{service.UpstreamBillingProbeExtraKey: snapshot})
 	if err != nil {
 		return err

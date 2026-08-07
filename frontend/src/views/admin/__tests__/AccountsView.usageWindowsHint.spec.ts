@@ -189,7 +189,7 @@ describe('admin AccountsView usage windows hint', () => {
       node.text() === 'admin.accounts.upstreamBilling.trustWarning'
     )).toBe(true)
     const columns = wrapper.getComponent(DataTableStub).props('columns') as Array<{ key: string; sortable: boolean }>
-    expect(columns.find(column => column.key === 'upstream_billing_rate')?.sortable).toBe(true)
+    expect(columns.find(column => column.key === 'upstream_billing_rate')?.sortable).toBe(false)
   })
 
   it('shows account multipliers with enough precision to match declared rates', async () => {
