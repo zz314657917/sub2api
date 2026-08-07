@@ -164,7 +164,7 @@ func TestBulkUpdateNilProbeRemovesKeyInsteadOfWritingJSONNull(t *testing.T) {
 }
 
 func TestBulkUpdateDisablingProbeRemovesSnapshot(t *testing.T) {
-	exec := &recordingSQLExecutor{result: rowsAffectedResult(1)}
+	exec := &recordingSQLExecutor{}
 	repo := newAccountRepositoryWithSQL(nil, exec, nil)
 
 	_, err := repo.BulkUpdate(context.Background(), []int64{27}, service.AccountBulkUpdate{
@@ -172,9 +172,9 @@ func TestBulkUpdateDisablingProbeRemovesSnapshot(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	require.NotEmpty(t, exec.execQueries)
-	require.Contains(t, normalizeSQLWhitespace(exec.execQueries[0]), "- 'upstream_billing_probe'")
-	payload, ok := exec.execArgs[0][0].([]byte)
+	require.NotEmpty(t, exec.queries)
+	require.Contains(t, normalizeSQLWhitespace(exec.queries[0]), "- 'upstream_billing_probe'")
+	payload, ok := exec.args[0][0].([]byte)
 	require.True(t, ok)
 	require.Equal(t, `{"upstream_billing_probe_enabled":false}`, string(payload))
 }

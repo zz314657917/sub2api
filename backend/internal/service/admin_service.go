@@ -3267,6 +3267,15 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 	accountExtra := ApplyAccountSupportedCapabilities(input.Extra)
 	delete(accountExtra, UpstreamBillingProbeEnabledExtraKey)
 	delete(accountExtra, UpstreamBillingProbeExtraKey)
+	if input.ProbeEnabled != nil {
+		if !isUpstreamBillingProbeAccount(&Account{Platform: input.Platform, Type: input.Type}) {
+			return nil, ErrUpstreamBillingProbeAccountInvalid
+		}
+		if accountExtra == nil {
+			accountExtra = make(map[string]any)
+		}
+		accountExtra[UpstreamBillingProbeEnabledExtraKey] = *input.ProbeEnabled
+	}
 	account := &Account{
 		Name:        input.Name,
 		Notes:       normalizeAccountNotes(input.Notes),
@@ -3566,17 +3575,29 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	}
 
 	needMixedChannelCheck := input.GroupIDs != nil && !input.SkipMixedChannelCheck
+	needAccountPreload := needMixedChannelCheck || input.ProbeEnabled != nil
 
-	// 预加载账号平台信息（混合渠道检查需要）。
-	platformByID := map[int64]string{}
-	if needMixedChannelCheck {
+	// 预加载账号平台信息，以便在写入前完成混合渠道和探测资格校验。
+	accountsByID := make(map[int64]*Account, len(input.AccountIDs))
+	if needAccountPreload {
 		accounts, err := s.accountRepo.GetByIDs(ctx, input.AccountIDs)
 		if err != nil {
 			return nil, err
 		}
 		for _, account := range accounts {
 			if account != nil {
-				platformByID[account.ID] = account.Platform
+				accountsByID[account.ID] = account
+			}
+		}
+	}
+	if input.ProbeEnabled != nil {
+		for _, accountID := range input.AccountIDs {
+			account, ok := accountsByID[accountID]
+			if !ok {
+				return nil, ErrAccountNotFound
+			}
+			if !isUpstreamBillingProbeAccount(account) {
+				return nil, ErrUpstreamBillingProbeAccountInvalid
 			}
 		}
 	}
@@ -3584,11 +3605,11 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	// 预检查混合渠道风险：在任何写操作之前，若发现风险立即返回错误。
 	if needMixedChannelCheck {
 		for _, accountID := range input.AccountIDs {
-			platform := platformByID[accountID]
-			if platform == "" {
+			account := accountsByID[accountID]
+			if account == nil {
 				continue
 			}
-			if err := s.checkMixedChannelRisk(ctx, accountID, platform, *input.GroupIDs); err != nil {
+			if err := s.checkMixedChannelRisk(ctx, accountID, account.Platform, *input.GroupIDs); err != nil {
 				return nil, err
 			}
 		}
@@ -3604,6 +3625,13 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	repoUpdates := AccountBulkUpdate{
 		Credentials: input.Credentials,
 		Extra:       ApplyAccountSupportedCapabilities(input.Extra),
+	}
+	if input.ProbeEnabled != nil {
+		if repoUpdates.Extra == nil {
+			repoUpdates.Extra = make(map[string]any)
+		}
+		repoUpdates.Extra[UpstreamBillingProbeEnabledExtraKey] = *input.ProbeEnabled
+		repoUpdates.ProbeEnabled = input.ProbeEnabled
 	}
 	if updatesUpstreamBillingProbeIdentity(input.Credentials) || input.ProxyID != nil {
 		if repoUpdates.Extra == nil {
