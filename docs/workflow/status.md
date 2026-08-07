@@ -1,13 +1,22 @@
 ---
-phase: qa
-current_sprint: leaderboard-record-banner-s180
-total_sprints: 180
-pending_action: After the unrelated high-CPU Playwright session is resolved, run one minimal desktop/mobile browser pass for S180 and capture the required screenshots.
+phase: contract-approved
+current_sprint: upstream-billing-rate-sync-s204
+total_sprints: 204
+pending_action: Implement the approved S204 contract in the isolated worktree, preserving local billing, gateway, account, CRS, and frontend behavior.
 project_type: backend
-qa_mode: browser
+qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-05 15:33 +08:00
+last_verified: 2026-08-07 16:55 +08:00
 ---
+
+# Upstream Billing Rate Sync S204
+
+- The user explicitly authorized bringing in upstream declared-rate synchronization.
+- S204 is isolated from the unfinished S180 browser pass and the separate S203 account+model transient-breaker contract.
+- The approved candidate chain covers API-key rate introspection, bounded probing, CAS snapshot persistence, and opt-in account `rate_multiplier` write-back.
+- Upstream profitability/admission scheduling, schema changes, containers, deployment, push, and production traffic remain out of scope.
+- Evaluator review: `PASS / contract-approved`; the selected behavior has executable local seams and explicit stop rules for schema, scheduler, and concurrency-boundary expansion.
+- Contract: `docs/workflow/tasks/upstream-billing-rate-sync-s204.md`.
 
 # Leaderboard Record Banner S180
 

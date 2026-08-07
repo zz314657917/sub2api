@@ -1638,6 +1638,27 @@ list response.
 
 - `PASS / runtime-isolated`: one fresh PostgreSQL run classified 100 final-Seat requests as one durable winner and 99 explicit unavailable losers, and 100 paid-full activation calls converged to one active four-Seat Round with exactly four disabled managed Keys, four active strict Bindings and one activation event.
 - Three additional consecutive fresh runs also passed. No product correction was needed. This closes the bounded concurrency correctness gap but does not prove performance, provider/payment, enabled-Key gateway usage, Redis, deployment or production readiness.
+
+# Upstream Billing Rate Sync Addendum (S204)
+
+## Goal
+
+Port the upstream Sub2API declared-rate contract and account probing chain, then add a per-account opt-in that automatically maintains the local account cost multiplier from a validated upstream base rate.
+
+## Product Boundary
+
+- A downstream Sub2API deployment exposes only billing declaration facts available to the authenticated API Key. It does not expose provider credentials, account cost, proxy data, or unrelated administrative state.
+- Account probing is explicit and bounded. It supports manual probe, batch probe, periodic due selection, status/backoff snapshots, proxy-aware HTTP access, and identity-change invalidation.
+- Automatic synchronization is disabled by default. When enabled, only the declared base rate excluding peak-time uplift may write to `accounts.rate_multiplier`; effective peak-time rate remains display/probe metadata.
+- The write-back shares the snapshot CAS boundary so an old probe cannot clobber concurrent account edits. Successful write-back records `synced_rate_multiplier` and a structured log fact.
+- Synchronization owns the account rate while active: single and bulk manual edits fail closed, while disabling sync and setting a manual rate atomically is allowed.
+- This Sprint does not add upstream-cost profitability scheduling, margin gates, schema/migration, provider account admission for media, deployment, or production validation.
+
+## Acceptance Boundary
+
+- Backend unit and integration-shaped repository tests cover auth, declaration calculation, probe eligibility, URL/proxy safety, persistence/backoff, CAS, value governance, concurrent edit protection, and manual-edit conflicts.
+- Frontend component tests cover probe actions/status, precision display, sync/probe coupling, managed-rate UI, and bulk conflict handling.
+- Wire generation, complete service regression, server compile, frontend typecheck/build, scoped diff and Git integrity checks must pass before local-main integration.
 # Leaderboard Record Banner Addendum (S180)
 
 ## Goal
