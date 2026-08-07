@@ -18,6 +18,13 @@
 - 当前上游最新未合入项仍主要是：`b6e53c932`（Codex UA 文案，但本地缺少对应设置 UI，不单独伪造合入）、
   腾讯验证码基础/区域/票据链（`e592c5f9e`、`8e102b3a0`、`287a9f386`，前置拓扑缺失）、
   `aac53afe0` 版本号同步（不脱离功能基线单改），以及一组 sponsor/README 大范围重排；均暂不合入。
+- 2026-08-07 继续复核上游剩余候选：`upstream/main` 刷新后仍为 `93367b6db`。`7d38e6712` 只修改
+  上游前置 `40b8f04a6` 新增的 account+model transient breaker；本地没有
+  `backend/internal/service/openai_account_model_transient.go`，现有 proxy 级 circuit 不等价，不能单独摘取。
+  `785b61d42` 依赖本地不存在的 Model Plaza handler/service/frontend 文件。两笔提交的
+  `git apply --check --verbose --recount` 均失败，故本轮没有新增可安全直接合入的源代码提交。
+- 旧候选中的凭证脱敏、图片请求上下文解绑、网关容量标记已分别由本地 `a5798b0e0`、`50d3388c4`、
+  `48a615eff` 等行为提交覆盖；不因上游 hash 不同重复合入。
 - v0.1.171 选择性上游整合已收口到本地 `main`：S181-S201 分为三组行为提交
   `21c2d33d4`、`20c56753a`、`290a815ba` 和一组 regression/triage 提交 `194edd3f7`；此前 S202
   媒体工具输出桥接保持在 `d6792b966`。最新上游 sponsor 内容已按本地清单受控纳入：README 三语条目为

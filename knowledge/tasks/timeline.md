@@ -1,5 +1,15 @@
 # 项目时间轴
 
+## 2026-08-07 - 上游剩余候选复核
+
+- `git fetch upstream main` 后 `upstream/main` 仍为 `93367b6db`，没有新增远端提交。
+- `7d38e6712` 的稀疏流量 transient streak 修复依赖 `40b8f04a6` 的整套 account+model breaker；本地仅有
+  proxy 级 circuit，且目标文件不存在，不能把后续 20 行修复伪装成独立行为合入。
+- `785b61d42` 的 Model Plaza 图片实收价格修复依赖本地不存在的后端 handler/service 与 frontend modelPlaza
+  文件；`git apply --check` 明确失败。
+- 旧安全/网关候选已查到本地等价提交：凭证脱敏 `a5798b0e0`、图片请求上下文解绑 `50d3388c4`、网关容量标记
+  `48a615eff`。本轮无源代码合入、无推送、无部署；下一步仍只在出现独立且拓扑匹配的候选时开新 Sprint。
+
 ## 2026-08-07 - 上游 Codex 默认身份行为级适配
 
 - 上游 `dbb42881c`（`fix(openai): default OAuth identity to codex-tui`）未直接 cherry-pick，按本地拓扑
