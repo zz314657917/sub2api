@@ -1,5 +1,16 @@
 # 项目时间轴
 
+## 2026-08-07 - 上游 Codex 默认身份行为级适配
+
+- 上游 `dbb42881c`（`fix(openai): default OAuth identity to codex-tui`）未直接 cherry-pick，按本地拓扑
+  手工适配为提交 `d06e7fe64`。
+- 新增公共 `CodexDefaultOriginator=codex-tui`，默认 UA、OAuth fallback 与 Codex models manifest 使用该
+  身份；保留本地既有 `DisableCodexOriginatorNormalization` 降载兼容开关，因此默认 OAuth 热路径仍可归一
+  为 `codex_cli_rs`，关闭开关才透出 TUI。
+- 验证：`go test ./internal/pkg/openai -count=1`、`go test ./internal/service -count=1`、目标 identity/
+  gateway/manifest 回归和 `git diff --check` 均通过；未推送、部署或运行真实上游账号。
+- 后续上游 Tencent captcha、独立版本号和 sponsor/README 大重排仍按依赖与拓扑差异保持未合入。
+
 ## 2026-08-03 16:48 +08:00 - Pixel Cafe S152 到期收回合同起草
 
 - 当前阶段：S151 已关闭 `PASS / source-level`；S152 `pixel-cafe-phase8-expiry-s152` 进入 `contract-draft`，尚未授权实现。

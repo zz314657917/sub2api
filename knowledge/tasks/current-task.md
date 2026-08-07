@@ -10,6 +10,14 @@
 
 ## 当前目标
 
+- 2026-08-07 上游 `dbb42881c` 已按行为级最小适配合入本地，提交 `d06e7fe64`：新增
+  `openai.CodexDefaultOriginator`（`codex-tui`），默认 Codex UA、OAuth identity fallback、模型清单
+  请求头统一使用 TUI；本地既有 `DisableCodexOriginatorNormalization` 仍保留，默认热路径按开关归一化为
+  `codex_cli_rs`，关闭开关时透出 TUI。`go test ./internal/pkg/openai -count=1`、
+  `go test ./internal/service -count=1` 和目标 identity/manifest 回归均通过。本批未推送。
+- 当前上游最新未合入项仍主要是：`b6e53c932`（Codex UA 文案，但本地缺少对应设置 UI，不单独伪造合入）、
+  腾讯验证码基础/区域/票据链（`e592c5f9e`、`8e102b3a0`、`287a9f386`，前置拓扑缺失）、
+  `aac53afe0` 版本号同步（不脱离功能基线单改），以及一组 sponsor/README 大范围重排；均暂不合入。
 - v0.1.171 选择性上游整合已收口到本地 `main`：S181-S201 分为三组行为提交
   `21c2d33d4`、`20c56753a`、`290a815ba` 和一组 regression/triage 提交 `194edd3f7`；此前 S202
   媒体工具输出桥接保持在 `d6792b966`。最新上游 sponsor 内容已按本地清单受控纳入：README 三语条目为
