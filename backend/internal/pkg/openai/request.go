@@ -215,9 +215,12 @@ func canonicalizeCodexOriginator(name string) string {
 	return name
 }
 
-// CodexCLIOriginator 官方 Codex CLI 默认 originator（codex-rs DEFAULT_ORIGINATOR），
-// 也是身份归一化的目标身份。
+// CodexCLIOriginator 是 codex-rs 客户端的历史默认 originator，保留用于兼容识别和
+// 可选的降载身份归一化目标。
 const CodexCLIOriginator = "codex_cli_rs"
+
+// CodexDefaultOriginator 是网关默认使用的 Codex TUI originator。
+const CodexDefaultOriginator = "codex-tui"
 
 // codexLoadShedOriginators 是上游容量策略的快照而非协议常量。命中后上游可能推送
 // server_is_overloaded，网关会把它视为瞬时故障并冷却账号；因此需要在出站前归一化。

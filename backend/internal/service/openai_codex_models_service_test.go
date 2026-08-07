@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/tlsfingerprint"
 	"github.com/stretchr/testify/require"
 )
@@ -44,6 +45,8 @@ func TestFetchCodexModelsManifestOAuthPassesThroughVerbatim(t *testing.T) {
 	manifestBody := `{"models":[{"slug":"gpt-5.6-sol","use_responses_lite":true}]}`
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "Bearer oauth-token", r.Header.Get("Authorization"))
+		require.Equal(t, openai.CodexDefaultOriginator, r.Header.Get("Originator"))
+		require.Equal(t, codexCLIUserAgent, r.Header.Get("User-Agent"))
 		require.Equal(t, "0.144.1", r.URL.Query().Get("client_version"))
 		w.Header().Set("ETag", `W/"oauth"`)
 		_, _ = w.Write([]byte(manifestBody))

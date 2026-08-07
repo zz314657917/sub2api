@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
@@ -48,13 +49,13 @@ func TestEnforceCodexIdentityHeaders(t *testing.T) {
 			originator:     "opencode",
 			userAgent:      "luna/1.0.0",
 			wantOriginator: "codex_cli_rs",
-			wantUA:         codexCLIUserAgent,
+			wantUA:         openai.CodexCLIOriginator + "/" + codexCLIVersion,
 		},
 		{
 			name:           "UA 缺失回退默认身份",
 			originator:     "codex_vscode",
 			wantOriginator: "codex_cli_rs",
-			wantUA:         codexCLIUserAgent,
+			wantUA:         openai.CodexCLIOriginator + "/" + codexCLIVersion,
 		},
 		{
 			name:           "originator override UA 首段被尾部真实身份重写后归一化",
@@ -127,7 +128,7 @@ func TestCodexOriginatorNormalizationZeroValueConfigKeepsItEnabled(t *testing.T)
 
 	enforceCodexIdentityHeaders(h)
 
-	require.Equal(t, openAIDefaultCodexOriginator, h.Get("originator"))
+	require.Equal(t, openai.CodexCLIOriginator, h.Get("originator"))
 }
 
 func TestEnforceCodexIdentityHeaders_NormalizationDisabled(t *testing.T) {
@@ -156,7 +157,7 @@ func TestEnforceCodexIdentityHeaders_NormalizationIsIdempotent(t *testing.T) {
 	enforceCodexIdentityHeaders(h)
 
 	require.Equal(t, first, h.Get("user-agent"))
-	require.Equal(t, openAIDefaultCodexOriginator, h.Get("originator"))
+	require.Equal(t, openai.CodexCLIOriginator, h.Get("originator"))
 }
 
 // compat messages bridge 故意不带 originator：收口必须保持 no-op，不得注入身份头。

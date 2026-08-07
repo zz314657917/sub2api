@@ -2478,8 +2478,8 @@ func TestOpenAIBuildUpstreamRequestOpenAIPassthroughPreservesCompactPath(t *test
 	require.Equal(t, chatgptCodexURL+"/compact", req.URL.String())
 	require.Equal(t, "application/json", req.Header.Get("Accept"))
 	require.Equal(t, codexCLIVersion, req.Header.Get("Version"))
-	require.Equal(t, codexCLIUserAgent, req.Header.Get("User-Agent"))
-	require.Equal(t, openAIDefaultCodexOriginator, req.Header.Get("Originator"))
+	require.Equal(t, openai.CodexCLIOriginator+"/"+codexCLIVersion, req.Header.Get("User-Agent"))
+	require.Equal(t, openai.CodexCLIOriginator, req.Header.Get("Originator"))
 	require.NotEmpty(t, req.Header.Get("Session_Id"))
 }
 
@@ -2500,8 +2500,8 @@ func TestOpenAIBuildUpstreamRequestCompactForcesJSONAcceptForOAuth(t *testing.T)
 	require.Equal(t, chatgptCodexURL+"/compact", req.URL.String())
 	require.Equal(t, "application/json", req.Header.Get("Accept"))
 	require.Equal(t, codexCLIVersion, req.Header.Get("Version"))
-	require.Equal(t, codexCLIUserAgent, req.Header.Get("User-Agent"))
-	require.Equal(t, openAIDefaultCodexOriginator, req.Header.Get("Originator"))
+	require.Equal(t, openai.CodexCLIOriginator+"/"+codexCLIVersion, req.Header.Get("User-Agent"))
+	require.Equal(t, openai.CodexCLIOriginator, req.Header.Get("Originator"))
 	require.NotEmpty(t, req.Header.Get("Session_Id"))
 }
 
@@ -2609,8 +2609,8 @@ func TestOpenAIBuildUpstreamRequestOAuthOfficialClientOriginatorCompatibility(t 
 			wantOriginator: "codex_cli_rs",
 			wantUA:         "codex_cli_rs/0.140.2 (Mac OS X 14.0; arm64) iTerm",
 		},
-		{name: "official originator without ua falls back to default identity", originator: "codex_vscode", wantOriginator: "codex_cli_rs", wantUA: codexCLIUserAgent},
-		{name: "third-party ua masked to default identity", userAgent: "luna/1.2.0", wantOriginator: "codex_cli_rs", wantUA: codexCLIUserAgent},
+		{name: "official originator without ua falls back to default identity", originator: "codex_vscode", wantOriginator: "codex_cli_rs", wantUA: openai.CodexCLIOriginator + "/" + codexCLIVersion},
+		{name: "third-party ua masked to default identity", userAgent: "luna/1.2.0", wantOriginator: "codex_cli_rs", wantUA: openai.CodexCLIOriginator + "/" + codexCLIVersion},
 	}
 
 	for _, tt := range tests {

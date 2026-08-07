@@ -8,7 +8,7 @@ import (
 	openaipkg "github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 )
 
-const openAIDefaultCodexOriginator = "codex_cli_rs"
+const openAIDefaultCodexOriginator = openaipkg.CodexDefaultOriginator
 
 // codexUpstreamMinVersion 上游 /backend-api/codex 接受的最低 version 头：
 // 若请求携带 version 且低于该值，上游直接 404。
@@ -39,7 +39,7 @@ func enforceCodexIdentityHeaders(headers http.Header) {
 	}
 	pairedOriginator, pairedUA, ok := openaipkg.PairCodexClientIdentity(headers.Get("user-agent"))
 	if !ok {
-		pairedOriginator, pairedUA = openaipkg.CodexCLIOriginator, codexCLIUserAgent
+		pairedOriginator, pairedUA = openaipkg.CodexDefaultOriginator, codexCLIUserAgent
 	}
 	if codexOriginatorNormalization.Load() {
 		pairedOriginator, pairedUA, _ = openaipkg.NormalizeCodexClientIdentityToCLI(pairedOriginator, pairedUA)
