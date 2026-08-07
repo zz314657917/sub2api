@@ -1,22 +1,26 @@
 ---
-phase: contract-approved
+phase: done
 current_sprint: upstream-billing-rate-sync-s204
 total_sprints: 204
-pending_action: Implement the approved S204 contract in the isolated worktree, preserving local billing, gateway, account, CRS, and frontend behavior.
+pending_action: S204 is complete for local-main-only integration. Keep S180 browser QA separate until its CPU-resource blocker is cleared.
 project_type: backend
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-07 16:55 +08:00
+last_verified: 2026-08-07 19:05 +08:00
 ---
 
 # Upstream Billing Rate Sync S204
 
 - The user explicitly authorized bringing in upstream declared-rate synchronization.
 - S204 is isolated from the unfinished S180 browser pass and the separate S203 account+model transient-breaker contract.
-- The approved candidate chain covers API-key rate introspection, bounded probing, CAS snapshot persistence, and opt-in account `rate_multiplier` write-back.
+- The completed candidate chain covers API-key rate introspection, bounded probing, CAS snapshot persistence, and opt-in account `rate_multiplier` write-back.
 - Upstream profitability/admission scheduling, schema changes, containers, deployment, push, and production traffic remain out of scope.
-- Evaluator review: `PASS / contract-approved`; the selected behavior has executable local seams and explicit stop rules for schema, scheduler, and concurrency-boundary expansion.
+- Final evaluator review: `PASS / local regression`; focused backend boundaries, full service, server compile,
+  six frontend suites (`78/78`), typecheck, production build, scope, diff, conflict, and unmerged-index checks passed.
+- Initial full-service and frontend failures exposed integration omissions in atomic name-only admin updates and
+  frontend state/import wiring; both were repaired before the final PASS.
 - Contract: `docs/workflow/tasks/upstream-billing-rate-sync-s204.md`.
+- QA: `docs/workflow/qa-reports/upstream-billing-rate-sync-s204-qa.md`.
 
 # Upstream OpenAI Account+Model Transient Breaker S203
 

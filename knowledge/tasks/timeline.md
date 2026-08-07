@@ -1,5 +1,17 @@
 # 项目时间轴
 
+## 2026-08-07 19:05 +08:00 - 上游计费倍率同步 S204 本地收口
+
+- 按行为级最小适配合入 API Key 计费自省、手工/CRS 周期探测、探测快照与按账号 opt-in 的
+  `rate_multiplier` 同事务 CAS 写回；自动同步默认关闭，写回只使用校验后的 base rate。
+- 任意非空平台的 `type=apikey` 可选择探测，官方 provider 域名直接记 `unsupported`；请求时长、响应体、
+  数值范围/有限性/四位小数非零、身份/代理/快照/开关并发变化均有边界校验。
+- 管理端同步开启时禁止单项和批量手工改倍率，同一请求关闭同步或探测后可手工设置；CRS 保留开关和
+  快照，探测 extra 不触发无关调度重建。S203 最新本地主线已先合入隔离分支并完成最终回归。
+- 验证：聚焦 handler/admin/routes/repository/service、全量 service、server 编译、前端 `78/78`、typecheck、
+  production build、gofmt、scope、diff、冲突标记和 unmerged-index 均通过。未 push、部署、更新容器或调用
+  真实上游。QA：`docs/workflow/qa-reports/upstream-billing-rate-sync-s204-qa.md`。
+
 ## 2026-08-07 17:27 +08:00 - 上游 OpenAI account+model transient breaker S203 合入
 
 - 上游 `7d38e6712` 依赖前置 `40b8f04a6`，本轮未直接 cherry-pick，而是按本地 scheduler/gateway/handler
