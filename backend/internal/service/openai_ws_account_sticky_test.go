@@ -85,6 +85,42 @@ func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_RateLimitedMiss(
 	require.Zero(t, boundAccountID)
 }
 
+func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_ModelTransientMiss(t *testing.T) {
+	ctx := context.Background()
+	groupID := int64(23)
+	account := Account{
+		ID:          14,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Status:      StatusActive,
+		Schedulable: true,
+		Concurrency: 1,
+		Extra: map[string]any{
+			"openai_apikey_responses_websockets_v2_enabled": true,
+		},
+	}
+	cache := &stubGatewayCache{}
+	store := NewOpenAIWSStateStore(cache)
+	svc := &OpenAIGatewayService{
+		accountRepo:          stubOpenAIAccountRepo{accounts: []Account{account}},
+		cache:                cache,
+		cfg:                  newOpenAIWSV2TestConfig(),
+		concurrencyService:   NewConcurrencyService(stubConcurrencyCache{}),
+		openaiWSStateStore:   store,
+		openaiModelTransient: newOpenAIAccountModelTransientState(128),
+	}
+	svc.recordOpenAIAccountModelTransientFailure(&account, "gpt-5.1", time.Now())
+	svc.recordOpenAIAccountModelTransientFailure(&account, "gpt-5.1", time.Now())
+	require.NoError(t, store.BindResponseAccount(ctx, groupID, "resp_prev_transient", account.ID, time.Hour))
+
+	selection, err := svc.SelectAccountByPreviousResponseID(ctx, &groupID, "resp_prev_transient", "gpt-5.1", nil, false)
+	require.NoError(t, err)
+	require.Nil(t, selection)
+	boundAccountID, getErr := store.GetResponseAccount(ctx, groupID, "resp_prev_transient")
+	require.NoError(t, getErr)
+	require.Zero(t, boundAccountID)
+}
+
 func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_DBRuntimeRecheckRateLimitedMiss(t *testing.T) {
 	ctx := context.Background()
 	groupID := int64(24)

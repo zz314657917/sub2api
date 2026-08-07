@@ -1,5 +1,19 @@
 # 项目时间轴
 
+## 2026-08-07 17:27 +08:00 - 上游 OpenAI account+model transient breaker S203 合入
+
+- 上游 `7d38e6712` 依赖前置 `40b8f04a6`，本轮未直接 cherry-pick，而是按本地 scheduler/gateway/handler
+  拓扑完成行为级适配：retryable OpenAI API-key failure 仅冷却相同 account+model pair；第二次失败冷却
+  10 秒，第三次及以后 45 秒，streak 仅在 30 分钟不活跃后过期，避免稀疏流量永远停留在 streak 1。
+- 默认调度、固定账号和 `previous_response_id` sticky 选择均会跳过冷却 pair；HTTP、image、passthrough、
+  WS、HTTP bridge 和 WS v2 路径均传递模型。终态 `response.failed` 不清 streak，`response.completed` /
+  `response.done` 才清除对应 pair；新增时钟回拨清理保护。
+- 验证：定向 transient state、`go test ./internal/service -count=1`、
+  `go test ./internal/handler -run 'TestOpenAI|Test.*Failover' -count=1`、
+  `go test ./cmd/server -run '^$' -count=0`、gofmt、`git diff --check` 与 unmerged-index 均通过。
+  已随主线整理推送到 `origin/main@5d1117c09`；未部署、重建容器或调用真实上游账号；QA：
+  `docs/workflow/qa-reports/upstream-openai-account-model-transient-s203-qa.md`。
+
 ## 2026-08-07 - 上游剩余候选复核
 
 - `git fetch upstream main` 后 `upstream/main` 仍为 `93367b6db`，没有新增远端提交。

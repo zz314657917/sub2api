@@ -18,6 +18,15 @@ last_verified: 2026-08-07 16:55 +08:00
 - Evaluator review: `PASS / contract-approved`; the selected behavior has executable local seams and explicit stop rules for schema, scheduler, and concurrency-boundary expansion.
 - Contract: `docs/workflow/tasks/upstream-billing-rate-sync-s204.md`.
 
+# Upstream OpenAI Account+Model Transient Breaker S203
+
+- S203 is an explicitly authorized behavior-level port of upstream `40b8f04a6` plus `7d38e6712`.
+  It adds an in-process, bounded account+model transient failure state so repeat retryable failures skip only
+  the affected account/model pair. The prior S180 browser QA remains independently blocked and is not part of
+  this backend Sprint.
+- Contract: `docs/workflow/tasks/upstream-openai-account-model-transient-s203.md`.
+- QA: `PASS / local regression`; `docs/workflow/qa-reports/upstream-openai-account-model-transient-s203-qa.md`.
+
 # Leaderboard Record Banner S180
 
 - S180 implementation is complete within the frontend allowlist: the generated text-free wide banner owns the

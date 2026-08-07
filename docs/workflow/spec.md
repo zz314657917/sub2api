@@ -5,6 +5,18 @@ qa_mode: runtime
 last_verified: 2026-08-04 02:35 +08:00
 ---
 
+## Upstream OpenAI Account+Model Transient Breaker (S203)
+
+- Port the behavior of upstream `40b8f04a6` and its sparse-traffic correction `7d38e6712`: retryable OpenAI
+  failures must create an in-process, bounded account+model streak; a success clears only that pair; selection
+  must skip a pair during its short/long cooldown while leaving the same account eligible for other models.
+- The retained streak must expire only after a 30-minute inactivity TTL, not the previous one-minute reset window.
+  This avoids low-traffic deployments permanently reselecting a consistently failing account before every
+  eventual failover.
+- Scope is gateway/handler/service propagation and focused regressions only. Configuration, dependencies,
+  persistent state, Ent/schema/migrations, frontend, provider credentials, containers, deployment and production
+  traffic are excluded. Contract: `docs/workflow/tasks/upstream-openai-account-model-transient-s203.md`.
+
 ## Pixel Cafe Phase 30 Addendum: configurable presentation chrome (S176)
 
 - Remove the user-facing "今日使用用户" lobby card from the Pixel Cafe page and stop its

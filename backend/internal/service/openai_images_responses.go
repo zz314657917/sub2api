@@ -800,10 +800,22 @@ func (s *OpenAIGatewayService) readUpstreamErrorBody(resp *http.Response) []byte
 }
 
 func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Context, account *Account, statusCode int, headers http.Header, responseBody []byte, requestedModel ...string) bool {
-	if s == nil || s.rateLimitService == nil {
+	if s == nil || account == nil {
 		return false
 	}
-	return s.rateLimitService.HandleUpstreamError(ctx, account, statusCode, headers, responseBody, requestedModel...)
+	shouldDisable := false
+	if s.rateLimitService != nil {
+		shouldDisable = s.rateLimitService.HandleUpstreamError(ctx, account, statusCode, headers, responseBody, requestedModel...)
+	}
+	if shouldDisable || account.Platform != PlatformOpenAI || account.Type != AccountTypeAPIKey || !shouldCooldownOpenAITransientUpstreamError(statusCode, responseBody) {
+		return shouldDisable
+	}
+	model := ""
+	if len(requestedModel) > 0 {
+		model = requestedModel[0]
+	}
+	s.recordOpenAIAccountModelTransientFailure(account, model, time.Now())
+	return false
 }
 
 // handleOpenAIImagesErrorResponse is the non-failover error handler for the
