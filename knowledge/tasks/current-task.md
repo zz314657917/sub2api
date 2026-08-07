@@ -18,11 +18,13 @@
 - 当前上游最新未合入项仍主要是：`b6e53c932`（Codex UA 文案，但本地缺少对应设置 UI，不单独伪造合入）、
   腾讯验证码基础/区域/票据链（`e592c5f9e`、`8e102b3a0`、`287a9f386`，前置拓扑缺失）、
   `aac53afe0` 版本号同步（不脱离功能基线单改），以及一组 sponsor/README 大范围重排；均暂不合入。
-- 2026-08-07 继续复核上游剩余候选：`upstream/main` 刷新后仍为 `93367b6db`。`7d38e6712` 只修改
-  上游前置 `40b8f04a6` 新增的 account+model transient breaker；本地没有
-  `backend/internal/service/openai_account_model_transient.go`，现有 proxy 级 circuit 不等价，不能单独摘取。
-  `785b61d42` 依赖本地不存在的 Model Plaza handler/service/frontend 文件。两笔提交的
-  `git apply --check --verbose --recount` 均失败，故本轮没有新增可安全直接合入的源代码提交。
+- 2026-08-07 上游 `7d38e6712` 已与其前置 `40b8f04a6` 按行为级最小适配完成：新增有界的进程内
+  account+model transient state，失败 streak 仅在 30 分钟不活跃后过期，第二/第三次 retryable failure
+  分别冷却 10/45 秒；成功仅清对应 pair，默认调度、固定账号与 `previous_response_id` 粘连均跳过冷却 pair。
+  HTTP、image、passthrough 与 WebSocket 路径均携带模型，`response.failed` 不会误清 streak。服务全包、
+  OpenAI/failover handler、server 编译探针、gofmt 和 Git integrity 均已通过；本批仅本地合入，未推送、
+  未部署、未调用真实上游账号。QA：`docs/workflow/qa-reports/upstream-openai-account-model-transient-s203-qa.md`。
+  `785b61d42` 仍依赖本地不存在的 Model Plaza handler/service/frontend 文件，继续不合入。
 - 旧候选中的凭证脱敏、图片请求上下文解绑、网关容量标记已分别由本地 `a5798b0e0`、`50d3388c4`、
   `48a615eff` 等行为提交覆盖；不因上游 hash 不同重复合入。
 - v0.1.171 选择性上游整合已收口到本地 `main`：S181-S201 分为三组行为提交

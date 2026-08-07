@@ -182,9 +182,7 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 				Message:            upstreamMsg,
 				Detail:             upstreamDetail,
 			})
-			if s.rateLimitService != nil {
-				s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody, upstreamModel)
-			}
+			s.handleOpenAIAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody, upstreamModel)
 			retryLimit, retryBackoffBase := openAISameAccountRetryPolicy(upstreamMsg, respBody)
 			return nil, &UpstreamFailoverError{
 				StatusCode:   resp.StatusCode,

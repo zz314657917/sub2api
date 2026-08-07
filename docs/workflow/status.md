@@ -1,13 +1,22 @@
 ---
-phase: qa
-current_sprint: leaderboard-record-banner-s180
-total_sprints: 180
-pending_action: After the unrelated high-CPU Playwright session is resolved, run one minimal desktop/mobile browser pass for S180 and capture the required screenshots.
+phase: done
+current_sprint: upstream-openai-account-model-transient-s203
+total_sprints: 203
+pending_action: S203 is complete. Keep S180 browser QA separate until its CPU-resource blocker is cleared.
 project_type: backend
-qa_mode: browser
+qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-05 15:33 +08:00
+last_verified: 2026-08-07 17:27 +08:00
 ---
+
+# Upstream OpenAI Account+Model Transient Breaker S203
+
+- S203 is an explicitly authorized behavior-level port of upstream `40b8f04a6` plus `7d38e6712`.
+  It adds an in-process, bounded account+model transient failure state so repeat retryable failures skip only
+  the affected account/model pair. The prior S180 browser QA remains independently blocked and is not part of
+  this backend Sprint.
+- Contract: `docs/workflow/tasks/upstream-openai-account-model-transient-s203.md`.
+- QA: `PASS / local regression`; `docs/workflow/qa-reports/upstream-openai-account-model-transient-s203-qa.md`.
 
 # Leaderboard Record Banner S180
 

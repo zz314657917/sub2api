@@ -952,6 +952,9 @@ func (s *defaultOpenAIAccountScheduler) isAccountRequestCompatible(ctx context.C
 	if account == nil {
 		return false
 	}
+	if s != nil && s.service != nil && s.service.isOpenAIAccountRequestRuntimeBlocked(account, req.RequestedModel) {
+		return false
+	}
 	if paused, _ := shouldAutoPauseOpenAIAccountByQuota(ctx, account); paused {
 		return false
 	}
@@ -1438,6 +1441,7 @@ func (s *OpenAIGatewayService) pinnedOpenAIAccount(
 	if err != nil || account == nil || !openAIStickyAccountMatchesGroup(account, groupID) ||
 		!strings.EqualFold(normalizeOpenAICompatiblePlatform(account.Platform), normalizeOpenAICompatiblePlatform(platform)) ||
 		!isOpenAIAccountEligibleForRequest(ctx, account, requestedModel, requireCompact, requiredCapability, requiredAccountCapability) ||
+		s.isOpenAIAccountRequestRuntimeBlocked(account, requestedModel) ||
 		!s.isOpenAIAccountTransportCompatible(account, requiredTransport) ||
 		!accountSupportsOpenAICapabilities(account, requiredCapability, requiredImageCapability, requiredAccountCapability) {
 		return nil, ErrCafeAccountUnavailable
@@ -1546,7 +1550,10 @@ func (s *OpenAIGatewayService) isOpenAIAccountTransportCompatible(account *Accou
 	return s.getOpenAIWSProtocolResolver().Resolve(account).Transport == requiredTransport
 }
 
-func (s *OpenAIGatewayService) ReportOpenAIAccountScheduleResult(accountID int64, success bool, firstTokenMs *int) {
+func (s *OpenAIGatewayService) ReportOpenAIAccountScheduleResult(accountID int64, success bool, firstTokenMs *int, canonicalModel ...string) {
+	if success && len(canonicalModel) > 0 {
+		s.clearOpenAIAccountModelTransientState(accountID, canonicalModel[0])
+	}
 	scheduler := s.getOpenAIAccountScheduler(context.Background())
 	if scheduler == nil {
 		return

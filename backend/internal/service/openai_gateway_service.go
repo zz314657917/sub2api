@@ -240,26 +240,41 @@ type OpenAIForwardResult struct {
 	ServiceTier *string
 	// ReasoningEffort is extracted from request body (reasoning.effort) or derived from model suffix.
 	// Stored for usage records display; nil means not provided / not applicable.
-	ReasoningEffort     *string
-	Stream              bool
-	OpenAIWSMode        bool
-	ResponseHeaders     http.Header
-	Duration            time.Duration
-	FirstTokenMs        *int
-	ClientDisconnect    bool
-	ImageCount          int
-	ImageSize           string
-	ImageQuality        string
-	ImageInputSize      string
-	ImageOutputSize     string
-	ImageOutputSizes    []string
-	ImageSizeSource     string
-	ImageSizeBreakdown  map[string]int
-	CostOverride        *CostBreakdown
-	VideoTaskID         string
-	ResponseBody        []byte
-	wsReplayInput       []json.RawMessage
-	wsReplayInputExists bool
+	ReasoningEffort *string
+	Stream          bool
+	OpenAIWSMode    bool
+	// UpstreamTerminalEvent is set only for Responses WebSocket turns. An empty
+	// value preserves the legacy success behavior for non-WS forwarders.
+	UpstreamTerminalEvent string
+	ResponseHeaders       http.Header
+	Duration              time.Duration
+	FirstTokenMs          *int
+	ClientDisconnect      bool
+	ImageCount            int
+	ImageSize             string
+	ImageQuality          string
+	ImageInputSize        string
+	ImageOutputSize       string
+	ImageOutputSizes      []string
+	ImageSizeSource       string
+	ImageSizeBreakdown    map[string]int
+	CostOverride          *CostBreakdown
+	VideoTaskID           string
+	ResponseBody          []byte
+	wsReplayInput         []json.RawMessage
+	wsReplayInputExists   bool
+}
+
+func (r *OpenAIForwardResult) SucceededForScheduling() bool {
+	if r == nil || !r.OpenAIWSMode || r.UpstreamTerminalEvent == "" {
+		return true
+	}
+	switch r.UpstreamTerminalEvent {
+	case "response.completed", "response.done":
+		return true
+	default:
+		return false
+	}
 }
 
 type OpenAIWSRetryMetricsSnapshot struct {
@@ -372,12 +387,14 @@ type OpenAIGatewayService struct {
 	openaiSchedulerOnce            sync.Once
 	openaiProxyStreamCircuitOnce   sync.Once
 	openaiWSPassthroughDialerOnce  sync.Once
+	openaiModelTransientOnce       sync.Once
 	agentIdentityTaskMu            sync.Mutex
 	openaiWSPool                   *openAIWSConnPool
 	openaiWSStateStore             OpenAIWSStateStore
 	openaiScheduler                OpenAIAccountScheduler
 	openaiWSPassthroughDialer      openAIWSClientDialer
 	openaiAccountStats             *openAIAccountRuntimeStats
+	openaiModelTransient           *openAIAccountModelTransientState
 	openaiProxyStreamCircuit       *openAIProxyStreamCircuit
 	openaiProxyStreamFailOpenLogAt atomic.Int64
 
@@ -469,6 +486,7 @@ func NewOpenAIGatewayService(
 		liveAttestationCipher: newLiveAttestationCipher(cfg),
 		responseHeaderFilter:  compileResponseHeaderFilter(cfg),
 		codexSnapshotThrottle: newAccountWriteThrottle(openAICodexSnapshotPersistMinInterval),
+		openaiModelTransient:  newOpenAIAccountModelTransientState(openAIModelTransientDefaultMax),
 	}
 	svc.logOpenAIWSModeBootstrap()
 	return svc
@@ -2605,10 +2623,10 @@ func (s *OpenAIGatewayService) shouldFailoverOpenAIUpstreamResponse(statusCode i
 }
 
 func (s *OpenAIGatewayService) handleFailoverSideEffects(ctx context.Context, resp *http.Response, account *Account, responseBody []byte, requestedModel ...string) {
-	if s == nil || s.rateLimitService == nil || resp == nil || account == nil {
+	if s == nil || resp == nil || account == nil {
 		return
 	}
-	s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, responseBody, requestedModel...)
+	s.handleOpenAIAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, responseBody, requestedModel...)
 }
 
 // Forward forwards request to OpenAI API
@@ -3998,10 +4016,8 @@ func (s *OpenAIGatewayService) handleFailoverErrorResponsePassthrough(
 	}
 	setOpsUpstreamError(c, resp.StatusCode, upstreamMsg, upstreamDetail)
 	logOpenAIInstructionsRequiredDebug(ctx, c, account, resp.StatusCode, upstreamMsg, requestBody, body)
-	if s.rateLimitService != nil {
-		reqModel, _, _ := extractOpenAIRequestMetaFromBody(requestBody)
-		_ = s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, body, reqModel)
-	}
+	reqModel, _, _ := extractOpenAIRequestMetaFromBody(requestBody)
+	_ = s.handleOpenAIAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, body, reqModel)
 	appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
 		Platform:             account.Platform,
 		AccountID:            account.ID,
@@ -4047,13 +4063,11 @@ func (s *OpenAIGatewayService) handleErrorResponsePassthrough(
 	}
 	setOpsUpstreamError(c, resp.StatusCode, upstreamMsg, upstreamDetail)
 	logOpenAIInstructionsRequiredDebug(ctx, c, account, resp.StatusCode, upstreamMsg, requestBody, body)
-	if s.rateLimitService != nil {
-		// Passthrough mode preserves the raw upstream error response, but runtime
-		// account state still needs to be updated so sticky routing can stop
-		// reusing a freshly rate-limited account.
-		reqModel, _, _ := extractOpenAIRequestMetaFromBody(requestBody)
-		_ = s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, body, reqModel)
-	}
+	// Passthrough mode preserves the raw upstream error response, but runtime
+	// account state still needs to be updated so sticky routing can stop
+	// reusing a freshly rate-limited account.
+	reqModel, _, _ := extractOpenAIRequestMetaFromBody(requestBody)
+	_ = s.handleOpenAIAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, body, reqModel)
 	appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
 		Platform:             account.Platform,
 		AccountID:            account.ID,
@@ -4909,17 +4923,14 @@ func (s *OpenAIGatewayService) handleErrorResponse(
 	}
 
 	// Handle upstream error (mark account status)
-	shouldDisable := false
-	if s.rateLimitService != nil {
-		reqModel := ""
-		if len(requestedModel) > 0 {
-			reqModel = strings.TrimSpace(requestedModel[0])
-		}
-		if reqModel == "" {
-			reqModel, _, _ = extractOpenAIRequestMetaFromBody(requestBody)
-		}
-		shouldDisable = s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, body, reqModel)
+	reqModel := ""
+	if len(requestedModel) > 0 {
+		reqModel = strings.TrimSpace(requestedModel[0])
 	}
+	if reqModel == "" {
+		reqModel, _, _ = extractOpenAIRequestMetaFromBody(requestBody)
+	}
+	shouldDisable := s.handleOpenAIAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, body, reqModel)
 	kind := "http_error"
 	if shouldDisable {
 		kind = "failover"
@@ -5053,16 +5064,13 @@ func (s *OpenAIGatewayService) handleCompatErrorResponse(
 	}
 
 	// Track rate limits and decide whether to trigger secondary failover.
-	shouldDisable := false
-	if s.rateLimitService != nil {
-		reqModel := ""
-		if len(requestedModel) > 0 {
-			reqModel = strings.TrimSpace(requestedModel[0])
-		}
-		shouldDisable = s.rateLimitService.HandleUpstreamError(
-			c.Request.Context(), account, resp.StatusCode, resp.Header, body, reqModel,
-		)
+	reqModel := ""
+	if len(requestedModel) > 0 {
+		reqModel = strings.TrimSpace(requestedModel[0])
 	}
+	shouldDisable := s.handleOpenAIAccountUpstreamError(
+		c.Request.Context(), account, resp.StatusCode, resp.Header, body, reqModel,
+	)
 	kind := "http_error"
 	if shouldDisable {
 		kind = "failover"
