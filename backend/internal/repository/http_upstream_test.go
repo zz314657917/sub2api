@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
@@ -77,6 +78,38 @@ func (s *HTTPUpstreamSuite) TestNormalizeProxyURL_Canonicalizes() {
 	key2, _, err2 := normalizeProxyURL("http://proxy.local:8080/")
 	require.NoError(s.T(), err2)
 	require.Equal(s.T(), key1, key2, "expected normalized proxy keys to match")
+}
+
+func (s *HTTPUpstreamSuite) TestTLSLogValuesRedactProxyUserinfo() {
+	proxyKey, _, err := normalizeProxyURL("http://alice:super-secret@proxy.local:8080")
+	require.NoError(s.T(), err)
+
+	redactedProxy := redactProxyURLForLog(proxyKey)
+	cacheKey := "tls:" + buildCacheKey(config.ConnectionPoolIsolationAccountProxy, proxyKey, 42)
+	redactedCacheKey := redactProxyCacheKeyForLog(cacheKey, proxyKey, redactedProxy)
+	redactedError := redactProxyURLInLogText("connect failed via "+proxyKey, proxyKey)
+
+	for _, value := range []string{redactedProxy, redactedCacheKey, redactedError} {
+		require.NotContains(s.T(), value, "alice")
+		require.NotContains(s.T(), value, "super-secret")
+		require.NotContains(s.T(), value, "@")
+		require.Contains(s.T(), value, "proxy.local:8080")
+	}
+	require.Equal(s.T(), "direct", redactProxyURLForLog("direct"))
+	require.Equal(s.T(), "invalid_proxy", redactProxyURLForLog("://alice:super-secret@proxy.local"))
+}
+
+func (s *HTTPUpstreamSuite) TestTLSLogErrorRedactionHandlesSOCKS5Normalization() {
+	rawProxy := "socks5://alice:super-secret@proxy.local:1080"
+	proxyKey, _, err := normalizeProxyURL(rawProxy)
+	require.NoError(s.T(), err)
+	require.Equal(s.T(), "socks5h://alice:super-secret@proxy.local:1080", proxyKey)
+
+	redacted := redactProxyURLInLogText("connect failed via "+proxyKey, rawProxy)
+	require.NotContains(s.T(), redacted, "alice")
+	require.NotContains(s.T(), redacted, "super-secret")
+	require.NotContains(s.T(), redacted, "@")
+	require.Contains(s.T(), redacted, "proxy.local:1080")
 }
 
 // TestAcquireClient_OverLimitReturnsError 测试连接池缓存上限保护
@@ -165,6 +198,31 @@ func (s *HTTPUpstreamSuite) TestDo_EmptyProxy_UsesDirect() {
 	defer func() { _ = resp.Body.Close() }()
 	b, _ := io.ReadAll(resp.Body)
 	require.Equal(s.T(), "direct-empty", string(b))
+}
+
+func (s *HTTPUpstreamSuite) TestDo_RedirectsDisabledReturnsFirstResponse() {
+	var redirected atomic.Int64
+	target := newLocalTestServer(s.T(), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		redirected.Add(1)
+		_, _ = io.WriteString(w, "redirect target")
+	}))
+	s.T().Cleanup(target.Close)
+
+	source := newLocalTestServer(s.T(), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target.URL+"/credential-sink", http.StatusFound)
+	}))
+	s.T().Cleanup(source.Close)
+
+	req, err := http.NewRequest(http.MethodGet, source.URL+"/probe", nil)
+	require.NoError(s.T(), err)
+	req.Header.Set("Authorization", "Bearer must-not-follow")
+	req = req.WithContext(service.WithHTTPUpstreamRedirectsDisabled(req.Context()))
+
+	resp, err := NewHTTPUpstream(s.cfg).Do(req, "", 1, 1)
+	require.NoError(s.T(), err)
+	defer func() { _ = resp.Body.Close() }()
+	require.Equal(s.T(), http.StatusFound, resp.StatusCode)
+	require.Zero(s.T(), redirected.Load())
 }
 
 // TestAccountIsolation_DifferentAccounts 测试账户隔离模式

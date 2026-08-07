@@ -110,6 +110,35 @@ func TestUpdateAccountRoutesRateIntentThroughAtomicBillingUpdater(t *testing.T) 
 	require.Zero(t, *updated.RateMultiplier)
 }
 
+func TestUpdateAccountRoutesNonProbeRateIntentThroughAtomicBillingUpdater(t *testing.T) {
+	accountID := int64(110)
+	initialRate := 0.1
+	manualRate := 0.75
+	repo := &accountBillingSettingsAdminRepo{
+		upstreamBillingProbeAccountRepo: &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{
+			accountID: {
+				ID:             accountID,
+				Name:           "before",
+				Platform:       PlatformOpenAI,
+				Type:           AccountTypeOAuth,
+				Status:         StatusActive,
+				RateMultiplier: &initialRate,
+			},
+		}},
+	}
+
+	updated, err := (&adminServiceImpl{accountRepo: repo}).UpdateAccount(context.Background(), accountID, &UpdateAccountInput{
+		RateMultiplier: &manualRate,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, repo.updateCalls)
+	require.NotNil(t, repo.lastExplicitRate)
+	require.Equal(t, manualRate, *repo.lastExplicitRate)
+	require.NotNil(t, updated.RateMultiplier)
+	require.Equal(t, manualRate, *updated.RateMultiplier)
+}
+
 func TestCreateAccountDropsManagedUpstreamBillingProbeState(t *testing.T) {
 	repo := &upstreamBillingProbeAccountRepo{}
 	svc := &adminServiceImpl{accountRepo: repo}
@@ -469,6 +498,67 @@ func TestUpdateAccountRejectsManualRateWhileRateSyncEnabled(t *testing.T) {
 	})
 }
 
+func TestBulkUpdateAccountsAllowsManualRateWhenProbeIsDisabledInSameRequest(t *testing.T) {
+	accountID := int64(157)
+	manualRate := 0.75
+	probeEnabled := false
+	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{
+		accountID: {
+			ID:       accountID,
+			Platform: PlatformOpenAI,
+			Type:     AccountTypeAPIKey,
+			Status:   StatusActive,
+			Extra: map[string]any{
+				UpstreamBillingProbeEnabledExtraKey:    true,
+				UpstreamBillingRateSyncEnabledExtraKey: true,
+			},
+		},
+	}}
+
+	result, err := (&adminServiceImpl{accountRepo: repo}).BulkUpdateAccounts(context.Background(), &BulkUpdateAccountsInput{
+		AccountIDs:     []int64{accountID},
+		ProbeEnabled:   &probeEnabled,
+		RateMultiplier: &manualRate,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, result.Success)
+	require.Len(t, repo.bulkUpdates, 1)
+	update := repo.bulkUpdates[0]
+	require.NotNil(t, update.ProbeEnabled)
+	require.False(t, *update.ProbeEnabled)
+	require.NotNil(t, update.RateMultiplier)
+	require.Equal(t, manualRate, *update.RateMultiplier)
+	require.Equal(t, false, update.Extra[UpstreamBillingProbeEnabledExtraKey])
+	require.Equal(t, false, update.Extra[UpstreamBillingRateSyncEnabledExtraKey])
+}
+
+func TestBulkUpdateAccountsRejectsManualRateWhenSyncIsEnabled(t *testing.T) {
+	accountID := int64(158)
+	manualRate := 0.75
+	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{
+		accountID: {
+			ID:       accountID,
+			Platform: PlatformOpenAI,
+			Type:     AccountTypeAPIKey,
+			Status:   StatusActive,
+			Extra: map[string]any{
+				UpstreamBillingProbeEnabledExtraKey:    true,
+				UpstreamBillingRateSyncEnabledExtraKey: true,
+			},
+		},
+	}}
+
+	result, err := (&adminServiceImpl{accountRepo: repo}).BulkUpdateAccounts(context.Background(), &BulkUpdateAccountsInput{
+		AccountIDs:     []int64{accountID},
+		RateMultiplier: &manualRate,
+	})
+
+	require.Nil(t, result)
+	require.ErrorIs(t, err, ErrUpstreamBillingRateSyncBulkConflict)
+	require.Empty(t, repo.bulkUpdates)
+}
+
 func TestUpdateAccountRejectsSyncWithExplicitlyDisabledProbe(t *testing.T) {
 	accountID := int64(152)
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{
@@ -488,6 +578,27 @@ func TestUpdateAccountRejectsSyncWithExplicitlyDisabledProbe(t *testing.T) {
 	})
 
 	require.Error(t, err)
+	require.Empty(t, repo.updates[accountID])
+}
+
+func TestUpdateAccountRejectsProbeEnableForNonProbeIdentity(t *testing.T) {
+	accountID := int64(159)
+	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{
+		accountID: {
+			ID:       accountID,
+			Platform: PlatformOpenAI,
+			Type:     AccountTypeOAuth,
+			Status:   StatusActive,
+			Extra:    map[string]any{},
+		},
+	}}
+	enabled := true
+
+	_, err := (&adminServiceImpl{accountRepo: repo}).UpdateAccount(context.Background(), accountID, &UpdateAccountInput{
+		ProbeEnabled: &enabled,
+	})
+
+	require.ErrorIs(t, err, ErrUpstreamBillingProbeAccountInvalid)
 	require.Empty(t, repo.updates[accountID])
 }
 

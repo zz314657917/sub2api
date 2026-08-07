@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 
 const { updateAccountMock, checkMixedChannelRiskMock } = vi.hoisted(() => ({
   updateAccountMock: vi.fn(),
@@ -422,6 +422,7 @@ describe('EditAccountModal', () => {
 
   it('disabling only rate sync keeps automatic probing enabled', async () => {
     const account = buildAccount()
+    account.rate_multiplier = 0.0655
     account.extra = {
       upstream_billing_probe_enabled: true,
       upstream_billing_rate_sync_enabled: true
@@ -436,12 +437,18 @@ describe('EditAccountModal', () => {
     expect(wrapper.get('[data-testid="upstream-billing-auto-probe"]').attributes('aria-checked')).toBe(
       'true'
     )
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    const rateInput = wrapper.get<HTMLInputElement>('[data-testid="account-rate-multiplier"]')
+    expect(rateInput.attributes('step')).toBe('0.0001')
+    expect(rateInput.element.validity.valid).toBe(true)
+    const form = wrapper.get<HTMLFormElement>('form#edit-account-form')
+    const submitButton = wrapper.get<HTMLButtonElement>('button[type="submit"][form="edit-account-form"]')
+    form.element.requestSubmit(submitButton.element)
+    await flushPromises()
 
     const payload = updateAccountMock.mock.calls[0]?.[1]
     expect(payload?.upstream_billing_probe_enabled).toBe(true)
     expect(payload?.upstream_billing_rate_sync_enabled).toBe(false)
-    expect(payload?.rate_multiplier).toBe(1)
+    expect(payload?.rate_multiplier).toBe(0.0655)
   })
 
   it('clears OpenAI APIKey Responses override when set back to auto', async () => {

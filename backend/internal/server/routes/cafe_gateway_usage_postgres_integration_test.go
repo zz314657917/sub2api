@@ -237,6 +237,7 @@ func newCafeGatewayUsageRouter(t *testing.T, fixture cafeJWTGatewayRedisSmokeFix
 				nil,
 				nil,
 				nil,
+				nil,
 				concurrencyService,
 				nil,
 				nil,

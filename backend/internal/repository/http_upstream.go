@@ -177,7 +177,7 @@ func (s *httpUpstreamService) DoWithTLS(req *http.Request, proxyURL string, acco
 	}
 	proxyInfo := "direct"
 	if proxyURL != "" {
-		proxyInfo = proxyURL
+		proxyInfo = redactProxyURLForLog(proxyURL)
 	}
 	slog.Debug("tls_fingerprint_enabled", "account_id", accountID, "target", targetHost, "proxy", proxyInfo, "profile", profile.Name)
 
@@ -187,7 +187,7 @@ func (s *httpUpstreamService) DoWithTLS(req *http.Request, proxyURL string, acco
 
 	entry, err := s.acquireClientWithTLS(proxyURL, accountID, accountConcurrency, profile)
 	if err != nil {
-		slog.Debug("tls_fingerprint_acquire_client_failed", "account_id", accountID, "error", err)
+		slog.Debug("tls_fingerprint_acquire_client_failed", "account_id", accountID, "error", redactProxyURLInLogText(err.Error(), proxyURL))
 		return nil, err
 	}
 
@@ -195,7 +195,7 @@ func (s *httpUpstreamService) DoWithTLS(req *http.Request, proxyURL string, acco
 	if err != nil {
 		atomic.AddInt64(&entry.inFlight, -1)
 		atomic.StoreInt64(&entry.lastUsed, time.Now().UnixNano())
-		slog.Debug("tls_fingerprint_request_failed", "account_id", accountID, "error", err)
+		slog.Debug("tls_fingerprint_request_failed", "account_id", accountID, "error", redactProxyURLInLogText(err.Error(), proxyURL))
 		return nil, err
 	}
 
@@ -235,6 +235,8 @@ func (s *httpUpstreamService) getClientEntryWithTLS(proxyURL string, accountID i
 	}
 	// TLS 指纹客户端使用独立的缓存键，加 "tls:" 前缀
 	cacheKey := "tls:" + buildCacheKey(isolation, proxyKey, accountID)
+	logProxyKey := redactProxyURLForLog(proxyKey)
+	logCacheKey := redactProxyCacheKeyForLog(cacheKey, proxyKey, logProxyKey)
 	poolKey := s.buildPoolKey(isolation, accountConcurrency) + ":tls"
 
 	now := time.Now()
@@ -248,7 +250,7 @@ func (s *httpUpstreamService) getClientEntryWithTLS(proxyURL string, accountID i
 			atomic.AddInt64(&entry.inFlight, 1)
 		}
 		s.mu.RUnlock()
-		slog.Debug("tls_fingerprint_reusing_client", "account_id", accountID, "cache_key", cacheKey)
+		slog.Debug("tls_fingerprint_reusing_client", "account_id", accountID, "cache_key", logCacheKey)
 		return entry, nil
 	}
 	s.mu.RUnlock()
@@ -262,12 +264,12 @@ func (s *httpUpstreamService) getClientEntryWithTLS(proxyURL string, accountID i
 				atomic.AddInt64(&entry.inFlight, 1)
 			}
 			s.mu.Unlock()
-			slog.Debug("tls_fingerprint_reusing_client", "account_id", accountID, "cache_key", cacheKey)
+			slog.Debug("tls_fingerprint_reusing_client", "account_id", accountID, "cache_key", logCacheKey)
 			return entry, nil
 		}
 		slog.Debug("tls_fingerprint_evicting_stale_client",
 			"account_id", accountID,
-			"cache_key", cacheKey,
+			"cache_key", logCacheKey,
 			"proxy_changed", entry.proxyKey != proxyKey,
 			"pool_changed", entry.poolKey != poolKey)
 		s.removeClientLocked(cacheKey, entry)
@@ -285,7 +287,7 @@ func (s *httpUpstreamService) getClientEntryWithTLS(proxyURL string, accountID i
 	}
 
 	// 创建带 TLS 指纹的 Transport
-	slog.Debug("tls_fingerprint_creating_new_client", "account_id", accountID, "cache_key", cacheKey, "proxy", proxyKey)
+	slog.Debug("tls_fingerprint_creating_new_client", "account_id", accountID, "cache_key", logCacheKey, "proxy", logProxyKey)
 	settings := s.resolvePoolSettings(isolation, accountConcurrency)
 	transport, err := buildUpstreamTransportWithTLSFingerprint(settings, parsedProxy, profile)
 	if err != nil {
@@ -711,6 +713,47 @@ func normalizeProxyURL(raw string) (string, *url.URL, error) {
 		}
 	}
 	return parsed.String(), parsed, nil
+}
+
+func redactProxyURLForLog(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" || trimmed == directProxyKey {
+		return trimmed
+	}
+	parsed, err := url.Parse(trimmed)
+	if err != nil || parsed.Host == "" {
+		return "invalid_proxy"
+	}
+	parsed.User = nil
+	return parsed.String()
+}
+
+func redactProxyCacheKeyForLog(cacheKey, proxyKey, redactedProxyKey string) string {
+	if proxyKey == "" || proxyKey == redactedProxyKey {
+		return cacheKey
+	}
+	return strings.Replace(cacheKey, proxyKey, redactedProxyKey, 1)
+}
+
+func redactProxyURLInLogText(message, rawProxyURL string) string {
+	trimmed := strings.TrimSpace(rawProxyURL)
+	if trimmed == "" {
+		return message
+	}
+	redacted := redactProxyURLForLog(trimmed)
+	if redacted == trimmed {
+		return message
+	}
+	message = strings.ReplaceAll(message, trimmed, redacted)
+	if parsed, err := url.Parse(trimmed); err == nil && parsed.User != nil {
+		message = strings.ReplaceAll(message, parsed.Redacted(), redacted)
+		if strings.EqualFold(parsed.Scheme, "socks5") {
+			parsed.Scheme = "socks5h"
+			message = strings.ReplaceAll(message, parsed.String(), redacted)
+			message = strings.ReplaceAll(message, parsed.Redacted(), redacted)
+		}
+	}
+	return message
 }
 
 // defaultPoolSettings 获取默认连接池配置

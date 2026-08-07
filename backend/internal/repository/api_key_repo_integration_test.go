@@ -184,7 +184,7 @@ func (s *APIKeyRepoSuite) TestBackfillDefaultKeyFallback() {
 		Weight:   2,
 		Enabled:  true,
 	}}
-	s.Require().NoError(s.repo.Update(s.ctx, ungroupedDefault))
+	s.Require().NoError(s.repo.Update(s.ctx, ungroupedDefault, service.APIKeyUpdateFields{MultiGroupRoutes: true}))
 	ungroupedSecondary := s.mustCreateApiKey(ungroupedUser.ID, "sk-fallback-secondary", "Secondary", nil)
 
 	groupedUser := s.mustCreateUser("fallback-grouped@test.com")

@@ -456,6 +456,7 @@ func TestUpstreamBillingProbeSyncRateRangeAndPrecision(t *testing.T) {
 		// 自动写回一律拒绝（管理员手工设 0 仍然允许）。
 		{name: "zero is rejected", value: 0, ok: false},
 		{name: "positive below database precision rounds to zero", value: 0.00001, ok: false},
+		{name: "raw value above ceiling cannot round down into range", value: 100.00001, ok: false},
 		{name: "just above the write-back ceiling", value: 100.0001, ok: false},
 		{name: "column ceiling is far above the write-back ceiling", value: 999999.9999, ok: false},
 		{name: "negative", value: -1, ok: false},
@@ -484,6 +485,71 @@ func TestUpstreamBillingProbeSyncRateIgnoresEffectiveRate(t *testing.T) {
 
 	_, ok = upstreamBillingProbeSyncRate(map[string]any{"effective_rate_multiplier": 0.9})
 	require.False(t, ok)
+}
+
+func TestUpstreamBillingProbeJSONContentTypes(t *testing.T) {
+	for _, tt := range []struct {
+		name        string
+		contentType string
+		want        bool
+	}{
+		{name: "json", contentType: "application/json", want: true},
+		{name: "json with charset", contentType: "application/json; charset=utf-8", want: true},
+		{name: "vendor json", contentType: "application/vnd.sub2api.billing+json", want: true},
+		{name: "problem json", contentType: "application/problem+json; charset=utf-8", want: true},
+		{name: "text json", contentType: "text/json", want: false},
+		{name: "html", contentType: "text/html", want: false},
+		{name: "missing", contentType: "", want: false},
+		{name: "malformed", contentType: "application/json; charset", want: false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, upstreamBillingProbeResponseIsJSON(tt.contentType))
+		})
+	}
+}
+
+func TestUpstreamBillingProbeRejectsNonJSONSuccessResponse(t *testing.T) {
+	initialRate := 0.25
+	account := &Account{
+		ID:             23,
+		Platform:       PlatformOpenAI,
+		Type:           AccountTypeAPIKey,
+		Status:         StatusActive,
+		Concurrency:    1,
+		RateMultiplier: &initialRate,
+		Credentials: map[string]any{
+			"api_key":  "sk-sensitive",
+			"base_url": "https://upstream.example",
+		},
+		Extra: map[string]any{
+			UpstreamBillingProbeEnabledExtraKey:    true,
+			UpstreamBillingRateSyncEnabledExtraKey: true,
+		},
+	}
+	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/html"}},
+		Body: io.NopCloser(strings.NewReader(`{
+			"object":"sub2api.key_billing",
+			"schema_version":1,
+			"billing_scope":"token",
+			"group_rate_multiplier":0.8,
+			"resolved_rate_multiplier":0.8,
+			"peak_rate_enabled":false,
+			"effective_rate_multiplier":0.8,
+			"observed_at":"2026-07-13T01:00:00Z"
+		}`)),
+	}}
+	svc := newUpstreamBillingProbeTestService(repo, upstream, &upstreamBillingProbeSettingRepo{})
+
+	snapshot, err := svc.ProbeAccount(context.Background(), account.ID)
+
+	require.NoError(t, err)
+	require.Equal(t, UpstreamBillingProbeStatusFailed, snapshot.Status)
+	require.Equal(t, "invalid_content_type", snapshot.LastError)
+	require.Equal(t, initialRate, *account.RateMultiplier)
+	require.Nil(t, snapshot.SyncedRateMultiplier)
 }
 
 // 上游声明超出自动写回值域时保持原倍率，但探测本身是成功的：
@@ -772,13 +838,17 @@ func TestUpstreamBillingProbeFailurePreservesLastSuccessAndRetryAfter(t *testing
 	require.Equal(t, initialRate, *account.RateMultiplier)
 }
 
-func TestUpstreamBillingProbeRetryAfterIsNotShortened(t *testing.T) {
-	delay := nextProbeDelay(30, 48*time.Hour)
-	require.Equal(t, 48*time.Hour, delay)
+func TestUpstreamBillingProbeRetryAfterIsHardCapped(t *testing.T) {
+	now := time.Date(2026, time.July, 13, 2, 0, 0, 0, time.UTC)
+	require.Equal(t, upstreamBillingProbeMaxDelay, nextProbeDelay(30, 48*time.Hour))
+	require.Equal(t, upstreamBillingProbeMaxDelay, retryAfter(http.Header{"Retry-After": []string{"172800"}}, now))
+	require.Equal(t, upstreamBillingProbeMaxDelay, retryAfter(http.Header{"Retry-After": []string{"999999999999999999999999"}}, now))
+	require.Equal(t, upstreamBillingProbeMaxDelay, retryAfter(http.Header{"Retry-After": []string{now.Add(48 * time.Hour).Format(http.TimeFormat)}}, now))
+	require.Equal(t, 4*time.Hour, retryAfter(http.Header{"Retry-After": []string{"14400"}}, now))
 }
 
 // unsupported 的重探间隔明显长于普通失败，但始终有上界：上游后来接入 sub2api
-// 时最迟一天内会被重新发现，且不会缩短上游 Retry-After 指令。
+// 时最迟一天内会被重新发现，且恶意 Retry-After 不能永久冻结探测。
 func TestUpstreamBillingProbeUnsupportedDelayIsStretchedAndBounded(t *testing.T) {
 	// 默认 30 分钟 interval：普通失败 24~36 分钟，unsupported 为其 8 倍。
 	stretched := unsupportedProbeDelay(30, 0)
@@ -790,8 +860,8 @@ func TestUpstreamBillingProbeUnsupportedDelayIsStretchedAndBounded(t *testing.T)
 	require.LessOrEqual(t, unsupportedProbeDelay(upstreamBillingProbeMaxIntervalMinutes, 0), upstreamBillingProbeMaxDelay)
 	require.Positive(t, unsupportedProbeDelay(upstreamBillingProbeMinIntervalMinutes, 0))
 
-	// Retry-After 更长时原样保留，不被封顶缩短；更短时至少不早于该指令。
-	require.Equal(t, 48*time.Hour, unsupportedProbeDelay(30, 48*time.Hour))
+	// Retry-After 同样受硬上限约束；合理的较短指令仍被尊重。
+	require.Equal(t, upstreamBillingProbeMaxDelay, unsupportedProbeDelay(30, 48*time.Hour))
 	require.GreaterOrEqual(t, unsupportedProbeDelay(30, time.Hour), time.Hour)
 }
 
@@ -1199,7 +1269,7 @@ func TestUpstreamBillingProbeManualBatchesShareConcurrencyLimit(t *testing.T) {
 	require.Equal(t, int64(upstreamBillingProbeConcurrency), upstream.maxActive.Load())
 }
 
-func TestUpstreamBillingProbeManualAndScheduledRequestsShareOneNetworkProbe(t *testing.T) {
+func TestUpstreamBillingProbeManualAndScheduledRequestsDoNotShareModeResult(t *testing.T) {
 	account := &Account{
 		ID:          46,
 		Platform:    PlatformOpenAI,
@@ -1240,7 +1310,9 @@ func TestUpstreamBillingProbeManualAndScheduledRequestsShareOneNetworkProbe(t *t
 	close(unblock)
 	require.NoError(t, <-errs)
 	require.NoError(t, <-errs)
-	require.Equal(t, int64(1), upstream.calls.Load())
+	// Manual and scheduled calls use different singleflight keys. A scheduled
+	// no-op or cancellation must not be replayed as the manual request result.
+	require.Equal(t, int64(2), upstream.calls.Load())
 }
 
 func TestUpstreamBillingProbeScheduledRechecksAfterWaitingForSlot(t *testing.T) {

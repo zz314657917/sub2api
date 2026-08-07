@@ -97,6 +97,7 @@ func ProvideAdminHandlers(
 
 func ProvideGatewayHandler(
 	gatewayService *service.GatewayService,
+	openAIGatewayService *service.OpenAIGatewayService,
 	geminiCompatService *service.GeminiMessagesCompatService,
 	antigravityGatewayService *service.AntigravityGatewayService,
 	userService *service.UserService,
@@ -113,7 +114,7 @@ func ProvideGatewayHandler(
 	settingService *service.SettingService,
 	coordinator *securityaudit.Coordinator,
 ) *GatewayHandler {
-	h := NewGatewayHandler(gatewayService, geminiCompatService, antigravityGatewayService, userService,
+	h := NewGatewayHandler(gatewayService, openAIGatewayService, geminiCompatService, antigravityGatewayService, userService,
 		concurrencyService, billingCacheService, welfareService, usageService, apiKeyService, usageRecordWorkerPool,
 		errorPassthroughService, contentModerationService, userMsgQueueService, cfg, settingService)
 	h.securityAuditCoordinator = coordinator

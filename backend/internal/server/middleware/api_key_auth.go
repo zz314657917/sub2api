@@ -124,10 +124,12 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 		if cfg.RunMode != config.RunModeSimple && c.Request.URL.Path != "/v1/usage" && !billingInfoRequest {
 			apiKey = withUnavailableSubscriptionRouteGroups(c.Request.Context(), apiKey, subscriptionService)
 		}
-		apiKey = resolveAPIKeyForRequest(c, apiKeyService, apiKey)
-		if apiKey == nil {
-			AbortWithError(c, http.StatusForbidden, "NO_MATCHING_GROUP_ROUTE", "No available group route matches the request")
-			return
+		if !billingInfoRequest {
+			apiKey = resolveAPIKeyForRequest(c, apiKeyService, apiKey)
+			if apiKey == nil {
+				AbortWithError(c, http.StatusForbidden, "NO_MATCHING_GROUP_ROUTE", "No available group route matches the request")
+				return
+			}
 		}
 		if abortIfAPIKeyGroupUnavailable(c, apiKey) {
 			return
@@ -148,7 +150,9 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 				_ = apiKeyService.TouchLastUsed(c.Request.Context(), apiKey.ID)
 			}
 			c.Next()
-			applyAPIKeyRouteCooldownAfterRequest(c, apiKeyService, currentAPIKeyFromContext(c, apiKey))
+			if !billingInfoRequest {
+				applyAPIKeyRouteCooldownAfterRequest(c, apiKeyService, currentAPIKeyFromContext(c, apiKey))
+			}
 			return
 		}
 
@@ -228,7 +232,9 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 		}
 
 		c.Next()
-		applyAPIKeyRouteCooldownAfterRequest(c, apiKeyService, currentAPIKeyFromContext(c, apiKey))
+		if !billingInfoRequest {
+			applyAPIKeyRouteCooldownAfterRequest(c, apiKeyService, currentAPIKeyFromContext(c, apiKey))
+		}
 	}
 }
 

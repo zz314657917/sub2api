@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -42,6 +43,13 @@ func newKeyBillingGatewayService(repo service.UserGroupRateRepository) *service.
 	return service.NewGatewayService(
 		nil, nil, nil, nil, nil, nil, repo, nil, nil, nil, nil, nil, nil, nil,
 		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+	)
+}
+
+func newKeyBillingOpenAIGatewayService(repo service.UserGroupRateRepository) *service.OpenAIGatewayService {
+	return service.NewOpenAIGatewayService(
+		nil, nil, nil, nil, nil, repo, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 }
 
@@ -243,6 +251,52 @@ func TestGatewayHandlerKeyBillingInfoErrorsAreSafe(t *testing.T) {
 	})
 }
 
+func TestGatewayHandlerKeyBillingInfoRejectsAmbiguousMultiGroupKey(t *testing.T) {
+	defaultGroupID := int64(7)
+	fallbackGroupID := int64(8)
+	apiKey := &service.APIKey{
+		UserID:  11,
+		GroupID: &defaultGroupID,
+		Group: &service.Group{
+			ID:             defaultGroupID,
+			RateMultiplier: 0.75,
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: defaultGroupID, Enabled: true},
+			{GroupID: fallbackGroupID, Enabled: true},
+		},
+	}
+	c, w := newKeyBillingContext(apiKey)
+	repo := &keyBillingUserGroupRateRepo{}
+
+	newKeyBillingHandler(repo).KeyBillingInfo(c)
+
+	require.Equal(t, http.StatusConflict, w.Code)
+	require.Zero(t, repo.lookupCalls)
+	require.JSONEq(t, `{
+		"type": "error",
+		"error": {
+			"type": "conflict_error",
+			"message": "Billing information is unavailable for API keys with multiple routing groups"
+		}
+	}`, w.Body.String())
+}
+
+func TestHasAmbiguousKeyBillingGroupsIgnoresDisabledAndDuplicateRoutes(t *testing.T) {
+	groupID := int64(7)
+	apiKey := &service.APIKey{
+		GroupID: &groupID,
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: groupID, Enabled: true},
+			{GroupID: 8, Enabled: false},
+		},
+	}
+
+	require.False(t, hasAmbiguousKeyBillingGroups(apiKey))
+	apiKey.MultiGroupRoutes = append(apiKey.MultiGroupRoutes, domain.APIKeyMultiGroupRoute{GroupID: 8, Enabled: true})
+	require.True(t, hasAmbiguousKeyBillingGroups(apiKey))
+}
+
 func TestGatewayHandlerKeyBillingInfoSharesBillingResolverCacheByPlatform(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
@@ -255,10 +309,13 @@ func TestGatewayHandlerKeyBillingInfoSharesBillingResolverCacheByPlatform(t *tes
 		t.Run(tc.name, func(t *testing.T) {
 			groupID := int64(7)
 			oldRate, newRate := 0.5, 1.8
-			repo := &keyBillingUserGroupRateRepo{rate: &oldRate}
-			gatewayService := newKeyBillingGatewayService(repo)
+			gatewayRateRepo := &keyBillingUserGroupRateRepo{rate: &oldRate}
+			openAIRateRepo := &keyBillingUserGroupRateRepo{rate: &oldRate}
+			gatewayService := newKeyBillingGatewayService(gatewayRateRepo)
+			openAIGatewayService := newKeyBillingOpenAIGatewayService(openAIRateRepo)
 			h := &GatewayHandler{
-				gatewayService: gatewayService,
+				gatewayService:       gatewayService,
+				openAIGatewayService: openAIGatewayService,
 			}
 			apiKey := &service.APIKey{
 				UserID:  11,
@@ -270,8 +327,15 @@ func TestGatewayHandlerKeyBillingInfoSharesBillingResolverCacheByPlatform(t *tes
 				},
 			}
 
-			require.Equal(t, oldRate, gatewayService.ResolveUserGroupRateMultiplier(context.Background(), apiKey.UserID, groupID, apiKey.Group.RateMultiplier))
-			repo.rate = &newRate
+			var billedRate float64
+			switch tc.platform {
+			case service.PlatformOpenAI, service.PlatformGrok:
+				require.Equal(t, oldRate, openAIGatewayService.ResolveUserGroupRateMultiplier(context.Background(), apiKey.UserID, groupID, apiKey.Group.RateMultiplier))
+				openAIRateRepo.rate = &newRate
+			default:
+				require.Equal(t, oldRate, gatewayService.ResolveUserGroupRateMultiplier(context.Background(), apiKey.UserID, groupID, apiKey.Group.RateMultiplier))
+				gatewayRateRepo.rate = &newRate
+			}
 
 			for range 2 {
 				c, w := newKeyBillingContext(apiKey)
@@ -283,9 +347,17 @@ func TestGatewayHandlerKeyBillingInfoSharesBillingResolverCacheByPlatform(t *tes
 				require.Equal(t, oldRate, got.EffectiveRateMultiplier)
 			}
 
-			billedRate := gatewayService.ResolveUserGroupRateMultiplier(context.Background(), apiKey.UserID, groupID, apiKey.Group.RateMultiplier)
+			switch tc.platform {
+			case service.PlatformOpenAI, service.PlatformGrok:
+				billedRate = openAIGatewayService.ResolveUserGroupRateMultiplier(context.Background(), apiKey.UserID, groupID, apiKey.Group.RateMultiplier)
+				require.Equal(t, 1, openAIRateRepo.lookupCalls)
+				require.Zero(t, gatewayRateRepo.lookupCalls)
+			default:
+				billedRate = gatewayService.ResolveUserGroupRateMultiplier(context.Background(), apiKey.UserID, groupID, apiKey.Group.RateMultiplier)
+				require.Equal(t, 1, gatewayRateRepo.lookupCalls)
+				require.Zero(t, openAIRateRepo.lookupCalls)
+			}
 			require.Equal(t, oldRate, billedRate)
-			require.Equal(t, 1, repo.lookupCalls)
 		})
 	}
 }

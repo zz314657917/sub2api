@@ -421,7 +421,7 @@
           <template #cell-upstream_billing_rate="{ row }">
             <UpstreamBillingRateCell
               :account="row"
-              :interval-minutes="upstreamBillingProbeSettings.interval_minutes"
+              :global-probe-enabled="upstreamBillingProbeSettings.enabled"
               :now="upstreamBillingNow"
               :probing="probingUpstreamBilling.has(row.id)"
               @probe="handleProbeUpstreamBilling(row)"
@@ -2128,10 +2128,15 @@ const patchAccountInList = (updatedAccount: Account) => {
 const patchUpstreamBillingSnapshot = (accountID: number, snapshot: UpstreamBillingProbeSnapshot) => {
   const account = accounts.value.find(item => item.id === accountID)
   if (!account) return
+  const syncedRateMultiplier = snapshot.synced_rate_multiplier
   patchAccountInList({
     ...account,
+    ...(typeof syncedRateMultiplier === 'number' && Number.isFinite(syncedRateMultiplier)
+      ? { rate_multiplier: syncedRateMultiplier }
+      : {}),
     extra: { ...account.extra, upstream_billing_probe: snapshot }
   })
+  upstreamBillingNow.value = Date.now()
 }
 
 const handleProbeUpstreamBilling = async (account: Account) => {
@@ -2726,7 +2731,7 @@ const handleClickOutside = (event: MouseEvent) => {
 
 onMounted(async () => {
   load()
-  if (!isSharedAccountsPage.value) loadUpstreamBillingProbeSettings()
+  loadUpstreamBillingProbeSettings()
   try {
     const [p, g] = await Promise.all([adminAPI.proxies.getAll(), adminAPI.groups.getAll()])
     proxies.value = p

@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"math"
 	"math/rand/v2"
+	"mime"
 	"net/http"
 	"net/url"
 	"sort"
@@ -462,6 +463,11 @@ func (s *UpstreamBillingProbeService) probeScheduledAccount(ctx context.Context,
 
 func (s *UpstreamBillingProbeService) probeAccountWithMode(ctx context.Context, accountID int64, intervalMinutes int, requireEnabled bool) (*UpstreamBillingProbeSnapshot, error) {
 	key := strconv.FormatInt(accountID, 10)
+	if requireEnabled {
+		key += ":scheduled"
+	} else {
+		key += ":manual"
+	}
 	value, err, _ := s.probeGroup.Do(key, func() (any, error) {
 		select {
 		case s.probeSlots <- struct{}{}:
@@ -663,6 +669,9 @@ func (s *UpstreamBillingProbeService) probeLoadedAccount(ctx context.Context, ac
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return s.persistProbeFailure(ctx, account, intervalMinutes, now, resp.StatusCode, "http_error", retryAfter(resp.Header, now))
+	}
+	if !upstreamBillingProbeResponseIsJSON(resp.Header.Get("Content-Type")) {
+		return s.persistProbeFailure(ctx, account, intervalMinutes, now, resp.StatusCode, "invalid_content_type", retryAfter(resp.Header, now))
 	}
 	data, err := parseUpstreamBillingProbeResponse(body)
 	if err != nil {
@@ -888,7 +897,7 @@ func upstreamBillingRateAt(data map[string]any, now time.Time) (float64, bool) {
 // still records an OK snapshot carrying the raw declaration for display.
 func upstreamBillingProbeSyncRate(data map[string]any) (float64, bool) {
 	value, ok := resolveAccountExtraNumber(data, "resolved_rate_multiplier")
-	if !ok || math.IsNaN(value) || math.IsInf(value, 0) {
+	if !ok || math.IsNaN(value) || math.IsInf(value, 0) || value <= 0 || value > upstreamBillingRateSyncMaxMultiplier {
 		return 0, false
 	}
 	rounded := math.Round(value*upstreamBillingProbeAccountRateScale) / upstreamBillingProbeAccountRateScale
@@ -896,6 +905,16 @@ func upstreamBillingProbeSyncRate(data map[string]any) (float64, bool) {
 		return 0, false
 	}
 	return rounded, true
+}
+
+func upstreamBillingProbeResponseIsJSON(contentType string) bool {
+	mediaType, _, err := mime.ParseMediaType(strings.TrimSpace(contentType))
+	if err != nil {
+		return false
+	}
+	mediaType = strings.ToLower(mediaType)
+	return mediaType == "application/json" ||
+		(strings.HasPrefix(mediaType, "application/") && strings.HasSuffix(mediaType, "+json"))
 }
 
 func upstreamBillingPeakMultiplierAt(data map[string]any, now time.Time) (float64, bool) {
@@ -1066,9 +1085,10 @@ func nextProbeDelay(intervalMinutes int, retryAfterDuration time.Duration) time.
 	if jitterRange > 0 {
 		interval += time.Duration(rand.Int64N(int64(jitterRange)*2+1)) - jitterRange
 	}
+	if retryAfterDuration > upstreamBillingProbeMaxDelay {
+		retryAfterDuration = upstreamBillingProbeMaxDelay
+	}
 	if retryAfterDuration > interval {
-		// Retry-After is an explicit upstream instruction; do not shorten it
-		// with the local maximum delay.
 		return retryAfterDuration
 	}
 	if interval > upstreamBillingProbeMaxDelay {
@@ -1080,8 +1100,7 @@ func nextProbeDelay(intervalMinutes int, retryAfterDuration time.Duration) time.
 // unsupportedProbeDelay 拉长 unsupported 账号的重探间隔，让无效候选自然退出
 // 热队列，不再和真正接入 sub2api 的中转账号抢每周期的探测名额。
 // 仍按 upstreamBillingProbeMaxDelay 封顶，保证上游后来接入 sub2api 时最迟一天
-// 内会被重新发现；base 本身已达上限（例如 Retry-After 明确要求更久）时原样返回，
-// 不缩短上游指令。
+// 内会被重新发现。
 func unsupportedProbeDelay(intervalMinutes int, retryAfterDuration time.Duration) time.Duration {
 	base := nextProbeDelay(intervalMinutes, retryAfterDuration)
 	if base >= upstreamBillingProbeMaxDelay {
@@ -1099,11 +1118,29 @@ func retryAfter(header http.Header, now time.Time) time.Duration {
 	if value == "" {
 		return 0
 	}
-	if seconds, err := strconv.Atoi(value); err == nil && seconds > 0 {
+	isDeltaSeconds := true
+	for i := 0; i < len(value); i++ {
+		if !isASCIIDigit(value[i]) {
+			isDeltaSeconds = false
+			break
+		}
+	}
+	if isDeltaSeconds {
+		maxSeconds := uint64(upstreamBillingProbeMaxDelay / time.Second)
+		seconds, err := strconv.ParseUint(value, 10, 64)
+		if err != nil || seconds >= maxSeconds {
+			return upstreamBillingProbeMaxDelay
+		}
+		if seconds == 0 {
+			return 0
+		}
 		return time.Duration(seconds) * time.Second
 	}
 	if at, err := http.ParseTime(value); err == nil {
 		if delay := at.Sub(now); delay > 0 {
+			if delay > upstreamBillingProbeMaxDelay {
+				return upstreamBillingProbeMaxDelay
+			}
 			return delay
 		}
 	}

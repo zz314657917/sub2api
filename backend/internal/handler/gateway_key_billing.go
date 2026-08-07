@@ -42,6 +42,10 @@ func (h *GatewayHandler) KeyBillingInfo(c *gin.Context) {
 		h.errorResponse(c, http.StatusNotFound, "not_found_error", "Billing information is not supported in simple mode")
 		return
 	}
+	if hasAmbiguousKeyBillingGroups(apiKey) {
+		h.errorResponse(c, http.StatusConflict, "conflict_error", "Billing information is unavailable for API keys with multiple routing groups")
+		return
+	}
 	if apiKey.GroupID == nil {
 		h.errorResponse(c, http.StatusForbidden, "permission_error", "API key is not assigned to a group")
 		return
@@ -61,12 +65,40 @@ func (h *GatewayHandler) KeyBillingInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, buildKeyBillingInfo(apiKey, resolvedRate, timezone.Now()))
 }
 
+func hasAmbiguousKeyBillingGroups(apiKey *service.APIKey) bool {
+	if apiKey == nil {
+		return false
+	}
+	groupIDs := make(map[int64]struct{}, 2)
+	if apiKey.GroupID != nil && *apiKey.GroupID > 0 {
+		groupIDs[*apiKey.GroupID] = struct{}{}
+	}
+	for _, route := range apiKey.MultiGroupRoutes {
+		if !route.Enabled || route.GroupID <= 0 {
+			continue
+		}
+		groupIDs[route.GroupID] = struct{}{}
+		if len(groupIDs) > 1 {
+			return true
+		}
+	}
+	return false
+}
+
 func (h *GatewayHandler) resolveKeyBillingRate(c *gin.Context, apiKey *service.APIKey) (float64, bool) {
 	groupRate := apiKey.Group.RateMultiplier
-	if h.gatewayService == nil {
-		return 0, false
+	switch apiKey.Group.Platform {
+	case service.PlatformOpenAI, service.PlatformGrok:
+		if h.openAIGatewayService == nil {
+			return 0, false
+		}
+		return h.openAIGatewayService.ResolveUserGroupRateMultiplier(c.Request.Context(), apiKey.UserID, *apiKey.GroupID, groupRate), true
+	default:
+		if h.gatewayService == nil {
+			return 0, false
+		}
+		return h.gatewayService.ResolveUserGroupRateMultiplier(c.Request.Context(), apiKey.UserID, *apiKey.GroupID, groupRate), true
 	}
-	return h.gatewayService.ResolveUserGroupRateMultiplier(c.Request.Context(), apiKey.UserID, *apiKey.GroupID, groupRate), true
 }
 
 func buildKeyBillingInfo(apiKey *service.APIKey, resolvedRate float64, now time.Time) keyBillingInfoResponse {

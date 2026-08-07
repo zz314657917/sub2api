@@ -83,10 +83,11 @@ func (s *UserRepoSuite) TestUpdate_DoesNotRevertConcurrentLimitChanges() {
 	stale, err := s.repo.GetByID(s.ctx, user.ID)
 	s.Require().NoError(err, "GetByID")
 
-	concurrency, rpmLimit := 9, 90
-	affected, err := s.repo.BatchUpdateLimits(s.ctx, []int64{user.ID}, &concurrency, &rpmLimit)
-	s.Require().NoError(err, "BatchUpdateLimits")
-	s.Require().Equal(1, affected)
+	_, err = s.client.User.UpdateOneID(user.ID).
+		SetConcurrency(9).
+		SetRpmLimit(90).
+		Save(s.ctx)
+	s.Require().NoError(err, "concurrent limit update")
 
 	stale.Username = "after"
 	s.Require().NoError(

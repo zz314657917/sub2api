@@ -330,7 +330,7 @@ func (r *accountRepository) ListCRSAccountIDs(ctx context.Context) (map[string]i
 }
 
 func (r *accountRepository) Update(ctx context.Context, account *service.Account) error {
-	return r.updateAccount(ctx, account, nil, nil, account.RateMultiplier)
+	return r.updateAccount(ctx, account, nil, nil, nil)
 }
 
 // UpdateWithAccountBillingSettings applies an admin account edit while
@@ -375,7 +375,14 @@ func (r *accountRepository) updateAccount(
 		}
 	}
 
-	extra, err := lockAndMergeAccountProbeExtra(ctx, client, account, explicitProbeEnabled, explicitRateSyncEnabled)
+	extra, err := lockAndMergeAccountProbeExtra(
+		ctx,
+		client,
+		account,
+		explicitProbeEnabled,
+		explicitRateSyncEnabled,
+		explicitRateMultiplier,
+	)
 	if err != nil {
 		return translatePersistenceError(err, service.ErrAccountNotFound, nil)
 	}
@@ -491,6 +498,7 @@ func lockAndMergeAccountProbeExtra(
 	account *service.Account,
 	explicitProbeEnabled *bool,
 	explicitRateSyncEnabled *bool,
+	explicitRateMultiplier *float64,
 ) (map[string]any, error) {
 	credentials, err := json.Marshal(normalizeJSONMap(account.Credentials))
 	if err != nil {
@@ -584,6 +592,9 @@ func lockAndMergeAccountProbeExtra(
 		if rateSyncEnabledPresent {
 			extra[service.UpstreamBillingRateSyncEnabledExtraKey] = rateSyncEnabled
 		}
+	}
+	if explicitRateMultiplier != nil && rateSyncEnabled {
+		return nil, service.ErrUpstreamBillingRateSyncConflict
 	}
 	probeExplicitlyDisabled := probeEnabledPresent && !probeEnabled
 	if !identityUnchanged || probeExplicitlyDisabled || len(currentSnapshot) == 0 || string(currentSnapshot) == "null" {
@@ -2554,6 +2565,12 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 			updates.Extra = make(map[string]any)
 		}
 		updates.Extra[service.UpstreamBillingProbeEnabledExtraKey] = *updates.ProbeEnabled
+		if !*updates.ProbeEnabled {
+			updates.Extra[service.UpstreamBillingRateSyncEnabledExtraKey] = false
+		}
+	}
+	if updates.RateMultiplier != nil && bulkUpdateExplicitlyEnablesUpstreamBillingRateSync(updates) {
+		return 0, service.ErrUpstreamBillingRateSyncBulkConflict
 	}
 	// JSONB 需要合并而非覆盖，使用 raw SQL 保持旧行为。
 	if len(updates.Credentials) > 0 {
@@ -2592,6 +2609,10 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 		whereClause += " AND type = $" + itoa(idx)
 		args = append(args, service.AccountTypeAPIKey)
 	}
+	rejectRateSyncEnabled := updates.RateMultiplier != nil && !bulkUpdateExplicitlyDisablesUpstreamBillingRateSync(updates)
+	if rejectRateSyncEnabled {
+		whereClause += " AND NOT (COALESCE(extra, '{}'::jsonb) @> '{\"upstream_billing_rate_sync_enabled\": true}'::jsonb)"
+	}
 	query := "UPDATE accounts SET " + joinClauses(setClauses, ", ") + whereClause
 
 	baseCtx := ctx
@@ -2620,19 +2641,22 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 	if err != nil {
 		return 0, err
 	}
-	if updates.ProbeEnabled != nil {
-		expectedRows := int64(0)
-		seenIDs := make(map[int64]struct{}, len(ids))
-		for _, id := range ids {
-			if _, seen := seenIDs[id]; seen {
-				continue
-			}
-			seenIDs[id] = struct{}{}
-			expectedRows++
+	expectedRows := int64(0)
+	seenIDs := make(map[int64]struct{}, len(ids))
+	for _, id := range ids {
+		if _, seen := seenIDs[id]; seen {
+			continue
 		}
+		seenIDs[id] = struct{}{}
+		expectedRows++
+	}
+	if updates.ProbeEnabled != nil {
 		if rows != expectedRows {
 			return 0, service.ErrUpstreamBillingProbeAccountInvalid
 		}
+	}
+	if rejectRateSyncEnabled && rows != expectedRows {
+		return 0, service.ErrUpstreamBillingRateSyncBulkConflict
 	}
 	if rows > 0 {
 		payload := map[string]any{"account_ids": ids}
@@ -2658,6 +2682,25 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 		}
 	}
 	return rows, nil
+}
+
+func bulkUpdateExplicitlyDisablesUpstreamBillingRateSync(updates service.AccountBulkUpdate) bool {
+	if updates.ProbeEnabled != nil && !*updates.ProbeEnabled {
+		return true
+	}
+	if updates.Extra == nil {
+		return false
+	}
+	enabled, ok := updates.Extra[service.UpstreamBillingRateSyncEnabledExtraKey].(bool)
+	return ok && !enabled
+}
+
+func bulkUpdateExplicitlyEnablesUpstreamBillingRateSync(updates service.AccountBulkUpdate) bool {
+	if updates.Extra == nil {
+		return false
+	}
+	enabled, ok := updates.Extra[service.UpstreamBillingRateSyncEnabledExtraKey].(bool)
+	return ok && enabled
 }
 
 type accountGroupQueryOptions struct {

@@ -3466,6 +3466,11 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 			delete(account.Extra, UpstreamBillingRateSyncEnabledExtraKey)
 		}
 	}
+	if (requestedProbeEnabledUpdate != nil && *requestedProbeEnabledUpdate ||
+		requestedRateSyncEnabledUpdate != nil && *requestedRateSyncEnabledUpdate) &&
+		!isUpstreamBillingProbeAccount(account) {
+		return nil, ErrUpstreamBillingProbeAccountInvalid
+	}
 	// 只在指针非 nil 时更新 Concurrency（支持设置为 0）
 	if input.Concurrency != nil {
 		account.Concurrency = normalizeAccountConcurrency(account.Platform, account.Type, *input.Concurrency)
@@ -3532,13 +3537,11 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	}
 
 	billingSettingsAppliedAtomically := false
-	if isUpstreamBillingProbeAccount(account) {
-		if updater, ok := s.accountRepo.(accountBillingSettingsAtomicUpdater); ok {
-			if err := updater.UpdateWithAccountBillingSettings(ctx, account, requestedProbeEnabledUpdate, requestedRateSyncEnabledUpdate, input.RateMultiplier); err != nil {
-				return nil, err
-			}
-			billingSettingsAppliedAtomically = true
+	if updater, ok := s.accountRepo.(accountBillingSettingsAtomicUpdater); ok {
+		if err := updater.UpdateWithAccountBillingSettings(ctx, account, requestedProbeEnabledUpdate, requestedRateSyncEnabledUpdate, input.RateMultiplier); err != nil {
+			return nil, err
 		}
+		billingSettingsAppliedAtomically = true
 	}
 	if !billingSettingsAppliedAtomically {
 		if err := s.accountRepo.Update(ctx, account); err != nil {
@@ -3656,7 +3659,7 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 			if !ok {
 				return nil, ErrAccountNotFound
 			}
-			if upstreamBillingRateSyncEnabled(account) {
+			if upstreamBillingRateSyncEnabled(account) && !(input.ProbeEnabled != nil && !*input.ProbeEnabled) {
 				return nil, ErrUpstreamBillingRateSyncBulkConflict
 			}
 		}

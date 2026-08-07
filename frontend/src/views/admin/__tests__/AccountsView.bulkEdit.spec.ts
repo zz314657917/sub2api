@@ -114,6 +114,9 @@ const DataTableStub = {
             <span>{{ row.status }}</span>
           </slot>
         </div>
+        <div data-test="rate-cell">
+          <slot name="cell-rate_multiplier" :row="row" :value="row.rate_multiplier" />
+        </div>
       </div>
     </div>
   `
@@ -267,15 +270,26 @@ describe('admin AccountsView bulk edit scope', () => {
       type: 'apikey',
       status: 'active',
       schedulable: true,
+      rate_multiplier: 1,
       groups: [],
       credentials: {},
-      extra: {},
+      extra: {
+        upstream_billing_probe_enabled: true,
+        upstream_billing_rate_sync_enabled: true
+      },
       created_at: '2026-07-13T00:00:00Z',
       updated_at: '2026-07-13T00:00:00Z'
     })
     listAccounts
       .mockResolvedValueOnce({ items: [account(7)], total: 2, page: 1, page_size: 1, pages: 2 })
       .mockResolvedValueOnce({ items: [account(11)], total: 2, page: 2, page_size: 1, pages: 2 })
+    probeUpstreamBillingBatch.mockResolvedValueOnce([{
+      account_id: 11,
+      snapshot: {
+        status: 'ok',
+        synced_rate_multiplier: 0.0655
+      }
+    }])
 
     const wrapper = mount(AccountsView, {
       global: {
@@ -324,6 +338,7 @@ describe('admin AccountsView bulk edit scope', () => {
     await flushPromises()
 
     expect(probeUpstreamBillingBatch).toHaveBeenCalledWith([7, 11])
+    expect(wrapper.get('[data-test="rate-cell"]').text()).toBe('0.0655x')
   })
 
   it('opens bulk edit in filtered-results mode from the bulk actions dropdown', async () => {

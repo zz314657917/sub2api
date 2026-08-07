@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 
 import AccountsView from '../AccountsView.vue'
+import UpstreamBillingRateCell from '@/components/account/UpstreamBillingRateCell.vue'
+import enAccounts from '@/i18n/locales/en/admin/accounts'
+import zhAccounts from '@/i18n/locales/zh/admin/accounts'
 
 const {
   listAccounts,
@@ -9,6 +12,7 @@ const {
   getBatchTodayStats,
   getAllProxies,
   getAllGroups,
+  getUpstreamBillingProbeSettings,
   routeName
 } = vi.hoisted(() => ({
   listAccounts: vi.fn(),
@@ -16,6 +20,7 @@ const {
   getBatchTodayStats: vi.fn(),
   getAllProxies: vi.fn(),
   getAllGroups: vi.fn(),
+  getUpstreamBillingProbeSettings: vi.fn(),
   routeName: { value: 'AdminAccounts' }
 }))
 
@@ -25,7 +30,7 @@ vi.mock('@/api/admin', () => ({
       list: listAccounts,
       listWithEtag,
       getBatchTodayStats,
-      getUpstreamBillingProbeSettings: vi.fn().mockResolvedValue({ enabled: true, interval_minutes: 30 }),
+      getUpstreamBillingProbeSettings,
       delete: vi.fn(),
       batchClearError: vi.fn(),
       batchRefresh: vi.fn(),
@@ -86,6 +91,7 @@ const DataTableStub = {
       </template>
       <div v-for="row in data" :key="row.id" data-test="account-rate">
         <slot name="cell-rate_multiplier" :row="row" />
+        <slot name="cell-upstream_billing_rate" :row="row" />
       </div>
     </div>
   `
@@ -146,6 +152,7 @@ describe('admin AccountsView usage windows hint', () => {
     getBatchTodayStats.mockReset()
     getAllProxies.mockReset()
     getAllGroups.mockReset()
+    getUpstreamBillingProbeSettings.mockReset()
     routeName.value = 'AdminAccounts'
 
     listAccounts.mockResolvedValue({
@@ -163,6 +170,7 @@ describe('admin AccountsView usage windows hint', () => {
     getBatchTodayStats.mockResolvedValue({ stats: {} })
     getAllProxies.mockResolvedValue([])
     getAllGroups.mockResolvedValue([])
+    getUpstreamBillingProbeSettings.mockResolvedValue({ enabled: true, interval_minutes: 30 })
   })
 
   it('renders an explanatory tooltip next to the usage windows column header', async () => {
@@ -221,5 +229,43 @@ describe('admin AccountsView usage windows hint', () => {
     expect(wrapper.get('[data-test="account-rate"]').text()).toBe('0.065x')
     const indicator = wrapper.get('[data-testid="account-rate-sync-indicator"]')
     expect(indicator.attributes('title')).toBe('admin.accounts.upstreamBilling.syncedRateTooltip')
+  })
+
+  it('passes the disabled global probe state to the upstream rate cell on the shared account page', async () => {
+    routeName.value = 'AdminSharedAccounts'
+    getUpstreamBillingProbeSettings.mockResolvedValueOnce({ enabled: false, interval_minutes: 30 })
+    listAccounts.mockResolvedValueOnce({
+      items: [{
+        id: 8,
+        name: 'probe-disabled-account',
+        platform: 'openai',
+        type: 'apikey',
+        status: 'active',
+        schedulable: true,
+        rate_multiplier: 1,
+        extra: { upstream_billing_probe_enabled: true },
+        created_at: '2026-07-13T00:00:00Z',
+        updated_at: '2026-07-13T00:00:00Z'
+      }],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const rateCell = wrapper.getComponent(UpstreamBillingRateCell)
+    expect(rateCell.props('globalProbeEnabled')).toBe(false)
+    expect(rateCell.vm.$attrs).not.toHaveProperty('interval-minutes')
+  })
+
+  it('defines every upstream probe settings message in both locales', () => {
+    const keys = ['autoProbeSettings', 'intervalMinutes', 'settingsSaved', 'settingsFailed'] as const
+    for (const key of keys) {
+      expect(zhAccounts.upstreamBilling[key]).toBeTruthy()
+      expect(enAccounts.upstreamBilling[key]).toBeTruthy()
+    }
   })
 })

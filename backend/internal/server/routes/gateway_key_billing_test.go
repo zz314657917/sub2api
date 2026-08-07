@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/handler"
 	servermiddleware "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -70,6 +71,10 @@ func newKeyBillingRouteTestRouter(runMode string) (*gin.Engine, *keyBillingRoute
 		GroupID: groupID,
 		Group:   apiKeyGroup,
 	}
+	return newKeyBillingRouteTestRouterWithAPIKey(runMode, apiKey)
+}
+
+func newKeyBillingRouteTestRouterWithAPIKey(runMode string, apiKey *service.APIKey) (*gin.Engine, *keyBillingRouteRateRepo, string) {
 	cfg := &config.Config{RunMode: runMode}
 	rateRepo := &keyBillingRouteRateRepo{}
 	apiKeyService := service.NewAPIKeyService(
@@ -79,8 +84,12 @@ func newKeyBillingRouteTestRouter(runMode string) (*gin.Engine, *keyBillingRoute
 		nil, nil, nil, nil, nil, nil, rateRepo, nil, cfg, nil, nil, nil, nil, nil,
 		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
+	openAIGatewayService := service.NewOpenAIGatewayService(
+		nil, nil, nil, nil, nil, rateRepo, nil, cfg, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+	)
 	gatewayHandler := handler.NewGatewayHandler(
-		gatewayService, nil, nil, nil, nil, nil, nil, nil,
+		gatewayService, openAIGatewayService, nil, nil, nil, nil, nil, nil, nil,
 		apiKeyService, nil, nil, nil, nil, cfg, nil,
 	)
 
@@ -165,4 +174,65 @@ func TestGatewayRoutesKeyBillingInfoEndToEnd(t *testing.T) {
 		}`, w.Body.String())
 		require.Zero(t, rateRepo.lookupCalls)
 	})
+}
+
+func TestGatewayRoutesKeyBillingInfoRejectsMultiGroupRateAmbiguityDeterministically(t *testing.T) {
+	defaultGroupID := int64(42)
+	fallbackGroupID := int64(43)
+	user := &service.User{
+		ID:            7,
+		Role:          service.RoleUser,
+		Status:        service.StatusActive,
+		Balance:       10,
+		AllowedGroups: []int64{defaultGroupID, fallbackGroupID},
+	}
+	apiKey := &service.APIKey{
+		ID:      100,
+		UserID:  user.ID,
+		Key:     "billing-route-multi-group-key",
+		Status:  service.StatusActive,
+		User:    user,
+		GroupID: &defaultGroupID,
+		Group: &service.Group{
+			ID:               defaultGroupID,
+			Status:           service.StatusActive,
+			Hydrated:         true,
+			Platform:         service.PlatformOpenAI,
+			SubscriptionType: service.SubscriptionTypeStandard,
+			RateMultiplier:   0.75,
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: defaultGroupID, Priority: 1, Weight: 1, Enabled: true},
+			{GroupID: fallbackGroupID, Priority: 1, Weight: 1, Enabled: true},
+		},
+		MultiGroupRouteGroups: []*service.Group{
+			{
+				ID:               fallbackGroupID,
+				Status:           service.StatusActive,
+				Hydrated:         true,
+				Platform:         service.PlatformAnthropic,
+				SubscriptionType: service.SubscriptionTypeStandard,
+				RateMultiplier:   1.8,
+			},
+		},
+	}
+	router, rateRepo, key := newKeyBillingRouteTestRouterWithAPIKey(config.RunModeStandard, apiKey)
+
+	for range 10 {
+		req := httptest.NewRequest(http.MethodGet, "/v1/sub2api/billing", nil)
+		req.Header.Set("Authorization", "Bearer "+key)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusConflict, w.Code)
+		require.JSONEq(t, `{
+			"type": "error",
+			"error": {
+				"type": "conflict_error",
+				"message": "Billing information is unavailable for API keys with multiple routing groups"
+			}
+		}`, w.Body.String())
+	}
+	require.Zero(t, rateRepo.lookupCalls)
 }

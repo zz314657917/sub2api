@@ -3,7 +3,9 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -91,7 +93,7 @@ func TestLockAndMergeAccountProbeExtraUsesCurrentDatabaseSnapshot(t *testing.T) 
 				Credentials: map[string]any{"api_key": "sk-test"},
 				Extra:       tt.inputExtra,
 			}
-			got, err := lockAndMergeAccountProbeExtra(context.Background(), client, account, nil, nil)
+			got, err := lockAndMergeAccountProbeExtra(context.Background(), client, account, nil, nil, nil)
 			require.NoError(t, err)
 			if tt.wantSnapshot == nil {
 				require.NotContains(t, got, service.UpstreamBillingProbeExtraKey)
@@ -99,6 +101,102 @@ func TestLockAndMergeAccountProbeExtraUsesCurrentDatabaseSnapshot(t *testing.T) 
 				require.Equal(t, tt.wantSnapshot, got[service.UpstreamBillingProbeExtraKey])
 			}
 			require.Equal(t, tt.wantEnabled, got[service.UpstreamBillingProbeEnabledExtraKey])
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
+}
+
+func TestLockAndMergeAccountProbeExtraRejectsManualRateUsingCurrentDatabaseState(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	client := dbent.NewClient(dbent.Driver(entsql.OpenDB(dialect.Postgres, db)))
+	t.Cleanup(func() { _ = client.Close() })
+
+	mock.ExpectQuery(`(?s)`+regexp.QuoteMeta("SELECT")+`.*`+regexp.QuoteMeta("FOR NO KEY UPDATE")).
+		WithArgs(int64(27), service.PlatformOpenAI, service.AccountTypeAPIKey, `{"api_key":"sk-test"}`, nil).
+		WillReturnRows(sqlmock.NewRows([]string{"identity_unchanged", "enabled", "rate_sync_enabled", "snapshot"}).
+			AddRow(true, []byte(`true`), []byte(`true`), nil))
+
+	manualRate := 1.25
+	account := &service.Account{
+		ID:          27,
+		Platform:    service.PlatformOpenAI,
+		Type:        service.AccountTypeAPIKey,
+		Credentials: map[string]any{"api_key": "sk-test"},
+		Extra: map[string]any{
+			service.UpstreamBillingProbeEnabledExtraKey:    true,
+			service.UpstreamBillingRateSyncEnabledExtraKey: false,
+		},
+	}
+
+	_, err = lockAndMergeAccountProbeExtra(context.Background(), client, account, nil, nil, &manualRate)
+
+	require.ErrorIs(t, err, service.ErrUpstreamBillingRateSyncConflict)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestLockAndMergeAccountProbeExtraAllowsManualRateWhenSyncIsExplicitlyDisabled(t *testing.T) {
+	tests := []struct {
+		name                  string
+		probeEnabled          *bool
+		rateSyncEnabled       *bool
+		wantProbeEnabled      bool
+		wantRateSyncEnabled   bool
+		wantSnapshotPreserved bool
+	}{
+		{
+			name:                  "disable rate sync",
+			rateSyncEnabled:       boolPointer(false),
+			wantProbeEnabled:      true,
+			wantRateSyncEnabled:   false,
+			wantSnapshotPreserved: true,
+		},
+		{
+			name:                "disable probe",
+			probeEnabled:        boolPointer(false),
+			wantProbeEnabled:    false,
+			wantRateSyncEnabled: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = db.Close() })
+			client := dbent.NewClient(dbent.Driver(entsql.OpenDB(dialect.Postgres, db)))
+			t.Cleanup(func() { _ = client.Close() })
+
+			mock.ExpectQuery(`(?s)`+regexp.QuoteMeta("SELECT")+`.*`+regexp.QuoteMeta("FOR NO KEY UPDATE")).
+				WithArgs(int64(27), service.PlatformOpenAI, service.AccountTypeAPIKey, `{"api_key":"sk-test"}`, nil).
+				WillReturnRows(sqlmock.NewRows([]string{"identity_unchanged", "enabled", "rate_sync_enabled", "snapshot"}).
+					AddRow(true, []byte(`true`), []byte(`true`), []byte(`{"status":"ok"}`)))
+
+			manualRate := 1.25
+			account := &service.Account{
+				ID:          27,
+				Platform:    service.PlatformOpenAI,
+				Type:        service.AccountTypeAPIKey,
+				Credentials: map[string]any{"api_key": "sk-test"},
+			}
+			got, err := lockAndMergeAccountProbeExtra(
+				context.Background(),
+				client,
+				account,
+				tt.probeEnabled,
+				tt.rateSyncEnabled,
+				&manualRate,
+			)
+
+			require.NoError(t, err)
+			require.Equal(t, tt.wantProbeEnabled, got[service.UpstreamBillingProbeEnabledExtraKey])
+			require.Equal(t, tt.wantRateSyncEnabled, got[service.UpstreamBillingRateSyncEnabledExtraKey])
+			if tt.wantSnapshotPreserved {
+				require.Equal(t, map[string]any{"status": "ok"}, got[service.UpstreamBillingProbeExtraKey])
+			} else {
+				require.NotContains(t, got, service.UpstreamBillingProbeExtraKey)
+			}
 			require.NoError(t, mock.ExpectationsWereMet())
 		})
 	}
@@ -236,8 +334,8 @@ func TestUpdateWithAccountBillingSettingsRollsBackWhenOutboxFails(t *testing.T) 
 	mock.ExpectBegin()
 	mock.ExpectQuery(`(?s)`+regexp.QuoteMeta("SELECT")+`.*`+regexp.QuoteMeta("FOR NO KEY UPDATE")).
 		WithArgs(int64(27), service.PlatformOpenAI, service.AccountTypeAPIKey, `{"api_key":"sk-test"}`, nil).
-		WillReturnRows(sqlmock.NewRows([]string{"identity_unchanged", "enabled", "snapshot"}).
-			AddRow(true, []byte(`true`), []byte(`{"status":"ok"}`)))
+		WillReturnRows(sqlmock.NewRows([]string{"identity_unchanged", "enabled", "rate_sync_enabled", "snapshot"}).
+			AddRow(true, []byte(`true`), []byte(`true`), []byte(`{"status":"ok"}`)))
 	mock.ExpectExec(`(?s)UPDATE .*accounts.*SET.*WHERE .*id.*`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery(`(?s)SELECT .* FROM "accounts" WHERE "id" = \$1`).
@@ -270,6 +368,125 @@ func TestUpdateWithAccountBillingSettingsRollsBackWhenOutboxFails(t *testing.T) 
 	require.Equal(t, false, account.Extra[service.UpstreamBillingRateSyncEnabledExtraKey])
 	require.NotContains(t, account.Extra, service.UpstreamBillingProbeExtraKey)
 	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestAccountRepositoryUpdatePreservesRateMultiplier(t *testing.T) {
+	matcher := sqlmock.QueryMatcherFunc(func(expectedSQL, actualSQL string) error {
+		if expectedSQL == "UPDATE_ACCOUNT_WITHOUT_RATE_MULTIPLIER" {
+			if !strings.Contains(actualSQL, `UPDATE "accounts"`) {
+				return fmt.Errorf("expected account update, got %q", actualSQL)
+			}
+			if strings.Contains(actualSQL, `"rate_multiplier"`) {
+				return fmt.Errorf("ordinary account update must preserve rate_multiplier: %q", actualSQL)
+			}
+			return nil
+		}
+		return sqlmock.QueryMatcherRegexp.Match(expectedSQL, actualSQL)
+	})
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(matcher))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	client := dbent.NewClient(dbent.Driver(entsql.OpenDB(dialect.Postgres, db)))
+	t.Cleanup(func() { _ = client.Close() })
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(`(?s)`+regexp.QuoteMeta("SELECT")+`.*`+regexp.QuoteMeta("FOR NO KEY UPDATE")).
+		WithArgs(int64(27), service.PlatformOpenAI, service.AccountTypeAPIKey, `{"api_key":"sk-test"}`, nil).
+		WillReturnRows(sqlmock.NewRows([]string{"identity_unchanged", "enabled", "rate_sync_enabled", "snapshot"}).
+			AddRow(true, []byte(`true`), []byte(`true`), []byte(`{"status":"ok"}`)))
+	mock.ExpectExec("UPDATE_ACCOUNT_WITHOUT_RATE_MULTIPLIER").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectQuery(`(?s)SELECT .* FROM "accounts" WHERE "id" = \$1`).
+		WithArgs(int64(27)).
+		WillReturnRows(updatedAccountRows(27, `{"upstream_billing_probe_enabled":true,"upstream_billing_rate_sync_enabled":true,"upstream_billing_probe":{"status":"ok"}}`))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO scheduler_outbox")).
+		WithArgs(service.SchedulerOutboxEventAccountChanged, int64(27), nil, sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	staleRate := 0.25
+	repo := newAccountRepositoryWithSQL(client, db, nil)
+	err = repo.Update(context.Background(), &service.Account{
+		ID:             27,
+		Name:           "test",
+		Platform:       service.PlatformOpenAI,
+		Type:           service.AccountTypeAPIKey,
+		Credentials:    map[string]any{"api_key": "sk-test"},
+		Extra:          map[string]any{},
+		Concurrency:    1,
+		Priority:       1,
+		RateMultiplier: &staleRate,
+		Status:         service.StatusActive,
+		Schedulable:    true,
+	})
+
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestBulkUpdateRateMultiplierConflictRollsBackAtomically(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	client := dbent.NewClient(dbent.Driver(entsql.OpenDB(dialect.Postgres, db)))
+	t.Cleanup(func() { _ = client.Close() })
+
+	manualRate := 0.5
+	mock.ExpectBegin()
+	mock.ExpectExec(`(?s)UPDATE accounts SET rate_multiplier = \$1.*WHERE id = ANY\(\$2\).*upstream_billing_rate_sync_enabled`).
+		WithArgs(manualRate, `{27,28}`).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectRollback()
+
+	repo := newAccountRepositoryWithSQL(client, db, nil)
+	rows, err := repo.BulkUpdate(context.Background(), []int64{27, 28}, service.AccountBulkUpdate{RateMultiplier: &manualRate})
+
+	require.ErrorIs(t, err, service.ErrUpstreamBillingRateSyncBulkConflict)
+	require.Zero(t, rows)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestBulkUpdateDisablingProbeAllowsManualRateAndDisablesRateSync(t *testing.T) {
+	exec := &recordingSQLExecutor{}
+	repo := newAccountRepositoryWithSQL(nil, exec, nil)
+	probeEnabled := false
+	manualRate := 0.5
+
+	rows, err := repo.BulkUpdate(context.Background(), []int64{27}, service.AccountBulkUpdate{
+		ProbeEnabled:   &probeEnabled,
+		RateMultiplier: &manualRate,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, int64(1), rows)
+	require.NotEmpty(t, exec.queries)
+	query := normalizeSQLWhitespace(exec.queries[0])
+	require.NotContains(t, query, "AND NOT (COALESCE(extra")
+	require.Contains(t, query, "type = $4")
+	payload, ok := exec.args[0][1].([]byte)
+	require.True(t, ok)
+	require.JSONEq(t, `{"upstream_billing_probe_enabled":false,"upstream_billing_rate_sync_enabled":false}`, string(payload))
+}
+
+func TestBulkUpdateRejectsEnablingRateSyncWithManualRateBeforeWriting(t *testing.T) {
+	exec := &recordingSQLExecutor{}
+	repo := newAccountRepositoryWithSQL(nil, exec, nil)
+	manualRate := 0.5
+
+	rows, err := repo.BulkUpdate(context.Background(), []int64{27}, service.AccountBulkUpdate{
+		RateMultiplier: &manualRate,
+		Extra: map[string]any{
+			service.UpstreamBillingRateSyncEnabledExtraKey: true,
+		},
+	})
+
+	require.ErrorIs(t, err, service.ErrUpstreamBillingRateSyncBulkConflict)
+	require.Zero(t, rows)
+	require.Empty(t, exec.queries)
+}
+
+func boolPointer(value bool) *bool {
+	return &value
 }
 
 func TestUpdateExtraRollsBackWhenOutboxFails(t *testing.T) {

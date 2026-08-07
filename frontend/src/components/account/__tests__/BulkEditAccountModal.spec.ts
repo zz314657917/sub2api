@@ -98,6 +98,7 @@ describe('BulkEditAccountModal', () => {
 
     expect(wrapper.find('[data-testid="bulk-rate-sync-warning"]').exists()).toBe(false)
     await wrapper.get('#bulk-edit-rate-multiplier-enabled').setValue(true)
+    expect(wrapper.get('#bulk-edit-rate-multiplier').attributes('step')).toBe('0.0001')
 
     expect(wrapper.get('[data-testid="bulk-rate-sync-warning"]').text()).toContain(
       'admin.accounts.bulkEdit.rateSyncWarning'

@@ -1134,6 +1134,59 @@ func TestAPIKeyAuthBillingInfoSkipsLastUsedInSimpleMode(t *testing.T) {
 	require.Zero(t, touchCalls)
 }
 
+func TestAPIKeyAuthBillingInfoSkipsRouteResolutionAndCooldownSideEffects(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	defaultGroupID := int64(42)
+	fallbackGroupID := int64(43)
+	user := &service.User{
+		ID:            7,
+		Role:          service.RoleUser,
+		Status:        service.StatusActive,
+		AllowedGroups: []int64{defaultGroupID, fallbackGroupID},
+	}
+	apiKey := &service.APIKey{
+		ID:      100,
+		UserID:  user.ID,
+		Key:     "billing-info-multi-group",
+		Status:  service.StatusActive,
+		User:    user,
+		GroupID: &defaultGroupID,
+		Group: &service.Group{
+			ID:       defaultGroupID,
+			Status:   service.StatusActive,
+			Hydrated: true,
+			Platform: service.PlatformOpenAI,
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: defaultGroupID, Priority: 1, Weight: 1, Enabled: true},
+			{GroupID: fallbackGroupID, Priority: 2, Weight: 1, Enabled: true},
+		},
+		MultiGroupRouteGroups: []*service.Group{
+			{ID: fallbackGroupID, Status: service.StatusActive, Hydrated: true, Platform: service.PlatformOpenAI},
+		},
+	}
+	apiKeyRepo := &stubApiKeyRepo{
+		getByKey: func(context.Context, string) (*service.APIKey, error) {
+			clone := *apiKey
+			return &clone, nil
+		},
+	}
+	cache := &billingInfoCooldownCacheStub{}
+	cfg := &config.Config{RunMode: config.RunModeStandard}
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cache, cfg)
+	router := newAuthTestRouter(apiKeyService, nil, cfg)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/v1/sub2api/billing", nil)
+	req.Header.Set("x-api-key", apiKey.Key)
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Zero(t, cache.cooldownLookupCalls)
+	require.Zero(t, cache.cooldownDeleteCalls)
+}
+
 func TestShouldCooldownAPIKeyRoute(t *testing.T) {
 	cases := []struct {
 		name string
@@ -1162,6 +1215,9 @@ func newAuthTestRouter(apiKeyService *service.APIKeyService, subscriptionService
 	router.GET("/t", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"ok": true})
 	})
+	router.GET("/v1/sub2api/billing", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
 	return router
 }
 
@@ -1177,6 +1233,22 @@ func requireAPIKeyAuthError(t *testing.T, w *httptest.ResponseRecorder, code, me
 type stubApiKeyRepo struct {
 	getByKey       func(ctx context.Context, key string) (*service.APIKey, error)
 	updateLastUsed func(ctx context.Context, id int64, usedAt time.Time) error
+}
+
+type billingInfoCooldownCacheStub struct {
+	service.APIKeyCache
+	cooldownLookupCalls int
+	cooldownDeleteCalls int
+}
+
+func (s *billingInfoCooldownCacheStub) IsRouteGroupCooling(context.Context, int64, int64) (bool, error) {
+	s.cooldownLookupCalls++
+	return false, nil
+}
+
+func (s *billingInfoCooldownCacheStub) DeleteRouteGroupCooldown(context.Context, int64, int64) error {
+	s.cooldownDeleteCalls++
+	return nil
 }
 
 func (r *stubApiKeyRepo) Create(ctx context.Context, key *service.APIKey) error {
