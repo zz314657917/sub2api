@@ -10,12 +10,13 @@
 
 ## 当前目标
 
-- 2026-08-07 上游计费倍率同步 S204 已关闭为 `PASS / local regression`：API Key 自省、手工/CRS 周期探测、
-  有界失败回退、按账号 opt-in 的 `rate_multiplier` CAS 写回、同步开启时手工编辑保护、管理端状态/批量入口
-  和精度展示均已贯通。最终分支已合入当前 S203 本地主线拓扑；全量 service、聚焦 handler/admin/routes/
-  repository/service、server 编译、前端 `78/78`、typecheck、build 和 Git integrity 均通过。该批只做本地
-  main 集成，不 push、不部署、不调用真实上游；QA：
-  `docs/workflow/qa-reports/upstream-billing-rate-sync-s204-qa.md`。
+- 2026-08-07 上游计费倍率同步 S204 已关闭为 `PASS / scoped`：合入后复核发现的多分组自省、OpenAI/Grok
+  resolver、手工倍率并发保护、CRS 旧倍率回写、代理日志脱敏、上游输入边界和前端状态/精度问题均已在本地
+  `main` 工作树修复。最终重新执行的 handler/middleware/routes/repository/full-service/unit-tag、目标
+  PostgreSQL/Redis CAS、integration 编译、server 编译、前端 `80/80`、typecheck、build、generation、format
+  与 Git integrity 均通过。完整 integration repository 仍有五个无关基线失败，已作为未验证风险保留，不在
+  本 Sprint 处理；不 push、不部署、不调用真实上游。合同和 QA：
+  `docs/workflow/tasks/upstream-billing-rate-sync-s204.md`、`docs/workflow/qa-reports/upstream-billing-rate-sync-s204-qa.md`。
 - 2026-08-07 上游 `dbb42881c` 已按行为级最小适配合入本地，提交 `d06e7fe64`：新增
   `openai.CodexDefaultOriginator`（`codex-tui`），默认 Codex UA、OAuth identity fallback、模型清单
   请求头统一使用 TUI；本地既有 `DisableCodexOriginatorNormalization` 仍保留，默认热路径按开关归一化为

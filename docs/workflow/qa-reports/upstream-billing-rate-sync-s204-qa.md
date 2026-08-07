@@ -1,5 +1,15 @@
 ### PASS: upstream-billing-rate-sync-s204
 
+> Final verdict: `PASS / scoped` (2026-08-07 22:40 +08:00). This closeout is limited to the S204 contract and local-main integration.
+
+# Post-Merge Reaudit
+
+- The prior FAIL was caused by stale test fixtures and several local integration defects. Those S204 defects are
+  repaired and the scoped implementation now passes the default backend, frontend, Wire, and CAS checks below.
+- Full integration remains non-green for unrelated baseline tests: usage-log data isolation assertions,
+  `deleted_api_key_audits` migration availability, and an old balance-error expectation. These failures do not
+  touch S204 files or behavior and are retained as unverified baseline risks.
+
 # Scope
 
 - Behavior-level local adaptation of upstream API-key billing introspection, bounded account probing, and
@@ -38,17 +48,32 @@ PASS
 go test ./internal/repository -run "Test.*UpstreamBillingProbe|Test.*Account.*Probe|Test.*Proxy.*Probe" -count=1
 PASS
 
+go test ./internal/repository -count=1
+PASS (1.585s)
+
 go test ./internal/service -run "Test.*UpstreamBillingProbe|Test.*RateSync|Test.*BulkUpdate|Test.*CRSSync|Test.*Account.*Probe" -count=1
 PASS
 
 go test ./internal/service -count=1
-PASS (61.371s)
+PASS (62.237s)
+
+go test -run 'TestUpstreamBillingProbeManualAndScheduledRequestsDoNotShareModeResult|TestUpdateAccountRejectsProbeEnableForNonProbeIdentity' ./internal/service -count=1
+PASS; manual/scheduled singleflight modes are isolated and non-probe enable is rejected
+
+go test -tags=integration ./internal/repository -run 'TestAdminAccountEditPreservesRateSynchronizedAfterLoad|TestProbeSnapshotCASProtectsManualRateAfterSyncDisabled' -count=1
+PASS; real PostgreSQL/Redis Testcontainers CAS checks
+
+go test -tags=integration ./internal/repository -run '^$' -count=0
+PASS; integration package compiles
+
+go test -tags=unit ./internal/server/middleware -run '^TestAPIKeyAuthBillingInfo' -count=1
+PASS
 
 go test ./cmd/server -run "^$" -count=0
 PASS; compile probe
 
 npm.cmd run test:run -- <six S204 frontend spec files>
-PASS (6 files, 78 tests)
+PASS (6 files, 80 tests)
 
 npm.cmd run typecheck
 PASS
@@ -73,6 +98,11 @@ PASS; no Ent, migration, dependency, deploy, Docker, profitability scheduler, or
 
 - No real upstream Sub2API instance, API key, external provider endpoint, live proxy, PostgreSQL/Redis service,
   authenticated browser session, container, deployment, rollback, or production traffic was exercised.
+- The complete `go test -tags=integration ./internal/repository -count=1` suite still has five pre-existing,
+  non-S204 failures involving cross-test data isolation, the unavailable `deleted_api_key_audits` table, and an
+  old balance-error assertion. The S204 integration compile probe and targeted CAS cases pass.
+- The complete `go test -tags=unit ./internal/service` package remains blocked by unrelated legacy test symbols;
+  default service tests and all S204 service cases pass.
 - The probe remains opt-in and disabled by default. A remote declaration is treated as untrusted input, but an
   operator still owns the decision to enable synchronization for a specific account.
 - Frontend production build retains pre-existing warnings about stale Browserslist data, large chunks, mixed

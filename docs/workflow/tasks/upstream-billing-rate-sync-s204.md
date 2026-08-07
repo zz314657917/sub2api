@@ -38,13 +38,16 @@
 - `backend/internal/handler/gateway_key_billing*.go`
 - `backend/internal/handler/wire.go`
 - `backend/internal/repository/account_repo*.go`
+- `backend/internal/repository/api_key_repo_integration_test.go`
 - `backend/internal/repository/http_upstream*.go`
 - `backend/internal/repository/proxy_repo*.go`
 - `backend/internal/repository/upstream_billing_probe*.go`
+- `backend/internal/repository/user_repo_lost_update_integration_test.go`
 - `backend/internal/server/api_contract_test.go`
 - `backend/internal/server/middleware/api_key_auth*.go`
 - `backend/internal/server/routes/admin.go`
 - `backend/internal/server/routes/gateway.go`
+- `backend/internal/server/routes/cafe_gateway_usage_postgres_integration_test.go`
 - `backend/internal/server/routes/gateway_key_billing_test.go`
 - `backend/internal/service/account_service.go`
 - `backend/internal/service/admin_account*.go`
@@ -54,7 +57,9 @@
 - `backend/internal/service/gateway_usage_billing.go`
 - `backend/internal/service/gateway_service.go`
 - `backend/internal/service/http_upstream_profile*.go`
+- `backend/internal/service/http_upstream_redirect.go`
 - `backend/internal/service/openai_endpoint_url*.go`
+- `backend/internal/service/openai_gateway_service.go`
 - `backend/internal/service/openai_gateway_usage.go`
 - `backend/internal/service/ops_advisory_lock.go`
 - `backend/internal/service/proxy_update_probe_invalidation_test.go`
@@ -96,6 +101,17 @@
 - Probe logs and API responses must not reveal API keys, OAuth credentials, proxy credentials, or raw upstream response bodies.
 - No browser automation is required unless focused component tests reveal a presentation issue; S180 browser QA remains separate.
 
+## Post-Merge Repair Gate
+
+- Billing introspection must be deterministic. It must not randomly select a multi-group route, mutate route cooldown state, or claim a rate that cannot safely represent the authenticated key.
+- OpenAI and Grok billing introspection must use the same user/group rate resolver path as their real billing flow.
+- Single and bulk manual rate updates must reject a concurrently enabled sync flag at the authoritative repository write boundary. A request that explicitly disables sync before setting a rate remains valid.
+- CRS and other unrelated account updates must preserve a rate written after their read instead of replaying a stale multiplier.
+- TLS/proxy debug logs must not contain proxy userinfo, including inside cache keys.
+- Probe responses must require a JSON media type, cap `Retry-After` at the local maximum delay, and reject the raw declared base rate outside `(0, 100]` before rounding.
+- The account UI must support four-decimal rates, refresh the displayed multiplier after successful sync, pass the global probe state to the rate cell, and provide all referenced Chinese/English messages.
+- Default, `unit`, and `integration` test selections must compile and execute the S204 cases they claim to cover. Remove or adapt imported integration tests that rely on features outside this repository.
+
 ## Acceptance Commands
 
 ```powershell
@@ -105,8 +121,11 @@ gofmt -w <changed Go files>
 go test ./internal/handler -run 'TestGatewayKeyBilling|TestAccount.*UpstreamBilling|Test.*Probe' -count=1
 go test ./internal/server/middleware ./internal/server/routes -run 'Test.*Billing|Test.*Probe|TestAPIKey' -count=1
 go test ./internal/repository -run 'Test.*UpstreamBillingProbe|Test.*Account.*Probe|Test.*Proxy.*Probe' -count=1
+go test ./internal/repository -count=1
 go test ./internal/service -run 'Test.*UpstreamBillingProbe|Test.*RateSync|Test.*BulkUpdate|Test.*CRSSync|Test.*Account.*Probe' -count=1
 go test ./internal/service -count=1
+go test -tags=unit ./internal/server/middleware -run '^TestAPIKeyAuthBillingInfo' -count=1
+go test -tags=integration ./internal/repository -run '^$' -count=0
 go test ./cmd/server -run '^$' -count=0
 
 cd ../frontend

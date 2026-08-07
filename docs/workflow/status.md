@@ -2,11 +2,11 @@
 phase: done
 current_sprint: upstream-billing-rate-sync-s204
 total_sprints: 204
-pending_action: S204 is complete for local-main-only integration. Keep S180 browser QA separate until its CPU-resource blocker is cleared.
+pending_action: S204 is closed as scoped PASS on local main. Keep S180 browser QA separate until its CPU-resource blocker is cleared. Do not push or deploy.
 project_type: backend
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-07 19:05 +08:00
+last_verified: 2026-08-07 22:40 +08:00
 ---
 
 # Upstream Billing Rate Sync S204
@@ -15,10 +15,14 @@ last_verified: 2026-08-07 19:05 +08:00
 - S204 is isolated from the unfinished S180 browser pass and the separate S203 account+model transient-breaker contract.
 - The completed candidate chain covers API-key rate introspection, bounded probing, CAS snapshot persistence, and opt-in account `rate_multiplier` write-back.
 - Upstream profitability/admission scheduling, schema changes, containers, deployment, push, and production traffic remain out of scope.
-- Final evaluator review: `PASS / local regression`; focused backend boundaries, full service, server compile,
-  six frontend suites (`78/78`), typecheck, production build, scope, diff, conflict, and unmerged-index checks passed.
-- Initial full-service and frontend failures exposed integration omissions in atomic name-only admin updates and
-  frontend state/import wiring; both were repaired before the final PASS.
+- Final evaluator review: `PASS / scoped`. The post-merge repair gate now covers deterministic multi-group
+  introspection, platform-correct OpenAI/Grok rate resolution, repository write conflicts, stale CRS protection,
+  proxy log redaction, probe input bounds, and account UI state/precision refresh.
+- The final recheck passed the default handler, middleware/routes, repository, full service, unit-tag middleware,
+  targeted PostgreSQL/Redis CAS, integration compile, server compile, six frontend suites (`80/80`), typecheck,
+  production build, generation, formatting, scope, diff, conflict, and unmerged-index gates.
+- The complete integration repository suite still has five pre-existing non-S204 baseline failures. They remain an
+  unverified baseline risk and are intentionally not modified by this Sprint.
 - Contract: `docs/workflow/tasks/upstream-billing-rate-sync-s204.md`.
 - QA: `docs/workflow/qa-reports/upstream-billing-rate-sync-s204-qa.md`.
 
