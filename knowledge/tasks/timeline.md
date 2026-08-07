@@ -11,7 +11,7 @@
 - 验证：定向 transient state、`go test ./internal/service -count=1`、
   `go test ./internal/handler -run 'TestOpenAI|Test.*Failover' -count=1`、
   `go test ./cmd/server -run '^$' -count=0`、gofmt、`git diff --check` 与 unmerged-index 均通过。
-  仅本地提交，未推送、部署、重建容器或调用真实上游账号；QA：
+  已随主线整理推送到 `origin/main@5d1117c09`；未部署、重建容器或调用真实上游账号；QA：
   `docs/workflow/qa-reports/upstream-openai-account-model-transient-s203-qa.md`。
 
 ## 2026-08-07 - 上游剩余候选复核
