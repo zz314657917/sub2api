@@ -240,7 +240,7 @@ export default {
       accountPriority: {
         title: 'Account Scheduling Order',
         action: 'Order',
-        hint: 'Only affects scheduling order within this group. Lower values run first and global account priority is unchanged.',
+        hint: 'Drag the handle on the left of a row to change its order within this group. Global account priority is unchanged.',
         loading: 'Loading group accounts...',
         empty: 'No accounts are bound to this group',
         loadFailed: 'Failed to load group accounts',
@@ -250,8 +250,7 @@ export default {
         account: 'Account',
         groupPriority: 'Group Priority',
         globalPriority: 'Global Priority',
-        moveUp: 'Move up',
-        moveDown: 'Move down',
+        dragToReorder: 'Drag to reorder',
         unsaved: 'Account scheduling order has unsaved changes'
       },
       modelRouting: {

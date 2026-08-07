@@ -55,32 +55,29 @@
           <span class="text-center">{{ t('admin.groups.accountPriority.globalPriority') }}</span>
         </div>
 
-        <div class="max-h-[58vh] divide-y divide-gray-100 overflow-y-auto dark:divide-dark-600">
+        <VueDraggable
+          v-model="rows"
+          :animation="180"
+          handle=".account-priority-drag-handle"
+          class="max-h-[58vh] divide-y divide-gray-100 overflow-y-auto dark:divide-dark-600"
+          :disabled="loading || saving"
+          @end="handleDragEnd"
+        >
           <div
-            v-for="(row, index) in rows"
+            v-for="row in rows"
             :key="row.account_id"
             class="grid grid-cols-[3rem_minmax(0,1fr)_8rem_8rem] gap-3 px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-dark-700/50"
           >
-            <div class="flex items-center justify-center gap-1">
-              <button
-                type="button"
-                class="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:opacity-35 dark:hover:bg-dark-600 dark:hover:text-gray-200"
-                :disabled="index === 0"
-                :title="t('admin.groups.accountPriority.moveUp')"
-                @click="moveRow(index, index - 1)"
-              >
-                <Icon name="arrowUp" size="xs" />
-              </button>
-              <button
-                type="button"
-                class="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:opacity-35 dark:hover:bg-dark-600 dark:hover:text-gray-200"
-                :disabled="index === rows.length - 1"
-                :title="t('admin.groups.accountPriority.moveDown')"
-                @click="moveRow(index, index + 1)"
-              >
-                <Icon name="arrowDown" size="xs" />
-              </button>
-            </div>
+            <button
+              type="button"
+              class="account-priority-drag-handle flex h-9 w-9 cursor-grab items-center justify-center self-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 active:cursor-grabbing dark:hover:bg-dark-600 dark:hover:text-gray-200"
+              :title="t('admin.groups.accountPriority.dragToReorder')"
+              :aria-label="t('admin.groups.accountPriority.dragToReorder')"
+              :disabled="loading || saving"
+              @click.stop
+            >
+              <Icon name="menu" size="sm" />
+            </button>
 
             <div class="min-w-0">
               <div class="flex min-w-0 items-center gap-2">
@@ -115,7 +112,7 @@
               {{ row.global_priority }}
             </div>
           </div>
-        </div>
+        </VueDraggable>
       </div>
 
       <div class="flex items-center gap-3 border-t border-gray-200 pt-4 dark:border-dark-600">
@@ -154,6 +151,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { VueDraggable } from 'vue-draggable-plus'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { Account, AccountPlatform, AccountType, AdminGroup } from '@/types'
@@ -261,18 +259,15 @@ const markDirty = () => {
   dirty.value = true
 }
 
-const moveRow = (fromIndex: number, toIndex: number) => {
-  if (toIndex < 0 || toIndex >= rows.value.length || fromIndex === toIndex) {
-    return
-  }
-
-  const nextRows = [...rows.value]
-  const [row] = nextRows.splice(fromIndex, 1)
-  nextRows.splice(toIndex, 0, row)
-  rows.value = nextRows.map((item, index) => ({
+const renumberRows = () => {
+  rows.value = rows.value.map((item, index) => ({
     ...item,
     group_priority: index + 1
   }))
+}
+
+const handleDragEnd = () => {
+  renumberRows()
   dirty.value = true
 }
 
