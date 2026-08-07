@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-06 +08:00
+最后更新：2026-08-07 +08:00
 
 ## 背景
 
@@ -12,12 +12,14 @@
 
 - v0.1.171 选择性上游整合已收口到本地 `main`：S181-S201 分为三组行为提交
   `21c2d33d4`、`20c56753a`、`290a815ba` 和一组 regression/triage 提交 `194edd3f7`；此前 S202
-  媒体工具输出桥接保持在 `d6792b966`。本轮无推送、部署、数据库或生产操作，本地主线仍未推送到
+  媒体工具输出桥接保持在 `d6792b966`。最新上游 sponsor 内容已按本地清单受控纳入：README 三语条目为
+  `09f333d6b`，`haoai.png` 资源为 `fbcdc7b6f`。本轮无推送、部署、数据库或生产操作，本地主线仍未推送到
   `origin/main`。
 - 四个 `codex/upstream-v0171-*` 临时分支和全部 Git worktree 注册已删除，`backup/*` 保留。S182 的目录已删除；
   `E:/codex-worktrees/sub2api/upstream-v0171-financial-integrity-s181` 与
   `E:/codex-worktrees/sub2api/upstream-v0171-integration-s183` 是系统策略拒绝递归删除后留下的非 Git
-  残留目录，不能绕过策略强删。主工作树仅保留用户的未跟踪 `outputs/` JSON 文件。
+  残留目录，不能绕过策略强删。主工作树另有用户正在编辑的 `docs/workflow/main-log.md`、
+  `frontend/src/components/admin/group/GroupAccountPriorityModal.vue` 和未跟踪的 `outputs/` JSON 文件；本轮未纳入提交。
 
 - S177 本地分支整合已收口并推送到 `origin/main@09c9971e7`。在既有合入基础上，本轮按独立合同快进了 classifier 回归
   `c92dcc13d`、发布安全资源 `618cc3bf9` 与 OpenAI 代理流熔断 `199be5cba`。S132、Passkey、Kimi K3、
@@ -36,7 +38,7 @@
 
 ## 已确认事实
 
-- `main` 已包含 S202 及 S181-S201 选择性整合，而 `origin/main` 仍是 `d6f05667b`；本轮 `git diff --check`、`git fsck --no-dangling`、聚焦 Go 回归、前端 62 个 Vitest、typecheck 与 production build 均通过。主工作树只保留未跟踪的 `outputs/` JSON 文件。
+- `main` 已包含 S202、S181-S201 选择性整合及 sponsor 两笔本地批次，而 `origin/main` 仍是 `d6f05667b`；本轮 README/资源 `git diff --check` 与 `git fsck --no-dangling` 通过。此前聚焦 Go 回归、前端 62 个 Vitest、typecheck 与 production build 均通过。
 - 本地分支仅剩 `main` 与三个 `backup/*`。三个临时集成 worktree 已删除；原始宽分支已删除，其 4 个未提交 Prompt Audit 文件保存在命名 `stash@{0}`。
 - Windows 本机策略拒绝递归删除 `E:/codex-worktrees/sub2api-v0169-behavior-wide` 的 993 项脱离 Git 的残留副本；它不在 `git worktree list`，且不含 `.git`。不得绕过该策略强删。
 
@@ -47,7 +49,7 @@
 
 ## 当前结论
 
-- 分支整理已完成：所有可证明覆盖或已验证独立切片已本地合入，临时分支/worktree 已清理，主线无冲突索引。仅剩 Windows 策略阻断的非 Git 残留目录和可恢复的命名 stash。
+- 分支整理已完成：所有可证明覆盖或已验证独立切片及本轮 sponsor 内容已本地合入，临时分支/worktree 已清理，主线无冲突索引。仅剩 Windows 策略阻断的非 Git 残留目录、可恢复的命名 stash，以及用户未提交改动。
 
 - S175 contract approved：修复 S174 运行中明确观测到的通用 best-effort usage batch-state `input_idx` JSON 类型错误。现有同步 fallback 已保证 S174 durable Cafe usage attribution，但批处理路径每次触发 warning/降级，需要以 repository SQL 类型最小修复和 fresh S174 rerun 证明直接 batch state decode 恢复；不得修改 usage 业务字段、schema/migration、gateway/provider、支付或共享资源。合同：`docs/workflow/tasks/pixel-cafe-phase29-usage-batch-state-s175.md`。
 - S175 已关闭为 `PASS / runtime-isolated`：`backend/internal/repository/usage_log_repo.go` 仅在 state query 的 synthetic `input_idx` 参数增加 `::integer`；新增 `usage_log_repo_best_effort_state_test.go` 锁定 state/non-state 查询边界。聚焦 repository、verbose fresh PostgreSQL Gateway（单次及三次）、相邻 Gateway/Cafe 路由、gofmt、`git diff --check` 和未合并索引均通过；所有 fresh Gateway 日志不再出现 batch-state decode warning。QA：`docs/workflow/qa-reports/pixel-cafe-phase29-usage-batch-state-s175-qa.md`。
