@@ -704,3 +704,11 @@
 - 已完成：新 Cafe lifecycle 事务性执行 `open -> failed`、`paid -> refund_pending`、`locked -> released`，再复用 GroupBuyRefund/PaymentOrder 的现有幂等状态机；普通 pending-provider reconciler 显式排除 Cafe。补偿覆盖 `activating` 与 paid-full `open`，后者填补了首次 claim 前异常留下的恢复空洞。
 - 验证记录：Cafe lifecycle/expiry/activation/GroupBuy 聚焦回归、Wire 生成、`cmd/server`、gofmt 和 Git integrity checks PASS。完整 service package 仍只保留 `openai_compat_model_test.go:1877` 的既有 failover 断言漂移。
 - 下一步：S154 单独定义紧急账号迁移与 consistency checker/dry-run repair；真实 PostgreSQL 并发、payment sandbox、JWT/provider/usage runtime smoke、Lobby/Pixi 与部署仍未完成，Cafe managed Key 继续 `disabled`。
+
+## 2026-08-08 17:16 +08:00 - 上游 OAuth routing hints S206 本地集成完成
+
+- 当前阶段：P/G/E `upstream-openai-routing-hints-s206` 已关闭为 `PASS / local-regression`，允许 fast-forward 合入本地 `main`；未推送、未部署、未更新容器。
+- 本段重点：行为移植上游 `915cc7e7b`、`815035fcc`、`de349187d`，为 OpenAI OAuth HTTP/WS 生成网关自有的最终模型/tier hint，API-key 路径清除伪造 hint，并保持 WS routing affinity 为软偏好；精确应用 `nanoid` 安全升级 `8ad0a5ff5`。
+- 关键决策：本地是历史单体 HTTP/WS 与较早 pool 拓扑，只移植可对应的 idle mismatch 替换、busy-capacity fallback、generation 和 prewarm target 行为，不机械引入上游后期 `changedCh` 架构。
+- 验证记录：聚焦 routing/WS/图片回归、完整 service、server compile、gofmt、stable patch-id、13 路径 allowlist、冲突标记和 unmerged-index 门禁通过；race detector 因 `CGO_ENABLED=0` 且无 C 编译器未执行。
+- 未验证边界：真实 OpenAI OAuth provider、代理、容器、部署、staging、生产流量和远端 Git 发布均未执行。

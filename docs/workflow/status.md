@@ -1,12 +1,12 @@
 ---
-phase: build
+phase: done
 current_sprint: upstream-openai-routing-hints-s206
 total_sprints: 206
-pending_action: Commit the completed S206 implementation, run final committed-tree QA, then fast-forward local main; no push or deployment is authorized.
+pending_action: No remaining S206 source action; remote push, deployment, container update and provider validation require separate authorization.
 project_type: backend
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-08 17:11 +08:00
+last_verified: 2026-08-08 17:16 +08:00
 ---
 
 # Upstream OpenAI OAuth Routing Hints S206
@@ -16,6 +16,7 @@ last_verified: 2026-08-08 17:11 +08:00
 - Contract: `docs/workflow/tasks/upstream-openai-routing-hints-s206.md`.
 - Contract amendment: `openai_images_test.go` was added to the allowlist only to mirror upstream `915cc7e7b`'s removal of the obsolete beta-header assertion exposed by the first full service run; Evaluator review passed.
 - Generator result: `DONE`. OAuth HTTP/WS hints, API-key spoof stripping, legacy beta removal, soft pool affinity, idle mismatch replacement, generation/prewarm guards, and the exact `nanoid` lockfile patch are implemented. Focused tests, complete service, server compile, formatting, dependency provenance, scope and Git-integrity checks passed. Result: `docs/workflow/worker-results/upstream-openai-routing-hints-s206-result.md`.
+- Final evaluator: `PASS / local-regression`. Committed-tree focused tests, the complete service package, server compile, upstream patch provenance, formatting, exact scope, conflict and index gates passed. The race detector remains unverified because this Windows Go environment has CGO disabled and no C compiler. QA: `docs/workflow/qa-reports/upstream-openai-routing-hints-s206-qa.md`.
 - No provider call, push, deployment, container, database, schema/migration, or production operation was performed.
 
 # GPT-5.6 Pricing Metadata Integration S205
