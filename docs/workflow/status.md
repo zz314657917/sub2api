@@ -1,13 +1,19 @@
 ---
-phase: done
-current_sprint: gpt56-pricing-metadata-s205
-total_sprints: 205
-pending_action: S205 is integrated and published to origin/main. No deployment, container update, or production validation is authorized.
+phase: contract-approved
+current_sprint: upstream-openai-routing-hints-s206
+total_sprints: 206
+pending_action: Implement the approved S206 OAuth routing-hint and nanoid lockfile contract in the isolated worktree; no push or deployment is authorized.
 project_type: backend
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-08 10:40 +08:00
+last_verified: 2026-08-08 11:35 +08:00
 ---
+
+# Upstream OpenAI OAuth Routing Hints S206
+
+- Upstream `main` refreshed from `68d8f122e` to `cc67b1aca`. The new product delta is the three-commit OAuth routing-hint chain plus `nanoid` security update `8ad0a5ff5`; unrelated older `v0.1.172` candidates remain outside this Sprint.
+- Contract review: `PASS / contract-approved`. The local monolithic HTTP/WS builders expose the final post-policy body and account type, while the existing pool compatibility/generation seams can carry advisory routing affinity without schema, configuration, deployment or provider changes.
+- Contract: `docs/workflow/tasks/upstream-openai-routing-hints-s206.md`.
 
 # GPT-5.6 Pricing Metadata Integration S205
 

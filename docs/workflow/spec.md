@@ -5,6 +5,12 @@ qa_mode: runtime
 last_verified: 2026-08-04 02:35 +08:00
 ---
 
+## Upstream OpenAI OAuth Routing Hints (S206)
+
+- Port upstream `915cc7e7b`, `815035fcc`, and `de349187d` into the local monolithic OpenAI HTTP/WS topology: remove the legacy OAuth beta-header injection, generate a gateway-owned final-model routing hint, and keep WebSocket routing affinity advisory rather than continuation-breaking.
+- Apply upstream `8ad0a5ff5` exactly to update the audited `nanoid` lockfile entry from `3.3.16` to `3.3.17`.
+- Preserve local identity, Fast/Flex policy, billing, session isolation, fixed-account routing and retry behavior. Schema, migrations, configuration, deployment, containers, provider calls, production traffic, push and unrelated `v0.1.172` candidates are excluded. Contract: `docs/workflow/tasks/upstream-openai-routing-hints-s206.md`.
+
 ## GPT-5.6 Pricing Metadata Integration (S205)
 
 - Apply the reviewed upstream GPT-5.6 Luna/Terra pricing metadata commit onto the latest local `main`, retaining
