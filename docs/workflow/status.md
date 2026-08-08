@@ -28,6 +28,8 @@ last_verified: 2026-08-08 10:12 +08:00
   service package, stable patch-id/provenance, semantic JSON, formatting, committed diff, allowlist, conflict,
   index and clean-worktree gates passed. QA:
   `docs/workflow/qa-reports/gpt56-pricing-metadata-s205-qa.md`.
+- The unit-tag service billing suite remains an unrelated baseline compile failure on both S205 and frozen main;
+  S205 does not claim that suite as passing evidence.
 - No push, deployment, container update, real provider call, database operation, or production validation was
   performed.
 

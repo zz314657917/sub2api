@@ -58,6 +58,10 @@ Official-source check:
 
 ## Unverified Risks
 
+- The targeted `-tags=unit` service billing suite does not compile on either S205 or the frozen
+  `main@920de6d13` baseline because existing unit-only tests have stale function signatures, duplicate helpers,
+  and removed fields. This is not attributed to S205, but no unit-tag PASS is claimed; the accepted evidence is
+  the default-build parser-to-billing matrix plus the complete default service package.
 - The repository still has no Batch billing selector. S205 retains Batch cache-write metadata but does not consume
   it at runtime, by contract.
 - Flex billing still uses the existing generic `0.5x` multiplier. This matches the current GPT-5.6 official Flex
