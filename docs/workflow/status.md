@@ -2,11 +2,11 @@
 phase: done
 current_sprint: gpt56-pricing-metadata-s205
 total_sprints: 205
-pending_action: S205 is PASS on the isolated branch and may be fast-forwarded into local main. Do not push or deploy.
+pending_action: S205 is integrated and published to origin/main. No deployment, container update, or production validation is authorized.
 project_type: backend
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-08 10:12 +08:00
+last_verified: 2026-08-08 10:40 +08:00
 ---
 
 # GPT-5.6 Pricing Metadata Integration S205
@@ -30,8 +30,10 @@ last_verified: 2026-08-08 10:12 +08:00
   `docs/workflow/qa-reports/gpt56-pricing-metadata-s205-qa.md`.
 - The unit-tag service billing suite remains an unrelated baseline compile failure on both S205 and frozen main;
   S205 does not claim that suite as passing evidence.
-- No push, deployment, container update, real provider call, database operation, or production validation was
-  performed.
+- Mainline publication: fast-forwarded `main` from `920de6d13` through the S205 implementation/QA commits and
+  pushed them to `origin/main`. Post-merge billing, committed diff, unmerged-index, and remote-parity checks passed;
+  the user-owned `outputs/` directory remains untouched.
+- No deployment, container update, real provider call, database operation, or production validation was performed.
 
 # Upstream Billing Rate Sync S204
 
