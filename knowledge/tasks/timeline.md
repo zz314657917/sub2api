@@ -712,3 +712,4 @@
 - 关键决策：本地是历史单体 HTTP/WS 与较早 pool 拓扑，只移植可对应的 idle mismatch 替换、busy-capacity fallback、generation 和 prewarm target 行为，不机械引入上游后期 `changedCh` 架构。
 - 验证记录：聚焦 routing/WS/图片回归、完整 service、server compile、gofmt、stable patch-id、13 路径 allowlist、冲突标记和 unmerged-index 门禁通过；race detector 因 `CGO_ENABLED=0` 且无 C 编译器未执行。
 - 未验证边界：真实 OpenAI OAuth provider、代理、容器、部署、staging、生产流量和远端 Git 发布均未执行。
+- 合入记录：`main` 已从 `3cec8bb90` fast-forward 到 `e8cfdead6`；合入后聚焦 service 与 server compile smoke 通过，远端仍未发布。

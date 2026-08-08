@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-08 17:16 +08:00
+最后更新：2026-08-08 17:20 +08:00
 
 ## 背景
 
@@ -11,7 +11,7 @@
 ## 当前目标
 
 - S206 源码、依赖、测试和 P/G/E 证据已完成，最终结论为 `PASS / local-regression`。
-- 将完整 S206 提交链以 `ff-only` 合入本地 `main`；不 push、不部署、不更新容器。
+- 完整 S206 提交链已以 `ff-only` 合入本地 `main`；不 push、不部署、不更新容器。
 
 ## 本次已完成
 
@@ -21,13 +21,14 @@
 - 直接拨号增加 generation guard，prewarm 校验最新 URL/proxy/routing target，避免清池或新请求后陈旧连接回灌。
 - 上游 `8ad0a5ff5` 已精确 cherry-pick 为 `e6120ec69`，stable patch-id 为 `39eab1acf608c09d5492b0615eec3d8250427184`。
 - 实现提交为 `dda605f62 fix(openai): port OAuth routing hints`；合同、worker result 和 QA 证据已记录。
+- 本地 `main` 已从 `3cec8bb90` 快进到 `e8cfdead6`；合入后聚焦 service smoke 和 `cmd/server` compile 均通过。
 
 ## 已确认事实
 
 - 聚焦 routing/WS/图片测试、完整 `internal/service`、`cmd/server` compile、gofmt、依赖 provenance、allowlist、冲突标记和 unmerged-index 门禁均通过。
 - 初次完整 service 仅失败于旧图片测试仍断言 legacy beta header；该文件被窄范围加入合同 allowlist，断言按上游 `915cc7e7b` 同步后完整重跑通过。
 - 本地 pool 没有上游后期的 `changedCh` 拓扑等待架构；S206 没有为本次 hint 功能引入该无关架构。
-- 主工作树在合入前仍位于冻结基线 `3cec8bb90`，只有用户原有未跟踪 `outputs/`；S206 不触碰该目录。
+- 主工作树当前位于 `main@e8cfdead6`，只有用户原有未跟踪 `outputs/`；S206 不触碰该目录。
 
 ## 待验证点
 
@@ -42,9 +43,8 @@
 
 ## 下一步
 
-1. 完成 `git merge --ff-only codex/upstream-openai-routing-hints-s206` 并从主工作树复跑聚焦 smoke。
-2. 如用户明确要求发布，再单独执行普通 push 并验证远端 ref parity；不得顺带部署。
-3. 如需生产验收，另建 provider/WS runtime 合同，使用测试凭据与隔离环境，不在 S206 source merge 中扩展。
+1. 如用户明确要求发布，再单独执行普通 push 并验证远端 ref parity；不得顺带部署。
+2. 如需生产验收，另建 provider/WS runtime 合同，使用测试凭据与隔离环境，不在 S206 source merge 中扩展。
 
 ## 验证记录
 
@@ -53,3 +53,5 @@
 - `go test ./cmd/server -run '^$' -count=0`：PASS，提交态 0.056s。
 - 实现门禁：`QA_GATES_PASS changed=13 patch_id=39eab1acf608c09d5492b0615eec3d8250427184 head=dda605f62b7f`。
 - `go test -race ...`：未执行，环境阻塞为 `go: -race requires cgo; enable cgo by setting CGO_ENABLED=1`。
+- 合入后：`go test ./internal/service -run '<S206 routing/WS/image regex>' -count=1` PASS，`go test ./cmd/server -run '^$' -count=0` PASS。
+- 远端复查：`origin/main` 尚未包含 `e8cfdead6`，`git rev-list --left-right --count main...origin/main` 为 `5 0`；未执行 push。
