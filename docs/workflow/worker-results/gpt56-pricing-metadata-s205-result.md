@@ -25,7 +25,7 @@ gpt56-pricing-metadata-s205
 ```text
 go test ./internal/service -run 'TestParsePricingData|TestDefaultPricingIncludesGpt56|Test.*GPT56|Test.*GPT5' -count=1 -> PASS
 go test ./internal/handler -run 'TestOpenAIResponsesWebSocket|TestOpenAIWS' -count=1 -> PASS
-go test ./internal/service -run '<GPT56 cache-write/long-context + priority/flex billing matrix>' -count=1 -> PASS
+go test ./internal/service -run 'TestDefaultPricingGPT56FeedsBillingTierAndLongContextMatrix' -count=1 -> PASS
 gofmt -d backend/internal/service/pricing_service.go backend/internal/service/pricing_service_test.go -> PASS, no diff
 git diff --check -> PASS
 ```
@@ -34,7 +34,7 @@ git diff --check -> PASS
 ```text
 ok github.com/Wei-Shaw/sub2api/internal/service 0.329s
 ok github.com/Wei-Shaw/sub2api/internal/handler 1.095s
-ok github.com/Wei-Shaw/sub2api/internal/service 0.182s
+ok github.com/Wei-Shaw/sub2api/internal/service 0.073s
 ```
 
 ## Risks

@@ -375,6 +375,82 @@ func TestDefaultPricingIncludesGpt56PreviewPrices(t *testing.T) {
 	}
 }
 
+func TestDefaultPricingGPT56FeedsBillingTierAndLongContextMatrix(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "resources", "model-pricing", "model_prices_and_context_window.json"))
+	require.NoError(t, err)
+
+	pricingService := &PricingService{}
+	pricingData, err := pricingService.parsePricingData(data)
+	require.NoError(t, err)
+	pricingService.pricingData = pricingData
+	billing := NewBillingService(&config.Config{}, pricingService)
+
+	models := []struct {
+		name                 string
+		input, output        float64
+		inputPriority        float64
+		outputPriority       float64
+		cacheRead, cacheMake float64
+		cacheReadPriority    float64
+		cacheMakePriority    float64
+	}{
+		{name: "gpt-5.6-sol", input: 5e-6, output: 30e-6, inputPriority: 10e-6, outputPriority: 60e-6, cacheRead: 0.5e-6, cacheMake: 6.25e-6, cacheReadPriority: 1e-6, cacheMakePriority: 12.5e-6},
+		{name: "gpt-5.6-terra", input: 2e-6, output: 12e-6, inputPriority: 4e-6, outputPriority: 24e-6, cacheRead: 0.2e-6, cacheMake: 2.5e-6, cacheReadPriority: 0.4e-6, cacheMakePriority: 5e-6},
+		{name: "gpt-5.6-luna", input: 0.2e-6, output: 1.2e-6, inputPriority: 0.4e-6, outputPriority: 2.4e-6, cacheRead: 0.02e-6, cacheMake: 0.25e-6, cacheReadPriority: 0.04e-6, cacheMakePriority: 0.5e-6},
+	}
+	tiers := []struct {
+		name, serviceTier string
+		priority          bool
+		multiplier        float64
+	}{
+		{name: "standard", multiplier: 1},
+		{name: "priority", serviceTier: "priority", priority: true, multiplier: 1},
+		{name: "flex", serviceTier: "flex", multiplier: 0.5},
+	}
+	tokenCases := []struct {
+		name       string
+		tokens     UsageTokens
+		longInput  float64
+		longOutput float64
+	}{
+		{name: "at-threshold", tokens: UsageTokens{InputTokens: 271700, OutputTokens: 50, CacheCreationTokens: 200, CacheReadTokens: 100}, longInput: 1, longOutput: 1},
+		{name: "over-threshold", tokens: UsageTokens{InputTokens: 271701, OutputTokens: 50, CacheCreationTokens: 200, CacheReadTokens: 100}, longInput: 2, longOutput: 1.5},
+	}
+
+	for _, model := range models {
+		resolved, err := billing.GetModelPricing(model.name)
+		require.NoError(t, err)
+		require.Equal(t, 272000, resolved.LongContextInputThreshold)
+		require.InDelta(t, 2, resolved.LongContextInputMultiplier, 1e-12)
+		require.InDelta(t, 1.5, resolved.LongContextOutputMultiplier, 1e-12)
+
+		for _, tier := range tiers {
+			for _, tokenCase := range tokenCases {
+				t.Run(model.name+"/"+tier.name+"/"+tokenCase.name, func(t *testing.T) {
+					inputPrice, outputPrice := model.input, model.output
+					cacheReadPrice, cacheMakePrice := model.cacheRead, model.cacheMake
+					if tier.priority {
+						inputPrice, outputPrice = model.inputPriority, model.outputPriority
+						cacheReadPrice, cacheMakePrice = model.cacheReadPriority, model.cacheMakePriority
+					}
+
+					cost, err := billing.CalculateCostWithServiceTier(model.name, tokenCase.tokens, 1, tier.serviceTier)
+					require.NoError(t, err)
+					expectedInput := float64(tokenCase.tokens.InputTokens) * inputPrice * tokenCase.longInput * tier.multiplier
+					expectedOutput := float64(tokenCase.tokens.OutputTokens) * outputPrice * tokenCase.longOutput * tier.multiplier
+					expectedCacheRead := float64(tokenCase.tokens.CacheReadTokens) * cacheReadPrice * tokenCase.longInput * tier.multiplier
+					expectedCacheMake := float64(tokenCase.tokens.CacheCreationTokens) * cacheMakePrice * tokenCase.longInput * tier.multiplier
+					require.InDelta(t, expectedInput, cost.InputCost, 1e-12)
+					require.InDelta(t, expectedOutput, cost.OutputCost, 1e-12)
+					require.InDelta(t, expectedCacheRead, cost.CacheReadCost, 1e-12)
+					require.InDelta(t, expectedCacheMake, cost.CacheCreationCost, 1e-12)
+					require.InDelta(t, expectedInput+expectedOutput+expectedCacheRead+expectedCacheMake, cost.TotalCost, 1e-12)
+				})
+			}
+		}
+	}
+}
+
 func TestGetModelPricing_Gpt56PreviewUsesDedicatedStaticFallbackWhenRemoteMissing(t *testing.T) {
 	svc := &PricingService{
 		pricingData: map[string]*LiteLLMModelPricing{
