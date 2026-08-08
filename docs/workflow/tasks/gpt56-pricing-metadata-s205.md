@@ -122,7 +122,7 @@ foreach ($model in $expected.Keys) {
     foreach ($field in $expected[$model].Keys) {
         $actual = [double]$entry.PSObject.Properties[$field].Value
         $want = [double]$expected[$model][$field]
-        if ([math]::Abs($actual - $want) -gt 1e-18) { throw "unexpected $model.$field: $actual != $want" }
+        if ([math]::Abs($actual - $want) -gt 1e-18) { throw "unexpected ${model}.${field}: $actual != $want" }
     }
 }
 ```
