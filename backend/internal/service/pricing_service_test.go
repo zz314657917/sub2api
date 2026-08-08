@@ -331,29 +331,44 @@ func TestDefaultPricingIncludesGpt56PreviewPrices(t *testing.T) {
 	svc := &PricingService{}
 	pricingData, err := svc.parsePricingData(data)
 	require.NoError(t, err)
-	svc.pricingData = pricingData
 
 	cases := []struct {
-		model             string
-		input             float64
-		output            float64
-		cacheRead         float64
-		cacheMake         float64
-		cacheMakePriority float64
+		model                string
+		input                float64
+		output               float64
+		inputPriority        float64
+		outputPriority       float64
+		cacheRead            float64
+		cacheReadPriority    float64
+		cacheMake            float64
+		cacheMakeBatches     float64
+		cacheMakeFlex        float64
+		cacheMakePriority    float64
+		longContextThreshold int
+		longInputMultiplier  float64
+		longOutputMultiplier float64
 	}{
-		{model: "gpt-5.6-sol", input: 5e-6, output: 30e-6, cacheRead: 0.5e-6, cacheMake: 6.25e-6, cacheMakePriority: 12.5e-6},
-		{model: "gpt-5.6-terra", input: 2e-6, output: 12e-6, cacheRead: 0.2e-6, cacheMake: 2.5e-6, cacheMakePriority: 5e-6},
-		{model: "gpt-5.6-luna", input: 0.2e-6, output: 1.2e-6, cacheRead: 0.02e-6, cacheMake: 0.25e-6, cacheMakePriority: 0.5e-6},
+		{model: "gpt-5.6-sol", input: 5e-6, output: 30e-6, inputPriority: 10e-6, outputPriority: 60e-6, cacheRead: 0.5e-6, cacheReadPriority: 1e-6, cacheMake: 6.25e-6, cacheMakeBatches: 3.125e-6, cacheMakeFlex: 3.125e-6, cacheMakePriority: 12.5e-6, longContextThreshold: 272000, longInputMultiplier: 2, longOutputMultiplier: 1.5},
+		{model: "gpt-5.6-terra", input: 2e-6, output: 12e-6, inputPriority: 4e-6, outputPriority: 24e-6, cacheRead: 0.2e-6, cacheReadPriority: 0.4e-6, cacheMake: 2.5e-6, cacheMakeBatches: 1.25e-6, cacheMakeFlex: 1.25e-6, cacheMakePriority: 5e-6, longContextThreshold: 272000, longInputMultiplier: 2, longOutputMultiplier: 1.5},
+		{model: "gpt-5.6-luna", input: 0.2e-6, output: 1.2e-6, inputPriority: 0.4e-6, outputPriority: 2.4e-6, cacheRead: 0.02e-6, cacheReadPriority: 0.04e-6, cacheMake: 0.25e-6, cacheMakeBatches: 0.125e-6, cacheMakeFlex: 0.125e-6, cacheMakePriority: 0.5e-6, longContextThreshold: 272000, longInputMultiplier: 2, longOutputMultiplier: 1.5},
 	}
 	for _, tc := range cases {
 		t.Run(tc.model, func(t *testing.T) {
-			got := svc.GetModelPricing(tc.model)
+			got := pricingData[tc.model]
 			require.NotNil(t, got)
 			require.InDelta(t, tc.input, got.InputCostPerToken, 1e-12)
 			require.InDelta(t, tc.output, got.OutputCostPerToken, 1e-12)
+			require.InDelta(t, tc.inputPriority, got.InputCostPerTokenPriority, 1e-12)
+			require.InDelta(t, tc.outputPriority, got.OutputCostPerTokenPriority, 1e-12)
 			require.InDelta(t, tc.cacheRead, got.CacheReadInputTokenCost, 1e-12)
+			require.InDelta(t, tc.cacheReadPriority, got.CacheReadInputTokenCostPriority, 1e-12)
 			require.InDelta(t, tc.cacheMake, got.CacheCreationInputTokenCost, 1e-12)
+			require.InDelta(t, tc.cacheMakeBatches, got.CacheCreationInputTokenCostBatches, 1e-12)
+			require.InDelta(t, tc.cacheMakeFlex, got.CacheCreationInputTokenCostFlex, 1e-12)
 			require.InDelta(t, tc.cacheMakePriority, got.CacheCreationInputTokenCostPriority, 1e-12)
+			require.Equal(t, tc.longContextThreshold, got.LongContextInputTokenThreshold)
+			require.InDelta(t, tc.longInputMultiplier, got.LongContextInputCostMultiplier, 1e-12)
+			require.InDelta(t, tc.longOutputMultiplier, got.LongContextOutputCostMultiplier, 1e-12)
 			require.True(t, got.SupportsPromptCaching)
 			require.True(t, got.SupportsServiceTier)
 		})

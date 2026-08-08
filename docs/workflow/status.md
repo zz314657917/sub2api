@@ -1,12 +1,12 @@
 ---
-phase: contract-approved
+phase: build
 current_sprint: gpt56-pricing-metadata-s205
 total_sprints: 205
-pending_action: Apply the reviewed upstream metadata commit, implement the approved parser/test changes, and write the worker result. Do not push or deploy.
+pending_action: Review the committed S205 implementation and execute the full contract QA gate. Do not push or deploy.
 project_type: backend
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-08 10:00 +08:00
+last_verified: 2026-08-08 10:10 +08:00
 ---
 
 # GPT-5.6 Pricing Metadata Integration S205
@@ -21,6 +21,9 @@ last_verified: 2026-08-08 10:00 +08:00
 - Contract review: `PASS / contract-approved`; frozen-base, provenance, semantic JSON, focused regression,
   formatting, committed-scope, conflict-marker, and unmerged-index gates are executable without touching denied
   paths. Contract: `docs/workflow/tasks/gpt56-pricing-metadata-s205.md`.
+- Generator result: `DONE`; upstream metadata, parser retention, and real-fixture regressions are implemented within
+  the allowlist. Focused service, WebSocket handler, billing-matrix, formatting, and worktree diff checks passed.
+  Result: `docs/workflow/worker-results/gpt56-pricing-metadata-s205-result.md`.
 
 # Upstream Billing Rate Sync S204
 
