@@ -5,6 +5,16 @@ qa_mode: runtime
 last_verified: 2026-08-04 02:35 +08:00
 ---
 
+## GPT-5.6 Pricing Metadata Integration (S205)
+
+- Apply the reviewed upstream GPT-5.6 Luna/Terra pricing metadata commit onto the latest local `main`, retaining
+  the upstream source record without merging unrelated upstream history.
+- Restore the dynamic pricing parser's three long-context fields and retain the new cache-write Batch/Flex
+  metadata. Existing standard/priority/flex billing behavior remains unchanged; no Batch billing path is added.
+- Acceptance requires real-fixture parser assertions for Sol/Terra/Luna, focused billing and WebSocket
+  regressions, formatting and Git integrity checks. No push, deployment, container, database, frontend, or real
+  provider operation is allowed. Contract: `docs/workflow/tasks/gpt56-pricing-metadata-s205.md`.
+
 ## Upstream OpenAI Account+Model Transient Breaker (S203)
 
 - Port the behavior of upstream `40b8f04a6` and its sparse-traffic correction `7d38e6712`: retryable OpenAI

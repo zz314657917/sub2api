@@ -1,13 +1,26 @@
 ---
-phase: done
-current_sprint: upstream-billing-rate-sync-s204
-total_sprints: 204
-pending_action: S204 is closed as scoped PASS on local main. Keep S180 browser QA separate until its CPU-resource blocker is cleared. Do not push or deploy.
+phase: contract-approved
+current_sprint: gpt56-pricing-metadata-s205
+total_sprints: 205
+pending_action: Apply the reviewed upstream metadata commit, implement the approved parser/test changes, and write the worker result. Do not push or deploy.
 project_type: backend
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-07 22:40 +08:00
+last_verified: 2026-08-08 10:00 +08:00
 ---
+
+# GPT-5.6 Pricing Metadata Integration S205
+
+- The user authorized a selective upstream pricing merge and requested repair of omissions found in the
+  post-merge audit.
+- The candidate commit is limited to 15 JSON metadata lines, while the local core Sol/Terra/Luna rates already
+  match current official OpenAI pricing through an earlier local commit.
+- The remaining source defect is that dynamic parsing drops the three long-context fields. The two newly added
+  cache-write Batch/Flex values are also not retained as typed metadata; S205 may preserve them without changing
+  tier selection or adding Batch billing.
+- Contract review: `PASS / contract-approved`; frozen-base, provenance, semantic JSON, focused regression,
+  formatting, committed-scope, conflict-marker, and unmerged-index gates are executable without touching denied
+  paths. Contract: `docs/workflow/tasks/gpt56-pricing-metadata-s205.md`.
 
 # Upstream Billing Rate Sync S204
 
