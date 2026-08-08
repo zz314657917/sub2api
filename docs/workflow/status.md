@@ -1,12 +1,12 @@
 ---
-phase: contract-approved
+phase: build
 current_sprint: upstream-openai-routing-hints-s206
 total_sprints: 206
-pending_action: Implement the approved S206 OAuth routing-hint and nanoid lockfile contract in the isolated worktree; no push or deployment is authorized.
+pending_action: Commit the completed S206 implementation, run final committed-tree QA, then fast-forward local main; no push or deployment is authorized.
 project_type: backend
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-08 11:35 +08:00
+last_verified: 2026-08-08 17:11 +08:00
 ---
 
 # Upstream OpenAI OAuth Routing Hints S206
@@ -14,6 +14,9 @@ last_verified: 2026-08-08 11:35 +08:00
 - Upstream `main` refreshed from `68d8f122e` to `cc67b1aca`. The new product delta is the three-commit OAuth routing-hint chain plus `nanoid` security update `8ad0a5ff5`; unrelated older `v0.1.172` candidates remain outside this Sprint.
 - Contract review: `PASS / contract-approved`. The local monolithic HTTP/WS builders expose the final post-policy body and account type, while the existing pool compatibility/generation seams can carry advisory routing affinity without schema, configuration, deployment or provider changes.
 - Contract: `docs/workflow/tasks/upstream-openai-routing-hints-s206.md`.
+- Contract amendment: `openai_images_test.go` was added to the allowlist only to mirror upstream `915cc7e7b`'s removal of the obsolete beta-header assertion exposed by the first full service run; Evaluator review passed.
+- Generator result: `DONE`. OAuth HTTP/WS hints, API-key spoof stripping, legacy beta removal, soft pool affinity, idle mismatch replacement, generation/prewarm guards, and the exact `nanoid` lockfile patch are implemented. Focused tests, complete service, server compile, formatting, dependency provenance, scope and Git-integrity checks passed. Result: `docs/workflow/worker-results/upstream-openai-routing-hints-s206-result.md`.
+- No provider call, push, deployment, container, database, schema/migration, or production operation was performed.
 
 # GPT-5.6 Pricing Metadata Integration S205
 

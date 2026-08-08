@@ -26,6 +26,7 @@
 - `backend/internal/service/openai_gateway_service.go`
 - `backend/internal/service/openai_routing_hint.go`
 - `backend/internal/service/openai_routing_hint_test.go`
+- `backend/internal/service/openai_images_test.go`
 - `backend/internal/service/openai_gateway_service_test.go`
 - `backend/internal/service/openai_ws_forwarder.go`
 - `backend/internal/service/openai_ws_forwarder_ingress_test.go`
