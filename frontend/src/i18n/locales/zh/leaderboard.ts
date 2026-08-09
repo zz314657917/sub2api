@@ -29,6 +29,7 @@ export default {
     growth: '增长',
     rankChange: '排名变化',
     refreshing: '后台刷新中',
+    participationNote: '排行榜不包含企业用户和平台用户。',
     rankChangeNew: '新',
     rankChangeCompared: {
       day: '较昨日',

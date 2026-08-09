@@ -29,6 +29,7 @@ export default {
     growth: 'Growth',
     rankChange: 'Rank Change',
     refreshing: 'Refreshing in background',
+    participationNote: 'Enterprise and platform users are excluded from the leaderboard.',
     rankChangeNew: 'NEW',
     rankChangeCompared: {
       day: 'vs yesterday',

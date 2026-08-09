@@ -99,6 +99,9 @@
                   {{ t('leaderboard.refreshing') }}
                 </span>
               </div>
+              <p class="leaderboard-ranking-participation-note" data-testid="leaderboard-participation-note">
+                {{ t('leaderboard.participationNote') }}
+              </p>
 
               <div class="leaderboard-ranking-empty">
                 <EmptyState :title="t('leaderboard.emptyTitle')" :description="t('leaderboard.emptyDescription')" />
@@ -151,6 +154,9 @@
                     </span>
                   </div>
                 </div>
+                <p class="leaderboard-ranking-participation-note" data-testid="leaderboard-participation-note">
+                  {{ t('leaderboard.participationNote') }}
+                </p>
 
                 <div class="leaderboard-token-rank-list">
                   <article
@@ -2089,6 +2095,14 @@ onUnmounted(() => {
   margin-bottom: 1rem;
 }
 
+.leaderboard-ranking-participation-note {
+  margin: -0.35rem 0 0.8rem;
+  color: rgb(109 103 93);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
 .leaderboard-ranking-toolbar-meta {
   display: flex;
   min-width: 0;
@@ -3323,6 +3337,10 @@ onUnmounted(() => {
 }
 
 :global(.dark .leaderboard-token-legend-item) {
+  color: rgb(168 159 145);
+}
+
+:global(.dark .leaderboard-ranking-participation-note) {
   color: rgb(168 159 145);
 }
 

@@ -48,6 +48,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.growth': '增长',
     'leaderboard.rankChange': '排名变化',
     'leaderboard.refreshing': '后台刷新中',
+    'leaderboard.participationNote': '排行榜不包含企业用户和平台用户。',
     'leaderboard.rankChangeNew': '新',
     'leaderboard.rankChangeCompared.day': '较昨日',
     'leaderboard.rankChangeCompared.week': '较上周',
@@ -841,6 +842,7 @@ describe('LeaderboardView', () => {
     const ranking = wrapper.get('[data-testid="leaderboard-token-ranking"]')
     expect(ranking.text()).not.toContain('Token Top 2')
     expect(ranking.text()).toContain('更新 16:00:00')
+    expect(ranking.get('[data-testid="leaderboard-participation-note"]').text()).toBe('排行榜不包含企业用户和平台用户。')
     expect(ranking.get('.leaderboard-token-rank-index').text()).toBe('1')
     expect(ranking.text()).not.toContain('No.1')
     expect(ranking.text()).not.toContain('#1')
@@ -1212,6 +1214,7 @@ describe('LeaderboardView', () => {
 
     expect(wrapper.text()).toContain('暂无排名数据')
     expect(wrapper.text()).toContain('当前周期暂无可展示的使用记录')
+    expect(wrapper.get('[data-testid="leaderboard-participation-note"]').text()).toBe('排行榜不包含企业用户和平台用户。')
   })
 
   it('always renders last week top 10 token usage and hides claim controls when rewards are disabled', async () => {
