@@ -1,12 +1,12 @@
 ---
-phase: contract-approved
+phase: done
 current_sprint: upstream-v0173-selective-fixes-s207
 total_sprints: 207
-pending_action: Generator implements the approved S207 contract in the isolated worktree.
+pending_action: Fast-forward the PASSed S207 branch into local main, then run focused post-merge smoke. Do not push or deploy.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-10 15:37 +08:00
+last_verified: 2026-08-10 18:12 +08:00
 ---
 
 # Upstream v0.1.173 Selective Fixes S207
@@ -16,9 +16,19 @@ last_verified: 2026-08-10 15:37 +08:00
 - Contract: `docs/workflow/tasks/upstream-v0173-selective-fixes-s207.md`.
 - Contract review: `PASS / contract-approved`; frozen-base, tag provenance, focused financial/availability behavior,
   frontend, formatting, allowlist, conflict and unmerged-index gates are executable without denied prerequisites.
+- Contract amendment: S207 regressions run in the default service test set because the repository's existing
+  `unit`-tag suite is currently compile-broken by unrelated stale tests; no unrelated baseline file is modified.
+- Contract amendment: added one task-scoped default test file for Web Search and Grok because their existing tests
+  are unit-tagged and unavailable under the same unrelated baseline failure.
 - `6e34fb09c` depends on absent `db0bff82c`, a 76-file schema/migration/admin usage-audit feature. S207 limits the port
   to its independently useful Antigravity fallback-model correction and denies the prerequisite chain.
-- No product source has changed yet; implementation is the next legal action.
+- Generator result: `DONE`; all five bounded fixes are adapted within the allowlist. Result:
+  `docs/workflow/worker-results/upstream-v0173-selective-fixes-s207-result.md`.
+- Final evaluator: `PASS / local-regression`; focused and complete service tests, server compile, BaseDialog Vitest,
+  typecheck, production build, formatting, allowlist, provenance, conflict and index gates passed. QA:
+  `docs/workflow/qa-reports/upstream-v0173-selective-fixes-s207-qa.md`.
+- `db0bff82c` remains excluded. No provider call, schema/migration, shared resource, container, deployment, remote push,
+  or production validation was performed.
 
 # Upstream OpenAI OAuth Routing Hints S206
 

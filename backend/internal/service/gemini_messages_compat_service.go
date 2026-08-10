@@ -615,6 +615,7 @@ func (s *GeminiMessagesCompatService) SelectAccountForAIStudioEndpoints(ctx cont
 }
 
 func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Context, account *Account, body []byte) (*ForwardResult, error) {
+	beginGeminiImageOutputObservation(c)
 	startTime := time.Now()
 
 	var req struct {
@@ -798,6 +799,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 	}
 
 	var resp *http.Response
+	errorPolicy := ErrorPolicyNone
 	signatureRetryStage := 0
 	for attempt := 1; attempt <= geminiMaxRetries; attempt++ {
 		upstreamReq, idHeader, err := buildReq(ctx)
@@ -905,8 +907,9 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 		}
 
 		// 错误策略优先：匹配则跳过重试直接处理。
-		if matched, rebuilt := s.checkErrorPolicyInLoop(ctx, account, resp); matched {
+		if policy, rebuilt := s.checkErrorPolicyInLoop(ctx, account, resp); policy != ErrorPolicyNone {
 			resp = rebuilt
+			errorPolicy = policy
 			break
 		} else {
 			resp = rebuilt
@@ -975,7 +978,10 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
 		// 统一错误策略：自定义错误码 + 临时不可调度
 		if s.rateLimitService != nil {
-			switch s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, respBody) {
+			if errorPolicy == ErrorPolicyNone {
+				errorPolicy = s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, respBody)
+			}
+			switch errorPolicy {
 			case ErrorPolicySkipped:
 				upstreamReqID := resp.Header.Get(requestIDHeader)
 				if upstreamReqID == "" {
@@ -986,7 +992,9 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 				}
 				return nil, s.writeGeminiMappedError(c, account, http.StatusInternalServerError, upstreamReqID, respBody)
 			case ErrorPolicyMatched, ErrorPolicyTempUnscheduled:
-				s.handleGeminiUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
+				if errorPolicy == ErrorPolicyMatched {
+					s.handleGeminiUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
+				}
 				upstreamReqID := resp.Header.Get(requestIDHeader)
 				if upstreamReqID == "" {
 					upstreamReqID = resp.Header.Get("x-goog-request-id")
@@ -1106,6 +1114,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 				return nil, s.writeClaudeError(c, http.StatusBadGateway, "upstream_error", "Failed to read upstream stream")
 			}
 			collectedBytes, _ := json.Marshal(collected)
+			observeGeminiImageOutputs(c, collectedBytes)
 			claudeResp, usageObj2 := convertGeminiToClaudeMessage(collected, originalModel, collectedBytes, false)
 			c.JSON(http.StatusOK, claudeResp)
 			usage = usageObj2
@@ -1121,12 +1130,9 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 	}
 
 	// 图片生成计费
-	imageCount := 0
 	imageInputSize := s.extractImageInputSize(body)
 	imageSize := normalizeOpenAIImageSizeTier(imageInputSize)
-	if isImageGenerationModel(originalModel) {
-		imageCount = 1
-	}
+	imageCount := resolveGeminiImageCount(c, originalModel, mappedModel)
 
 	return &ForwardResult{
 		RequestID:      requestID,
@@ -1151,6 +1157,7 @@ func isGeminiSignatureRelatedError(respBody []byte) bool {
 }
 
 func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.Context, account *Account, originalModel string, action string, stream bool, body []byte) (*ForwardResult, error) {
+	beginGeminiImageOutputObservation(c)
 	startTime := time.Now()
 
 	if strings.TrimSpace(originalModel) == "" {
@@ -1329,6 +1336,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 	}
 
 	var resp *http.Response
+	errorPolicy := ErrorPolicyNone
 	for attempt := 1; attempt <= geminiMaxRetries; attempt++ {
 		upstreamReq, idHeader, err := buildReq(ctx)
 		if err != nil {
@@ -1383,8 +1391,9 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 		}
 
 		// 错误策略优先：匹配则跳过重试直接处理。
-		if matched, rebuilt := s.checkErrorPolicyInLoop(ctx, account, resp); matched {
+		if policy, rebuilt := s.checkErrorPolicyInLoop(ctx, account, resp); policy != ErrorPolicyNone {
 			resp = rebuilt
+			errorPolicy = policy
 			break
 		} else {
 			resp = rebuilt
@@ -1492,7 +1501,10 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 
 		// 统一错误策略：自定义错误码 + 临时不可调度
 		if s.rateLimitService != nil {
-			switch s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, respBody) {
+			if errorPolicy == ErrorPolicyNone {
+				errorPolicy = s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, respBody)
+			}
+			switch errorPolicy {
 			case ErrorPolicySkipped:
 				if failoverErr := s.poolModeSkippedFailoverError(c, account, resp.StatusCode, respBody, requestID); failoverErr != nil {
 					return nil, failoverErr
@@ -1506,7 +1518,9 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 				c.Data(http.StatusInternalServerError, contentType, respBody)
 				return nil, fmt.Errorf("gemini upstream error: %d (skipped by error policy)", resp.StatusCode)
 			case ErrorPolicyMatched, ErrorPolicyTempUnscheduled:
-				s.handleGeminiUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
+				if errorPolicy == ErrorPolicyMatched {
+					s.handleGeminiUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
+				}
 				evBody := unwrapIfNeeded(isOAuth, respBody)
 				upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(evBody))
 				upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
@@ -1640,6 +1654,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 				return nil, s.writeGoogleError(c, http.StatusBadGateway, "Failed to read upstream stream")
 			}
 			b, _ := json.Marshal(collected)
+			observeGeminiImageOutputs(c, b)
 			c.Data(http.StatusOK, "application/json", b)
 			usage = usageObj
 		} else {
@@ -1656,12 +1671,9 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 	}
 
 	// 图片生成计费
-	imageCount := 0
 	imageInputSize := s.extractImageInputSize(body)
 	imageSize := normalizeOpenAIImageSizeTier(imageInputSize)
-	if isImageGenerationModel(originalModel) {
-		imageCount = 1
-	}
+	imageCount := resolveGeminiImageCount(c, originalModel, mappedModel)
 
 	return &ForwardResult{
 		RequestID:      requestID,
@@ -1677,14 +1689,12 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 	}, nil
 }
 
-// checkErrorPolicyInLoop 在重试循环内预检查错误策略。
-// 返回 true 表示策略已匹配（调用者应 break），resp 已重建可直接使用。
-// 返回 false 表示 ErrorPolicyNone，resp 已重建，调用者继续走重试逻辑。
+// checkErrorPolicyInLoop checks policy before retrying and preserves the body.
 func (s *GeminiMessagesCompatService) checkErrorPolicyInLoop(
 	ctx context.Context, account *Account, resp *http.Response,
-) (matched bool, rebuilt *http.Response) {
+) (policy ErrorPolicyResult, rebuilt *http.Response) {
 	if resp.StatusCode < 400 || s.rateLimitService == nil {
-		return false, resp
+		return ErrorPolicyNone, resp
 	}
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
 	_ = resp.Body.Close()
@@ -1693,8 +1703,7 @@ func (s *GeminiMessagesCompatService) checkErrorPolicyInLoop(
 		Header:     resp.Header.Clone(),
 		Body:       io.NopCloser(bytes.NewReader(body)),
 	}
-	policy := s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, body)
-	return policy != ErrorPolicyNone, rebuilt
+	return s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, body), rebuilt
 }
 
 func (s *GeminiMessagesCompatService) shouldRetryGeminiUpstreamError(account *Account, statusCode int) bool {
@@ -2037,6 +2046,7 @@ func (s *GeminiMessagesCompatService) handleNonStreamingResponse(c *gin.Context,
 	if err != nil {
 		return nil, s.writeClaudeError(c, http.StatusBadGateway, "upstream_error", "Failed to parse upstream response")
 	}
+	observeGeminiImageOutputs(c, unwrappedBody)
 
 	var geminiResp map[string]any
 	if err := json.Unmarshal(unwrappedBody, &geminiResp); err != nil {
@@ -2120,6 +2130,7 @@ func (s *GeminiMessagesCompatService) handleStreamingResponse(c *gin.Context, re
 		if err != nil {
 			continue
 		}
+		observeGeminiImageOutputs(c, unwrappedBytes)
 
 		var geminiResp map[string]any
 		if err := json.Unmarshal(unwrappedBytes, &geminiResp); err != nil {
@@ -2620,6 +2631,7 @@ func (s *GeminiMessagesCompatService) handleNativeNonStreamingResponse(c *gin.Co
 			respBody = unwrappedBody
 		}
 	}
+	observeGeminiImageOutputs(c, respBody)
 
 	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 
@@ -2698,6 +2710,7 @@ func (s *GeminiMessagesCompatService) handleNativeStreamingResponse(c *gin.Conte
 					if u := extractGeminiUsage(rawBytes); u != nil {
 						usage = u
 					}
+					observeGeminiImageOutputs(c, rawBytes)
 
 					if firstTokenMs == nil {
 						ms := int(time.Since(startTime).Milliseconds())
@@ -2964,6 +2977,9 @@ func (s *GeminiMessagesCompatService) handleGeminiUpstreamError(ctx context.Cont
 		return
 	}
 	if statusCode != 429 {
+		return
+	}
+	if account.IsPoolMode() && !account.IsCustomErrorCodesEnabled() {
 		return
 	}
 

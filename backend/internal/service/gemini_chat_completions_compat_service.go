@@ -113,6 +113,7 @@ func (s *GeminiMessagesCompatService) forwardClaudeBodyAsChatCompletions(
 	)
 
 	var resp *http.Response
+	errorPolicy := ErrorPolicyNone
 	for attempt := 1; attempt <= geminiMaxRetries; attempt++ {
 		upstreamReq, idHeader, err := buildReq(ctx)
 		if err != nil {
@@ -147,8 +148,9 @@ func (s *GeminiMessagesCompatService) forwardClaudeBodyAsChatCompletions(
 			return nil, s.writeChatCompletionsError(c, http.StatusBadGateway, "upstream_error", "Upstream request failed after retries: "+safeErr)
 		}
 
-		if matched, rebuilt := s.checkErrorPolicyInLoop(ctx, account, resp); matched {
+		if policy, rebuilt := s.checkErrorPolicyInLoop(ctx, account, resp); policy != ErrorPolicyNone {
 			resp = rebuilt
+			errorPolicy = policy
 			break
 		} else {
 			resp = rebuilt
@@ -212,7 +214,12 @@ func (s *GeminiMessagesCompatService) forwardClaudeBodyAsChatCompletions(
 
 	if resp.StatusCode >= 400 {
 		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
-		s.handleGeminiUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
+		if errorPolicy == ErrorPolicyNone && s.rateLimitService != nil {
+			errorPolicy = s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, respBody)
+		}
+		if errorPolicy == ErrorPolicyNone || errorPolicy == ErrorPolicyMatched {
+			s.handleGeminiUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
+		}
 		evBody := unwrapIfNeeded(account.Type == AccountTypeOAuth, respBody)
 
 		if s.shouldFailoverGeminiUpstreamError(resp.StatusCode) {

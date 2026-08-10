@@ -2131,7 +2131,7 @@ func (s *AntigravityGatewayService) ForwardGemini(ctx context.Context, c *gin.Co
 		MarkOpsClientBusinessLimited(c, OpsClientBusinessLimitedReasonLocalFeatureGate)
 		return nil, s.writeGoogleError(c, http.StatusForbidden, fmt.Sprintf("model %s not in whitelist", originalModel))
 	}
-	billingModel := mappedModel
+	forwardedModel := mappedModel
 
 	// 获取 access_token
 	if s.tokenProvider == nil {
@@ -2241,6 +2241,7 @@ func (s *AntigravityGatewayService) ForwardGemini(ctx context.Context, c *gin.Co
 						if err == nil && fallbackResp.StatusCode < 400 {
 							_ = resp.Body.Close()
 							resp = fallbackResp
+							forwardedModel = fallbackModel
 						} else if fallbackResp != nil {
 							_ = fallbackResp.Body.Close()
 						}
@@ -2472,7 +2473,7 @@ handleSuccess:
 		RequestID:        requestID,
 		Usage:            *usage,
 		Model:            originalModel,
-		UpstreamModel:    billingModel,
+		UpstreamModel:    forwardedModel,
 		Stream:           stream,
 		Duration:         time.Since(startTime),
 		FirstTokenMs:     firstTokenMs,

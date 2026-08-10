@@ -113,6 +113,9 @@ func (s *GrokOAuthService) ExchangeCode(ctx context.Context, input *GrokExchange
 	if !ok {
 		return nil, infraerrors.New(http.StatusBadRequest, "GROK_OAUTH_SESSION_NOT_FOUND", "session not found or expired")
 	}
+	if err := s.requireOAuthClient(); err != nil {
+		return nil, err
+	}
 	defer s.sessionStore.Delete(input.SessionID)
 
 	parsed := xai.ParseAuthorizationInput(input.Code)
@@ -151,10 +154,20 @@ func (s *GrokOAuthService) ExchangeCode(ctx context.Context, input *GrokExchange
 	return s.tokenInfoFromResponse(tokenResp, session.ClientID, nil), nil
 }
 
+func (s *GrokOAuthService) requireOAuthClient() error {
+	if s == nil || s.oauthClient == nil {
+		return infraerrors.New(http.StatusInternalServerError, "GROK_OAUTH_CLIENT_NOT_CONFIGURED", "oauth client is not configured")
+	}
+	return nil
+}
+
 func (s *GrokOAuthService) RefreshToken(ctx context.Context, refreshToken, proxyURL, clientID string) (*GrokTokenInfo, error) {
 	refreshToken = strings.TrimSpace(refreshToken)
 	if refreshToken == "" {
 		return nil, infraerrors.New(http.StatusBadRequest, "GROK_OAUTH_NO_REFRESH_TOKEN", "refresh_token is required")
+	}
+	if err := s.requireOAuthClient(); err != nil {
+		return nil, err
 	}
 	tokenResp, err := s.oauthClient.RefreshToken(ctx, refreshToken, proxyURL, clientID)
 	if err != nil {

@@ -35,6 +35,7 @@
 - `backend/internal/service/grok_oauth_service_test.go`
 - `backend/internal/service/antigravity_gateway_service.go`
 - `backend/internal/service/antigravity_gateway_service_test.go`
+- `backend/internal/service/upstream_v0173_selective_fixes_test.go`
 - `frontend/src/components/common/BaseDialog.vue`
 - `frontend/src/components/common/__tests__/BaseDialog.spec.ts`
 - `docs/workflow/spec.md`
@@ -63,7 +64,7 @@
 
 ```powershell
 git rev-parse HEAD
-go test -tags=unit ./internal/service -run 'Test(CountGeminiInlineImageOutputs|ObserveGeminiImageOutputs|BeginGeminiImageOutputObservation|ResolveGeminiImageCount|HandleNativeNonStreamingResponse_FeedsImageCounter|HandleGeminiUpstreamError_PoolMode429|GrokOAuthService.*MissingClient|AntigravityGatewayService_ForwardGemini_FallbackReportsActualUpstreamModel|LoadWebSearchConfigFromDB_MissingSetting)' -count=1
+go test ./internal/service -run 'Test(CountGeminiInlineImageOutputs|ObserveGeminiImageOutputs|BeginGeminiImageOutputObservation|ResolveGeminiImageCount|HandleNativeNonStreamingResponse_FeedsImageCounter|HandleGeminiUpstreamError_PoolMode429|GrokOAuthService.*MissingClient|AntigravityGatewayService_ForwardGemini_FallbackReportsActualUpstreamModel|LoadWebSearchConfigFromDB_MissingSetting)' -count=1
 go test ./internal/service -run 'TestAntigravityGatewayService_ForwardGemini|TestGeminiMessagesCompatService|TestWebSearch' -count=1
 go test ./internal/service -count=1
 go test ./cmd/server -run '^$' -count=0
