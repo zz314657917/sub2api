@@ -1,13 +1,20 @@
 ---
-phase: done
-current_sprint: upstream-api-key-validation-s209
-total_sprints: 209
-pending_action: S209 is fast-forwarded to local main. Await the next authorized Sprint; no push or deployment.
+phase: contract-approved
+current_sprint: upstream-streaming-audit-s210
+total_sprints: 210
+pending_action: Implement the approved S210 handler/audit slices in the isolated worktree, then run focused runtime QA.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-11 01:49 +08:00
+last_verified: 2026-08-11 01:52 +08:00
 ---
+
+# Upstream Streaming and Audit Fixes S210
+
+- S210 behaviorally adapts upstream `2f109e74c` and `c418fd522` onto frozen local `main@d567ed89e` without cherry-picking divergent patches.
+- The compact keepalive slice distinguishes committed HTTP headers from semantic SSE output, while the audit slice only deduplicates an identical `allow` decision within one WebSocket turn.
+- Contract review: `PASS / contract-approved`. The local compact adjusted-size and request-local Gin-context seams satisfy the bounded behavior without route, billing, persistence, or policy changes. Contract: `docs/workflow/tasks/upstream-streaming-audit-s210.md`.
+- Schema, persistence, routing, billing, configuration, frontend, dependencies, containers, push, deployment, provider calls, and production traffic are excluded.
 
 # Streaming Route Cooldown S208
 

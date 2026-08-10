@@ -5,6 +5,12 @@ qa_mode: runtime
 last_verified: 2026-08-04 02:35 +08:00
 ---
 
+## Upstream Streaming and Audit Fixes (S210)
+
+- Adapt the compact keepalive behavior from `2f109e74c`: a Responses stream whose keepalive committed `200` headers but emitted no semantic SSE payload must receive one protocol-correct `response.failed` terminal event when forwarding fails. A stream that already emitted semantic output must not receive a duplicate terminal error.
+- Adapt the WebSocket audit behavior from `c418fd522`: only an identical `(stage, turn, payload hash)` audit result with `DecisionAllow` may be reused. A new turn, changed payload, block, unavailable, invalid, or flag decision must re-evaluate normally.
+- Scope is the OpenAI gateway error boundary, audit helper, focused handler regressions, and workflow evidence. Route cooldown policy, billing, persistence, schema/migrations, configuration, frontend, dependencies, containers, provider calls, push, deployment, and production traffic remain excluded. Contract: `docs/workflow/tasks/upstream-streaming-audit-s210.md`.
+
 ## Streaming Route Cooldown (S208)
 
 - Preserve multi-group route cooldown semantics when an already-started Gateway or OpenAI SSE stream emits a terminal `429`, `529`, or `5xx` error. The handler records the existing cooldown classification in request-local Gin state; API-key middleware consumes it after the handler returns, even though the HTTP writer is already `200`.
