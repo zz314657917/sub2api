@@ -38,10 +38,11 @@
   provider, production traffic, or performance test was exercised.
 - The original frozen-base evidence predates S208; S209 was rebased onto the
   current `main@6011baccf` and its focused/package acceptance suite passed.
-  Local-main fast-forward remains the next operation.
+  Local-main fast-forward and post-merge focused handler/service smoke passed;
+  no push, deployment, real provider, or shared resource validation occurred.
 - No remote push or deployment was performed.
 
 ## Recommendation
 
-`PASS / local-regression`: S209 is ready for a local-main fast-forward. Do not
-push or deploy from this result alone.
+`PASS / local-regression`: S209 is integrated into local `main`. Do not push or
+deploy from this result alone.
