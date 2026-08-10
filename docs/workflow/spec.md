@@ -1724,3 +1724,23 @@ applicable Antigravity fallback-model correction from the upstream response-obse
 - `6e34fb09c` may correct the model actually sent after Antigravity fallback, but S207 excludes its absent `db0bff82c`
   prerequisite, database fields, migrations, usage audit UI, and response-observer persistence chain.
 - No provider call, schema/migration, shared resource, deployment, container update, remote push, or production validation.
+
+# Upstream API Key Validation Addendum (S209)
+
+## Goal
+
+Reject invalid API Key quota, rate-limit, and create-expiry inputs at both the
+HTTP and service boundaries, adapting upstream `f5c108c83` without merging its
+divergent file history.
+
+## Boundary
+
+- `quota`, `rate_limit_5h`, `rate_limit_1d`, and `rate_limit_7d` must be finite
+  and non-negative. Zero remains the existing unlimited value.
+- Create-only `expires_in_days` must be nil or greater than zero. Update's
+  valid RFC3339 expiration and empty-string clear behavior remain unchanged.
+- Handler rejection occurs before Create idempotency execution or Update
+  service invocation; service validation independently protects internal calls.
+- No persistence, schema/migration, routing, billing, Cafe managed-Key,
+  dependency, frontend, configuration, container, push, deployment, shared
+  resource, or production behavior changes are included.

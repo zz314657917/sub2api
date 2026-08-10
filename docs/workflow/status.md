@@ -1,12 +1,11 @@
----
-phase: done
-current_sprint: streaming-route-cooldown-s208
-total_sprints: 208
-pending_action: S208 is committed and pushed to origin/main. Await an explicitly authorized deployment or the next Sprint.
+phase: qa
+current_sprint: upstream-api-key-validation-s209
+total_sprints: 209
+pending_action: Re-run post-rebase S209 focused/package QA, then fast-forward local main; no push or deployment.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-10 22:29 +08:00
+last_verified: 2026-08-11 00:00 +08:00
 ---
 
 # Streaming Route Cooldown S208
@@ -18,6 +17,14 @@ last_verified: 2026-08-10 22:29 +08:00
 - Final evaluator: `PASS / local-regression`. Handler marker regressions (`10x`), middleware route-switch regression (`10x`), complete default handler/middleware package tests, dependent route compilation, formatting, allowlist, diff, and index gates passed. QA: `docs/workflow/qa-reports/streaming-route-cooldown-s208-qa.md`.
 - Publication: committed as `f09e6db03` and pushed normally to `origin/main`; the push also published the ten previously completed local S206/S207 commits. Remote parity passed immediately after the push.
 - No deployment, container, database, real provider, or production operation was performed.
+
+# Upstream API Key Validation S209
+
+- S209 behaviorally adapts upstream `f5c108c83` onto frozen local `main@bb4b74e73` without cherry-picking the divergent patch.
+- Contract review: `PASS / contract-approved`; handler and service validation reject negative/non-finite quota and rate-limit values, while Create also rejects non-positive `expires_in_days`.
+- Contract: `docs/workflow/tasks/upstream-api-key-validation-s209.md`.
+- Direct Generator result: `DONE`; post-rebase focused/package QA is the remaining gate before local-main integration.
+- Work remains isolated in `E:/codex-worktrees/sub2api/upstream-api-key-validation-s209`; push, deployment, containers, schema, and shared resources remain excluded.
 
 # Upstream v0.1.173 Selective Fixes S207
 
