@@ -2,7 +2,7 @@
 phase: done
 current_sprint: upstream-streaming-audit-s210
 total_sprints: 210
-pending_action: Fast-forward the verified S210 isolated branch into local main only; do not push or deploy.
+pending_action: Select the next approved upstream slice; S210 is integrated into local main and must not be pushed or deployed without separate authorization.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
@@ -22,8 +22,10 @@ last_verified: 2026-08-11 02:12 +08:00
   complete default handler package, server compilation, formatting, exact
   allowlist, provenance, conflict and index gates passed. QA:
   `docs/workflow/qa-reports/upstream-streaming-audit-s210-qa.md`.
-- Local-main integration is pending; no push, deployment, container, database,
-  provider, shared resource, or production operation has been performed.
+- Local integration: `main` advanced from `d567ed89e` to `ae6f8e8ea`; post-merge
+  focused handler smoke and server compilation passed. `origin/main` remains at
+  `6011baccf`; no push, deployment, container, database, provider, shared
+  resource, or production operation has been performed.
 - Schema, persistence, routing, billing, configuration, frontend, dependencies, containers, push, deployment, provider calls, and production traffic are excluded.
 
 # Streaming Route Cooldown S208
