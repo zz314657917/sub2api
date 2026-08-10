@@ -1,13 +1,24 @@
 ---
-phase: done
-current_sprint: upstream-openai-routing-hints-s206
-total_sprints: 206
-pending_action: No remaining S206 source action; remote push, deployment, container update and provider validation require separate authorization.
-project_type: backend
+phase: contract-approved
+current_sprint: upstream-v0173-selective-fixes-s207
+total_sprints: 207
+pending_action: Generator implements the approved S207 contract in the isolated worktree.
+project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-08 17:16 +08:00
+last_verified: 2026-08-10 15:37 +08:00
 ---
+
+# Upstream v0.1.173 Selective Fixes S207
+
+- The user authorized starting the selective integration and explicitly included `6e34fb09c`.
+- Frozen base is local `main@ebc3438e4`; work is isolated in `E:/codex-worktrees/sub2api/upstream-v0173-s207`.
+- Contract: `docs/workflow/tasks/upstream-v0173-selective-fixes-s207.md`.
+- Contract review: `PASS / contract-approved`; frozen-base, tag provenance, focused financial/availability behavior,
+  frontend, formatting, allowlist, conflict and unmerged-index gates are executable without denied prerequisites.
+- `6e34fb09c` depends on absent `db0bff82c`, a 76-file schema/migration/admin usage-audit feature. S207 limits the port
+  to its independently useful Antigravity fallback-model correction and denies the prerequisite chain.
+- No product source has changed yet; implementation is the next legal action.
 
 # Upstream OpenAI OAuth Routing Hints S206
 

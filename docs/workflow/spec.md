@@ -1702,3 +1702,19 @@ weekly top-10 and reward facts with more vertical space.
   change is included.
 - The banner is decorative art with no embedded copy, logo or user data. Dynamic personal status remains HTML
   text so every ranking and waiting state stays localized and accessible.
+
+# Upstream v0.1.173 Selective Fixes Addendum (S207)
+
+## Goal
+
+Behaviorally port five bounded upstream fixes: Gemini actual-output image billing, Gemini pool-mode 429 account-state
+protection, Web Search missing-setting and dialog-scroll handling, Grok OAuth nil-client protection, and the locally
+applicable Antigravity fallback-model correction from the upstream response-observation optimization.
+
+## Boundary
+
+- Preserve the local long-diverged service topology and existing product customizations; never merge the release as a whole.
+- Treat image billing and account-level 429 state as financial/availability boundaries with explicit failover and policy tests.
+- `6e34fb09c` may correct the model actually sent after Antigravity fallback, but S207 excludes its absent `db0bff82c`
+  prerequisite, database fields, migrations, usage audit UI, and response-observer persistence chain.
+- No provider call, schema/migration, shared resource, deployment, container update, remote push, or production validation.
