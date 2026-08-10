@@ -1,3 +1,4 @@
+---
 phase: qa
 current_sprint: upstream-api-key-validation-s209
 total_sprints: 209
@@ -23,7 +24,11 @@ last_verified: 2026-08-11 00:00 +08:00
 - S209 behaviorally adapts upstream `f5c108c83` onto frozen local `main@bb4b74e73` without cherry-picking the divergent patch.
 - Contract review: `PASS / contract-approved`; handler and service validation reject negative/non-finite quota and rate-limit values, while Create also rejects non-positive `expires_in_days`.
 - Contract: `docs/workflow/tasks/upstream-api-key-validation-s209.md`.
-- Direct Generator result: `DONE`; post-rebase focused/package QA is the remaining gate before local-main integration.
+- Direct Generator result: `DONE`. Both validation boundaries and default-tag
+  regressions are implemented; focused tests, complete handler/service tests,
+  and server compilation passed. Result:
+  `docs/workflow/worker-results/upstream-api-key-validation-s209-result.md`.
+- Pre-rebase evaluator QA passed; post-rebase focused/package QA is the remaining gate before local-main integration.
 - Work remains isolated in `E:/codex-worktrees/sub2api/upstream-api-key-validation-s209`; push, deployment, containers, schema, and shared resources remain excluded.
 
 # Upstream v0.1.173 Selective Fixes S207
