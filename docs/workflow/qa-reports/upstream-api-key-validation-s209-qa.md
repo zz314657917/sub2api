@@ -28,19 +28,20 @@
   `upstream/main` -> PASS.
 - Diff precision review: every product line maps to numeric/create-expiry
   validation or its regression coverage; no unrelated refactor was found.
+- Rebased onto `main@6011baccf` after S208 publication, then reran
+  `TestS209` handler and service regressions (`10x`), complete handler/service
+  packages, and server compile -> PASS.
 
 ## Unverified Risks
 
 - No deployed HTTP service, shared PostgreSQL/Redis, container, staging,
   provider, production traffic, or performance test was exercised.
-- S209 is based on `main@bb4b74e73d` and intentionally excludes the separate
-  uncommitted S208 primary-worktree changes. It is not currently eligible for a
-  direct fast-forward into local `main`; integration order must preserve S208.
+- The original frozen-base evidence predates S208; S209 was rebased onto the
+  current `main@6011baccf` and its focused/package acceptance suite passed.
+  Local-main fast-forward remains the next operation.
 - No remote push or deployment was performed.
 
 ## Recommendation
 
-`PASS / local-regression`: retain the isolated S209 commits as the reviewed
-behavior-level port. Close and commit S208 first, then integrate S209 with an
-explicitly reviewed rebase/cherry-pick sequence and rerun focused post-merge
-smoke checks. Do not push or deploy from this result alone.
+`PASS / local-regression`: S209 is ready for a local-main fast-forward. Do not
+push or deploy from this result alone.

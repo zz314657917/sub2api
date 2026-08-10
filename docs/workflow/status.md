@@ -1,12 +1,12 @@
 ---
-phase: qa
+phase: done
 current_sprint: upstream-api-key-validation-s209
 total_sprints: 209
-pending_action: Re-run post-rebase S209 focused/package QA, then fast-forward local main; no push or deployment.
+pending_action: S209 post-rebase QA passed. Fast-forward local main only; no push or deployment.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-11 00:00 +08:00
+last_verified: 2026-08-11 00:10 +08:00
 ---
 
 # Streaming Route Cooldown S208
@@ -28,7 +28,7 @@ last_verified: 2026-08-11 00:00 +08:00
   regressions are implemented; focused tests, complete handler/service tests,
   and server compilation passed. Result:
   `docs/workflow/worker-results/upstream-api-key-validation-s209-result.md`.
-- Pre-rebase evaluator QA passed; post-rebase focused/package QA is the remaining gate before local-main integration.
+- Post-rebase focused handler/service regressions (`10x`), complete handler/service packages, and server compilation passed; local-main fast-forward is the remaining operation.
 - Work remains isolated in `E:/codex-worktrees/sub2api/upstream-api-key-validation-s209`; push, deployment, containers, schema, and shared resources remain excluded.
 
 # Upstream v0.1.173 Selective Fixes S207
