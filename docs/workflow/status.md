@@ -2,11 +2,11 @@
 phase: done
 current_sprint: streaming-route-cooldown-s208
 total_sprints: 208
-pending_action: S208 is complete in the local worktree. Await an explicitly authorized commit, push, deployment, or next Sprint.
+pending_action: S208 is committed and pushed to origin/main. Await an explicitly authorized deployment or the next Sprint.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-10 19:21 +08:00
+last_verified: 2026-08-10 22:29 +08:00
 ---
 
 # Streaming Route Cooldown S208
@@ -16,7 +16,8 @@ last_verified: 2026-08-10 19:21 +08:00
 - Contract: `docs/workflow/tasks/streaming-route-cooldown-s208.md`.
 - Direct Generator result: `DONE`. Both streaming-aware handlers mark only the existing cooldown-status class; middleware consumes the marker before its HTTP-status fallback. The new default-tag middleware regression proves a `200` writer with a stream `429` cools group `14` and the next request selects group `3`. Result: `docs/workflow/worker-results/streaming-route-cooldown-s208-result.md`.
 - Final evaluator: `PASS / local-regression`. Handler marker regressions (`10x`), middleware route-switch regression (`10x`), complete default handler/middleware package tests, dependent route compilation, formatting, allowlist, diff, and index gates passed. QA: `docs/workflow/qa-reports/streaming-route-cooldown-s208-qa.md`.
-- No push, deployment, container, database, real provider, or production operation is authorized.
+- Publication: committed as `f09e6db03` and pushed normally to `origin/main`; the push also published the ten previously completed local S206/S207 commits. Remote parity passed immediately after the push.
+- No deployment, container, database, real provider, or production operation was performed.
 
 # Upstream v0.1.173 Selective Fixes S207
 
