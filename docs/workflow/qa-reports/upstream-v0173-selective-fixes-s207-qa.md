@@ -35,6 +35,8 @@ git diff --name-only --diff-filter=U -> PASS (empty)
 conflict marker scan -> PASS
 v0.1.173 ancestor checks for all five source commits -> PASS
 db0bff82c is not an ancestor of S207 HEAD -> PASS
+post-merge focused S207 service smoke on local main -> PASS (5.472s)
+post-merge go test ./cmd/server -run '^$' -count=0 on local main -> PASS (10.469s)
 ```
 
 - manual checks:
@@ -52,6 +54,7 @@ Removed the temporary worktree node_modules junction and verified the source nod
 - 未发现明确问题。
 - The first allowlist command produced a false failure because its PowerShell expression created nested arrays; the corrected flattened-array check passed and showed all changed paths inside the contract allowlist.
 - Frontend build warnings are pre-existing repository warnings and do not affect this scoped PASS.
+- Local `main` fast-forward and post-merge smoke passed; remote push and deployment were not performed.
 
 ## Bug Owner Recommendation
 `integration-owner`
@@ -61,7 +64,6 @@ Removed the temporary worktree node_modules junction and verified the source nod
 
 ## Retest Scope
 
-- After local fast-forward, rerun the S207 focused service tests and `cmd/server` compile smoke.
 - Provider, deployment, container, shared data services, remote push, and production validation remain separate authorization scopes.
 
 ## Knowledge Promotion

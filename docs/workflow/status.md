@@ -2,11 +2,11 @@
 phase: done
 current_sprint: upstream-v0173-selective-fixes-s207
 total_sprints: 207
-pending_action: Fast-forward the PASSed S207 branch into local main, then run focused post-merge smoke. Do not push or deploy.
+pending_action: S207 is integrated into local main. Await an explicitly authorized push/deploy or the next Sprint.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-10 18:12 +08:00
+last_verified: 2026-08-10 18:19 +08:00
 ---
 
 # Upstream v0.1.173 Selective Fixes S207
@@ -27,6 +27,8 @@ last_verified: 2026-08-10 18:12 +08:00
 - Final evaluator: `PASS / local-regression`; focused and complete service tests, server compile, BaseDialog Vitest,
   typecheck, production build, formatting, allowlist, provenance, conflict and index gates passed. QA:
   `docs/workflow/qa-reports/upstream-v0173-selective-fixes-s207-qa.md`.
+- Local integration: `main` fast-forwarded from `ebc3438e4` to `f50183f83`; post-merge focused service and server
+  compile smoke passed. `origin/main` remains unchanged and local `main` is nine commits ahead.
 - `db0bff82c` remains excluded. No provider call, schema/migration, shared resource, container, deployment, remote push,
   or production validation was performed.
 

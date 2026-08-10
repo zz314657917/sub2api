@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-10 18:12 +08:00
+最后更新：2026-08-10 18:19 +08:00
 
 ## 背景
 
@@ -10,8 +10,8 @@
 
 ## 当前目标
 
-- S207 实现和 Evaluator QA 已完成，结论为 `PASS / local-regression`。
-- 下一步仅允许把 S207 分支 `ff-only` 合入本地 `main`，随后跑聚焦 service 与 server compile smoke。
+- S207 实现、Evaluator QA 和本地 `main` fast-forward 已完成，结论为 `PASS / local-regression`。
+- 合入后聚焦 service 与 server compile smoke 已通过。
 - 不 push、不部署、不更新容器，不触碰主工作树用户原有 `outputs/`。
 
 ## 本次已完成
@@ -30,24 +30,23 @@
 - 14 个实现/流程路径均在 allowlist；`git diff --check`、冲突标记、unmerged-index 均通过。
 - 五个源提交均属于 `v0.1.173` release commit；`db0bff82c` 不是 S207 HEAD 的祖先。
 - 临时 `frontend/node_modules` junction 已删除，主工作树依赖目录仍存在。
+- 本地 `main` 已从 `ebc3438e4` fast-forward 到 `f50183f83`；合入后聚焦 service 与 server compile smoke 通过。
+- `origin/main` 未变化，本地 `main` 当前领先远端 9 个提交；用户原有 `outputs/` 仍为未跟踪且未触碰。
 
 ## 待验证点
 
-- 尚未执行本地 `main` fast-forward 和 post-merge smoke。
 - 未进行真实 Gemini/Grok/Antigravity provider、共享 PostgreSQL/Redis、容器、部署、staging、生产或性能验证。
 - 未执行远端 push；本地 source merge 不等于发布或部署。
 
 ## 当前结论
 
-- `PASS / local-regression`：未发现阻断本地 fast-forward 合入的 finding。
-- review-and-verification 建议：可合入本地 `main`，远端发布和运行环境验证保持独立授权。
+- `PASS / local-regression`：S207 已选择性合入本地 `main`，未发现阻断 finding。
+- review-and-verification 建议：保留当前本地结果；远端发布和运行环境验证保持独立授权。
 
 ## 下一步
 
-1. 提交 S207 允许路径和 QA 证据。
-2. 确认主工作树仍在 `main@ebc3438e4` 且只保留用户原有脏内容。
-3. `ff-only` 合入本地 `main`，运行聚焦 service 与 `cmd/server` compile smoke。
-4. 记录 local-merge 事实；不 push、不部署。
+1. 如用户明确要求发布，再单独执行普通 push 并验证远端 ref parity；不得顺带部署。
+2. 如需真实 provider 或生产验收，另建隔离 runtime 合同，不扩展 S207 source merge。
 
 ## 验证记录
 
@@ -58,3 +57,5 @@
 - `go test ./cmd/server -run '^$' -count=0`：PASS。
 - BaseDialog Vitest：`1 file / 1 test PASS`；frontend typecheck/build：PASS。
 - allowlist、provenance、`db0bff82c` exclusion、format、conflict、unmerged-index：PASS。
+- 合入后 `go test ./internal/service -run '<S207 focused + policy paths regex>' -count=1`：PASS，5.472s。
+- 合入后 `go test ./cmd/server -run '^$' -count=0`：PASS，10.469s。

@@ -714,11 +714,12 @@
 - 未验证边界：真实 OpenAI OAuth provider、代理、容器、部署、staging、生产流量和远端 Git 发布均未执行。
 - 合入记录：`main` 已从 `3cec8bb90` fast-forward 到 `e8cfdead6`；合入后聚焦 service 与 server compile smoke 通过，远端仍未发布。
 
-## 2026-08-10 18:12 +08:00 - 上游 v0.1.173 选择性修复 S207 验收完成
+## 2026-08-10 18:19 +08:00 - 上游 v0.1.173 选择性修复 S207 本地集成完成
 
-- 当前阶段：P/G/E `upstream-v0173-selective-fixes-s207` 已关闭为 `PASS / local-regression`，等待 fast-forward 合入本地 `main`。
+- 当前阶段：P/G/E `upstream-v0173-selective-fixes-s207` 已关闭为 `PASS / local-regression`，并已 fast-forward 合入本地 `main`。
 - 本段重点：行为移植 Gemini 实际图片计费、池模式 429 账号状态保护、Web Search 缺省配置与 BaseDialog 滚动重置、Grok OAuth nil-client 防护，以及 `6e34fb09c` 中可独立应用的 Antigravity fallback model 记录修复。
 - 关键决策：保持本地单体 Gemini/Antigravity 拓扑；只迁移 `6e34fb09c` 的实际转发模型修复，不引入前置 `db0bff82c` 的 76 文件 schema/migration/admin usage-audit 链。
 - 验证记录：S207 聚焦和三路径策略测试、完整 service、server compile、BaseDialog `1/1`、frontend typecheck/build、gofmt、14 路径 allowlist、五提交 release provenance、冲突标记和 unmerged-index 门禁通过。
+- 合入记录：`main` 从 `ebc3438e4` fast-forward 到 `f50183f83`；合入后聚焦 service 与 server compile smoke 通过，`origin/main` 未变化，`outputs/` 未触碰。
 - 未验证边界：真实 provider、共享数据库/Redis、容器、部署、staging、生产、远端 push 均未执行；主工作树 `outputs/` 不在本次范围。
 - 证据入口：`docs/workflow/worker-results/upstream-v0173-selective-fixes-s207-result.md`、`docs/workflow/qa-reports/upstream-v0173-selective-fixes-s207-qa.md`。
