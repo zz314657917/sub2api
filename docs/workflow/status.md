@@ -1,12 +1,12 @@
 ---
-phase: contract-approved
+phase: done
 current_sprint: upstream-streaming-audit-s210
 total_sprints: 210
-pending_action: Implement the approved S210 handler/audit slices in the isolated worktree, then run focused runtime QA.
+pending_action: Fast-forward the verified S210 isolated branch into local main only; do not push or deploy.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-11 01:52 +08:00
+last_verified: 2026-08-11 02:12 +08:00
 ---
 
 # Upstream Streaming and Audit Fixes S210
@@ -14,6 +14,16 @@ last_verified: 2026-08-11 01:52 +08:00
 - S210 behaviorally adapts upstream `2f109e74c` and `c418fd522` onto frozen local `main@d567ed89e` without cherry-picking divergent patches.
 - The compact keepalive slice distinguishes committed HTTP headers from semantic SSE output, while the audit slice only deduplicates an identical `allow` decision within one WebSocket turn.
 - Contract review: `PASS / contract-approved`. The local compact adjusted-size and request-local Gin-context seams satisfy the bounded behavior without route, billing, persistence, or policy changes. Contract: `docs/workflow/tasks/upstream-streaming-audit-s210.md`.
+- Direct Generator result: `DONE`. Compact keepalive-only commits now append the
+  protocol terminal error, and matching WebSocket allow decisions are deduped
+  by stage, turn, and SHA-256 payload only. Result:
+  `docs/workflow/worker-results/upstream-streaming-audit-s210-result.md`.
+- Final evaluator: `PASS / local-regression`; S210 focused regressions (`10x`),
+  complete default handler package, server compilation, formatting, exact
+  allowlist, provenance, conflict and index gates passed. QA:
+  `docs/workflow/qa-reports/upstream-streaming-audit-s210-qa.md`.
+- Local-main integration is pending; no push, deployment, container, database,
+  provider, shared resource, or production operation has been performed.
 - Schema, persistence, routing, billing, configuration, frontend, dependencies, containers, push, deployment, provider calls, and production traffic are excluded.
 
 # Streaming Route Cooldown S208
@@ -37,7 +47,9 @@ last_verified: 2026-08-11 01:52 +08:00
   `docs/workflow/worker-results/upstream-api-key-validation-s209-result.md`.
 - Post-rebase focused handler/service regressions (`10x`), complete handler/service packages, and server compilation passed.
 - Local integration: `main` advanced from `6011baccf` to `7d634051d`; post-merge focused handler/service smoke and server compilation passed. `origin/main` remains at `6011baccf`; no push or deployment occurred.
-- Work remains isolated in `E:/codex-worktrees/sub2api/upstream-api-key-validation-s209`; push, deployment, containers, schema, and shared resources remain excluded.
+- S209 is already integrated into local `main`; `origin/main` remains at
+  `6011baccf`. Push, deployment, containers, schema, and shared resources
+  remain excluded.
 
 # Upstream v0.1.173 Selective Fixes S207
 

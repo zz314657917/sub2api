@@ -1591,6 +1591,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		hooks := &service.OpenAIWSIngressHooks{
 			InitialRequestModel: reqModel,
 			BeforeRequest: func(turn int, payload []byte, originalModel string) error {
+				c.Set(securityAuditWSTurnContextKey, turn)
 				if turn == 1 {
 					return nil
 				}
@@ -2130,10 +2131,15 @@ func (h *OpenAIGatewayHandler) ensureForwardErrorResponse(c *gin.Context, stream
 	if c == nil || c.Writer == nil {
 		return false
 	}
-	if service.StopOpenAICompactSSEKeepaliveCommitted(c) {
+	compactKeepaliveCommitted := service.StopOpenAICompactSSEKeepaliveCommitted(c)
+	if compactKeepaliveCommitted {
 		streamStarted = true
 	}
-	if service.IsResponseCommitted(c) {
+	compactKeepaliveHasMeaningfulOutput := compactKeepaliveCommitted && service.OpenAICompactKeepaliveAdjustedWrittenSize(c) > 0
+	// Compact keepalive may have committed 200 headers without writing a
+	// semantic SSE event. In that case the Responses stream still needs its
+	// protocol-correct terminal response.failed event.
+	if service.IsResponseCommitted(c) && (!compactKeepaliveCommitted || compactKeepaliveHasMeaningfulOutput) {
 		return false
 	}
 	// 旧实现在 Writer.Written 时直接 return false，导致 ping 已 flush 之后的
