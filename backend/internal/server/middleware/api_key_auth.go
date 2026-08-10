@@ -643,7 +643,7 @@ func applyAPIKeyRouteCooldownAfterRequest(c *gin.Context, apiKeyService *service
 	if !ok {
 		return
 	}
-	if shouldCooldownAPIKeyRoute(c.Writer.Status()) {
+	if IsAPIKeyRouteCooldownMarked(c) || shouldCooldownAPIKeyRoute(c.Writer.Status()) {
 		apiKeyService.MarkRouteGroupCooldown(c.Request.Context(), apiKey, groupID, cooldownSeconds)
 		return
 	}

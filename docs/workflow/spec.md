@@ -5,6 +5,12 @@ qa_mode: runtime
 last_verified: 2026-08-04 02:35 +08:00
 ---
 
+## Streaming Route Cooldown (S208)
+
+- Preserve multi-group route cooldown semantics when an already-started Gateway or OpenAI SSE stream emits a terminal `429`, `529`, or `5xx` error. The handler records the existing cooldown classification in request-local Gin state; API-key middleware consumes it after the handler returns, even though the HTTP writer is already `200`.
+- A started stream is never replayed or redirected. The current client still receives its protocol-compatible terminal SSE error; only a later request skips the cooled group and follows the configured priority/weight route selection.
+- Scope is two handler call sites, the API-key cooldown boundary, and focused regression tests. Route configuration, route selection policy, Redis/cache protocol, billing, account scheduling, schema/migrations, frontend, deployment, containers, provider calls, push, and production traffic are excluded. Contract: `docs/workflow/tasks/streaming-route-cooldown-s208.md`.
+
 ## Upstream OpenAI OAuth Routing Hints (S206)
 
 - Port upstream `915cc7e7b`, `815035fcc`, and `de349187d` into the local monolithic OpenAI HTTP/WS topology: remove the legacy OAuth beta-header injection, generate a gateway-owned final-model routing hint, and keep WebSocket routing affinity advisory rather than continuation-breaking.

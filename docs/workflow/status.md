@@ -1,13 +1,22 @@
 ---
 phase: done
-current_sprint: upstream-v0173-selective-fixes-s207
-total_sprints: 207
-pending_action: S207 is integrated into local main. Await an explicitly authorized push/deploy or the next Sprint.
+current_sprint: streaming-route-cooldown-s208
+total_sprints: 208
+pending_action: S208 is complete in the local worktree. Await an explicitly authorized commit, push, deployment, or next Sprint.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-10 18:19 +08:00
+last_verified: 2026-08-10 19:21 +08:00
 ---
+
+# Streaming Route Cooldown S208
+
+- S208 addresses multi-group API keys whose selected group emits a route-cooldown status only after an SSE stream has begun. The HTTP writer remains `200`, so the existing middleware does not observe the terminal `429` / `529` / `5xx` status.
+- Contract review: `PASS / contract-approved`. A request-local marker can carry the already-classified terminal status from the Gateway/OpenAI handlers to the existing API-key middleware without changing stream framing, retrying a started request, routing policy, Redis/cache storage, billing, schema, configuration, or deployment.
+- Contract: `docs/workflow/tasks/streaming-route-cooldown-s208.md`.
+- Direct Generator result: `DONE`. Both streaming-aware handlers mark only the existing cooldown-status class; middleware consumes the marker before its HTTP-status fallback. The new default-tag middleware regression proves a `200` writer with a stream `429` cools group `14` and the next request selects group `3`. Result: `docs/workflow/worker-results/streaming-route-cooldown-s208-result.md`.
+- Final evaluator: `PASS / local-regression`. Handler marker regressions (`10x`), middleware route-switch regression (`10x`), complete default handler/middleware package tests, dependent route compilation, formatting, allowlist, diff, and index gates passed. QA: `docs/workflow/qa-reports/streaming-route-cooldown-s208-qa.md`.
+- No push, deployment, container, database, real provider, or production operation is authorized.
 
 # Upstream v0.1.173 Selective Fixes S207
 

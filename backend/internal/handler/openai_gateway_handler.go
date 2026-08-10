@@ -2098,6 +2098,7 @@ func (h *OpenAIGatewayHandler) handleStreamingAwareError(c *gin.Context, status 
 		streamStarted = true
 	}
 	if streamStarted {
+		middleware2.MarkAPIKeyRouteCooldown(c, status)
 		// /v1/responses 的严格 SDK（Codex CLI）要求终止事件必须属于
 		// response.completed/failed/incomplete/cancelled 集合。
 		// 通用 `event: error` 帧不被识别为终止事件，会导致

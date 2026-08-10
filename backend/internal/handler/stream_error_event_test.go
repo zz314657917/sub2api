@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
+	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -75,6 +76,15 @@ func TestOpenAIHandleStreamingAwareError_ResponsesStreamingEmitsResponseFailed(t
 	assert.True(t, strings.HasPrefix(id, "resp_"), "id should start with resp_, got %q", id)
 	assert.Equal(t, "rate_limit_exceeded", errObj["code"])
 	assert.Equal(t, "Concurrency limit exceeded for user, please retry later", errObj["message"])
+}
+
+func TestOpenAIHandleStreamingAwareError_429MarksRouteCooldown(t *testing.T) {
+	c, w := newGinContextForEndpoint(t, EndpointResponses)
+	h := &OpenAIGatewayHandler{}
+	h.handleStreamingAwareError(c, http.StatusTooManyRequests, "rate_limit_error", "Too many pending requests", true)
+
+	assert.True(t, middleware2.IsAPIKeyRouteCooldownMarked(c))
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 // 当 setOpsRequestContext 写过 model，合成事件应回填该字段（与 codebase 已有 makeResponsesCompletedEvent 对齐）。
@@ -162,6 +172,15 @@ func TestGatewayHandleStreamingAwareError_ResponsesStreamingEmitsResponseFailed(
 	_, errObj := parseResponsesFailedSSE(t, w.Body.String())
 	assert.Equal(t, "upstream_error", errObj["code"])
 	assert.Equal(t, "upstream gone", errObj["message"])
+}
+
+func TestGatewayHandleStreamingAwareError_429MarksRouteCooldown(t *testing.T) {
+	c, w := newGinContextForEndpoint(t, EndpointResponses)
+	h := &GatewayHandler{}
+	h.handleStreamingAwareError(c, http.StatusTooManyRequests, "rate_limit_error", "Too many pending requests", true)
+
+	assert.True(t, middleware2.IsAPIKeyRouteCooldownMarked(c))
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 // Gateway handler: /v1/messages preserves the legacy data:{type:error,...} format
