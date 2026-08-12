@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-12 13:30 +08:00
+最后更新：2026-08-13 +08:00
 
 ## 背景
 
@@ -12,7 +12,7 @@
 ## 当前目标
 
 - S211/S212 已完成多智能体复核、独立 QA、分批本地提交、本地容器更新和
-  Google Chrome 桌面/390px 验收；保持不推送远端。
+  Google Chrome 桌面/390px 验收；知识收口与分支整理已推送至 `origin/main`。
 
 ## 本次已完成
 
@@ -30,7 +30,7 @@
   contract 重跑完整门禁并裁定 `PASS`。
 - 用户已明确授权多智能体复核、分批本地提交和更新本地容器。
 - 已创建三批本地提交：`0d9004e71` 后端、`240ff4ce8` 前端、`0b836dc8e`
-  workflow；`main` 相对 `origin/main` 本地领先，未推送。
+  workflow；后续修正与知识入口提交均已进入 `main` 并推送。
 - 本地 `sub2api` 已更新到 `sub2api:codex-20260812-1243-s211-s212`，镜像 ID
   `sha256:ee12bc3fa2eb...`，`http://127.0.0.1:62080/health` 返回 200；PostgreSQL、
   Redis、网络和 `deploy_sub2api_data` 未重建。
@@ -53,22 +53,25 @@
   `sha256:5307a1216e7e...`。
 - 容器最近日志仅见远程价格哈希拉取的 TLS handshake timeout；容器持续 healthy，
   `/health` 正常，该外部网络更新告警不属于 S211/S212 启动或功能错误。
+- `main` 已推送至 `origin/main@d61bd3096`。6 条本地 `codex/*` worktree 分支与
+  7 条已合入或被后续主线实现替代的 `origin/codex/*` 分支均已清理；`backup/*`
+  保护引用与第三方 `upstream/*` 跟踪分支保留，未做无审查合并或删除。
 
 ## 待验证点
 
-- 真实 provider、生产流量和远端发布未执行；如后续明确授权，再单独做对应 smoke
-  或 push，不从本次本地验收推导生产结论。
+- 真实 provider、生产流量和正式部署未执行；本次仅推送 Git 主线，不从本地验收
+  推导生产结论。
 - 远程价格哈希网络更新可在网络恢复后自然重试；当前不影响容器健康和本次功能。
 
 ## 当前结论
 
-- `PASS / local-container`：S211/S212 已完成代码、contract、独立 QA、三批本地
-  提交、本地容器更新和 Google Chrome 响应式验收；无剩余本地交付阻断。
+- `PASS / main-published`：S211/S212 已完成代码、contract、独立 QA、提交、本地
+  容器更新、Google Chrome 响应式验收和主线推送；无剩余 Git 交付阻断。
 
 ## 下一步
 
 1. 本任务无需继续修改；新需求另开 Sprint/contract。
-2. 只有用户明确要求时才推送远端或执行真实 provider/生产流量验证。
+2. 只有用户明确要求时才执行真实 provider/生产流量验证或整合新的 `upstream/*`。
 
 ## 验证记录
 
@@ -77,8 +80,8 @@
 - S212 review-fix 独立 QA：聚焦 `-count=10`、完整 service、middleware、
   handler/admin、server compile、3 files / 42 frontend tests、lint、typecheck、build、
   gofmt、allowlist、diff 和索引门禁通过。
-- Git：三批提交成功；最终 `git diff --check`、`git ls-files -u` 通过，工作树仅剩
-  用户的 `knowledge/00-start-here.md`、`knowledge/05-current-focus.md` 和 `outputs/`。
+- Git：知识入口更新提交为 `d61bd3096` 并推送；`main` 与 `origin/main` SHA 一致，
+  `git diff --check`、`git ls-files -u` 通过，工作树仅剩用户的 `outputs/`。
 - Docker：容器 running/healthy，镜像 `sha256:ee12bc3fa2eb...`，`/health` 200，
   回滚容器/镜像存在，Docker guard 状态为 missing（已释放）。
 - Chrome：Google Chrome stable 独立 profile 验收桌面和 390x844；四张具名截图位于

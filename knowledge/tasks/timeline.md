@@ -1,5 +1,21 @@
 # 项目时间轴
 
+## 2026-08-13 +08:00 - 主线推送与分支收敛
+
+- 用户授权整理分支、合入已验证变更、清理冗余分支并推送。S204 定价、S135 overload
+  retry 与 S132 并发/Passkey/K3/模型目录/Codex manifest 的有效实现均已在当前
+  `main` 中存在，部分为后续演进版本；不重复合并旧提交以避免回退或大范围冲突。
+- 移除 6 个干净的 `E:/codex-worktrees/sub2api/*` 专用 worktree 及对应本地
+  `codex/*` 分支；删除 7 个冗余 `origin/codex/*` 分支。保留
+  `backup/pre-s121-split-4161d254b`、`backup/pre-s157-merge-20260804`、
+  `backup/pre-s177-main-20260804` 保护引用，以及全部第三方 `upstream/*` 追踪分支。
+- 不把 `upstream/main` 或其功能分支无审查整合：当前与本地主线长期分叉，静态合并有
+  大范围冲突，后续需另开 Sprint 逐批审计。
+- 知识入口更新提交为 `d61bd3096 docs(knowledge): refresh current focus after S211 S212`
+  并推送；`main` 与 `origin/main` SHA 均为 `d61bd3096766b66539f511562c95f1f5dd0d8cd2`。
+- 最终检查：`git diff --check`、`git ls-files -u` 通过；主工作树仅保留用户的未跟踪
+  `outputs/`，未执行真实 provider、生产流量或部署。
+
 ## 2026-08-12 00:28 +08:00 - S211 非订阅分组分时倍率实现收口
 
 - 标准和订阅分组均复用 `peak_rate_*` 做每日分时倍率，最终 Token 倍率为原有效倍率乘以分时因子；窗口外/关闭时恢复因子 `1.0`，不禁用分组或改变 API Key 路由、可用状态和绑定关系。
