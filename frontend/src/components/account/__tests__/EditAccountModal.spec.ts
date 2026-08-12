@@ -2,10 +2,13 @@ import { describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 
-const { updateAccountMock, checkMixedChannelRiskMock, showErrorMock } = vi.hoisted(() => ({
+const { updateAccountMock, checkMixedChannelRiskMock, showErrorMock, authStoreMock } = vi.hoisted(() => ({
   updateAccountMock: vi.fn(),
   checkMixedChannelRiskMock: vi.fn(),
-  showErrorMock: vi.fn()
+  showErrorMock: vi.fn(),
+  authStoreMock: {
+    isSimpleMode: true
+  }
 }))
 
 vi.mock('@/stores/app', () => ({
@@ -17,9 +20,7 @@ vi.mock('@/stores/app', () => ({
 }))
 
 vi.mock('@/stores/auth', () => ({
-  useAuthStore: () => ({
-    isSimpleMode: true
-  })
+  useAuthStore: () => authStoreMock
 }))
 
 vi.mock('@/api/admin', () => ({
@@ -122,6 +123,11 @@ const SelectStub = defineComponent({
   `
 })
 
+const GroupSelectorStub = defineComponent({
+  name: 'GroupSelector',
+  template: '<div data-testid="group-selector" />'
+})
+
 function buildAccount() {
   return {
     id: 1,
@@ -204,7 +210,7 @@ function mountModal(account = buildAccount()) {
         Select: SelectStub,
         Icon: true,
         ProxySelector: true,
-        GroupSelector: true,
+        GroupSelector: GroupSelectorStub,
         ModelWhitelistSelector: ModelWhitelistSelectorStub,
         Input: {
           props: ['modelValue', 'label', 'placeholder', 'dataTestid', 'type', 'hint'],
@@ -217,6 +223,35 @@ function mountModal(account = buildAccount()) {
 }
 
 describe('EditAccountModal', () => {
+	it('places the group selector and account availability window side by side on wide screens', async () => {
+		authStoreMock.isSimpleMode = false
+		try {
+			const wrapper = mountModal()
+			await flushPromises()
+
+			const groupSelector = wrapper.get('[data-testid="group-selector"]')
+			const availabilitySection = wrapper.get('[data-testid="account-time-availability-section"]')
+			const layout = availabilitySection.element.parentElement
+
+			expect(layout).not.toBeNull()
+			expect(layout?.classList.contains('grid')).toBe(true)
+			expect(layout?.classList.contains('grid-cols-1')).toBe(true)
+			expect(layout?.classList.contains('lg:grid-cols-2')).toBe(true)
+			expect(groupSelector.element.parentElement).toBe(layout)
+			expect(availabilitySection.classes()).toContain('lg:border-t-0')
+		} finally {
+			authStoreMock.isSimpleMode = true
+		}
+	})
+
+	it('keeps the availability section separated from status settings in simple mode', async () => {
+		const wrapper = mountModal()
+		await flushPromises()
+
+		const availabilitySection = wrapper.get('[data-testid="account-time-availability-section"]')
+		expect(availabilitySection.classes()).not.toContain('lg:border-t-0')
+	})
+
 	it('normalizes and preserves a valid disabled availability window in the update payload', async () => {
 		const account = buildAccount()
 		account.extra = {

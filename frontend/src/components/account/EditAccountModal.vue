@@ -2439,23 +2439,31 @@
         </div>
       </div>
 
-      <AccountTimeAvailabilityWindow
-        v-model:enabled="accountAvailabilityEnabled"
-        v-model:start="accountAvailabilityStart"
-        v-model:end="accountAvailabilityEnd"
-        @valid="accountAvailabilityValid = $event"
-        @window-valid="accountAvailabilityWindowValid = $event"
-      />
+      <div
+        :class="[
+          'grid grid-cols-1 gap-6',
+          !authStore.isSimpleMode && 'lg:grid-cols-2'
+        ]"
+      >
+        <!-- Group Selection - 仅标准模式显示 -->
+        <GroupSelector
+          v-if="!authStore.isSimpleMode"
+          v-model="form.group_ids"
+          :groups="groups"
+          :platform="account?.platform"
+          :mixed-scheduling="mixedScheduling"
+          data-tour="account-form-groups"
+        />
 
-      <!-- Group Selection - 仅标准模式显示 -->
-      <GroupSelector
-        v-if="!authStore.isSimpleMode"
-        v-model="form.group_ids"
-        :groups="groups"
-        :platform="account?.platform"
-        :mixed-scheduling="mixedScheduling"
-        data-tour="account-form-groups"
-      />
+        <AccountTimeAvailabilityWindow
+          v-model:enabled="accountAvailabilityEnabled"
+          v-model:start="accountAvailabilityStart"
+          v-model:end="accountAvailabilityEnd"
+          :class="!authStore.isSimpleMode && 'lg:border-t-0 lg:pt-0'"
+          @valid="accountAvailabilityValid = $event"
+          @window-valid="accountAvailabilityWindowValid = $event"
+        />
+      </div>
 
     </form>
 
