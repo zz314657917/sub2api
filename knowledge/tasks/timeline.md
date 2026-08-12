@@ -1,5 +1,13 @@
 # 项目时间轴
 
+## 2026-08-12 00:28 +08:00 - S211 非订阅分组分时倍率实现收口
+
+- 标准和订阅分组均复用 `peak_rate_*` 做每日分时倍率，最终 Token 倍率为原有效倍率乘以分时因子；窗口外/关闭时恢复因子 `1.0`，不禁用分组或改变 API Key 路由、可用状态和绑定关系。
+- 所有请求、重试、故障切换、WebSocket 与异步落账按 `RequestStartedAt` 判定时段；图片/视频按次计费保持原有效倍率。管理端已加入标准分组配置、类型化校验、时区/公式提示和类型切换保留。
+- 本地 focused/full Go、handler、server 编译、Vitest `3/3`、lint、typecheck、build、gofmt、diff/index 和 Playwright 桌面/390px 均通过；截图位于 `E:/codex-artifacts/sub2api/standard-group-time-rate-s211`。
+- Generator 结果：`DONE`。初始独立 QA 因 `deepseek-v4-pro` 不可用而阻塞；经用户授权改用 `gpt-5.6-terra` 后，首轮发现 `NaN`/正负无穷倍率未收口，修复并完整复测为 `PASS`。详见 `docs/workflow/qa-reports/standard-group-time-rate-s211-qa.md`。
+- 未触碰用户 `outputs/`，未做 schema/migration、provider、容器、部署、push 或生产流量操作；等待用户决定是否提交本地已验证改动。
+
 ## 2026-08-07 19:05 +08:00 - 上游计费倍率同步 S204 本地收口
 
 - 按行为级最小适配合入 API Key 计费自省、手工/CRS 周期探测、探测快照与按账号 opt-in 的
@@ -723,3 +731,25 @@
 - 合入记录：`main` 从 `ebc3438e4` fast-forward 到 `f50183f83`；合入后聚焦 service 与 server compile smoke 通过，`origin/main` 未变化，`outputs/` 未触碰。
 - 未验证边界：真实 provider、共享数据库/Redis、容器、部署、staging、生产、远端 push 均未执行；主工作树 `outputs/` 不在本次范围。
 - 证据入口：`docs/workflow/worker-results/upstream-v0173-selective-fixes-s207-result.md`、`docs/workflow/qa-reports/upstream-v0173-selective-fixes-s207-qa.md`。
+
+## 2026-08-12 07:03 +08:00 - 分组分时倍率 S211 与账号分时可用 S212 完成
+
+- 当前阶段：S211、S212 均为 `PASS / local-regression`；未暂存、未提交、未推送、未部署、未更新容器。
+- 本段重点：S211 将标准和订阅分组的日内倍率作为原有效倍率的附加因子；S212 在既有账号 `extra` 中提供每日可用时段，仅动态排除窗口外的新请求候选。
+- 关键决策：所有选择和异步路径复用首次请求时间；账号窗口不写回状态、不影响 API Key/分组绑定或在途请求。Antigravity 模型级筛选必须调用上下文感知调度，避免绕过窗口。
+- 验证记录：S211 与 S212 均通过独立 Terra QA；S212 聚焦/完整 Go、middleware、handler/admin、server 编译、账户组件 Vitest、lint、typecheck、build、格式、diff、索引和修订 allowlist 审计均通过。
+- 未验证边界：S212 的 Vite-only 浏览器因本地后端代理不可用而未打开认证账号弹窗；真实 provider、共享数据库/Redis、容器、部署、远端 push 与生产流量未执行。
+
+## 2026-08-12 12:43 +08:00 - S211/S212 提交前多智能体复核通过
+
+- 当前阶段：四路提交前复核与 S212 review-fix 独立 QA 均完成，P/G/E 状态从
+  `fix` 收口为 `done`；下一步是三批本地提交和受 Docker guard 保护的本地容器更新。
+- 修复重点：generic Gateway 非图片 `per_request` 与媒体按次计费均保持原有效倍率；
+  用量日志倍率与扣费一致；handler 统一复用首次请求时间；用户账号 Create/Update
+  持久化前严格校验；新写入仅接受 `HH:MM`，历史单数字小时运行时继续兼容；前端
+  OAuth/direct/edit 入口统一阻断非法窗口并保留合法关闭配置。
+- 验证记录：S211 第二轮聚焦/完整 Go、server compile、格式、diff/index PASS；
+  S212 独立 QA 的聚焦/完整 Go、middleware、handler/admin、server compile、
+  3 files / 42 tests、lint、typecheck、build、格式、allowlist、diff/index PASS。
+- 未验证边界：认证态账号弹窗桌面/390px 仍待更新后的本地容器补验；真实 provider、
+  生产流量与远端 push 不执行，`outputs/` 继续排除。

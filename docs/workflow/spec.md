@@ -5,6 +5,22 @@ qa_mode: runtime
 last_verified: 2026-08-04 02:35 +08:00
 ---
 
+## Standard Group Time-Window Rate (S211)
+
+- Allow standard and subscription groups to apply the existing daily
+  `peak_rate_*` factor to token billing. The factor multiplies the already
+  resolved effective rate and returns to `1.0` outside `[start, end)`, so the
+  final rate returns to the original group/user/membership result without
+  disabling the group.
+- Standard groups require an enabled factor greater than zero; subscription
+  groups retain zero-factor compatibility. Windows use the configured server
+  timezone, remain same-day only, and are evaluated from request start time
+  across retry, failover, asynchronous recording, and WebSocket turns.
+- Reuse the existing schema and API fields. Per-request image/video billing,
+  routing, group status, API-key bindings, migrations, dependencies,
+  containers, deployment, push, and production traffic are excluded. Contract:
+  `docs/workflow/tasks/standard-group-time-rate-s211.md`.
+
 ## Upstream Streaming and Audit Fixes (S210)
 
 - Adapt the compact keepalive behavior from `2f109e74c`: a Responses stream whose keepalive committed `200` headers but emitted no semantic SSE payload must receive one protocol-correct `response.failed` terminal event when forwarding fails. A stream that already emitted semantic output must not receive a duplicate terminal error.
@@ -1750,3 +1766,42 @@ divergent file history.
 - No persistence, schema/migration, routing, billing, Cafe managed-Key,
   dependency, frontend, configuration, container, push, deployment, shared
   resource, or production behavior changes are included.
+
+# Account Time Availability Addendum (S212)
+
+## Goal
+
+Allow an administrator to opt an individual account into one same-day daily
+availability window. The window affects only new-request candidate selection;
+it does not mutate the account's real status, schedulable flag, API Key
+bindings, or group membership.
+
+## Boundary
+
+- Store `account_availability_enabled`, `account_availability_start`, and
+  `account_availability_end` in the existing account `extra` JSON. No schema
+  migration or new public top-level API field is needed.
+- Use server-local time and a left-closed, right-open `[start, end)` interval.
+  Cross-midnight and multi-window schedules are deliberately unsupported.
+- Capture one request-start timestamp at middleware entry. Gateway, OpenAI,
+  Gemini, sticky-session, and automatic failover selection must use that same
+  timestamp; internal callers without it fall back to current server time.
+- Disabled or absent configuration preserves current behavior. A manual
+  inactive/error state, expiry, rate-limit, quota, overload, temporary pause,
+  capability restriction, and account-pool policy keep their existing priority.
+- The administrator create/edit account forms expose the window and preserve a
+  valid configured window when the toggle is switched off.
+
+## Acceptance Boundary
+
+- Focused service tests prove valid configuration, invalid write rejection,
+  start/end boundaries, disabled behavior, manual-state precedence, request
+  start-time stability, sticky/pinned exclusion, and no-candidate behavior.
+- Gateway, OpenAI, Gemini-compatible, snapshot, and private-pool selector
+  paths exclude accounts outside the window without changing persisted state.
+- Middleware tests prove the request timestamp is written exactly once.
+  Frontend component tests prove both account dialogs persist valid window data
+  and reject incomplete or reversed windows.
+- Focused/full Go tests, handler/server compilation, frontend Vitest/lint/
+  typecheck/build, a task-owned Playwright desktop and 390px check, formatting,
+  `git diff --check`, allowlist, and unmerged-index gates must pass.

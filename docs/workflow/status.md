@@ -1,13 +1,86 @@
 ---
 phase: done
-current_sprint: upstream-streaming-audit-s210
-total_sprints: 210
-pending_action: Select the next approved upstream slice; S210 is integrated into local main and must not be pushed or deployed without separate authorization.
+current_sprint: account-time-availability-s212
+total_sprints: 212
+pending_action: Create three scoped local commits for backend, frontend, and workflow evidence, then update only the local sub2api container under Docker guard; do not push or touch outputs/.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-11 02:12 +08:00
+last_verified: 2026-08-12 12:43 +08:00
 ---
+
+# Standard Group Time-Window Rate S211
+
+- S211 extends the existing daily `peak_rate_*` factor to standard groups
+  without changing storage or public field names. The factor multiplies the
+  existing effective token rate and returns to `1.0` outside the configured
+  same-day server-timezone window.
+- Contract review: `PASS / contract-approved`. Standard groups require a
+  strictly positive enabled factor, subscription zero-factor behavior remains
+  compatible, and all production usage paths must carry one request-start
+  timestamp across retries and asynchronous recording. Contract:
+  `docs/workflow/tasks/standard-group-time-rate-s211.md`.
+- Per-request image/video pricing, routing, group availability, API-key
+  bindings, schema/migrations, dependencies, containers, push, deployment, and
+  production traffic remain excluded. The user-owned `outputs/` remains
+  untouched.
+- Direct Generator result: `DONE`; implementation, focused/package regressions,
+  server compilation, frontend checks, formatting and Git integrity checks all
+  passed. Result: `docs/workflow/worker-results/standard-group-time-rate-s211-result.md`.
+- Local browser QA: `PASS / browser-local`; desktop and 390px evidence is stored
+  outside the repository under `E:/codex-artifacts/sub2api/standard-group-time-rate-s211`.
+- Independent QA: `PASS / gpt-5.6-terra`. The user-authorized Terra agent
+  found non-finite multiplier handling was incomplete; the bounded service
+  fix and new `NaN`/infinity regressions passed a full independent retest.
+  A second pre-commit review then verified generic Gateway non-image
+  `per_request` billing uses the original effective multiplier, usage logs
+  record that same multiplier, and all usage-producing handlers reuse the
+  middleware request-start timestamp. QA report:
+  `docs/workflow/qa-reports/standard-group-time-rate-s211-qa.md`.
+- Final evaluator: `PASS / pre-commit-review`; focused high-repeat billing and
+  request-time regressions, complete service/handler/middleware packages,
+  server compilation, formatting, diff and index gates passed.
+
+# Account Time Availability S212
+
+- S212 adds an opt-in, daily server-timezone availability window to individual
+  accounts. Outside an enabled same-day `[start, end)` window, an otherwise
+  healthy account is excluded from new-request scheduling without changing its
+  persisted `status`, `schedulable` flag, group bindings, API Key bindings, or
+  in-flight requests.
+- The configuration stays in existing `accounts.extra`; it has no migration or
+  public top-level API fields. Candidate selection uses the request's first
+  captured start time so automatic retries and failover remain deterministic.
+- Contract draft: `docs/workflow/tasks/account-time-availability-s212.md`.
+- Contract review: `PASS / contract-approved`. Existing `extra` persistence,
+  candidate rechecks, and the global gateway middleware cover the required
+  behavior without an API/schema/routing expansion. The only new UI component
+  centralizes the two identical dialog controls and validation rules.
+- Direct Generator result: `DONE`; Gateway, OpenAI, Gemini-compatible,
+  middleware, account validation and account-dialog changes are implemented.
+  Focused and complete Go regressions, middleware/handler checks, server
+  compilation, Vitest, lint, typecheck, production build, formatting, diff and
+  unmerged-index checks passed. Browser startup used a task-owned Edge profile,
+  but the Vite-only environment redirected to login because its unavailable
+  backend returned `500` for public settings; no authenticated account-dialog
+  visual proof is claimed.
+- Contract amendment: `PASS / Planner-Evaluator`. The Antigravity
+  model-scoped gate must use the same request-context-aware availability
+  predicate; its single implementation file and a focused outside-window
+  regression were explicitly allowlisted for independent retest.
+- Independent QA: `PASS / gpt-5.6-terra`. Review-fix evidence covers strict
+  `HH:MM` validation before `UserAccountService` persistence, compatible
+  legacy single-digit-hour runtime parsing, OAuth/direct-submit guards, and
+  disabled-window normalization. Focused and complete Go, middleware,
+  handler/admin, server compilation, 42 parent/component Vitest checks, lint,
+  typecheck, build, formatting, allowlist, diff, and index gates passed.
+  The unavailable Vite-only backend prevented an authenticated account-dialog
+  visual check; that residual risk is documented and not reported as a visual
+  PASS.
+- Final evaluator: `PASS / pre-commit-review`; all four review tracks found no
+  remaining code-level blocker, and the amended contract/QA evidence is fresh.
+- Schema/migrations, external providers, deployment, container changes, remote
+  push, production traffic, and the user-owned `outputs/` remain excluded.
 
 # Upstream Streaming and Audit Fixes S210
 

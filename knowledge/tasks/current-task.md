@@ -1,61 +1,69 @@
 # 当前任务快照
 
-最后更新：2026-08-10 18:19 +08:00
+最后更新：2026-08-12 12:43 +08:00
 
 ## 背景
 
-- 用户要求继续选择性合入上游 `v0.1.173`，并明确包括 `6e34fb09c`。
-- 本地与上游长期分叉，S207 只做行为级移植，不整体 merge release。
-- 隔离 worktree：`E:/codex-worktrees/sub2api/upstream-v0173-s207`；冻结基线：`main@ebc3438e4`。
+- S211 将既有 `peak_rate_*` 分时因子扩展到标准与订阅分组；最终 Token
+  倍率为原有效倍率乘以分时因子，窗口为服务器时区同日 `[start, end)`。
+- S212 为单个账号在已有 `accounts.extra` 中增加可选的每日可用时段；窗口外
+  仅排除新请求候选，不变更持久化账号状态、分组/API Key 绑定或在途请求。
 
 ## 当前目标
 
-- S207 实现、Evaluator QA 和本地 `main` fast-forward 已完成，结论为 `PASS / local-regression`。
-- 合入后聚焦 service 与 server compile smoke 已通过。
-- 不 push、不部署、不更新容器，不触碰主工作树用户原有 `outputs/`。
+- S211/S212 已通过提交前多智能体复核和独立 QA；现在按后端、前端、workflow
+  三批本地提交，并更新本地 `sub2api` 容器，不推送远端。
 
 ## 本次已完成
 
-- Gemini 原生和 Claude-compatible 转发按实际有效 `inlineData` / `inline_data` 图片数计费；流式累计内容取单 payload 最大值，保留原模型和 mapped model 的一图 fallback。
-- Gemini 三条本地路径保留错误策略结果，池模式 429、`ErrorPolicySkipped`、`ErrorPolicyTempUnscheduled` 不再落账号级限流；自定义错误码命中、OAuth 和非池账号原行为保留。
-- Web Search setting 缺失作为正常禁用空配置并使用正常 TTL；`BaseDialog` 重开只重置 body 滚动位置。
-- Grok OAuth client 缺失返回 `GROK_OAUTH_CLIENT_NOT_CONFIGURED`，Exchange session 在配置检查前不被消耗。
-- Antigravity 模型 fallback 成功后，`ForwardResult.UpstreamModel` 记录实际 fallback model。
-- 上游 `6e34fb09c` 的前置 `db0bff82c` 及其 76 文件 schema/migration/admin usage-audit 链明确排除。
+- S212 已覆盖 Gateway、OpenAI、Gemini-compatible、私有池、快照、sticky、
+  pinned 和 WebSocket 的请求开始时间调度，并在创建/编辑账号弹窗提供共享配置控件。
+- 根据首轮 QA，合同仅增列必需的
+  `antigravity_quota_scope.go`；模型级候选现使用
+  `IsSchedulableWithContext`，新增回归证明窗口外拒绝、开始边界允许。
+- 首轮独立 Terra QA 后，提交前四路审查发现 generic Gateway 非图片
+  `per_request`、handler 首次时间复用、用户自助账号写入校验和前端输入边界缺口。
+- 上述缺口已修复并补回归：按次媒体使用原有效倍率，日志倍率与实际扣费一致；
+  handler 复用中间件 `RequestStartedAt`；用户账号写入严格校验；新写入仅接受
+  `HH:MM`，历史单数字小时运行时继续兼容；OAuth/direct/edit 提交均有父组件防护。
+- 原四个审查智能体第二轮复核无剩余代码阻断；S212 独立 Terra QA 按扩展后的
+  contract 重跑完整门禁并裁定 `PASS`。
+- 用户已明确授权多智能体复核、分批本地提交和更新本地容器。
 
 ## 已确认事实
 
-- 两组 contract 聚焦测试、三条 Gemini 策略路径测试、完整 `internal/service`、`cmd/server` compile 均通过。
-- BaseDialog Vitest `1/1`、frontend typecheck、production build 通过。
-- 14 个实现/流程路径均在 allowlist；`git diff --check`、冲突标记、unmerged-index 均通过。
-- 五个源提交均属于 `v0.1.173` release commit；`db0bff82c` 不是 S207 HEAD 的祖先。
-- 临时 `frontend/node_modules` junction 已删除，主工作树依赖目录仍存在。
-- 本地 `main` 已从 `ebc3438e4` fast-forward 到 `f50183f83`；合入后聚焦 service 与 server compile smoke 通过。
-- `origin/main` 未变化，本地 `main` 当前领先远端 9 个提交；用户原有 `outputs/` 仍为未跟踪且未触碰。
+- 分时窗口是服务器时区、同日、左闭右开 `[start, end)`；新写入严格校验，
+  缺失或无效历史配置 fail-open。
+- 所有自动重试、故障切换和异步选择沿用第一次捕获的 `RequestStartedAt`；不需要
+  重建 API Key，也不改变账户状态、绑定、账单或媒体按次计费。
+- S211/S212 的 review-fix amendment、result 和 QA 证据已收口；用户的
+  `outputs/` 未被触碰。
 
 ## 待验证点
 
-- 未进行真实 Gemini/Grok/Antigravity provider、共享 PostgreSQL/Redis、容器、部署、staging、生产或性能验证。
-- 未执行远端 push；本地 source merge 不等于发布或部署。
+- 三批提交范围必须精确。验证：每批 `git diff --cached --name-only`、
+  `git diff --cached --check` 和 `git ls-files -u` 通过，且不包含 `outputs/`、
+  `knowledge/00-start-here.md` 或 `knowledge/05-current-focus.md`。
+- 更新本地容器后验证健康状态、`/health`、日志、回滚镜像和桌面/390px 页面；
+  远端推送、真实 provider 与生产流量仍不执行。
 
 ## 当前结论
 
-- `PASS / local-regression`：S207 已选择性合入本地 `main`，未发现阻断 finding。
-- review-and-verification 建议：保留当前本地结果；远端发布和运行环境验证保持独立授权。
+- `PASS / pre-commit-review`：S211/S212 代码、contract 和独立 QA 证据可进入
+  分批本地提交与本地容器更新。
 
 ## 下一步
 
-1. 如用户明确要求发布，再单独执行普通 push 并验证远端 ref parity；不得顺带部署。
-2. 如需真实 provider 或生产验收，另建隔离 runtime 合同，不扩展 S207 source merge。
+1. 按后端、前端、workflow 三批本地提交；验证：每批 staged scope 精确且无 `outputs/`。
+2. 使用 Docker guard 接管过期锁并更新本地 `sub2api`；验证：容器、端点和日志健康，
+   guard 正常释放。
+3. 使用任务专用 Playwright profile 验收桌面与 390px；验证：页面可用、无明显布局
+   问题，且任务拥有的浏览器/session/daemon 被精确关闭。
 
 ## 验证记录
 
-- `go test ./internal/service -run '<S207 focused regex>' -count=1`：PASS。
-- `go test ./internal/service -run 'TestAntigravityGatewayService_ForwardGemini|TestGeminiMessagesCompatService|TestWebSearch' -count=1`：PASS。
-- `go test ./internal/service -run 'TestGemini(ChatCompletions|MessagesCompat|Native)_(TempUnscheduled429|PoolMode429)DoesNotSetAccountRateLimit' -count=1`：PASS。
-- `go test ./internal/service -count=1`：PASS，最新运行 61.428s。
-- `go test ./cmd/server -run '^$' -count=0`：PASS。
-- BaseDialog Vitest：`1 file / 1 test PASS`；frontend typecheck/build：PASS。
-- allowlist、provenance、`db0bff82c` exclusion、format、conflict、unmerged-index：PASS。
-- 合入后 `go test ./internal/service -run '<S207 focused + policy paths regex>' -count=1`：PASS，5.472s。
-- 合入后 `go test ./cmd/server -run '^$' -count=0`：PASS，10.469s。
+- S211 计费/请求时间第二轮复核：聚焦 `-count=10`、完整 service/handler/middleware、
+  server compile、gofmt、diff 和索引门禁通过。
+- S212 review-fix 独立 QA：聚焦 `-count=10`、完整 service、middleware、
+  handler/admin、server compile、3 files / 42 frontend tests、lint、typecheck、build、
+  gofmt、allowlist、diff 和索引门禁通过。
