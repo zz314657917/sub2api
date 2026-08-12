@@ -2,11 +2,11 @@
 phase: done
 current_sprint: account-time-availability-s212
 total_sprints: 212
-pending_action: Create three scoped local commits for backend, frontend, and workflow evidence, then update only the local sub2api container under Docker guard; do not push or touch outputs/.
+pending_action: No remaining local delivery action. Do not push or run real-provider/production traffic unless explicitly requested; keep outputs/ and the two user knowledge edits untouched.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-12 12:43 +08:00
+last_verified: 2026-08-12 13:30 +08:00
 ---
 
 # Standard Group Time-Window Rate S211
@@ -79,8 +79,22 @@ last_verified: 2026-08-12 12:43 +08:00
   PASS.
 - Final evaluator: `PASS / pre-commit-review`; all four review tracks found no
   remaining code-level blocker, and the amended contract/QA evidence is fresh.
-- Schema/migrations, external providers, deployment, container changes, remote
-  push, production traffic, and the user-owned `outputs/` remain excluded.
+- Local publication closeout: backend `0d9004e71`, frontend `240ff4ce8`, and
+  workflow `0b836dc8e` were committed locally. `main` is ahead of `origin/main`
+  by 10 and was not pushed.
+- The guarded local `sub2api` container now runs
+  `sub2api:codex-20260812-1243-s211-s212` (`sha256:ee12bc3fa2eb...`) and is
+  healthy at `127.0.0.1:62080`; `/health` returned 200. PostgreSQL, Redis,
+  network and `deploy_sub2api_data` were not recreated. The rollback container
+  and `sub2api:rollback-before-20260812-1243-s211-s212` image remain available.
+- Authenticated Google Chrome stable headless QA passed at 1440x1000 and
+  390x844. Group/account dialogs showed the server timezone, formula/window
+  controls and validation text with zero page/dialog horizontal overflow. No
+  form was submitted; the task-owned Chrome/profile/daemon were closed and the
+  Docker guard was released.
+- Schema/migrations, external providers, remote push, production traffic, and
+  the user-owned `outputs/` remain excluded. The only recent runtime log warning
+  was a remote pricing-hash TLS handshake timeout; container health stayed green.
 
 # Upstream Streaming and Audit Fixes S210
 

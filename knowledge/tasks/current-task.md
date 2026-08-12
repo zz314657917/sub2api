@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-12 12:43 +08:00
+最后更新：2026-08-12 13:30 +08:00
 
 ## 背景
 
@@ -11,8 +11,8 @@
 
 ## 当前目标
 
-- S211/S212 已通过提交前多智能体复核和独立 QA；现在按后端、前端、workflow
-  三批本地提交，并更新本地 `sub2api` 容器，不推送远端。
+- S211/S212 已完成多智能体复核、独立 QA、分批本地提交、本地容器更新和
+  Google Chrome 桌面/390px 验收；保持不推送远端。
 
 ## 本次已完成
 
@@ -29,6 +29,16 @@
 - 原四个审查智能体第二轮复核无剩余代码阻断；S212 独立 Terra QA 按扩展后的
   contract 重跑完整门禁并裁定 `PASS`。
 - 用户已明确授权多智能体复核、分批本地提交和更新本地容器。
+- 已创建三批本地提交：`0d9004e71` 后端、`240ff4ce8` 前端、`0b836dc8e`
+  workflow；`main` 相对 `origin/main` 为 ahead 10 / behind 0，未推送。
+- 本地 `sub2api` 已更新到 `sub2api:codex-20260812-1243-s211-s212`，镜像 ID
+  `sha256:ee12bc3fa2eb...`，`http://127.0.0.1:62080/health` 返回 200；PostgreSQL、
+  Redis、网络和 `deploy_sub2api_data` 未重建。
+- 使用 Google Chrome stable headless、任务专用 profile 完成 1440x1000 和
+  390x844 验收；分组/账号弹窗的页面与弹窗横向溢出均为 0，时区、公式、时间
+  控件、校验提示和底部操作均可见。未提交任何表单。
+- Chrome session 已关闭，任务 profile 对应的 Chrome 与 Playwright daemon 进程
+  均归零；Docker guard 已使用原 token 正常释放。
 
 ## 已确认事实
 
@@ -38,27 +48,27 @@
   重建 API Key，也不改变账户状态、绑定、账单或媒体按次计费。
 - S211/S212 的 review-fix amendment、result 和 QA 证据已收口；用户的
   `outputs/` 未被触碰。
+- 回滚材料保留为容器 `sub2api-rollback-before-20260812-1243-s211-s212` 和镜像
+  `sub2api:rollback-before-20260812-1243-s211-s212`，旧镜像 ID
+  `sha256:5307a1216e7e...`。
+- 容器最近日志仅见远程价格哈希拉取的 TLS handshake timeout；容器持续 healthy，
+  `/health` 正常，该外部网络更新告警不属于 S211/S212 启动或功能错误。
 
 ## 待验证点
 
-- 三批提交范围必须精确。验证：每批 `git diff --cached --name-only`、
-  `git diff --cached --check` 和 `git ls-files -u` 通过，且不包含 `outputs/`、
-  `knowledge/00-start-here.md` 或 `knowledge/05-current-focus.md`。
-- 更新本地容器后验证健康状态、`/health`、日志、回滚镜像和桌面/390px 页面；
-  远端推送、真实 provider 与生产流量仍不执行。
+- 真实 provider、生产流量和远端发布未执行；如后续明确授权，再单独做对应 smoke
+  或 push，不从本次本地验收推导生产结论。
+- 远程价格哈希网络更新可在网络恢复后自然重试；当前不影响容器健康和本次功能。
 
 ## 当前结论
 
-- `PASS / pre-commit-review`：S211/S212 代码、contract 和独立 QA 证据可进入
-  分批本地提交与本地容器更新。
+- `PASS / local-container`：S211/S212 已完成代码、contract、独立 QA、三批本地
+  提交、本地容器更新和 Google Chrome 响应式验收；无剩余本地交付阻断。
 
 ## 下一步
 
-1. 按后端、前端、workflow 三批本地提交；验证：每批 staged scope 精确且无 `outputs/`。
-2. 使用 Docker guard 接管过期锁并更新本地 `sub2api`；验证：容器、端点和日志健康，
-   guard 正常释放。
-3. 使用任务专用 Playwright profile 验收桌面与 390px；验证：页面可用、无明显布局
-   问题，且任务拥有的浏览器/session/daemon 被精确关闭。
+1. 本任务无需继续修改；新需求另开 Sprint/contract。
+2. 只有用户明确要求时才推送远端或执行真实 provider/生产流量验证。
 
 ## 验证记录
 
@@ -67,3 +77,9 @@
 - S212 review-fix 独立 QA：聚焦 `-count=10`、完整 service、middleware、
   handler/admin、server compile、3 files / 42 frontend tests、lint、typecheck、build、
   gofmt、allowlist、diff 和索引门禁通过。
+- Git：三批提交成功；最终 `git diff --check`、`git ls-files -u` 通过，工作树仅剩
+  用户的 `knowledge/00-start-here.md`、`knowledge/05-current-focus.md` 和 `outputs/`。
+- Docker：容器 running/healthy，镜像 `sha256:ee12bc3fa2eb...`，`/health` 200，
+  回滚容器/镜像存在，Docker guard 状态为 missing（已释放）。
+- Chrome：Google Chrome stable 独立 profile 验收桌面和 390x844；四张具名截图位于
+  `E:/codex-artifacts/sub2api/s211-s212-container-20260812`，任务进程清理通过。

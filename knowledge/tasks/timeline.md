@@ -753,3 +753,21 @@
   3 files / 42 tests、lint、typecheck、build、格式、allowlist、diff/index PASS。
 - 未验证边界：认证态账号弹窗桌面/390px 仍待更新后的本地容器补验；真实 provider、
   生产流量与远端 push 不执行，`outputs/` 继续排除。
+
+## 2026-08-12 13:30 +08:00 - S211/S212 本地提交、容器更新与 Chrome 验收完成
+
+- 当前阶段：S211/S212 已完成三批本地提交、本地 `sub2api` 容器更新和认证态
+  Google Chrome 响应式验收；结论为 `PASS / local-container`，未推送远端。
+- 提交记录：`0d9004e71` 后端、`240ff4ce8` 前端、`0b836dc8e` workflow；`main`
+  相对 `origin/main` ahead 10 / behind 0。工作树仅剩用户的两个 knowledge 改动和
+  `outputs/`，均未暂存或修改。
+- 容器记录：当前镜像 `sub2api:codex-20260812-1243-s211-s212`，镜像 ID
+  `sha256:ee12bc3fa2eb...`，容器 running/healthy，`/health` 返回 200；PostgreSQL、
+  Redis、网络与 `deploy_sub2api_data` 未重建。回滚容器和
+  `sub2api:rollback-before-20260812-1243-s211-s212` 镜像保留。
+- 浏览器记录：使用 Google Chrome stable headless、任务专用 profile，在 1440x1000
+  与 390x844 检查分组分时计费和账号分时可用弹窗；页面/弹窗横向溢出均为 0，
+  时区、叠加公式、时间控件、校验提示和操作按钮完整。未提交业务表单；session、
+  Chrome 和 Playwright daemon 已精确关闭，Docker guard 已释放。
+- 运行态说明：日志仅出现远程价格哈希拉取 TLS handshake timeout，容器健康与
+  `/health` 未受影响。真实 provider、生产流量和远端 push 仍未执行。
