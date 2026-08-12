@@ -27,7 +27,6 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/Wei-Shaw/sub2api/internal/platform/liveattestation"
 	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
@@ -1958,7 +1957,7 @@ func (s *OpenAIGatewayService) tryStickySessionHit(ctx context.Context, groupID 
 
 	// 检查账号是否需要清理粘性会话
 	// Check if sticky session should be cleared
-	if shouldClearStickySession(account, requestedModel) {
+	if shouldClearStickySessionWithContext(ctx, account, requestedModel) {
 		_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
 		return nil
 	}
@@ -2201,7 +2200,7 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 		if accountID > 0 && !isExcluded(accountID) {
 			account, err := s.getSchedulableAccount(ctx, accountID)
 			if err == nil {
-				clearSticky := shouldClearStickySession(account, requestedModel)
+				clearSticky := shouldClearStickySessionWithContext(ctx, account, requestedModel)
 				if clearSticky {
 					_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
 				}
@@ -2412,11 +2411,12 @@ func (s *OpenAIGatewayService) listSchedulableAccounts(ctx context.Context, grou
 	platform = normalizeOpenAICompatiblePlatform(platform)
 	strategy, configured := accountPoolStrategyFromContext(ctx)
 	if configured && strategy == AccountPoolStrategyPrivateOnly {
-		return listPrivatePoolSchedulableAccounts(ctx, s.accountRepo, accountPoolUserIDFromContext(ctx, 0), []string{platform})
+		accounts, err := listPrivatePoolSchedulableAccounts(ctx, s.accountRepo, accountPoolUserIDFromContext(ctx, 0), []string{platform})
+		return filterAccountsForScheduling(ctx, accounts), err
 	}
 	if s.schedulerSnapshot != nil {
 		accounts, _, err := s.schedulerSnapshot.ListSchedulableAccounts(ctx, groupID, platform, false)
-		return accounts, err
+		return filterAccountsForScheduling(ctx, accounts), err
 	}
 	var accounts []Account
 	var err error
@@ -2430,7 +2430,7 @@ func (s *OpenAIGatewayService) listSchedulableAccounts(ctx context.Context, grou
 	if err != nil {
 		return nil, fmt.Errorf("query accounts failed: %w", err)
 	}
-	return accounts, nil
+	return filterAccountsForScheduling(ctx, accounts), nil
 }
 
 func (s *OpenAIGatewayService) tryAcquireAccountSlot(ctx context.Context, accountID int64, maxConcurrency int) (*AcquireResult, error) {
@@ -6755,6 +6755,7 @@ type OpenAIRecordUsageInput struct {
 	IPAddress            string // 请求的客户端 IP 地址
 	SessionID            string // 客户端显式会话标识，仅用于 usage 关联
 	RequestPayloadHash   string
+	RequestStartedAt     time.Time
 	RequestIDOverride    string
 	MediaType            string
 	BillingTierOverride  string
@@ -6814,9 +6815,10 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	if s.membershipService != nil {
 		multiplier = s.membershipService.ApplyRateMultiplier(ctx, user.ID, multiplier)
 	}
-	// token 倍率叠加高峰因子（token 计费含图片 token，图片按次倍率不受影响）。高峰因子按请求时刻现算，
+	perRequestMultiplier := multiplier
+	// token 倍率叠加分时因子（token 计费含图片 token，图片按次倍率不受影响）。分时因子按请求开始时刻计算，
 	// 不并入上面的 Resolve，以免污染 user:group 倍率缓存。
-	multiplier, imageMultiplier := computePeakAwareMultipliers(apiKey, multiplier, timezone.Now())
+	multiplier, imageMultiplier := computePeakAwareMultipliers(apiKey, multiplier, billingReferenceTime(input.RequestStartedAt))
 
 	var cost *CostBreakdown
 	var err error
@@ -6851,15 +6853,12 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 			override.BillingMode = string(BillingModeToken)
 		}
 		if result.ImageCount > 0 && override.ActualCost == 0 && override.TotalCost > 0 {
-			overrideMultiplier := multiplier
-			if isUsageLogImageBillingMode(override.BillingMode) {
-				overrideMultiplier = imageMultiplier
-			}
+			overrideMultiplier := usageRateMultiplier(override.BillingMode, result.ImageCount, multiplier, perRequestMultiplier, imageMultiplier)
 			override.ActualCost = override.TotalCost * overrideMultiplier
 		}
 		cost = &override
 	} else {
-		cost, err = s.calculateOpenAIRecordUsageCost(ctx, result, apiKey, billingModels, multiplier, imageMultiplier, tokens, serviceTier, input.BillingTierOverride, input.RequestCountOverride)
+		cost, err = s.calculateOpenAIRecordUsageCost(ctx, result, apiKey, billingModels, multiplier, perRequestMultiplier, imageMultiplier, tokens, serviceTier, input.BillingTierOverride, input.RequestCountOverride)
 		if err != nil {
 			if !isUsagePricingUnavailableError(err) {
 				return err
@@ -6951,11 +6950,9 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		usageLog.ActualCost = cost.ActualCost
 	}
 	billingMode := resolveUsageLogBillingMode(result.ImageCount, cost)
-	if isUsageLogImageBillingMode(billingMode) {
-		usageLog.RateMultiplier = imageMultiplier
+	usageLog.RateMultiplier = usageRateMultiplier(billingMode, result.ImageCount, multiplier, perRequestMultiplier, imageMultiplier)
+	if billingMode == string(BillingModeImage) || (billingMode == string(BillingModePerRequest) && result.ImageCount > 0) {
 		usageLog.BillingTier = optionalTrimmedStringPtr(OpenAIImageBillingTierForModel(billingModel, result.ImageOutputSize, result.ImageSize, result.ImageQuality))
-	} else {
-		usageLog.RateMultiplier = multiplier
 	}
 	if override := strings.TrimSpace(input.BillingTierOverride); override != "" {
 		usageLog.BillingTier = &override
@@ -7187,7 +7184,8 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 	result *OpenAIForwardResult,
 	apiKey *APIKey,
 	billingModels []string,
-	multiplier float64,
+	tokenMultiplier float64,
+	perRequestMultiplier float64,
 	imageMultiplier float64,
 	tokens UsageTokens,
 	serviceTier string,
@@ -7207,7 +7205,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 		if candidate == "" {
 			continue
 		}
-		cost, err := s.calculateOpenAIRecordUsageTokenCost(ctx, apiKey, candidate, multiplier, tokens, serviceTier, billingTierOverride, requestCountOverride)
+		cost, err := s.calculateOpenAIRecordUsageTokenCost(ctx, apiKey, candidate, tokenMultiplier, perRequestMultiplier, tokens, serviceTier, billingTierOverride, requestCountOverride)
 		if err == nil {
 			return cost, nil
 		}
@@ -7234,7 +7232,8 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 	ctx context.Context,
 	apiKey *APIKey,
 	billingModel string,
-	multiplier float64,
+	tokenMultiplier float64,
+	perRequestMultiplier float64,
 	tokens UsageTokens,
 	serviceTier string,
 	billingTierOverride string,
@@ -7258,6 +7257,12 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 				requestCount = requestCountOverride
 			}
 		}
+		rateMultiplier := tokenMultiplier
+		if resolved != nil && resolved.Mode == BillingModePerRequest {
+			// Per-request pricing (including video) must retain the original effective
+			// rate and must not receive the token-only time-window factor.
+			rateMultiplier = perRequestMultiplier
+		}
 		return s.billingService.CalculateCostUnified(CostInput{
 			Ctx:            ctx,
 			Model:          billingModel,
@@ -7265,13 +7270,13 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 			Tokens:         tokens,
 			RequestCount:   requestCount,
 			SizeTier:       sizeTier,
-			RateMultiplier: multiplier,
+			RateMultiplier: rateMultiplier,
 			ServiceTier:    serviceTier,
 			Resolver:       s.resolver,
 			Resolved:       resolved,
 		})
 	}
-	return s.billingService.CalculateCostWithServiceTier(billingModel, tokens, multiplier, serviceTier)
+	return s.billingService.CalculateCostWithServiceTier(billingModel, tokens, tokenMultiplier, serviceTier)
 }
 
 func (s *OpenAIGatewayService) shouldUseOpenAIImageBillingCost(ctx context.Context, billingModel string, apiKey *APIKey, result *OpenAIForwardResult) bool {

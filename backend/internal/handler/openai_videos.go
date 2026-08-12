@@ -23,7 +23,7 @@ import (
 // POST /v1/videos/generations
 func (h *OpenAIGatewayHandler) Videos(c *gin.Context) {
 	streamStarted := false
-	requestStart := time.Now()
+	requestStart := requestStartedAt(c)
 
 	apiKey, ok := middleware2.GetAPIKeyFromContext(c)
 	if !ok {

@@ -24,7 +24,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 	streamStarted := false
 	defer h.recoverResponsesPanic(c, &streamStarted)
 
-	requestStart := time.Now()
+	requestStart := requestStartedAt(c)
 
 	apiKey, ok := middleware2.GetAPIKeyFromContext(c)
 	if !ok {
@@ -384,6 +384,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 				IPAddress:           clientIP,
 				SessionID:           sessionID,
 				RequestPayloadHash:  requestPayloadHash,
+				RequestStartedAt:    requestStart,
 				RequireBalanceCheck: preflightCost != nil,
 				CostOverride:        preflightCost,
 				APIKeyService:       h.apiKeyService,

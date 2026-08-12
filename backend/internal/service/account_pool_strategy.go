@@ -139,7 +139,7 @@ func listPrivatePoolSchedulableAccounts(ctx context.Context, repo AccountReposit
 	}
 	filtered := accounts[:0]
 	for _, account := range accounts {
-		if accountIsOwnedPrivatePoolAccount(&account, userID) {
+		if accountIsOwnedPrivatePoolAccount(&account, userID) && account.IsSchedulableWithContext(ctx) {
 			filtered = append(filtered, account)
 		}
 	}

@@ -319,6 +319,9 @@ func (s *UserAccountService) Create(ctx context.Context, userID int64, req Creat
 	if isUserUploadedAPIKeyAccount(req.Type) || containsUserUploadedAPIKeyCredential(req.Credentials) {
 		return nil, ErrUserAccountAPIKeyBlocked
 	}
+	if err := ValidateAccountAvailabilityConfig(req.Extra); err != nil {
+		return nil, err
+	}
 	repo, err := s.ownedAccountRepo()
 	if err != nil {
 		return nil, err
@@ -386,6 +389,11 @@ func (s *UserAccountService) GetByID(ctx context.Context, userID, accountID int6
 func (s *UserAccountService) Update(ctx context.Context, userID, accountID int64, req UpdateAccountRequest) (*Account, error) {
 	if err := s.ensureFeatureEnabled(ctx); err != nil {
 		return nil, err
+	}
+	if req.Extra != nil {
+		if err := ValidateAccountAvailabilityConfig(*req.Extra); err != nil {
+			return nil, err
+		}
 	}
 	account, err := s.getOwnedAccount(ctx, userID, accountID)
 	if err != nil {

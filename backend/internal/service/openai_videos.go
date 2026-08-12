@@ -512,6 +512,7 @@ func (s *OpenAIGatewayService) SettleOpenAIVideoTaskIfTerminal(ctx context.Conte
 		UserAgent:            input.UserAgent,
 		IPAddress:            input.IPAddress,
 		RequestPayloadHash:   firstNonEmptyString(task.RequestPayloadHash, HashUsageRequestPayload(task.SubmitResponse)),
+		RequestStartedAt:     task.CreatedAt,
 		RequestIDOverride:    "video_task:" + taskID,
 		MediaType:            "video",
 		BillingTierOverride:  videoBillingTier,

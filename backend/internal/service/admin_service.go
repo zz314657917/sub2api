@@ -2061,7 +2061,7 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 	if input.PeakRateMultiplier != nil {
 		peakRateMultiplier = *input.PeakRateMultiplier
 	}
-	// 先归一化（非订阅分组清空高峰配置、清洗停用状态下的脏字段）再校验，与 UpdateGroup 同一收口。
+	// 先归一化停用状态下的脏字段再校验，与 UpdateGroup 同一收口。
 	peakRateEnabled, peakStart, peakEnd, peakRateMultiplier := NormalizePeakRateConfig(subscriptionType, input.PeakRateEnabled, input.PeakStart, input.PeakEnd, peakRateMultiplier)
 	if err := ValidatePeakRateConfig(subscriptionType, peakRateEnabled, peakStart, peakEnd, peakRateMultiplier); err != nil {
 		return nil, err
@@ -2357,7 +2357,7 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	if input.PeakRateMultiplier != nil {
 		group.PeakRateMultiplier = *input.PeakRateMultiplier
 	}
-	// 先归一化（非订阅分组——含本次更新转为非订阅——静默清空高峰配置，清洗停用状态下的脏字段），
+	// 先归一化停用状态下的脏字段并保留标准/订阅分组的合法配置，
 	// 再收敛校验：Update 可能只传部分 peak 字段，需对合并后的最终配置统一校验，
 	// 防止单独修改 start/end 导致最终 start>=end 等非法配置入库。与 CreateGroup 同一收口。
 	group.PeakRateEnabled, group.PeakStart, group.PeakEnd, group.PeakRateMultiplier = NormalizePeakRateConfig(group.SubscriptionType, group.PeakRateEnabled, group.PeakStart, group.PeakEnd, group.PeakRateMultiplier)
@@ -3279,6 +3279,9 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 		}
 		accountExtra[UpstreamBillingProbeEnabledExtraKey] = *input.ProbeEnabled
 	}
+	if err := ValidateAccountAvailabilityConfig(accountExtra); err != nil {
+		return nil, err
+	}
 	account := &Account{
 		Name:        input.Name,
 		Notes:       normalizeAccountNotes(input.Notes),
@@ -3299,6 +3302,9 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 		}
 		ComputeQuotaResetAt(account.Extra)
 		NormalizeFixedQuotaWindows(account.Extra)
+		if err := ValidateAccountAvailabilityConfig(account.Extra); err != nil {
+			return nil, err
+		}
 	}
 	if input.ExpiresAt != nil && *input.ExpiresAt > 0 {
 		expiresAt := time.Unix(*input.ExpiresAt, 0)
@@ -3449,6 +3455,9 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 		}
 		ComputeQuotaResetAt(account.Extra)
 		NormalizeFixedQuotaWindows(account.Extra)
+		if err := ValidateAccountAvailabilityConfig(account.Extra); err != nil {
+			return nil, err
+		}
 	}
 	if input.ProxyID != nil {
 		// 0 表示清除代理（前端发送 0 而不是 null 来表达清除意图）
@@ -3594,6 +3603,16 @@ func (s *adminServiceImpl) UpdateAccountExtra(ctx context.Context, id int64, upd
 	if len(updates) == 0 {
 		return nil
 	}
+	account, err := s.accountRepo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if account == nil {
+		return ErrAccountNotFound
+	}
+	if err := ValidateAccountAvailabilityConfig(mergeMap(account.Extra, updates)); err != nil {
+		return err
+	}
 	return s.accountRepo.UpdateExtra(ctx, id, updates)
 }
 
@@ -3627,7 +3646,14 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	}
 
 	needMixedChannelCheck := input.GroupIDs != nil && !input.SkipMixedChannelCheck
-	needAccountPreload := needMixedChannelCheck || input.ProbeEnabled != nil || input.RateMultiplier != nil
+	hasAvailabilityUpdate := false
+	for _, key := range []string{accountAvailabilityEnabledExtraKey, accountAvailabilityStartExtraKey, accountAvailabilityEndExtraKey} {
+		if _, ok := input.Extra[key]; ok {
+			hasAvailabilityUpdate = true
+			break
+		}
+	}
+	needAccountPreload := needMixedChannelCheck || input.ProbeEnabled != nil || input.RateMultiplier != nil || hasAvailabilityUpdate
 
 	// 预加载账号平台信息，以便在写入前完成混合渠道和探测资格校验。
 	accountsByID := make(map[int64]*Account, len(input.AccountIDs))
@@ -3661,6 +3687,17 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 			}
 			if upstreamBillingRateSyncEnabled(account) && !(input.ProbeEnabled != nil && !*input.ProbeEnabled) {
 				return nil, ErrUpstreamBillingRateSyncBulkConflict
+			}
+		}
+	}
+	if hasAvailabilityUpdate {
+		for _, accountID := range input.AccountIDs {
+			account, ok := accountsByID[accountID]
+			if !ok {
+				return nil, ErrAccountNotFound
+			}
+			if err := ValidateAccountAvailabilityConfig(mergeMap(account.Extra, input.Extra)); err != nil {
+				return nil, err
 			}
 		}
 	}

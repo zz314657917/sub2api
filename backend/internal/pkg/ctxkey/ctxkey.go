@@ -14,6 +14,10 @@ const (
 	// ClientRequestID 客户端请求的唯一标识，用于追踪请求全生命周期（用于 Ops 监控与排障）。
 	ClientRequestID Key = "ctx_client_request_id"
 
+	// RequestStartedAt records the first gateway middleware timestamp for a request.
+	// Retry and failover selectors reuse it for stable time-window decisions.
+	RequestStartedAt Key = "ctx_request_started_at"
+
 	// Model 请求模型标识（用于统一请求链路日志字段）。
 	Model Key = "ctx_model"
 

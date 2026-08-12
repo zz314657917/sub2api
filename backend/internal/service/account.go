@@ -2,6 +2,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"hash/fnv"
@@ -15,6 +16,8 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 )
 
@@ -91,6 +94,12 @@ const (
 )
 
 const accountSupportedCapabilitiesExtraKey = "supported_capabilities"
+
+const (
+	accountAvailabilityEnabledExtraKey = "account_availability_enabled"
+	accountAvailabilityStartExtraKey   = "account_availability_start"
+	accountAvailabilityEndExtraKey     = "account_availability_end"
+)
 
 var accountCapabilityOrder = []AccountCapability{
 	AccountCapabilityChat,
@@ -201,10 +210,32 @@ func (a *Account) EffectiveLoadFactor() int {
 }
 
 func (a *Account) IsSchedulable() bool {
+	return a.IsSchedulableAt(time.Now())
+}
+
+// IsSchedulableWithContext evaluates time-based scheduling rules against the
+// first request timestamp when it is available.
+func (a *Account) IsSchedulableWithContext(ctx context.Context) bool {
+	if ctx != nil {
+		if startedAt, ok := ctx.Value(ctxkey.RequestStartedAt).(time.Time); ok && !startedAt.IsZero() {
+			return a.IsSchedulableAt(startedAt)
+		}
+	}
+	return a.IsSchedulableAt(time.Now())
+}
+
+// IsSchedulableAt evaluates all persisted account state plus the optional
+// runtime account availability window at one fixed server timestamp.
+func (a *Account) IsSchedulableAt(now time.Time) bool {
+	if a == nil {
+		return false
+	}
+	if now.IsZero() {
+		now = time.Now()
+	}
 	if !a.IsActive() || !a.Schedulable {
 		return false
 	}
-	now := time.Now()
 	if a.AutoPauseOnExpired && a.ExpiresAt != nil && !now.Before(*a.ExpiresAt) {
 		return false
 	}
@@ -220,7 +251,110 @@ func (a *Account) IsSchedulable() bool {
 	if a.IsAPIKeyOrBedrock() && a.IsQuotaExceeded() {
 		return false
 	}
-	return true
+	return a.IsAvailableAt(now)
+}
+
+// IsAvailableAt returns whether an enabled account availability window permits
+// scheduling at now. Missing or invalid persisted legacy data fails open.
+func (a *Account) IsAvailableAt(now time.Time) bool {
+	if a == nil {
+		return false
+	}
+	enabled, start, end, valid := accountAvailabilityWindow(a.Extra)
+	if !enabled || !valid {
+		return true
+	}
+	local := now.In(timezone.Location())
+	minute := local.Hour()*60 + local.Minute()
+	return minute >= start && minute < end
+}
+
+func accountAvailabilityWindow(extra map[string]any) (enabled bool, start int, end int, valid bool) {
+	if extra == nil {
+		return false, 0, 0, true
+	}
+	rawEnabled, exists := extra[accountAvailabilityEnabledExtraKey]
+	if !exists {
+		return false, 0, 0, true
+	}
+	enabledValue, ok := rawEnabled.(bool)
+	if !ok || !enabledValue {
+		return false, 0, 0, ok
+	}
+	startText, startOK := extra[accountAvailabilityStartExtraKey].(string)
+	endText, endOK := extra[accountAvailabilityEndExtraKey].(string)
+	if !startOK || !endOK {
+		return true, 0, 0, false
+	}
+	start, startOK = parseMinutes(startText)
+	end, endOK = parseMinutes(endText)
+	if !startOK || !endOK || start >= end {
+		return true, 0, 0, false
+	}
+	return true, start, end, true
+}
+
+// ValidateAccountAvailabilityConfig rejects invalid new account availability
+// writes while allowing absent configuration and disabled valid windows.
+func ValidateAccountAvailabilityConfig(extra map[string]any) error {
+	if extra == nil {
+		return nil
+	}
+
+	enabled := false
+	if rawEnabled, exists := extra[accountAvailabilityEnabledExtraKey]; exists {
+		var ok bool
+		enabled, ok = rawEnabled.(bool)
+		if !ok {
+			return errors.New("account_availability_enabled must be a boolean")
+		}
+	}
+
+	startRaw, hasStart := extra[accountAvailabilityStartExtraKey]
+	endRaw, hasEnd := extra[accountAvailabilityEndExtraKey]
+	if !hasStart && !hasEnd {
+		if enabled {
+			return errors.New("account availability start and end are required when enabled")
+		}
+		return nil
+	}
+	if !hasStart || !hasEnd {
+		return errors.New("account availability start and end must be configured together")
+	}
+	startText, startOK := startRaw.(string)
+	endText, endOK := endRaw.(string)
+	if !startOK || !endOK {
+		return errors.New("account availability start and end must use HH:MM")
+	}
+	start, startOK := parseStrictHHMM(startText)
+	end, endOK := parseStrictHHMM(endText)
+	if !startOK || !endOK {
+		return errors.New("account availability start and end must use HH:MM")
+	}
+	if start >= end {
+		return errors.New("account availability window must satisfy start < end and cannot cross midnight")
+	}
+	return nil
+}
+
+func parseStrictHHMM(value string) (int, bool) {
+	if len(value) != 5 || value[2] != ':' {
+		return 0, false
+	}
+	return parseMinutes(value)
+}
+
+func filterAccountsForScheduling(ctx context.Context, accounts []Account) []Account {
+	if len(accounts) == 0 {
+		return accounts
+	}
+	filtered := accounts[:0]
+	for _, account := range accounts {
+		if account.IsSchedulableWithContext(ctx) {
+			filtered = append(filtered, account)
+		}
+	}
+	return filtered
 }
 
 func (a *Account) IsRateLimited() bool {

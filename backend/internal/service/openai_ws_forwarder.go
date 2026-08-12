@@ -4527,7 +4527,7 @@ func (s *OpenAIGatewayService) SelectAccountByPreviousResponseIDForCapability(
 	if s.getOpenAIWSProtocolResolver().Resolve(account).Transport != OpenAIUpstreamTransportResponsesWebsocketV2 {
 		return nil, nil
 	}
-	if shouldClearStickySession(account, requestedModel) || !account.IsOpenAI() || !account.IsSchedulable() {
+	if shouldClearStickySessionWithContext(ctx, account, requestedModel) || !account.IsOpenAI() || !account.IsSchedulableWithContext(ctx) {
 		_ = store.DeleteResponseAccount(ctx, derefGroupID(groupID), responseID)
 		return nil, nil
 	}

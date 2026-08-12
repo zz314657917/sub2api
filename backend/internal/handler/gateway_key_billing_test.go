@@ -142,7 +142,7 @@ func TestBuildKeyBillingInfoAppliesPeakMultiplier(t *testing.T) {
 		Group: &service.Group{
 			ID:                 groupID,
 			RateMultiplier:     1.2,
-			SubscriptionType:   service.SubscriptionTypeSubscription,
+			SubscriptionType:   service.SubscriptionTypeStandard,
 			PeakRateEnabled:    true,
 			PeakStart:          "09:00",
 			PeakEnd:            "18:00",

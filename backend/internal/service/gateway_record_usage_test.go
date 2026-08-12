@@ -272,6 +272,7 @@ func TestGatewayServiceRecordUsage_EmptyImageSizeDefaultsBeforeBillingAndPersist
 }
 
 func TestGatewayServiceRecordUsage_PeakRateAffectsTokenModeImageOutputTokens(t *testing.T) {
+	setTestTimezone(t, "UTC")
 	groupID := int64(902)
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
@@ -295,28 +296,29 @@ func TestGatewayServiceRecordUsage_PeakRateAffectsTokenModeImageOutputTokens(t *
 			GroupID: i64p(groupID),
 			Group: &Group{
 				ID:                 groupID,
-				RateMultiplier:     1.0,
-				SubscriptionType:   SubscriptionTypeSubscription,
+				RateMultiplier:     1.5,
+				SubscriptionType:   SubscriptionTypeStandard,
 				PeakRateEnabled:    true,
-				PeakStart:          "00:00",
-				PeakEnd:            "23:59",
-				PeakRateMultiplier: 3.0,
+				PeakStart:          "14:00",
+				PeakEnd:            "18:00",
+				PeakRateMultiplier: 0.7,
 			},
 		},
-		User:    &User{ID: 602},
-		Account: &Account{ID: 702},
+		User:             &User{ID: 602},
+		Account:          &Account{ID: 702},
+		RequestStartedAt: at(17, 59),
 	})
 
 	require.NoError(t, err)
 	require.NotNil(t, usageRepo.lastLog)
 	require.NotNil(t, usageRepo.lastLog.BillingMode)
 	require.Equal(t, string(BillingModeToken), *usageRepo.lastLog.BillingMode)
-	require.Equal(t, 3.0, usageRepo.lastLog.RateMultiplier)
+	require.InDelta(t, 1.05, usageRepo.lastLog.RateMultiplier, 1e-12)
 
 	textInput := 1000 * 3e-6
 	textOutput := 500 * 15e-6
 	imageOutput := 100 * 15e-6
-	expectedActual := (textInput + textOutput + imageOutput) * 3.0
+	expectedActual := (textInput + textOutput + imageOutput) * 1.05
 
 	require.InDelta(t, textInput+textOutput+imageOutput, usageRepo.lastLog.TotalCost, 1e-12)
 	require.InDelta(t, imageOutput, usageRepo.lastLog.ImageOutputCost, 1e-12)

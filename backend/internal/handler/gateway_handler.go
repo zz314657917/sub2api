@@ -61,6 +61,15 @@ type GatewayHandler struct {
 	settingService            *service.SettingService
 }
 
+func requestStartedAt(c *gin.Context) time.Time {
+	if c != nil && c.Request != nil {
+		if startedAt, ok := c.Request.Context().Value(ctxkey.RequestStartedAt).(time.Time); ok && !startedAt.IsZero() {
+			return startedAt
+		}
+	}
+	return time.Now()
+}
+
 // NewGatewayHandler creates a new GatewayHandler
 func NewGatewayHandler(
 	gatewayService *service.GatewayService,
@@ -132,6 +141,8 @@ func parseAnthropicGatewayRequestBody(body []byte) (*service.ParsedRequest, []by
 // Messages handles Claude API compatible messages endpoint
 // POST /v1/messages
 func (h *GatewayHandler) Messages(c *gin.Context) {
+	requestStart := requestStartedAt(c)
+
 	// 从context获取apiKey和user（ApiKeyAuth中间件已设置）
 	apiKey, ok := middleware2.GetAPIKeyFromContext(c)
 	if !ok {
@@ -584,6 +595,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					IPAddress:          clientIP,
 					SessionID:          sessionID,
 					RequestPayloadHash: requestPayloadHash,
+					RequestStartedAt:   requestStart,
 					ForceCacheBilling:  fs.ForceCacheBilling,
 					APIKeyService:      h.apiKeyService,
 					ChannelUsageFields: channelMapping.ToUsageFields(reqModel, result.UpstreamModel),
@@ -1008,6 +1020,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					IPAddress:          clientIP,
 					SessionID:          sessionID,
 					RequestPayloadHash: requestPayloadHash,
+					RequestStartedAt:   requestStart,
 					ForceCacheBilling:  fs.ForceCacheBilling,
 					APIKeyService:      h.apiKeyService,
 					ChannelUsageFields: channelMapping.ToUsageFields(reqModel, result.UpstreamModel),

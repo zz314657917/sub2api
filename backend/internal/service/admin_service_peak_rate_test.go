@@ -78,7 +78,7 @@ func (s *peakRateGroupRepoStub) UpdateSortOrders(context.Context, []GroupSortOrd
 	panic("unexpected UpdateSortOrders call")
 }
 
-func TestAdminService_UpdateGroup_ClearsPeakRateWhenChangingToStandardDefault(t *testing.T) {
+func TestAdminService_UpdateGroup_PreservesPeakRateWhenChangingToStandardDefault(t *testing.T) {
 	repo := &peakRateGroupRepoStub{getByID: &Group{
 		ID:                 1,
 		Name:               "existing-group",
@@ -99,8 +99,8 @@ func TestAdminService_UpdateGroup_ClearsPeakRateWhenChangingToStandardDefault(t 
 	require.NotNil(t, group)
 	require.NotNil(t, repo.updated)
 	require.Equal(t, SubscriptionTypeStandard, repo.updated.SubscriptionType)
-	require.False(t, repo.updated.PeakRateEnabled)
-	require.Equal(t, "", repo.updated.PeakStart)
-	require.Equal(t, "", repo.updated.PeakEnd)
-	require.Equal(t, 1.0, repo.updated.PeakRateMultiplier)
+	require.True(t, repo.updated.PeakRateEnabled)
+	require.Equal(t, "14:00", repo.updated.PeakStart)
+	require.Equal(t, "18:00", repo.updated.PeakEnd)
+	require.Equal(t, 3.0, repo.updated.PeakRateMultiplier)
 }

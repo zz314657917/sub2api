@@ -124,8 +124,8 @@ func TestValidatePeakRateConfig(t *testing.T) {
 	}{
 		{"disabled passes through", "subscription", false, "", "", 0, false},
 		{"subscription enabled valid", "subscription", true, "14:00", "18:00", 3.0, false},
-		{"standard enabled rejected", "standard", true, "14:00", "18:00", 3.0, true},
-		{"empty type treated as standard", "", true, "14:00", "18:00", 3.0, true},
+		{"standard enabled valid", "standard", true, "14:00", "18:00", 3.0, false},
+		{"empty type treated as standard", "", true, "14:00", "18:00", 3.0, false},
 		{"standard disabled passes", "standard", false, "", "", 0, false},
 		{"enabled empty start", "subscription", true, "", "18:00", 1.0, true},
 		{"enabled empty end", "subscription", true, "14:00", "", 1.0, true},
@@ -135,6 +135,10 @@ func TestValidatePeakRateConfig(t *testing.T) {
 		{"enabled cross-day rejected", "subscription", true, "22:00", "02:00", 1.0, true},
 		{"enabled negative multiplier", "subscription", true, "14:00", "18:00", -0.5, true},
 		{"enabled zero multiplier allowed", "subscription", true, "14:00", "18:00", 0, false},
+		{"standard zero multiplier rejected", "standard", true, "14:00", "18:00", 0, true},
+		{"standard enabled NaN rejected", "standard", true, "14:00", "18:00", math.NaN(), true},
+		{"subscription enabled positive infinity rejected", "subscription", true, "14:00", "18:00", math.Inf(1), true},
+		{"subscription enabled negative infinity rejected", "subscription", true, "14:00", "18:00", math.Inf(-1), true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -149,18 +153,70 @@ func TestValidatePeakRateConfig(t *testing.T) {
 	}
 }
 
-func TestPeakMultiplierAt_StandardTypeDegradesToOne(t *testing.T) {
+func TestPeakMultiplierAt_StandardTypeAppliesTimeFactor(t *testing.T) {
 	setTestTimezone(t, "UTC")
 	g := newPeakGroup(true, "14:00", "18:00", 3.0)
 	g.SubscriptionType = "standard"
-	if got := g.PeakMultiplierAt(at(15, 30)); got != 1.0 {
-		t.Fatalf("standard group must degrade to 1.0, got %v", got)
+	if got := g.PeakMultiplierAt(at(15, 30)); got != 3.0 {
+		t.Fatalf("standard group time factor: got %v, want 3.0", got)
 	}
 
 	sub := newPeakGroup(true, "14:00", "18:00", 3.0)
 	sub.SubscriptionType = "subscription"
 	if got := sub.PeakMultiplierAt(at(15, 30)); got != 3.0 {
 		t.Fatalf("subscription group peak multiplier: got %v, want 3.0", got)
+	}
+}
+
+func TestPeakMultiplierAt_InvalidMultiplierDegradesToOne(t *testing.T) {
+	setTestTimezone(t, "UTC")
+	for _, c := range []struct {
+		name    string
+		subType string
+		mult    float64
+	}{
+		{"standard zero", SubscriptionTypeStandard, 0},
+		{"standard NaN", SubscriptionTypeStandard, math.NaN()},
+		{"subscription NaN", SubscriptionTypeSubscription, math.NaN()},
+		{"subscription positive infinity", SubscriptionTypeSubscription, math.Inf(1)},
+		{"subscription negative infinity", SubscriptionTypeSubscription, math.Inf(-1)},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			g := newPeakGroup(true, "14:00", "18:00", c.mult)
+			g.SubscriptionType = c.subType
+			if got := g.PeakMultiplierAt(at(15, 30)); got != 1.0 {
+				t.Fatalf("invalid multiplier must degrade to 1.0, got %v", got)
+			}
+		})
+	}
+}
+
+func TestNormalizePeakRateConfig_PreservesValidStandardConfiguration(t *testing.T) {
+	enabled, start, end, multiplier := NormalizePeakRateConfig(SubscriptionTypeStandard, false, "18:00", "23:00", 0.7)
+	if enabled || start != "18:00" || end != "23:00" || multiplier != 0.7 {
+		t.Fatalf("valid disabled standard config changed: enabled=%v start=%q end=%q multiplier=%v", enabled, start, end, multiplier)
+	}
+
+	_, start, end, multiplier = NormalizePeakRateConfig(SubscriptionTypeStandard, false, "22:00", "02:00", 0)
+	if start != "" || end != "" || multiplier != 1.0 {
+		t.Fatalf("invalid disabled standard config not normalized: start=%q end=%q multiplier=%v", start, end, multiplier)
+	}
+
+	for _, c := range []struct {
+		name    string
+		subType string
+		mult    float64
+	}{
+		{"standard NaN", SubscriptionTypeStandard, math.NaN()},
+		{"subscription positive infinity", SubscriptionTypeSubscription, math.Inf(1)},
+		{"subscription negative infinity", SubscriptionTypeSubscription, math.Inf(-1)},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			_, gotStart, gotEnd, gotMultiplier := NormalizePeakRateConfig(c.subType, false, "18:00", "23:00", c.mult)
+			if gotStart != "18:00" || gotEnd != "23:00" || gotMultiplier != 1.0 {
+				t.Fatalf("non-finite disabled config not normalized: start=%q end=%q multiplier=%v", gotStart, gotEnd, gotMultiplier)
+			}
+		})
 	}
 }
 
@@ -171,7 +227,9 @@ func TestPeakMultiplierAt_StandardTypeDegradesToOne(t *testing.T) {
 func TestPeakMultiplier_GatewayBillingSequence(t *testing.T) {
 	setTestTimezone(t, "UTC")
 	const baseMultiplier = 0.8
-	apiKey := &APIKey{Group: newPeakGroup(true, "14:00", "18:00", 3.0)}
+	standardGroup := newPeakGroup(true, "14:00", "18:00", 3.0)
+	standardGroup.SubscriptionType = SubscriptionTypeStandard
+	apiKey := &APIKey{Group: standardGroup}
 	approxEq := func(a, b float64) bool { return math.Abs(a-b) < 1e-9 }
 
 	t.Run("peak hour amplifies token multiplier only", func(t *testing.T) {
@@ -229,8 +287,12 @@ func TestPeakMultiplier_GatewayBillingSequence(t *testing.T) {
 func TestPeakMultiplier_SnapshotRoundTrip(t *testing.T) {
 	setTestTimezone(t, "UTC")
 	apiKey := &APIKey{
-		User:  &User{ID: 1, Status: StatusActive, Role: RoleUser},
-		Group: newPeakGroup(true, "14:00", "18:00", 3.0),
+		User: &User{ID: 1, Status: StatusActive, Role: RoleUser},
+		Group: func() *Group {
+			group := newPeakGroup(true, "14:00", "18:00", 3.0)
+			group.SubscriptionType = SubscriptionTypeStandard
+			return group
+		}(),
 	}
 	svc := &APIKeyService{}
 

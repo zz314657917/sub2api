@@ -23,7 +23,7 @@ import (
 func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 	streamStarted := false
 
-	requestStart := time.Now()
+	requestStart := requestStartedAt(c)
 
 	apiKey, ok := middleware2.GetAPIKeyFromContext(c)
 	if !ok {
@@ -346,6 +346,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 				IPAddress:          clientIP,
 				SessionID:          sessionID,
 				RequestPayloadHash: requestPayloadHash,
+				RequestStartedAt:   requestStart,
 				APIKeyService:      h.apiKeyService,
 				ChannelUsageFields: channelMapping.ToUsageFields(reqModel, result.UpstreamModel),
 			}); err != nil {

@@ -28,7 +28,6 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
 	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
 	"github.com/Wei-Shaw/sub2api/internal/util/urlvalidator"
@@ -451,13 +450,17 @@ func prefetchedStickyAccountIDFromContext(ctx context.Context, groupID *int64) i
 // and the sticky session binding should be cleared.
 // Delegates to IsSchedulable() for account-level checks, plus model-level rate limiting.
 func shouldClearStickySession(account *Account, requestedModel string) bool {
+	return shouldClearStickySessionWithContext(context.Background(), account, requestedModel)
+}
+
+func shouldClearStickySessionWithContext(ctx context.Context, account *Account, requestedModel string) bool {
 	if account == nil {
 		return false
 	}
-	if !account.IsSchedulable() {
+	if !account.IsSchedulableWithContext(ctx) {
 		return true
 	}
-	if remaining := account.GetRateLimitRemainingTimeWithContext(context.Background(), requestedModel); remaining > 0 {
+	if remaining := account.GetRateLimitRemainingTimeWithContext(ctx, requestedModel); remaining > 0 {
 		return true
 	}
 	return false
@@ -1721,7 +1724,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 				continue
 			}
 			account, ok := accountByID[routingAccountID]
-			if !ok || !s.isAccountSchedulableForSelection(account) {
+			if !ok || !s.isAccountSchedulableForSelection(ctx, account) {
 				if !ok {
 					filteredMissing++
 				} else {
@@ -1787,7 +1790,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 						}
 
 						gatePass := stickyCacheMissReason == "" &&
-							s.isAccountSchedulableForSelection(stickyAccount) &&
+							s.isAccountSchedulableForSelection(ctx, stickyAccount) &&
 							s.isAccountAllowedForPlatform(stickyAccount, platform, useMixed) &&
 							(requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, stickyAccount, requestedModel)) &&
 							s.isAccountSchedulableForModelSelection(ctx, stickyAccount, requestedModel) &&
@@ -1958,7 +1961,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 			account, ok := accountByID[accountID]
 			if ok {
 				// 检查账户是否需要清理粘性会话绑定
-				clearSticky := shouldClearStickySession(account, requestedModel)
+				clearSticky := shouldClearStickySessionWithContext(ctx, account, requestedModel)
 				if clearUserInvisibleSticky(account) {
 					clearSticky = true
 				}
@@ -1980,7 +1983,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 				quotaOK := s.isAccountSchedulableForQuota(account)
 				windowCostOK := s.isAccountSchedulableForWindowCost(ctx, account, true)
 				rpmOK := s.isAccountSchedulableForRPM(ctx, account, true)
-				schedulable := s.isAccountSchedulableForSelection(account)
+				schedulable := s.isAccountSchedulableForSelection(ctx, account)
 
 				slog.Debug("sticky.layer1_5_no_routing_checks",
 					"account_id", accountID,
@@ -2088,7 +2091,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 		// Scheduler snapshots can be temporarily stale (bucket rebuild is throttled);
 		// re-check schedulability here so recently rate-limited/overloaded accounts
 		// are not selected again before the bucket is rebuilt.
-		if !s.isAccountSchedulableForSelection(acc) {
+		if !s.isAccountSchedulableForSelection(ctx, acc) {
 			continue
 		}
 		if !s.isAccountAllowedForPlatform(acc, platform, useMixed) {
@@ -2392,10 +2395,11 @@ func (s *GatewayService) listSchedulableAccounts(ctx context.Context, groupID *i
 			}
 			accounts = filtered
 		}
-		return accounts, useMixed, nil
+		return filterAccountsForScheduling(ctx, accounts), useMixed, nil
 	}
 	if s.schedulerSnapshot != nil {
 		accounts, useMixed, err := s.schedulerSnapshot.ListSchedulableAccounts(ctx, groupID, platform, hasForcePlatform)
+		accounts = filterAccountsForScheduling(ctx, accounts)
 		if err == nil {
 			slog.Debug("account_scheduling_list_snapshot",
 				"group_id", derefGroupID(groupID),
@@ -2458,7 +2462,7 @@ func (s *GatewayService) listSchedulableAccounts(ctx context.Context, groupID *i
 					"tls_fingerprint", acc.IsTLSFingerprintEnabled())
 			}
 		}
-		return filtered, useMixed, nil
+		return filterAccountsForScheduling(ctx, filtered), useMixed, nil
 	}
 
 	var accounts []Account
@@ -2493,7 +2497,7 @@ func (s *GatewayService) listSchedulableAccounts(ctx context.Context, groupID *i
 				"tls_fingerprint", acc.IsTLSFingerprintEnabled())
 		}
 	}
-	return accounts, useMixed, nil
+	return filterAccountsForScheduling(ctx, accounts), useMixed, nil
 }
 
 // IsSingleAntigravityAccountGroup 检查指定分组是否只有一个 antigravity 平台的可调度账号。
@@ -2520,11 +2524,11 @@ func (s *GatewayService) isAccountAllowedForPlatform(account *Account, platform 
 	return account.Platform == platform
 }
 
-func (s *GatewayService) isAccountSchedulableForSelection(account *Account) bool {
+func (s *GatewayService) isAccountSchedulableForSelection(ctx context.Context, account *Account) bool {
 	if account == nil {
 		return false
 	}
-	return account.IsSchedulable()
+	return account.IsSchedulableWithContext(ctx)
 }
 
 func (s *GatewayService) isAccountSchedulableForModelSelection(ctx context.Context, account *Account, requestedModel string) bool {
@@ -2881,7 +2885,7 @@ func (s *GatewayService) selectPinnedAccount(ctx context.Context, accountID int6
 		return nil, ErrCafeAccountUnavailable
 	}
 	account, err := s.getSchedulableAccount(ctx, accountID)
-	if err != nil || account == nil || !account.IsSchedulable() {
+	if err != nil || account == nil || !account.IsSchedulableWithContext(ctx) {
 		return nil, ErrCafeAccountUnavailable
 	}
 	if groupID != nil && !openAIStickyAccountMatchesGroup(account, groupID) {
@@ -3223,7 +3227,7 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 					account, err := s.getSchedulableAccount(ctx, accountID)
 					// 检查账号分组归属和平台匹配（确保粘性会话不会跨分组或跨平台）
 					if err == nil {
-						clearSticky := shouldClearStickySession(account, requestedModel)
+						clearSticky := shouldClearStickySessionWithContext(ctx, account, requestedModel)
 						if clearSticky {
 							_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
 						}
@@ -3273,7 +3277,7 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 			}
 			// Scheduler snapshots can be temporarily stale; re-check schedulability here to
 			// avoid selecting accounts that were recently rate-limited/overloaded.
-			if !s.isAccountSchedulableForSelection(acc) {
+			if !s.isAccountSchedulableForSelection(ctx, acc) {
 				continue
 			}
 			// require_privacy_set: 跳过 privacy 未设置的账号并标记异常
@@ -3343,7 +3347,7 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 				account, err := s.getSchedulableAccount(ctx, accountID)
 				// 检查账号分组归属和平台匹配（确保粘性会话不会跨分组或跨平台）
 				if err == nil {
-					clearSticky := shouldClearStickySession(account, requestedModel)
+					clearSticky := shouldClearStickySessionWithContext(ctx, account, requestedModel)
 					if clearSticky {
 						_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
 					}
@@ -3385,7 +3389,7 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 		}
 		// Scheduler snapshots can be temporarily stale; re-check schedulability here to
 		// avoid selecting accounts that were recently rate-limited/overloaded.
-		if !s.isAccountSchedulableForSelection(acc) {
+		if !s.isAccountSchedulableForSelection(ctx, acc) {
 			continue
 		}
 		// require_privacy_set: 跳过 privacy 未设置的账号并标记异常
@@ -3483,7 +3487,7 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 					account, err := s.getSchedulableAccount(ctx, accountID)
 					// 检查账号分组归属和有效性：原生平台直接匹配，antigravity 需要启用混合调度
 					if err == nil {
-						clearSticky := shouldClearStickySession(account, requestedModel)
+						clearSticky := shouldClearStickySessionWithContext(ctx, account, requestedModel)
 						if clearSticky {
 							_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
 						}
@@ -3531,7 +3535,7 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 			}
 			// Scheduler snapshots can be temporarily stale; re-check schedulability here to
 			// avoid selecting accounts that were recently rate-limited/overloaded.
-			if !s.isAccountSchedulableForSelection(acc) {
+			if !s.isAccountSchedulableForSelection(ctx, acc) {
 				continue
 			}
 			// require_privacy_set: 跳过 privacy 未设置的账号并标记异常
@@ -3605,7 +3609,7 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 				account, err := s.getSchedulableAccount(ctx, accountID)
 				// 检查账号分组归属和有效性：原生平台直接匹配，antigravity 需要启用混合调度
 				if err == nil {
-					clearSticky := shouldClearStickySession(account, requestedModel)
+					clearSticky := shouldClearStickySessionWithContext(ctx, account, requestedModel)
 					if clearSticky {
 						_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
 					}
@@ -3644,7 +3648,7 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 		}
 		// Scheduler snapshots can be temporarily stale; re-check schedulability here to
 		// avoid selecting accounts that were recently rate-limited/overloaded.
-		if !s.isAccountSchedulableForSelection(acc) {
+		if !s.isAccountSchedulableForSelection(ctx, acc) {
 			continue
 		}
 		// require_privacy_set: 跳过 privacy 未设置的账号并标记异常
@@ -3819,7 +3823,7 @@ func (s *GatewayService) diagnoseSelectionFailure(
 	if _, excluded := excludedIDs[acc.ID]; excluded {
 		return selectionFailureDiagnosis{Category: "excluded"}
 	}
-	if !s.isAccountSchedulableForSelection(acc) {
+	if !s.isAccountSchedulableForSelection(ctx, acc) {
 		return selectionFailureDiagnosis{Category: "unschedulable", Detail: "generic_unschedulable"}
 	}
 	if isPlatformFilteredForSelection(acc, platform, allowMixedScheduling) {
@@ -8590,6 +8594,7 @@ type RecordUsageInput struct {
 	IPAddress          string             // 请求的客户端 IP 地址
 	SessionID          string             // 客户端显式会话标识，仅用于 usage 关联
 	RequestPayloadHash string             // 请求体语义哈希，用于降低 request_id 误复用时的静默误去重风险
+	RequestStartedAt   time.Time          // 请求首次进入 handler 的时间，用于稳定判定分时倍率
 	ForceCacheBilling  bool               // 强制缓存计费：将 input_tokens 转为 cache_read 计费（用于粘性会话切换）
 	APIKeyService      APIKeyQuotaUpdater // 可选：用于更新API Key配额
 	PrepaidBalanceCost float64            // balance cost already deducted before usage billing
@@ -9233,6 +9238,7 @@ func (s *GatewayService) RecordUsage(ctx context.Context, input *RecordUsageInpu
 		IPAddress:          input.IPAddress,
 		SessionID:          input.SessionID,
 		RequestPayloadHash: input.RequestPayloadHash,
+		RequestStartedAt:   input.RequestStartedAt,
 		ForceCacheBilling:  input.ForceCacheBilling,
 		APIKeyService:      input.APIKeyService,
 		PrepaidBalanceCost: input.PrepaidBalanceCost,
@@ -9255,6 +9261,7 @@ type RecordUsageLongContextInput struct {
 	IPAddress             string             // 请求的客户端 IP 地址
 	SessionID             string             // 客户端显式会话标识，仅用于 usage 关联
 	RequestPayloadHash    string             // 请求体语义哈希，用于降低 request_id 误复用时的静默误去重风险
+	RequestStartedAt      time.Time          // 请求首次进入 handler 的时间，用于稳定判定分时倍率
 	LongContextThreshold  int                // 长上下文阈值（如 200000）
 	LongContextMultiplier float64            // 超出阈值部分的倍率（如 2.0）
 	ForceCacheBilling     bool               // 强制缓存计费：将 input_tokens 转为 cache_read 计费（用于粘性会话切换）
@@ -9278,6 +9285,7 @@ func (s *GatewayService) RecordUsageWithLongContext(ctx context.Context, input *
 		IPAddress:          input.IPAddress,
 		SessionID:          input.SessionID,
 		RequestPayloadHash: input.RequestPayloadHash,
+		RequestStartedAt:   input.RequestStartedAt,
 		ForceCacheBilling:  input.ForceCacheBilling,
 		APIKeyService:      input.APIKeyService,
 		PrepaidBalanceCost: input.PrepaidBalanceCost,
@@ -9301,6 +9309,7 @@ type recordUsageCoreInput struct {
 	IPAddress          string
 	SessionID          string
 	RequestPayloadHash string
+	RequestStartedAt   time.Time
 	ForceCacheBilling  bool
 	APIKeyService      APIKeyQuotaUpdater
 	PrepaidBalanceCost float64
@@ -9348,9 +9357,10 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	if s.membershipService != nil {
 		multiplier = s.membershipService.ApplyRateMultiplier(ctx, user.ID, multiplier)
 	}
-	// token 倍率叠加高峰因子（token 计费含图片 token，图片按次倍率不受影响）。高峰因子按请求时刻现算，
+	perRequestMultiplier := multiplier
+	// token 倍率叠加分时因子（token 计费含图片 token，图片按次倍率不受影响）。分时因子按请求开始时刻计算，
 	// 不并入上面的 getUserGroupRateMultiplier，以免污染 user:group 倍率缓存。
-	multiplier, imageMultiplier := computePeakAwareMultipliers(apiKey, multiplier, timezone.Now())
+	multiplier, imageMultiplier := computePeakAwareMultipliers(apiKey, multiplier, billingReferenceTime(input.RequestStartedAt))
 
 	// 确定计费模型
 	billingModel := forwardResultBillingModel(result.Model, result.UpstreamModel)
@@ -9368,7 +9378,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	}
 
 	// 计算费用
-	cost := s.calculateRecordUsageCost(ctx, result, apiKey, billingModel, multiplier, imageMultiplier, opts)
+	cost := s.calculateRecordUsageCost(ctx, result, apiKey, billingModel, multiplier, perRequestMultiplier, imageMultiplier, opts)
 	prepaidBalanceCost := input.PrepaidBalanceCost
 	if IsStudioBridgeGatewayContext(ctx) && cost != nil && cost.ActualCost > 0 {
 		prepaidBalanceCost = cost.ActualCost
@@ -9391,7 +9401,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	// 创建使用日志
 	accountRateMultiplier := account.BillingRateMultiplier()
 	usageLog := s.buildRecordUsageLog(ctx, input, result, apiKey, user, account, subscription,
-		requestedModel, multiplier, imageMultiplier, accountRateMultiplier, billingType, cacheTTLOverridden, cost, opts)
+		requestedModel, multiplier, perRequestMultiplier, imageMultiplier, accountRateMultiplier, billingType, cacheTTLOverridden, cost, opts)
 
 	// 计算账号统计定价费用（使用最终上游模型匹配自定义规则）
 	if apiKey.GroupID != nil {
@@ -9458,7 +9468,8 @@ func (s *GatewayService) calculateRecordUsageCost(
 	result *ForwardResult,
 	apiKey *APIKey,
 	billingModel string,
-	multiplier float64,
+	tokenMultiplier float64,
+	perRequestMultiplier float64,
 	imageMultiplier float64,
 	opts *recordUsageOpts,
 ) *CostBreakdown {
@@ -9468,7 +9479,7 @@ func (s *GatewayService) calculateRecordUsageCost(
 	}
 
 	// Token 计费
-	return s.calculateTokenCost(ctx, result, apiKey, billingModel, multiplier, opts)
+	return s.calculateTokenCost(ctx, result, apiKey, billingModel, tokenMultiplier, perRequestMultiplier, opts)
 }
 
 func (s *GatewayService) shouldUseImageBillingCost(ctx context.Context, billingModel string, apiKey *APIKey, result *ForwardResult) bool {
@@ -9545,7 +9556,8 @@ func (s *GatewayService) calculateTokenCost(
 	result *ForwardResult,
 	apiKey *APIKey,
 	billingModel string,
-	multiplier float64,
+	tokenMultiplier float64,
+	perRequestMultiplier float64,
 	opts *recordUsageOpts,
 ) *CostBreakdown {
 	tokens := UsageTokens{
@@ -9564,21 +9576,25 @@ func (s *GatewayService) calculateTokenCost(
 	// 优先尝试渠道定价 → CalculateCostUnified
 	if resolved := s.resolveChannelPricing(ctx, billingModel, apiKey); resolved != nil {
 		gid := apiKey.Group.ID
+		rateMultiplier := tokenMultiplier
+		if resolved.Mode == BillingModePerRequest || resolved.Mode == BillingModeImage {
+			rateMultiplier = perRequestMultiplier
+		}
 		cost, err = s.billingService.CalculateCostUnified(CostInput{
 			Ctx:            ctx,
 			Model:          billingModel,
 			GroupID:        &gid,
 			Tokens:         tokens,
 			RequestCount:   1,
-			RateMultiplier: multiplier,
+			RateMultiplier: rateMultiplier,
 			Resolver:       s.resolver,
 			Resolved:       resolved,
 		})
 	} else if opts.LongContextThreshold > 0 {
 		// 长上下文双倍计费（如 Gemini 200K 阈值）
-		cost, err = s.billingService.CalculateCostWithLongContext(billingModel, tokens, multiplier, opts.LongContextThreshold, opts.LongContextMultiplier)
+		cost, err = s.billingService.CalculateCostWithLongContext(billingModel, tokens, tokenMultiplier, opts.LongContextThreshold, opts.LongContextMultiplier)
 	} else {
-		cost, err = s.billingService.CalculateCost(billingModel, tokens, multiplier)
+		cost, err = s.billingService.CalculateCost(billingModel, tokens, tokenMultiplier)
 	}
 	if err != nil {
 		logger.LegacyPrintf("service.gateway", "Calculate cost failed: %v", err)
@@ -9597,7 +9613,8 @@ func (s *GatewayService) buildRecordUsageLog(
 	account *Account,
 	subscription *UserSubscription,
 	requestedModel string,
-	multiplier float64,
+	tokenMultiplier float64,
+	perRequestMultiplier float64,
 	imageMultiplier float64,
 	accountRateMultiplier float64,
 	billingType int8,
@@ -9625,7 +9642,7 @@ func (s *GatewayService) buildRecordUsageLog(
 		CacheCreation5mTokens: result.Usage.CacheCreation5mTokens,
 		CacheCreation1hTokens: result.Usage.CacheCreation1hTokens,
 		ImageOutputTokens:     result.Usage.ImageOutputTokens,
-		RateMultiplier:        multiplier,
+		RateMultiplier:        tokenMultiplier,
 		AccountRateMultiplier: &accountRateMultiplier,
 		BillingType:           billingType,
 		BillingMode:           resolveBillingMode(result, cost),
@@ -9648,8 +9665,9 @@ func (s *GatewayService) buildRecordUsageLog(
 		SubscriptionID:        optionalSubscriptionID(subscription),
 		CreatedAt:             time.Now(),
 	}
-	if isUsageLogImageBillingMode(resolveUsageLogBillingMode(result.ImageCount, cost)) {
-		usageLog.RateMultiplier = imageMultiplier
+	billingMode := resolveUsageLogBillingMode(result.ImageCount, cost)
+	usageLog.RateMultiplier = usageRateMultiplier(billingMode, result.ImageCount, tokenMultiplier, perRequestMultiplier, imageMultiplier)
+	if billingMode == string(BillingModeImage) || (billingMode == string(BillingModePerRequest) && result.ImageCount > 0) {
 		usageLog.BillingTier = optionalTrimmedStringPtr(ImageBillingTierWithQuality(result.ImageSize, result.ImageQuality))
 	}
 	if cost != nil {

@@ -388,8 +388,9 @@ func TestOpenAIGatewayServiceRecordUsage_UsesUserSpecificGroupRate(t *testing.T)
 }
 
 func TestOpenAIGatewayServiceRecordUsage_PeakRateAffectsTokenModeImageOutputTokens(t *testing.T) {
+	setTestTimezone(t, "UTC")
 	groupID := int64(14)
-	groupRate := 1.0
+	groupRate := 1.5
 	usage := OpenAIUsage{
 		InputTokens:       1000,
 		ImageInputTokens:  200,
@@ -417,20 +418,21 @@ func TestOpenAIGatewayServiceRecordUsage_PeakRateAffectsTokenModeImageOutputToke
 			Group: &Group{
 				ID:                 groupID,
 				RateMultiplier:     groupRate,
-				SubscriptionType:   "subscription",
+				SubscriptionType:   SubscriptionTypeStandard,
 				PeakRateEnabled:    true,
-				PeakStart:          "00:00",
-				PeakEnd:            "23:59",
-				PeakRateMultiplier: 3.0,
+				PeakStart:          "14:00",
+				PeakEnd:            "18:00",
+				PeakRateMultiplier: 0.7,
 			},
 		},
-		User:    &User{ID: 2004},
-		Account: &Account{ID: 3004},
+		User:             &User{ID: 2004},
+		Account:          &Account{ID: 3004},
+		RequestStartedAt: at(17, 59),
 	})
 
 	require.NoError(t, err)
 	require.NotNil(t, usageRepo.lastLog)
-	require.Equal(t, 3.0, usageRepo.lastLog.RateMultiplier)
+	require.InDelta(t, 1.05, usageRepo.lastLog.RateMultiplier, 1e-12)
 	require.Equal(t, usage.ImageInputTokens, usageRepo.lastLog.ImageInputTokens)
 	require.Equal(t, usage.ImageOutputTokens, usageRepo.lastLog.ImageOutputTokens)
 
@@ -448,7 +450,7 @@ func TestOpenAIGatewayServiceRecordUsage_PeakRateAffectsTokenModeImageOutputToke
 		Resolver:       svc.resolver,
 	})
 	require.NoError(t, err)
-	expectedActual := expected.TotalCost * 3.0
+	expectedActual := expected.TotalCost * 1.05
 
 	require.InDelta(t, expected.TotalCost, usageRepo.lastLog.TotalCost, 1e-12)
 	require.InDelta(t, expected.ImageInputCost, usageRepo.lastLog.ImageInputCost, 1e-12)
@@ -2321,6 +2323,54 @@ func TestOpenAIGatewayServiceRecordUsage_ChannelVideoBillingUsesBaseTierAsPerSec
 	require.Equal(t, "720:6s", *usageRepo.lastLog.BillingTier)
 }
 
+func TestOpenAIGatewayServiceRecordUsage_ChannelVideoBillingIgnoresTimeWindowFactor(t *testing.T) {
+	setTestTimezone(t, "UTC")
+	groupID := int64(227)
+	price720 := 0.08
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+	svc.resolver = newOpenAIVideoChannelTierPricingResolverForTest(t, groupID, "kling-v3-omni", nil, []PricingInterval{
+		{TierLabel: "720", PerRequestPrice: &price720},
+	})
+
+	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID:    "resp_video_ignores_time_factor",
+			Model:        "kling-v3-omni",
+			BillingModel: "kling-v3-omni",
+			Duration:     time.Second,
+		},
+		APIKey: &APIKey{
+			ID:      10227,
+			GroupID: i64p(groupID),
+			Group: &Group{
+				ID:                 groupID,
+				Platform:           PlatformOpenAI,
+				RateMultiplier:     1.5,
+				SubscriptionType:   SubscriptionTypeStandard,
+				PeakRateEnabled:    true,
+				PeakStart:          "14:00",
+				PeakEnd:            "18:00",
+				PeakRateMultiplier: 0.7,
+			},
+		},
+		User:                 &User{ID: 20227},
+		Account:              &Account{ID: 30227},
+		MediaType:            "video",
+		BillingTierOverride:  "720:6s",
+		RequestCountOverride: 6,
+		RequestStartedAt:     at(17, 59),
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, usageRepo.lastLog)
+	require.InDelta(t, 0.48, usageRepo.lastLog.TotalCost, 1e-12)
+	require.InDelta(t, 0.72, usageRepo.lastLog.ActualCost, 1e-12)
+	require.InDelta(t, 1.5, usageRepo.lastLog.RateMultiplier, 1e-12)
+	require.NotNil(t, usageRepo.lastLog.BillingMode)
+	require.Equal(t, string(BillingModePerRequest), *usageRepo.lastLog.BillingMode)
+}
+
 func TestOpenAIGatewayServiceRecordUsage_ChannelVideoBillingPrefersExactDurationTier(t *testing.T) {
 	groupID := int64(226)
 	price720 := 0.08
@@ -2737,6 +2787,7 @@ func TestGatewayServiceCalculateRecordUsageCost_ChannelImageBillingUsesImageCoun
 		&APIKey{GroupID: i64p(groupID), Group: &Group{ID: groupID}},
 		"gemini-image",
 		0.15,
+		0.15,
 		1.0,
 		nil,
 	)
@@ -2764,6 +2815,7 @@ func TestGatewayServiceCalculateRecordUsageCost_ChannelImageBillingUsesQualityTi
 		&ForwardResult{Model: "gemini-image", ImageCount: 2, ImageSize: "1K", ImageQuality: "high"},
 		&APIKey{GroupID: i64p(groupID), Group: &Group{ID: groupID}},
 		"gemini-image",
+		1.0,
 		1.0,
 		1.0,
 		nil,
@@ -2805,6 +2857,7 @@ func TestGatewayServiceCalculateRecordUsageCost_ChannelImageBillingUsesSizeTier(
 		"gemini-image",
 		1.0,
 		1.0,
+		1.0,
 		nil,
 	)
 
@@ -2842,6 +2895,7 @@ func TestGatewayServiceCalculateRecordUsageCost_ChannelImageBillingNormalizesMis
 		&ForwardResult{Model: "gemini-image", ImageCount: 2, ImageSize: ""},
 		&APIKey{GroupID: i64p(groupID), Group: &Group{ID: groupID}},
 		"gemini-image",
+		1.0,
 		1.0,
 		1.0,
 		nil,

@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -330,14 +331,18 @@ func parseMinutes(hhmm string) (int, bool) {
 	return h*60 + m, true
 }
 
-// PeakMultiplierAt 返回指定时刻 now 的高峰因子。
-//   - 未启用 / 未配置 / 配置非法（start>=end 或格式错误） / 非高峰时段 → 返回 1.0（安全降级）
+// PeakMultiplierAt 返回指定时刻 now 的分时计费因子。
+//   - 未启用 / 未配置 / 配置非法（start>=end 或格式错误） / 非配置时段 → 返回 1.0（安全降级）
 //   - 区间为左闭右开 [PeakStart, PeakEnd)，仅支持当日区间，不支持跨天（如 22:00-次日02:00）
 //   - 时刻基于全局系统时区（timezone.Location）判定
 //
 // 该方法是纯函数，不读取任何外部状态，便于单测。
 func (g *Group) PeakMultiplierAt(now time.Time) float64 {
-	if g == nil || !g.IsSubscriptionType() || !g.PeakRateEnabled || g.PeakStart == "" || g.PeakEnd == "" {
+	if g == nil || !g.PeakRateEnabled || g.PeakStart == "" || g.PeakEnd == "" {
+		return 1.0
+	}
+	if !isFinitePeakRateMultiplier(g.PeakRateMultiplier) || g.PeakRateMultiplier < 0 ||
+		(g.SubscriptionType != SubscriptionTypeSubscription && g.PeakRateMultiplier == 0) {
 		return 1.0
 	}
 	start, ok1 := parseMinutes(g.PeakStart)
@@ -353,16 +358,17 @@ func (g *Group) PeakMultiplierAt(now time.Time) float64 {
 	return 1.0
 }
 
-// ValidatePeakRateConfig 是高峰倍率配置的唯一校验来源，供 handler 与 service 层共用。
-// enabled=true 时仅允许订阅类型分组；并要求 start/end 合法且 end>start（不支持跨天），multiplier>=0。
-// multiplier=0 是允许的，表示高峰 token 请求按 0 倍计费，可用于折扣/免费策略。
+func isFinitePeakRateMultiplier(multiplier float64) bool {
+	return !math.IsNaN(multiplier) && !math.IsInf(multiplier, 0)
+}
+
+// ValidatePeakRateConfig 是分时倍率配置的唯一校验来源，供 handler 与 service 层共用。
+// enabled=true 时要求 start/end 合法且 end>start（不支持跨天）。标准分组 multiplier>0，
+// 订阅分组保留 multiplier=0 的兼容行为，可用于免费时段。
 // enabled=false 时放行（不关心类型）。subscriptionType 为空按 standard 处理。
 func ValidatePeakRateConfig(subscriptionType string, enabled bool, start, end string, multiplier float64) error {
 	if !enabled {
 		return nil
-	}
-	if subscriptionType != SubscriptionTypeSubscription {
-		return errors.New("高峰时段倍率仅支持订阅类型分组")
 	}
 	if start == "" || end == "" {
 		return errors.New("peak_rate_enabled 为 true 时 peak_start 与 peak_end 必填")
@@ -378,36 +384,44 @@ func ValidatePeakRateConfig(subscriptionType string, enabled bool, start, end st
 	if st >= en {
 		return errors.New("peak_end 必须大于 peak_start（不支持跨天区间，如 22:00-02:00）")
 	}
+	if !isFinitePeakRateMultiplier(multiplier) {
+		return errors.New("peak_rate_multiplier 必须是有限数")
+	}
 	if multiplier < 0 {
 		return errors.New("peak_rate_multiplier 不能为负")
+	}
+	if subscriptionType != SubscriptionTypeSubscription && multiplier == 0 {
+		return errors.New("标准分组的 peak_rate_multiplier 必须大于 0")
 	}
 	return nil
 }
 
-// NormalizePeakRateConfig 归一化最终落库的高峰配置，CreateGroup 与 UpdateGroup 两条写路径共用（唯一收口）：
-//   - 非订阅类型分组不携带任何高峰配置，一律清空（enabled=false、窗口置空、倍率归 1.0）；
-//   - 订阅分组关闭高峰时保留已配置的合法窗口（便于临时停用后再启用），
-//     但清掉无法解析的脏字符串与负倍率，避免脏数据入库。
+// NormalizePeakRateConfig 归一化最终落库的分时配置，CreateGroup 与 UpdateGroup 两条写路径共用（唯一收口）：
+//   - 标准和订阅分组都保留合法配置，便于临时停用后再启用；
+//   - 关闭时清掉非法/跨天窗口，并按分组类型修复非法倍率，避免脏数据入库。
 //
 // 与 ValidatePeakRateConfig 的分工：enabled=true 时校验已保证各字段合法，本函数为无操作；
-// enabled=false 时校验放行，由本函数兜底清洗。调用顺序为先归一化、后校验，
-// 使"订阅转标准"这类更新能静默清空高峰配置而不是被校验拒绝。
+// enabled=false 时校验放行，由本函数兜底清洗。调用顺序为先归一化、后校验。
 func NormalizePeakRateConfig(subscriptionType string, enabled bool, start, end string, multiplier float64) (bool, string, string, float64) {
-	if subscriptionType != SubscriptionTypeSubscription {
-		return false, "", "", 1.0
-	}
 	if !enabled {
-		if _, ok := parseMinutes(start); !ok {
-			start = ""
+		startMinutes, startOK := parseMinutes(start)
+		endMinutes, endOK := parseMinutes(end)
+		if !startOK || !endOK || startMinutes >= endMinutes {
+			start, end = "", ""
 		}
-		if _, ok := parseMinutes(end); !ok {
-			end = ""
-		}
-		if multiplier < 0 {
+		if !isFinitePeakRateMultiplier(multiplier) || multiplier < 0 ||
+			(subscriptionType != SubscriptionTypeSubscription && multiplier == 0) {
 			multiplier = 1.0
 		}
 	}
 	return enabled, start, end, multiplier
+}
+
+func billingReferenceTime(requestStartedAt time.Time) time.Time {
+	if requestStartedAt.IsZero() {
+		return timezone.Now()
+	}
+	return requestStartedAt
 }
 
 // computePeakAwareMultipliers 把"基础 token 倍率 base"（已含系统/分组/用户级倍率，但不含高峰）
@@ -422,4 +436,14 @@ func computePeakAwareMultipliers(apiKey *APIKey, base float64, now time.Time) (t
 	}
 	text = base * peak
 	return
+}
+
+func usageRateMultiplier(mode string, imageCount int, token, perRequest, image float64) float64 {
+	if imageCount > 0 && (mode == string(BillingModeImage) || mode == string(BillingModePerRequest)) {
+		return image
+	}
+	if mode == string(BillingModePerRequest) || mode == string(BillingModeImage) {
+		return perRequest
+	}
+	return token
 }
