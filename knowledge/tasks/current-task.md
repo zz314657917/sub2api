@@ -30,7 +30,7 @@
   contract 重跑完整门禁并裁定 `PASS`。
 - 用户已明确授权多智能体复核、分批本地提交和更新本地容器。
 - 已创建三批本地提交：`0d9004e71` 后端、`240ff4ce8` 前端、`0b836dc8e`
-  workflow；`main` 相对 `origin/main` 为 ahead 10 / behind 0，未推送。
+  workflow；`main` 相对 `origin/main` 本地领先，未推送。
 - 本地 `sub2api` 已更新到 `sub2api:codex-20260812-1243-s211-s212`，镜像 ID
   `sha256:ee12bc3fa2eb...`，`http://127.0.0.1:62080/health` 返回 200；PostgreSQL、
   Redis、网络和 `deploy_sub2api_data` 未重建。

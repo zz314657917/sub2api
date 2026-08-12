@@ -759,7 +759,7 @@
 - 当前阶段：S211/S212 已完成三批本地提交、本地 `sub2api` 容器更新和认证态
   Google Chrome 响应式验收；结论为 `PASS / local-container`，未推送远端。
 - 提交记录：`0d9004e71` 后端、`240ff4ce8` 前端、`0b836dc8e` workflow；`main`
-  相对 `origin/main` ahead 10 / behind 0。工作树仅剩用户的两个 knowledge 改动和
+  相对 `origin/main` 本地领先且未推送。工作树仅剩用户的两个 knowledge 改动和
   `outputs/`，均未暂存或修改。
 - 容器记录：当前镜像 `sub2api:codex-20260812-1243-s211-s212`，镜像 ID
   `sha256:ee12bc3fa2eb...`，容器 running/healthy，`/health` 返回 200；PostgreSQL、
