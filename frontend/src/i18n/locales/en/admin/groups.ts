@@ -147,13 +147,20 @@ export default {
         noLimit: 'No limit'
       },
       peakRate: {
-        title: 'Peak rate multiplier',
-        enable: 'Enable peak rate multiplier',
-        peakStart: 'Peak start',
-        peakEnd: 'Peak end',
-        peakMultiplier: 'Peak multiplier',
-        serverTimezone: 'Peak window uses server timezone: {timezone}.',
-        multiplierHint: 'Token billing is multiplied by this factor during the peak window. Image per-request billing is not affected.'
+        title: 'Group time-window billing',
+        enable: 'Enable group time-window billing',
+        peakStart: 'Start time',
+        peakEnd: 'End time',
+        peakMultiplier: 'Time-window factor',
+        serverTimezone: 'The time window uses server timezone: {timezone}.',
+        formulaHint: 'Final token rate = current effective rate × time-window factor. The current effective rate is restored after the window. Per-request image and video billing is not affected.',
+        standardMultiplierHint: 'Standard groups require a value greater than 0. For example, 1.5 × 0.7 = 1.05.',
+        subscriptionMultiplierHint: 'Subscription groups may use 0 to make tokens free during the window.',
+        windowRequired: 'Start and end time are required when time-window billing is enabled.',
+        sameDayWindowInvalid: 'End time must be later than start time. Cross-midnight windows are not supported.',
+        multiplierInvalid: 'The time-window factor must be a valid number.',
+        standardMultiplierPositive: 'The time-window factor for a standard group must be greater than 0.',
+        subscriptionMultiplierNonNegative: 'The time-window factor for a subscription group cannot be negative.'
       },
       imagePricing: {
         title: 'Image Generation Pricing',

@@ -2907,6 +2907,14 @@
           </div>
         </div>
 
+        <AccountTimeAvailabilityWindow
+          v-model:enabled="accountAvailabilityEnabled"
+          v-model:start="accountAvailabilityStart"
+          v-model:end="accountAvailabilityEnd"
+          @valid="accountAvailabilityValid = $event"
+          @window-valid="accountAvailabilityWindowValid = $event"
+        />
+
         <!-- Group Selection - 仅标准模式显示 -->
         <GroupSelector
           v-if="!authStore.isSimpleMode"
@@ -3309,6 +3317,7 @@ import ProxySelector from '@/components/common/ProxySelector.vue'
 import GroupSelector from '@/components/common/GroupSelector.vue'
 import ModelWhitelistSelector from '@/components/account/ModelWhitelistSelector.vue'
 import AccountCapabilitySelector from '@/components/account/AccountCapabilitySelector.vue'
+import AccountTimeAvailabilityWindow from '@/components/account/AccountTimeAvailabilityWindow.vue'
 import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
 import ShareDisplayCard from '@/components/account/ShareDisplayCard.vue'
 import { applyInterceptWarmup } from '@/components/account/credentialsBuilder'
@@ -3445,6 +3454,11 @@ const addMethod = ref<AddMethod>('oauth') // For oauth-based: 'oauth' or 'setup-
 const apiKeyBaseUrl = ref('https://api.anthropic.com')
 const apiKeyValue = ref('')
 const upstreamBillingAutoProbeEnabled = ref(false)
+const accountAvailabilityEnabled = ref(false)
+const accountAvailabilityStart = ref('')
+const accountAvailabilityEnd = ref('')
+const accountAvailabilityValid = ref(true)
+const accountAvailabilityWindowValid = ref(false)
 
 const syncPreviewCredentials = computed(() => {
   if (!apiKeyValue.value) return undefined
@@ -4310,6 +4324,11 @@ const resetForm = () => {
   apiKeyBaseUrl.value = 'https://api.anthropic.com'
   apiKeyValue.value = ''
   upstreamBillingAutoProbeEnabled.value = false
+  accountAvailabilityEnabled.value = false
+  accountAvailabilityStart.value = ''
+  accountAvailabilityEnd.value = ''
+  accountAvailabilityValid.value = true
+  accountAvailabilityWindowValid.value = false
   editQuotaLimit.value = null
   editQuotaDailyLimit.value = null
   editQuotaWeeklyLimit.value = null
@@ -4486,7 +4505,28 @@ const applySupportedCapabilitiesToExtra = (base?: Record<string, unknown>): Reco
   } else {
     delete extra.supported_capabilities
   }
+  applyAccountAvailabilityToExtra(extra)
   return Object.keys(extra).length > 0 ? extra : undefined
+}
+
+const applyAccountAvailabilityToExtra = (extra: Record<string, unknown>): void => {
+  if (!accountAvailabilityWindowValid.value) {
+    delete extra.account_availability_enabled
+    delete extra.account_availability_start
+    delete extra.account_availability_end
+    return
+  }
+  extra.account_availability_enabled = accountAvailabilityEnabled.value
+  extra.account_availability_start = accountAvailabilityStart.value
+  extra.account_availability_end = accountAvailabilityEnd.value
+}
+
+const validateAccountAvailability = (): boolean => {
+  if (!accountAvailabilityEnabled.value || (accountAvailabilityValid.value && accountAvailabilityWindowValid.value)) {
+    return true
+  }
+  appStore.showError(t('admin.accounts.timeAvailability.windowInvalid'))
+  return false
 }
 
 function writeOptionalShareDisplayNumber(extra: Record<string, unknown>, key: string, value: number | null, requirePositive: boolean): void {
@@ -4614,6 +4654,9 @@ const handleVertexServiceAccountDrop = async (event: DragEvent) => {
 }
 
 const handleSubmit = async () => {
+  if (!validateAccountAvailability()) {
+    return
+  }
   // For OAuth-based type, handle OAuth flow (goes to step 2)
   if (isOAuthFlow.value) {
     if (!form.name.trim()) {
@@ -5012,7 +5055,7 @@ const handleGrokValidateRT = async (refreshTokenInput: string) => {
           platform: 'grok',
           type: 'oauth',
           credentials,
-          extra,
+          extra: applySupportedCapabilitiesToExtra(extra),
           proxy_id: form.proxy_id,
           concurrency: form.concurrency,
           load_factor: form.load_factor ?? undefined,
@@ -5659,6 +5702,9 @@ const handleAnthropicExchange = async (authCode: string) => {
 
 // 主入口：根据平台路由到对应处理函数
 const handleExchangeCode = async () => {
+  if (!validateAccountAvailability()) {
+    return
+  }
   const authCode = oauthFlowRef.value?.authCode || ''
 
   switch (form.platform) {

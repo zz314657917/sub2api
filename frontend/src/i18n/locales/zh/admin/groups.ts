@@ -177,13 +177,20 @@ export default {
         noLimit: '无限制'
       },
       peakRate: {
-        title: '高峰倍率',
-        enable: '启用高峰时段倍率',
-        peakStart: '高峰开始时间',
-        peakEnd: '高峰结束时间',
-        peakMultiplier: '高峰倍率',
-        serverTimezone: '高峰时间窗口按服务器时区计算：{timezone}。',
-        multiplierHint: '高峰时段内 token 计费会叠加该倍率；图片按次计费不受影响。'
+        title: '分组分时计费',
+        enable: '启用分组分时计费',
+        peakStart: '开始时间',
+        peakEnd: '结束时间',
+        peakMultiplier: '分时计费因子',
+        serverTimezone: '分时窗口按服务器时区计算：{timezone}。',
+        formulaHint: '最终 Token 倍率 = 当前有效倍率 × 分时计费因子；结束后自动恢复当前有效倍率。图片和视频按次计费不受影响。',
+        standardMultiplierHint: '标准分组必须大于 0，例如原倍率 1.5 × 因子 0.7 = 1.05。',
+        subscriptionMultiplierHint: '订阅分组允许为 0，表示该时段 Token 免费。',
+        windowRequired: '启用分时计费时必须填写开始时间和结束时间',
+        sameDayWindowInvalid: '结束时间必须大于开始时间，暂不支持跨零点窗口',
+        multiplierInvalid: '分时计费因子必须是有效数字',
+        standardMultiplierPositive: '标准分组的分时计费因子必须大于 0',
+        subscriptionMultiplierNonNegative: '订阅分组的分时计费因子不能为负数'
       },
       imagePricing: {
         title: '图片生成计费',

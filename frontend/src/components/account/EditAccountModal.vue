@@ -2439,6 +2439,14 @@
         </div>
       </div>
 
+      <AccountTimeAvailabilityWindow
+        v-model:enabled="accountAvailabilityEnabled"
+        v-model:start="accountAvailabilityStart"
+        v-model:end="accountAvailabilityEnd"
+        @valid="accountAvailabilityValid = $event"
+        @window-valid="accountAvailabilityWindowValid = $event"
+      />
+
       <!-- Group Selection - 仅标准模式显示 -->
       <GroupSelector
         v-if="!authStore.isSimpleMode"
@@ -2519,11 +2527,13 @@ import ProxySelector from '@/components/common/ProxySelector.vue'
 import GroupSelector from '@/components/common/GroupSelector.vue'
 import ModelWhitelistSelector from '@/components/account/ModelWhitelistSelector.vue'
 import AccountCapabilitySelector from '@/components/account/AccountCapabilitySelector.vue'
+import AccountTimeAvailabilityWindow from '@/components/account/AccountTimeAvailabilityWindow.vue'
 import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
 import ShareDisplayCard from '@/components/account/ShareDisplayCard.vue'
 import { applyInterceptWarmup } from '@/components/account/credentialsBuilder'
 import { formatDateTime, formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/utils/format'
 import { createStableObjectKeyResolver } from '@/utils/stableObjectKey'
+import { normalizeTimeInputValue } from '@/utils/peak-rate'
 import { VERTEX_LOCATION_OPTIONS } from '@/constants/account'
 import {
   OPENAI_WS_MODE_CTX_POOL,
@@ -2725,6 +2735,11 @@ const shareDisplay7dUsed = ref<number | null>(null)
 const accountCapabilityValues: AccountCapability[] = ['chat', 'image', 'video', 'embedding']
 const upstreamBillingAutoProbeEnabled = ref(false)
 const upstreamBillingRateSyncEnabled = ref(false)
+const accountAvailabilityEnabled = ref(false)
+const accountAvailabilityStart = ref('')
+const accountAvailabilityEnd = ref('')
+const accountAvailabilityValid = ref(true)
+const accountAvailabilityWindowValid = ref(false)
 
 function normalizeAccountCapabilities(value: unknown): AccountCapability[] {
   if (!Array.isArray(value)) {
@@ -2751,7 +2766,28 @@ function applySupportedCapabilitiesToExtra(updatePayload: Record<string, unknown
   } else {
     delete newExtra.supported_capabilities
   }
+  applyAccountAvailabilityToExtra(newExtra)
   updatePayload.extra = newExtra
+}
+
+function applyAccountAvailabilityToExtra(extra: Record<string, unknown>): void {
+  if (!accountAvailabilityWindowValid.value) {
+    delete extra.account_availability_enabled
+    delete extra.account_availability_start
+    delete extra.account_availability_end
+    return
+  }
+  extra.account_availability_enabled = accountAvailabilityEnabled.value
+  extra.account_availability_start = accountAvailabilityStart.value
+  extra.account_availability_end = accountAvailabilityEnd.value
+}
+
+function validateAccountAvailability(): boolean {
+  if (!accountAvailabilityEnabled.value || (accountAvailabilityValid.value && accountAvailabilityWindowValid.value)) {
+    return true
+  }
+  appStore.showError(t('admin.accounts.timeAvailability.windowInvalid'))
+  return false
 }
 
 function isOpenAIShareDisplaySupportedAccount(account?: Pick<Account, 'platform' | 'type'> | null): boolean {
@@ -3229,6 +3265,13 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   mixedScheduling.value = false
   allowOverages.value = false
   const extra = newAccount.extra as Record<string, unknown> | undefined
+  accountAvailabilityEnabled.value = extra?.account_availability_enabled === true
+  accountAvailabilityStart.value = typeof extra?.account_availability_start === 'string'
+    ? normalizeTimeInputValue(extra.account_availability_start)
+    : ''
+  accountAvailabilityEnd.value = typeof extra?.account_availability_end === 'string'
+    ? normalizeTimeInputValue(extra.account_availability_end)
+    : ''
   mixedScheduling.value = extra?.mixed_scheduling === true
   allowOverages.value = extra?.allow_overages === true
   accountSupportedCapabilities.value = normalizeAccountCapabilities(extra?.supported_capabilities)
@@ -4004,6 +4047,9 @@ const submitUpdateAccount = async (accountID: number, updatePayload: Record<stri
 
 const handleSubmit = async () => {
   if (!props.account) return
+	if (!validateAccountAvailability()) {
+		return
+	}
   const accountID = props.account.id
 
   if (form.status !== 'active' && form.status !== 'inactive' && form.status !== 'error') {

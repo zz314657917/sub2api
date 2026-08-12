@@ -651,6 +651,7 @@
             <Select
               v-model="createForm.subscription_type"
               :options="subscriptionTypeOptions"
+              data-testid="create-subscription-type"
             />
             <p class="input-hint">
               {{ t("admin.groups.subscription.typeHint") }}
@@ -995,13 +996,14 @@
           </div>
         </div>
 
-        <!-- 高峰时段倍率配置（仅订阅类型分组） -->
-        <div v-if="createForm.subscription_type === 'subscription'" class="border-t pt-4">
+        <!-- 分组分时计费 -->
+        <div class="border-t pt-4" data-testid="create-peak-rate-section">
           <div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
             <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
               <input
                 v-model="createForm.peak_rate_enabled"
                 type="checkbox"
+                data-testid="create-peak-rate-enabled"
                 class="rounded border-gray-300 text-[#a9583e] focus:ring-[#cc785c]"
               />
               <span>{{ t("admin.groups.peakRate.enable") }}</span>
@@ -1017,6 +1019,12 @@
               })
             }}
           </p>
+          <p
+            v-if="createForm.peak_rate_enabled"
+            class="mb-3 text-xs text-gray-500 dark:text-gray-400"
+          >
+            {{ t("admin.groups.peakRate.formulaHint") }}
+          </p>
           <div
             v-if="createForm.peak_rate_enabled"
             class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3"
@@ -1026,6 +1034,7 @@
               <input
                 v-model="createForm.peak_start"
                 type="time"
+                data-testid="create-peak-start"
                 class="input"
               />
             </div>
@@ -1034,6 +1043,7 @@
               <input
                 v-model="createForm.peak_end"
                 type="time"
+                data-testid="create-peak-end"
                 class="input"
               />
             </div>
@@ -1043,11 +1053,27 @@
                 v-model.number="createForm.peak_rate_multiplier"
                 type="number"
                 step="0.001"
-                min="0"
+                :min="createForm.subscription_type === 'subscription' ? 0 : 0.001"
+                data-testid="create-peak-multiplier"
                 class="input"
                 placeholder="1"
-                :title="t('admin.groups.peakRate.multiplierHint')"
+                :title="
+                  t(
+                    createForm.subscription_type === 'subscription'
+                      ? 'admin.groups.peakRate.subscriptionMultiplierHint'
+                      : 'admin.groups.peakRate.standardMultiplierHint',
+                  )
+                "
               />
+              <p class="input-hint">
+                {{
+                  t(
+                    createForm.subscription_type === "subscription"
+                      ? "admin.groups.peakRate.subscriptionMultiplierHint"
+                      : "admin.groups.peakRate.standardMultiplierHint",
+                  )
+                }}
+              </p>
             </div>
           </div>
         </div>
@@ -2121,6 +2147,7 @@
               v-model="editForm.subscription_type"
               :options="subscriptionTypeOptions"
               :disabled="true"
+              data-testid="edit-subscription-type"
             />
             <p class="input-hint">
               {{ t("admin.groups.subscription.typeNotEditable") }}
@@ -2465,13 +2492,14 @@
           </div>
         </div>
 
-        <!-- 高峰时段倍率配置（仅订阅类型分组） -->
-        <div v-if="editForm.subscription_type === 'subscription'" class="border-t pt-4">
+        <!-- 分组分时计费 -->
+        <div class="border-t pt-4" data-testid="edit-peak-rate-section">
           <div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
             <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
               <input
                 v-model="editForm.peak_rate_enabled"
                 type="checkbox"
+                data-testid="edit-peak-rate-enabled"
                 class="rounded border-gray-300 text-[#a9583e] focus:ring-[#cc785c]"
               />
               <span>{{ t("admin.groups.peakRate.enable") }}</span>
@@ -2487,6 +2515,12 @@
               })
             }}
           </p>
+          <p
+            v-if="editForm.peak_rate_enabled"
+            class="mb-3 text-xs text-gray-500 dark:text-gray-400"
+          >
+            {{ t("admin.groups.peakRate.formulaHint") }}
+          </p>
           <div
             v-if="editForm.peak_rate_enabled"
             class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3"
@@ -2496,6 +2530,7 @@
               <input
                 v-model="editForm.peak_start"
                 type="time"
+                data-testid="edit-peak-start"
                 class="input"
               />
             </div>
@@ -2504,6 +2539,7 @@
               <input
                 v-model="editForm.peak_end"
                 type="time"
+                data-testid="edit-peak-end"
                 class="input"
               />
             </div>
@@ -2513,11 +2549,27 @@
                 v-model.number="editForm.peak_rate_multiplier"
                 type="number"
                 step="0.001"
-                min="0"
+                :min="editForm.subscription_type === 'subscription' ? 0 : 0.001"
+                data-testid="edit-peak-multiplier"
                 class="input"
                 placeholder="1"
-                :title="t('admin.groups.peakRate.multiplierHint')"
+                :title="
+                  t(
+                    editForm.subscription_type === 'subscription'
+                      ? 'admin.groups.peakRate.subscriptionMultiplierHint'
+                      : 'admin.groups.peakRate.standardMultiplierHint',
+                  )
+                "
               />
+              <p class="input-hint">
+                {{
+                  t(
+                    editForm.subscription_type === "subscription"
+                      ? "admin.groups.peakRate.subscriptionMultiplierHint"
+                      : "admin.groups.peakRate.standardMultiplierHint",
+                  )
+                }}
+              </p>
             </div>
           </div>
         </div>
@@ -3520,7 +3572,11 @@ import {
 import { createModelsListCandidatesTracker } from "./groupsModelsListCandidates";
 import { normalizeSupportedModelScopesForPlatform } from "./groupsSupportedModelScopes";
 import { supportsImagePricingPlatform } from "./groupsImagePricing";
-import { serverTimezoneLabel } from "@/utils/peak-rate";
+import {
+  normalizeTimeInputValue,
+  serverTimezoneLabel,
+  timeOfDayMinutes,
+} from "@/utils/peak-rate";
 
 const { t } = useI18n();
 const appStore = useAppStore();
@@ -4856,6 +4912,54 @@ const normalizeRateMultiplier = (
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 1;
 };
 
+type PeakRateFormState = {
+  subscription_type: SubscriptionType;
+  peak_rate_enabled: boolean;
+  peak_start: string;
+  peak_end: string;
+  peak_rate_multiplier: number | string;
+};
+
+const validatePeakRateForm = (form: PeakRateFormState): boolean => {
+  if (!form.peak_rate_enabled) return true;
+  if (!form.peak_start || !form.peak_end) {
+    appStore.showError(t("admin.groups.peakRate.windowRequired"));
+    return false;
+  }
+  const start = timeOfDayMinutes(form.peak_start);
+  const end = timeOfDayMinutes(form.peak_end);
+  if (start === null || end === null || start >= end) {
+	appStore.showError(t("admin.groups.peakRate.sameDayWindowInvalid"));
+	return false;
+  }
+
+  if (
+    form.peak_rate_multiplier === "" ||
+    form.peak_rate_multiplier === null ||
+    form.peak_rate_multiplier === undefined
+  ) {
+    appStore.showError(t("admin.groups.peakRate.multiplierInvalid"));
+    return false;
+  }
+  const multiplier = Number(form.peak_rate_multiplier);
+  if (!Number.isFinite(multiplier)) {
+    appStore.showError(t("admin.groups.peakRate.multiplierInvalid"));
+    return false;
+  }
+  if (form.subscription_type === "subscription") {
+    if (multiplier < 0) {
+      appStore.showError(t("admin.groups.peakRate.subscriptionMultiplierNonNegative"));
+      return false;
+    }
+    return true;
+  }
+  if (multiplier <= 0) {
+    appStore.showError(t("admin.groups.peakRate.standardMultiplierPositive"));
+    return false;
+  }
+  return true;
+};
+
 const handleCreateGroup = async () => {
   if (!createForm.name.trim()) {
     appStore.showError(t("admin.groups.nameRequired"));
@@ -4868,6 +4972,7 @@ const handleCreateGroup = async () => {
     appStore.showError(t("admin.groups.modelMatch.required"));
     return;
   }
+  if (!validatePeakRateForm(createForm)) return;
   submitting.value = true;
   try {
     // 构建请求数据，包含模型路由配置
@@ -4964,8 +5069,8 @@ const handleEdit = async (group: AdminGroup) => {
   editForm.image_price_4k = group.image_price_4k;
   await readImageQualityPricesFromChannel(group, editImageQualityPrices);
   editForm.peak_rate_enabled = group.peak_rate_enabled ?? false;
-  editForm.peak_start = group.peak_start ?? "";
-  editForm.peak_end = group.peak_end ?? "";
+  editForm.peak_start = normalizeTimeInputValue(group.peak_start);
+  editForm.peak_end = normalizeTimeInputValue(group.peak_end);
   editForm.peak_rate_multiplier = group.peak_rate_multiplier ?? 1.0;
   editForm.claude_code_only = group.claude_code_only || false;
   editForm.allow_live = group.allow_live ?? false;
@@ -5036,6 +5141,7 @@ const handleUpdateGroup = async () => {
     appStore.showError(t("admin.groups.modelMatch.required"));
     return;
   }
+  if (!validatePeakRateForm(editForm)) return;
 
   submitting.value = true;
   try {
@@ -5200,31 +5306,13 @@ const confirmDelete = async () => {
   }
 };
 
-// 监听 subscription_type 变化，订阅模式时 is_exclusive 默认为 true；标准模式清空高峰配置
+// 监听 subscription_type 变化，订阅模式时 is_exclusive 默认为 true。
 watch(
   () => createForm.subscription_type,
   (newVal) => {
     if (newVal === "subscription") {
       createForm.is_exclusive = true;
       createForm.fallback_group_id_on_invalid_request = null;
-    } else {
-      createForm.peak_rate_enabled = false;
-      createForm.peak_start = "";
-      createForm.peak_end = "";
-      createForm.peak_rate_multiplier = 1.0;
-    }
-  },
-);
-
-// 编辑表单：切回标准模式时清空高峰配置，避免残留随更新请求提交被后端拒绝
-watch(
-  () => editForm.subscription_type,
-  (newVal) => {
-    if (newVal !== "subscription") {
-      editForm.peak_rate_enabled = false;
-      editForm.peak_start = "";
-      editForm.peak_end = "";
-      editForm.peak_rate_multiplier = 1.0;
     }
   },
 );

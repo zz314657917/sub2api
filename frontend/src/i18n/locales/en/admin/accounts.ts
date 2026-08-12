@@ -91,6 +91,15 @@ export default {
       schedulableEnabled: 'Scheduling enabled',
       schedulableDisabled: 'Scheduling disabled',
       failedToToggleSchedulable: 'Failed to toggle scheduling status',
+      timeAvailability: {
+        title: 'Account time availability',
+        enable: 'Enable account time availability',
+        hint: 'When enabled, the account is eligible for new requests only during the configured window. Requests already started are not interrupted.',
+        start: 'Start time',
+        end: 'End time',
+        serverTimezone: 'The time window uses server timezone: {timezone}.',
+        windowInvalid: 'Enter a valid same-day window with an end time later than the start time. Cross-midnight windows are not supported.'
+      },
       groupCountTotal: '{count} groups total',
       platforms: {
         anthropic: 'Anthropic',

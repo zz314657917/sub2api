@@ -89,6 +89,15 @@ export default {
       schedulableEnabled: '调度已开启',
       schedulableDisabled: '调度已关闭',
       failedToToggleSchedulable: '切换调度状态失败',
+      timeAvailability: {
+        title: '账号分时可用',
+        enable: '启用账号分时可用',
+        hint: '开启后，账号仅在指定时段参与新请求调度；已开始的请求不会中断。',
+        start: '开始时间',
+        end: '结束时间',
+        serverTimezone: '分时窗口按服务器时区计算：{timezone}。',
+        windowInvalid: '请填写同日有效时段，且结束时间必须晚于开始时间。暂不支持跨零点窗口。'
+      },
       groupCountTotal: '共 {count} 个分组',
       columns: {
         rowNumber: '编号',

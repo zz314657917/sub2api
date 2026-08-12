@@ -2,14 +2,15 @@ import { describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 
-const { updateAccountMock, checkMixedChannelRiskMock } = vi.hoisted(() => ({
+const { updateAccountMock, checkMixedChannelRiskMock, showErrorMock } = vi.hoisted(() => ({
   updateAccountMock: vi.fn(),
-  checkMixedChannelRiskMock: vi.fn()
+  checkMixedChannelRiskMock: vi.fn(),
+  showErrorMock: vi.fn()
 }))
 
 vi.mock('@/stores/app', () => ({
   useAppStore: () => ({
-    showError: vi.fn(),
+    showError: showErrorMock,
     showSuccess: vi.fn(),
     showInfo: vi.fn()
   })
@@ -216,6 +217,50 @@ function mountModal(account = buildAccount()) {
 }
 
 describe('EditAccountModal', () => {
+	it('normalizes and preserves a valid disabled availability window in the update payload', async () => {
+		const account = buildAccount()
+		account.extra = {
+			account_availability_enabled: false,
+			account_availability_start: '9:00',
+			account_availability_end: '18:00'
+		}
+		updateAccountMock.mockReset()
+		checkMixedChannelRiskMock.mockReset()
+		checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+		updateAccountMock.mockResolvedValue(account)
+
+		const wrapper = mountModal(account)
+		await flushPromises()
+		await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+		await flushPromises()
+
+		expect(updateAccountMock).toHaveBeenCalledTimes(1)
+		expect(updateAccountMock.mock.calls[0]?.[1]?.extra).toEqual(expect.objectContaining({
+			account_availability_enabled: false,
+			account_availability_start: '09:00',
+			account_availability_end: '18:00'
+		}))
+	})
+
+	it('blocks an enabled invalid availability window before updating', async () => {
+		const account = buildAccount()
+		account.extra = {
+			account_availability_enabled: true,
+			account_availability_start: '22:00',
+			account_availability_end: '18:00'
+		}
+		updateAccountMock.mockReset()
+		checkMixedChannelRiskMock.mockReset()
+		showErrorMock.mockReset()
+
+		const wrapper = mountModal(account)
+		await flushPromises()
+		await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+		expect(updateAccountMock).not.toHaveBeenCalled()
+		expect(showErrorMock).toHaveBeenCalledWith('admin.accounts.timeAvailability.windowInvalid')
+	})
+
   it('reopening the same account rehydrates the OpenAI whitelist from props', async () => {
     const account = buildAccount()
     updateAccountMock.mockReset()
