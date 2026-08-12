@@ -1,38 +1,37 @@
 # 当前主线
 
-## 2026-08-03 之后
+## 2026-08-12 之后
 
-- 默认续做心智已前移到 `Usage S135-S138` 与 `Pixel Cafe S139+`；`S111/S112`、`group-buy` 和更早的 Studio Bridge 语境只保留为背景。
+- 默认续做心智已从 `Usage S135-S138` / `Pixel Cafe S139+` 继续前移到 `S211 标准分组时段倍率` 与 `S212 账号时段可用性`；较早的 Pixel Cafe、Usage、`S111/S112`、`group-buy` 和更早的 Studio Bridge 语境只保留为背景。
 - 继续接手时，先看 `docs/workflow/status.md` 和 `knowledge/tasks/current-task.md`，再用 `knowledge/tasks/timeline.md` 回收最近阶段历史。
 
-最后更新：2026-08-06
+最后更新：2026-08-12
 
 ## 当前阶段
 
-Sub2API 近期稳定主线再次前移。截至 2026-08-03，默认续做心智应先落在 `Usage S135-S138 + Pixel Cafe S139+ + phase=done + 当前 workflow/status 为准`，而不是继续停在 2026-07-24 的 `S111 PASS / published + S112 PASS / source-only` 语境。
+Sub2API 近期稳定主线再次前移。截至 2026-08-12，默认续做心智应先落在 `S211 标准分组时段倍率 + S212 账号时段可用性 + phase=done + 当前 workflow/status 为准`，而不是继续停在 2026-08-03 的 `Usage S135-S138 + Pixel Cafe S139+` 语境。
 
 ## 当前重点
 
-1. `Usage S135-S138` 已成为当前最近一层分析主线
-   - 最近 3 天的稳定变化集中在用户/管理员 Usage 分析、错误请求、Token 排行和相关 workflow 收口。
-   - 这条主线应以 `docs/workflow/status.md`、`knowledge/tasks/current-task.md` 和 `knowledge/tasks/timeline.md` 为准，入口知识只负责把默认语境抬到最新一层。
+1. `S211 标准分组时段倍率` 已成为当前最近一层分组 / 计费主线
+   - 标准分组现在也支持既有 `peak_rate_*` 语义的同日时段倍率；窗口外返回 `1.0`，不改字段名、不引入 schema/migration。
+   - 继续接手 group、rate、usage、billing 或调度相关工作时，要先把 `S211` 视为当前默认产品/工程基线，而不是先回退到更早的 Usage 统计语境。
 
-2. `Pixel Cafe S139+` 已成为当前最近一层业务主线
-   - Pixel Cafe 已进入多阶段实现和浏览器验收语境，继续接手时不要再把仓库当成只有旧 group-buy 或旧 Studio Bridge 的主线。
-   - 这层变化更适合作为长期默认入口提示，而不是只留在 workflow 产物里。
+2. `S212 账号时段可用性` 已成为当前最近一层账号 / 调度主线
+   - 单账号可配置 server-timezone 的每日可用窗口；窗口外账号会被排除出新请求调度，但不会改持久化 `status`、`schedulable`、分组绑定或 API Key 绑定。
+   - 这条主线直接覆盖账号调度、Antigravity gate、account dialog、管理员配置与局部视觉验收边界，已经值得进入入口知识，而不应只留在 workflow/current-task。
 
-3. 并行 `S110 / group-buy` 已成为当前工作树边界的一部分
-   - 另有 `codex/group-buy-lifecycle-refund-hardening-s110` 独立工作树，且主工作树当前存在 `frontend/src/views/admin/group-buy/AdminGroupBuyView.vue` 与对应测试目录的并行 dirt。
-   - 这意味着后续做任何上游小步迁移、网关兼容或知识回写时，都要先确认本轮范围，不能把 group-buy 路径误混入新的 Sprint、发布或知识结论。
+3. 当前工作树边界已经切到 `S211/S212` 的 account/group/admin 实现面
+   - 主工作树当前高频未提交改动集中在 `backend/internal/service/**`、`backend/internal/handler/**`、`frontend/src/components/account/**`、`frontend/src/views/admin/GroupsView.vue` 与 `docs/workflow/**`。
+   - 这意味着后续做任何上游小步迁移、调度兼容、管理端 UI 或知识回写时，都要先确认本轮范围，不能再沿用 8 月初那批 Pixel Cafe / group-buy dirt 的边界判断。
 
-4. `S106-S109`、独立 Agent Identity S108、`S76-S81`、`S77` 和排行榜小时刷新已退成前一层稳定背景，但不能丢失
-   - `S77` 的 passthrough malformed-JSON 校验、platform-aware Grok image intent gating 和 `TablePageLayout` 水平滚动保持仍是当前网关/UI 基线。
-   - `S76` 的 Fast/Flex email search selection、Grok Composer reasoning sanitization、platform-aware no-account diagnostics，以及 S78-S81 已验收的小步兼容改动都随当前主线保留。
-   - 2026-07-17 的 `feat(leaderboard): refresh rankings hourly` 仍是榜单时效的默认运行约束；后续不能只按旧的 cached refresh 文案理解。
+4. `S210`、`S209`、`S208`、`S207` 已退成前一层稳定工程背景，但不能丢失
+   - `S210` 的 streaming terminal audit / WebSocket audit dedupe、`S209` 的 API key 输入校验、`S208` 的 streaming route cooldown 传递、`S207` 的 availability / fallback 小步上游适配都已经进入当前网关稳态。
+   - 继续做分组倍率、账号可用性、网关调度或管理端配置时，不应把这些能力当成“另一个旧 Sprint”；它们是当前主线默认继承的下层基线。
 
-5. `S65-S70`、暖白前端统一、共享账号渠道状态可见性和首充 only 语义仍成立，但都已退成更早的稳定背景层
+5. `Usage S135-S138`、`Pixel Cafe S139+`、`S65-S70`、暖白前端统一、共享账号渠道状态可见性和首充 only 语义仍成立，但都已退成更早的稳定背景层
    - `d6ff6a158`、`640b9341d`、`7a457f25d`、`71dad20f9` 这些能力仍要保住，但它们不再代表 2026-07-19 时最近的默认续做入口。
-   - 当前补知识或恢复上下文时，如果入口还把“发布后基线”或“7 月 8 日用户面收口”写成最近主线，会明显低估 `S77` 和 7 月 17 日排行榜刷新带来的基线前移。
+   - 当前补知识或恢复上下文时，如果入口还把“8 月 3 日 Usage / Pixel Cafe 收口”写成最近主线，会明显低估 `S207-S212` 对调度、倍率、账号可用性和管理端的基线前移。
 
 6. 排行榜 / 数据台继续前移，已经不再只是 6 月 24 日那轮模型榜补齐
    - 2026-07-08 的 `feat(leaderboard): show rank movement` 和 `feat(leaderboard): show new rank and cached refresh state` 说明当前 leaderboard 稳定面已继续扩展到“排名变化 + 新晋标记 + 缓存刷新状态”。

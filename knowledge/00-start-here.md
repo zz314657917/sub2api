@@ -1,6 +1,6 @@
 # Sub2API 知识库入口
 
-最后更新：2026-08-06
+最后更新：2026-08-12
 
 ## 项目定位
 
@@ -35,21 +35,21 @@ Sub2API 是 AI API 网关平台，用于把上游 AI 账号、订阅额度和模
 
 ## 当前仓库状态提示
 
-- 当前默认续做主线已经继续前移到 2026-08-03 的 `Usage S135-S138` 与 `Pixel Cafe S139+`；`S111/S112` 和并行 `group-buy` 已退成更早一层背景。
+- 当前默认续做主线已经从 2026-08-03 的 `Usage S135-S138` / `Pixel Cafe S139+` 继续前移到 2026-08-12 的 `S211 标准分组时段倍率` 与 `S212 账号时段可用性`；较早的 Pixel Cafe、Usage、`S111/S112` 和并行 `group-buy` 只保留为背景层。
 - 现在判断“仓库在做什么”，先看 `docs/workflow/status.md` 和 `knowledge/tasks/current-task.md`，再用 `knowledge/tasks/timeline.md` 补足最近阶段历史。
-- `knowledge/tasks/current-task.md` 应优先记录“现在默认从哪条主线继续”，不再适合停留在 2026-07-12 的 release push / fast-forward / cleanup 清单。
-- 遇到入口摘要与 workflow 文档冲突时，先以 `docs/workflow/status.md` 的当前 Sprint/phase 为准，再用 `knowledge/05-current-focus.md` 判断稳定主线，用 `knowledge/tasks/current-task.md` 判断当前会话快照。
-- 当前工作区仍存在并行 `group-buy` dirt：主工作树有 `frontend/src/views/admin/group-buy/AdminGroupBuyView.vue` 和对应测试目录未提交，且另有 `codex/group-buy-lifecycle-refund-hardening-s110` 独立工作树；开始新任务前先执行 `git status --short`，确认哪些文件属于本轮目标。
+- `knowledge/tasks/current-task.md` 现在应优先承载 `S211/S212` 的会话快照；如果入口摘要与 workflow 文档冲突，先以 `docs/workflow/status.md` 的当前 Sprint/phase 为准，再用 `knowledge/05-current-focus.md` 判断稳定主线。
+- 当前主工作树存在新的未提交实现面，已不再是 8 月初那批 Pixel Cafe / group-buy dirt：本轮高频改动集中在 `backend/internal/service/**`、`backend/internal/handler/**`、`frontend/src/components/account/**`、`frontend/src/views/admin/GroupsView.vue` 和 `docs/workflow/**`。开始新任务前先执行 `git status --short`，确认哪些文件属于本轮目标。
+- `S211/S212` 的默认边界是：不 push、不部署、不更新容器、不触碰 `outputs/`；如需继续 source 收口或提交，只能在用户明确授权后单独执行。
 - 不要清理、回滚或格式化与当前目标无关的文件。
 
 ## 当前默认心智
 
-- 当前最靠前的用户面变化已经前移到 2026-08-03 的 Usage 与 Pixel Cafe 多阶段收口；`S111` 只作为更早背景保留。
-- 当前最靠前的后端兼容变化已经前移到 `S112`，但它已经退成背景层；后续继续做设置、网关、账号能力或 UI 时要先看最新 workflow 状态。
-- `S106-S109`、独立 Agent Identity S108、`S76-S81`、`S77` 和排行榜按小时刷新都已进入更早一层的稳定背景；继续排查设置、网关、账号能力或 UI 时不能回退到 7 月 20 日之前的 `S82-S86 publish pending` 心智。
-- 当前 workflow phase 是 `done`；`S111` 已 `PASS / published`，`S112` 是 `PASS / source-only` 但功能提交和发布收口都已在 `origin/main`。这仍不等于已部署、已更新容器或已做真实登录态/上游 smoke。
-- Studio Bridge / 落叶AI、暖白前端统一、共享账号渠道状态可见性、首充 bonus only、以及更早的上游 safe patches 仍然成立，但它们已经退成当前集成线之前的稳定背景层。
-- 继续做聊天生图、嵌入工作区、模型市场、OpenAI/Codex 网关兼容或排行榜相关工作时，不要只看单个页面或单个 Sprint；通常要把最新 workflow 状态、默认主线、并行 `group-buy` 边界和旧的产品背景一起看成一条连续链路。
+- 当前最靠前的默认主线已经前移到 `S211 标准分组时段倍率 + S212 账号时段可用性`。继续接手分组、账号、调度、倍率、可用性或管理端弹窗相关工作时，不应再把仓库先理解成 8 月 3 日的 Usage / Pixel Cafe 收口仓。
+- `S211` 已把 standard group 的 `peak_rate_*` 语义扩展到同日时段倍率；`S212` 已把账号级可用时间窗收口到 `accounts.extra` 与调度排除逻辑。这两条是当前账号/分组/调度默认背景，优先级高于更早的 Pixel Cafe 和排行榜语境。
+- `S210`、`S209`、`S208`、`S207` 已退成上一层稳定工程背景，但仍直接影响网关稳态：streaming terminal audit、API key 输入校验、stream route cooldown 和记分/availability 小步上游合成都已进入当前后端基线。
+- 当前 workflow phase 仍是 `done`，但这只表示本地 source / QA 收口完成；`S212` 明确未执行 push、部署、容器更新、共享资源变更和真实生产流量验证，不能把入口知识写成“已经发布”或“线上已验证”。
+- 当前浏览器证据边界也需显式保留：`S211` 有本地桌面和 390px 视觉证据；`S212` 自动化和独立 QA 已通过，但 Vite-only 环境因后端 `500` / `ECONNREFUSED` 未取得认证后的账号弹窗视觉证据，不能误写成完整视觉 PASS。
+- Usage、Pixel Cafe、排行榜、Studio Bridge / 落叶AI、暖白前端统一、共享账号渠道状态可见性、首充 bonus only、以及更早的上游 safe patches 仍然成立，但都已退成当前 `S211/S212` 之前的稳定背景层。
 
 ## 知识维护规则
 
