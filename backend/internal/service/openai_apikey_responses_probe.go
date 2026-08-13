@@ -90,7 +90,8 @@ func selectResponsesProbeModel(account *Account) string {
 //
 // 探测策略（参见包文档 internal/pkg/openai_compat）：
 //   - 上游 404 / 405 → 不支持，写 false
-//   - 上游 2xx → 响应 output 含 function_call 才写 true，否则写 false
+//   - 上游 2xx → 已完成响应的 output 含 function_call 才写 true，否则写 false
+//   - 上游 2xx 但响应因 failed 或 max_output_tokens 不完整 → 不写标记，保持 unknown
 //   - 其他 4xx（401/422/400 等）/ 5xx → 端点存在但无法判定工具能力，保守写 true
 //   - 网络层失败（连接错误、超时）→ 不写标记，保持 unknown
 //     （后续请求仍按"现状即证据"默认走 Responses）
@@ -159,6 +160,11 @@ func (s *AccountTestService) ProbeOpenAIAPIKeyResponsesSupport(ctx context.Conte
 		return
 	}
 
+	if !responsesProbeVerdictIsConclusive(resp.StatusCode, bodyBytes) {
+		logger.LegacyPrintf("service.openai_probe", "probe_inconclusive: account_id=%d url=%s status=%d", accountID, probeURL, resp.StatusCode)
+		return
+	}
+
 	supported := decideResponsesProbeSupport(resp.StatusCode, bodyBytes)
 
 	if err := s.accountRepo.UpdateExtra(ctx, accountID, map[string]any{
@@ -200,6 +206,21 @@ func decideResponsesProbeSupport(status int, body []byte) bool {
 		return true
 	}
 	return responsesProbeBodyHasFunctionCall(body)
+}
+
+// responsesProbeVerdictIsConclusive reports whether a probe response can safely
+// replace the unknown capability state. Failed and output-token-truncated 2xx
+// Responses payloads do not establish whether the required function call works.
+func responsesProbeVerdictIsConclusive(status int, body []byte) bool {
+	if status < http.StatusOK || status >= http.StatusMultipleChoices {
+		return true
+	}
+
+	responseStatus := strings.TrimSpace(gjson.GetBytes(body, "status").String())
+	if responseStatus == "failed" {
+		return false
+	}
+	return responseStatus != "incomplete" || strings.TrimSpace(gjson.GetBytes(body, "incomplete_details.reason").String()) != "max_output_tokens"
 }
 
 func responsesProbeBodyHasFunctionCall(body []byte) bool {
