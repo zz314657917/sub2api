@@ -656,6 +656,7 @@ func ProvideAdminService(
 	privacyClientFactory PrivacyClientFactory,
 	systemTicketSvc *SystemTicketService,
 	usageService *UsageService,
+	channelService *ChannelService,
 ) AdminService {
 	svc := NewAdminService(
 		userRepo,
@@ -685,6 +686,11 @@ func ProvideAdminService(
 		SetLeaderboardCacheInvalidator(leaderboardCacheInvalidator)
 	}); ok {
 		setter.SetLeaderboardCacheInvalidator(usageService)
+	}
+	if setter, ok := svc.(interface {
+		SetChannelCacheInvalidator(channelCacheInvalidator)
+	}); ok {
+		setter.SetChannelCacheInvalidator(channelService)
 	}
 	return svc
 }

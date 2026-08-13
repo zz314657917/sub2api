@@ -362,6 +362,11 @@ func (s *ChannelService) invalidateCache() {
 	}
 }
 
+// InvalidateCache invalidates and rebuilds the channel cache after dependent data changes.
+func (s *ChannelService) InvalidateCache() {
+	s.invalidateCache()
+}
+
 // matchWildcard 在通配符定价中查找匹配项（最先匹配到优先）
 func (c *channelCache) matchWildcard(groupID int64, platform, modelLower string) *ChannelModelPricing {
 	gpKey := channelGroupPlatformKey{groupID: groupID, platform: platform}

@@ -604,6 +604,7 @@ type adminServiceImpl struct {
 	privacyClientFactory        PrivacyClientFactory
 	systemTicketSvc             *SystemTicketService
 	leaderboardCacheInvalidator leaderboardCacheInvalidator
+	channelCacheInvalidator     channelCacheInvalidator
 }
 
 type userGroupRateBatchReader interface {
@@ -612,6 +613,10 @@ type userGroupRateBatchReader interface {
 
 type leaderboardCacheInvalidator interface {
 	InvalidateLeaderboardCaches()
+}
+
+type channelCacheInvalidator interface {
+	InvalidateCache()
 }
 
 // NewAdminService creates a new AdminService
@@ -665,6 +670,12 @@ func (s *adminServiceImpl) SetSystemTicketService(systemTicketSvc *SystemTicketS
 func (s *adminServiceImpl) SetLeaderboardCacheInvalidator(invalidator leaderboardCacheInvalidator) {
 	if s != nil {
 		s.leaderboardCacheInvalidator = invalidator
+	}
+}
+
+func (s *adminServiceImpl) SetChannelCacheInvalidator(invalidator channelCacheInvalidator) {
+	if s != nil {
+		s.channelCacheInvalidator = invalidator
 	}
 }
 
@@ -2294,6 +2305,7 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	if err != nil {
 		return nil, err
 	}
+	oldPlatform := group.Platform
 	oldRateMultiplier := group.RateMultiplier
 	oldImageRateMultiplier := group.ImageRateMultiplier
 	oldRPMLimit := group.RPMLimit
@@ -2457,6 +2469,10 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 
 	if err := s.groupRepo.Update(ctx, group); err != nil {
 		return nil, err
+	}
+
+	if input.Platform != "" && group.Platform != oldPlatform && s.channelCacheInvalidator != nil {
+		s.channelCacheInvalidator.InvalidateCache()
 	}
 
 	if s.authCacheInvalidator != nil {
