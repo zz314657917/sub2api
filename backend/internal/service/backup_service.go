@@ -3,6 +3,7 @@ package service
 import (
 	"compress/gzip"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -110,6 +111,7 @@ type BackupRecord struct {
 // BackupService 数据库备份恢复服务
 type BackupService struct {
 	settingRepo             SettingRepository
+	db                      *sql.DB
 	dbCfg                   *config.DatabaseConfig
 	encryptor               SecretEncryptor
 	encryptionKeyConfigured bool
@@ -134,6 +136,7 @@ type BackupService struct {
 	shuttingDown atomic.Bool        // 阻止新备份启动
 	bgCtx        context.Context    // 所有后台操作的 parent context
 	bgCancel     context.CancelFunc // 取消所有活跃后台操作
+	logf         func(string, string, ...any)
 }
 
 func NewBackupService(
@@ -153,6 +156,7 @@ func NewBackupService(
 		dumper:                  dumper,
 		bgCtx:                   bgCtx,
 		bgCancel:                bgCancel,
+		logf:                    logger.LegacyPrintf,
 	}
 }
 
@@ -405,6 +409,19 @@ func (s *BackupService) runScheduledBackup() {
 
 	ctx, cancel := context.WithTimeout(s.bgCtx, 30*time.Minute)
 	defer cancel()
+
+	if s.db != nil {
+		release, acquired, err := tryAcquireDBAdvisoryLockWithError(ctx, s.db, hashAdvisoryLockID("backup:scheduled:leader"))
+		if err != nil {
+			s.logf("service.backup", "[Backup] scheduled backup leader lock acquisition failed: %v", err)
+			return
+		}
+		if !acquired {
+			logger.LegacyPrintf("service.backup", "[Backup] scheduled backup skipped: another leader holds the lock")
+			return
+		}
+		defer release()
+	}
 
 	// 读取定时备份配置中的过期天数
 	schedule, _ := s.GetSchedule(ctx)
