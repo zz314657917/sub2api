@@ -601,14 +601,26 @@ func RemovePreviousResponseIDFromBody(body []byte) []byte {
 // validateChannelConfig 校验渠道的定价和映射配置（冲突检测 + 区间校验 + 计费模式校验）。
 // Create 和 Update 共用此函数，避免重复。
 func validateChannelConfig(pricing []ChannelModelPricing, mapping map[string]map[string]string) error {
-	if err := validatePricingEntries(pricing); err != nil {
+	if err := validateChannelPricingEntries(pricing); err != nil {
 		return err
 	}
 	return validateNoConflictingMappings(mapping)
 }
 
+// validateChannelPricingEntries validates top-level channel pricing. Its
+// conflict detection follows the normalization used by the channel cache.
+func validateChannelPricingEntries(pricing []ChannelModelPricing) error {
+	if err := validateNoConflictingChannelPricingModels(pricing); err != nil {
+		return err
+	}
+	if err := validatePricingIntervals(pricing); err != nil {
+		return err
+	}
+	return validatePricingBillingMode(pricing)
+}
+
 // validatePricingEntries 校验定价条目（冲突检测 + 区间校验 + 计费模式校验），
-// 同时用于主渠道定价和 account_stats_pricing_rules 的内部定价。
+// 用于 account_stats_pricing_rules 的内部定价，保持其既有的 lower-only 语义。
 func validatePricingEntries(pricing []ChannelModelPricing) error {
 	if err := validateNoConflictingModels(pricing); err != nil {
 		return err
@@ -945,6 +957,17 @@ func toModelEntry(pattern string) modelEntry {
 	return modelEntry{pattern: pattern, prefix: prefix, wildcard: isWild}
 }
 
+// toChannelPricingModelEntry matches the cache key normalization for channel
+// pricing while keeping model mappings and account-stats rules lower-only.
+func toChannelPricingModelEntry(pattern string) modelEntry {
+	prefix, isWild := splitWildcardSuffix(strings.TrimSpace(pattern))
+	return modelEntry{
+		pattern:  pattern,
+		prefix:   normalizeChannelPricingModelName(prefix),
+		wildcard: isWild,
+	}
+}
+
 // validateNoConflictingModels 检查定价列表中是否有冲突模型模式（同一平台下）。
 // 冲突包括：精确重复、通配符之间的前缀包含、通配符与精确名的前缀匹配。
 func validateNoConflictingModels(pricingList []ChannelModelPricing) error {
@@ -952,6 +975,23 @@ func validateNoConflictingModels(pricingList []ChannelModelPricing) error {
 	for _, p := range pricingList {
 		for _, model := range p.Models {
 			byPlatform[p.Platform] = append(byPlatform[p.Platform], toModelEntry(model))
+		}
+	}
+	for platform, entries := range byPlatform {
+		if err := detectConflicts(entries, platform, "MODEL_PATTERN_CONFLICT", "model patterns"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateNoConflictingChannelPricingModels checks top-level channel pricing
+// entries using the same normalized model spelling as the pricing cache.
+func validateNoConflictingChannelPricingModels(pricingList []ChannelModelPricing) error {
+	byPlatform := make(map[string][]modelEntry)
+	for _, p := range pricingList {
+		for _, model := range p.Models {
+			byPlatform[p.Platform] = append(byPlatform[p.Platform], toChannelPricingModelEntry(model))
 		}
 	}
 	for platform, entries := range byPlatform {
