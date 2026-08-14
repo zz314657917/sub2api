@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildOpenAIUsageRefreshKey } from '../accountUsageRefresh'
+import { buildGrokUsageRefreshKey, buildOpenAIUsageRefreshKey, getAccountPlanType } from '../accountUsageRefresh'
 
 describe('buildOpenAIUsageRefreshKey', () => {
   it('会在 codex 快照变化时生成不同 key', () => {
@@ -59,5 +59,55 @@ describe('buildOpenAIUsageRefreshKey', () => {
       last_used_at: '2026-03-07T10:00:00Z',
       extra: {}
     } as any)).toBe('')
+  })
+})
+
+describe('buildGrokUsageRefreshKey', () => {
+  const grokAccount = (extra: Record<string, unknown>) => ({ platform: 'grok', extra } as any)
+
+  it('uses canonical tier before legacy snapshot', () => {
+    const base = grokAccount({
+      grok_usage_snapshot: { subscription_tier: 'premium', counters: { requests: 1 } },
+      grok_quota_snapshot: { subscription_tier: 'legacy', stale: true }
+    })
+    const legacyChanged = grokAccount({
+      grok_usage_snapshot: { counters: { requests: 1 }, subscription_tier: 'premium' },
+      grok_quota_snapshot: { subscription_tier: 'legacy', stale: false }
+    })
+    const canonicalChanged = grokAccount({
+      grok_usage_snapshot: { subscription_tier: 'premium', counters: { requests: 2 } },
+      grok_quota_snapshot: { subscription_tier: 'legacy', stale: true }
+    })
+
+    expect(buildGrokUsageRefreshKey(base)).toBe(buildGrokUsageRefreshKey(legacyChanged))
+    expect(buildGrokUsageRefreshKey(base)).not.toBe(buildGrokUsageRefreshKey(canonicalChanged))
+  })
+
+  it('keeps array order but normalizes object key order', () => {
+    const first = grokAccount({ grok_billing_snapshot: { plan: 'pro', windows: [{ reset: 2, used: 1 }] } })
+    const reordered = grokAccount({ grok_billing_snapshot: { windows: [{ used: 1, reset: 2 }], plan: 'pro' } })
+    const arrayChanged = grokAccount({ grok_billing_snapshot: { plan: 'pro', windows: [{ used: 1, reset: 2 }, { used: 3 }] } })
+
+    expect(buildGrokUsageRefreshKey(first)).toBe(buildGrokUsageRefreshKey(reordered))
+    expect(buildGrokUsageRefreshKey(first)).not.toBe(buildGrokUsageRefreshKey(arrayChanged))
+  })
+
+  it('returns an empty key for non-Grok accounts', () => {
+    expect(buildGrokUsageRefreshKey({ platform: 'openai', extra: {} } as any)).toBe('')
+  })
+})
+
+describe('getAccountPlanType', () => {
+  it('uses the documented Grok tier precedence', () => {
+    expect(getAccountPlanType({
+      platform: 'grok',
+      credentials: { subscription_tier: 'credential', plan_type: 'plan', parent_plan_type: 'parent' },
+      extra: {
+        grok_billing_snapshot: { plan: 'billing' },
+        grok_usage_snapshot: { subscription_tier: 'usage' },
+        grok_quota_snapshot: { subscription_tier: 'legacy' },
+        subscription_tier: 'extra'
+      }
+    } as any)).toBe('credential')
   })
 })
