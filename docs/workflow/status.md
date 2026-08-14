@@ -1,13 +1,35 @@
 ---
 phase: done
-current_sprint: upstream-v0176-grok-correctness-s215
-total_sprints: 215
-pending_action: S215 local integration is complete. Do not push, deploy, update containers, use real provider/production traffic, touch migrations, or alter user-owned frontend edits and outputs/ without a new explicit task.
+current_sprint: branch-consolidation-s216
+total_sprints: 216
+pending_action: Git branch consolidation is complete. Remove only the explicit, unregistered E:/codex-worktrees/sub2api/s215-grok-badge residual directory if local filesystem permission permits; verify it is gone, then keep the three backup refs and all user-owned frontend edits and outputs/. Do not push, deploy, update containers, use real provider/production traffic, or touch migrations without a new explicit task.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-14 08:34 +08:00
+last_verified: 2026-08-14 11:46 +08:00
 ---
+
+# Local Branch Consolidation S216
+
+- `BLOCKED / filesystem-residual`: independent topology and patch-id reviews
+  proved that the seven P/G/E branches contained no product patch missing from
+  local main. All seven local `pge/*` refs were deleted. Six corresponding
+  clean worktree directories were removed.
+- `E:/codex-worktrees/sub2api/s215-grok-badge` is no longer a Git worktree and
+  no longer contains `.git`, but remains as a task-owned filesystem residual
+  with ignored frontend dependencies. The exact recursive deletion was denied
+  by the local command policy, so it was not bypassed. Delete no other
+  `E:/codex-worktrees/sub2api/*` directory as part of this task.
+- `backup/pre-s121-split-4161d254b` retains a unique commit and remains
+  protected. `backup/pre-s157-merge-20260804` and
+  `backup/pre-s177-main-20260804` are retained intentionally as merge/rewrite
+  safety refs despite being reachable from main.
+- Fresh `go test ./internal/service -count=1` and
+  `go test ./internal/server -count=1` passed in `backend/`. The root is not a
+  Go module; commands must run from `backend/`.
+- The user-owned account-modal source/test and `outputs/` were neither staged,
+  committed, reset, nor deleted. No push, deployment, container, provider, or
+  production operation occurred.
 
 # Upstream Grok Correctness S215
 
