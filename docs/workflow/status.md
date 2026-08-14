@@ -2,11 +2,11 @@
 phase: done
 current_sprint: branch-consolidation-s216
 total_sprints: 216
-pending_action: Git branch consolidation is complete. Remove only the explicit, unregistered E:/codex-worktrees/sub2api/s215-grok-badge residual directory if local filesystem permission permits; verify it is gone, then keep the three backup refs and all user-owned frontend edits and outputs/. Do not push, deploy, update containers, use real provider/production traffic, or touch migrations without a new explicit task.
+pending_action: Local main through 1d783620a has been published to origin/main. Remove only the explicit, unregistered E:/codex-worktrees/sub2api/s215-grok-badge residual directory if local filesystem permission permits; verify it is gone, then keep the three backup refs and all user-owned frontend edits and outputs/. Do not deploy, update containers, use real provider/production traffic, or touch migrations without a new explicit task.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-14 11:46 +08:00
+last_verified: 2026-08-14 12:08 +08:00
 ---
 
 # Local Branch Consolidation S216
@@ -28,8 +28,14 @@ last_verified: 2026-08-14 11:46 +08:00
   `go test ./internal/server -count=1` passed in `backend/`. The root is not a
   Go module; commands must run from `backend/`.
 - The user-owned account-modal source/test and `outputs/` were neither staged,
-  committed, reset, nor deleted. No push, deployment, container, provider, or
+  committed, reset, nor deleted. No deployment, container, provider, or
   production operation occurred.
+- `PASS / main-published`: an origin fetch confirmed `main` was 10 commits
+  ahead with no remote commits to integrate, then pushed
+  `23b2a1e92..1d783620a`. Fresh backend `internal/service` and
+  `internal/server` tests passed. This checkout currently lacks executable
+  Vitest and `vue-tsc` in `frontend/node_modules`, so this publish does not add
+  new frontend runtime evidence beyond the unchanged S215 acceptance record.
 
 # Upstream Grok Correctness S215
 

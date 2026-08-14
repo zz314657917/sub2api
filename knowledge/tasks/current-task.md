@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-14 11:46 +08:00
+最后更新：2026-08-14 12:08 +08:00
 
 ## 背景
 
@@ -25,10 +25,11 @@
 - S215 已确认 Grok 未登记文本定价与徽章/增量刷新问题在本地可达；Realtime 音频和分组长上下文两项因前置功能不存在而暂定 `BLOCKED`，不擅自扩大为功能移植或数据库迁移。
 - S215 已合入本地 `main`：`3bdeaad66` 为未知 Grok 文本模型加入动态定价未命中后的 4.5 fallback，`69dc79320` 使 Grok 徽章和增量刷新使用 canonical `grok_usage_snapshot`。
 - S216 已由多个独立智能体复核祖先关系、stable patch-id 等价性、worktree 状态与精确暂存范围。7 条 `pge/*` 分支均无未入主线的产品补丁，已删除其分支引用；S214/S213 的 5 个 worktree 与 S215 定价 worktree 已删除。
+- 已整理为 7 个独立修复、3 个已有工作流/交接记录的逻辑提交；未改写历史。`main` 已推送至 `origin/main`，范围为 `23b2a1e92..1d783620a`。
 
 ## 已确认事实
 
-- 本地 `main@69dc79320` 比 `origin/main@23b2a1e92` 领先 7 个提交，其中包含 S214、S213 四项和 S215 两项提交；本轮没有 push。
+- S214-S216 的 10 个本地提交已推送到 `origin/main`：`23b2a1e92..1d783620a`。推送前 fetch 显示本地 0 behind / 10 ahead；用户未提交文件未进入推送对象。
 - S213 定价归一化只影响顶层 `Channel.ModelPricing`，不改变 `AccountStatsPricingRules` 或 model mapping 的既有 lower-case-only 语义。
 - S213 group cache 在 `groupRepo.Update` 成功后、复制账号前失效；失败、相同或缺省平台不失效，既有 auth cache 失效保留。
 - S213 backup 只约束 scheduled job；锁 miss 跳过、获取错误记录 `scheduled backup` 日志并 fail-closed、成功时 defer unlock，manual CreateBackup 不加锁。
@@ -42,11 +43,12 @@
 
 - 预存的 `-tags unit` 全量服务测试仍无法编译，已由 S213 Amendment 1 明确排除；新回归均为默认标签且已执行。
 - S216 目录残留需执行精确删除 -> 验证：仅在本地权限允许时删除 `E:/codex-worktrees/sub2api/s215-grok-badge`，再用 `Test-Path`、`git worktree list --porcelain` 和 `git for-each-ref refs/heads/pge` 确认目录、worktree 与 P/G/E refs 均不存在。
-- 实际 provider、共享 PostgreSQL 多实例、生产计费路径、部署、容器更新和远程推送仍未验证或执行。
+- 实际 provider、共享 PostgreSQL 多实例、生产计费路径、部署和容器更新仍未验证或执行；Git 远程推送已完成。
+- 当前主工作区的 `frontend/node_modules` 缺少 `vitest` 与 `vue-tsc` 可执行文件，因此本轮未重跑前端定向测试/类型检查；S215 前端源码未在其已通过验收后变更。
 
 ## 当前结论
 
-- `BLOCKED / filesystem-residual`：代码整合、工作流证据提交、P/G/E refs 清理和 6 个 worktree 删除已完成；只剩一个已解除 Git 注册的任务目录因命令策略无法递归删除。S215 代码验收仍保持 `PASS / local-main-integrated`。
+- `BLOCKED / filesystem-residual`：代码整合、工作流证据提交、P/G/E refs 清理和 6 个 worktree 删除已完成；只剩一个已解除 Git 注册的任务目录因命令策略无法递归删除。S215 代码验收仍保持 `PASS / local-main-integrated`，主线已推送至 `origin/main`。
 
 ## 下一步
 
@@ -61,3 +63,4 @@
 - 合入后：聚焦 S213 pattern `-count=10` 通过；`go test ./internal/service -count=1`（67.698s）、`go test ./internal/server -count=1`、`go test ./cmd/server -run '^$' -count=0` 和 `go run github.com/google/wire/cmd/wire ./cmd/server` 通过。
 - S215 合入后：Go 两项 fallback 测试发现且 `-count=10` 通过；`go test ./internal/service -count=1`（62.042s）、`go test ./internal/server -count=1`、`go test ./cmd/server -run '^$' -count=0` 通过。Vitest 发现强制用例，2 files / 8 tests 连续 3 轮通过，`vue-tsc --noEmit`、目标 ESLint、gofmt、diff、冲突和 index 门禁通过；仅有 Browserslist 数据过期提示。
 - S216：7 条 P/G/E 分支的祖先/patch-id 审查通过，所有 worktree 清理前状态为空；`backend/` 中 `go test ./internal/service -count=1`（66.612s）和 `go test ./internal/server -count=1`（0.708s）通过。Git worktree 已仅剩主工作区、P/G/E refs 已清空、未合并索引为空；`git fsck` 无 missing/broken/corrupt/error 输出。根目录非 Go 模块，直接运行 Go 测试会失败，应从 `backend/` 执行。
+- 发布：origin fetch 确认 `0 behind / 10 ahead` 后，`git push origin main` 成功发布 `23b2a1e92..1d783620a`。重新执行 `backend/` 的完整 service（62.456s）与 server（0.098s）均通过；前端定向 Vitest/类型检查因本机缺少可执行依赖未运行，未把该环境缺口报告为产品回归。
