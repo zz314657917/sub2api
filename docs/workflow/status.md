@@ -1,13 +1,117 @@
 ---
 phase: done
-current_sprint: account-time-availability-s212
-total_sprints: 212
-pending_action: No remaining local delivery action. Do not push or run real-provider/production traffic unless explicitly requested; keep outputs/ and the two user knowledge edits untouched.
+current_sprint: upstream-v0176-grok-correctness-s215
+total_sprints: 215
+pending_action: S215 local integration is complete. Do not push, deploy, update containers, use real provider/production traffic, touch migrations, or alter user-owned frontend edits and outputs/ without a new explicit task.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-12 13:30 +08:00
+last_verified: 2026-08-14 08:34 +08:00
 ---
+
+# Upstream Grok Correctness S215
+
+- `PASS / local-main-integrated`: the two reachable slices were independently
+  implemented and accepted by separate `gpt-5.6-terra` QA workers, then
+  cherry-picked without conflicts as `3bdeaad66` (unknown Grok text fallback)
+  and `69dc79320` (Grok account badge/refresh). No push, deployment,
+  container, provider, or production action occurred.
+- `3bdeaad66` adds the local `grok-4.5` static token card only after dynamic
+  pricing misses. It preserves local 4.3/default and Build aliases, strips
+  approved provider prefixes before matching, applies the local strict
+  `> 200000` long-context boundary, and fails closed for media, voice,
+  realtime, and search IDs.
+- `69dc79320` retains `share_display_tier`, reads the canonical backend
+  `grok_usage_snapshot` before legacy quota data, and makes stable snapshot
+  keys drive incremental list replacement. It includes both utility coverage
+  and a mounted `AccountsView` regression.
+- Post-integration checks passed: default-tag discovery and backend focused
+  regressions `-count=10`, complete `internal/service` and `internal/server`,
+  server compilation, three focused Vitest runs, frontend typecheck and ESLint,
+  formatting, diff, conflict-marker, and unmerged-index gates. Browserslist
+  emitted only its existing stale-data advisory.
+- `678eb22a4` remains `BLOCKED / prerequisite absent`: the checkout has no
+  `grok_audio.go`, `GrokRealtime`, or `ProxyGrokRealtime`; direct port would
+  migrate the absent Voice/Realtime feature rather than repair a local path.
+- `b830bc14d` remains `BLOCKED / prerequisite absent`: group
+  `LongContextPricingEnabled`, group `ModelPricing`, and the upstream migration
+  are absent. A future port requires explicit authorization for the group
+  model-pricing feature and a new forward-only local migration.
+
+- Historical contract record: S215 selectively considered four upstream
+  `v0.1.176` commits. Only `8c4c3c09c` (unknown Grok text fallback) and
+  `0ae151a23` (Grok badge/refresh snapshots) have reachable local counterparts.
+  Contract: `docs/workflow/tasks/upstream-v0176-grok-correctness-s215.md`.
+- `678eb22a4` is `BLOCKED / prerequisite absent`: the checkout has no
+  `grok_audio.go`, `GrokRealtime`, or `ProxyGrokRealtime`; direct port would
+  migrate the absent Voice/Realtime feature rather than repair a local path.
+- `b830bc14d` is `BLOCKED / prerequisite absent`: group `LongContextPricingEnabled`,
+  group `ModelPricing`, and the upstream migration are absent. Any future port
+  needs explicit authorization for the group model-pricing feature plus a new,
+  forward-only local migration.
+- The candidate fallback must add an actual local Grok 4.5 card before unknown
+  text IDs use it. It may not reference the absent upstream `xai` package.
+- The two user-owned account modal changes and `outputs/` remain untouched.
+- The contract amendment required preserving local
+  `grok`/`grok-latest` 4.3 defaults, normalizing allowed provider prefixes before
+  known-card matching, pinning the local strict 200k boundary, and requiring a real
+  AccountsView badge/auto-refresh regression rather than utility-only tests.
+- Independent pricing and frontend reviewers accepted the amended contract;
+  the two independently committable slices are now integrated.
+
+# OAuth Pending Account Takeover S214
+
+- Static triage confirmed that local `main@23b2a1e92` remains vulnerable to
+  upstream finding `02e50cc22`: a non-terminal OAuth choice session can carry
+  an attacker-controlled existing email into `TargetUserID`, then
+  `/auth/oauth/pending/exchange` can apply an adoption decision and bind the
+  attacker's OAuth identity to that existing user.
+- Contract draft:
+  `docs/workflow/tasks/oauth-pending-account-takeover-s214.md`.
+- S214 is `PASS / local-main-integrated`. Scoped commit `c36ea0fd5`
+  introduced the terminal-state guard and its regression without changing
+  routes, schema, dependencies, frontend, deployment, providers, or production
+  state. The regression was shown to fail without the guard (identity count 1
+  where 0 is required), then passed with the guard along with terminal-login,
+  bind-current-user, invitation, 2FA, email-completion, route/server compile,
+  formatting, scope, topology, provenance, conflict, and clean-worktree gates.
+- The standard `gpt-5.6-terra` Developer route and the user-approved
+  `gpt-5.6-sol` replacement route both disconnected before returning a worker
+  report. Their in-scope draft was retained; Codex completed the bounded
+  verification and commit under the approved contract. Independent
+  `gpt-5.6-terra` QA returned `PASS` and did not reproduce the reviewer-noted
+  transient identity-count failure.
+- QA evidence: `docs/workflow/qa-reports/oauth-pending-account-takeover-s214-qa.md`.
+  No push, deployment, container operation, provider call, or production
+  validation was performed. The unit-tag WeChat suite stays an unrelated
+  baseline compile gap; provider-neutral runtime regression plus signed
+  bind-cookie source-to-sink verification passed.
+
+# Upstream v0.1.176 Correctness S213
+
+- `PASS / local-main-integrated`: Amendment 1 pinned the S214-safe
+  `c36ea0fd5` base, required discoverable default-tag regressions, isolated
+  AccountStats pricing semantics, kept the Admin constructor stable through
+  setter injection, and adapted backup leadership to the existing PostgreSQL
+  advisory-lock helper. Four independent contract reviews and four independent
+  `gpt-5.6-terra` QA passes accepted the isolated slices.
+- The user authorized a new plan, multiple independent review agents, and
+  selective local integration of the previously shortlisted upstream fixes.
+- Frozen implementation base was `c36ea0fd5`; fetched upstream was
+  `fbfdcef81`. The accepted candidate scope is limited to `fd9ce5328`,
+  `bd404c16f`, `814ecfba7`, and `bba6a55e0`; the rest of `v0.1.176`
+  remains excluded.
+- Contract draft: `docs/workflow/tasks/upstream-v0176-correctness-s213.md`.
+- Local main now contains `405614fa1` (Responses unknown verdict),
+  `489b818ad` (pricing cache normalization), `fe32aa3e5` (group platform
+  cache invalidation), and `9b08c8126` (scheduled backup leader lock).
+  Post-integration focused default-tag regressions, complete
+  `internal/service`, `internal/server`, server compilation, Wire
+  generation, formatting, diff, conflict-marker, and unmerged-index gates
+  passed.
+- The primary worktree's two account-modal edits and `outputs/` remain
+  untouched. No push, container, deployment, provider, production traffic,
+  schema, migration, dependency, or frontend operation was performed.
 
 # Standard Group Time-Window Rate S211
 

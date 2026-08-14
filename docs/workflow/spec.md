@@ -1805,3 +1805,114 @@ bindings, or group membership.
 - Focused/full Go tests, handler/server compilation, frontend Vitest/lint/
   typecheck/build, a task-owned Playwright desktop and 390px check, formatting,
   `git diff --check`, allowlist, and unmerged-index gates must pass.
+
+# Upstream v0.1.176 Correctness Addendum (S213)
+
+## Goal
+
+Behaviorally port four bounded correctness fixes from the upstream `v0.1.176`
+window: avoid sticky false OpenAI Responses probe results, align channel pricing
+conflict validation with cache normalization, invalidate channel caches after a
+persisted group-platform change, and elect one scheduled-backup instance.
+
+## Boundary
+
+- Preserve the local divergent service, pricing, group, and backup topology;
+  never merge the release as a whole.
+- Treat the four fixes as independent slices. One failed slice does not block
+  separately verified slices from local integration.
+- Cache invalidation must follow successful persistence and retain existing
+  API-key auth invalidation. Scheduled-backup locking must reuse existing local
+  PostgreSQL advisory locks, fail closed on acquisition errors, and leave manual
+  backup/restore behavior unchanged.
+- Grok 4.6/JWT tier/x_search/media, unknown-model pricing, group per-model
+  pricing, long-context pricing controls, schema/migrations, frontend, provider
+  calls, containers, deployment, push, and production traffic are excluded.
+
+## Acceptance Boundary
+
+- Focused repeated tests cover every new verdict and invalidation/lock branch;
+  complete affected service/server packages and server compilation pass.
+- Generated wiring, formatting, exact allowlist, upstream provenance, conflict,
+  unmerged-index, and preservation of the user-owned frontend edits and
+  `outputs/` must pass before local-main integration.
+
+# OAuth Pending Account Takeover Addendum (S214)
+
+## Goal
+
+Close the confirmed OAuth pending-exchange account-takeover path from upstream
+security fix `02e50cc22` without merging unrelated upstream history.
+
+## Security Boundary
+
+- A non-terminal pending OAuth session, including
+  `choose_account_action_required`, may describe a possible existing account
+  but must never bind an OAuth identity, mutate that account through profile
+  adoption, consume the pending session, or issue tokens.
+- `invitation_required` is the sole non-terminal exception for adoption
+  decision persistence: it may retain the existing decision-only write before
+  returning its payload, but it still must never bind an identity, mutate a
+  profile, consume the session, or issue tokens.
+- A terminal login session that already satisfies
+  `pendingOAuthCompletionCanIssueTokenPair` may retain its existing identity
+  binding, profile-adoption, session-consumption, and token behavior.
+- An authenticated `bind_current_user` intent may retain its existing explicit
+  identity-binding behavior because its target comes from the authenticated
+  bind flow rather than an attacker-submitted email.
+
+## Boundary
+
+- Preserve the existing `invitation_required` decision-only return branch, then
+  enforce the invariant at `ExchangePendingOAuthCompletion` before all other
+  adoption decision persistence or identity binding, using the existing
+  `canIssueTokenPair` result and normalized `bind_current_user` intent.
+- Add a realistic handler regression that recreates the choice-state attack
+  and proves no identity binding, victim profile mutation, token issuance, or
+  session consumption occurs.
+- No route, request/response schema, database schema, migration, dependency,
+  frontend, OAuth provider callback, deployment, container, production, push,
+  or S213 behavior change is included.
+
+## Acceptance Boundary
+
+- The new exploit regression must be shown to fail against the vulnerable
+  implementation before the guard is added, then pass repeatedly after it.
+- Existing terminal login and `bind_current_user` tests must pass repeatedly to
+  prove legitimate identity binding remains intact.
+- The complete handler package, server compilation, formatting, exact
+  allowlist, conflict-marker, unmerged-index, and upstream provenance gates
+  must pass before local-main integration.
+
+# Upstream Grok Correctness Addendum (S215)
+
+## Goal
+
+Behaviorally port the two locally reachable Grok correctness fixes from the
+upstream `v0.1.176` window: a real fallback price for unregistered Grok text
+models, and correct Grok snapshot use in account badges and incremental list
+refresh.
+
+## Boundary
+
+- Add a local static Grok 4.5 fallback only after dynamic pricing misses, with
+  an explicit media exclusion so per-unit image/video/audio IDs cannot inherit
+  token pricing.
+- The account UI treats `grok_usage_snapshot` as canonical because that is the
+  locally persisted backend writer key; `grok_quota_snapshot` remains legacy
+  fallback only. Refresh-key serialization is stable under object-key order.
+- Realtime audio billing is excluded because the entire local Voice/Realtime
+  path is absent. Group long-context migration/default behavior is excluded
+  because group model-pricing fields, schema and migration prerequisites are
+  absent.
+- No schema/migration, route, provider call, dependency, deployment, container,
+  push, production traffic, user-owned modal edit, or `outputs/` operation is
+  included.
+
+## Acceptance Boundary
+
+- Each slice has default-tag discovered regressions, repeated focused tests and
+  independent Terra QA. Complete affected backend package/server compilation or
+  frontend typecheck/lint must pass as applicable.
+- Final integration requires scope/topology/provenance review, format/diff,
+  conflict-marker, unmerged-index gates, and preservation of user-owned files.
