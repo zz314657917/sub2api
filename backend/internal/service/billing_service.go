@@ -346,6 +346,18 @@ func (s *BillingService) initFallbackPricing() {
 		LongContextInputThreshold:  1000000,
 		LongContextInputMultiplier: 1,
 	}
+	// xAI Grok 4.5: $2 input / $0.30 cached input / $6 output per MTok.
+	// Prompt tokens above 200k use the 2x input-side and output-side rates.
+	s.fallbackPrices["grok-4.5"] = &ModelPricing{
+		InputPricePerToken:          2e-6,
+		OutputPricePerToken:         6e-6,
+		CacheCreationPricePerToken:  2e-6,
+		CacheReadPricePerToken:      0.3e-6,
+		SupportsCacheBreakdown:      false,
+		LongContextInputThreshold:   200000,
+		LongContextInputMultiplier:  2,
+		LongContextOutputMultiplier: 2,
+	}
 	// xAI Grok Build 0.1 (official docs: $1 input / $2 output per MTok)
 	s.fallbackPrices["grok-build-0.1"] = &ModelPricing{
 		InputPricePerToken:     1e-6,
@@ -541,14 +553,54 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 		}
 	}
 
-	switch modelLower {
+	nativeGrokModel := normalizeGrokProviderModel(modelLower)
+	switch nativeGrokModel {
 	case "grok", "grok-latest", "grok-4.3":
 		return s.fallbackPrices["grok-4.3"]
 	case "grok-build", "grok-build-0.1":
 		return s.fallbackPrices["grok-build-0.1"]
 	}
+	if isUnknownGrokTextModel(nativeGrokModel) {
+		return s.fallbackPrices["grok-4.5"]
+	}
 
 	return nil
+}
+
+func normalizeGrokProviderModel(model string) string {
+	model = strings.ToLower(strings.TrimSpace(model))
+	for _, prefix := range []string{"xai/", "x-ai/", "grok/"} {
+		if strings.HasPrefix(model, prefix) {
+			return normalizeGrokProviderModel(strings.TrimSpace(strings.TrimPrefix(model, prefix)))
+		}
+	}
+	return model
+}
+
+func isUnknownGrokTextModel(model string) bool {
+	if isGrokMediaFamilyModel(model) {
+		return false
+	}
+	switch {
+	case strings.HasPrefix(model, "grok-build"),
+		strings.HasPrefix(model, "grok-composer"),
+		strings.HasPrefix(model, "composer-"):
+		return true
+	case len(model) > len("grok-") && strings.HasPrefix(model, "grok-"):
+		rest := model[len("grok-"):]
+		return rest[0] >= '0' && rest[0] <= '9'
+	default:
+		return false
+	}
+}
+
+func isGrokMediaFamilyModel(model string) bool {
+	for _, marker := range []string{"imagine", "image", "video", "audio", "voice", "speech", "tts", "transcribe", "realtime", "search"} {
+		if strings.Contains(model, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 // GetModelPricing 获取模型价格配置
