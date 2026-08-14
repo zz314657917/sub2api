@@ -2,7 +2,7 @@
 phase: contract-approved
 current_sprint: upstream-v0176-gpt-quota-s217
 total_sprints: 217
-pending_action: S217 contract is approved for a Terra Generator in E:/codex-worktrees/sub2api/s217-gpt-quota. Implement only the missing behavior from upstream 358e4a89a, 12abb5470, and 54a2bcfd1; existing local equivalents for 99b31067f, 3d3aee2e, and the S188 backend recovery chain must not be reimplemented. Preserve all user-owned frontend edits and outputs/. Do not deploy, update containers, use real provider/production traffic, touch migrations, or push without separate authorization.
+pending_action: BLOCKED: the required Terra Generator cannot start because Claude CLI returns a selected-model 404 for gpt-5.6-terra before any token or filesystem action. Await the user's explicit alternate Developer Worker model authorization, then resume in the clean existing E:/codex-worktrees/sub2api/s217-gpt-quota worktree. The scope remains limited to upstream 358e4a89a, 12abb5470, and 54a2bcfd1; existing local equivalents for 99b31067f, 3d3aee2e, and the S188 backend recovery chain must not be reimplemented. Preserve all user-owned frontend edits and outputs/. Do not deploy, update containers, use real provider/production traffic, touch migrations, or push without separate authorization.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
@@ -28,6 +28,10 @@ last_verified: 2026-08-14 12:08 +08:00
   contract coverage, and exact subscription regression names. All are now
   explicit in `docs/workflow/tasks/upstream-v0176-gpt-quota-s217.md`; source
   work is authorized only in the specified isolated worktree.
+- `BLOCKED / worker-model-unavailable`: the required `gpt-5.6-terra` Generator
+  CLI invocation returned model 404 before consuming input tokens or changing
+  files. The clean worktree is retained for explicit alternate-model resumption;
+  no source, test, provider, or Git integration action has occurred.
 
 # Local Branch Consolidation S216
 
