@@ -1,66 +1,61 @@
 # 当前任务快照
 
-最后更新：2026-08-14 12:08 +08:00
+最后更新：2026-08-14 23:30 +08:00
 
 ## 背景
 
-- 用户要求复核上游与本地差异，选择可安全合入的修复，并要求按 P/G/E 使用多个独立智能体审核和验收。
-- 上游 OAuth pending exchange 越权绑定路径优先于常规上游合并处理；随后仅审定四项 v0.1.176 correctness 修复。
-- 用户随后授权检查、分批提交和清理本地 P/G/E 分支与 worktree。
+- 用户要求核实并合入上游最新版的 GPT/Codex 额度异常修复。
+- 当前本地主线长期分叉，禁止整包合并上游；每项必须按行为移植、独立回归和 P/G/E 门禁执行。
+- 主工作区已有用户未提交的账户编辑前端源文件、对应测试和 `outputs/`，本任务始终排除。
 
 ## 当前目标
 
-- S214 OAuth pending 越权绑定、S213 四项 correctness 修复与 S215 两项可达 Grok 修复均已完成本地合入和验收。
-- 已清理全部本地 `pge/*` 引用；唯一剩余的 S215 worktree 目录需在本地命令策略允许时删除。
+- S217 仅移植上游 `v0.1.176` 中本地确实缺失的三组 GPT/Codex 额度行为：
+  `358e4a89a` 个人订阅到期日、`12abb5470` HTML 403 账号保护，以及
+  `54a2bcfd1` 尚未覆盖的 reset-credit API/UI 一致性。
+- 保留既有本地实现：`99b31067f` / `3d3aee2e` 的实际 OpenAI 自动暂停逻辑已等价，S188 已实现额度券消费后的恢复优先顺序。
 
 ## 本次已完成
 
-- S214 已合入 `c36ea0fd5`：非终态 OAuth choice session 在 adoption、identity binding、profile mutation、session consume 和 token issuance 前被阻止；`invitation_required` 的既有 decision-only 行为与已认证 `bind_current_user` 保持。
-- S213 已按独立提交合入本地 `main`：
-  `405614fa1` Responses inconclusive 保持 unknown、
-  `489b818ad` 顶层渠道定价冲突归一化、
-  `fe32aa3e5` 分组 platform 变更失效 channel cache、
-  `9b08c8126` scheduled backup PostgreSQL advisory leader lock。
-- 四项合同均经独立 review 与独立 Terra QA；合入后综合默认标签回归、完整 service/server、server compile、Wire、格式和 Git 完整性门禁通过。
-- S215 已确认 Grok 未登记文本定价与徽章/增量刷新问题在本地可达；Realtime 音频和分组长上下文两项因前置功能不存在而暂定 `BLOCKED`，不擅自扩大为功能移植或数据库迁移。
-- S215 已合入本地 `main`：`3bdeaad66` 为未知 Grok 文本模型加入动态定价未命中后的 4.5 fallback，`69dc79320` 使 Grok 徽章和增量刷新使用 canonical `grok_usage_snapshot`。
-- S216 已由多个独立智能体复核祖先关系、stable patch-id 等价性、worktree 状态与精确暂存范围。7 条 `pge/*` 分支均无未入主线的产品补丁，已删除其分支引用；S214/S213 的 5 个 worktree 与 S215 定价 worktree 已删除。
-- 已整理为 7 个独立修复、3 个已有工作流/交接记录的逻辑提交；未改写历史。`main` 已推送至 `origin/main`，范围为 `23b2a1e92..1d783620a`。
+- 已 fetch 并冻结上游 `upstream/main@fbfdcef81`；确认五项候选都已包含在 `v0.1.176`。
+- 三个独立只读审计已完成：订阅/403 可适配，调度阈值是既有等价实现，reset-credit 后端高风险恢复链已在 S188 落地但前端/API 一致性仍缺失。
+- S217 合同及规格已由 `45ec2ed13` 提交，独立合同审查要求的默认标签 403 测试、禁止 reset 后自动二次刷新、POST/GET 路由契约、精确订阅回归名称均已写入并批准。
+- 已创建干净隔离 worktree：`E:/codex-worktrees/sub2api/s217-gpt-quota`，分支为 `codex/upstream-v0176-gpt-quota-s217`，基线 `45ec2ed13`。
+- Terra Generator 启动前即因模型 404 失败，未消费输入 token、未写文件。该 BLOCKED 状态已由 `b260a8501` 记录。
 
 ## 已确认事实
 
-- S214-S216 的 10 个本地提交已推送到 `origin/main`：`23b2a1e92..1d783620a`。推送前 fetch 显示本地 0 behind / 10 ahead；用户未提交文件未进入推送对象。
-- S213 定价归一化只影响顶层 `Channel.ModelPricing`，不改变 `AccountStatsPricingRules` 或 model mapping 的既有 lower-case-only 语义。
-- S213 group cache 在 `groupRepo.Update` 成功后、复制账号前失效；失败、相同或缺省平台不失效，既有 auth cache 失效保留。
-- S213 backup 只约束 scheduled job；锁 miss 跳过、获取错误记录 `scheduled backup` 日志并 fail-closed、成功时 defer unlock，manual CreateBackup 不加锁。
-- 用户已有的两个前端文件和 `outputs/` 未被暂存、提交、覆盖或格式化。
-- `backup/pre-s121-split-4161d254b` 含唯一提交，三条 `backup/*` 引用均保留；不应作为常规分支清理目标。
-- `E:/codex-worktrees/sub2api/s215-grok-badge` 已被 Git 解除 worktree 注册且无 `.git`，但其任务副本因本地命令策略拒绝递归删除而残留。它是唯一未完成的清理目标。
-- S215 4.5 fallback 保留本地 `grok`/`grok-latest` 的 4.3 默认，先剥离 `xai/`、`x-ai/`、`grok/` 前缀，严格在聚合输入 token 大于 200k 时升阶，并对 media/voice/realtime/search 维持 fail-closed。
-- S215 前端保留 `share_display_tier`；Grok tier 以 credential、billing、canonical usage、legacy 等顺序读取，增量刷新比较稳定的 billing/usage 快照 key，canonical tier 存在时忽略 legacy 变动。
+- 本地 `main@b260a8501` 未包含三项待移植行为；`358e4a89a` 与 `54a2bcfd1` 不能直接 apply，`12abb5470` 可以适配但不应原样复制其缺失的上游测试桩。
+- 本地 `openai_gateway_service.go` 的真实资格判定已正确保留 0-100 Codex 百分比，并跳过已 reset/超过两小时的陈旧快照；针对这些行为的 focused service regression 已通过。
+- S188 已使用独立 8 秒 context、先恢复账号状态再刷新缓存；S217 不得改变该顺序或消费前错误语义。
+- 当前根工作区仅有用户未提交的：
+  `frontend/src/components/account/EditAccountModal.vue`、
+  `frontend/src/components/account/__tests__/EditAccountModal.spec.ts`、
+  `outputs/`。它们从未被暂存、提交或覆盖。
+- 未执行 push、部署、容器更新、真实 provider 调用、生产流量或数据库迁移。
 
 ## 待验证点
 
-- 预存的 `-tags unit` 全量服务测试仍无法编译，已由 S213 Amendment 1 明确排除；新回归均为默认标签且已执行。
-- S216 目录残留需执行精确删除 -> 验证：仅在本地权限允许时删除 `E:/codex-worktrees/sub2api/s215-grok-badge`，再用 `Test-Path`、`git worktree list --porcelain` 和 `git for-each-ref refs/heads/pge` 确认目录、worktree 与 P/G/E refs 均不存在。
-- 实际 provider、共享 PostgreSQL 多实例、生产计费路径、部署和容器更新仍未验证或执行；Git 远程推送已完成。
-- 当前主工作区的 `frontend/node_modules` 缺少 `vitest` 与 `vue-tsc` 可执行文件，因此本轮未重跑前端定向测试/类型检查；S215 前端源码未在其已通过验收后变更。
+- `BLOCKED / worker model`：按仓库 Agent Matrix 启动 `gpt-5.6-terra` 时，Claude CLI 返回 selected-model 404。必须由用户明确授权替代 Developer Worker 模型后才能继续；不得静默降级。
+- 许可替代模型后 -> 在既有 S217 worktree 运行 Generator -> 验证：标准 worker report、每个切片的 focused regression、完整 service/server、server compile、前端可执行命令或准确环境 BLOCKED 证据。
+- Generator 完成后 -> 独立 Terra QA -> 验证：报告首行 verdict、allowlist/diff/冲突/index/provenance 门禁；再由 Codex 决定是否集成本地主线。
 
 ## 当前结论
 
-- `BLOCKED / filesystem-residual`：代码整合、工作流证据提交、P/G/E refs 清理和 6 个 worktree 删除已完成；只剩一个已解除 Git 注册的任务目录因命令策略无法递归删除。S215 代码验收仍保持 `PASS / local-main-integrated`，主线已推送至 `origin/main`。
+- `BLOCKED / worker-model-unavailable`：S217 已完成审计与合同门禁，但没有业务代码、测试、数据库或前端行为被修改，因此尚未合并 GPT 额度修复。
+- 隔离 worktree 保留且干净，等待用户授权一个可用的 Developer Worker 模型后可直接恢复。
 
 ## 下一步
 
-1. 删除唯一残留目录 -> 验证：在允许的本地权限下仅删除 `E:/codex-worktrees/sub2api/s215-grok-badge`，确认 `Test-Path` 为 `False`、`git worktree list --porcelain` 只含主工作区且无 `refs/heads/pge/*`。
-2. 继续上游差异审查时，从当前 `main` 重新冻结候选 -> 验证：先做祖先、依赖和 `git apply --check`，再进入新 contract。
-3. Realtime/长上下文只有在用户单独授权其前置 Voice/Realtime 或分组逐模型定价与前向迁移方案后才建立新 Sprint。
+1. 用户指定允许的 Developer Worker 模型 -> 验证：以该模型重新启动 S217 Generator，确认不会触发 `gpt-5.6-terra` 404。
+2. Generator 实现三项合同切片 -> 验证：合同中所有后端/前端/静态检查及标准 worker report。
+3. 运行独立 QA 并审 diff -> 验证：QA PASS、无 denied-path、主工作区用户改动仍未暂存。
+4. 仅在 QA PASS 后集成到 local `main` -> 验证：主线回归、Git 完整性和精确暂存范围；推送仍需用户另行授权。
 
 ## 验证记录
 
-- S214：exploit regression 移除 guard 后 identity count 为 1，恢复 guard 后通过；完整 handler、routes/server compile、格式、范围、拓扑与独立 QA 通过。
-- S213：四个 slice 各自 `go test -list`、聚焦 `-count=10`、完整 service/server、server compile、Wire、格式、allowlist、diff、冲突与 clean worktree 通过。
-- 合入后：聚焦 S213 pattern `-count=10` 通过；`go test ./internal/service -count=1`（67.698s）、`go test ./internal/server -count=1`、`go test ./cmd/server -run '^$' -count=0` 和 `go run github.com/google/wire/cmd/wire ./cmd/server` 通过。
-- S215 合入后：Go 两项 fallback 测试发现且 `-count=10` 通过；`go test ./internal/service -count=1`（62.042s）、`go test ./internal/server -count=1`、`go test ./cmd/server -run '^$' -count=0` 通过。Vitest 发现强制用例，2 files / 8 tests 连续 3 轮通过，`vue-tsc --noEmit`、目标 ESLint、gofmt、diff、冲突和 index 门禁通过；仅有 Browserslist 数据过期提示。
-- S216：7 条 P/G/E 分支的祖先/patch-id 审查通过，所有 worktree 清理前状态为空；`backend/` 中 `go test ./internal/service -count=1`（66.612s）和 `go test ./internal/server -count=1`（0.708s）通过。Git worktree 已仅剩主工作区、P/G/E refs 已清空、未合并索引为空；`git fsck` 无 missing/broken/corrupt/error 输出。根目录非 Go 模块，直接运行 Go 测试会失败，应从 `backend/` 执行。
-- 发布：origin fetch 确认 `0 behind / 10 ahead` 后，`git push origin main` 成功发布 `23b2a1e92..1d783620a`。重新执行 `backend/` 的完整 service（62.456s）与 server（0.098s）均通过；前端定向 Vitest/类型检查因本机缺少可执行依赖未运行，未把该环境缺口报告为产品回归。
+- `git fetch upstream main` 成功；`v0.1.176` 已验证包含 `358e4a89a`、`12abb5470`、`99b31067f`、`3d3aee2e`、`54a2bcfd1`。
+- `git apply --check`：`99b31067f` / `3d3aee2e` 缺少上游阈值框架文件；`358e4a89a` / `54a2bcfd1` 因本地分叉不适用；`12abb5470` 可应用但测试支撑需本地化。
+- 阈值审计已执行：
+  `go test ./internal/service -run 'Test(OpenAIGatewayService_SelectAccountForModelWithExclusions_(AutoPauseBy5hThreshold|AutoPauseBy7dThreshold|AllowsBelow5hThreshold|StaleUsageWindowResetSkipsPause|FreshUsageWindowStillPauses|StaleUsageSnapshotSkipsPause_Issue2994|FreshExhaustedSnapshotStillPauses_Issue2994)|OpenAIGatewayService_SelectAccountByPreviousResponseID_QuotaAutoPausedMiss|BuildCodexUsageExtraUpdates_FreshAccountUsedPercentNotInverted_Issue2994)$' -count=1` 通过（0.069s）。
+- S217 worktree 与根工作区状态已复核；Terra CLI `2.1.191` 可执行，但对 `gpt-5.6-terra` 的本次请求在输入前返回 404。
