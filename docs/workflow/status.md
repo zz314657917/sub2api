@@ -1,13 +1,33 @@
 ---
-phase: done
-current_sprint: branch-consolidation-s216
-total_sprints: 216
-pending_action: Local main through 1d783620a has been published to origin/main. Remove only the explicit, unregistered E:/codex-worktrees/sub2api/s215-grok-badge residual directory if local filesystem permission permits; verify it is gone, then keep the three backup refs and all user-owned frontend edits and outputs/. Do not deploy, update containers, use real provider/production traffic, or touch migrations without a new explicit task.
+phase: contract-approved
+current_sprint: upstream-v0176-gpt-quota-s217
+total_sprints: 217
+pending_action: S217 contract is approved for a Terra Generator in E:/codex-worktrees/sub2api/s217-gpt-quota. Implement only the missing behavior from upstream 358e4a89a, 12abb5470, and 54a2bcfd1; existing local equivalents for 99b31067f, 3d3aee2e, and the S188 backend recovery chain must not be reimplemented. Preserve all user-owned frontend edits and outputs/. Do not deploy, update containers, use real provider/production traffic, touch migrations, or push without separate authorization.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
 last_verified: 2026-08-14 12:08 +08:00
 ---
+
+# Upstream GPT/Codex Quota Correctness S217
+
+- `contract-draft`: Planner independently froze upstream `v0.1.176` candidates
+  against local `main@fbac8466e`. `358e4a89a` (personal subscription expiry),
+  `12abb5470` (HTML 403 must not penalize an account), and the remaining UI/API
+  consistency behavior of `54a2bcfd1` are locally applicable only by behavioral
+  port.
+- `99b31067f` and `3d3aee2e` remain `ALREADY_EQUIVALENT`: this checkout lacks
+  the upstream cross-platform scheduling-threshold framework, but its actual
+  OpenAI eligibility path already preserves 0-100 Codex percentages and skips
+  reset or stale snapshots. Do not add the absent framework for this task.
+- S188 already recovers account state before reset-credit cache work on a
+  detached bounded context. S217 may add only the remaining audited API/UI
+  consistency behavior; it must preserve that existing recovery ordering.
+- `PASS / contract-approved`: the independent review required four amendments:
+  default-tag HTML 403 tests, no automatic post-reset query, POST/GET route
+  contract coverage, and exact subscription regression names. All are now
+  explicit in `docs/workflow/tasks/upstream-v0176-gpt-quota-s217.md`; source
+  work is authorized only in the specified isolated worktree.
 
 # Local Branch Consolidation S216
 

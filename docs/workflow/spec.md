@@ -1916,3 +1916,45 @@ refresh.
   frontend typecheck/lint must pass as applicable.
 - Final integration requires scope/topology/provenance review, format/diff,
   conflict-marker, unmerged-index gates, and preservation of user-owned files.
+
+# Upstream GPT/Codex Quota Correctness Addendum (S217)
+
+## Goal
+
+Behaviorally port the locally missing GPT/Codex quota correctness behavior from
+upstream `v0.1.176`: personal subscription expiry must not inherit a workspace
+entitlement, HTML 403 responses must not punish OpenAI accounts, and reset-credit
+actions must leave the account list and credit state consistent without inducing
+a second non-refundable reset.
+
+## Boundary
+
+- Port `358e4a89a`, `12abb5470`, and only the remaining client/API behavior of
+  `54a2bcfd1`; adapt all patches to the local topology and tests instead of
+  cherry-picking them.
+- Preserve the existing S188 ordering: successfully consumed reset credit first
+  recovers account state with detached bounded post-processing, then optional
+  quota/cache refresh work may warn but cannot turn success into failure.
+- `99b31067f` and `3d3aee2e` are already behaviorally covered by the existing
+  OpenAI eligibility path. The absent upstream cross-platform threshold feature
+  is explicitly out of scope.
+- No schema/migration, dependency, provider traffic, production data, container,
+  deployment, push, user-owned account-modal edit, or `outputs/` operation is
+  included.
+
+## Acceptance Boundary
+
+- Tests prove accounts/check can no longer pair a personal plan with a different
+  workspace expiry; the fallback personal subscription lookup remains test-local.
+- Tests prove HTML 403 neither increments account penalty state nor changes
+  schedulability, while structured OpenAI 403 and non-OpenAI behavior remain
+  unchanged.
+- Tests prove reset response metadata updates the visible account and credit
+  state without an automatic second quota request; a missing post-reset quota
+  cannot offer stale positive credits or turn a consumed reset into an apparent
+  retryable failure. An API contract proves the snapshot-persisting refresh is
+  an audited POST while the existing GET remains read-only.
+- Focused repeated backend and frontend regressions, complete affected backend
+  packages, server compilation, typecheck/build when dependencies are available,
+  format/diff, allowlist, conflict-marker, unmerged-index, provenance, and
+  preservation of user-owned files must pass before local-main integration.
