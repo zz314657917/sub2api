@@ -1,5 +1,35 @@
 # 项目时间轴
 
+## 2026-08-14 11:46 +08:00 - S216 本地 P/G/E 分支收敛
+
+- 当前阶段：代码与 Git 引用层面的分支收敛完成；结论为 `BLOCKED / filesystem-residual`，仅剩一个已解除 Git 注册的任务目录。
+- 本段重点：多个独立智能体分别复核了分支拓扑、稳定 patch-id 等价性、worktree 清洁度和精确暂存范围；六条非祖先分支均与 main 的 S213/S215 提交逐补丁等价，S214 是直接祖先。
+- 已完成：工作流证据提交 `2ea15a585`；7 条 `pge/*` refs 全部删除，6 个精确 P/G/E worktree 目录删除，`git worktree list` 只含主工作区。
+- 关键决策：保留三条 `backup/*`，其中 `backup/pre-s121-split-4161d254b` 含唯一提交；两项账号弹窗改动与 `outputs/` 始终未暂存、未修改。没有整包合并，因为补丁已等价进入主线。
+- 验证记录：在 `backend/` 执行 `go test ./internal/service -count=1`（66.612s）及 `go test ./internal/server -count=1`（0.708s）通过；Git 索引、冲突和对象完整性检查无阻断。根目录不是 Go 模块，测试必须从 `backend/` 发起。
+- 遗留问题：`E:/codex-worktrees/sub2api/s215-grok-badge` 已无 `.git` 且不再是 registered worktree，但因本地命令策略拒绝递归删除而残留；未绕过该保护。
+- 下一步：本地权限允许时仅删除该精确目录 -> 验证 `Test-Path` 为 `False`、`git worktree list --porcelain` 只含主工作区、`refs/heads/pge` 为空；后续上游审查从当前 main 冻结新基线。
+
+## 2026-08-14 08:34 +08:00 - S215 Grok correctness 选择性合入
+
+- 当前阶段：S215 两项本地可达的 Grok 修复已完成 `PASS / local-main-integrated`。
+- 本段重点：未知 Grok 文本模型在动态定价未命中时获得真实 4.5 token fallback；账号徽章和增量刷新改用后端实际写入的 canonical `grok_usage_snapshot`。
+- 已完成：本地 `main` 合入 `3bdeaad66`（定价 fallback）与 `69dc79320`（徽章/刷新）；相对 `origin/main@23b2a1e92` 领先 7 个提交，未 push。
+- 关键决策：保留 `grok`/`grok-latest` 4.3 默认和动态价格优先级，前缀先归一化且媒体/voice/realtime/search fail-closed；前端保留 `share_display_tier`，稳定化快照对象 key 但保留数组顺序。因 `billing_service_test.go` 是 unit-tag 文件，新回归放入独立 default-tag 文件。
+- 验证记录：独立 Terra contract review 与每 Slice 独立 Terra QA 通过；合入后 Go 定向发现和 `-count=10`、完整 service/server、server compile 通过；Vitest 2 files/8 tests 连续 3 轮、typecheck、目标 ESLint、gofmt、diff、冲突和 unmerged-index 通过。
+- 遗留问题：`678eb22a4` Realtime 音频计费缺少本地 Voice/Realtime 前置链；`b830bc14d` 长上下文缺少 group model-pricing 字段与前向迁移，均保持 `BLOCKED / prerequisite absent`。未做 provider、生产、部署、容器或 push。
+- 下一步：继续审上游时从 `main@69dc79320` 重新冻结；只有获得明确授权的前置功能/迁移方案后才为 Realtime 或长上下文开 Sprint。
+
+## 2026-08-14 01:35 +08:00 - S214 安全修复与 S213 选择性上游合入
+
+- 当前阶段：S214 OAuth pending 越权绑定修复及 S213 四项 correctness 修复已完成本地合入。
+- 本段重点：优先阻断非终态 OAuth choice session 的 identity binding；再以 S214-safe 基线独立移植 Responses verdict、渠道定价、分组缓存和 scheduled backup leader lock。
+- 已完成：S214 为 `c36ea0fd5`；S213 本地提交为 `405614fa1`、`489b818ad`、`fe32aa3e5`、`9b08c8126`，本地 main 比 origin/main 领先 5 个提交。
+- 关键决策：不整包合并长期分叉的 upstream；保留 AccountStats/mapping 语义、Admin 构造器、已有 PostgreSQL advisory lock，并以默认标签测试替代已损坏的 unit-tag 基线。
+- 验证记录：四项独立 contract review、四项独立 Terra QA、合入后聚焦 x10、完整 service/server、server compile、Wire、format、diff、conflict/index 均通过。
+- 遗留问题：完整 `-tags unit` 服务测试存在预存编译阻塞；未做真实 provider、多实例 PostgreSQL、生产、部署、容器更新或 push。
+- 下一步：除非用户明确授权，否则不 push 或部署；继续上游审查时从 `main@9b08c8126` 重新冻结基线。
+
 ## 2026-08-13 +08:00 - 主线推送与分支收敛
 
 - 用户授权整理分支、合入已验证变更、清理冗余分支并推送。S204 定价、S135 overload
