@@ -1,15 +1,45 @@
 ---
 phase: contract-approved
-current_sprint: upstream-v0176-gpt-quota-s217
-total_sprints: 217
-pending_action: IN_PROGRESS: resume the approved S217 contract through an independent gpt-5.6-terra Developer Worker provided by the native collaboration runtime. The prior Claude CLI 404 applies only to that invocation path and does not authorize a model fallback. After a scoped worker commit and report, dispatch a separate gpt-5.6-terra QA Worker. The scope remains limited to upstream 358e4a89a, 12abb5470, and 54a2bcfd1; existing local equivalents for 99b31067f, 3d3aee2e, and the S188 backend recovery chain must not be reimplemented. Preserve all user-owned frontend edits and outputs/. Do not deploy, update containers, use real provider/production traffic, touch migrations, or push without separate authorization.
+current_sprint: upstream-v0177-remote-compaction-v2-s218
+total_sprints: 218
+pending_action: Create a clean worktree at the S218 contract-approval commit and dispatch an independent gpt-5.6-terra Developer in E:/codex-worktrees/sub2api/s218-remote-compaction-v2. The Developer may change only the approved backend compact paths and worker result. After scoped implementation and controller diff review, dispatch a separate gpt-5.6-terra QA Worker. Preserve user-owned frontend edits and outputs/. Exclude turn-state, fingerprint convergence, group rollup migrations, provider traffic, containers, deployment, and push.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-15 23:04 +08:00
+last_verified: 2026-08-16 00:18 +08:00
 ---
 
+# Upstream v0.1.177 Remote Compaction V2 S218
+
+- `contract-draft`: upstream remains `baeac1f3d`, tag `v0.1.177`; direct apply
+  of `9662cff2e`, `a8b9ea22b`, and `8ae6d8f67` fails against the local
+  monolithic gateway topology.
+- The local gap is confirmed: all body-signal compaction requests are promoted
+  to the retired `/responses/compact` endpoint, and the admin compact probe
+  still targets that legacy endpoint.
+- Contract: `docs/workflow/tasks/upstream-v0177-remote-compaction-v2-s218.md`.
+  Scope is native-v2 routing, Responses-capable selection, session beta header,
+  and local native-v2 probe only. Turn-state/fingerprint/migrations/frontend
+  and all other v0.1.177 changes remain excluded.
+- `PASS / contract-approved`: review corrected the Developer diff base to the
+  dispatch merge-base, removed QA/main-log writes from Developer scope, pinned
+  SSE probe headers and provenance checks, and required a default-tag channel
+  restriction regression because the existing local test file is unit-tagged.
+
 # Upstream GPT/Codex Quota Correctness S217
+
+- `PASS / local-main-integrated`: native collaboration `gpt-5.6-terra`
+  Developer commits `c6d6de813` and `a8105bd5b` implemented the three bounded
+  quota behaviors. QA-1 commit `e8fea2d57` moved the route contract into a
+  default-tag file after independent QA correctly rejected `[no tests to run]`.
+- Independent `gpt-5.6-terra` QA report is `PASS`: focused repeats, complete
+  service/server, server compile, 21 frontend tests, formatting, diff,
+  allowlist, provenance, conflict, and index checks passed. S217 and local main
+  share the same pre-existing Airwallex TS2307 build blocker.
+- Local main fast-forwarded to `56d86521b`. The user-owned account-modal source
+  and test retained the same patch-id before/after integration; `outputs/`
+  remains untracked. No push, deployment, container, provider, production, or
+  migration action occurred.
 
 - `contract-draft`: Planner independently froze upstream `v0.1.176` candidates
   against local `main@fbac8466e`. `358e4a89a` (personal subscription expiry),

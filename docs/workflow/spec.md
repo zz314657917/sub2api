@@ -5,6 +5,32 @@ qa_mode: runtime
 last_verified: 2026-08-04 02:35 +08:00
 ---
 
+## Upstream v0.1.177 Remote Compaction V2 (S218)
+
+- Adapt the final behavior of upstream `9662cff2e`, `a8b9ea22b`, and
+  `8ae6d8f67` to the local monolithic OpenAI gateway. Native streaming
+  `compaction_trigger` requests stay on `/responses`; legacy compact remains a
+  separate compatibility path.
+- Native v2 requires Responses capability without legacy compact eligibility or
+  compact-only mapping. HTTP/WS requests carry the correct session-level
+  `x-codex-beta-features`, while client-declared feature sets are preserved.
+- The account compact probe uses local-fixture native v2 and requires a real
+  compaction output item. Turn-state, fingerprint convergence, group rollup
+  migrations, frontend, dependencies, provider traffic, containers, push, and
+  deployment are excluded. Contract:
+  `docs/workflow/tasks/upstream-v0177-remote-compaction-v2-s218.md`.
+
+## Upstream GPT/Codex Quota Correctness (S217)
+
+- Preserve personal subscription expiry when workspace entitlement differs,
+  skip OpenAI account penalties for HTML 403 bodies, and make reset-credit UI
+  state explicit without an automatic second quota request.
+- Add an audited POST quota refresh route while retaining read-only GET. Keep
+  existing S188 recovery-first semantics and local quota-threshold equivalents.
+- Contract and QA:
+  `docs/workflow/tasks/upstream-v0176-gpt-quota-s217.md` and
+  `docs/workflow/qa-reports/upstream-v0176-gpt-quota-s217-qa.md`.
+
 ## Standard Group Time-Window Rate (S211)
 
 - Allow standard and subscription groups to apply the existing daily

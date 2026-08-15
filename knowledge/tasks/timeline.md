@@ -1,5 +1,15 @@
 # 项目时间轴
 
+## 2026-08-16 00:11 +08:00 - S217 额度修复合入与 S218 remote compaction v2 启动
+
+- 当前阶段：S217 已 `PASS / local-main-integrated`；S218 进入 `contract-draft`。
+- 本段重点：行为级合入个人订阅到期日、HTML 403 账号保护和 reset-credit API/UI 一致性；随后冻结 v0.1.177 原生 remote compaction v2 的本地适配边界。
+- 已完成：Terra Developer 两个实现提交、QA-1 default-tag route test 修复、独立 Terra QA PASS，main 快进到 `56d86521b`；S218 contract 已创建。
+- 关键决策：QA 拒绝 `[no tests to run]` 并要求 default-tag 证据；S218 只做原生 v2 路由、beta 头和 probe，明确排除 turn-state、指纹和 migration 222/223。
+- 验证记录：S217 focused x10、完整 service/server、server compile、21 Vitest、diff/allowlist/provenance/index PASS；S217/main 仅同一 Airwallex TS2307。用户 dirty patch-id 前后相同。
+- 遗留问题：S217 未 push；S218 尚未 contract review/实现/QA；分组日汇总涉及数据库迁移，未授权。
+- 下一步：批准 S218 contract，创建隔离 worktree，调用独立 Terra Developer 和 QA；通过后再评估 S219 turn-state。
+
 ## 2026-08-14 12:08 +08:00 - S216 主线发布
 
 - 当前阶段：S214-S216 的 10 个本地提交已发布到 `origin/main`；本地/远端提交范围为 `23b2a1e92..1d783620a`。
