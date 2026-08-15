@@ -29,6 +29,10 @@ use `gpt-5.6-terra`.
   `F:/mcplugins/sub2api/frontend/node_modules` is allowed only for the test and
   must be removed before the verdict. Do not install dependencies or change
   manifests/lockfiles.
+- If that reused tree lacks `.bin` launchers, directly invoke the existing
+  package entrypoints under `.pnpm`: `vitest@*/node_modules/vitest/vitest.mjs`
+  and `vue-tsc@*/node_modules/vue-tsc/bin/vue-tsc.js`. Missing `.bin` wrappers
+  alone are not a blocker when these approved package entrypoints execute.
 - Run `vue-tsc --noEmit` and the build typecheck step. The known baseline on
   both local main and S217 is:
   `src/views/user/AirwallexPaymentView.vue(103,36): TS2307 Cannot find module
@@ -60,6 +64,8 @@ final recommendation. Do not claim PASS from the Developer report alone.
 - Return `FAIL` for a product defect, out-of-scope product change, unresolved
   conflict, dirty residual, real provider access, or a new S217-specific test,
   type, or build failure.
+- Return `FAIL` if the default-tag route-contract command reports
+  `[no tests to run]` or the test is not discoverable with `go test -list`.
 - Return `BLOCKED` when a required command cannot execute and no approved local
   dependency reuse can make it executable.
 - Do not edit product code, fix tests, install packages, integrate, push,

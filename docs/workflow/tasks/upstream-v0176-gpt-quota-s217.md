@@ -57,6 +57,7 @@ responses update the admin list without enabling a stale-credit retry.
 - `backend/internal/handler/admin/openai_oauth_handler_reset_quota_test.go`
 - `backend/internal/server/routes/admin.go`
 - `backend/internal/server/api_contract_test.go`
+- `backend/internal/server/openai_quota_refresh_route_contract_test.go`
 - `backend/internal/service/openai_quota_service.go`
 - `backend/internal/service/openai_quota_reset_cache_test.go`
 - `frontend/src/api/admin/accounts.ts`
@@ -100,6 +101,9 @@ responses update the admin list without enabling a stale-credit retry.
   automatically after a successful reset. The new POST is explicit-user-refresh
   only, and a route contract must prove GET remains read-only while POST is
   registered under the existing admin OpenAI group.
+- The route contract must be discoverable and executable under the default Go
+  test tag. A `//go:build unit` test or `[no tests to run]` output is not
+  acceptance evidence.
 - Do not install or alter tracked dependency manifests. If frontend executables
   are absent, report the exact environment blocker to QA; do not misreport it as
   a product regression.
@@ -122,6 +126,17 @@ corepack.cmd pnpm --dir frontend exec vue-tsc --noEmit
 corepack.cmd pnpm --dir frontend run build
 git diff --check
 ```
+
+The route-contract command must list and execute
+`TestAdminOpenAIQuotaRefreshRouteContract`; `[no tests to run]` is a failure.
+
+## Amendment: QA-1 Default-Tag Route Evidence
+
+Independent QA found that the first implementation placed the route contract
+inside `api_contract_test.go`, which is guarded by `//go:build unit`. Move that
+test into `openai_quota_refresh_route_contract_test.go` without a build tag and
+remove the now-unused imports from the unit-only file. No production behavior
+change is authorized by this amendment.
 
 ## Output
 
