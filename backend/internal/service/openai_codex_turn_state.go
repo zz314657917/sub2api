@@ -63,16 +63,11 @@ func stageOpenAICodexTurnState(dst http.Header, upstream http.Header) string {
 	return state
 }
 
-// relayOpenAICodexTurnState is for response paths which immediately commit a
-// complete response. Streaming paths must use stage + note after a successful
-// downstream flush instead.
-func (s *OpenAIGatewayService) relayOpenAICodexTurnState(c *gin.Context, account *Account, upstream http.Header) {
-	if c == nil || c.Writer == nil {
+func (s *OpenAIGatewayService) noteOpenAICodexTurnStateCommitted(c *gin.Context, account *Account, state string) {
+	if state == "" || c == nil || c.Writer == nil || !c.Writer.Written() {
 		return
 	}
-	if stageOpenAICodexTurnState(c.Writer.Header(), upstream) != "" {
-		s.noteOpenAICodexTurnStateProvenance(c, account)
-	}
+	s.noteOpenAICodexTurnStateProvenance(c, account)
 }
 
 func (s *OpenAIGatewayService) noteOpenAICodexTurnStateProvenance(c *gin.Context, account *Account) {
@@ -88,6 +83,9 @@ func (s *OpenAIGatewayService) noteOpenAICodexTurnStateProvenance(c *gin.Context
 		expiresAt: time.Now().Add(s.openAIWSSessionStickyTTL()),
 	})
 	s.sweepOpenAICodexTurnStateOrigins()
+	if s.openaiCodexTurnStateNoteHook != nil {
+		s.openaiCodexTurnStateNoteHook(c)
+	}
 }
 
 func (s *OpenAIGatewayService) guardOpenAICodexTurnStateEcho(c *gin.Context, account *Account, h http.Header) {

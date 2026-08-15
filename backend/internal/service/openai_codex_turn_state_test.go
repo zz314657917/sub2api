@@ -56,7 +56,9 @@ func TestOpenAICodexTurnStateRelayGuardAndExpiry(t *testing.T) {
 	origin := &Account{ID: 101}
 	upstream := http.Header{}
 	upstream.Set(openAICodexTurnStateHeader, "state-a")
-	svc.relayOpenAICodexTurnState(c, origin, upstream)
+	state := stageOpenAICodexTurnState(c.Writer.Header(), upstream)
+	c.Data(http.StatusOK, "application/json", []byte(`{}`))
+	svc.noteOpenAICodexTurnStateCommitted(c, origin, state)
 	require.Equal(t, "state-a", recorder.Header().Get(openAICodexTurnStateHeader))
 
 	sameAccount := http.Header{}
@@ -75,6 +77,34 @@ func TestOpenAICodexTurnStateRelayGuardAndExpiry(t *testing.T) {
 	svc.guardOpenAICodexTurnStateEcho(c, &Account{ID: 102}, expired)
 	require.Equal(t, "state-a", expired.Get(openAICodexTurnStateHeader))
 	_, exists := svc.openaiCodexTurnStateOrigins.Load(seed)
+	require.False(t, exists)
+
+	unknown := http.Header{}
+	unknown.Set(openAICodexTurnStateHeader, "unknown-state")
+	svc.guardOpenAICodexTurnStateEcho(c, &Account{ID: 102}, unknown)
+	require.Equal(t, "unknown-state", unknown.Get(openAICodexTurnStateHeader))
+
+	svc.openaiCodexTurnStateOrigins.Store(seed, "malformed")
+	malformed := http.Header{}
+	malformed.Set(openAICodexTurnStateHeader, "malformed-state")
+	svc.guardOpenAICodexTurnStateEcho(c, &Account{ID: 102}, malformed)
+	require.Equal(t, "malformed-state", malformed.Get(openAICodexTurnStateHeader))
+	_, exists = svc.openaiCodexTurnStateOrigins.Load(seed)
+	require.False(t, exists)
+
+	svc.openaiCodexTurnStateOrigins.Store("sweep-malformed", "malformed")
+	svc.openaiCodexTurnStateOrigins.Store("sweep-expired", openAICodexTurnStateOrigin{expiresAt: time.Now().Add(-time.Second)})
+	svc.openaiCodexTurnStateWrites.Store(255)
+	svc.sweepOpenAICodexTurnStateOrigins()
+	_, exists = svc.openaiCodexTurnStateOrigins.Load("sweep-malformed")
+	require.False(t, exists)
+	_, exists = svc.openaiCodexTurnStateOrigins.Load("sweep-expired")
+	require.False(t, exists)
+
+	noAccount, _ := newS219TurnStateContext(t, 18, "no-account")
+	svc.noteOpenAICodexTurnStateProvenance(noAccount, nil)
+	svc.noteOpenAICodexTurnStateProvenance(noAccount, &Account{})
+	_, exists = svc.openaiCodexTurnStateOrigins.Load(openAICodexTurnStateSeed(noAccount))
 	require.False(t, exists)
 
 	stageOpenAICodexTurnState(recorder.Header(), http.Header{})
@@ -107,6 +137,10 @@ func TestOpenAIStreamingTurnStateRecordsOnlyOnCommit(t *testing.T) {
 	svc := &OpenAIGatewayService{cfg: &config.Config{}, toolCorrector: NewCodexToolCorrector()}
 	account := &Account{ID: 301, Type: AccountTypeAPIKey}
 	c, _ := newS219TurnStateContext(t, 31, "stream-session")
+	noteWritten := make([]bool, 0, 1)
+	svc.openaiCodexTurnStateNoteHook = func(noteContext *gin.Context) {
+		noteWritten = append(noteWritten, noteContext.Writer.Written())
+	}
 
 	// No downstream flush happens before this failover result, so this account
 	// must not become provenance merely because its upstream response had a header.
@@ -125,11 +159,16 @@ func TestOpenAIStreamingTurnStateRecordsOnlyOnCommit(t *testing.T) {
 	origin, exists := svc.openaiCodexTurnStateOrigins.Load(openAICodexTurnStateSeed(c))
 	require.True(t, exists)
 	require.Equal(t, account.ID, origin.(openAICodexTurnStateOrigin).accountID)
+	require.Equal(t, []bool{true}, noteWritten, "multiple flushes must record normal-stream provenance once, after commit")
 }
 
 func TestOpenAINonStreamingTurnStateRelaysJSONAndSSE(t *testing.T) {
 	svc := &OpenAIGatewayService{cfg: &config.Config{}}
 	account := &Account{ID: 401, Type: AccountTypeAPIKey}
+	noteWritten := make([]bool, 0, 2)
+	svc.openaiCodexTurnStateNoteHook = func(noteContext *gin.Context) {
+		noteWritten = append(noteWritten, noteContext.Writer.Written())
+	}
 	cJSON, recorderJSON := newS219TurnStateContext(t, 41, "json-session")
 	jsonResp := turnStateResponse("json-state", "application/json", `{"id":"resp-json","usage":{"input_tokens":1,"output_tokens":1}}`)
 	_, err := svc.handleNonStreamingResponse(context.Background(), jsonResp, cJSON, account, "gpt-5", "gpt-5")
@@ -141,23 +180,35 @@ func TestOpenAINonStreamingTurnStateRelaysJSONAndSSE(t *testing.T) {
 	_, err = svc.handleNonStreamingResponse(context.Background(), sseResp, cSSE, account, "gpt-5", "gpt-5")
 	require.NoError(t, err)
 	require.Equal(t, "sse-state", recorderSSE.Header().Get(openAICodexTurnStateHeader))
+	require.Equal(t, []bool{true, true}, noteWritten, "normal JSON and SSE-to-JSON must note only after c.Data/bridge commits")
 }
 
 func TestOpenAIPassthroughTurnStateRelayAndGuard(t *testing.T) {
 	svc := &OpenAIGatewayService{cfg: &config.Config{}}
 	account := &Account{ID: 501, Type: AccountTypeAPIKey}
+	noteWritten := make([]bool, 0, 3)
+	svc.openaiCodexTurnStateNoteHook = func(noteContext *gin.Context) {
+		noteWritten = append(noteWritten, noteContext.Writer.Written())
+	}
 	c, recorder := newS219TurnStateContext(t, 51, "passthrough-session")
 	resp := turnStateResponse("passthrough-state", "application/json", `{"id":"resp-pass","usage":{"input_tokens":1,"output_tokens":1}}`)
 	_, err := svc.handleNonStreamingResponsePassthrough(context.Background(), resp, c, account, "gpt-5", "gpt-5")
 	require.NoError(t, err)
 	require.Equal(t, "passthrough-state", recorder.Header().Get(openAICodexTurnStateHeader))
 
+	cSSE, recorderSSE := newS219TurnStateContext(t, 52, "passthrough-sse-session")
+	sseResp := turnStateResponse("passthrough-sse-state", "text/event-stream", `data: {"type":"response.completed","response":{"id":"resp-pass-sse","usage":{"input_tokens":1,"output_tokens":1}}}`)
+	_, err = svc.handleNonStreamingResponsePassthrough(context.Background(), sseResp, cSSE, account, "gpt-5", "gpt-5")
+	require.NoError(t, err)
+	require.Equal(t, "passthrough-sse-state", recorderSSE.Header().Get(openAICodexTurnStateHeader))
+	require.Equal(t, []bool{true, true}, noteWritten, "passthrough JSON and SSE-to-JSON must note only after commit")
+
 	c.Request.Header.Set(openAICodexTurnStateHeader, "passthrough-state")
 	req, err := svc.buildUpstreamRequestOpenAIPassthrough(context.Background(), c, &Account{ID: 502, Type: AccountTypeAPIKey}, []byte(`{"model":"gpt-5"}`), "token")
 	require.NoError(t, err)
 	require.Empty(t, req.Header.Get(openAICodexTurnStateHeader))
 
-	streamContext, streamRecorder := newS219TurnStateContext(t, 52, "passthrough-stream-session")
+	streamContext, streamRecorder := newS219TurnStateContext(t, 53, "passthrough-stream-session")
 	streamAccount := &Account{ID: 503, Type: AccountTypeAPIKey}
 	stream := turnStateResponse("passthrough-stream-state", "text/event-stream", strings.Join([]string{
 		`data: {"type":"response.output_text.delta","delta":"ok"}`,
@@ -169,6 +220,7 @@ func TestOpenAIPassthroughTurnStateRelayAndGuard(t *testing.T) {
 	streamOrigin, exists := svc.openaiCodexTurnStateOrigins.Load(openAICodexTurnStateSeed(streamContext))
 	require.True(t, exists)
 	require.Equal(t, streamAccount.ID, streamOrigin.(openAICodexTurnStateOrigin).accountID)
+	require.Equal(t, []bool{true, true, true}, noteWritten, "multiple passthrough stream flushes must note exactly once")
 }
 
 func TestWriteOpenAIPassthroughResponseHeadersTurnState(t *testing.T) {
@@ -177,5 +229,8 @@ func TestWriteOpenAIPassthroughResponseHeadersTurnState(t *testing.T) {
 	writeOpenAIPassthroughResponseHeaders(dst, src, nil)
 	require.Equal(t, "fresh", dst.Get(openAICodexTurnStateHeader))
 	writeOpenAIPassthroughResponseHeaders(dst, http.Header{"Content-Type": []string{"application/json"}}, nil)
+	require.Empty(t, dst.Get(openAICodexTurnStateHeader))
+	dst.Set(openAICodexTurnStateHeader, "stale-nil-source")
+	writeOpenAIPassthroughResponseHeaders(dst, nil, nil)
 	require.Empty(t, dst.Get(openAICodexTurnStateHeader))
 }

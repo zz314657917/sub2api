@@ -41,3 +41,14 @@
   downstream response. Native HTTP never injects stored turn state; it strips
   only a known foreign-account client echo. The separate Claude compatibility
   bridge and WS store/replay paths are unchanged.
+
+## R1 Follow-up
+
+- Fixed `writeOpenAIPassthroughResponseHeaders` so a nil source still clears a
+  stale turn-state header when a destination exists.
+- Split non-streaming response handling into stage, downstream write, then
+  provenance note. Normal JSON, normal SSE-to-JSON, passthrough JSON, and
+  passthrough SSE-to-JSON now record only after `Writer.Written()` is true.
+- Added default-tag coverage for malformed/expired/unknown provenance, sweep,
+  nil/zero accounts, nil response headers, commit ordering, and exactly-once
+  normal/passthrough streaming provenance.

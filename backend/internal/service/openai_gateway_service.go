@@ -409,6 +409,7 @@ type OpenAIGatewayService struct {
 	openaiCompatAnthropicDigestSessions sync.Map
 	openaiCodexTurnStateOrigins         sync.Map
 	openaiCodexTurnStateWrites          atomic.Uint64
+	openaiCodexTurnStateNoteHook        func(*gin.Context)
 	openaiVideoTaskAccounts             sync.Map // key: task_id, value: openAIVideoTaskAccountRef
 	openaiVideoTaskRepo                 OpenAIVideoTaskRepository
 	imageInputObjectStoreFactory        BackupObjectStoreFactory
@@ -4618,7 +4619,7 @@ func (s *OpenAIGatewayService) handleNonStreamingResponsePassthrough(
 	}
 
 	writeOpenAIPassthroughResponseHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
-	s.relayOpenAICodexTurnState(c, account, resp.Header)
+	turnState := stageOpenAICodexTurnState(c.Writer.Header(), resp.Header)
 
 	contentType := resp.Header.Get("Content-Type")
 	if contentType == "" {
@@ -4633,6 +4634,7 @@ func (s *OpenAIGatewayService) handleNonStreamingResponsePassthrough(
 	if !writeOpenAICompactSSEBridge(c, resp.StatusCode, body) {
 		c.Data(resp.StatusCode, contentType, body)
 	}
+	s.noteOpenAICodexTurnStateCommitted(c, account, turnState)
 	return &openaiNonStreamingResultPassthrough{
 		OpenAIUsage:      usage,
 		usage:            usage,
@@ -4688,7 +4690,7 @@ func (s *OpenAIGatewayService) handlePassthroughSSEToJSON(resp *http.Response, c
 	}
 
 	writeOpenAIPassthroughResponseHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
-	s.relayOpenAICodexTurnState(c, account, resp.Header)
+	turnState := stageOpenAICodexTurnState(c.Writer.Header(), resp.Header)
 
 	contentType := "application/json; charset=utf-8"
 	if !ok {
@@ -4700,6 +4702,7 @@ func (s *OpenAIGatewayService) handlePassthroughSSEToJSON(resp *http.Response, c
 	if !writeOpenAICompactSSEBridge(c, resp.StatusCode, body) {
 		c.Data(resp.StatusCode, contentType, body)
 	}
+	s.noteOpenAICodexTurnStateCommitted(c, account, turnState)
 
 	return &openaiNonStreamingResultPassthrough{
 		OpenAIUsage:      usage,
@@ -4711,15 +4714,17 @@ func (s *OpenAIGatewayService) handlePassthroughSSEToJSON(resp *http.Response, c
 }
 
 func writeOpenAIPassthroughResponseHeaders(dst http.Header, src http.Header, filter *responseheaders.CompiledHeaderFilter) {
-	if dst == nil || src == nil {
+	if dst == nil {
 		return
 	}
-	if filter != nil {
-		responseheaders.WriteFilteredHeaders(dst, src, filter)
-	} else {
-		// 兜底：尽量保留最基础的 content-type
-		if v := strings.TrimSpace(src.Get("Content-Type")); v != "" {
-			dst.Set("Content-Type", v)
+	if src != nil {
+		if filter != nil {
+			responseheaders.WriteFilteredHeaders(dst, src, filter)
+		} else {
+			// 兜底：尽量保留最基础的 content-type
+			if v := strings.TrimSpace(src.Get("Content-Type")); v != "" {
+				dst.Set("Content-Type", v)
+			}
 		}
 	}
 	// 透传模式强制放行 x-codex-* 响应头（若上游返回）。
@@ -6059,7 +6064,7 @@ func (s *OpenAIGatewayService) handleNonStreamingResponse(ctx context.Context, r
 	}
 
 	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
-	s.relayOpenAICodexTurnState(c, account, resp.Header)
+	turnState := stageOpenAICodexTurnState(c.Writer.Header(), resp.Header)
 
 	contentType := "application/json"
 	if s.cfg != nil && !s.cfg.Security.ResponseHeaders.Enabled {
@@ -6071,6 +6076,7 @@ func (s *OpenAIGatewayService) handleNonStreamingResponse(ctx context.Context, r
 	if !writeOpenAICompactSSEBridge(c, resp.StatusCode, body) {
 		c.Data(resp.StatusCode, contentType, body)
 	}
+	s.noteOpenAICodexTurnStateCommitted(c, account, turnState)
 
 	return &openaiNonStreamingResult{
 		OpenAIUsage:      usage,
@@ -6145,7 +6151,7 @@ func (s *OpenAIGatewayService) handleSSEToJSON(resp *http.Response, c *gin.Conte
 	}
 
 	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
-	s.relayOpenAICodexTurnState(c, account, resp.Header)
+	turnState := stageOpenAICodexTurnState(c.Writer.Header(), resp.Header)
 
 	contentType := "application/json; charset=utf-8"
 	if !ok {
@@ -6157,6 +6163,7 @@ func (s *OpenAIGatewayService) handleSSEToJSON(resp *http.Response, c *gin.Conte
 	if !writeOpenAICompactSSEBridge(c, resp.StatusCode, body) {
 		c.Data(resp.StatusCode, contentType, body)
 	}
+	s.noteOpenAICodexTurnStateCommitted(c, account, turnState)
 
 	return &openaiNonStreamingResult{
 		OpenAIUsage:      usage,
