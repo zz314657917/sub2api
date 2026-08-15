@@ -71,6 +71,7 @@ history or copy its split-file topology.
 
 - `backend/internal/handler/openai_gateway_handler.go`
 - `backend/internal/handler/openai_gateway_compact_body_signal_test.go`
+- `backend/internal/handler/openai_gateway_handler_test.go`
 - `backend/internal/handler/openai_gateway_compact_log_test.go`
 - `backend/internal/service/openai_compact_body_signal.go`
 - `backend/internal/service/openai_compact_body_signal_test.go`
@@ -120,6 +121,12 @@ history or copy its split-file topology.
   response with no compaction item must be a negative result, not a success.
 - New focused tests must be default-tag discoverable. `[no tests to run]` is a
   failure. Do not install dependencies or use a real provider.
+- Replace the stale default-tag
+  `TestRemoteCompactBodySignalMarksClientStream` legacy expectation with a
+  native-v2 regression: headerless bare `/responses` plus `stream:true` and a
+  `compaction_trigger` must preserve the original stream/body/path and must not
+  set the legacy compact client-stream marker. This exact existing test file is
+  allowlisted only for that bounded semantic correction.
 - The Developer writes only the worker result. QA report, workflow status,
   main-log, current-task, and timeline remain Planner/Evaluator-owned.
 
@@ -131,7 +138,8 @@ Set-Location E:/codex-worktrees/sub2api/s218-remote-compaction-v2/backend
 $handlerTests = @(
   'TestNormalizeOpenAIResponsesCompactRequest_RemoteV2StaysOnResponses',
   'TestOpenAIResponsesCompactionRoutingFlags',
-  'TestNormalizeOpenAIResponsesCompactRequest_NonRemoteV2BodySignalPromoted'
+  'TestNormalizeOpenAIResponsesCompactRequest_NonRemoteV2BodySignalPromoted',
+  'TestRemoteCompactBodySignalPreservesNativeStream'
 )
 $serviceTests = @(
   'TestOpenAIGatewayService_SelectAccountWithScheduler_NativeCompactionIgnoresLegacyCompactProbe',
@@ -219,3 +227,11 @@ required to be default-tag discoverable, including a dedicated channel
 restriction regression; beta-header precedence and the local-fixture probe
 boundary are explicit. Developer dispatch is authorized only at the supplied
 clean build-base SHA.
+
+`PASS / Amendment 1` (2026-08-16 00:36 +08:00): complete handler regression
+exposed one stale default-tag test outside the original allowlist. The existing
+test required a headerless streaming compaction trigger to be promoted to the
+legacy unary bridge, directly contradicting the approved upstream v2 behavior.
+Allow only `openai_gateway_handler_test.go` to rename and correct that one
+regression; product semantics, all other allowed/denied paths, and acceptance
+gates remain unchanged.

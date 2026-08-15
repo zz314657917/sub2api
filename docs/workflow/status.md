@@ -2,11 +2,11 @@
 phase: contract-approved
 current_sprint: upstream-v0177-remote-compaction-v2-s218
 total_sprints: 218
-pending_action: Create a clean worktree at the S218 contract-approval commit and dispatch an independent gpt-5.6-terra Developer in E:/codex-worktrees/sub2api/s218-remote-compaction-v2. The Developer may change only the approved backend compact paths and worker result. After scoped implementation and controller diff review, dispatch a separate gpt-5.6-terra QA Worker. Preserve user-owned frontend edits and outputs/. Exclude turn-state, fingerprint convergence, group rollup migrations, provider traffic, containers, deployment, and push.
+pending_action: Sync approved S218 Amendment 1 into the existing isolated branch, then resume the same independent gpt-5.6-terra Developer. The amendment adds only backend/internal/handler/openai_gateway_handler_test.go so its stale default-tag legacy expectation can be corrected to the already-approved headerless native-v2 behavior. After the worker commits its scoped result, Codex must review the diff, allowlist, default-tag test discovery, native/legacy routing, beta-header precedence, and local-fixture probe evidence before dispatching a separate gpt-5.6-terra QA Worker. Preserve user-owned frontend edits and outputs/. Exclude turn-state, fingerprint convergence, group rollup migrations, provider traffic, containers, deployment, and push.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-16 00:18 +08:00
+last_verified: 2026-08-16 00:36 +08:00
 ---
 
 # Upstream v0.1.177 Remote Compaction V2 S218
@@ -25,6 +25,12 @@ last_verified: 2026-08-16 00:18 +08:00
   dispatch merge-base, removed QA/main-log writes from Developer scope, pinned
   SSE probe headers and provenance checks, and required a default-tag channel
   restriction regression because the existing local test file is unit-tagged.
+- `PASS / Amendment 1`: complete handler regression found the existing
+  default-tag `TestRemoteCompactBodySignalMarksClientStream` still required a
+  headerless streaming trigger to use legacy normalization. That stale test,
+  not the product contract, caused two retries. Its exact file is now
+  allowlisted only to assert preserved native-v2 path/body/stream and no legacy
+  client-stream marker; all other boundaries remain unchanged.
 
 # Upstream GPT/Codex Quota Correctness S217
 
