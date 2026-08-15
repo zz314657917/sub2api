@@ -1,12 +1,12 @@
 ---
-phase: contract-draft
+phase: contract-approved
 current_sprint: upstream-v0177-turn-state-s219
 total_sprints: 219
-pending_action: Review the S219 contract for the local monolithic response commit boundary, positive API-key/session provenance seed, stale-header clearing, normal and passthrough request-guard placement, and strict exclusion of fingerprint convergence. Source work is not authorized before PASS/contract-approved. Preserve user-owned frontend edits and outputs/. Exclude migrations 222/223, provider traffic, containers, deployment, and push.
+pending_action: Create clean worktree E:/codex-worktrees/sub2api/s219-turn-state from the contract-approval main SHA and dispatch an independent gpt-5.6-terra Developer. The worker may modify only the six S219 allowlisted paths and must implement actual downstream-commit provenance, stale clearing, positive API-key/session seed, and normal/passthrough guards. Preserve user-owned frontend edits and outputs/. Exclude fingerprint behavior, migrations 222/223, provider traffic, containers, deployment, and push.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-16 01:48 +08:00
+last_verified: 2026-08-16 01:53 +08:00
 ---
 
 # Upstream v0.1.177 Codex Turn-State S219
@@ -23,8 +23,15 @@ last_verified: 2026-08-16 01:48 +08:00
   downstream flush, not when a 2xx header is merely received. A positive
   downstream API-key ID and original client session are both required for the
   seed; missing identity remains untracked.
-- Contract: `docs/workflow/tasks/upstream-v0177-turn-state-s219.md`. Next legal
-  action is Evaluator review; no source worktree or Developer dispatch yet.
+- Contract: `docs/workflow/tasks/upstream-v0177-turn-state-s219.md`. Contract
+  review is complete; the next legal action is an isolated Terra Developer
+  worktree at the approval commit.
+- `PASS / contract-approved`: review verified the local response-commit and
+  request-builder hook points, required a positive API-key/session seed, and
+  kept the two `fce41e318` turn-state guard placements independent from all
+  fingerprint behavior. Seven existing compatibility tests and three upstream
+  provenance commits were verified before authorizing an isolated Terra
+  Developer worktree.
 
 # Upstream v0.1.177 Remote Compaction V2 S218
 

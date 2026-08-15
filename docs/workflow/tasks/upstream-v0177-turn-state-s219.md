@@ -211,5 +211,13 @@ foreach ($commit in @('8219dcfc8','4d9fedee2','fce41e318')) {
 
 ## Contract Review
 
-Pending Evaluator review. Source work is not authorized until this section is
-replaced with an explicit `PASS / contract-approved` verdict.
+`PASS / contract-approved` (2026-08-16 01:53 +08:00): the contract matches the
+local monolithic topology and closes the upstream dependency gap without
+importing fingerprint behavior. The review specifically requires a positive
+API-key/session seed, first successful downstream flush as the streaming
+provenance commit point, stale-header clearing across abandoned attempts, both
+normal and passthrough builder guards, and independent Claude/WS compatibility
+tests. All seven referenced existing compatibility tests are default-tag
+discoverable, and `8219dcfc8`, `4d9fedee2`, and `fce41e318` are verified
+ancestors of `upstream/main`. Source work is authorized only in the supplied
+clean S219 worktree at the contract-approval SHA and only within Allowed Paths.
