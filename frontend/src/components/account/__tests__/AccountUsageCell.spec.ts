@@ -3,9 +3,10 @@ import { flushPromises, mount } from '@vue/test-utils'
 import AccountUsageCell from '../AccountUsageCell.vue'
 import type { Account } from '@/types'
 
-const { getUsage, queryOpenAIQuota, resetOpenAIQuota } = vi.hoisted(() => ({
+const { getUsage, queryOpenAIQuota, refreshOpenAIQuota, resetOpenAIQuota } = vi.hoisted(() => ({
   getUsage: vi.fn(),
   queryOpenAIQuota: vi.fn(),
+  refreshOpenAIQuota: vi.fn(),
   resetOpenAIQuota: vi.fn()
 }))
 
@@ -19,6 +20,7 @@ vi.mock('@/api/admin', () => ({
 
 vi.mock('@/api/admin/accounts', () => ({
   queryOpenAIQuota,
+  refreshOpenAIQuota,
   resetOpenAIQuota
 }))
 
@@ -65,6 +67,7 @@ describe('AccountUsageCell', () => {
   beforeEach(() => {
     getUsage.mockReset()
     queryOpenAIQuota.mockReset()
+    refreshOpenAIQuota.mockReset()
     resetOpenAIQuota.mockReset()
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
@@ -79,6 +82,43 @@ describe('AccountUsageCell', () => {
         dispatchEvent: vi.fn(),
       }))
     })
+  })
+
+  it('只抑制 reset 返回账号对应的 usage refresh key', async () => {
+    getUsage.mockResolvedValue({})
+    const initial = makeAccount({
+      id: 2998,
+      platform: 'openai',
+      type: 'oauth',
+      updated_at: '2026-03-15T00:00:00Z',
+      extra: { codex_usage_updated_at: '2026-03-15T00:00:00Z' }
+    })
+    const wrapper = mount(AccountUsageCell, {
+      props: { account: initial },
+      global: { stubs: { UsageProgressBar: true, AccountQuotaInfo: true } }
+    })
+    await flushPromises()
+    getUsage.mockClear()
+
+    const recovered = {
+      ...initial,
+      updated_at: '2026-03-15T00:01:00Z',
+      extra: { codex_usage_updated_at: '2026-03-15T00:01:00Z' }
+    }
+    wrapper.findComponent({ name: 'OpenAIQuotaResetCell' }).vm.$emit('account-updated', recovered)
+    await wrapper.setProps({ account: recovered })
+    await flushPromises()
+    expect(getUsage).not.toHaveBeenCalled()
+
+    await wrapper.setProps({
+      account: {
+        ...recovered,
+        updated_at: '2026-03-15T00:02:00Z',
+        extra: { codex_usage_updated_at: '2026-03-15T00:02:00Z' }
+      }
+    })
+    await flushPromises()
+    expect(getUsage).toHaveBeenCalledTimes(1)
   })
 
   it('Antigravity 图片用量会聚合新旧 image 模型', async () => {

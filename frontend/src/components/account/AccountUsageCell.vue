@@ -660,7 +660,7 @@ const loading = ref(false)
 const activeQueryLoading = ref(false)
 const error = ref<string | null>(null)
 const usageInfo = ref<AccountUsageInfo | null>(null)
-const suppressNextOpenAIUsageRefresh = ref(false)
+const expectedOpenAIUsageRefreshKey = ref<string | null>(null)
 const rootRef = ref<HTMLElement | null>(null)
 const isDesktopViewport = ref(
   typeof window === 'undefined' ? true : window.matchMedia(desktopViewportQuery).matches
@@ -1423,8 +1423,9 @@ const quotaTotalBar = computed((): QuotaBarInfo | null => {
 
 const handleQuotaResetAccountUpdated = (account: Account) => {
   // The reset response already contains the recovered row. Suppress only the
-  // parent-triggered usage reload that would otherwise become a second query.
-  suppressNextOpenAIUsageRefresh.value = true
+  // parent patch for this exact row snapshot; a later unrelated update must
+  // still refresh usage instead of being swallowed by a stale boolean flag.
+  expectedOpenAIUsageRefreshKey.value = buildOpenAIUsageRefreshKey(account)
   emit('account-updated', account)
 }
 
@@ -1476,9 +1477,10 @@ watch(openAIUsageRefreshKey, (nextKey, prevKey) => {
   if (!prevKey || nextKey === prevKey) return
   if (props.account.platform !== 'openai' || props.account.type !== 'oauth') return
 
-  if (suppressNextOpenAIUsageRefresh.value) {
-    suppressNextOpenAIUsageRefresh.value = false
-    return
+  const expectedKey = expectedOpenAIUsageRefreshKey.value
+  if (expectedKey !== null) {
+    expectedOpenAIUsageRefreshKey.value = null
+    if (nextKey === expectedKey) return
   }
 
   _usageCache.delete(props.account.id)

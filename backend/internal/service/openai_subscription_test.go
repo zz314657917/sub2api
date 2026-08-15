@@ -160,18 +160,99 @@ func TestFetchChatGPTAccountInfo_WorkspaceEntitlementDoesNotOverridePersonalSubs
 }
 
 func TestEnrichTokenInfo_WorkspaceEntitlementDoesNotOverridePersonalSubscription(t *testing.T) {
-	personal := &OpenAITokenInfo{ChatGPTAccountID: "personal-account", PlanType: "pro"}
-	workspace := &ChatGPTAccountInfo{AccountID: "workspace-account", PlanType: "pro", SubscriptionExpiresAt: "2027-01-01T00:00:00Z"}
-	require.False(t, chatGPTAccountInfoBelongsToTokenAccount(personal, workspace))
+	const personalExpiry = "2027-03-01T00:00:00Z"
+	var subscriptionAccountIDs []string
+	server := newS217SubscriptionFixture(t, map[string]any{
+		"accounts": map[string]any{
+			"workspace-account": map[string]any{
+				"account":     map[string]any{"account_id": "workspace-account", "plan_type": "pro"},
+				"entitlement": map[string]any{"expires_at": "2026-04-01T00:00:00Z"},
+			},
+		},
+	}, personalExpiry, &subscriptionAccountIDs)
+	defer server.Close()
+
+	tokenInfo := &OpenAITokenInfo{
+		AccessToken:      "access-token",
+		ChatGPTAccountID: "personal-account",
+		OrganizationID:   "workspace-account",
+		PlanType:         "pro",
+	}
+	(&OpenAIOAuthService{privacyClientFactory: newS217LocalPrivacyClientFactory()}).enrichTokenInfo(context.Background(), tokenInfo, "")
+
+	require.Equal(t, []string{"personal-account"}, subscriptionAccountIDs)
+	require.Equal(t, personalExpiry, tokenInfo.SubscriptionExpiresAt)
 }
 
 func TestEnrichTokenInfo_SameAccountDoesNotRepeatPersonalSubscriptionLookup(t *testing.T) {
-	personal := &OpenAITokenInfo{ChatGPTAccountID: "personal-account", PlanType: "pro"}
-	info := &ChatGPTAccountInfo{AccountID: "PERSONAL-ACCOUNT", PlanType: "pro"}
-	require.True(t, chatGPTAccountInfoBelongsToTokenAccount(personal, info))
+	const entitlementExpiry = "2027-04-01T00:00:00Z"
+	var subscriptionAccountIDs []string
+	server := newS217SubscriptionFixture(t, map[string]any{
+		"accounts": map[string]any{
+			"personal-account": map[string]any{
+				"account":     map[string]any{"account_id": "PERSONAL-ACCOUNT", "plan_type": "pro"},
+				"entitlement": map[string]any{"expires_at": entitlementExpiry},
+			},
+		},
+	}, "", &subscriptionAccountIDs)
+	defer server.Close()
+
+	tokenInfo := &OpenAITokenInfo{AccessToken: "access-token", ChatGPTAccountID: "personal-account", OrganizationID: "personal-account", PlanType: "pro"}
+	(&OpenAIOAuthService{privacyClientFactory: newS217LocalPrivacyClientFactory()}).enrichTokenInfo(context.Background(), tokenInfo, "")
+
+	require.Empty(t, subscriptionAccountIDs)
+	require.Equal(t, entitlementExpiry, tokenInfo.SubscriptionExpiresAt)
 }
 
 func TestEnrichTokenInfo_MissingAccountIDPreservesCompatibilityFallback(t *testing.T) {
-	require.True(t, chatGPTAccountInfoBelongsToTokenAccount(&OpenAITokenInfo{}, &ChatGPTAccountInfo{AccountID: "workspace"}))
-	require.True(t, chatGPTAccountInfoBelongsToTokenAccount(&OpenAITokenInfo{ChatGPTAccountID: "personal"}, &ChatGPTAccountInfo{}))
+	const entitlementExpiry = "2027-05-01T00:00:00Z"
+	var subscriptionAccountIDs []string
+	server := newS217SubscriptionFixture(t, map[string]any{
+		"accounts": map[string]any{
+			"workspace-account": map[string]any{
+				"account":     map[string]any{"account_id": "workspace-account", "plan_type": "pro"},
+				"entitlement": map[string]any{"expires_at": entitlementExpiry},
+			},
+		},
+	}, "", &subscriptionAccountIDs)
+	defer server.Close()
+
+	tokenInfo := &OpenAITokenInfo{AccessToken: "access-token", OrganizationID: "workspace-account", PlanType: "pro"}
+	(&OpenAIOAuthService{privacyClientFactory: newS217LocalPrivacyClientFactory()}).enrichTokenInfo(context.Background(), tokenInfo, "")
+
+	require.Empty(t, subscriptionAccountIDs)
+	require.Equal(t, entitlementExpiry, tokenInfo.SubscriptionExpiresAt)
+}
+
+func newS217LocalPrivacyClientFactory() PrivacyClientFactory {
+	return func(string) (*req.Client, error) { return req.C().SetTimeout(time.Second), nil }
+}
+
+// newS217SubscriptionFixture redirects every enrichTokenInfo HTTP request,
+// including the best-effort privacy PATCH, to this local server.
+func newS217SubscriptionFixture(t *testing.T, accounts map[string]any, activeUntil string, subscriptionAccountIDs *[]string) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/backend-api/accounts/check/v4-2023-04-27":
+			_ = json.NewEncoder(w).Encode(accounts)
+		case "/backend-api/subscriptions":
+			*subscriptionAccountIDs = append(*subscriptionAccountIDs, r.URL.Query().Get("account_id"))
+			_ = json.NewEncoder(w).Encode(map[string]any{"active_until": activeUntil})
+		case "/backend-api/settings/account_user_setting":
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+
+	oldSettings, oldAccounts, oldSubscriptions := openAISettingsURL, chatGPTAccountsCheckURL, chatGPTSubscriptionsURL
+	openAISettingsURL = server.URL + "/backend-api/settings/account_user_setting"
+	chatGPTAccountsCheckURL = server.URL + "/backend-api/accounts/check/v4-2023-04-27"
+	chatGPTSubscriptionsURL = server.URL + "/backend-api/subscriptions"
+	t.Cleanup(func() {
+		openAISettingsURL, chatGPTAccountsCheckURL, chatGPTSubscriptionsURL = oldSettings, oldAccounts, oldSubscriptions
+	})
+	return server
 }
