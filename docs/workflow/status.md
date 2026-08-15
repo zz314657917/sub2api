@@ -1,12 +1,12 @@
 ---
-phase: contract-approved
+phase: build
 current_sprint: upstream-v0177-turn-state-s219
 total_sprints: 219
-pending_action: Create clean worktree E:/codex-worktrees/sub2api/s219-turn-state from the contract-approval main SHA and dispatch an independent gpt-5.6-terra Developer. The worker may modify only the six S219 allowlisted paths and must implement actual downstream-commit provenance, stale clearing, positive API-key/session seed, and normal/passthrough guards. Preserve user-owned frontend edits and outputs/. Exclude fingerprint behavior, migrations 222/223, provider traffic, containers, deployment, and push.
+pending_action: Independent gpt-5.6-terra Developer is implementing S219 in E:/codex-worktrees/sub2api/s219-turn-state from approval SHA 8884ee10c. Review its committed diff and worker result before QA; require actual downstream-flush provenance, stale clearing, positive API-key/session seed, both normal/passthrough guards, default-tag discovery, and compatibility/full package evidence. Preserve user-owned frontend edits and outputs/. Exclude fingerprint behavior, migrations 222/223, provider traffic, containers, deployment, and push.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-16 01:53 +08:00
+last_verified: 2026-08-16 01:55 +08:00
 ---
 
 # Upstream v0.1.177 Codex Turn-State S219
@@ -32,6 +32,11 @@ last_verified: 2026-08-16 01:53 +08:00
   fingerprint behavior. Seven existing compatibility tests and three upstream
   provenance commits were verified before authorizing an isolated Terra
   Developer worktree.
+- `build / developer-dispatched`: clean worktree
+  `E:/codex-worktrees/sub2api/s219-turn-state` and branch
+  `codex/upstream-v0177-turn-state-s219` were created at approval commit
+  `8884ee10c`. An independent `gpt-5.6-terra` Developer owns only the six
+  allowlisted paths; controller review is required before independent QA.
 
 # Upstream v0.1.177 Remote Compaction V2 S218
 

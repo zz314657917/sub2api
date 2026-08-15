@@ -38,11 +38,11 @@
 ## 当前结论
 
 - `PASS / S218 local-main-integrated`：remote compaction v2 已通过独立 Terra QA 和主线回归，尚未推送。
-- `S219 / contract-approved`：Evaluator 已确认 commit-boundary、正 API-key/session seed、stale clear、normal/passthrough guard 和现有兼容测试，下一合法动作是创建隔离 worktree 并调度独立 Terra Developer。
+- `S219 / build`：隔离 worktree 已从审批 SHA `8884ee10c` 创建，独立 Terra Developer 已调度；下一合法动作是等待 worker commit/result 后由主控审 diff。
 
 ## 下一步
 
-1. 创建 `E:/codex-worktrees/sub2api/s219-turn-state` 并调度独立 Terra Developer -> 验证：基线为 contract approval commit，只改 6 个 allowlisted 路径。
+1. 等待 Terra Developer 提交实现与 worker result -> 验证：只改 6 个 allowlisted 路径且首行 DONE/BLOCKED/FAILED 合法。
 2. 主控审 diff 并复跑 focused/compatibility 门禁 -> 验证：实际 flush provenance、stale clear 和 guard 行为满足合同。
 3. 新建独立 Terra QA 验收 -> 验证：完整 service/handler/server/compile、allowlist/provenance/index 和本地 fixture 边界通过。
 4. S219 收口后重新 fetch upstream/origin，决定是否统一推送本地主线。
