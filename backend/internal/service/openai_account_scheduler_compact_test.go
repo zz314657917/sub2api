@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
 	"github.com/stretchr/testify/require"
 )
 
@@ -222,6 +223,24 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_NativeCompactionRequire
 		},
 	}
 	require.True(t, supportsOpenAIEndpointCapabilityForRequest(responsesCapable, OpenAIEndpointCapabilityResponses))
+
+	unsupportedResponses := &Account{
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Extra: map[string]any{
+			openai_compat.ExtraKeyResponsesSupported: false,
+		},
+	}
+	require.False(t, supportsOpenAIEndpointCapabilityForRequest(unsupportedResponses, OpenAIEndpointCapabilityResponses))
+
+	forceChat := &Account{
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Extra: map[string]any{
+			openai_compat.ExtraKeyResponsesMode: string(openai_compat.ResponsesSupportModeForceChatCompletions),
+		},
+	}
+	require.False(t, supportsOpenAIEndpointCapabilityForRequest(forceChat, OpenAIEndpointCapabilityResponses))
 }
 
 func TestOpenAIGatewayService_SelectAccountWithScheduler_LegacyCompactionKeepsCompactEligibility(t *testing.T) {

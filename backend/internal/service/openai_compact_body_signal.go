@@ -77,9 +77,9 @@ func applyOpenAICodexBetaFeatures(c *gin.Context, account *Account, h http.Heade
 //
 //	"remote compaction v2 expected exactly one compaction output item, got 0"
 //
-// The gateway handler promotes such requests by rewriting the URL path to the
-// compact form before stream parsing, compact body normalization, and
-// compact-capable account scheduling, so both inbound forms share one code path.
+// The gateway handler keeps bare streaming Responses requests on the native v2
+// protocol. It promotes only non-streaming body-signal requests to the legacy
+// compact form so legacy clients continue to share the unary bridge path.
 func HasCompactionTriggerInInput(body []byte) bool {
 	if len(body) == 0 {
 		return false

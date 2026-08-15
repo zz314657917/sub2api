@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -1520,6 +1521,9 @@ func supportsOpenAIEndpointCapabilityForRequest(account *Account, capability Ope
 		return account != nil && account.SupportsOpenAIEndpointCapability(capability)
 	}
 	if account == nil || !account.IsOpenAI() {
+		return false
+	}
+	if account.Type == AccountTypeAPIKey && !openai_compat.ShouldUseResponsesAPI(account.Extra) {
 		return false
 	}
 	configured, found := account.openAIEndpointCapabilitySet()

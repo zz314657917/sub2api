@@ -2676,7 +2676,10 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		return s.forwardGrokResponses(ctx, c, account, body, originalModel, reqStream, startTime)
 	}
 
-	if account.Type == AccountTypeAPIKey && !openai_compat.ShouldUseResponsesAPI(account.Extra) {
+	// Native remote compaction v2 must keep its Responses payload intact. The
+	// scheduler normally excludes force-chat and Responses-unsupported API keys,
+	// but direct callers must not silently convert a compaction trigger to chat.
+	if account.Type == AccountTypeAPIKey && !isOpenAINativeCompactionV2(c) && !openai_compat.ShouldUseResponsesAPI(account.Extra) {
 		return s.forwardResponsesViaRawChatCompletions(ctx, c, account, body)
 	}
 
