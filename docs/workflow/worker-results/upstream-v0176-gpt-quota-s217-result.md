@@ -14,6 +14,7 @@ blocked
 - Implemented the remaining `54a2bcfd1` UI/API consistency behavior without changing S188 recovery ordering: reset no longer automatically calls quota query; explicit `POST /admin/openai/accounts/:id/quota/refresh` queries and persists the snapshot; the reset card clears stale credit state and applies returned account metadata.
 - Review follow-up: reset suppression now records the exact OpenAI usage refresh key from the emitted account, so a different later row update clears the marker and refreshes normally. The regression covers both paths.
 - Review follow-up: default-tag HTML 403 coverage uses local account/counter stubs and directly exercises account penalty side effects. Subscription enrichment coverage uses a local fixture for accounts, subscriptions, and privacy PATCH, with no real network destination.
+- QA-1 follow-up: the OpenAI quota refresh route contract is now in a dedicated default-tag test file. It is discoverable by the contract command and compiles both without tags and with `-tags=unit`; the tagged API contract file no longer owns its imports or test.
 
 ## Changed Files
 - `backend/internal/service/openai_oauth_service.go`
@@ -25,6 +26,7 @@ blocked
 - `backend/internal/handler/admin/openai_oauth_handler_reset_quota_test.go`
 - `backend/internal/server/routes/admin.go`
 - `backend/internal/server/api_contract_test.go`
+- `backend/internal/server/openai_quota_refresh_route_contract_test.go`
 - `frontend/src/api/admin/accounts.ts`
 - `frontend/src/components/account/OpenAIQuotaResetCell.vue`
 - `frontend/src/components/account/AccountUsageCell.vue`
@@ -38,6 +40,9 @@ blocked
 backend: go test ./internal/service -run S217-focused-regexp -count=10 -> PASS
 backend: go test ./internal/handler/admin -run '^TestOpenAIOAuthHandler(ResetQuota|RefreshQuota)' -count=10 -> PASS
 backend: go test ./internal/server -run '^TestAdminOpenAIQuotaRefreshRouteContract$' -count=10 -> PASS
+backend: go test ./internal/server -list '^TestAdminOpenAIQuotaRefreshRouteContract$' -> PASS; test listed
+backend: go test -tags=unit ./internal/server -run '^$' -count=0 -> PASS
+backend: go test -tags=unit ./internal/server -run '^TestAdminOpenAIQuotaRefreshRouteContract$' -count=10 -> PASS
 backend: go test ./internal/server -count=1 -> PASS
 backend: go test ./cmd/server -run '^$' -count=0 -> PASS
 backend: gofmt -d on changed Go files -> PASS

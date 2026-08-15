@@ -10,9 +10,7 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"sort"
-	"strings"
 	"testing"
 	"time"
 
@@ -27,14 +25,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
-
-func TestAdminOpenAIQuotaRefreshRouteContract(t *testing.T) {
-	source, err := os.ReadFile("routes/admin.go")
-	require.NoError(t, err)
-	routes := string(source)
-	require.Contains(t, routes, "openai.GET(\"/accounts/:id/quota\", h.Admin.OpenAIOAuth.QueryQuota)")
-	require.Contains(t, routes, "openai.POST(\"/accounts/:id/quota/refresh\", h.Admin.OpenAIOAuth.RefreshQuota)")
-}
 
 func TestAPIContracts(t *testing.T) {
 	gin.SetMode(gin.TestMode)
