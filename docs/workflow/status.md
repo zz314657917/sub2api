@@ -2,7 +2,7 @@
 phase: contract-approved
 current_sprint: upstream-v0176-gpt-quota-s217
 total_sprints: 217
-pending_action: BLOCKED: the required Terra Generator cannot start because Claude CLI returns a selected-model 404 for gpt-5.6-terra before any token or filesystem action. Await the user's explicit alternate Developer Worker model authorization, then resume in the clean existing E:/codex-worktrees/sub2api/s217-gpt-quota worktree. The scope remains limited to upstream 358e4a89a, 12abb5470, and 54a2bcfd1; existing local equivalents for 99b31067f, 3d3aee2e, and the S188 backend recovery chain must not be reimplemented. Preserve all user-owned frontend edits and outputs/. Do not deploy, update containers, use real provider/production traffic, touch migrations, or push without separate authorization.
+pending_action: User explicitly authorized gpt-5.6-sol as the S217 Developer Worker after gpt-5.6-terra returned model 404. Resume the approved Generator in clean E:/codex-worktrees/sub2api/s217-gpt-quota; QA remains an independent Terra role and must report BLOCKED if Terra is still unavailable. The scope remains limited to upstream 358e4a89a, 12abb5470, and 54a2bcfd1; existing local equivalents for 99b31067f, 3d3aee2e, and the S188 backend recovery chain must not be reimplemented. Preserve all user-owned frontend edits and outputs/. Do not deploy, update containers, use real provider/production traffic, touch migrations, or push without separate authorization.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
@@ -32,6 +32,9 @@ last_verified: 2026-08-14 12:08 +08:00
   CLI invocation returned model 404 before consuming input tokens or changing
   files. The clean worktree is retained for explicit alternate-model resumption;
   no source, test, provider, or Git integration action has occurred.
+- `RESUMED / user-authorized-developer-model`: the user explicitly authorized
+  `gpt-5.6-sol` for the Generator. This does not change the independent QA
+  model or lower any acceptance gate.
 
 # Local Branch Consolidation S216
 
