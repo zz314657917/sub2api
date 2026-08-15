@@ -5,6 +5,20 @@ qa_mode: runtime
 last_verified: 2026-08-16 01:39 +08:00
 ---
 
+## Upstream v0.1.177 Codex Turn-State (S219)
+
+- Relay `x-codex-turn-state` explicitly across native OpenAI HTTP streaming,
+  JSON, SSE-to-JSON, and passthrough response paths without widening the global
+  response-header filter.
+- Track the account that minted a state only after the downstream response
+  headers are actually committed, keyed by positive API-key ID plus the
+  original client session. Strip only known cross-account client echoes in the
+  normal and passthrough request builders; never inject native HTTP state.
+- Adapt `8219dcfc8` and `4d9fedee2` plus only the two turn-state guard hook ideas
+  from `fce41e318`. Fingerprint defaults/convergence, frontend, migrations,
+  dependencies, provider traffic, containers, deployment and push are excluded.
+  Contract: `docs/workflow/tasks/upstream-v0177-turn-state-s219.md`.
+
 ## Upstream v0.1.177 Remote Compaction V2 (S218)
 
 - Adapt the final behavior of upstream `9662cff2e`, `a8b9ea22b`, and

@@ -1,13 +1,30 @@
 ---
-phase: done
-current_sprint: upstream-v0177-remote-compaction-v2-s218
-total_sprints: 218
-pending_action: S218 is complete on local main. Remove only the clean S218 worktree and local branch, then draft S219 for upstream 8219dcfc8 plus 4d9fedee2 turn-state HTTP relay and cross-account echo protection. Preserve user-owned frontend edits and outputs/. Keep fingerprint convergence and group rollup migrations excluded; migrations 222/223 require separate database-impact authorization. Do not push until the next bounded upstream slice is resolved and origin is fetched again.
+phase: contract-draft
+current_sprint: upstream-v0177-turn-state-s219
+total_sprints: 219
+pending_action: Review the S219 contract for the local monolithic response commit boundary, positive API-key/session provenance seed, stale-header clearing, normal and passthrough request-guard placement, and strict exclusion of fingerprint convergence. Source work is not authorized before PASS/contract-approved. Preserve user-owned frontend edits and outputs/. Exclude migrations 222/223, provider traffic, containers, deployment, and push.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-16 01:39 +08:00
+last_verified: 2026-08-16 01:48 +08:00
 ---
+
+# Upstream v0.1.177 Codex Turn-State S219
+
+- `contract-draft`: upstream `8219dcfc8` defines explicit HTTP response relay
+  and provenance helpers; `4d9fedee2` fixes its test assertions. Direct apply
+  fails because the checkout keeps response, forward, and passthrough behavior
+  in one monolithic gateway file.
+- The cross-account guard is not wired by `8219dcfc8` alone. S219 therefore
+  includes only the two turn-state guard call placements from `fce41e318` while
+  excluding all fingerprint default, convergence, client-metadata, and frontend
+  behavior from that commit.
+- Local adaptation must record streaming provenance on the first successful
+  downstream flush, not when a 2xx header is merely received. A positive
+  downstream API-key ID and original client session are both required for the
+  seed; missing identity remains untracked.
+- Contract: `docs/workflow/tasks/upstream-v0177-turn-state-s219.md`. Next legal
+  action is Evaluator review; no source worktree or Developer dispatch yet.
 
 # Upstream v0.1.177 Remote Compaction V2 S218
 

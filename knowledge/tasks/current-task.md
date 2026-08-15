@@ -12,6 +12,7 @@
 
 - S218 已完成并合入本地主线；下一步正式起草 S219，行为级移植上游 `8219dcfc8` 与测试修正 `4d9fedee2`。
 - S219 只处理 Codex `x-codex-turn-state` 的 HTTP streaming/non-streaming/SSE-to-JSON 回传，以及已知跨账号 echo 的剥离；不得把 Claude 兼容桥的注入缓存与原生 Codex provenance 混用。
+- `8219dcfc8` 只定义守卫，实际 normal/passthrough builder 调用位于 `fce41e318`；S219 只取这两个守卫挂点，继续排除 fingerprint 默认值、收敛、client metadata 和 frontend。
 
 ## 本次已完成
 
@@ -27,7 +28,7 @@
 - S219 两个提交不能直接 apply：本地没有上游拆出的 `openai_gateway_response_handling.go`，响应处理仍在单体 `openai_gateway_service.go`。
 - 本地请求白名单已允许 `x-codex-turn-state`，WS handshake 也有相关处理，但 HTTP streaming、non-streaming 与 SSE-to-JSON 没有完整显式回传和原生 Codex 跨账号 provenance 守卫。
 - 本地已有 Claude 兼容桥自己的 turn-state 缓存与注入语义；S219 必须保持协议边界，只对原生 Codex echo 做已知异账号剥离，不做服务端注入。
-- 指纹 opt-in `fce41e318` 与分组日汇总 migration 222/223 继续排除；后者必须单独取得数据库影响授权。
+- `fce41e318` 的 fingerprint opt-in/default、收敛、client metadata 和 frontend 继续排除，只允许复用其中两个 turn-state guard 调用位置；分组日汇总 migration 222/223 必须单独取得数据库影响授权。
 
 ## 待验证点
 
@@ -37,13 +38,13 @@
 ## 当前结论
 
 - `PASS / S218 local-main-integrated`：remote compaction v2 已通过独立 Terra QA 和主线回归，尚未推送。
-- `S219 / intake`：turn-state HTTP relay 与跨账号 echo 保护缺口真实存在，下一合法动作是冻结本地主线基线并起草合同。
+- `S219 / contract-draft`：合同已冻结 `main@d8940bff5`，下一合法动作是 Evaluator 审查 commit-boundary、seed 和 guard placement；尚未授权 source work。
 
 ## 下一步
 
-1. 提交 S218 workflow/knowledge 收口并删除其 clean worktree/local branch -> 验证：main 不受影响，用户 dirty patch-id 不变。
-2. 创建并复审 S219 contract -> 验证：只允许本地 turn-state helper、单体 gateway hook 和 default-tag tests，不引入 migration/fingerprint/Claude bridge 改写。
-3. 在新隔离 worktree 调度独立 Terra Developer，再由新的 Terra QA 验收 -> 验证：完整 service/handler/server/compile、allowlist/provenance/index 和本地 fixture 边界通过。
+1. Evaluator 复审 `docs/workflow/tasks/upstream-v0177-turn-state-s219.md` -> 验证：实际 flush 才记录、正 API-key/session seed、stale clear 和 normal/passthrough guard 均可执行。
+2. 通过后创建 `E:/codex-worktrees/sub2api/s219-turn-state` 并调度独立 Terra Developer -> 验证：只改 6 个 allowlisted 路径。
+3. 主控审 diff 后由新的 Terra QA 验收 -> 验证：完整 service/handler/server/compile、allowlist/provenance/index 和本地 fixture 边界通过。
 4. S219 收口后重新 fetch upstream/origin，决定是否统一推送本地主线。
 
 ## 验证记录
