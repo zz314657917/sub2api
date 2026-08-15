@@ -2,7 +2,7 @@
 repo: sub2api
 project_type: web
 qa_mode: runtime
-last_verified: 2026-08-04 02:35 +08:00
+last_verified: 2026-08-16 01:39 +08:00
 ---
 
 ## Upstream v0.1.177 Remote Compaction V2 (S218)
@@ -19,6 +19,10 @@ last_verified: 2026-08-04 02:35 +08:00
   migrations, frontend, dependencies, provider traffic, containers, push, and
   deployment are excluded. Contract:
   `docs/workflow/tasks/upstream-v0177-remote-compaction-v2-s218.md`.
+- Independent Terra QA and post-integration main regressions passed. Local main
+  contains implementation commits `2058b69c9` and `32c55f9fe` plus QA report
+  commit `d6c7435bd`; no provider, migration, container, deployment or push
+  operation was performed.
 
 ## Upstream GPT/Codex Quota Correctness (S217)
 

@@ -1,5 +1,15 @@
 # 项目时间轴
 
+## 2026-08-16 01:39 +08:00 - S218 remote compaction v2 合入主线
+
+- 当前阶段：S218 已 `PASS / local-main-integrated`；下一阶段为 S219 turn-state contract。
+- 本段重点：原生 streaming `compaction_trigger` 保持 `/responses`，补齐 session beta feature 与 native probe，同时严格保留 legacy compact 路径、mapping 和调度语义。
+- 已完成：Terra Developer 主实现与 R1 scheduler/Forward 修复、独立 Terra QA PASS；主线精确合入 `2058b69c9`、`32c55f9fe`、`d6c7435bd`，重复 Amendment 未合入。
+- 关键决策：API-key Responses unsupported/force-chat 账号不能承接 native v2；direct Forward 不能 raw-chat 吞 trigger；probe 的 2xx 必须含真实 compaction item 才算支持。
+- 验证记录：focused handler/service x10、legacy compact、完整 service/handler/server、server compile、gofmt、19 文件 allowlist、provenance、diff/index PASS；用户前端 patch-id 保持 `5d316e5b...`。
+- 遗留问题：本地主线尚未 push；S219 `8219dcfc8`/`4d9fedee2` 需按单体拓扑行为移植；指纹与 migration 222/223 继续排除，数据库迁移未授权。
+- 下一步：清理 S218 clean worktree/branch，起草并复审 S219 contract，再调度独立 Terra Developer 与 Terra QA。
+
 ## 2026-08-16 00:11 +08:00 - S217 额度修复合入与 S218 remote compaction v2 启动
 
 - 当前阶段：S217 已 `PASS / local-main-integrated`；S218 进入 `contract-draft`。

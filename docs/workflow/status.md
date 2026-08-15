@@ -1,12 +1,12 @@
 ---
-phase: contract-approved
+phase: done
 current_sprint: upstream-v0177-remote-compaction-v2-s218
 total_sprints: 218
-pending_action: Sync approved S218 Amendment 1 into the existing isolated branch, then resume the same independent gpt-5.6-terra Developer. The amendment adds only backend/internal/handler/openai_gateway_handler_test.go so its stale default-tag legacy expectation can be corrected to the already-approved headerless native-v2 behavior. After the worker commits its scoped result, Codex must review the diff, allowlist, default-tag test discovery, native/legacy routing, beta-header precedence, and local-fixture probe evidence before dispatching a separate gpt-5.6-terra QA Worker. Preserve user-owned frontend edits and outputs/. Exclude turn-state, fingerprint convergence, group rollup migrations, provider traffic, containers, deployment, and push.
+pending_action: S218 is complete on local main. Remove only the clean S218 worktree and local branch, then draft S219 for upstream 8219dcfc8 plus 4d9fedee2 turn-state HTTP relay and cross-account echo protection. Preserve user-owned frontend edits and outputs/. Keep fingerprint convergence and group rollup migrations excluded; migrations 222/223 require separate database-impact authorization. Do not push until the next bounded upstream slice is resolved and origin is fetched again.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-16 00:36 +08:00
+last_verified: 2026-08-16 01:39 +08:00
 ---
 
 # Upstream v0.1.177 Remote Compaction V2 S218
@@ -31,6 +31,29 @@ last_verified: 2026-08-16 00:36 +08:00
   not the product contract, caused two retries. Its exact file is now
   allowlisted only to assert preserved native-v2 path/body/stream and no legacy
   client-stream marker; all other boundaries remain unchanged.
+- `FAIL / controller-review S218-R1`: the first Developer commit passed its
+  commands but the local Responses-capability adapter ignored the checkout's
+  existing `openai_responses_supported=false` / force-chat decision. Such an
+  API-key account could pass scheduling and then raw-chat-convert a marked
+  native-v2 request, dropping the compaction trigger. The same Terra Developer
+  must add scheduler and Forward guards plus default-tag regressions before QA.
+- `PASS / controller-retest S218-R1`: Developer commit `1567b88c8` now excludes
+  Responses-unsupported and force-chat API-key accounts during native-v2
+  selection, while direct `Forward` preserves a marked native-v2 request on
+  `/responses`. Fresh controller discovery and focused handler/service repeats,
+  legacy compatibility, formatting, exact 19-file allowlist (`outside=0`),
+  conflict/index, and upstream provenance gates passed. Independent Terra QA is
+  the next legal action.
+- `PASS / independent-qa`: independent `gpt-5.6-terra` QA commit `9b8918182`
+  reports no findings. Focused R1/native/legacy regressions, complete service
+  (62.912s), handler (59.715s), server and server compilation passed with
+  `outside=0`; all runtime evidence used local fakes or loopback fixtures.
+- `PASS / local-main-integrated`: cherry-picked only the Developer commits as
+  `2058b69c9` and `32c55f9fe`, then the QA report as `d6c7435bd`; the duplicate
+  branch Amendment `098b4bd82` was intentionally excluded because main already
+  contains equivalent `0b2aee26f`. Main focused/legacy repeats, complete service
+  (64.519s), handler (59.746s), server and compile passed. The user frontend
+  patch-id remains `5d316e5b6935fdc5dbf825f940feaf231d79ac0f`.
 
 # Upstream GPT/Codex Quota Correctness S217
 
