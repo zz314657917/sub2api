@@ -1,8 +1,8 @@
 ---
 task_id: upstream-v0176-gpt-quota-s217
-phase: contract-draft
+phase: contract-approved
 role: Generator
-worker_model: gpt-5.6-sol
+worker_model: gpt-5.6-terra
 qa_worker_model: gpt-5.6-terra
 ---
 

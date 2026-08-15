@@ -2,11 +2,11 @@
 phase: contract-approved
 current_sprint: upstream-v0176-gpt-quota-s217
 total_sprints: 217
-pending_action: BLOCKED: after the user authorized gpt-5.6-sol, Claude CLI also returned selected-model 404 before any token or filesystem action. Both prescribed gpt-5.6-terra and explicitly authorized gpt-5.6-sol are unavailable. Await explicit authorization for an actual CLI model alias (for example sonnet or opus) or authorization to stop P/G/E worker mode and let the primary agent implement in the existing clean worktree. QA remains an independent Terra role and must report BLOCKED if Terra is still unavailable. The scope remains limited to upstream 358e4a89a, 12abb5470, and 54a2bcfd1; existing local equivalents for 99b31067f, 3d3aee2e, and the S188 backend recovery chain must not be reimplemented. Preserve all user-owned frontend edits and outputs/. Do not deploy, update containers, use real provider/production traffic, touch migrations, or push without separate authorization.
+pending_action: IN_PROGRESS: resume the approved S217 contract through an independent gpt-5.6-terra Developer Worker provided by the native collaboration runtime. The prior Claude CLI 404 applies only to that invocation path and does not authorize a model fallback. After a scoped worker commit and report, dispatch a separate gpt-5.6-terra QA Worker. The scope remains limited to upstream 358e4a89a, 12abb5470, and 54a2bcfd1; existing local equivalents for 99b31067f, 3d3aee2e, and the S188 backend recovery chain must not be reimplemented. Preserve all user-owned frontend edits and outputs/. Do not deploy, update containers, use real provider/production traffic, touch migrations, or push without separate authorization.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-14 12:08 +08:00
+last_verified: 2026-08-15 23:04 +08:00
 ---
 
 # Upstream GPT/Codex Quota Correctness S217
