@@ -193,3 +193,42 @@ func TestOpenAICompactSupportTier(t *testing.T) {
 		})
 	}
 }
+
+func TestOpenAIGatewayService_SelectAccountWithScheduler_NativeCompactionIgnoresLegacyCompactProbe(t *testing.T) {
+	account := &Account{
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Extra:    map[string]any{"openai_compact_mode": OpenAICompactModeForceOff, "openai_compact_supported": false},
+	}
+	require.True(t, supportsOpenAIEndpointCapabilityForRequest(account, OpenAIEndpointCapabilityResponses))
+	require.Equal(t, 0, openAICompactSupportTier(account), "native v2 must not consult legacy compact probe state")
+}
+
+func TestOpenAIGatewayService_SelectAccountWithScheduler_NativeCompactionRequiresResponsesCapability(t *testing.T) {
+	chatOnly := &Account{
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"openai_capabilities": []any{"chat_completions"},
+		},
+	}
+	require.False(t, supportsOpenAIEndpointCapabilityForRequest(chatOnly, OpenAIEndpointCapabilityResponses))
+
+	responsesCapable := &Account{
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"openai_capabilities": []any{"chat_completions", "responses"},
+		},
+	}
+	require.True(t, supportsOpenAIEndpointCapabilityForRequest(responsesCapable, OpenAIEndpointCapabilityResponses))
+}
+
+func TestOpenAIGatewayService_SelectAccountWithScheduler_LegacyCompactionKeepsCompactEligibility(t *testing.T) {
+	account := &Account{
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Extra:    map[string]any{"openai_compact_supported": false},
+	}
+	require.Equal(t, 0, openAICompactSupportTier(account))
+}

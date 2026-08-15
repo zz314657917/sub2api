@@ -24,17 +24,18 @@ import (
 	"go.uber.org/zap"
 )
 
-func TestRemoteCompactBodySignalMarksClientStream(t *testing.T) {
+func TestRemoteCompactBodySignalPreservesNativeStream(t *testing.T) {
 	h := &OpenAIGatewayHandler{}
 	body := []byte(`{"model":"gpt-5.5","stream":true,"input":[{"type":"compaction_trigger"}]}`)
 	c := newCompactBodySignalTestContext(t, "/v1/responses", body)
 
 	normalized, ok := h.normalizeOpenAIResponsesCompactRequest(c, zap.NewNop(), body)
 	require.True(t, ok)
-	require.False(t, gjson.GetBytes(normalized, "stream").Exists())
-	value, exists := c.Get(service.OpenAICompactClientStreamKeyForTest())
-	require.True(t, exists)
-	require.Equal(t, true, value)
+	require.Equal(t, "/v1/responses", c.Request.URL.Path)
+	require.Equal(t, body, normalized)
+	require.True(t, gjson.GetBytes(normalized, "stream").Bool())
+	_, exists := c.Get(service.OpenAICompactClientStreamKeyForTest())
+	require.False(t, exists)
 }
 
 func TestCopyFailoverRetryAfterValidatesAndCopiesHeader(t *testing.T) {

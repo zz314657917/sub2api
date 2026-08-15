@@ -23,6 +23,21 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+func TestBuildOpenAIWSHeaders_CarriesSessionBetaFeatures(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	c.Request.Header.Set("x-codex-beta-features", "client_feature")
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+	svc := &OpenAIGatewayService{}
+	headers, _ := svc.buildOpenAIWSHeaders(context.Background(), c, account, "test-token", OpenAIWSProtocolDecision{}, false, "", "", "", "", "")
+	require.Equal(t, "client_feature", headers.Get("x-codex-beta-features"))
+
+	c.Set(openAINativeCompactionV2Key, true)
+	headers, _ = svc.buildOpenAIWSHeaders(context.Background(), c, account, "test-token", OpenAIWSProtocolDecision{}, false, "", "", "", "", "")
+	require.Equal(t, "client_feature,remote_compaction_v2", headers.Get("x-codex-beta-features"))
+}
+
 func TestOpenAIGatewayService_Forward_WSv2_SuccessAndBindSticky(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

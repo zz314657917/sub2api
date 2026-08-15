@@ -79,6 +79,7 @@ var openaiAllowedHeaders = map[string]bool{
 	"session_id":            true,
 	"x-codex-turn-state":    true,
 	"x-codex-turn-metadata": true,
+	"x-codex-beta-features": true,
 }
 
 // OpenAI passthrough allowed headers whitelist.
@@ -94,6 +95,7 @@ var openaiPassthroughAllowedHeaders = map[string]bool{
 	"session_id":            true,
 	"x-codex-turn-state":    true,
 	"x-codex-turn-metadata": true,
+	"x-codex-beta-features": true,
 }
 
 // codex_cli_only 拒绝时记录的请求头白名单（仅用于诊断日志，不参与上游透传）
@@ -564,6 +566,10 @@ func (s *OpenAIGatewayService) checkChannelPricingRestriction(ctx context.Contex
 func (s *OpenAIGatewayService) isUpstreamModelRestrictedByChannel(ctx context.Context, groupID int64, account *Account, requestedModel string, requireCompact bool) bool {
 	if s.channelService == nil {
 		return false
+	}
+	if forwardModel, ok := openAIForwardModelFromContext(ctx); ok {
+		requestedModel = forwardModel.model
+		requireCompact = forwardModel.useCompactModelMapping
 	}
 	upstreamModel := resolveOpenAIAccountUpstreamModelForRequest(account, requestedModel, requireCompact)
 	if upstreamModel == "" {
@@ -1585,7 +1591,7 @@ func isOpenAIAccountEligibleForRequest(ctx context.Context, account *Account, re
 			return false
 		}
 	}
-	if !account.SupportsOpenAIEndpointCapability(requiredCapability) {
+	if !supportsOpenAIEndpointCapabilityForRequest(account, requiredCapability) {
 		return false
 	}
 	if !account.SupportsCapability(requiredAccountCapability) {
@@ -3972,6 +3978,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthrough(
 		req.Header.Set("user-agent", codexCLIUserAgent)
 	}
 	enforceCodexIdentityHeaders(req.Header)
+	applyOpenAICodexBetaFeatures(c, account, req.Header)
 
 	if req.Header.Get("content-type") == "" {
 		req.Header.Set("content-type", "application/json")
@@ -4838,6 +4845,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.
 		req.Header.Set("user-agent", codexCLIUserAgent)
 	}
 	enforceCodexIdentityHeaders(req.Header)
+	applyOpenAICodexBetaFeatures(c, account, req.Header)
 
 	// Ensure required headers exist
 	if req.Header.Get("content-type") == "" {

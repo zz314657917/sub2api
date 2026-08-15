@@ -27,11 +27,11 @@ func newCompactBodySignalTestContext(t *testing.T, path string, body []byte) *gi
 // path 改写、requireCompact 判定、stream/store/prompt_cache_key 归一化删除。
 // 回归防护：若 stream 字段存活，Forward 会用流式 handler 解析 compact 的
 // JSON 响应，导致 "stream ended before a terminal event" 的换号 failover 风暴。
-func TestNormalizeOpenAIResponsesCompactRequest_BodySignalPromoted(t *testing.T) {
+func TestNormalizeOpenAIResponsesCompactRequest_NonRemoteV2BodySignalPromoted(t *testing.T) {
 	h := &OpenAIGatewayHandler{}
 	body := []byte(`{
 		"model":"gpt-5.5",
-		"stream":true,
+		"stream":false,
 		"store":true,
 		"prompt_cache_key":"pck-signal-1",
 		"input":[
@@ -60,6 +60,41 @@ func TestNormalizeOpenAIResponsesCompactRequest_BodySignalPromoted(t *testing.T)
 	seed, exists := c.Get(service.OpenAICompactSessionSeedKeyForTest())
 	require.True(t, exists)
 	require.Equal(t, "pck-signal-1", seed)
+}
+
+func TestNormalizeOpenAIResponsesCompactRequest_RemoteV2StaysOnResponses(t *testing.T) {
+	h := &OpenAIGatewayHandler{}
+	body := []byte(`{
+		"model":"gpt-5.6-sol",
+		"stream":true,
+		"store":true,
+		"prompt_cache_key":"pck-signal-1",
+		"reasoning":{"effort":"max"},
+		"input":[{"type":"message","role":"user","content":"hello"},{"type":"compaction_trigger"}]
+	}`)
+	c := newCompactBodySignalTestContext(t, "/v1/responses", body)
+
+	normalized, ok := h.normalizeOpenAIResponsesCompactRequest(c, zap.NewNop(), body)
+	require.True(t, ok)
+	require.Equal(t, "/v1/responses", c.Request.URL.Path)
+	require.False(t, isOpenAIRemoteCompactPath(c))
+	require.Equal(t, body, normalized)
+	require.True(t, gjson.GetBytes(normalized, "stream").Bool())
+	require.True(t, gjson.GetBytes(normalized, "store").Bool())
+	require.Equal(t, "pck-signal-1", gjson.GetBytes(normalized, "prompt_cache_key").String())
+}
+
+func TestOpenAIResponsesCompactionRoutingFlags(t *testing.T) {
+	nativeBody := []byte(`{"stream":true,"input":[{"type":"compaction_trigger"}]}`)
+	legacyBody := []byte(`{"stream":false,"input":[{"type":"compaction_trigger"}]}`)
+	native := newCompactBodySignalTestContext(t, "/v1/responses", nativeBody)
+	legacy := newCompactBodySignalTestContext(t, "/v1/responses/compact", legacyBody)
+
+	require.True(t, isBareOpenAIResponsesPath(native))
+	require.True(t, isOpenAIRemoteCompactionV2Request(nativeBody))
+	require.True(t, isOpenAILegacyCompactPath(legacy))
+	require.Equal(t, service.OpenAIEndpointCapabilityResponses, openAIResponsesRequiredCapabilityForRequest(false, true, service.PlatformOpenAI))
+	require.Equal(t, service.OpenAIEndpointCapabilityChatCompletions, openAIResponsesRequiredCapabilityForRequest(false, false, service.PlatformOpenAI))
 }
 
 func TestNormalizeOpenAIResponsesCompactRequest_BodySignalTrailingSlash(t *testing.T) {

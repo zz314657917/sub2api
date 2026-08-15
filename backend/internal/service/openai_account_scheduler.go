@@ -54,6 +54,11 @@ type OpenAIAccountScheduleRequest struct {
 	Sub2APIUserID             int64
 }
 
+// OpenAIEndpointCapabilityResponses is the Responses-only capability exposed
+// through the existing account openai_capabilities map. It intentionally lives
+// beside scheduler selection because this checkout predates the upstream enum.
+const OpenAIEndpointCapabilityResponses OpenAIEndpointCapability = "responses"
+
 type OpenAIAccountScheduleDecision struct {
 	Layer               string
 	StickyPreviousHit   bool
@@ -1505,9 +1510,20 @@ func accountSupportsOpenAICapabilities(account *Account, requiredCapability Open
 		return false
 	}
 	requiredAccountCapability = effectiveAccountCapabilityForOpenAIRequest(requiredCapability, requiredImageCapability, requiredAccountCapability)
-	return account.SupportsOpenAIEndpointCapability(requiredCapability) &&
+	return supportsOpenAIEndpointCapabilityForRequest(account, requiredCapability) &&
 		account.SupportsOpenAIImageCapability(requiredImageCapability) &&
 		account.SupportsCapability(requiredAccountCapability)
+}
+
+func supportsOpenAIEndpointCapabilityForRequest(account *Account, capability OpenAIEndpointCapability) bool {
+	if capability != OpenAIEndpointCapabilityResponses {
+		return account != nil && account.SupportsOpenAIEndpointCapability(capability)
+	}
+	if account == nil || !account.IsOpenAI() {
+		return false
+	}
+	configured, found := account.openAIEndpointCapabilitySet()
+	return !found || configured[string(capability)]
 }
 
 func effectiveAccountCapabilityForOpenAIRequest(requiredCapability OpenAIEndpointCapability, requiredImageCapability OpenAIImagesCapability, requiredAccountCapability AccountCapability) AccountCapability {
