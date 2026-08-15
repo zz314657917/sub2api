@@ -862,4 +862,6 @@
   long-context fix 和 fingerprint convergence 缺少本地前置；分组日汇总 migration
   222/223 仍需数据库影响授权；VERSION-only 提交不单独应用。
 - 清理记录：S219 worktree/分支和三个冗余 backup 分支经 patch/祖先/tree 等价
-  检查后删除，本地仅保留 `main`。下一步提交收口文档并普通推送到 `origin/main`。
+  检查后删除，本地仅保留 `main`。
+- 发布记录：普通 fast-forward push 将 `origin/main` 从 `fbac8466e` 推进到
+  `2b046d6fa`，`git ls-remote` 与本地 SHA 一致；用户前端改动和 `outputs/` 未暂存。

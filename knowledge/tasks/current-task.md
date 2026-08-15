@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-16 02:41 +08:00
+最后更新：2026-08-16 02:44 +08:00
 
 ## 背景
 
@@ -31,7 +31,8 @@
 
 - `PASS / v0.1.177 authorized-slices-integrated`。
 - 用户前端 dirty patch-id 仍为 `5d316e5b6935fdc5dbf825f940feaf231d79ac0f`，`outputs/` 未触碰。
-- 下一步是提交本次收口文档并普通 fast-forward push `main` 到 `origin/main`，随后验证远端 SHA 一致。
+- 收口提交 `2b046d6fa` 已普通 fast-forward push，`git ls-remote` 验证 `origin/main` 与本地一致。
+- 下一步仅监控更新的上游 tag；若要继续分组日汇总，需先取得 migration 222/223 的数据库影响授权。
 
 ## 验证入口
 
