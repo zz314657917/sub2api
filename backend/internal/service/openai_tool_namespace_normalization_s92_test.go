@@ -114,7 +114,7 @@ func TestS92NonStreamingPassthroughNormalizesNamespace(t *testing.T) {
 		)),
 	}
 
-	_, err := service.handleNonStreamingResponsePassthrough(context.Background(), response, c, "gpt-5.6-sol", "gpt-5.6-sol")
+	_, err := service.handleNonStreamingResponsePassthrough(context.Background(), response, c, nil, "gpt-5.6-sol", "gpt-5.6-sol")
 
 	require.NoError(t, err)
 	require.False(t, gjson.GetBytes(recorder.Body.Bytes(), "output.0.namespace").Exists())
