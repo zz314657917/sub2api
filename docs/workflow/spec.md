@@ -2,7 +2,7 @@
 repo: sub2api
 project_type: web
 qa_mode: runtime
-last_verified: 2026-08-16 01:39 +08:00
+last_verified: 2026-08-16 02:41 +08:00
 ---
 
 ## Upstream v0.1.177 Codex Turn-State (S219)
@@ -18,6 +18,27 @@ last_verified: 2026-08-16 01:39 +08:00
   from `fce41e318`. Fingerprint defaults/convergence, frontend, migrations,
   dependencies, provider traffic, containers, deployment and push are excluded.
   Contract: `docs/workflow/tasks/upstream-v0177-turn-state-s219.md`.
+- Independent Terra QA and post-integration main regressions passed. Local main
+  contains implementation commits `2335470c0` and `f347aa460`, worker evidence
+  `590921da2`, and QA report `c3e000df0`. Provenance is recorded only after the
+  first successful stream flush or a committed non-streaming writer; nil/empty
+  upstream headers clear stale state and native HTTP remains stripping-only.
+
+## Upstream v0.1.177 Remaining Candidate Decision
+
+- `e29b93a1f` is behaviorally covered by the local Grok unknown-text fallback,
+  which already excludes image/video/audio/voice/search/media families.
+- `e215c98c2` is behaviorally covered because saved account auto-refresh state
+  is restored at module initialization before `onMounted` starts the timer.
+- `fd82dfd52` cannot be ported independently: local billing has neither the
+  upstream group long-context toggle nor the OpenAI account veto it corrects.
+  The local default Grok ladder remains active, but the upstream configurable
+  gate feature is prerequisite-absent.
+- The rest of `fce41e318` requires the missing Codex fingerprint convergence
+  subsystem and touches the user-owned account modal. `cb7b03795` and follow-up
+  fixes require migrations 222/223 and explicit database-impact authorization.
+  The VERSION-only commit remains excluded from this selectively diverged
+  product line.
 
 ## Upstream v0.1.177 Remote Compaction V2 (S218)
 

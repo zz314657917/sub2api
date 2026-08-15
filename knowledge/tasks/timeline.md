@@ -847,3 +847,19 @@
   Chrome 和 Playwright daemon 已精确关闭，Docker guard 已释放。
 - 运行态说明：日志仅出现远程价格哈希拉取 TLS handshake timeout，容器健康与
   `/health` 未受影响。真实 provider、生产流量和远端 push 仍未执行。
+
+## 2026-08-16 02:41 +08:00 - 上游 v0.1.177 S218/S219 选择性集成完成
+
+- 当前阶段：S218 remote compaction v2 与 S219 Codex HTTP turn-state 均通过
+  独立 `gpt-5.6-terra` QA、主控复核和主线回归，P/G/E 状态收口为 `done`。
+- S219 修复重点：显式回传/清除 `x-codex-turn-state`，正 API Key 加原始 session
+  作为 provenance seed，streaming 仅首次成功 flush 记录，非流式仅在 writer
+  提交后记录，normal/passthrough 只剥离已知异账号 echo。
+- 验证记录：focused `-count=10`、Claude/WS/failover compatibility、完整 service
+  66.820s、handler 68.064s、server、compile、6 路径 allowlist、gofmt、diff、
+  conflict/index、上游 provenance 均 PASS；用户前端 patch-id 保持 `5d316e5b`。
+- 剩余裁决：Grok media fallback 与 Accounts auto-refresh 已行为覆盖；Grok
+  long-context fix 和 fingerprint convergence 缺少本地前置；分组日汇总 migration
+  222/223 仍需数据库影响授权；VERSION-only 提交不单独应用。
+- 清理记录：S219 worktree/分支和三个冗余 backup 分支经 patch/祖先/tree 等价
+  检查后删除，本地仅保留 `main`。下一步提交收口文档并普通推送到 `origin/main`。

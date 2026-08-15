@@ -1,55 +1,41 @@
 # 当前任务快照
 
-最后更新：2026-08-16 01:39 +08:00
+最后更新：2026-08-16 02:41 +08:00
 
 ## 背景
 
-- 用户要求持续核实并选择性合入最新上游版本；本地主线长期分叉，禁止整包合并。
-- 上游当前为 `upstream/main@baeac1f3d`，最新 tag 为 `v0.1.177@073e92d17`。
-- 主工作区存在用户未提交的账户编辑前端源文件、对应测试和 `outputs/`，所有上游 Sprint 均排除它们。
-
-## 当前目标
-
-- S218 已完成并合入本地主线；下一步正式起草 S219，行为级移植上游 `8219dcfc8` 与测试修正 `4d9fedee2`。
-- S219 只处理 Codex `x-codex-turn-state` 的 HTTP streaming/non-streaming/SSE-to-JSON 回传，以及已知跨账号 echo 的剥离；不得把 Claude 兼容桥的注入缓存与原生 Codex provenance 混用。
-- `8219dcfc8` 只定义守卫，实际 normal/passthrough builder 调用位于 `fce41e318`；S219 只取这两个守卫挂点，继续排除 fingerprint 默认值、收敛、client metadata 和 frontend。
+- 用户要求持续核实并选择性合入最新上游版本，禁止把长期分叉的上游历史整包合并。
+- 最新抓取仍为 `upstream/main@baeac1f3d`，最新 tag 为 `v0.1.177@073e92d17`。
+- 主工作区保留用户未提交的 `EditAccountModal.vue`、对应测试和 `outputs/`。
 
 ## 本次已完成
 
-- S218 Developer 提交 `f07518322` 与 R1 修复 `1567b88c8` 已由独立 Terra QA 验收通过；QA 报告提交为 `9b8918182`。
-- 主线精确合入为 `2058b69c9`、`32c55f9fe`、`d6c7435bd`；分支重复 Amendment `098b4bd82` 未合入，主线已有等价 `0b2aee26f`。
-- 原生 `stream:true + compaction_trigger` 现在保留 `/responses`，补齐 `remote_compaction_v2` beta 特性；legacy compact 与 compact-only mapping 保持隔离。
-- API-key Responses unsupported/force-chat 账号会在 native-v2 调度时被排除；直接 `Forward` 也不会 raw-chat 转换并吞掉 trigger。
-- compact probe 改用 streaming `/responses`，只有收到真实 compaction output item 才记录支持。
+- S218 remote compaction v2 已通过独立 Terra QA 并合入本地主线。
+- S219 Codex HTTP `x-codex-turn-state` 已通过主控 R1 复核、独立 Terra QA 和主线复测。
+- S219 主线提交为 `2335470c0`、`590921da2`、`f347aa460`、`c3e000df0`。
+- streaming provenance 只在首次成功下游 flush 后记录；四个非流式 JSON/SSE-to-JSON 路径只在 writer 已提交后记录。
+- nil/空上游响应头会清除 stale state；normal/passthrough 仅剥离已知异账号 echo，不注入原生 HTTP state。
+- 主线 focused/compatibility、完整 service 66.820s、handler 68.064s、server 和 compile 均通过。
+- S219 worktree/分支与三个冗余 backup 分支已清理；本地只剩 `main`。
 
-## 已确认事实
+## 上游剩余裁决
 
-- `upstream/main` 仍为 `baeac1f3d`，`v0.1.177` peeled commit 仍为 `073e92d17`；tag 之后只有 VERSION 同步提交。
-- S219 两个提交不能直接 apply：本地没有上游拆出的 `openai_gateway_response_handling.go`，响应处理仍在单体 `openai_gateway_service.go`。
-- 本地请求白名单已允许 `x-codex-turn-state`，WS handshake 也有相关处理，但 HTTP streaming、non-streaming 与 SSE-to-JSON 没有完整显式回传和原生 Codex 跨账号 provenance 守卫。
-- 本地已有 Claude 兼容桥自己的 turn-state 缓存与注入语义；S219 必须保持协议边界，只对原生 Codex echo 做已知异账号剥离，不做服务端注入。
-- `fce41e318` 的 fingerprint opt-in/default、收敛、client metadata 和 frontend 继续排除，只允许复用其中两个 turn-state guard 调用位置；分组日汇总 migration 222/223 必须单独取得数据库影响授权。
-
-## 待验证点
-
-- S219 contract review -> 验证：所有 HTTP 响应提交点、first-output staging/failover、passthrough 和请求守卫边界均有明确默认标签测试。
-- S219 Developer/QA -> 验证：same-account/unknown provenance 保持透传，known cross-account echo 才剥离；无 session/API-key seed 时不跟踪，TTL 清理有界，WS 与 Claude bridge 不退化。
+- `e29b93a1f`：本地 Grok unknown-text fallback 已排除媒体/语音/搜索族，行为已覆盖。
+- `e215c98c2`：账号自动刷新偏好已在模块初始化恢复，行为已覆盖。
+- `fd82dfd52`：依赖本地不存在的分组长上下文开关与 OpenAI 账号 veto，不能独立移植。
+- `fce41e318` 剩余 fingerprint 功能：缺少本地收敛前置，并会触碰用户账户弹窗改动，继续排除。
+- `cb7b03795` 与 migration 222/223：涉及分组日汇总和数据库迁移，未获得影响授权。
+- `baeac1f3d` 仅同步 upstream VERSION；本地是选择性分叉产品线，不单独冒充完整 v0.1.177。
 
 ## 当前结论
 
-- `PASS / S218 local-main-integrated`：remote compaction v2 已通过独立 Terra QA 和主线回归，尚未推送。
-- `S219 / build`：隔离 worktree 已从审批 SHA `8884ee10c` 创建，独立 Terra Developer 已调度；下一合法动作是等待 worker commit/result 后由主控审 diff。
+- `PASS / v0.1.177 authorized-slices-integrated`。
+- 用户前端 dirty patch-id 仍为 `5d316e5b6935fdc5dbf825f940feaf231d79ac0f`，`outputs/` 未触碰。
+- 下一步是提交本次收口文档并普通 fast-forward push `main` 到 `origin/main`，随后验证远端 SHA 一致。
 
-## 下一步
+## 验证入口
 
-1. 等待 Terra Developer 提交实现与 worker result -> 验证：只改 6 个 allowlisted 路径且首行 DONE/BLOCKED/FAILED 合法。
-2. 主控审 diff 并复跑 focused/compatibility 门禁 -> 验证：实际 flush provenance、stale clear 和 guard 行为满足合同。
-3. 新建独立 Terra QA 验收 -> 验证：完整 service/handler/server/compile、allowlist/provenance/index 和本地 fixture 边界通过。
-4. S219 收口后重新 fetch upstream/origin，决定是否统一推送本地主线。
-
-## 验证记录
-
-- S218 QA：`docs/workflow/qa-reports/upstream-v0177-remote-compaction-v2-s218-qa.md`，首行 PASS。
-- S218 主线：focused handler/service `-count=10`、legacy compact、完整 service 64.519s、handler 59.746s、server 与 compile PASS。
-- S218 静态：19 个实现文件 `outside=0`，gofmt、diff、冲突/index、三个上游提交 provenance PASS。
-- 用户两处前端 dirty patch 当前仍为 `5d316e5b6935fdc5dbf825f940feaf231d79ac0f`；未 push、部署、更新容器、调用 provider 或触碰 migration。
+- S218 QA：`docs/workflow/qa-reports/upstream-v0177-remote-compaction-v2-s218-qa.md`
+- S219 contract：`docs/workflow/tasks/upstream-v0177-turn-state-s219.md`
+- S219 worker result：`docs/workflow/worker-results/upstream-v0177-turn-state-s219-result.md`
+- S219 QA：`docs/workflow/qa-reports/upstream-v0177-turn-state-s219-qa.md`

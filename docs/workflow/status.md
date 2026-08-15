@@ -1,12 +1,12 @@
 ---
-phase: build
+phase: done
 current_sprint: upstream-v0177-turn-state-s219
 total_sprints: 219
-pending_action: Independent gpt-5.6-terra Developer is implementing S219 in E:/codex-worktrees/sub2api/s219-turn-state from approval SHA 8884ee10c. Review its committed diff and worker result before QA; require actual downstream-flush provenance, stale clearing, positive API-key/session seed, both normal/passthrough guards, default-tag discovery, and compatibility/full package evidence. Preserve user-owned frontend edits and outputs/. Exclude fingerprint behavior, migrations 222/223, provider traffic, containers, deployment, and push.
+pending_action: S219 passed independent gpt-5.6-terra QA and post-integration main regressions. All authorized v0.1.177 behavior slices are integrated or behaviorally covered; perform a normal fast-forward push of main to origin, then monitor for a newer upstream tag. Group daily rollups/migrations 222/223 still require explicit database-impact authorization; fingerprint convergence and group/account long-context gates remain prerequisite-absent locally.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-16 01:55 +08:00
+last_verified: 2026-08-16 02:41 +08:00
 ---
 
 # Upstream v0.1.177 Codex Turn-State S219
@@ -37,6 +37,29 @@ last_verified: 2026-08-16 01:55 +08:00
   `codex/upstream-v0177-turn-state-s219` were created at approval commit
   `8884ee10c`. An independent `gpt-5.6-terra` Developer owns only the six
   allowlisted paths; controller review is required before independent QA.
+- `PASS / controller-retest S219-R1`: Developer commits `05cfdb537`,
+  `4e984c95e`, and `5eb5ffb16` stay within the six-path allowlist. R1 clears a
+  stale passthrough turn-state even for nil upstream headers and records all
+  four non-streaming success paths only after `Writer.Written()`. Fresh focused
+  discovery and `-count=10`, failover/Claude/WS compatibility, complete service
+  (63.694s), handler (63.766s), server, compile, formatting, conflict/index,
+  clean-tree, and three-commit provenance gates passed. Advance to independent
+  `gpt-5.6-terra` QA.
+- `PASS / independent-qa-main-integration`: Terra QA report commit
+  `a6579dfb0` found no issues. Main precisely integrated the implementation,
+  worker result, R1, and QA report as `2335470c0`, `590921da2`, `f347aa460`,
+  and `c3e000df0`. Post-integration focused/compatibility, complete service
+  (66.820s), handler (68.064s), server, and compile gates passed; the user
+  frontend patch-id remained `5d316e5b6935fdc5dbf825f940feaf231d79ac0f`.
+- Remaining `v0.1.177` decision: `e29b93a1f` and `e215c98c2` are already
+  behaviorally covered. `fd82dfd52` depends on absent group/account
+  long-context gates, while the remaining `fce41e318` fingerprint feature also
+  lacks its local prerequisite and overlaps the user-owned account-modal edit.
+  `cb7b03795` plus migrations 222/223 remains authorization-gated. The upstream
+  VERSION-only commit is not applied to this selectively diverged product.
+- Cleanup: the S219 worktree/branch and three obsolete backup branches were
+  removed after patch-equivalence, ancestry, or exact tree-equivalence checks;
+  only local `main` remains.
 
 # Upstream v0.1.177 Remote Compaction V2 S218
 
