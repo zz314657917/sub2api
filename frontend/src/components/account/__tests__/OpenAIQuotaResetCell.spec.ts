@@ -3,13 +3,13 @@ import { flushPromises, mount } from '@vue/test-utils'
 import OpenAIQuotaResetCell from '../OpenAIQuotaResetCell.vue'
 import type { Account } from '@/types'
 
-const { queryOpenAIQuota, resetOpenAIQuota } = vi.hoisted(() => ({
-  queryOpenAIQuota: vi.fn(),
+const { refreshOpenAIQuota, resetOpenAIQuota } = vi.hoisted(() => ({
+  refreshOpenAIQuota: vi.fn(),
   resetOpenAIQuota: vi.fn()
 }))
 
 vi.mock('@/api/admin/accounts', () => ({
-  queryOpenAIQuota,
+  refreshOpenAIQuota,
   resetOpenAIQuota
 }))
 
@@ -55,7 +55,7 @@ function makeAccount(overrides: Partial<Account>): Account {
 
 describe('OpenAIQuotaResetCell', () => {
   beforeEach(() => {
-    queryOpenAIQuota.mockReset()
+    refreshOpenAIQuota.mockReset()
     resetOpenAIQuota.mockReset()
   })
 
@@ -70,7 +70,7 @@ describe('OpenAIQuotaResetCell', () => {
   })
 
   it('查询 reset credits 后显示次数并启用重置', async () => {
-    queryOpenAIQuota.mockResolvedValue({
+    refreshOpenAIQuota.mockResolvedValue({
       fetched_at: 1,
       rate_limit_reset_credits: { available_count: 2 }
     })
@@ -84,21 +84,16 @@ describe('OpenAIQuotaResetCell', () => {
     await wrapper.get('button').trigger('click')
     await flushPromises()
 
-    expect(queryOpenAIQuota).toHaveBeenCalledWith(22)
+    expect(refreshOpenAIQuota).toHaveBeenCalledWith(22)
     expect(wrapper.findAll('button')[0].text()).toContain('admin.accounts.openaiQuotaReset.count')
     expect(wrapper.findAll('button')[0].text()).toContain('2')
     expect(wrapper.findAll('button')[1].attributes('disabled')).toBeUndefined()
   })
 
-  it('重置成功后刷新次数并显示成功消息', async () => {
-    queryOpenAIQuota
-      .mockResolvedValueOnce({
+  it('重置成功后不会自动再次查询额度', async () => {
+    refreshOpenAIQuota.mockResolvedValueOnce({
         fetched_at: 1,
         rate_limit_reset_credits: { available_count: 1 }
-      })
-      .mockResolvedValueOnce({
-        fetched_at: 2,
-        rate_limit_reset_credits: { available_count: 0 }
       })
     resetOpenAIQuota.mockResolvedValue({
       code: 'success',
@@ -120,15 +115,14 @@ describe('OpenAIQuotaResetCell', () => {
     await flushPromises()
 
     expect(resetOpenAIQuota).toHaveBeenCalledWith(23)
-    expect(queryOpenAIQuota).toHaveBeenCalledTimes(2)
+    expect(refreshOpenAIQuota).toHaveBeenCalledTimes(1)
     expect(wrapper.findAll('button')[0].text()).toContain('admin.accounts.openaiQuotaReset.count')
-    expect(wrapper.findAll('button')[0].text()).toContain('0')
     expect(wrapper.text()).toContain('admin.accounts.openaiQuotaReset.resetSuccess')
     expect(wrapper.text()).toContain('"windows":2')
   })
 
   it('查询失败时显示压缩后的错误', async () => {
-    queryOpenAIQuota.mockRejectedValue({
+    refreshOpenAIQuota.mockRejectedValue({
       message: 'x'.repeat(100)
     })
 
@@ -146,7 +140,7 @@ describe('OpenAIQuotaResetCell', () => {
   })
 
   it('账号行复用时会重置本地状态', async () => {
-    queryOpenAIQuota.mockResolvedValue({
+    refreshOpenAIQuota.mockResolvedValue({
       fetched_at: 1,
       rate_limit_reset_credits: { available_count: 3 }
     })

@@ -59,7 +59,7 @@ func (f *openAIQuotaResetRecoveryFake) RecoverAccountState(ctx context.Context, 
 
 func TestOpenAIOAuthHandlerResetQuota_PostProcessingSurvivesClientCancel(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	order := make([]string, 0, 4)
+	order := make([]string, 0, 2)
 	requestCtx, cancelRequest := context.WithCancel(context.Background())
 	defer cancelRequest()
 	quota := &openAIQuotaResetFake{order: &order, cancel: cancelRequest}
@@ -77,10 +77,10 @@ func TestOpenAIOAuthHandlerResetQuota_PostProcessingSurvivesClientCancel(t *test
 	router.ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusOK, rec.Code)
-	require.Equal(t, []string{"reset", "recover", "query", "cache"}, order)
+	require.Equal(t, []string{"reset", "recover"}, order)
 	require.NoError(t, recovery.postCtxErr)
 	require.True(t, recovery.hasDeadline)
-	require.Equal(t, []error{nil, nil}, quota.postCtxErrs)
+	require.Empty(t, quota.postCtxErrs)
 
 	var body struct {
 		Code int `json:"code"`
@@ -92,14 +92,14 @@ func TestOpenAIOAuthHandlerResetQuota_PostProcessingSurvivesClientCancel(t *test
 	}
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 	require.Equal(t, 0, body.Code)
-	require.True(t, body.Data.CacheRefreshed)
+	require.False(t, body.Data.CacheRefreshed)
 	require.True(t, body.Data.AccountStateRecovered)
 	require.Empty(t, body.Data.WarningCode)
 }
 
 func TestOpenAIOAuthHandlerResetQuota_CacheFailureKeepsSuccess(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	order := make([]string, 0, 4)
+	order := make([]string, 0, 2)
 	quota := &openAIQuotaResetFake{
 		order:    &order,
 		cancel:   func() {},
@@ -117,7 +117,7 @@ func TestOpenAIOAuthHandlerResetQuota_CacheFailureKeepsSuccess(t *testing.T) {
 	router.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/admin/openai/accounts/42/reset-quota", nil))
 
 	require.Equal(t, http.StatusOK, rec.Code)
-	require.Equal(t, []string{"reset", "recover", "query", "cache"}, order)
+	require.Equal(t, []string{"reset", "recover"}, order)
 	var body struct {
 		Code int `json:"code"`
 		Data struct {
@@ -130,5 +130,18 @@ func TestOpenAIOAuthHandlerResetQuota_CacheFailureKeepsSuccess(t *testing.T) {
 	require.Equal(t, 0, body.Code)
 	require.False(t, body.Data.CacheRefreshed)
 	require.True(t, body.Data.AccountStateRecovered)
-	require.Equal(t, openAIQuotaResetWarningCacheRefreshFailed, body.Data.WarningCode)
+	require.Empty(t, body.Data.WarningCode)
+}
+
+func TestOpenAIOAuthHandlerRefreshQuota_PersistsSnapshot(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	order := make([]string, 0, 2)
+	quota := &openAIQuotaResetFake{order: &order, cancel: func() {}}
+	h := &OpenAIOAuthHandler{quotaService: quota}
+	router := gin.New()
+	router.POST("/admin/openai/accounts/:id/quota/refresh", h.RefreshQuota)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/admin/openai/accounts/42/quota/refresh", nil))
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, []string{"query", "cache"}, order)
 }

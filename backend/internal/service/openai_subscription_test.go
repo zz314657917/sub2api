@@ -125,3 +125,53 @@ func TestShouldApplyChatGPTAccountInfoPlanType(t *testing.T) {
 	require.False(t, shouldApplyChatGPTAccountInfoPlanType("", ""))
 	require.True(t, shouldApplyChatGPTAccountInfoPlanType("", "pro"))
 }
+
+func TestFetchChatGPTAccountInfo_ReportsAccountID(t *testing.T) {
+	acct := map[string]any{"account": map[string]any{"account_id": "personal-account", "plan_type": "pro"}}
+	info := &ChatGPTAccountInfo{}
+	fillAccountInfo(info, acct, "default")
+	require.Equal(t, "personal-account", info.AccountID)
+}
+
+func TestFetchChatGPTAccountInfo_WorkspaceEntitlementDoesNotOverridePersonalSubscription(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"accounts": map[string]any{
+				"workspace-account": map[string]any{
+					"account":     map[string]any{"account_id": "workspace-account", "plan_type": "pro"},
+					"entitlement": map[string]any{"expires_at": time.Now().Add(time.Hour).UTC().Format(time.RFC3339)},
+				},
+			},
+		})
+	}))
+	defer server.Close()
+	oldURL := chatGPTAccountsCheckURL
+	chatGPTAccountsCheckURL = server.URL
+	t.Cleanup(func() { chatGPTAccountsCheckURL = oldURL })
+
+	info := fetchChatGPTAccountInfo(context.Background(), func(string) (*req.Client, error) {
+		return req.C().SetTimeout(time.Second), nil
+	}, "access-token", "", "workspace-account")
+	require.NotNil(t, info)
+	require.Equal(t, "workspace-account", info.AccountID)
+	require.False(t, chatGPTAccountInfoBelongsToTokenAccount(
+		&OpenAITokenInfo{ChatGPTAccountID: "personal-account", PlanType: "pro"}, info))
+}
+
+func TestEnrichTokenInfo_WorkspaceEntitlementDoesNotOverridePersonalSubscription(t *testing.T) {
+	personal := &OpenAITokenInfo{ChatGPTAccountID: "personal-account", PlanType: "pro"}
+	workspace := &ChatGPTAccountInfo{AccountID: "workspace-account", PlanType: "pro", SubscriptionExpiresAt: "2027-01-01T00:00:00Z"}
+	require.False(t, chatGPTAccountInfoBelongsToTokenAccount(personal, workspace))
+}
+
+func TestEnrichTokenInfo_SameAccountDoesNotRepeatPersonalSubscriptionLookup(t *testing.T) {
+	personal := &OpenAITokenInfo{ChatGPTAccountID: "personal-account", PlanType: "pro"}
+	info := &ChatGPTAccountInfo{AccountID: "PERSONAL-ACCOUNT", PlanType: "pro"}
+	require.True(t, chatGPTAccountInfoBelongsToTokenAccount(personal, info))
+}
+
+func TestEnrichTokenInfo_MissingAccountIDPreservesCompatibilityFallback(t *testing.T) {
+	require.True(t, chatGPTAccountInfoBelongsToTokenAccount(&OpenAITokenInfo{}, &ChatGPTAccountInfo{AccountID: "workspace"}))
+	require.True(t, chatGPTAccountInfoBelongsToTokenAccount(&OpenAITokenInfo{ChatGPTAccountID: "personal"}, &ChatGPTAccountInfo{}))
+}

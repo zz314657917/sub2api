@@ -764,10 +764,28 @@ export interface OpenAIQuotaResetResult {
   code: string
   credit?: OpenAIQuotaResetCredit | null
   windows_reset: number
+  quota?: OpenAIQuotaUsage | null
+  account?: import('@/types').Account | null
+  cache_refreshed?: boolean
+  account_state_recovered?: boolean
+  warning_code?: 'reset_credit_cache_refresh_failed' | 'account_state_recovery_failed' | 'account_state_refresh_failed'
+}
+
+export interface OpenAIQuotaRefreshResult extends OpenAIQuotaUsage {
+  cache_persisted: boolean
 }
 
 export async function queryOpenAIQuota(id: number): Promise<OpenAIQuotaUsage> {
   const { data } = await apiClient.get<OpenAIQuotaUsage>(`/admin/openai/accounts/${id}/quota`)
+  return data
+}
+
+// POST is deliberate: this refresh persists the reset-credit snapshot and is
+// therefore auditable. The GET helper above remains read-only.
+export async function refreshOpenAIQuota(id: number): Promise<OpenAIQuotaRefreshResult> {
+  const { data } = await apiClient.post<OpenAIQuotaRefreshResult>(
+    `/admin/openai/accounts/${id}/quota/refresh`
+  )
   return data
 }
 
@@ -898,6 +916,7 @@ export const accountsAPI = {
   batchRefresh,
   setPrivacy,
   queryOpenAIQuota,
+  refreshOpenAIQuota,
   resetOpenAIQuota,
   setShareStatus,
   batchSetShareStatus,

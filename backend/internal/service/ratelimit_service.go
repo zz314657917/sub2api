@@ -740,6 +740,12 @@ func (s *RateLimitService) handle403(ctx context.Context, account *Account, upst
 }
 
 func (s *RateLimitService) handleOpenAI403(ctx context.Context, account *Account, upstreamMsg string, responseBody []byte) (shouldDisable bool) {
+	// A proxy/CDN HTML block describes the request path, not account credentials.
+	// Do not increment the account-level 403 counter or mutate schedulability.
+	if isHTMLResponse(responseBody) {
+		slog.Warn("openai_403_html_body_skips_account_penalty", "account_id", account.ID, "upstream_message", upstreamMsg)
+		return false
+	}
 	msg := buildForbiddenErrorMessage(
 		"Access forbidden (403):",
 		upstreamMsg,
@@ -781,6 +787,11 @@ func (s *RateLimitService) handleOpenAI403(ctx context.Context, account *Account
 		"threshold", openAI403DisableThreshold,
 	)
 	return true
+}
+
+func isHTMLResponse(responseBody []byte) bool {
+	body := bytes.ToLower(bytes.TrimSpace(responseBody))
+	return bytes.HasPrefix(body, []byte("<!doctype html")) || bytes.HasPrefix(body, []byte("<html"))
 }
 
 // handleAntigravity403 处理 Antigravity 平台的 403 错误

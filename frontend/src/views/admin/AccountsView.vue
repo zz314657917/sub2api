@@ -387,6 +387,7 @@
               :show-quota-refresh="canRefreshAccountQuota(row)"
               :quota-refresh-loading="quotaRefreshingId === row.id"
               @refresh-quota="handleRefreshQuota"
+              @account-updated="handleAccountUpdated"
             />
           </template>
           <template #cell-proxy="{ row }">

@@ -77,7 +77,7 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Account } from '@/types'
 import {
-  queryOpenAIQuota,
+  refreshOpenAIQuota,
   resetOpenAIQuota,
   type OpenAIQuotaResetResult,
   type OpenAIQuotaUsage
@@ -97,6 +97,10 @@ const error = ref<string | null>(null)
 const data = ref<OpenAIQuotaUsage | null>(null)
 const resetMessage = ref<string | null>(null)
 const showResetConfirm = ref(false)
+
+const emit = defineEmits<{
+  (event: 'account-updated', account: Account): void
+}>()
 
 const availableResetCount = computed(() => data.value?.rate_limit_reset_credits?.available_count ?? 0)
 const canReset = computed(() => availableResetCount.value > 0)
@@ -138,7 +142,7 @@ const handleQuery = async () => {
   error.value = null
   resetMessage.value = null
   try {
-    data.value = await queryOpenAIQuota(props.account.id)
+    data.value = await refreshOpenAIQuota(props.account.id)
   } catch (e) {
     error.value = extractErrorMessage(e)
   } finally {
@@ -167,7 +171,10 @@ const confirmReset = async () => {
   resetMessage.value = null
   try {
     const result: OpenAIQuotaResetResult = await resetOpenAIQuota(props.account.id)
-    await handleQuery()
+    // Reset consumes a non-refundable credit. Do not automatically query quota
+    // again: a disconnected or slow panel must not encourage a second reset.
+    data.value = result.quota ?? null
+    if (result.account) emit('account-updated', result.account)
     resetMessage.value = t('admin.accounts.openaiQuotaReset.resetSuccess', {
       windows: result.windows_reset
     })

@@ -50,6 +50,11 @@ type openAIQuotaResetResponse struct {
 	WarningCode           string                    `json:"warning_code,omitempty"`
 }
 
+type openAIQuotaRefreshResponse struct {
+	service.OpenAIQuotaUsage
+	CachePersisted bool `json:"cache_persisted"`
+}
+
 func openAIQuotaResetPostProcessContext(ctx context.Context) (context.Context, context.CancelFunc) {
 	base := context.Background()
 	if ctx != nil {
@@ -335,6 +340,37 @@ func (h *OpenAIOAuthHandler) QueryQuota(c *gin.Context) {
 	response.Success(c, usage)
 }
 
+// RefreshQuota is the explicit, audited snapshot-persisting quota refresh.
+// GET QueryQuota remains read-only for API consumers.
+func (h *OpenAIOAuthHandler) RefreshQuota(c *gin.Context) {
+	accountID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "Invalid account ID")
+		return
+	}
+	if h.quotaService == nil {
+		response.BadRequest(c, "openai quota service is not enabled")
+		return
+	}
+	usage, err := h.quotaService.QueryUsage(c.Request.Context(), accountID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	if usage == nil {
+		response.Error(c, http.StatusInternalServerError, "openai quota query returned an empty result")
+		return
+	}
+	result := openAIQuotaRefreshResponse{OpenAIQuotaUsage: *usage}
+	if err := h.quotaService.CacheResetCreditsSnapshot(c.Request.Context(), accountID, usage.RateLimitResetCredits); err != nil {
+		slog.Warn("openai_quota_reset_credit_cache_persist_failed", "account_id", accountID, "error", err)
+		response.Success(c, result)
+		return
+	}
+	result.CachePersisted = true
+	response.Success(c, result)
+}
+
 // ResetQuota consumes one upstream rate-limit reset credit for an OpenAI account.
 // POST /api/v1/admin/openai/accounts/:id/reset-quota
 func (h *OpenAIOAuthHandler) ResetQuota(c *gin.Context) {
@@ -377,18 +413,6 @@ func (h *OpenAIOAuthHandler) ResetQuota(c *gin.Context) {
 		return
 	}
 	resetResponse.AccountStateRecovered = true
-
-	usage, usageErr := h.quotaService.QueryUsage(postCtx, accountID)
-	if usageErr != nil || usage == nil {
-		slog.Warn("openai_quota_reset_cache_refresh_failed", "account_id", accountID, "error", usageErr)
-		resetResponse.WarningCode = openAIQuotaResetWarningCacheRefreshFailed
-	} else if err := h.quotaService.CacheResetCreditsSnapshot(postCtx, accountID, usage.RateLimitResetCredits); err != nil {
-		slog.Warn("openai_quota_reset_cache_refresh_failed", "account_id", accountID, "error", err)
-		resetResponse.WarningCode = openAIQuotaResetWarningCacheRefreshFailed
-	} else {
-		resetResponse.Quota = usage
-		resetResponse.CacheRefreshed = true
-	}
 
 	if h.adminService == nil {
 		if resetResponse.WarningCode == "" {
