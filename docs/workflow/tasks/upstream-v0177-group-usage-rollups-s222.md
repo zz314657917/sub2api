@@ -83,8 +83,8 @@ tail, using the server-configured timezone.
 - `backend/migrations/group_usage_rollup_migration_test.go`
 - `frontend/src/api/__tests__/admin.groups.usage-summary.spec.ts`
 - `frontend/src/api/admin/groups.ts`
-- `frontend/src/i18n/locales/en/admin/overview.ts`
-- `frontend/src/i18n/locales/zh/admin/overview.ts`
+- `frontend/src/i18n/locales/en/admin/groups.ts`
+- `frontend/src/i18n/locales/zh/admin/groups.ts`
 - `frontend/src/views/admin/GroupsView.vue`
 - `frontend/src/views/admin/__tests__/GroupsView.columnSettings.spec.ts`
 - `docs/workflow/worker-results/upstream-v0177-group-usage-rollups-s222-result.md`
@@ -211,3 +211,12 @@ is currently unavailable on the controller host, so an integration-suite skip
 cannot pass: Developer and QA must independently execute the documented fresh
 PostgreSQL behavior checklist. Final approval still waits for S221 integration
 and must recheck the S220 Groups UI plus S221/user account-modal boundaries.
+
+`PASS / Amendment 1` (2026-08-16 15:39 +08:00): the upstream locale files
+`frontend/src/i18n/locales/{en,zh}/admin/overview.ts` do not exist in this
+checkout. The local Groups page already reads `admin.groups.usageToday` and
+`admin.groups.usageTotal` from
+`frontend/src/i18n/locales/{en,zh}/admin/groups.ts`; replace the two nonexistent
+allowlist paths with those two actual locale owners so the required yesterday
+label remains bilingual. No other frontend, source, test, migration,
+dependency, database, deployment, or push boundary changes.

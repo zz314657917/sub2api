@@ -164,6 +164,11 @@ last_verified: 2026-08-16 15:29 +08:00
   `pge/upstream-v0177-group-usage-rollups-s222`, approval commit `ba9415446`.
   The Developer owns only the approved source/tests/report and must create and
   exactly delete its own fresh PostgreSQL database before returning evidence.
+- `PASS / Amendment 1`: replace the nonexistent upstream-style locale paths
+  `frontend/src/i18n/locales/{en,zh}/admin/overview.ts` with the actual local
+  Groups locale owners `frontend/src/i18n/locales/{en,zh}/admin/groups.ts`.
+  This is required for the bilingual yesterday label and changes no other
+  implementation or authorization boundary.
 
 # Upstream v0.1.177 Codex Turn-State S219
 
