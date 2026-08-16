@@ -69,7 +69,7 @@ patch.
 
 - `backend/internal/service/openai_codex_fingerprint.go`
 - `backend/internal/service/openai_codex_fingerprint_test.go`
-- `backend/internal/service/gateway_service.go`
+- `backend/internal/service/openai_gateway_service.go`
 - `backend/internal/service/openai_gateway_service_test.go`
 - `backend/internal/service/openai_tool_namespace_normalization_s92_test.go`
 - `frontend/src/components/account/BulkEditAccountModal.vue`
@@ -98,7 +98,8 @@ patch.
 - Work only in the isolated S221 worktree after contract approval. Do not amend,
   squash, or include the temporary user-baseline commit in worker commits.
 - Adapt upstream split `openai_gateway_forward.go` and
-  `openai_gateway_passthrough.go` behavior into local `gateway_service.go`.
+  `openai_gateway_passthrough.go` behavior into local
+  `openai_gateway_service.go`.
 - Preserve the exact user baseline patch and test meaning. S221 additions must
   be extractable as a patch relative to that baseline and applicable to the
   clean main index independently from the still-uncommitted user patch.
@@ -170,4 +171,13 @@ foreach ($commit in @('c0ab3a00e','fce41e318')) {
 
 ## Contract Review
 
-Pending S220 integration and Evaluator review.
+Pending S220 integration and final Evaluator review.
+
+`PASS / topology pre-review` (2026-08-16 13:28 +08:00): this checkout owns
+both normal OpenAI request construction and OpenAI passthrough request
+construction in `backend/internal/service/openai_gateway_service.go`; the
+generic `gateway_service.go` is not the local equivalent of upstream
+`openai_gateway_forward.go` / `openai_gateway_passthrough.go`. Correct the
+allowlist and adaptation constraint before dispatch. This does not approve
+build before S220 integration and does not expand fingerprint, frontend,
+migration, provider, dependency, deployment, database, or push scope.

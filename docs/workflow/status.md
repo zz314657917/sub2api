@@ -22,6 +22,11 @@ last_verified: 2026-08-16 12:24 +08:00
   preserving the user-owned account-modal patch. S222 will add group daily
   rollups plus the two upstream CI/timezone corrections without dependency or
   workflow-version churn.
+- `PASS / S221 topology pre-review`: local normal and passthrough OpenAI
+  request construction both live in `openai_gateway_service.go`, so the draft
+  S221 allowlist now names that file instead of the unrelated generic
+  `gateway_service.go`. Final contract approval still waits for S220 main
+  integration.
 - Contract: `docs/workflow/tasks/upstream-v0177-group-pricing-long-context-s220.md`.
   `PASS / contract-approved`: local record-usage changes belong in the
   monolithic `gateway_service.go`; migration 221 is collision-free but auto-run
