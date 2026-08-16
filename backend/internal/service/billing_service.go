@@ -703,6 +703,7 @@ type CostInput struct {
 	Ctx            context.Context
 	Model          string
 	GroupID        *int64 // 用于渠道定价查找
+	Group          *Group
 	Tokens         UsageTokens
 	RequestCount   int    // 按次计费时使用
 	SizeTier       string // 按次/图片模式的层级标签（"1K","2K","4K","HD" 等）
@@ -710,6 +711,9 @@ type CostInput struct {
 	ServiceTier    string                // "priority","flex","" 等
 	Resolver       *ModelPricingResolver // 定价解析器
 	Resolved       *ResolvedPricing      // 可选：预解析的定价结果（避免重复 Resolve 调用）
+	// LongContextBillingEnabled is the OpenAI account-level veto. nil keeps
+	// the group/preset decision, which is required for Grok and other platforms.
+	LongContextBillingEnabled *bool
 }
 
 // CalculateCostUnified 统一计费入口，支持三种计费模式。
@@ -726,6 +730,7 @@ func (s *BillingService) CalculateCostUnified(input CostInput) (*CostBreakdown, 
 		resolved = input.Resolver.Resolve(input.Ctx, PricingInput{
 			Model:   input.Model,
 			GroupID: input.GroupID,
+			Group:   input.Group,
 		})
 	}
 
@@ -763,7 +768,10 @@ func (s *BillingService) calculateTokenCost(resolved *ResolvedPricing, input Cos
 	pricing = s.applyModelSpecificPricingPolicy(input.Model, pricing)
 
 	// 长上下文定价仅在无区间定价时应用（区间定价已包含上下文分层）
-	applyLongCtx := len(resolved.Intervals) == 0
+	applyLongCtx := len(resolved.Intervals) == 0 && resolved.longContextPricingEnabled
+	if input.LongContextBillingEnabled != nil {
+		applyLongCtx = applyLongCtx && *input.LongContextBillingEnabled
+	}
 
 	return s.computeTokenBreakdown(pricing, input.Tokens, input.RateMultiplier, input.ServiceTier, applyLongCtx), nil
 }

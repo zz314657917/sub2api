@@ -1266,6 +1266,55 @@ func TestOpenAIGatewayServiceRecordUsage_Gpt54LongContextBillsWholeSession(t *te
 	require.Equal(t, 1, userRepo.deductCalls)
 }
 
+func TestOpenAIGatewayServiceRecordUsage_GroupAndAccountLongContextMustBothAllow(t *testing.T) {
+	tokens := OpenAIUsage{InputTokens: 300000, OutputTokens: 2000}
+	for _, tc := range []struct {
+		name                                   string
+		accountEnabled, groupEnabled, expected bool
+	}{
+		{"group on account off", false, true, false},
+		{"group off account on", true, false, false},
+		{"group on account on", true, true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+			svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+			svc.resolver = NewModelPricingResolver(nil, svc.billingService)
+			err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+				Result:  &OpenAIForwardResult{RequestID: tc.name, Usage: tokens, Model: "gpt-5.4-2026-03-05", Duration: time.Second},
+				APIKey:  &APIKey{ID: 1020, GroupID: i64p(1020), Group: &Group{ID: 1020, RateMultiplier: 1, LongContextPricingEnabled: tc.groupEnabled}},
+				User:    &User{ID: 2020},
+				Account: &Account{ID: 3020, Platform: PlatformOpenAI, Extra: map[string]any{"openai_long_context_billing_enabled": tc.accountEnabled}},
+			})
+			require.NoError(t, err)
+			expectedInput := 300000 * 2.5e-6
+			if tc.expected {
+				expectedInput *= 2
+			}
+			require.InDelta(t, expectedInput, usageRepo.lastLog.InputCost, 1e-10)
+		})
+	}
+}
+
+func TestOpenAIGatewayServiceRecordUsage_GrokLongContextFollowsGroupToggleOnly(t *testing.T) {
+	for _, groupEnabled := range []bool{true, false} {
+		usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+		svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+		svc.resolver = NewModelPricingResolver(nil, svc.billingService)
+		err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+			Result: &OpenAIForwardResult{RequestID: "grok_group_toggle", Usage: OpenAIUsage{InputTokens: 250000, OutputTokens: 1000}, Model: "grok-4.5", Duration: time.Second},
+			APIKey: &APIKey{ID: 1030, GroupID: i64p(1030), Group: &Group{ID: 1030, RateMultiplier: 1, LongContextPricingEnabled: groupEnabled}},
+			User:   &User{ID: 2030}, Account: &Account{ID: 3030, Platform: PlatformGrok},
+		})
+		require.NoError(t, err)
+		expectedInput := 250000 * 2e-6
+		if groupEnabled {
+			expectedInput *= 2
+		}
+		require.InDelta(t, expectedInput, usageRepo.lastLog.InputCost, 1e-10)
+	}
+}
+
 func TestOpenAIGatewayServiceRecordUsage_ServiceTierPriorityUsesFastPricing(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}

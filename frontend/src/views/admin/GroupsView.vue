@@ -1848,6 +1848,14 @@
             {{ t("admin.groups.modelRouting.addRule") }}
           </button>
         </div>
+        <div class="border-t border-gray-200 pt-4 dark:border-dark-400">
+          <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+            <input v-model="createForm.long_context_pricing_enabled" type="checkbox" />
+            Apply preset long-context token pricing
+          </label>
+          <label class="input-label mt-3">Model pricing overrides (JSON)</label>
+          <textarea v-model="createForm.model_pricing_json" rows="5" class="input font-mono text-xs" />
+        </div>
       </form>
 
       <template #footer>
@@ -3339,6 +3347,14 @@
             {{ t("admin.groups.modelRouting.addRule") }}
           </button>
         </div>
+        <div class="border-t border-gray-200 pt-4 dark:border-dark-400">
+          <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+            <input v-model="editForm.long_context_pricing_enabled" type="checkbox" />
+            Apply preset long-context token pricing
+          </label>
+          <label class="input-label mt-3">Model pricing overrides (JSON)</label>
+          <textarea v-model="editForm.model_pricing_json" rows="5" class="input font-mono text-xs" />
+        </div>
       </form>
 
       <template #footer>
@@ -3880,6 +3896,8 @@ const createForm = reactive({
   daily_limit_usd: null as number | null,
   weekly_limit_usd: null as number | null,
   monthly_limit_usd: null as number | null,
+  long_context_pricing_enabled: true,
+  model_pricing_json: "[]",
   // 图片生成计费配置
   allow_image_generation: false,
   image_rate_independent: false,
@@ -4219,6 +4237,8 @@ const editForm = reactive({
   daily_limit_usd: null as number | null,
   weekly_limit_usd: null as number | null,
   monthly_limit_usd: null as number | null,
+  long_context_pricing_enabled: true,
+  model_pricing_json: "[]",
   // 图片生成计费配置
   allow_image_generation: false,
   image_rate_independent: false,
@@ -4846,6 +4866,8 @@ const closeCreateModal = () => {
   createForm.daily_limit_usd = null;
   createForm.weekly_limit_usd = null;
   createForm.monthly_limit_usd = null;
+  createForm.long_context_pricing_enabled = true;
+  createForm.model_pricing_json = "[]";
   createForm.allow_image_generation = false;
   createForm.image_rate_independent = false;
   createForm.image_rate_multiplier = 1;
@@ -4973,11 +4995,20 @@ const handleCreateGroup = async () => {
     return;
   }
   if (!validatePeakRateForm(createForm)) return;
+	let modelPricing: unknown;
+	try {
+		modelPricing = JSON.parse(createForm.model_pricing_json || "[]");
+		if (!Array.isArray(modelPricing)) throw new Error("not an array");
+	} catch {
+		appStore.showError("Model pricing must be a JSON array.");
+		return;
+	}
   submitting.value = true;
   try {
     // 构建请求数据，包含模型路由配置
     const requestData = {
       ...createForm,
+		model_pricing: modelPricing,
       daily_limit_usd: normalizeOptionalLimit(
         createForm.daily_limit_usd as number | string | null,
       ),
@@ -5061,6 +5092,8 @@ const handleEdit = async (group: AdminGroup) => {
   editForm.daily_limit_usd = group.daily_limit_usd;
   editForm.weekly_limit_usd = group.weekly_limit_usd;
   editForm.monthly_limit_usd = group.monthly_limit_usd;
+	editForm.long_context_pricing_enabled = group.long_context_pricing_enabled ?? true;
+	editForm.model_pricing_json = JSON.stringify(group.model_pricing || [], null, 2);
   editForm.allow_image_generation = group.allow_image_generation ?? false;
   editForm.image_rate_independent = group.image_rate_independent ?? false;
   editForm.image_rate_multiplier = group.image_rate_multiplier ?? 1;
@@ -5124,6 +5157,8 @@ const closeEditModal = () => {
   editForm.peak_end = "";
   editForm.peak_rate_multiplier = 1.0;
   editForm.model_match_patterns_text = "";
+  editForm.long_context_pricing_enabled = true;
+  editForm.model_pricing_json = "[]";
   resetMessagesDispatchFormState(editForm);
   resetModelsListState(editModelsListState);
 };
@@ -5142,12 +5177,21 @@ const handleUpdateGroup = async () => {
     return;
   }
   if (!validatePeakRateForm(editForm)) return;
+	let modelPricing: unknown;
+	try {
+		modelPricing = JSON.parse(editForm.model_pricing_json || "[]");
+		if (!Array.isArray(modelPricing)) throw new Error("not an array");
+	} catch {
+		appStore.showError("Model pricing must be a JSON array.");
+		return;
+	}
 
   submitting.value = true;
   try {
     // 转换 fallback_group_id: null -> 0 (后端使用 0 表示清除)
     const payload = {
       ...editForm,
+		model_pricing: modelPricing,
       daily_limit_usd: normalizeOptionalLimit(
         editForm.daily_limit_usd as number | string | null,
       ),

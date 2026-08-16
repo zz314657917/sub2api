@@ -1061,6 +1061,10 @@ func init() {
 	groupDescRpmLimit := groupFields[40].Descriptor()
 	// group.DefaultRpmLimit holds the default value on creation for the rpm_limit field.
 	group.DefaultRpmLimit = groupDescRpmLimit.Default.(int)
+	// groupDescLongContextPricingEnabled is the schema descriptor for long_context_pricing_enabled field.
+	groupDescLongContextPricingEnabled := groupFields[41].Descriptor()
+	// group.DefaultLongContextPricingEnabled holds the default value on creation for the long_context_pricing_enabled field.
+	group.DefaultLongContextPricingEnabled = groupDescLongContextPricingEnabled.Default.(bool)
 	groupbuyentitlementFields := schema.GroupBuyEntitlement{}.Fields()
 	_ = groupbuyentitlementFields
 	// groupbuyentitlementDescProductKey is the schema descriptor for product_key field.

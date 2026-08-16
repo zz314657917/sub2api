@@ -6923,7 +6923,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		}
 		cost = &override
 	} else {
-		cost, err = s.calculateOpenAIRecordUsageCost(ctx, result, apiKey, billingModels, multiplier, perRequestMultiplier, imageMultiplier, tokens, serviceTier, input.BillingTierOverride, input.RequestCountOverride)
+		cost, err = s.calculateOpenAIRecordUsageCost(ctx, result, apiKey, account, billingModels, multiplier, perRequestMultiplier, imageMultiplier, tokens, serviceTier, input.BillingTierOverride, input.RequestCountOverride)
 		if err != nil {
 			if !isUsagePricingUnavailableError(err) {
 				return err
@@ -7248,6 +7248,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 	ctx context.Context,
 	result *OpenAIForwardResult,
 	apiKey *APIKey,
+	account *Account,
 	billingModels []string,
 	tokenMultiplier float64,
 	perRequestMultiplier float64,
@@ -7270,7 +7271,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 		if candidate == "" {
 			continue
 		}
-		cost, err := s.calculateOpenAIRecordUsageTokenCost(ctx, apiKey, candidate, tokenMultiplier, perRequestMultiplier, tokens, serviceTier, billingTierOverride, requestCountOverride)
+		cost, err := s.calculateOpenAIRecordUsageTokenCost(ctx, apiKey, account, candidate, tokenMultiplier, perRequestMultiplier, tokens, serviceTier, billingTierOverride, requestCountOverride)
 		if err == nil {
 			return cost, nil
 		}
@@ -7296,6 +7297,7 @@ func isUsagePricingUnavailableError(err error) bool {
 func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 	ctx context.Context,
 	apiKey *APIKey,
+	account *Account,
 	billingModel string,
 	tokenMultiplier float64,
 	perRequestMultiplier float64,
@@ -7309,6 +7311,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 		resolved := s.resolver.Resolve(ctx, PricingInput{
 			Model:   billingModel,
 			GroupID: &gid,
+			Group:   apiKey.Group,
 		})
 		sizeTier := strings.TrimSpace(billingTierOverride)
 		requestCount := 1
@@ -7329,19 +7332,34 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 			rateMultiplier = perRequestMultiplier
 		}
 		return s.billingService.CalculateCostUnified(CostInput{
-			Ctx:            ctx,
-			Model:          billingModel,
-			GroupID:        &gid,
-			Tokens:         tokens,
-			RequestCount:   requestCount,
-			SizeTier:       sizeTier,
-			RateMultiplier: rateMultiplier,
-			ServiceTier:    serviceTier,
-			Resolver:       s.resolver,
-			Resolved:       resolved,
+			Ctx:                       ctx,
+			Model:                     billingModel,
+			GroupID:                   &gid,
+			Group:                     apiKey.Group,
+			Tokens:                    tokens,
+			RequestCount:              requestCount,
+			SizeTier:                  sizeTier,
+			RateMultiplier:            rateMultiplier,
+			ServiceTier:               serviceTier,
+			Resolver:                  s.resolver,
+			Resolved:                  resolved,
+			LongContextBillingEnabled: openAIAccountLongContextBillingGate(account),
 		})
 	}
 	return s.billingService.CalculateCostWithServiceTier(billingModel, tokens, tokenMultiplier, serviceTier)
+}
+
+func openAIAccountLongContextBillingGate(account *Account) *bool {
+	if account == nil || account.Platform != PlatformOpenAI {
+		return nil
+	}
+	enabled := false
+	if account.Extra != nil {
+		if configured, ok := account.Extra["openai_long_context_billing_enabled"].(bool); ok {
+			enabled = configured
+		}
+	}
+	return &enabled
 }
 
 func (s *OpenAIGatewayService) shouldUseOpenAIImageBillingCost(ctx context.Context, billingModel string, apiKey *APIKey, result *OpenAIForwardResult) bool {
@@ -7368,6 +7386,7 @@ func (s *OpenAIGatewayService) calculateOpenAIImageCost(
 			Ctx:            ctx,
 			Model:          billingModel,
 			GroupID:        &gid,
+			Group:          apiKey.Group,
 			RequestCount:   result.ImageCount,
 			SizeTier:       billingTier,
 			RateMultiplier: multiplier,
@@ -7396,8 +7415,8 @@ func (s *OpenAIGatewayService) resolveOpenAIChannelPricing(ctx context.Context, 
 		return nil
 	}
 	gid := apiKey.Group.ID
-	resolved := s.resolver.Resolve(ctx, PricingInput{Model: billingModel, GroupID: &gid})
-	if resolved.Source == PricingSourceChannel {
+	resolved := s.resolver.Resolve(ctx, PricingInput{Model: billingModel, GroupID: &gid, Group: apiKey.Group})
+	if resolved.Source == PricingSourceGroup || resolved.Source == PricingSourceChannel {
 		return resolved
 	}
 	return nil
