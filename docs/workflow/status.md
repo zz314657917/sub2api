@@ -63,13 +63,18 @@ last_verified: 2026-08-16 12:24 +08:00
 - `PASS / Amendment 4`: the checkout already has unrelated migrations in the
   174 and 175 numeric slots. Adapt the final upstream 174/175 behavior into the
   free local `220_openai_long_context_billing.sql`, preserving audit column,
-  default-off backfill, boolean validation, shadow synchronization, idempotent
+  default-off backfill, boolean validation, idempotent
   trigger replacement, and disposable PostgreSQL evidence. Migration 221
   remains ordered immediately after it; no shared/production DB is authorized.
 - `PASS / Amendment 5`: local usage-log INSERT/SELECT/scan ownership is the
   monolithic `backend/internal/repository/usage_log_repo.go`, not the absent
   upstream split files. Add that one path so the approved audit field can be
   persisted and exposed; all other boundaries remain unchanged.
+- `PASS / Amendment 6`: local accounts do not persist `parent_account_id` or
+  `quota_dimension`; the Spark-shadow creation/storage subsystem is absent.
+  Shadow propagation is therefore N/A, and migration 220 must not reference
+  nonexistent columns. Keep the account flag/default/backfill/boolean/API/CRS
+  normalization and usage audit, without adding account schema prerequisites.
 
 # Upstream v0.1.177 Codex Turn-State S219
 

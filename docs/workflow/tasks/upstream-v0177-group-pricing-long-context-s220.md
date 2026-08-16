@@ -40,8 +40,8 @@ the group switch without being disabled by the OpenAI-only account setting.
   preset/channel ladder rather than administrator-authored token intervals.
 - OpenAI usage applies long-context pricing only when both the group switch and
   the account switch allow it. Missing/malformed account state defaults safely
-  to disabled, create/import/API writes normalize the value, and account/shadow
-  synchronization preserves the upstream ownership rules. Grok and other non-OpenAI paths
+  to disabled, and create/import/API/CRS writes normalize and preserve the
+  value. Grok and other non-OpenAI paths
   do not inherit the OpenAI account veto and follow only the group switch.
 - Usage logs persist and expose whether long-context billing was actually
   applied. The upstream migrations 174/175 behavior is adapted into the local
@@ -301,8 +301,8 @@ contains unrelated `174_account_group_scheduler_indexes_notx.sql` and
 create duplicate numeric slots and obscure ordering. Combine the final behavior
 of upstream migrations 174/175 into the free local
 `220_openai_long_context_billing.sql`, preserving the usage-log column,
-OpenAI default-off backfill, strict boolean validation, shadow synchronization,
-and idempotent trigger replacement. Migration 221 remains unchanged and runs
+  OpenAI default-off backfill, strict boolean validation, and idempotent trigger
+  replacement. Migration 221 remains unchanged and runs
 after 220. Disposable PostgreSQL validation remains mandatory; shared and
 production databases remain forbidden.
 
@@ -313,3 +313,13 @@ listed in the contract do not exist locally. Add the monolithic file so the
 already-approved `long_context_billing_applied` audit field can be persisted
 and returned. No other schema, migration, frontend, provider, dependency, or
 runtime boundary changes.
+
+`PASS / Amendment 6` (2026-08-16 13:11 +08:00): this checkout has no persisted
+`accounts.parent_account_id` or `quota_dimension` fields and no Spark-shadow
+creation/storage subsystem; only a reflection compatibility guard remains.
+Importing the upstream shadow trigger would make migration 220 reference
+nonexistent columns and fail at startup. Treat shadow propagation as not
+applicable to this local product line. Migration 220 must cover the existing
+OpenAI account flag, default-off backfill, strict boolean validation,
+create/import/API/CRS normalization, and usage-log audit only. Do not add
+account schema fields or a shadow-account subsystem.
