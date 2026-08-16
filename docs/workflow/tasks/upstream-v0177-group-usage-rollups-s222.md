@@ -119,25 +119,39 @@ tail, using the server-configured timezone.
 Set-Location E:/codex-worktrees/sub2api/upstream-v0177-group-usage-rollups-s222/backend
 go test -tags=unit ./migrations -run '^TestMigration22(2|3)' -count=1
 if ($LASTEXITCODE -ne 0) { throw 'S222 migration tests failed' }
+go test ./internal/config -run '^TestLoadStandardTZEnvironmentTakesPriority$' -count=10
+if ($LASTEXITCODE -ne 0) { throw 'S222 TZ environment precedence failed' }
 
-$service = '^(' + (@(
+$serviceNames = @(
   'TestGroupUsageDateUsesConfiguredTimezoneBoundary',
   'TestGroupUsageParseDateUsesConfiguredTimezone',
   'TestGroupUsageYesterdayStartHandlesDST',
   'TestDashboardAggregationService_RunScheduledAggregationSyncsGroupUsageRollups',
   'TestDashboardAggregationService_RunScheduledAggregationSyncsGroupAfterDashboardEarlyReturn',
   'TestDashboardAggregationService_StartupGroupSyncUsesIndependentAdvisoryLeaderLock',
-  'TestDashboardAggregationService_RunScheduledAggregationUsesAdvisoryLeaderLock'
-) -join '|') + ')$'
+  'TestDashboardAggregationService_RunScheduledAggregationUsesAdvisoryLeaderLock',
+  'TestDashboardAggregationService_GroupUsageSyncSkipsPeerHeldAdvisoryLock',
+  'TestDashboardAggregationService_GroupUsageSyncSkipsAdvisoryLockError'
+)
+$service = '^(' + ($serviceNames -join '|') + ')$'
+$serviceList = @(go test ./internal/service -list $service)
+if ($LASTEXITCODE -ne 0) { throw 'S222 focused service discovery failed' }
+$missingService = @($serviceNames | Where-Object { $serviceList -notcontains $_ })
+if ($missingService.Count -ne 0) { throw "missing S222 service tests: $($missingService -join ', ')" }
 go test ./internal/service -run $service -count=10
 if ($LASTEXITCODE -ne 0) { throw 'S222 focused service failed' }
 
-$repository = '^(' + (@(
+$repositoryNames = @(
   'TestDashboardAggregationRepositorySyncGroupUsageRollups',
   'TestGroupUsageSummary',
   'TestUsageCleanupRepositoryDeleteUsageLogsBatch',
   'TestUsageLogRepositoryGetAllGroupUsageSummaryUsesRollupTail'
-) -join '|') + ')$'
+)
+$repository = '^(' + ($repositoryNames -join '|') + ')$'
+$repositoryList = @(go test -tags=unit ./internal/repository -list $repository)
+if ($LASTEXITCODE -ne 0) { throw 'S222 focused repository discovery failed' }
+$missingRepository = @($repositoryNames | Where-Object { $repositoryList -notcontains $_ })
+if ($missingRepository.Count -ne 0) { throw "missing S222 repository tests: $($missingRepository -join ', ')" }
 go test -tags=unit ./internal/repository -run $repository -count=1
 if ($LASTEXITCODE -ne 0) { throw 'S222 focused repository failed' }
 docker info *> $null
@@ -241,3 +255,15 @@ connection failure, so no Redis TTL is required. Add focused service coverage
 and fresh-PostgreSQL two-connection exclusion/reacquisition evidence. No new
 dependency, Wire, shared lock service, provider, deployment, push, or database
 authorization is granted.
+
+`PASS / Amendment 3` (2026-08-16 16:03 +08:00): controller review proved the
+original focused repository command could exit zero while discovering only one
+of four required tests, and the draft omitted a focused regression for advisory
+lock acquisition errors plus the standard `TZ` precedence change. Add exact
+service/repository `-list` discovery gates, require peer-held and acquisition
+error fail-closed service tests, and require
+`TestLoadStandardTZEnvironmentTakesPriority` in the config package. The two
+already-allowlisted frontend test files must be created and executed; their
+absence is not a topology exemption. These are acceptance and test-coverage
+corrections only and do not expand product, migration, dependency, database,
+deployment, or push scope.

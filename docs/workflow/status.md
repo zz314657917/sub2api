@@ -1,12 +1,12 @@
 ---
-phase: build
+phase: fix
 current_sprint: upstream-v0177-group-usage-rollups-s222
 total_sprints: 222
-pending_action: Independent gpt-5.6-terra Developer implements S222 in E:/codex-worktrees/sub2api/upstream-v0177-group-usage-rollups-s222 from approval commit ba9415446. After the worker commit, controller must review the allowlist and independently rerun source, fresh-PostgreSQL, backend, frontend, and Git gates before QA.
+pending_action: Return S222-R1 to the same independent gpt-5.6-terra Developer. Move rollup invalidation/rebuild from normal AggregateRange to RecomputeRange, remove cleanup's advisory-lock bypass, add every missing backend/frontend/config regression and complete fresh-PostgreSQL checklist, rewrite the report with a legal verdict, remove the task-owned node_modules directory, and submit a fix commit before controller retest.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-16 15:44 +08:00
+last_verified: 2026-08-16 16:03 +08:00
 ---
 
 # Upstream v0.1.177 Group Pricing And Long Context S220
@@ -175,6 +175,20 @@ last_verified: 2026-08-16 15:44 +08:00
   existing dashboard service/repository paths. Peer-held/error skips fail
   closed; release/unlock/close and two-connection reacquisition require fresh
   database evidence. Do not add global lock infrastructure or weaken to no lock.
+- `FAIL / controller-review S222-R1`: Developer commit `f6fe14290` is within the
+  amended allowlist, but it wires invalidation and rollup rebuild into normal
+  `AggregateRange` instead of `RecomputeRange`, so scheduled work syncs before
+  the advisory-locked defer and performs duplicate unguarded rebuilds.
+  `CleanupUsageLogs` also calls sync outside the local advisory-lock adaptation.
+  Three of four required repository tests and both frontend tests are absent;
+  the config `TZ` precedence test and save/restore prior-timezone behavior are
+  missing. The report uses illegal `### DONE`, admits the Developer fresh-DB
+  checklist is incomplete, and claims node_modules cleanup although a real
+  directory remains. Return to the same Developer; do not advance to QA.
+- `PASS / Amendment 3`: acceptance now requires exact discovery of every focused
+  service/repository name, config `TZ` precedence x10, peer-held and lock-error
+  fail-closed tests, both frontend test files, and the complete Developer fresh
+  database checklist. Missing tests or partial DB evidence cannot pass.
 
 # Upstream v0.1.177 Codex Turn-State S219
 
