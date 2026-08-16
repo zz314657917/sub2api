@@ -1,16 +1,23 @@
 ---
-phase: qa
-current_sprint: upstream-v0177-group-pricing-long-context-s220
+phase: contract-approved
+current_sprint: upstream-v0177-codex-fingerprint-s221
 total_sprints: 222
-pending_action: Run independent gpt-5.6-terra QA against S220 commit be3d0026a after controller review PASS. If QA passes, integrate c19d5fcf8, 61473d06f, be3d0026a and the QA report into main, then approve S221. Shared or production database execution remains unauthorized.
+pending_action: Create the isolated S221 worktree from the approved main commit, apply and commit only the exact two-file user baseline patch, then dispatch an independent gpt-5.6-terra Developer. Worker commits must contain only S221 deltas above that temporary baseline. Shared or production database execution remains unauthorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-16 13:57 +08:00
+last_verified: 2026-08-16 14:26 +08:00
 ---
 
 # Upstream v0.1.177 Group Pricing And Long Context S220
 
+- `PASS / qa-main-integration`: independent Terra QA passed and the reviewed
+  S220 source, migrations 220/221, worker evidence, and QA report are integrated
+  on main through `eb57cea77`. Focused backend, fresh PostgreSQL migration
+  behavior, frontend modal/pricing tests, typecheck, and build passed in the
+  S220 worktree. A later controller wrapper failed to resolve `vue-tsc` while
+  reusing main dependencies, so that wrapper is not counted as additional
+  evidence; its temporary junction was removed and no Node process remains.
 - `contract-draft`: port the complete `f3d949107 -> b830bc14d -> fd82dfd52`
   chain. Migration 221, generated Ent state, Group -> Channel -> built-in
   pricing, the group long-context switch, OpenAI group/account intersection,
@@ -25,7 +32,7 @@ last_verified: 2026-08-16 13:57 +08:00
 - `PASS / S221 topology pre-review`: local normal and passthrough OpenAI
   request construction both live in `openai_gateway_service.go`, so the draft
   S221 allowlist now names that file instead of the unrelated generic
-  `gateway_service.go`. Final contract approval still waits for S220 main
+  `gateway_service.go`. Final contract approval passed after S220 main
   integration.
 - Contract: `docs/workflow/tasks/upstream-v0177-group-pricing-long-context-s220.md`.
   `PASS / contract-approved`: local record-usage changes belong in the

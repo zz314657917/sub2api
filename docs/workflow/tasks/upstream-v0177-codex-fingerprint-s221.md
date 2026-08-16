@@ -1,6 +1,6 @@
 ---
 task_id: upstream-v0177-codex-fingerprint-s221
-phase: draft-pending-s220
+phase: approved
 role: Generator
 worker_model: gpt-5.6-terra
 qa_worker_model: gpt-5.6-terra
@@ -171,7 +171,17 @@ foreach ($commit in @('c0ab3a00e','fce41e318')) {
 
 ## Contract Review
 
-Pending S220 integration and final Evaluator review.
+`PASS / contract-approved` (2026-08-16 14:26 +08:00): S220 is integrated on
+main through `eb57cea77`; the exact two-file user baseline patch is still
+`5d316e5b6935fdc5dbf825f940feaf231d79ac0f`. The allowlist covers the local
+normal and passthrough request owner, the explicit opt-in/default-off behavior,
+the account controls, and the S220 long-context edit control without allowing
+migrations, dependencies, shared runtime, provider traffic, deployment, push,
+or outputs. Acceptance commands cover focused convergence/failover semantics,
+complete backend packages, all three account modal flows, typecheck, build,
+Git integrity, and upstream provenance. Dispatch is authorized only after the
+temporary baseline commit is created in the isolated worktree; S221 commits
+must remain separable from that baseline.
 
 `PASS / topology pre-review` (2026-08-16 13:28 +08:00): this checkout owns
 both normal OpenAI request construction and OpenAI passthrough request
