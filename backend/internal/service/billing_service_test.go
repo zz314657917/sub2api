@@ -906,6 +906,32 @@ func TestResolve_GroupLongContextUsesPresetNotCustomIntervals(t *testing.T) {
 	require.Equal(t, 200000, resolved.BasePricing.LongContextInputThreshold)
 }
 
+func TestCalculateCostUnified_VideoUsesDurationUnitsAndResolutionTier(t *testing.T) {
+	svc := newTestBillingService()
+	resolver := NewModelPricingResolver(nil, svc)
+	price720 := 0.2
+	resolved := &ResolvedPricing{
+		Mode: BillingModeVideo,
+		RequestTiers: []PricingInterval{{
+			TierLabel: "720p", PerRequestPrice: &price720,
+		}},
+	}
+
+	cost, err := svc.CalculateCostUnified(CostInput{
+		Model:          "video-test",
+		RequestCount:   1,
+		UsageUnits:     10,
+		SizeTier:       "720p",
+		RateMultiplier: 1.5,
+		Resolver:       resolver,
+		Resolved:       resolved,
+	})
+	require.NoError(t, err)
+	require.InDelta(t, 2.0, cost.TotalCost, 1e-12)
+	require.InDelta(t, 3.0, cost.ActualCost, 1e-12)
+	require.Equal(t, string(BillingModeVideo), cost.BillingMode)
+}
+
 func TestCalculateCost_SupportsCacheBreakdown(t *testing.T) {
 	svc := &BillingService{
 		cfg: &config.Config{},

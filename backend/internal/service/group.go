@@ -444,7 +444,7 @@ func usageRateMultiplier(mode string, imageCount int, token, perRequest, image f
 	if imageCount > 0 && (mode == string(BillingModeImage) || mode == string(BillingModePerRequest)) {
 		return image
 	}
-	if mode == string(BillingModePerRequest) || mode == string(BillingModeImage) {
+	if mode == string(BillingModePerRequest) || mode == string(BillingModeImage) || mode == string(BillingModeVideo) {
 		return perRequest
 	}
 	return token

@@ -2,92 +2,115 @@
 
 ## Verdict
 
-Amendment 1 added the local OpenAI record-usage service to the allowlist and
-removed the only topology blocker. The completed adaptation persists group
-model pricing and the long-context switch, resolves pricing as Group ->
-Channel -> built-in, and passes the OpenAI account veto only for OpenAI
-accounts. Grok receives no account veto and follows the group switch.
+S220 and its two approved amendments are complete in the isolated worktree.
+Group model pricing resolves as Group -> Channel -> built-in; the group
+long-context switch uses preset token ladders, OpenAI also observes its
+account-level veto, and Grok does not. The admin Groups UI now sends a typed
+`model_pricing` array instead of raw JSON. Group video pricing uses resolution
+tiers and charges `video_count * duration_seconds` usage units while retaining
+the established per-request video tier behavior as its fallback.
 
-## Evidence
+## Historical Block (Superseded)
 
-- `backend/internal/service/openai_gateway_service.go:6837` defines
-  `OpenAIGatewayService.RecordUsage`.
-- `backend/internal/service/openai_gateway_service.go:7296` defines
-  `calculateOpenAIRecordUsageTokenCost`; its `CostInput` call has no group
-  object or account-level long-context gate.
-- `backend/internal/service/gateway_service.go:9227` defines the distinct
-  generic `GatewayService.RecordUsage` path named by the allowlist.
-- The exact S220 focal regression names are for `OpenAIGatewayService`, so
-  they cannot cover the contracted OpenAI/Grok intersection through the
-  permitted generic gateway path.
+The initial S220 report correctly stopped when the local OpenAI record-usage
+path was not allowlisted. Amendment 1 added
+`backend/internal/service/openai_gateway_service.go`. Amendment 2 then added
+the local async video path and its regression file. Both topology blocks are
+resolved; this history is retained only as the audit trail, not as a current
+implementation or verification limitation.
 
-## Commands Run
+## R1 Changed Files
+
+- `backend/internal/service/billing_service.go`
+- `backend/internal/service/billing_service_test.go`
+- `backend/internal/service/channel.go`
+- `backend/internal/service/channel_service.go`
+- `backend/internal/service/group.go`
+- `backend/internal/service/model_pricing_resolver.go`
+- `backend/internal/service/openai_gateway_service.go`
+- `backend/internal/service/openai_videos.go`
+- `backend/internal/service/openai_videos_test.go`
+- `frontend/src/components/admin/channel/PricingEntryCard.vue`
+- `frontend/src/constants/channel.ts`
+- `frontend/src/i18n/locales/en/admin/channels.ts`
+- `frontend/src/i18n/locales/zh/admin/channels.ts`
+- `frontend/src/views/admin/GroupsView.vue`
+- `frontend/src/views/admin/__tests__/GroupsView.modelPricing.spec.ts`
+- `frontend/src/views/admin/__tests__/groupsVideoModelPricing.spec.ts`
+- `docs/workflow/worker-results/upstream-v0177-group-pricing-long-context-s220-result.md`
+
+## Implementation Notes
+
+- `BillingModeVideo` is a first-class resolver, validation, billing, usage-log,
+  and UI mode. Its configured tier price is per video-second and
+  `CostInput.UsageUnits` carries the video count times duration seconds.
+- `openai_videos.go` preserves the legacy `per_request` exact-duration tier and
+  base-resolution per-second fallback. `video` mode instead selects the base
+  resolution tier (`480p`, `720p`, or `1080p`) and always applies usage units.
+- The form conversion functions are exported from `GroupsView.vue` for real
+  behavior tests. They convert per-token values to and from per-MTok display
+  values, omit entries with no model, set the current group platform, and clear
+  token-mode custom intervals before create or edit persistence.
+- The new card prop `hideTokenIntervals` prevents group token entries from
+  accepting intervals that the resolver intentionally ignores. Existing image,
+  image quality, peak-rate, profit, and group controls remain local controls.
+
+## Verification
 
 ```powershell
+Set-Location backend
+go generate ./ent
+go test ./internal/service -run '^(TestCalculateCostUnified_GroupLongContextToggleUsesPresetLadder|TestResolve_GroupPricingOverridesChannel|TestResolve_GroupLongContextUsesPresetNotCustomIntervals|TestOpenAIGatewayServiceRecordUsage_GroupAndAccountLongContextMustBothAllow|TestOpenAIGatewayServiceRecordUsage_GrokLongContextFollowsGroupToggleOnly|TestCalculateCostUnified_VideoUsesDurationUnitsAndResolutionTier|TestOpenAIGatewayServiceEstimateOpenAIVideoCost_GroupVideoPricingUsesResolutionAndDuration)$' -count=10
+go test ./internal/service -run '^(TestCalculateCostUnified_VideoUsesDurationUnitsAndResolutionTier|TestOpenAIGatewayServiceEstimateOpenAIVideoCost.*|TestOpenAIGatewayServiceRecordUsage_ChannelVideoBillingUsesBaseTierAsPerSecondPrice)$' -count=10
+go test ./migrations -run '^TestMigration221' -count=1
+go test ./internal/service -count=1
+go test ./internal/repository -count=1
+go test ./internal/server -count=1
+go test ./internal/handler -run '^$' -count=0
+go test ./cmd/server -run '^$' -count=0
+
+Set-Location frontend
+.\node_modules\.bin\vitest.cmd run src/views/admin/__tests__/GroupsView.modelPricing.spec.ts src/views/admin/__tests__/groupsImagePricing.spec.ts src/views/admin/__tests__/groupsVideoModelPricing.spec.ts
+.\node_modules\.bin\vue-tsc.cmd --noEmit
+.\node_modules\.bin\vite.cmd build
+
+Set-Location ..
 git diff --check
-git diff --name-only --diff-filter=U
-git ls-files -u
-git merge-base --is-ancestor f3d949107 upstream/main
-git merge-base --is-ancestor b830bc14d upstream/main
-git merge-base --is-ancestor fd82dfd52 upstream/main
-git status --short
+rg -n "^(<<<<<<< .+|=======$|>>>>>>> .+)$" <allowed R1 paths>
+git merge-base f3d949107 upstream/main
+git merge-base b830bc14d upstream/main
+git merge-base fd82dfd52 upstream/main
 ```
 
-All commands succeeded. The worktree was clean before this result file.
-Focused/backend/frontend acceptance commands were not run because no legal
-implementation path exists under the approved contract.
+All listed Go focused tests, migration fixture test, repository/server and
+compile gates passed. The focused Vitest suite passed 3 files / 6 tests;
+`vue-tsc --noEmit` and Vite production build passed. Vite emitted only existing
+dynamic-import/chunk-size warnings, and Browserslist reported stale local data.
 
-## Changed Files
+## Migration Boundary And Risks
 
-- `docs/workflow/worker-results/upstream-v0177-group-pricing-long-context-s220-result.md`
+- Migration 221 was exercised only through the repository's disposable test
+  fixture. No shared or production database was opened or migrated.
+- Video providers may expose counts under provider-specific keys. The local
+  parser accepts `n`, `num_videos`, and `count`, defaulting safely to one; an
+  unknown provider key therefore cannot overcharge.
+- The `pnpm` wrapper attempted a local dependency bootstrap and generated an
+  untracked workspace file plus a lockfile edit. Both task-owned artifacts were
+  removed/restored before this result; dependency declarations and lockfiles are
+  unchanged.
 
 ## Contract Compliance
 
-- No production, shared, or disposable database was used.
-- No migration, Ent schema, frontend, account-modal, fingerprint, rollup,
-  dependency, CI, deployment, provider, `outputs/`, or source file changed.
-- No generated code was edited or generated.
-- No branch/worktree cleanup, integration, push, deployment, or container
-  operation was performed.
+- The final diff contains only approved S220 paths, including Amendment 2's
+  video service and test. No account modal, fingerprint, rollup, migration
+  222/223, dependency, CI, deployment, container, provider, `outputs/`, or
+  main-worktree path changed.
+- No shared database, production data, push, merge, deployment, container
+  action, branch cleanup, or worktree cleanup was performed.
+- Generated Ent state comes from `go generate ./ent`; no generated file was
+  hand-edited.
 
-## Required Evaluator Decision
+## Knowledge Candidates
 
-No further contract expansion is required. The original block above is retained
-as historical evidence; Amendment 1 approved the required local call site.
-
-## Amendment 1 Implementation
-
-- Added Ent schema/generated state and migration 221 for group
-  `model_pricing` and `long_context_pricing_enabled`. The migration uses
-  additive `IF NOT EXISTS` columns, a true default, and an idempotent true
-  backfill. Validation only parsed the embedded SQL; no database was opened.
-- Added repository JSON serialization with invalid persisted JSON logging and
-  safe fallback, admin DTO/request/service plumbing, and frontend create/edit
-  payload support for the switch and pricing entries.
-- Group token pricing removes administrator-authored token intervals and keeps
-  the preset model ladder. Disabling the group switch selects the base token
-  tier without changing continuous per-request/media-unit billing.
-- `GatewayService` and `OpenAIGatewayService` both pass the authenticated group
-  to the resolver. The OpenAI record-usage path passes an account veto only for
-  `PlatformOpenAI`; Grok uses the group switch alone.
-
-## Acceptance After Amendment 1
-
-```powershell
-go generate ./ent
-go test ./internal/service -run '^(TestCalculateCostUnified_GroupLongContextToggleUsesPresetLadder|TestResolve_GroupPricingOverridesChannel|TestResolve_GroupLongContextUsesPresetNotCustomIntervals|TestOpenAIGatewayServiceRecordUsage_GroupAndAccountLongContextMustBothAllow|TestOpenAIGatewayServiceRecordUsage_GrokLongContextFollowsGroupToggleOnly)$' -count=10
-go test ./migrations -run '^TestMigration221' -count=1
-go test ./internal/service -count=1
-go test ./internal/handler -count=1
-go test ./internal/repository -count=1
-go test ./internal/server -count=1
-go test ./cmd/server -run '^$' -count=0
-pnpm.cmd exec vitest run src/views/admin/__tests__/GroupsView.modelPricing.spec.ts src/views/admin/__tests__/groupsImagePricing.spec.ts src/views/admin/__tests__/groupsVideoModelPricing.spec.ts
-pnpm.cmd run typecheck
-pnpm.cmd run build
-```
-
-The focused service suite passed ten repetitions; migration, full affected Go
-packages, server compilation, focused Vitest, frontend typecheck, and frontend
-build completed successfully. The frontend package emitted only its existing
-`pnpm` configuration warning.
+- None. The group pricing and video-unit behavior is task-local contract
+  evidence; no durable `knowledge/` update is warranted before evaluator review.

@@ -7315,7 +7315,15 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 		})
 		sizeTier := strings.TrimSpace(billingTierOverride)
 		requestCount := 1
-		if requestCountOverride > 1 && resolved != nil &&
+		usageUnits := float64(0)
+		if resolved != nil && resolved.Mode == BillingModeVideo {
+			if baseTier := openAIVideoBaseBillingTier(sizeTier); baseTier != "" {
+				sizeTier = baseTier
+			}
+			if requestCountOverride > 0 {
+				usageUnits = float64(requestCountOverride)
+			}
+		} else if requestCountOverride > 1 && resolved != nil &&
 			(resolved.Mode == BillingModePerRequest || resolved.Mode == BillingModeImage) {
 			if hasExactRequestTierPrice(resolved, sizeTier) {
 				requestCount = 1
@@ -7326,7 +7334,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 			}
 		}
 		rateMultiplier := tokenMultiplier
-		if resolved != nil && resolved.Mode == BillingModePerRequest {
+		if resolved != nil && (resolved.Mode == BillingModePerRequest || resolved.Mode == BillingModeVideo) {
 			// Per-request pricing (including video) must retain the original effective
 			// rate and must not receive the token-only time-window factor.
 			rateMultiplier = perRequestMultiplier
@@ -7338,6 +7346,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 			Group:                     apiKey.Group,
 			Tokens:                    tokens,
 			RequestCount:              requestCount,
+			UsageUnits:                usageUnits,
 			SizeTier:                  sizeTier,
 			RateMultiplier:            rateMultiplier,
 			ServiceTier:               serviceTier,

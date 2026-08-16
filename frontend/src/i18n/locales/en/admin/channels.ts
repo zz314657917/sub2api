@@ -36,7 +36,8 @@ export default {
       billingMode: {
         token: 'Token',
         perRequest: 'Per Request',
-        image: 'Image (Per Request)'
+        image: 'Image (Per Request)',
+        video: 'Video (Per Second)'
       },
       form: {
         name: 'Name',
@@ -97,6 +98,15 @@ export default {
         restrictModelsHint: 'When enabled, only models in the pricing list are allowed. Others will be rejected.',
         defaultPerRequestPrice: 'Default per-request price (fallback when no tier matches)',
         defaultImagePrice: 'Default image price (fallback when no tier matches)',
+        defaultVideoPrice: 'Default video price (fallback when no resolution matches)',
+        videoTiers: 'Video Resolution Tiers (Per Second)',
+        videoTierHint: 'Video prices are charged per video-second. Resolution tiers match 480p, 720p, or 1080p.',
+        addVideoResolutionTiers: 'Add Resolution Tiers',
+        noVideoTiersYet: 'No video tiers yet. Add resolution tiers to configure per-second pricing.',
+        groupModelPricing: 'Group Model Pricing',
+        groupModelPricingHint: 'Overrides channel pricing for this group.',
+        addGroupModelPricing: 'Add Pricing',
+        longContextPricingEnabled: 'Apply preset long-context token pricing',
         platformConfig: 'Platform Configuration',
         webSearchEmulation: 'Web Search Emulation',
         webSearchEmulationHint: '⚠️ When enabled, all accounts in this channel\'s Anthropic groups will intercept web_search requests. Use with caution.',

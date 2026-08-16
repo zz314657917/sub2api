@@ -198,16 +198,23 @@ func (s *OpenAIGatewayService) EstimateOpenAIVideoCost(ctx context.Context, apiK
 		return nil, billingModel, errors.New("openai video channel pricing resolver is unavailable")
 	}
 	resolved := s.resolveOpenAIChannelPricing(ctx, billingModel, apiKey)
-	if resolved == nil || (resolved.Mode != BillingModePerRequest && resolved.Mode != BillingModeImage) {
+	if resolved == nil || (resolved.Mode != BillingModePerRequest && resolved.Mode != BillingModeImage && resolved.Mode != BillingModeVideo) {
 		return nil, billingModel, fmt.Errorf("%w for model: %s", ErrOpenAIVideoPricingUnavailable, billingModel)
 	}
 	gid := apiKey.Group.ID
 	sizeTier, requestCount := extractOpenAIVideoBillingTierAndCount(body, nil)
+	if resolved.Mode == BillingModeVideo {
+		if baseTier := openAIVideoBaseBillingTier(sizeTier); baseTier != "" {
+			sizeTier = baseTier
+		}
+	}
 	cost, err := s.billingService.CalculateCostUnified(CostInput{
 		Ctx:            ctx,
 		Model:          billingModel,
 		GroupID:        &gid,
+		Group:          apiKey.Group,
 		RequestCount:   1,
+		UsageUnits:     float64(requestCount),
 		SizeTier:       sizeTier,
 		RateMultiplier: multiplier,
 		Resolver:       s.resolver,
@@ -216,11 +223,12 @@ func (s *OpenAIGatewayService) EstimateOpenAIVideoCost(ctx context.Context, apiK
 	if err != nil {
 		return nil, billingModel, fmt.Errorf("%w: %v", ErrOpenAIVideoPricingUnavailable, err)
 	}
-	if shouldApplyOpenAIVideoPerSecondPricing(resolved, sizeTier, requestCount) {
+	if resolved.Mode != BillingModeVideo && shouldApplyOpenAIVideoPerSecondPricing(resolved, sizeTier, requestCount) {
 		cost, err = s.billingService.CalculateCostUnified(CostInput{
 			Ctx:            ctx,
 			Model:          billingModel,
 			GroupID:        &gid,
+			Group:          apiKey.Group,
 			RequestCount:   requestCount,
 			SizeTier:       openAIVideoBaseBillingTier(sizeTier),
 			RateMultiplier: multiplier,
@@ -693,16 +701,36 @@ func extractOpenAIVideoBillingTierAndCount(submitBody []byte, statusBody []byte)
 	)
 	resolution = normalizeOpenAIVideoTierPart(resolution)
 	duration = normalizeOpenAIVideoTierPart(duration)
+	videoCount := firstPositiveOpenAIVideoCount(submitBody, statusBody)
 	switch {
 	case resolution != "" && duration != "":
-		return resolution + ":" + duration + "s", parseOpenAIVideoDurationCount(duration)
+		return resolution + ":" + duration + "s", videoCount * parseOpenAIVideoDurationCount(duration)
 	case resolution != "":
-		return resolution, 1
+		return resolution, videoCount
 	case duration != "":
-		return duration + "s", parseOpenAIVideoDurationCount(duration)
+		return duration + "s", videoCount * parseOpenAIVideoDurationCount(duration)
 	default:
-		return "", 1
+		return "", videoCount
 	}
+}
+
+func firstPositiveOpenAIVideoCount(bodies ...[]byte) int {
+	for _, body := range bodies {
+		for _, key := range []string{"n", "num_videos", "count"} {
+			if count := parseOpenAIVideoCount(videoJSONNumberString(body, key)); count > 0 {
+				return count
+			}
+		}
+	}
+	return 1
+}
+
+func parseOpenAIVideoCount(value string) int {
+	count, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil || count <= 0 {
+		return 0
+	}
+	return count
 }
 
 func openAIVideoBaseBillingTier(tier string) string {

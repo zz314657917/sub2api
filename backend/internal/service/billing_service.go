@@ -116,7 +116,7 @@ type CostBreakdown struct {
 	CacheReadCost     float64
 	TotalCost         float64
 	ActualCost        float64 // 应用倍率后的实际费用
-	BillingMode       string  // 计费模式（"token"/"per_request"/"image"），由 CalculateCostUnified 填充
+	BillingMode       string  // 计费模式（"token"/"per_request"/"image"/"video"），由 CalculateCostUnified 填充
 }
 
 // ErrModelPricingUnavailable indicates that none of the configured pricing
@@ -705,8 +705,9 @@ type CostInput struct {
 	GroupID        *int64 // 用于渠道定价查找
 	Group          *Group
 	Tokens         UsageTokens
-	RequestCount   int    // 按次计费时使用
-	SizeTier       string // 按次/图片模式的层级标签（"1K","2K","4K","HD" 等）
+	RequestCount   int     // 按次计费时使用
+	UsageUnits     float64 // video 模式：视频数量乘以时长秒数
+	SizeTier       string  // 按次/图片模式的层级标签（"1K","2K","4K","HD" 等）
 	RateMultiplier float64
 	ServiceTier    string                // "priority","flex","" 等
 	Resolver       *ModelPricingResolver // 定价解析器
@@ -716,7 +717,7 @@ type CostInput struct {
 	LongContextBillingEnabled *bool
 }
 
-// CalculateCostUnified 统一计费入口，支持三种计费模式。
+// CalculateCostUnified 统一计费入口，支持 token、按次、图片和视频计费模式。
 // 使用 ModelPricingResolver 解析定价，然后根据 BillingMode 分发计算。
 func (s *BillingService) CalculateCostUnified(input CostInput) (*CostBreakdown, error) {
 	if input.Resolver == nil {
@@ -742,7 +743,7 @@ func (s *BillingService) CalculateCostUnified(input CostInput) (*CostBreakdown, 
 	var breakdown *CostBreakdown
 	var err error
 	switch resolved.Mode {
-	case BillingModePerRequest, BillingModeImage:
+	case BillingModePerRequest, BillingModeImage, BillingModeVideo:
 		breakdown, err = s.calculatePerRequestCost(resolved, input)
 	default: // BillingModeToken
 		breakdown, err = s.calculateTokenCost(resolved, input)
@@ -893,11 +894,14 @@ func (s *BillingService) computeCacheCreationCost(pricing *ModelPricing, tokens 
 	return float64(tokens.CacheCreationTokens) * flatPrice * multiplier
 }
 
-// calculatePerRequestCost 按次/图片计费
+// calculatePerRequestCost 按次、图片或视频计费。
 func (s *BillingService) calculatePerRequestCost(resolved *ResolvedPricing, input CostInput) (*CostBreakdown, error) {
-	count := input.RequestCount
-	if count <= 0 {
-		count = 1
+	units := float64(input.RequestCount)
+	if resolved != nil && resolved.Mode == BillingModeVideo && input.UsageUnits > 0 {
+		units = input.UsageUnits
+	}
+	if units <= 0 {
+		units = 1
 	}
 
 	var unitPrice float64
@@ -916,7 +920,7 @@ func (s *BillingService) calculatePerRequestCost(resolved *ResolvedPricing, inpu
 		unitPrice = resolved.DefaultPerRequestPrice
 	}
 
-	totalCost := unitPrice * float64(count)
+	totalCost := unitPrice * units
 	actualCost := totalCost * input.RateMultiplier
 
 	return &CostBreakdown{

@@ -287,6 +287,38 @@ func TestOpenAIGatewayServiceEstimateOpenAIVideoCost_UsesChannelTier(t *testing.
 	require.Equal(t, string(BillingModePerRequest), cost.BillingMode)
 }
 
+func TestOpenAIGatewayServiceEstimateOpenAIVideoCost_GroupVideoPricingUsesResolutionAndDuration(t *testing.T) {
+	groupID := int64(104)
+	billingService := NewBillingService(&config.Config{}, nil)
+	price720 := 0.08
+	svc := &OpenAIGatewayService{
+		cfg:            &config.Config{},
+		billingService: billingService,
+		resolver:       NewModelPricingResolver(nil, billingService),
+	}
+	user := &User{ID: 7}
+	apiKey := &APIKey{
+		ID: 8, UserID: user.ID, User: user, GroupID: &groupID,
+		Group: &Group{
+			ID: groupID, Platform: PlatformOpenAI, RateMultiplier: 2,
+			ModelPricing: []ChannelModelPricing{{
+				Platform: PlatformOpenAI, Models: []string{"kling-v3-omni"}, BillingMode: BillingModeVideo,
+				Intervals: []PricingInterval{{TierLabel: "720", PerRequestPrice: &price720}},
+			}},
+		},
+	}
+	account := &Account{ID: 9, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	body := []byte(`{"model":"kling-v3-omni","prompt":"make a video","resolution":"720p","duration":5,"n":2}`)
+
+	cost, _, err := svc.EstimateOpenAIVideoCost(context.Background(), apiKey, user, account, body, ChannelUsageFields{
+		OriginalModel: "kling-v3-omni", ChannelMappedModel: "kling-v3-omni", BillingModelSource: BillingModelSourceChannelMapped,
+	})
+	require.NoError(t, err)
+	require.InDelta(t, 0.8, cost.TotalCost, 1e-12)
+	require.InDelta(t, 1.6, cost.ActualCost, 1e-12)
+	require.Equal(t, string(BillingModeVideo), cost.BillingMode)
+}
+
 func TestOpenAIGatewayServiceEstimateOpenAIVideoCost_UsesBaseTierAsPerSecondPrice(t *testing.T) {
 	groupID := int64(101)
 	cache := newEmptyChannelCache()

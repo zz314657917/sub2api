@@ -1851,10 +1851,30 @@
         <div class="border-t border-gray-200 pt-4 dark:border-dark-400">
           <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
             <input v-model="createForm.long_context_pricing_enabled" type="checkbox" />
-            Apply preset long-context token pricing
+            {{ t('admin.channels.form.longContextPricingEnabled') }}
           </label>
-          <label class="input-label mt-3">Model pricing overrides (JSON)</label>
-          <textarea v-model="createForm.model_pricing_json" rows="5" class="input font-mono text-xs" />
+          <div class="mt-3">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <label class="input-label">{{ t('admin.channels.form.groupModelPricing') }}</label>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.channels.form.groupModelPricingHint') }}</p>
+              </div>
+              <button type="button" class="text-sm text-primary-600 hover:text-primary-700" @click="addCreateModelPricing">
+                + {{ t('admin.channels.form.addGroupModelPricing') }}
+              </button>
+            </div>
+            <div v-if="createForm.model_pricing.length > 0" class="mt-3 space-y-3">
+              <PricingEntryCard
+                v-for="(entry, index) in createForm.model_pricing"
+                :key="`create-group-pricing-${index}`"
+                :entry="entry"
+                :platform="createForm.platform"
+                :hide-token-intervals="true"
+                @update="updateCreateModelPricing(index, $event)"
+                @remove="removeCreateModelPricing(index)"
+              />
+            </div>
+          </div>
         </div>
       </form>
 
@@ -3350,10 +3370,30 @@
         <div class="border-t border-gray-200 pt-4 dark:border-dark-400">
           <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
             <input v-model="editForm.long_context_pricing_enabled" type="checkbox" />
-            Apply preset long-context token pricing
+            {{ t('admin.channels.form.longContextPricingEnabled') }}
           </label>
-          <label class="input-label mt-3">Model pricing overrides (JSON)</label>
-          <textarea v-model="editForm.model_pricing_json" rows="5" class="input font-mono text-xs" />
+          <div class="mt-3">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <label class="input-label">{{ t('admin.channels.form.groupModelPricing') }}</label>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.channels.form.groupModelPricingHint') }}</p>
+              </div>
+              <button type="button" class="text-sm text-primary-600 hover:text-primary-700" @click="addEditModelPricing">
+                + {{ t('admin.channels.form.addGroupModelPricing') }}
+              </button>
+            </div>
+            <div v-if="editForm.model_pricing.length > 0" class="mt-3 space-y-3">
+              <PricingEntryCard
+                v-for="(entry, index) in editForm.model_pricing"
+                :key="`edit-group-pricing-${index}`"
+                :entry="entry"
+                :platform="editForm.platform"
+                :hide-token-intervals="true"
+                @update="updateEditModelPricing(index, $event)"
+                @remove="removeEditModelPricing(index)"
+              />
+            </div>
+          </div>
         </div>
       </form>
 
@@ -3527,6 +3567,67 @@
   </AppLayout>
 </template>
 
+<script lang="ts">
+import type { ChannelModelPricing } from '@/api/admin/channels'
+import type { PricingFormEntry } from '@/components/admin/channel/types'
+import {
+  apiIntervalsToForm,
+  formIntervalsToAPI,
+  mTokToPerToken,
+  perTokenToMTok,
+  toNullableNumber,
+} from '@/components/admin/channel/types'
+
+export function groupPricingFromAPI(pricing: ChannelModelPricing[] | null | undefined): PricingFormEntry[] {
+  return (pricing || []).map(entry => ({
+    models: [...(entry.models || [])],
+    billing_mode: entry.billing_mode || 'token',
+    input_price: perTokenToMTok(entry.input_price),
+    output_price: perTokenToMTok(entry.output_price),
+    cache_write_price: perTokenToMTok(entry.cache_write_price),
+    cache_read_price: perTokenToMTok(entry.cache_read_price),
+    image_input_price: perTokenToMTok(entry.image_input_price),
+    image_output_price: perTokenToMTok(entry.image_output_price),
+    per_request_price: entry.per_request_price,
+    intervals: apiIntervalsToForm(entry.intervals || []),
+  }))
+}
+
+export function groupPricingToAPI(pricing: PricingFormEntry[], platform: string): ChannelModelPricing[] {
+  return pricing
+    .map(entry => ({ ...entry, models: entry.models.map(model => model.trim()).filter(Boolean) }))
+    .filter(entry => entry.models.length > 0)
+    .map(entry => ({
+      platform,
+      models: entry.models,
+      billing_mode: entry.billing_mode,
+      input_price: mTokToPerToken(entry.input_price),
+      output_price: mTokToPerToken(entry.output_price),
+      cache_write_price: mTokToPerToken(entry.cache_write_price),
+      cache_read_price: mTokToPerToken(entry.cache_read_price),
+      image_input_price: mTokToPerToken(entry.image_input_price),
+      image_output_price: mTokToPerToken(entry.image_output_price),
+      per_request_price: toNullableNumber(entry.per_request_price),
+      intervals: entry.billing_mode === 'token' ? [] : formIntervalsToAPI(entry.intervals || []),
+    }))
+}
+
+export function createGroupPricingFormEntry(): PricingFormEntry {
+  return {
+    models: [],
+    billing_mode: 'token',
+    input_price: null,
+    output_price: null,
+    cache_write_price: null,
+    cache_read_price: null,
+    image_input_price: null,
+    image_output_price: null,
+    per_request_price: null,
+    intervals: [],
+  }
+}
+</script>
+
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -3536,7 +3637,6 @@ import { useOnboardingStore } from "@/stores/onboarding";
 import { adminAPI } from "@/api/admin";
 import type {
   Channel,
-  ChannelModelPricing,
   PricingInterval,
 } from "@/api/admin/channels";
 import type {
@@ -3560,6 +3660,7 @@ import GroupRateMultipliersModal from "@/components/admin/group/GroupRateMultipl
 import GroupRPMOverridesModal from "@/components/admin/group/GroupRPMOverridesModal.vue";
 import GroupAccountPriorityModal from "@/components/admin/group/GroupAccountPriorityModal.vue";
 import GroupCapacityBadge from "@/components/common/GroupCapacityBadge.vue";
+import PricingEntryCard from "@/components/admin/channel/PricingEntryCard.vue";
 import { VueDraggable } from "vue-draggable-plus";
 import { createStableObjectKeyResolver } from "@/utils/stableObjectKey";
 import { extractApiErrorMessage } from "@/utils/apiError";
@@ -3897,7 +3998,7 @@ const createForm = reactive({
   weekly_limit_usd: null as number | null,
   monthly_limit_usd: null as number | null,
   long_context_pricing_enabled: true,
-  model_pricing_json: "[]",
+  model_pricing: [] as PricingFormEntry[],
   // 图片生成计费配置
   allow_image_generation: false,
   image_rate_independent: false,
@@ -4238,7 +4339,7 @@ const editForm = reactive({
   weekly_limit_usd: null as number | null,
   monthly_limit_usd: null as number | null,
   long_context_pricing_enabled: true,
-  model_pricing_json: "[]",
+  model_pricing: [] as PricingFormEntry[],
   // 图片生成计费配置
   allow_image_generation: false,
   image_rate_independent: false,
@@ -4278,6 +4379,30 @@ const editForm = reactive({
   // 分组级 RPM 限制（每用户每分钟最大请求数；0 = 不限制）
   rpm_limit: 0 as number,
 });
+
+const addCreateModelPricing = () => {
+  createForm.model_pricing.push(createGroupPricingFormEntry());
+};
+
+const updateCreateModelPricing = (index: number, entry: PricingFormEntry) => {
+  createForm.model_pricing[index] = entry;
+};
+
+const removeCreateModelPricing = (index: number) => {
+  createForm.model_pricing.splice(index, 1);
+};
+
+const addEditModelPricing = () => {
+  editForm.model_pricing.push(createGroupPricingFormEntry());
+};
+
+const updateEditModelPricing = (index: number, entry: PricingFormEntry) => {
+  editForm.model_pricing[index] = entry;
+};
+
+const removeEditModelPricing = (index: number) => {
+  editForm.model_pricing.splice(index, 1);
+};
 
 type ImagePricingFormState = {
   rate_multiplier: number;
@@ -4867,7 +4992,7 @@ const closeCreateModal = () => {
   createForm.weekly_limit_usd = null;
   createForm.monthly_limit_usd = null;
   createForm.long_context_pricing_enabled = true;
-  createForm.model_pricing_json = "[]";
+  createForm.model_pricing = [];
   createForm.allow_image_generation = false;
   createForm.image_rate_independent = false;
   createForm.image_rate_multiplier = 1;
@@ -4995,20 +5120,12 @@ const handleCreateGroup = async () => {
     return;
   }
   if (!validatePeakRateForm(createForm)) return;
-	let modelPricing: unknown;
-	try {
-		modelPricing = JSON.parse(createForm.model_pricing_json || "[]");
-		if (!Array.isArray(modelPricing)) throw new Error("not an array");
-	} catch {
-		appStore.showError("Model pricing must be a JSON array.");
-		return;
-	}
   submitting.value = true;
   try {
     // 构建请求数据，包含模型路由配置
     const requestData = {
       ...createForm,
-		model_pricing: modelPricing,
+      model_pricing: groupPricingToAPI(createForm.model_pricing, createForm.platform),
       daily_limit_usd: normalizeOptionalLimit(
         createForm.daily_limit_usd as number | string | null,
       ),
@@ -5092,8 +5209,8 @@ const handleEdit = async (group: AdminGroup) => {
   editForm.daily_limit_usd = group.daily_limit_usd;
   editForm.weekly_limit_usd = group.weekly_limit_usd;
   editForm.monthly_limit_usd = group.monthly_limit_usd;
-	editForm.long_context_pricing_enabled = group.long_context_pricing_enabled ?? true;
-	editForm.model_pricing_json = JSON.stringify(group.model_pricing || [], null, 2);
+  editForm.long_context_pricing_enabled = group.long_context_pricing_enabled ?? true;
+  editForm.model_pricing = groupPricingFromAPI(group.model_pricing);
   editForm.allow_image_generation = group.allow_image_generation ?? false;
   editForm.image_rate_independent = group.image_rate_independent ?? false;
   editForm.image_rate_multiplier = group.image_rate_multiplier ?? 1;
@@ -5158,7 +5275,7 @@ const closeEditModal = () => {
   editForm.peak_rate_multiplier = 1.0;
   editForm.model_match_patterns_text = "";
   editForm.long_context_pricing_enabled = true;
-  editForm.model_pricing_json = "[]";
+  editForm.model_pricing = [];
   resetMessagesDispatchFormState(editForm);
   resetModelsListState(editModelsListState);
 };
@@ -5177,21 +5294,12 @@ const handleUpdateGroup = async () => {
     return;
   }
   if (!validatePeakRateForm(editForm)) return;
-	let modelPricing: unknown;
-	try {
-		modelPricing = JSON.parse(editForm.model_pricing_json || "[]");
-		if (!Array.isArray(modelPricing)) throw new Error("not an array");
-	} catch {
-		appStore.showError("Model pricing must be a JSON array.");
-		return;
-	}
-
   submitting.value = true;
   try {
     // 转换 fallback_group_id: null -> 0 (后端使用 0 表示清除)
     const payload = {
       ...editForm,
-		model_pricing: modelPricing,
+      model_pricing: groupPricingToAPI(editForm.model_pricing, editForm.platform),
       daily_limit_usd: normalizeOptionalLimit(
         editForm.daily_limit_usd as number | string | null,
       ),

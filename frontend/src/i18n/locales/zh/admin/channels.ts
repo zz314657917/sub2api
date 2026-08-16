@@ -36,7 +36,8 @@ export default {
       billingMode: {
         token: 'Token',
         perRequest: '按次',
-        image: '图片（按次）'
+        image: '图片（按次）',
+        video: '视频（按秒）'
       },
       form: {
         name: '名称',
@@ -97,6 +98,15 @@ export default {
         restrictModelsHint: '开启后，仅允许模型定价列表中的模型。不在列表中的模型请求将被拒绝。',
         defaultPerRequestPrice: '默认单次价格（未命中层级时使用）',
         defaultImagePrice: '默认图片价格（未命中层级时使用）',
+        defaultVideoPrice: '默认视频价格（未命中分辨率时使用）',
+        videoTiers: '视频分辨率层级（按秒）',
+        videoTierHint: '视频价格按视频数量和时长秒数计费，分辨率层级支持 480p、720p、1080p。',
+        addVideoResolutionTiers: '添加分辨率层级',
+        noVideoTiersYet: '暂无视频层级，添加分辨率层级后可配置按秒价格。',
+        groupModelPricing: '分组模型定价',
+        groupModelPricingHint: '覆盖此分组关联渠道的模型定价。',
+        addGroupModelPricing: '添加定价',
+        longContextPricingEnabled: '使用预设的长上下文 Token 定价',
         platformConfig: '平台配置',
         webSearchEmulation: 'Web Search 模拟',
         webSearchEmulationHint: '⚠️ 开启后该渠道下所有 Anthropic 分组的账号将自动拦截 web_search 请求，请谨慎操作',
