@@ -1,6 +1,6 @@
 ---
 task_id: upstream-v0177-group-usage-rollups-s222
-phase: draft-pending-s220-s221
+phase: pre-reviewed-pending-s221
 role: Generator
 worker_model: gpt-5.6-terra
 qa_worker_model: gpt-5.6-terra
@@ -106,14 +106,16 @@ tail, using the server-configured timezone.
   newer local timezone, dashboard, cleanup, pricing, and S220 Groups UI behavior.
 - Migration files are forward-only and checksum-immutable after integration.
   Validate them before main integration; never run them against user/shared data.
-- Integration tests must own and clean up their exact PostgreSQL container and
-  test timezone state. Do not broadly stop Docker or other processes.
+- Integration tests must own and clean up their exact PostgreSQL container or
+  fresh task-specific database and test timezone state. Do not broadly stop
+  Docker or other processes. A Docker-unavailable skip or `[no tests to run]`
+  is not acceptance evidence.
 
 ## Acceptance Commands
 
 ```powershell
 Set-Location E:/codex-worktrees/sub2api/upstream-v0177-group-usage-rollups-s222/backend
-go test ./migrations -run '^TestMigration22(2|3)' -count=1
+go test -tags=unit ./migrations -run '^TestMigration22(2|3)' -count=1
 if ($LASTEXITCODE -ne 0) { throw 'S222 migration tests failed' }
 
 $service = '^(' + (@(
@@ -133,10 +135,15 @@ $repository = '^(' + (@(
   'TestUsageCleanupRepositoryDeleteUsageLogsBatch',
   'TestUsageLogRepositoryGetAllGroupUsageSummaryUsesRollupTail'
 ) -join '|') + ')$'
-go test ./internal/repository -run $repository -count=1
+go test -tags=unit ./internal/repository -run $repository -count=1
 if ($LASTEXITCODE -ne 0) { throw 'S222 focused repository failed' }
-go test ./internal/repository -run '^TestGroupUsageRollupTrigger' -count=1
-if ($LASTEXITCODE -ne 0) { throw 'S222 trigger integration failed' }
+docker info *> $null
+if ($LASTEXITCODE -eq 0) {
+  go test -tags=integration ./internal/repository -run '^(TestGroupUsageRollupTrigger|TestGroupUsageSummary)' -count=1
+  if ($LASTEXITCODE -ne 0) { throw 'S222 trigger integration failed' }
+} else {
+  Write-Host 'Docker unavailable: run the mandatory fresh PostgreSQL checklist below; a skipped Go integration suite is not evidence.'
+}
 go test ./internal/service -count=1
 if ($LASTEXITCODE -ne 0) { throw 'S222 complete service failed' }
 go test ./internal/handler -count=1
@@ -174,6 +181,13 @@ foreach ($commit in @('cb7b03795','89d826be2','45dcce0e4')) {
   with the required first-line verdict.
 - Commit only allowed S222 source/tests/report. Include exact migration fixture,
   commands, timezone cleanup evidence, changed files, risks, and compliance.
+- When Docker is unavailable, both Developer and independent QA must use their
+  own fresh PostgreSQL database and record evidence for: migrations 222/223
+  first apply and second-run idempotency; initial/default state; insert, update,
+  delete, cascaded historical delete, and cleanup invalidation; late historical
+  insert versus publication serialization; watermark-last publication;
+  timezone change rebuild; DST-safe today/yesterday boundaries; rollup plus live
+  tail summary; and exact database deletion after the run.
 
 ## Stop Rules
 
@@ -187,4 +201,13 @@ foreach ($commit in @('cb7b03795','89d826be2','45dcce0e4')) {
 
 ## Contract Review
 
-Pending S220/S221 integration and Evaluator review.
+`PASS / topology and acceptance pre-review` (2026-08-16 14:36 +08:00): local
+migration slots 222/223 are free; the split upstream group-summary owner maps to
+`backend/internal/repository/usage_log_repo.go`; dashboard aggregation,
+cleanup, handler, and Groups UI owners match the allowlist. Upstream migration
+and repository focused tests use `unit` tags, while trigger/DST/concurrency
+tests use `integration`; acceptance now invokes those tags explicitly. Docker
+is currently unavailable on the controller host, so an integration-suite skip
+cannot pass: Developer and QA must independently execute the documented fresh
+PostgreSQL behavior checklist. Final approval still waits for S221 integration
+and must recheck the S220 Groups UI plus S221/user account-modal boundaries.
