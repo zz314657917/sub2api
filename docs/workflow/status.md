@@ -80,6 +80,11 @@ last_verified: 2026-08-16 12:24 +08:00
   Shadow propagation is therefore N/A, and migration 220 must not reference
   nonexistent columns. Keep the account flag/default/backfill/boolean/API/CRS
   normalization and usage audit, without adding account schema prerequisites.
+- `PASS / Amendment 7`: the three S220 pricing contract tests must move out of
+  the existing `//go:build unit` file into an allowlisted default-tag test file,
+  because unrelated unit-tag compile failures otherwise let the default
+  focused command silently run only two gateway tests. Acceptance now requires
+  discovery of all five names before `-count=10`.
 
 # Upstream v0.1.177 Codex Turn-State S219
 

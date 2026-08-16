@@ -121,6 +121,7 @@ the group switch without being disabled by the OpenAI-only account setting.
 - `backend/internal/service/crs_sync_service.go`
 - `backend/internal/service/gateway_service.go`
 - `backend/internal/service/gateway_usage_billing.go`
+- `backend/internal/service/group_pricing_long_context_test.go`
 - `backend/internal/service/group.go`
 - `backend/internal/service/model_pricing_resolver.go`
 - `backend/internal/service/model_pricing_resolver_test.go`
@@ -187,13 +188,19 @@ Set-Location E:/codex-worktrees/sub2api/upstream-v0177-group-pricing-long-contex
 go generate ./ent
 if ($LASTEXITCODE -ne 0) { throw 'S220 ent generation failed' }
 
-$focused = '^(' + (@(
+$focusedNames = @(
   'TestCalculateCostUnified_GroupLongContextToggleUsesPresetLadder',
   'TestResolve_GroupPricingOverridesChannel',
   'TestResolve_GroupLongContextUsesPresetNotCustomIntervals',
   'TestOpenAIGatewayServiceRecordUsage_GroupAndAccountLongContextMustBothAllow',
   'TestOpenAIGatewayServiceRecordUsage_GrokLongContextFollowsGroupToggleOnly'
-) -join '|') + ')$'
+)
+$focused = '^(' + ($focusedNames -join '|') + ')$'
+$listed = go test ./internal/service -list $focused
+if ($LASTEXITCODE -ne 0) { throw 'S220 focused service discovery failed' }
+foreach ($name in $focusedNames) {
+  if ($listed -notcontains $name) { throw "S220 focused service test not discovered: $name" }
+}
 go test ./internal/service -run $focused -count=10
 if ($LASTEXITCODE -ne 0) { throw 'S220 focused service regressions failed' }
 go test ./migrations -run '^(TestMigration220|TestMigration221|TestOpenAILongContextBillingMigration)' -count=1
@@ -323,3 +330,14 @@ applicable to this local product line. Migration 220 must cover the existing
 OpenAI account flag, default-off backfill, strict boolean validation,
 create/import/API/CRS normalization, and usage-log audit only. Do not add
 account schema fields or a shadow-account subsystem.
+
+`PASS / Amendment 7` (2026-08-16 13:38 +08:00): three contract pricing tests
+were initially added to the existing `//go:build unit`
+`billing_service_test.go`, while this checkout's unrelated unit-tag package has
+pre-existing compile failures. A default-tag acceptance command would
+therefore run only the two gateway tests and silently skip the three pricing
+criteria. Allow `backend/internal/service/group_pricing_long_context_test.go`,
+move the three named pricing tests there with self-contained helpers, remove
+their unit-tag definitions, and require `go test -list` to prove all five
+focused tests are discoverable before the repeated run. Do not repair or widen
+the unrelated unit-tag baseline.
