@@ -1,12 +1,12 @@
 ---
-phase: qa
-current_sprint: upstream-v0177-codex-fingerprint-s221
+phase: contract-approved
+current_sprint: upstream-v0177-group-usage-rollups-s222
 total_sprints: 222
-pending_action: Run independent gpt-5.6-terra QA against S221 commit 6be50cc0d after controller review PASS. QA must verify the temporary user baseline remains separate, rerun backend/frontend acceptance, and produce a report-only commit before clean S221 extraction and main integration.
+pending_action: Dispatch an independent gpt-5.6-terra Developer for S222 from approved main 19f5dd962. The isolated worktree may implement only the approved group daily rollup source, migrations 222/223, tests, frontend summary changes, and worker report; it must use a fresh task-owned PostgreSQL database and must not touch shared or production data.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-16 15:11 +08:00
+last_verified: 2026-08-16 15:27 +08:00
 ---
 
 # Upstream v0.1.177 Group Pricing And Long Context S220
@@ -133,6 +133,32 @@ last_verified: 2026-08-16 15:11 +08:00
   controller-only 4 MiB raw-body test passed x3 and was deleted; the worktree is
   clean and both baseline patch IDs remain `5d316e5b...`. Advance to independent
   Terra QA.
+- `PASS / independent-qa-main-integration`: independent Terra QA report commit
+  `bac8990c9` found no product issue. The clean S221 delta was reproduced on
+  current main as `2b14b361b` with the same stable patch-id `513d8271...`, and
+  the QA report was integrated as `19f5dd962`. A separate clean-main run passed
+  focused and complete backend packages, 76 frontend tests, typecheck, build,
+  and unchanged lockfile hash without the temporary user baseline. All ten
+  user tracked changes replayed without conflict; the two-file patch-id remains
+  `5d316e5b...`, the overall tracked patch-id remains `ecc45e49...`, and
+  `outputs/` is untouched.
+
+# Upstream v0.1.177 Group Usage Daily Rollups S222
+
+- `PASS / contract-approved`: contract
+  `docs/workflow/tasks/upstream-v0177-group-usage-rollups-s222.md` is approved
+  after S221 integration. Migration slots 222/223 remain free, all three
+  upstream source commits are present, and S221 did not alter the S220 Groups
+  UI files or any S222 backend owner.
+- Docker remains unavailable. The Terra Developer, controller, and independent
+  Terra QA must each use a fresh task-owned PostgreSQL database for the full
+  migration, trigger, concurrency, timezone, DST, publication, summary-tail,
+  cleanup, idempotency, and exact-database-deletion checklist. A skipped
+  integration suite or `[no tests to run]` is not PASS evidence.
+- User authorization covers only migrations 222/223 source integration and
+  disposable validation. Shared/production databases, dependencies, CI,
+  release/security workflows, deployment, containers, push, user account
+  modals, fingerprint behavior, and `outputs/` remain denied.
 
 # Upstream v0.1.177 Codex Turn-State S219
 
