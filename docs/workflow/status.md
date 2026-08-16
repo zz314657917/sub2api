@@ -2,7 +2,7 @@
 phase: build
 current_sprint: upstream-v0177-group-pricing-long-context-s220
 total_sprints: 222
-pending_action: Await the independent gpt-5.6-terra Developer in the isolated S220 worktree, then review its diff and report before independent Terra QA. S221 fingerprint convergence and S222 group daily rollups follow sequentially. Shared or production database execution remains unauthorized.
+pending_action: Return S220-R2 to the same independent gpt-5.6-terra Developer for the missing OpenAI account-veto prerequisite chain and migrations 174/175, then review before independent Terra QA. S221 fingerprint plus the deferred account edit control and S222 group daily rollups follow sequentially. Shared or production database execution remains unauthorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
@@ -51,6 +51,15 @@ last_verified: 2026-08-16 12:24 +08:00
   `openai_videos.go`; add it and its test to the allowlist so the original
   group-video continuous-seconds criterion is not silently omitted. The same
   Developer owns this correction with the R1 UI/report fixes.
+- `FAIL / controller-review S220-R2`: `61473d06f` fixes the typed Groups UI,
+  localization, video resolution tiers, continuous-seconds billing, and worker
+  report, but only reads an account veto key that this checkout cannot yet
+  create, validate, migrate, or audit. Amendment 3 adds the complete upstream
+  account-veto prerequisite chain (`92dcfb5eb`, `a0ac5e024`, `f63d168ae`,
+  `e9fb5983c`), migrations 174/175, create/import/API normalization, and the
+  usage-log audit field. The user-owned EditAccountModal files stay outside
+  S220 and their long-context control is deferred to S221's temporary baseline.
+  Return to the same Terra Developer before QA.
 
 # Upstream v0.1.177 Codex Turn-State S219
 

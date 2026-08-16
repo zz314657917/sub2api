@@ -21,8 +21,10 @@ approved contract after S220 integration; do not expand scope.
 
 Behaviorally port Codex OAuth fingerprint convergence from upstream
 `c0ab3a00e` plus the remaining fingerprint/default/passthrough behavior of
-`fce41e318`. Preserve the already integrated S219 HTTP turn-state behavior and
-the user's existing account-modal layout patch.
+`fce41e318`. Complete the deferred EditAccountModal control for the S220
+OpenAI long-context account veto, preserve the already integrated S219 HTTP
+turn-state behavior, and preserve the user's existing account-modal layout
+patch.
 
 ## Success Criteria
 
@@ -42,6 +44,9 @@ the user's existing account-modal layout patch.
   `off` remains a no-op except for existing local session isolation.
 - Create, edit, and bulk account controls expose the four modes only for OpenAI
   OAuth accounts. `off` deletes the extra key; every opt-in mode persists it.
+- EditAccountModal also exposes and persists the S220
+  `openai_long_context_billing_enabled` boolean for eligible OpenAI accounts,
+  retaining the upstream default-off and Spark-shadow exclusion behavior.
 - The final `EditAccountModal.vue` keeps the user-owned `extra-wide` dialog and
   asymmetric group/availability grid. Its existing test remains valid while
   adding fingerprint assertions.
