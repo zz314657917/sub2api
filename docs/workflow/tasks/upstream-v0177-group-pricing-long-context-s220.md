@@ -95,6 +95,8 @@ account setting.
 - `backend/internal/service/openai_gateway_service.go`
 - `backend/internal/service/openai_gateway_record_usage_test.go`
 - `backend/internal/service/openai_gateway_search_surcharge_test.go`
+- `backend/internal/service/openai_videos.go`
+- `backend/internal/service/openai_videos_test.go`
 - `backend/migrations/221_group_model_pricing.sql`
 - `backend/migrations/group_model_pricing_migration_test.go`
 - `frontend/src/components/admin/channel/PricingEntryCard.vue`
@@ -223,3 +225,12 @@ already allowed. This is a topology correction required by the original
 success criteria, not a feature expansion. All migration, frontend account,
 fingerprint, rollup, dependency, provider, deployment, and database boundaries
 remain unchanged. Resume the same Terra Developer from its existing worktree.
+
+`PASS / Amendment 2` (2026-08-16 12:24 +08:00): R1 comparison against the
+complete upstream group-pricing chain found that this checkout owns async
+OpenAI video estimation in `openai_videos.go`, while upstream kept the relevant
+video-unit path in its usage module. Add `openai_videos.go` and its existing
+test file so group `billing_mode=video` can use resolution tiers and continuous
+seconds without bypassing the established task-reservation billing path. This
+is required by the original continuous-media success criterion. No other scope
+or database boundary changes.

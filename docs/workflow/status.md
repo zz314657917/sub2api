@@ -6,7 +6,7 @@ pending_action: Await the independent gpt-5.6-terra Developer in the isolated S2
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-16 12:16 +08:00
+last_verified: 2026-08-16 12:24 +08:00
 ---
 
 # Upstream v0.1.177 Group Pricing And Long Context S220
@@ -47,6 +47,10 @@ last_verified: 2026-08-16 12:16 +08:00
   Rewrite the worker report so its evidence and commands match the completed
   implementation instead of the retained pre-amendment block. Return to the
   same Terra Developer before QA.
+- `PASS / Amendment 2`: the local async OpenAI video pricing path is split into
+  `openai_videos.go`; add it and its test to the allowlist so the original
+  group-video continuous-seconds criterion is not silently omitted. The same
+  Developer owns this correction with the R1 UI/report fixes.
 
 # Upstream v0.1.177 Codex Turn-State S219
 
