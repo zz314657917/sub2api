@@ -132,7 +132,7 @@ $repository = '^(' + (@(
   'TestGroupUsageSummary',
   'TestUsageCleanupRepositoryDeleteUsageLogsBatch',
   'TestUsageLogRepositoryGetAllGroupUsageSummaryUsesRollupTail'
-) -join '|')
+) -join '|') + ')$'
 go test ./internal/repository -run $repository -count=1
 if ($LASTEXITCODE -ne 0) { throw 'S222 focused repository failed' }
 go test ./internal/repository -run '^TestGroupUsageRollupTrigger' -count=1

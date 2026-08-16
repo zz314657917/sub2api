@@ -76,6 +76,7 @@ patch.
 - `frontend/src/components/account/CreateAccountModal.vue`
 - `frontend/src/components/account/EditAccountModal.vue`
 - `frontend/src/components/account/__tests__/BulkEditAccountModal.spec.ts`
+- `frontend/src/components/account/__tests__/CreateAccountModal.spec.ts`
 - `frontend/src/components/account/__tests__/CreateAccountModal.timeAvailability.spec.ts`
 - `frontend/src/components/account/__tests__/EditAccountModal.spec.ts`
 - `frontend/src/i18n/locales/en/admin/accounts.ts`
@@ -131,7 +132,7 @@ go test ./cmd/server -run '^$' -count=0
 if ($LASTEXITCODE -ne 0) { throw 'S221 server compile failed' }
 
 Set-Location E:/codex-worktrees/sub2api/upstream-v0177-codex-fingerprint-s221/frontend
-pnpm.cmd exec vitest run src/components/account/__tests__/BulkEditAccountModal.spec.ts src/components/account/__tests__/CreateAccountModal.timeAvailability.spec.ts src/components/account/__tests__/EditAccountModal.spec.ts
+pnpm.cmd exec vitest run src/components/account/__tests__/BulkEditAccountModal.spec.ts src/components/account/__tests__/CreateAccountModal.spec.ts src/components/account/__tests__/CreateAccountModal.timeAvailability.spec.ts src/components/account/__tests__/EditAccountModal.spec.ts
 if ($LASTEXITCODE -ne 0) { throw 'S221 modal regressions failed' }
 pnpm.cmd run typecheck
 if ($LASTEXITCODE -ne 0) { throw 'S221 frontend typecheck failed' }
