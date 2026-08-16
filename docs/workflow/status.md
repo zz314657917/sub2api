@@ -2,7 +2,7 @@
 phase: done
 current_sprint: upstream-v0177-group-usage-rollups-s222
 total_sprints: 222
-pending_action: Finish final review, clean the completed S220/S221/S222 worktrees and branches plus the task-owned portable PostgreSQL runtime, then push main normally and verify origin/main. Preserve the two remaining user dirty account-modal files and outputs/.
+pending_action: Monitor upstream/main and the next v0.1.177+ tags. S220/S221/S222 are integrated, task worktrees/branches and the portable PostgreSQL runtime are removed, and origin/main matches local main. Preserve the two remaining user dirty account-modal files and outputs/.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
@@ -214,6 +214,11 @@ last_verified: 2026-08-16 17:21 +08:00
   account-probe commit `b73f4096c`. Main full Go service/handler/repository/
   server/compile and correct-cwd frontend focused tests, typecheck, and build
   passed. The remaining user account-modal patch-id is unchanged.
+- `PASS / push-verified` (2026-08-16 17:30 +08:00): ordinary `git push
+  origin main` advanced origin from `57ba8dc89` to
+  `3e802eab0f43d3a46b1b19fdbe194df3bc906fb8`; `git ls-remote` exactly matches
+  local `main`. Only the two user account-modal files and `outputs/` remain
+  dirty, with patch-id `5d316e5b...`.
 
 # Upstream v0.1.177 Codex Turn-State S219
 
