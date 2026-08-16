@@ -1982,6 +1982,85 @@ refresh.
 - Final integration requires scope/topology/provenance review, format/diff,
   conflict-marker, unmerged-index gates, and preservation of user-owned files.
 
+# Upstream v0.1.177 Group Pricing And Long Context Addendum (S220)
+
+## Goal
+
+Port the complete `f3d949107 -> b830bc14d -> fd82dfd52` chain so groups can
+override model pricing and disable long-context ladders without allowing an
+OpenAI account-only setting to disable Grok billing tiers.
+
+## Boundary
+
+- Migration 221 adds group model-pricing JSON and a long-context switch that is
+  true for new and existing groups. Migration source and disposable validation
+  are authorized; shared and production database execution are excluded.
+- Resolution is Group -> Channel -> built-in. OpenAI requires both group and
+  account switches; non-OpenAI platforms use the group switch only.
+- Preserve local GPT-5.6, media, profit-control, peak-rate, billing, and UI
+  customizations. No fingerprint, daily rollup, dependency, provider,
+  deployment, container, push, user account-modal, or `outputs/` change.
+
+## Acceptance Boundary
+
+- Focused repeated billing/resolver/OpenAI/Grok regressions, migration 221
+  validation, generated Ent consistency, complete affected backend packages,
+  frontend group-pricing tests/typecheck/build, format/diff, allowlist,
+  conflict/index, and upstream provenance must pass.
+
+# Upstream v0.1.177 Codex Fingerprint Convergence Addendum (S221)
+
+## Goal
+
+Port the opt-in fingerprint convergence behavior from `c0ab3a00e` and the
+remaining non-turn-state parts of `fce41e318`, including raw passthrough client
+metadata rewriting and admin controls.
+
+## Boundary
+
+- Missing/explicit `off` preserves client identifiers; `device`, `session`, and
+  `full` are explicit administrator opt-ins. Existing S219 turn-state behavior
+  remains independent.
+- The user-owned `EditAccountModal.vue` and test patch are a required baseline,
+  not disposable conflicts. The final result must preserve that patch while
+  adding the fingerprint control and default behavior.
+- No schema/migration, provider, dependency, daily rollup, deployment,
+  container, push, or unrelated account behavior.
+
+## Acceptance Boundary
+
+- Backend raw/map metadata parity, header/body consistency, failover clearing,
+  mode defaults, normal/passthrough routing, focused frontend modal tests,
+  complete affected regressions, and exact preservation of the user patch must
+  pass under independent Terra QA.
+
+# Upstream v0.1.177 Group Usage Daily Rollups Addendum (S222)
+
+## Goal
+
+Port `cb7b03795` plus corrections `89d826be2` and `45dcce0e4` so group usage
+summary reads persistent closed-day rollups and a live tail instead of scanning
+the full usage-log history.
+
+## Boundary
+
+- Migrations 222/223, configured-timezone date boundaries, startup backfill,
+  periodic synchronization, publication watermark, cleanup invalidation, today,
+  yesterday, and total cost are in scope.
+- Include only the timezone-test corrections from the follow-up commits. Exclude
+  their Go/Node version, dependency lock, CI, release, and security-workflow
+  upgrades.
+- Database validation uses only fresh task-owned fixtures. Shared/production DB,
+  provider, deployment, container, push, and unrelated dashboard changes remain
+  excluded.
+
+## Acceptance Boundary
+
+- Migration trigger/watermark/timezone/DST, historical mutation/cleanup,
+  startup and scheduled synchronization, API/UI yesterday display, complete
+  affected backend/frontend regressions, format/diff, allowlist, conflict/index,
+  and upstream provenance must pass under independent Terra QA.
+
 # Upstream GPT/Codex Quota Correctness Addendum (S217)
 
 ## Goal

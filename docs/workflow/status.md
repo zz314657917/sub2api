@@ -1,13 +1,32 @@
 ---
-phase: done
-current_sprint: upstream-v0177-turn-state-s219
-total_sprints: 219
-pending_action: Local and origin main are synchronized after the normal v0.1.177 selective-integration push. Monitor for a newer upstream tag. Group daily rollups/migrations 222/223 still require explicit database-impact authorization; fingerprint convergence and group/account long-context gates remain prerequisite-absent locally.
+phase: contract-approved
+current_sprint: upstream-v0177-group-pricing-long-context-s220
+total_sprints: 222
+pending_action: Dispatch an isolated gpt-5.6-terra Developer for approved S220. S221 fingerprint convergence and S222 group daily rollups follow sequentially after their prerequisites. The user explicitly authorized migrations 221/222/223 source integration and disposable validation, but not execution against shared or production databases.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-16 02:44 +08:00
+last_verified: 2026-08-16 11:23 +08:00
 ---
+
+# Upstream v0.1.177 Group Pricing And Long Context S220
+
+- `contract-draft`: port the complete `f3d949107 -> b830bc14d -> fd82dfd52`
+  chain. Migration 221, generated Ent state, Group -> Channel -> built-in
+  pricing, the group long-context switch, OpenAI group/account intersection,
+  and the Grok non-OpenAI veto correction are in scope.
+- User authorization now covers the database-impact source work for migrations
+  221/222/223 and disposable validation only. No shared or production database
+  migration is authorized.
+- S221 will add the remaining opt-in Codex fingerprint convergence while
+  preserving the user-owned account-modal patch. S222 will add group daily
+  rollups plus the two upstream CI/timezone corrections without dependency or
+  workflow-version churn.
+- Contract: `docs/workflow/tasks/upstream-v0177-group-pricing-long-context-s220.md`.
+  `PASS / contract-approved`: local record-usage changes belong in the
+  monolithic `gateway_service.go`; migration 221 is collision-free but auto-run
+  at startup, so additive/idempotent default and backfill tests are mandatory.
+  The next legal action is isolated Terra Developer dispatch.
 
 # Upstream v0.1.177 Codex Turn-State S219
 
