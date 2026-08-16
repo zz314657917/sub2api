@@ -94,6 +94,11 @@ last_verified: 2026-08-16 13:57 +08:00
   backfill, explicit true preservation, default false, SQLSTATE 22023 strict
   rejection, audit-column default/not-null, and second-run idempotency. Advance
   to independent Terra QA.
+- `PASS / Amendment 8`: the repository migration test is integration-tagged;
+  a default-tag `[no tests to run]` result is no longer counted. Use the tagged
+  Docker harness when available, otherwise require the explicit fresh
+  PostgreSQL behavior checklist from both Developer and QA. Both S220
+  Developer and controller already supplied independent direct evidence.
 
 # Upstream v0.1.177 Codex Turn-State S219
 

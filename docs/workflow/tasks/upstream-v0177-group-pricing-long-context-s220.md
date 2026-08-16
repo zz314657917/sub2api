@@ -205,8 +205,15 @@ go test ./internal/service -run $focused -count=10
 if ($LASTEXITCODE -ne 0) { throw 'S220 focused service regressions failed' }
 go test ./migrations -run '^(TestMigration220|TestMigration221|TestOpenAILongContextBillingMigration)' -count=1
 if ($LASTEXITCODE -ne 0) { throw 'S220 migration validation failed' }
-go test ./internal/repository -run '^TestOpenAILongContextBillingMigration' -count=1
-if ($LASTEXITCODE -ne 0) { throw 'S220 account migration integration failed' }
+# TestOpenAILongContextBillingMigration is guarded by //go:build integration.
+# A default-tag command that prints [no tests to run] is not evidence. Run the
+# tagged Docker harness only when Docker is available; otherwise complete the
+# direct PostgreSQL checklist below against a fresh task-owned database.
+docker info *> $null
+if ($LASTEXITCODE -eq 0) {
+  go test -tags=integration ./internal/repository -run '^TestOpenAILongContextBillingMigration$' -count=1
+  if ($LASTEXITCODE -ne 0) { throw 'S220 account migration integration failed' }
+}
 go test ./internal/service -count=1
 if ($LASTEXITCODE -ne 0) { throw 'S220 complete service failed' }
 go test ./internal/handler -count=1
@@ -236,6 +243,21 @@ foreach ($commit in @('92dcfb5eb','a0ac5e024','f63d168ae','e9fb5983c','f3d949107
   if ($LASTEXITCODE -ne 0) { throw "missing upstream provenance: $commit" }
 }
 ```
+
+## PostgreSQL Evidence
+
+When the tagged Docker integration harness is unavailable, the worker and QA
+must each use a separate fresh task-owned PostgreSQL database and record direct
+evidence that migration 220:
+
+- backfills missing, string, and numeric OpenAI legacy values to `false`;
+- preserves an existing boolean `true` and does not modify non-OpenAI rows;
+- defaults a new OpenAI row to `false`;
+- preserves an existing `true` when an update omits the key;
+- rejects a malformed later write with SQLSTATE `22023`;
+- creates `usage_logs.long_context_billing_applied` as `NOT NULL DEFAULT FALSE`;
+- succeeds on a second execution with no further backfill; and
+- deletes only the exact disposable database afterward.
 
 ## Output
 
@@ -341,3 +363,11 @@ move the three named pricing tests there with self-contained helpers, remove
 their unit-tag definitions, and require `go test -list` to prove all five
 focused tests are discoverable before the repeated run. Do not repair or widen
 the unrelated unit-tag baseline.
+
+`PASS / Amendment 8` (2026-08-16 14:06 +08:00): the repository migration test
+is guarded by `//go:build integration`, so the prior default-tag command could
+return success with `[no tests to run]`. It is not acceptable evidence. Run the
+tagged Testcontainers test only when Docker is available; otherwise require the
+explicit fresh PostgreSQL behavior checklist above from both Developer and
+independent QA. This corrects verification only and does not change product,
+migration, database, dependency, container, deployment, or push scope.
