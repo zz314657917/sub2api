@@ -1,12 +1,12 @@
 ---
-phase: build
+phase: qa
 current_sprint: upstream-v0177-codex-fingerprint-s221
 total_sprints: 222
-pending_action: Independent gpt-5.6-terra Developer implements S221 in E:/codex-worktrees/sub2api/upstream-v0177-codex-fingerprint-s221 above temporary baseline c6d4ee230. After completion, review only commits above that baseline, verify the baseline is excluded, then run controller acceptance before independent QA.
+pending_action: Run independent gpt-5.6-terra QA against S221 commit 6be50cc0d after controller review PASS. QA must verify the temporary user baseline remains separate, rerun backend/frontend acceptance, and produce a report-only commit before clean S221 extraction and main integration.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-16 14:30 +08:00
+last_verified: 2026-08-16 15:11 +08:00
 ---
 
 # Upstream v0.1.177 Group Pricing And Long Context S220
@@ -124,6 +124,15 @@ last_verified: 2026-08-16 14:30 +08:00
   absent fingerprint key. Allow a null delete sentinel plus a repository
   subtraction for `codex_fingerprint_mode` only, with a focused default-tag
   regression. Unrelated extra merge behavior remains unchanged.
+- `PASS / controller-review S221-R1`: Developer commit `6be50cc0d` has parent
+  `c6d4ee230`, so the temporary user baseline is excluded from the S221 patch.
+  Fourteen changed files are all allowlisted. Fresh controller runs passed the
+  nine focused service tests x10, repository delete tests x10, complete service
+  (70.648s), handler (27.958s), server/compile, four frontend files with 76
+  tests, typecheck, and Vite build with an unchanged lockfile hash. A temporary
+  controller-only 4 MiB raw-body test passed x3 and was deleted; the worktree is
+  clean and both baseline patch IDs remain `5d316e5b...`. Advance to independent
+  Terra QA.
 
 # Upstream v0.1.177 Codex Turn-State S219
 
