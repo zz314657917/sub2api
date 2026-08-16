@@ -26,6 +26,28 @@ type dashboardAggregationRepoTestStub struct {
 	ensurePartitionErr   error
 }
 
+type dashboardGroupUsageLockRepoTestStub struct {
+	dashboardAggregationRepoTestStub
+	lockKeys     []int64
+	acquired     bool
+	lockErr      error
+	releaseCalls int
+	syncCalls    int
+}
+
+func (s *dashboardGroupUsageLockRepoTestStub) SyncGroupUsageRollups(context.Context, time.Time) error {
+	s.syncCalls++
+	return nil
+}
+
+func (s *dashboardGroupUsageLockRepoTestStub) TryAcquireGroupUsageRollupLeaderLock(_ context.Context, key int64) (func(), bool, error) {
+	s.lockKeys = append(s.lockKeys, key)
+	if s.lockErr != nil {
+		return nil, false, s.lockErr
+	}
+	return func() { s.releaseCalls++ }, s.acquired, nil
+}
+
 func (s *dashboardAggregationRepoTestStub) AggregateRange(ctx context.Context, start, end time.Time) error {
 	s.aggregateCalls++
 	s.lastStart = start
@@ -165,4 +187,53 @@ func TestDashboardAggregationService_TriggerBackfill_TooLarge(t *testing.T) {
 	err := svc.TriggerBackfill(start, end)
 	require.ErrorIs(t, err, ErrDashboardBackfillTooLarge)
 	require.Equal(t, 0, repo.aggregateCalls)
+}
+
+func TestDashboardAggregationService_StartupGroupSyncUsesIndependentAdvisoryLeaderLock(t *testing.T) {
+	repo := &dashboardGroupUsageLockRepoTestStub{acquired: true}
+	svc := &DashboardAggregationService{repo: repo}
+
+	svc.runStartupGroupUsageSync()
+
+	require.Equal(t, []int64{dashboardAggregationGroupUsageStartupLockID}, repo.lockKeys)
+	require.Equal(t, 1, repo.syncCalls)
+	require.Equal(t, 1, repo.releaseCalls)
+}
+
+func TestDashboardAggregationService_RunScheduledAggregationUsesAdvisoryLeaderLock(t *testing.T) {
+	repo := &dashboardGroupUsageLockRepoTestStub{acquired: true, dashboardAggregationRepoTestStub: dashboardAggregationRepoTestStub{watermark: time.Unix(0, 0).UTC()}}
+	svc := &DashboardAggregationService{repo: repo, cfg: config.DashboardAggregationConfig{Retention: config.DashboardAggregationRetentionConfig{UsageLogsDays: 1}}}
+
+	svc.runScheduledAggregation()
+
+	require.Equal(t, []int64{dashboardAggregationGroupUsageScheduledLockID}, repo.lockKeys)
+	require.Equal(t, 1, repo.syncCalls)
+	require.Equal(t, 1, repo.releaseCalls)
+}
+
+func TestDashboardAggregationService_RunScheduledAggregationSyncsGroupUsageRollups(t *testing.T) {
+	repo := &dashboardGroupUsageLockRepoTestStub{acquired: true, dashboardAggregationRepoTestStub: dashboardAggregationRepoTestStub{watermark: time.Unix(0, 0).UTC()}}
+	svc := &DashboardAggregationService{repo: repo, cfg: config.DashboardAggregationConfig{Retention: config.DashboardAggregationRetentionConfig{UsageLogsDays: 1}}}
+
+	svc.runScheduledAggregation()
+
+	require.Equal(t, 1, repo.syncCalls)
+}
+
+func TestDashboardAggregationService_RunScheduledAggregationSyncsGroupAfterDashboardEarlyReturn(t *testing.T) {
+	repo := &dashboardGroupUsageLockRepoTestStub{acquired: true, dashboardAggregationRepoTestStub: dashboardAggregationRepoTestStub{watermark: time.Unix(0, 0).UTC(), aggregateErr: errors.New("aggregate failed")}}
+	svc := &DashboardAggregationService{repo: repo, cfg: config.DashboardAggregationConfig{Retention: config.DashboardAggregationRetentionConfig{UsageLogsDays: 1}}}
+
+	svc.runScheduledAggregation()
+
+	require.Equal(t, 1, repo.syncCalls)
+}
+
+func TestDashboardAggregationService_GroupUsageSyncSkipsPeerHeldAdvisoryLock(t *testing.T) {
+	repo := &dashboardGroupUsageLockRepoTestStub{}
+	svc := &DashboardAggregationService{repo: repo}
+
+	require.NoError(t, svc.syncGroupUsageRollupsWithLeaderLock(context.Background(), dashboardAggregationGroupUsageScheduledLockID, time.Now()))
+	require.Equal(t, 0, repo.syncCalls)
+	require.Equal(t, 0, repo.releaseCalls)
 }

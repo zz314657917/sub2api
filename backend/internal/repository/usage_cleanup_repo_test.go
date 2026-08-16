@@ -412,9 +412,16 @@ func TestUsageCleanupRepositoryDeleteUsageLogsBatch(t *testing.T) {
 		Model:     &model,
 	}
 
+	mock.ExpectBegin()
+	mock.ExpectQuery("SELECT id FROM usage_group_rollup_state.*FOR UPDATE").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(int16(1)))
 	mock.ExpectQuery("DELETE FROM usage_logs").
 		WithArgs(start, end, userID, "gpt-4", 2).
-		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(int64(1)).AddRow(int64(2)))
+		WillReturnRows(sqlmock.NewRows([]string{"created_at"}).AddRow(start).AddRow(start.Add(time.Hour)))
+	mock.ExpectExec("UPDATE usage_group_rollup_state").
+		WithArgs(start, sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
 
 	deleted, err := repo.DeleteUsageLogsBatch(context.Background(), filters, 2)
 	require.NoError(t, err)
@@ -430,9 +437,13 @@ func TestUsageCleanupRepositoryDeleteUsageLogsBatchQueryError(t *testing.T) {
 	end := start.Add(24 * time.Hour)
 	filters := service.UsageCleanupFilters{StartTime: start, EndTime: end}
 
+	mock.ExpectBegin()
+	mock.ExpectQuery("SELECT id FROM usage_group_rollup_state.*FOR UPDATE").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(int16(1)))
 	mock.ExpectQuery("DELETE FROM usage_logs").
 		WithArgs(start, end, 5).
 		WillReturnError(sql.ErrConnDone)
+	mock.ExpectRollback()
 
 	_, err := repo.DeleteUsageLogsBatch(context.Background(), filters, 5)
 	require.Error(t, err)

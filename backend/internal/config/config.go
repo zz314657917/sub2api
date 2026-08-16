@@ -1518,6 +1518,10 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 	// 环境变量支持
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	if tz, ok := os.LookupEnv("TZ"); ok && strings.TrimSpace(tz) != "" {
+		// Ensure the standard TZ environment variable wins over TIMEZONE.
+		viper.Set("timezone", strings.TrimSpace(tz))
+	}
 
 	// 默认值
 	setDefaults()

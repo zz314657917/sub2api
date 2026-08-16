@@ -12,9 +12,12 @@ import (
 )
 
 const (
-	defaultDashboardAggregationTimeout         = 2 * time.Minute
-	defaultDashboardAggregationBackfillTimeout = 30 * time.Minute
-	dashboardAggregationRetentionInterval      = 6 * time.Hour
+	defaultDashboardAggregationTimeout                  = 2 * time.Minute
+	defaultDashboardAggregationBackfillTimeout          = 30 * time.Minute
+	dashboardAggregationRetentionInterval               = 6 * time.Hour
+	dashboardAggregationGroupUsageBackfillTimeout       = defaultDashboardAggregationBackfillTimeout
+	dashboardAggregationGroupUsageStartupLockID   int64 = 622101
+	dashboardAggregationGroupUsageScheduledLockID int64 = 622102
 )
 
 var (
@@ -37,6 +40,10 @@ type DashboardAggregationRepository interface {
 	CleanupUsageLogs(ctx context.Context, cutoff time.Time) error
 	CleanupUsageBillingDedup(ctx context.Context, cutoff time.Time) error
 	EnsureUsageLogsPartitions(ctx context.Context, now time.Time) error
+}
+
+type groupUsageRollupLeaderLockRepository interface {
+	TryAcquireGroupUsageRollupLeaderLock(ctx context.Context, key int64) (release func(), acquired bool, err error)
 }
 
 // DashboardAggregationService 负责定时聚合与回填。
@@ -70,6 +77,7 @@ func (s *DashboardAggregationService) Start() {
 		logger.LegacyPrintf("service.dashboard_aggregation", "[DashboardAggregation] 聚合作业已禁用")
 		return
 	}
+	go s.runStartupGroupUsageSync()
 
 	interval := time.Duration(s.cfg.IntervalSeconds) * time.Second
 	if interval <= 0 {
@@ -192,6 +200,7 @@ func (s *DashboardAggregationService) runScheduledAggregation() {
 		return
 	}
 	defer atomic.StoreInt32(&s.running, 0)
+	defer s.runScheduledGroupUsageSync()
 
 	jobStart := time.Now().UTC()
 	ctx, cancel := context.WithTimeout(context.Background(), defaultDashboardAggregationTimeout)
@@ -234,6 +243,48 @@ func (s *DashboardAggregationService) runScheduledAggregation() {
 	)
 
 	s.maybeCleanupRetention(ctx, now)
+}
+
+func (s *DashboardAggregationService) runScheduledGroupUsageSync() {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultDashboardAggregationTimeout)
+	defer cancel()
+	if err := s.syncGroupUsageRollupsWithLeaderLock(ctx, dashboardAggregationGroupUsageScheduledLockID, time.Now().UTC()); err != nil {
+		logger.LegacyPrintf("service.dashboard_aggregation", "[DashboardAggregation] 分组用量日汇总失败: %v", err)
+	}
+}
+
+func (s *DashboardAggregationService) runStartupGroupUsageSync() {
+	ctx, cancel := context.WithTimeout(context.Background(), dashboardAggregationGroupUsageBackfillTimeout)
+	defer cancel()
+	if err := s.syncGroupUsageRollupsWithLeaderLock(ctx, dashboardAggregationGroupUsageStartupLockID, time.Now().UTC()); err != nil {
+		logger.LegacyPrintf("service.dashboard_aggregation", "[DashboardAggregation] 启动分组用量回填失败: %v", err)
+	}
+}
+
+func (s *DashboardAggregationService) syncGroupUsageRollupsWithLeaderLock(ctx context.Context, key int64, now time.Time) error {
+	locker, ok := s.repo.(groupUsageRollupLeaderLockRepository)
+	if !ok {
+		// Unit fakes and single-instance repositories may not expose this optional capability.
+		return s.syncGroupUsageRollups(ctx, now)
+	}
+	release, acquired, err := locker.TryAcquireGroupUsageRollupLeaderLock(ctx, key)
+	if err != nil {
+		return err
+	}
+	if !acquired {
+		logger.LegacyPrintf("service.dashboard_aggregation", "[DashboardAggregation] 分组用量日汇总已由其他实例执行")
+		return nil
+	}
+	defer release()
+	return s.syncGroupUsageRollups(ctx, now)
+}
+
+func (s *DashboardAggregationService) syncGroupUsageRollups(ctx context.Context, now time.Time) error {
+	repo, ok := s.repo.(GroupUsageRollupRepository)
+	if !ok {
+		return nil
+	}
+	return repo.SyncGroupUsageRollups(ctx, GroupUsageTodayStart(now))
 }
 
 func (s *DashboardAggregationService) backfillRange(ctx context.Context, start, end time.Time) error {
