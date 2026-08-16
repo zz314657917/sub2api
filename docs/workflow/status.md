@@ -1,12 +1,12 @@
 ---
-phase: contract-approved
+phase: build
 current_sprint: upstream-v0177-group-pricing-long-context-s220
 total_sprints: 222
-pending_action: Dispatch an isolated gpt-5.6-terra Developer for approved S220. S221 fingerprint convergence and S222 group daily rollups follow sequentially after their prerequisites. The user explicitly authorized migrations 221/222/223 source integration and disposable validation, but not execution against shared or production databases.
+pending_action: Await the independent gpt-5.6-terra Developer in the isolated S220 worktree, then review its diff and report before independent Terra QA. S221 fingerprint convergence and S222 group daily rollups follow sequentially. Shared or production database execution remains unauthorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-16 11:23 +08:00
+last_verified: 2026-08-16 11:34 +08:00
 ---
 
 # Upstream v0.1.177 Group Pricing And Long Context S220
@@ -26,7 +26,13 @@ last_verified: 2026-08-16 11:23 +08:00
   `PASS / contract-approved`: local record-usage changes belong in the
   monolithic `gateway_service.go`; migration 221 is collision-free but auto-run
   at startup, so additive/idempotent default and backfill tests are mandatory.
-  The next legal action is isolated Terra Developer dispatch.
+  The legacy Claude CLI route returned a model-access 404 before inference; the
+  same approved clean worktree is now assigned through the available independent
+  `gpt-5.6-terra` agent channel. No fallback model is used.
+- `build / developer-dispatched`: worktree
+  `E:/codex-worktrees/sub2api/upstream-v0177-group-pricing-long-context-s220`,
+  branch `pge/upstream-v0177-group-pricing-long-context-s220`, approval commit
+  `1aaf92ad8`. Controller diff review is required before QA.
 
 # Upstream v0.1.177 Codex Turn-State S219
 
