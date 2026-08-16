@@ -44,12 +44,12 @@ the group switch without being disabled by the OpenAI-only account setting.
   synchronization preserves the upstream ownership rules. Grok and other non-OpenAI paths
   do not inherit the OpenAI account veto and follow only the group switch.
 - Usage logs persist and expose whether long-context billing was actually
-  applied. Migrations 174/175 add that audit field and backfill/guard the OpenAI
+  applied. The upstream migrations 174/175 behavior is adapted into the local
+  migration 220, which adds that audit field and backfills/guards the OpenAI
   account flag using the repository migration conventions.
 - Admin group API/DTO/repository/service and the Groups UI can read and update
   the new fields. Existing image/video/group pricing controls remain usable.
-- Migrations `174_add_usage_log_long_context_billing.sql`,
-  `175_default_openai_long_context_billing.sql`, and
+- Migrations `220_openai_long_context_billing.sql` and
   `221_group_model_pricing.sql` are additive, idempotent under the
   repository migration conventions, defaults/backfills long-context pricing to
   the approved account/group defaults, and are validated only against
@@ -67,9 +67,10 @@ the group switch without being disabled by the OpenAI-only account setting.
 - Group-pricing source chain: `f3d9491071d0dc8093c1c10de37b9ad78007b52f`,
   `b830bc14d655524357360df1e4301b9cf81fb1fc`, and
   `fd82dfd52d31babdceb2d20e0ef1126e508d0f8d`.
-- The local migration sequence currently ends at product migration 203; the
-  upstream-numbered additive migrations 174, 175, and 221 do not collide with
-  existing files in this checkout.
+- The local checkout already contains unrelated `174_*` and `175_*`
+  migrations. Adapt the two upstream prerequisite migrations into the free
+  local number `220_openai_long_context_billing.sql`; migration 221 remains
+  free and follows it.
 - The user explicitly authorized continuing this prerequisite chain and the
   related database-impact work on 2026-08-16. This authorization covers source
   and migration files plus disposable tests, not a shared or production DB.
@@ -129,8 +130,7 @@ the group switch without being disabled by the OpenAI-only account setting.
 - `backend/internal/service/openai_videos.go`
 - `backend/internal/service/openai_videos_test.go`
 - `backend/internal/service/usage_log.go`
-- `backend/migrations/174_add_usage_log_long_context_billing.sql`
-- `backend/migrations/175_default_openai_long_context_billing.sql`
+- `backend/migrations/220_openai_long_context_billing.sql`
 - `backend/migrations/221_group_model_pricing.sql`
 - `backend/migrations/group_model_pricing_migration_test.go`
 - `backend/migrations/openai_long_context_billing_migration_test.go`
@@ -195,7 +195,7 @@ $focused = '^(' + (@(
 ) -join '|') + ')$'
 go test ./internal/service -run $focused -count=10
 if ($LASTEXITCODE -ne 0) { throw 'S220 focused service regressions failed' }
-go test ./migrations -run '^(TestMigration221|TestOpenAILongContextBillingMigration)' -count=1
+go test ./migrations -run '^(TestMigration220|TestMigration221|TestOpenAILongContextBillingMigration)' -count=1
 if ($LASTEXITCODE -ne 0) { throw 'S220 migration validation failed' }
 go test ./internal/repository -run '^TestOpenAILongContextBillingMigration' -count=1
 if ($LASTEXITCODE -ne 0) { throw 'S220 account migration integration failed' }
@@ -290,6 +290,17 @@ default migration, create/import/API behavior, and usage-log audit field from
 veto unreachable through supported local behavior and leave missing values as
 an implicit hard veto without the upstream migration contract. Amendment 3
 therefore adds the complete account-veto backend/create/audit chain and
-migrations 174/175. The user-owned EditAccountModal delta stays denied in S220
+migration behavior. The user-owned EditAccountModal delta stays denied in S220
 and will be adapted with fingerprint controls in S221's temporary baseline.
 Return this bounded correction to the same Terra Developer before QA.
+
+`PASS / Amendment 4` (2026-08-16 12:57 +08:00): local migration inventory
+contains unrelated `174_account_group_scheduler_indexes_notx.sql` and
+`175_add_users_last_login_ip.sql`; importing the upstream filenames would
+create duplicate numeric slots and obscure ordering. Combine the final behavior
+of upstream migrations 174/175 into the free local
+`220_openai_long_context_billing.sql`, preserving the usage-log column,
+OpenAI default-off backfill, strict boolean validation, shadow synchronization,
+and idempotent trigger replacement. Migration 221 remains unchanged and runs
+after 220. Disposable PostgreSQL validation remains mandatory; shared and
+production databases remain forbidden.
