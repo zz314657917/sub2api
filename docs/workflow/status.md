@@ -6,7 +6,7 @@ pending_action: Await the independent gpt-5.6-terra Developer in the isolated S2
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-16 11:43 +08:00
+last_verified: 2026-08-16 12:16 +08:00
 ---
 
 # Upstream v0.1.177 Group Pricing And Long Context S220
@@ -38,6 +38,15 @@ last_verified: 2026-08-16 11:43 +08:00
   `openai_gateway_service.go`. `PASS / Amendment 1` adds that file to the
   allowlist because it is required by the already-approved OpenAI/Grok
   intersection criteria. Resume the same Developer; no other scope changes.
+- `FAIL / controller-review S220-R1`: implementation commit `c19d5fcf8`
+  correctly adds the backend storage/resolver/OpenAI/Grok chain, but its Groups
+  UI is a raw JSON textarea with hard-coded English and its two new tests only
+  search source strings. Replace it with the upstream-style typed
+  `PricingEntryCard` flow, localized labels, hidden token intervals, and real
+  create/edit payload assertions while preserving local image/video controls.
+  Rewrite the worker report so its evidence and commands match the completed
+  implementation instead of the retained pre-amendment block. Return to the
+  same Terra Developer before QA.
 
 # Upstream v0.1.177 Codex Turn-State S219
 
