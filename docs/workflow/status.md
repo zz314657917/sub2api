@@ -1,12 +1,12 @@
 ---
-phase: qa
+phase: done
 current_sprint: upstream-v0177-group-usage-rollups-s222
 total_sprints: 222
-pending_action: Dispatch an independent gpt-5.6-terra QA against S222 candidate 6ae204733. QA must review the complete ba9415446..6ae204733 delta, run exact focused discovery plus full backend/frontend acceptance, use its own fresh disposable PostgreSQL database for the complete migration/trigger/concurrency/timezone/DST/publication/tail/advisory checklist, preserve denied paths, and commit only the QA report.
+pending_action: Finish final review, clean the completed S220/S221/S222 worktrees and branches plus the task-owned portable PostgreSQL runtime, then push main normally and verify origin/main. Preserve the two remaining user dirty account-modal files and outputs/.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-16 16:34 +08:00
+last_verified: 2026-08-16 17:21 +08:00
 ---
 
 # Upstream v0.1.177 Group Pricing And Long Context S220
@@ -203,6 +203,17 @@ last_verified: 2026-08-16 16:34 +08:00
   `### FAIL` report remains immutable evidence of its missing-local-toolchain
   environment, while controller direct S221 tool invocation resolves that
   environmental gate. Advance candidate `6ae204733` to independent Terra QA.
+- `PASS / independent-qa`: Terra QA commit `23a6dc75a` contains only the QA
+  report and independently passes the complete `ba9415446..6ae204733` scope:
+  26/26 allowlisted files, all focused/full backend and frontend gates, and a
+  fresh `sub2api_s222_terraqa_20260816_1645` database covering migrations,
+  trigger mutations/cascade/cleanup, publication-last serialization, tail,
+  timezone rebuild, DST, both advisory keys, and exact deletion.
+- `PASS / main-integration`: S222 was cherry-picked as `6131972c2`,
+  `ec85d1c3f`, `b6ad86460`, and QA report `f02ac091a` on top of the external
+  account-probe commit `b73f4096c`. Main full Go service/handler/repository/
+  server/compile and correct-cwd frontend focused tests, typecheck, and build
+  passed. The remaining user account-modal patch-id is unchanged.
 
 # Upstream v0.1.177 Codex Turn-State S219
 

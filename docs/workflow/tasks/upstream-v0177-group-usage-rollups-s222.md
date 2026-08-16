@@ -285,3 +285,21 @@ plus live-tail `8/5/3`, startup/scheduled advisory exclusion and reacquisition,
 and late-write serialization (`1567ms`, final watermark `2026-08-13`), then was
 exactly deleted. Next legal action is a separate `gpt-5.6-terra` QA that creates
 and deletes its own database and commits only the QA report.
+
+## Independent QA And Main Integration
+
+`PASS / independent-qa` (2026-08-16 17:06 +08:00): Terra QA commit
+`23a6dc75a` contains only
+`docs/workflow/qa-reports/upstream-v0177-group-usage-rollups-s222-qa.md`.
+It independently reviewed all 26 allowlisted files, reproduced focused and
+complete backend/frontend checks, and used then dropped its own
+`sub2api_s222_terraqa_20260816_1645` database. The report records two migration
+rounds, mutation/cascade/cleanup invalidation, publication-last late-write
+serialization, rollup-tail, timezone rebuild, DST, advisory 622101/622102,
+and `database_exists_after_drop=f`.
+
+`PASS / main-integration` (2026-08-16 17:21 +08:00): S222 source/fix/style and
+QA commits were cherry-picked to main as `6131972c2`, `ec85d1c3f`, `b6ad86460`,
+and `f02ac091a`. Main full Go packages and correct-cwd frontend focused tests,
+typecheck, and build passed; user account-modal files and `outputs/` remain
+outside the S222 commits.
