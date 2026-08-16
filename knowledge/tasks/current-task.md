@@ -1,42 +1,51 @@
 # 当前任务快照
 
-最后更新：2026-08-16 02:44 +08:00
+最后更新：2026-08-16 17:33 +08:00
 
 ## 背景
 
 - 用户要求持续核实并选择性合入最新上游版本，禁止把长期分叉的上游历史整包合并。
-- 最新抓取仍为 `upstream/main@baeac1f3d`，最新 tag 为 `v0.1.177@073e92d17`。
-- 主工作区保留用户未提交的 `EditAccountModal.vue`、对应测试和 `outputs/`。
+- 本轮授权并完成三组上游功能：S220 分组定价/长上下文账户 veto，S221 Codex fingerprint convergence，S222 分组用量日汇总。
+- 数据库影响仅限 migrations 220/221/222/223 源码和任务专属 disposable PostgreSQL 验证；未触碰共享或生产数据库。
+
+## 当前目标
+
+- 继续监控 `upstream/main` 和后续 v0.1.177+ tag，发现新功能后按现有 P/G/E 门禁做选择性评估。
 
 ## 本次已完成
 
-- S218 remote compaction v2 已通过独立 Terra QA 并合入本地主线。
-- S219 Codex HTTP `x-codex-turn-state` 已通过主控 R1 复核、独立 Terra QA 和主线复测。
-- S219 主线提交为 `2335470c0`、`590921da2`、`f347aa460`、`c3e000df0`。
-- streaming provenance 只在首次成功下游 flush 后记录；四个非流式 JSON/SSE-to-JSON 路径只在 writer 已提交后记录。
-- nil/空上游响应头会清除 stale state；normal/passthrough 仅剥离已知异账号 echo，不注入原生 HTTP state。
-- 主线 focused/compatibility、完整 service 66.820s、handler 68.064s、server 和 compile 均通过。
-- S219 worktree/分支与三个冗余 backup 分支已清理；本地只剩 `main`。
+- S220 已合入主线：`4bb319fc6`、`9580b63e2`、`0c141ec23`、`eb57cea77`。
+- S221 已合入主线：`2b14b361b`、`19f5dd962`，保留用户 account-modal 改动。
+- S222 Developer 修复与格式提交已合入：`6131972c2`、`ec85d1c3f`、`b6ad86460`。
+- 独立 Terra QA `23a6dc75a` 已 PASS，QA 报告以 `f02ac091a` 合入。
+- workflow 收口提交：`3e802eab0`、`2832a45b6`。
+- 主线已普通 push，`origin/main` 与本地均为 `2832a45b6f814068433ecd894b03701bc9852b92`。
+- 四个任务 worktree、三个 `pge/upstream-v0177-*` 分支和任务专属 portable PostgreSQL runtime 已清理。
 
-## 上游剩余裁决
+## 已确认事实
 
-- `e29b93a1f`：本地 Grok unknown-text fallback 已排除媒体/语音/搜索族，行为已覆盖。
-- `e215c98c2`：账号自动刷新偏好已在模块初始化恢复，行为已覆盖。
-- `fd82dfd52`：依赖本地不存在的分组长上下文开关与 OpenAI 账号 veto，不能独立移植。
-- `fce41e318` 剩余 fingerprint 功能：缺少本地收敛前置，并会触碰用户账户弹窗改动，继续排除。
-- `cb7b03795` 与 migration 222/223：涉及分组日汇总和数据库迁移，未获得影响授权。
-- `baeac1f3d` 仅同步 upstream VERSION；本地是选择性分叉产品线，不单独冒充完整 v0.1.177。
+- S222 controller 和独立 Terra QA 均独立完成 migrations 222/223 双次幂等、mutation/cascade/cleanup invalidation、publication-last late-write serialization、rollup/live-tail、timezone rebuild、DST 23-hour boundaries、advisory lock 622101/622102 exclusion/reacquisition 和精确数据库删除。
+- S222 focused discovery 为 service `9/9`、repository `4/4`；完整 Go、frontend Vitest、typecheck、build 均通过。
+- `upstream/main` 当前为 `baeac1f3d`，最新 tag 为 `v0.1.177`；本地已 fetch，无新的上游主线功能待合。
+- 外部账号余额探测提交 `b73f4096c` 已在本轮期间进入主线，未被回滚。
+- 当前主线只有 `main` 分支和一个 worktree。用户未提交内容只剩 `frontend/src/components/account/EditAccountModal.vue`、对应测试和 `outputs/`；两文件 patch-id 为 `5d316e5b6935fdc5dbf825f940feaf231d79ac0f`。
+
+## 待验证点
+
+- 新的 upstream commit/tag 出现后：检查是否依赖本地缺失前置、是否触碰用户 dirty 或数据库授权边界；验证方式是 `git fetch upstream --prune`、祖先/差异审查和新的 P/G/E contract。
 
 ## 当前结论
 
-- `PASS / v0.1.177 authorized-slices-integrated`。
-- 用户前端 dirty patch-id 仍为 `5d316e5b6935fdc5dbf825f940feaf231d79ac0f`，`outputs/` 未触碰。
-- 收口提交 `2b046d6fa` 已普通 fast-forward push，`git ls-remote` 验证 `origin/main` 与本地一致。
-- 下一步仅监控更新的上游 tag；若要继续分组日汇总，需先取得 migration 222/223 的数据库影响授权。
+- `PASS / v0.1.177 authorized-slices-integrated-and-pushed`。
+- 三组授权功能已合入主线并推送；未授权的上游 CI/dependency churn、共享数据库执行、账户弹窗覆盖和长期历史整包合并均未发生。
 
-## 验证入口
+## 下一步
 
-- S218 QA：`docs/workflow/qa-reports/upstream-v0177-remote-compaction-v2-s218-qa.md`
-- S219 contract：`docs/workflow/tasks/upstream-v0177-turn-state-s219.md`
-- S219 worker result：`docs/workflow/worker-results/upstream-v0177-turn-state-s219-result.md`
-- S219 QA：`docs/workflow/qa-reports/upstream-v0177-turn-state-s219-qa.md`
+- 监控上游：`git fetch upstream --prune` -> 比较 `upstream/main`/tag -> 只为新授权切片建立 contract。
+- 保护用户改动：每次主线操作前后检查 `git status --short` 和 account-modal patch-id，确认 `outputs/` 未被触碰。
+
+## 验证记录
+
+- S222 QA：`docs/workflow/qa-reports/upstream-v0177-group-usage-rollups-s222-qa.md`，首行为 `### PASS`。
+- S222 workflow：`docs/workflow/status.md`、`docs/workflow/tasks/upstream-v0177-group-usage-rollups-s222.md`、`docs/workflow/main-log.md`。
+- 最终远端验证：普通 `git push origin main` 成功，`git ls-remote origin refs/heads/main` 等于本地 `HEAD`。
