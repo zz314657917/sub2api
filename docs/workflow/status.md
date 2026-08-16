@@ -1,12 +1,12 @@
 ---
-phase: contract-approved
+phase: build
 current_sprint: upstream-v0177-codex-fingerprint-s221
 total_sprints: 222
-pending_action: Create the isolated S221 worktree from the approved main commit, apply and commit only the exact two-file user baseline patch, then dispatch an independent gpt-5.6-terra Developer. Worker commits must contain only S221 deltas above that temporary baseline. Shared or production database execution remains unauthorized.
+pending_action: Independent gpt-5.6-terra Developer implements S221 in E:/codex-worktrees/sub2api/upstream-v0177-codex-fingerprint-s221 above temporary baseline c6d4ee230. After completion, review only commits above that baseline, verify the baseline is excluded, then run controller acceptance before independent QA.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-16 14:26 +08:00
+last_verified: 2026-08-16 14:30 +08:00
 ---
 
 # Upstream v0.1.177 Group Pricing And Long Context S220
@@ -106,6 +106,20 @@ last_verified: 2026-08-16 14:26 +08:00
   Docker harness when available, otherwise require the explicit fresh
   PostgreSQL behavior checklist from both Developer and QA. Both S220
   Developer and controller already supplied independent direct evidence.
+
+# Upstream v0.1.177 Codex Fingerprint Convergence S221
+
+- `PASS / contract-approved`: contract
+  `docs/workflow/tasks/upstream-v0177-codex-fingerprint-s221.md` preserves the
+  exact two-file user patch, adapts the local OpenAI gateway topology, and
+  limits the feature to opt-in fingerprint convergence plus the deferred S220
+  account control.
+- `build / developer-dispatched`: worktree
+  `E:/codex-worktrees/sub2api/upstream-v0177-codex-fingerprint-s221`, branch
+  `pge/upstream-v0177-codex-fingerprint-s221`, main approval commit
+  `e1639c8e3`, and temporary user-baseline commit `c6d4ee230`. Developer commits
+  must contain only S221 deltas above the baseline and require controller review
+  before QA.
 
 # Upstream v0.1.177 Codex Turn-State S219
 
