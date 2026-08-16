@@ -8,6 +8,15 @@ qa_worker_model: gpt-5.6-terra
 
 # Upstream v0.1.177 Group Pricing And Long Context S220
 
+## Task ID
+
+upstream-v0177-group-pricing-long-context-s220
+
+## Role
+
+You are the independent `gpt-5.6-terra` Generator worker. Execute only this
+approved contract, do not make architecture decisions, and do not expand scope.
+
 ## Goal
 
 Behaviorally port the complete upstream prerequisite and fix chain
@@ -126,7 +135,7 @@ account setting.
 ## Acceptance Commands
 
 ```powershell
-Set-Location E:/codex-worktrees/sub2api/s220-group-pricing/backend
+Set-Location E:/codex-worktrees/sub2api/upstream-v0177-group-pricing-long-context-s220/backend
 go generate ./ent
 if ($LASTEXITCODE -ne 0) { throw 'S220 ent generation failed' }
 
@@ -152,7 +161,7 @@ if ($LASTEXITCODE -ne 0) { throw 'S220 complete server failed' }
 go test ./cmd/server -run '^$' -count=0
 if ($LASTEXITCODE -ne 0) { throw 'S220 server compile failed' }
 
-Set-Location E:/codex-worktrees/sub2api/s220-group-pricing/frontend
+Set-Location E:/codex-worktrees/sub2api/upstream-v0177-group-pricing-long-context-s220/frontend
 pnpm.cmd exec vitest run src/views/admin/__tests__/GroupsView.modelPricing.spec.ts src/views/admin/__tests__/groupsImagePricing.spec.ts src/views/admin/__tests__/groupsVideoModelPricing.spec.ts
 if ($LASTEXITCODE -ne 0) { throw 'S220 frontend focused regressions failed' }
 pnpm.cmd run typecheck
@@ -160,7 +169,7 @@ if ($LASTEXITCODE -ne 0) { throw 'S220 frontend typecheck failed' }
 pnpm.cmd run build
 if ($LASTEXITCODE -ne 0) { throw 'S220 frontend build failed' }
 
-Set-Location E:/codex-worktrees/sub2api/s220-group-pricing
+Set-Location E:/codex-worktrees/sub2api/upstream-v0177-group-pricing-long-context-s220
 git diff --check
 if ((git diff --name-only --diff-filter=U) -or (git ls-files -u)) {
   throw 'S220 conflict or unmerged index found'
