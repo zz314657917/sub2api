@@ -92,6 +92,7 @@ account setting.
 - `backend/internal/service/model_pricing_resolver.go`
 - `backend/internal/service/model_pricing_resolver_test.go`
 - `backend/internal/service/openai_alpha_search_billing_test.go`
+- `backend/internal/service/openai_gateway_service.go`
 - `backend/internal/service/openai_gateway_record_usage_test.go`
 - `backend/internal/service/openai_gateway_search_surcharge_test.go`
 - `backend/migrations/221_group_model_pricing.sql`
@@ -212,3 +213,13 @@ and backfill behavior in disposable fixtures. All five focused upstream test
 names are default-tag discoverable at `fd82dfd52`, and all three source commits
 are ancestors of the frozen upstream main. Source work is authorized only in a
 clean S220 worktree at the approval commit and within the amended allowlist.
+
+`PASS / Amendment 1` (2026-08-16 11:43 +08:00): the independent Developer
+correctly stopped because the local OpenAI-specific record-usage implementation
+is in `backend/internal/service/openai_gateway_service.go`, while the prior
+allowlist named only the distinct generic `gateway_service.go`. Add the
+OpenAI-specific service file; its existing record-usage regression file was
+already allowed. This is a topology correction required by the original
+success criteria, not a feature expansion. All migration, frontend account,
+fingerprint, rollup, dependency, provider, deployment, and database boundaries
+remain unchanged. Resume the same Terra Developer from its existing worktree.

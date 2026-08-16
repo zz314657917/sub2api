@@ -6,7 +6,7 @@ pending_action: Await the independent gpt-5.6-terra Developer in the isolated S2
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-16 11:34 +08:00
+last_verified: 2026-08-16 11:43 +08:00
 ---
 
 # Upstream v0.1.177 Group Pricing And Long Context S220
@@ -33,6 +33,11 @@ last_verified: 2026-08-16 11:34 +08:00
   `E:/codex-worktrees/sub2api/upstream-v0177-group-pricing-long-context-s220`,
   branch `pge/upstream-v0177-group-pricing-long-context-s220`, approval commit
   `1aaf92ad8`. Controller diff review is required before QA.
+- `BLOCKED / contract-topology`: Terra Developer commit `e3d6fc929` changed
+  only its report and identified the actual OpenAI usage owner as
+  `openai_gateway_service.go`. `PASS / Amendment 1` adds that file to the
+  allowlist because it is required by the already-approved OpenAI/Grok
+  intersection criteria. Resume the same Developer; no other scope changes.
 
 # Upstream v0.1.177 Codex Turn-State S219
 
