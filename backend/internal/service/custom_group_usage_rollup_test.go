@@ -9,8 +9,7 @@ import (
 )
 
 func TestGroupUsageDateUsesConfiguredTimezoneBoundary(t *testing.T) {
-	require.NoError(t, appTimezone.Init("America/New_York"))
-	t.Cleanup(func() { require.NoError(t, appTimezone.Init("Asia/Shanghai")) })
+	setGroupUsageTimezoneForTest(t, "America/New_York")
 
 	start := GroupUsageTodayStart(time.Date(2026, 3, 9, 4, 30, 0, 0, time.UTC))
 	require.Equal(t, time.Date(2026, 3, 9, 4, 0, 0, 0, time.UTC), start)
@@ -18,8 +17,7 @@ func TestGroupUsageDateUsesConfiguredTimezoneBoundary(t *testing.T) {
 }
 
 func TestGroupUsageParseDateUsesConfiguredTimezone(t *testing.T) {
-	require.NoError(t, appTimezone.Init("America/New_York"))
-	t.Cleanup(func() { require.NoError(t, appTimezone.Init("Asia/Shanghai")) })
+	setGroupUsageTimezoneForTest(t, "America/New_York")
 
 	parsed, err := ParseGroupUsageDate("2026-03-09")
 	require.NoError(t, err)
@@ -27,12 +25,18 @@ func TestGroupUsageParseDateUsesConfiguredTimezone(t *testing.T) {
 }
 
 func TestGroupUsageYesterdayStartHandlesDST(t *testing.T) {
-	require.NoError(t, appTimezone.Init("America/New_York"))
-	t.Cleanup(func() { require.NoError(t, appTimezone.Init("Asia/Shanghai")) })
+	setGroupUsageTimezoneForTest(t, "America/New_York")
 
 	todayStart := GroupUsageTodayStart(time.Date(2026, 3, 9, 12, 0, 0, 0, time.UTC))
 	yesterdayStart := GroupUsageYesterdayStart(todayStart)
 	require.Equal(t, time.Date(2026, 3, 8, 5, 0, 0, 0, time.UTC), yesterdayStart)
 	// The DST day was 23 hours, so natural-day calculation must not subtract 24h.
 	require.Equal(t, 23*time.Hour, todayStart.Sub(yesterdayStart))
+}
+
+func setGroupUsageTimezoneForTest(t *testing.T, name string) {
+	t.Helper()
+	previous := appTimezone.Location().String()
+	require.NoError(t, appTimezone.Init(name))
+	t.Cleanup(func() { require.NoError(t, appTimezone.Init(previous)) })
 }

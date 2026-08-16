@@ -1,4 +1,19 @@
-### DONE: upstream-v0177-group-usage-rollups-s222
+### FAIL: upstream-v0177-group-usage-rollups-s222
+
+## R1 Result
+
+R1 corrects rollup lifecycle ownership: ordinary `AggregateRange` no longer
+locks, invalidates, or publishes group rollups; `RecomputeRange` owns those
+transactional actions. `CleanupUsageLogs` now only invalidates/cleans, while
+the scheduled service defer publishes under the advisory lock. The concrete
+PostgreSQL repository implements that optional lock; peer-held and acquisition
+errors skip synchronization, while unit-only fakes remain direct.
+
+The R1 implementation, backend checks, fresh PostgreSQL checklist, and two
+new frontend Vitest tests passed. The report is FAIL solely because the required
+frontend typecheck cannot resolve `vite/client` after the mandated deletion of
+this worktree's `frontend/node_modules`; no dependency directory or lockfile
+was recreated to mask the failure.
 
 ## Scope
 
@@ -38,12 +53,19 @@
   dashboard-early-return sync tests: PASS with `-count=10`.
 - `go test ./internal/service ./internal/repository ./internal/handler -run '^$' -count=1`: PASS (compile checks).
 - `git diff --check`: PASS.
+- R1 focused service suite, including timezone/DST, startup/scheduled advisory
+  locking, early return, peer-held, and acquisition-error behavior: PASS with
+  `-count=10`.
+- R1 repository discovery (4/4): PASS.
+- `TestLoadStandardTZEnvironmentTakesPriority`: PASS.
 - Task-owned direct frontend tools (a temporary junction to the approved S221
-  `node_modules`) ran `vue-tsc.CMD -b`: PASS and `vite.CMD build`: PASS. The
-  junction was removed immediately after verification and the lockfile SHA-256
-  remained `47961DDE09DEF2FBD378C8D7C139C144DE02AEC00148FB5BAAA1D7ECED7AAC2D`.
-  The contract's two Vitest paths are absent in this baseline, so direct Vitest
-  correctly returned `No test files found`; this is not claimed as PASS.
+  `node_modules`) ran the two allowlisted Vitest files: PASS (2 files / 2
+  tests). The lockfile SHA-256 remained
+  `47961DDE09DEF2FBD378C8D7C139C144DE02AEC00148FB5BAAA1D7ECED7AAC2D`.
+  Direct `vue-tsc.CMD -b` against the S222 tsconfig failed with TS2688 because
+  the intentionally absent local node_modules cannot resolve `vite/client`.
+  The S222 node_modules path was then exactly deleted; final check is false,
+  while the S221 toolchain path remains true.
 
 ## Fresh PostgreSQL Evidence
 
@@ -62,11 +84,22 @@ for each fixture and precisely dropped after each run; final checks returned
 - Two independent PostgreSQL connections proved advisory exclusion:
   holder confirmed, peer `pg_try_advisory_lock(622101)=f`, and reacquisition
   after release returned `t`.
+- R1 fixture repeated 222/223 first and second application, observed initial
+  `1970-01-01|Asia/Shanghai|0`, and recorded insert/update/delete/cascade
+  cleanup invalidation to `2026-03-08`.
+- A transaction holding `usage_group_rollup_state FOR UPDATE` blocked a late
+  historical INSERT. After publish-side release it completed and invalidated
+  the watermark to `2026-08-13`. The retained tail query produced total `7`,
+  today `4`, yesterday `3`. Startup lock `622101` and scheduled lock `622102`
+  each independently returned peer `f` and post-release reacquisition `t`.
 
 ## Remaining Risk
 
 - Docker is unavailable, so the repository's Docker-tagged integration suite
-  was not run. The two specified Vitest paths are absent in this baseline.
+  was not run. Fresh PostgreSQL manual evidence covers migrations, default
+  state, mutation/cascade cleanup, late-write serialization, tail and both
+  advisory lock keys; application-level timezone-rebuild and watermark-last
+  publication still require a passing integration harness.
 - The fresh PostgreSQL fixture exercised migrations, trigger invalidation,
   timezone/DST behavior, advisory-lock exclusion/release, and cleanup. Full
   application-level rollup publication/tail-query concurrency remains for the

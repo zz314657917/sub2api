@@ -237,3 +237,14 @@ func TestDashboardAggregationService_GroupUsageSyncSkipsPeerHeldAdvisoryLock(t *
 	require.Equal(t, 0, repo.syncCalls)
 	require.Equal(t, 0, repo.releaseCalls)
 }
+
+func TestDashboardAggregationService_GroupUsageSyncSkipsAdvisoryLockError(t *testing.T) {
+	repo := &dashboardGroupUsageLockRepoTestStub{lockErr: errors.New("lock unavailable")}
+	svc := &DashboardAggregationService{repo: repo}
+
+	err := svc.syncGroupUsageRollupsWithLeaderLock(context.Background(), dashboardAggregationGroupUsageScheduledLockID, time.Now())
+
+	require.EqualError(t, err, "lock unavailable")
+	require.Equal(t, 0, repo.syncCalls)
+	require.Equal(t, 0, repo.releaseCalls)
+}

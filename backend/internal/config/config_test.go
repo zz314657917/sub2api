@@ -62,6 +62,16 @@ func TestLoadRedisUsernameFromEnvironment(t *testing.T) {
 	require.Equal(t, "app-user", cfg.Redis.Username)
 }
 
+func TestLoadStandardTZEnvironmentTakesPriority(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	t.Setenv("TIMEZONE", "Asia/Shanghai")
+	t.Setenv("TZ", "America/New_York")
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.Equal(t, "America/New_York", cfg.Timezone)
+}
+
 func TestLoadRedisUsernameDefaultsToEmpty(t *testing.T) {
 	resetViperWithJWTSecret(t)
 	t.Setenv("REDIS_USERNAME", "")
