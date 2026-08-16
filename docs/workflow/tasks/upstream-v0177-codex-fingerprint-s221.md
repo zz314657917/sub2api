@@ -72,6 +72,8 @@ patch.
 - `backend/internal/service/openai_gateway_service.go`
 - `backend/internal/service/openai_gateway_service_test.go`
 - `backend/internal/service/openai_tool_namespace_normalization_s92_test.go`
+- `backend/internal/repository/account_repo.go`
+- `backend/internal/repository/account_repo_codex_fingerprint_test.go`
 - `frontend/src/components/account/BulkEditAccountModal.vue`
 - `frontend/src/components/account/CreateAccountModal.vue`
 - `frontend/src/components/account/EditAccountModal.vue`
@@ -105,6 +107,10 @@ patch.
   clean main index independently from the still-uncommitted user patch.
 - Preserve newer local remote-compaction, turn-state, identity enforcement,
   session isolation, Responses capability, and billing behavior.
+- Local bulk account updates merge JSONB and do not delete absent keys. For the
+  fingerprint `off` case only, the frontend must send a null delete sentinel and
+  the repository must remove `codex_fingerprint_mode` after the merge. Do not
+  generalize null-as-delete to unrelated extra keys.
 
 ## Acceptance Commands
 
@@ -123,6 +129,8 @@ $focused = '^(' + (@(
 ) -join '|') + ')$'
 go test ./internal/service -run $focused -count=10
 if ($LASTEXITCODE -ne 0) { throw 'S221 focused backend failed' }
+go test ./internal/repository -run '^TestBulkUpdateCodexFingerprintOffRemovesKey$' -count=10
+if ($LASTEXITCODE -ne 0) { throw 'S221 bulk fingerprint delete failed' }
 go test ./internal/service -count=1
 if ($LASTEXITCODE -ne 0) { throw 'S221 complete service failed' }
 go test ./internal/handler -count=1
@@ -182,6 +190,15 @@ complete backend packages, all three account modal flows, typecheck, build,
 Git integrity, and upstream provenance. Dispatch is authorized only after the
 temporary baseline commit is created in the isolated worktree; S221 commits
 must remain separable from that baseline.
+
+`PASS / Amendment 1` (2026-08-16 14:54 +08:00): controller review found the
+local bulk repository merges `extra` with JSONB `||`; deleting the key from the
+frontend payload makes the update disappear, while sending null persists JSON
+null. Add only `account_repo.go` plus one focused default-tag repository test.
+Bulk `off` sends a null sentinel and the repository subtracts only
+`codex_fingerprint_mode` after merge. This is required by the original
+delete-key success criterion and does not widen other bulk semantics, schema,
+migrations, dependencies, provider, deployment, shared runtime, or push scope.
 
 `PASS / topology pre-review` (2026-08-16 13:28 +08:00): this checkout owns
 both normal OpenAI request construction and OpenAI passthrough request

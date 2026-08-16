@@ -120,6 +120,10 @@ last_verified: 2026-08-16 14:30 +08:00
   `e1639c8e3`, and temporary user-baseline commit `c6d4ee230`. Developer commits
   must contain only S221 deltas above the baseline and require controller review
   before QA.
+- `PASS / Amendment 1`: local BulkUpdate merges JSONB and cannot delete an
+  absent fingerprint key. Allow a null delete sentinel plus a repository
+  subtraction for `codex_fingerprint_mode` only, with a focused default-tag
+  regression. Unrelated extra merge behavior remains unchanged.
 
 # Upstream v0.1.177 Codex Turn-State S219
 
