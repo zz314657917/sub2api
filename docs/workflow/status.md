@@ -1,12 +1,12 @@
 ---
-phase: contract-approved
+phase: build
 current_sprint: upstream-v0177-group-usage-rollups-s222
 total_sprints: 222
-pending_action: Dispatch an independent gpt-5.6-terra Developer for S222 from approved main 19f5dd962. The isolated worktree may implement only the approved group daily rollup source, migrations 222/223, tests, frontend summary changes, and worker report; it must use a fresh task-owned PostgreSQL database and must not touch shared or production data.
+pending_action: Independent gpt-5.6-terra Developer implements S222 in E:/codex-worktrees/sub2api/upstream-v0177-group-usage-rollups-s222 from approval commit ba9415446. After the worker commit, controller must review the allowlist and independently rerun source, fresh-PostgreSQL, backend, frontend, and Git gates before QA.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-16 15:27 +08:00
+last_verified: 2026-08-16 15:29 +08:00
 ---
 
 # Upstream v0.1.177 Group Pricing And Long Context S220
@@ -159,6 +159,11 @@ last_verified: 2026-08-16 15:27 +08:00
   disposable validation. Shared/production databases, dependencies, CI,
   release/security workflows, deployment, containers, push, user account
   modals, fingerprint behavior, and `outputs/` remain denied.
+- `build / developer-dispatched`: isolated worktree
+  `E:/codex-worktrees/sub2api/upstream-v0177-group-usage-rollups-s222`, branch
+  `pge/upstream-v0177-group-usage-rollups-s222`, approval commit `ba9415446`.
+  The Developer owns only the approved source/tests/report and must create and
+  exactly delete its own fresh PostgreSQL database before returning evidence.
 
 # Upstream v0.1.177 Codex Turn-State S219
 
