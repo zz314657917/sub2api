@@ -1,12 +1,12 @@
 ---
-phase: build
+phase: qa
 current_sprint: upstream-v0177-group-pricing-long-context-s220
 total_sprints: 222
-pending_action: Return S220-R2 to the same independent gpt-5.6-terra Developer for the missing OpenAI account-veto prerequisite chain adapted as local migration 220, then review before independent Terra QA. S221 fingerprint plus the deferred account edit control and S222 group daily rollups follow sequentially. Shared or production database execution remains unauthorized.
+pending_action: Run independent gpt-5.6-terra QA against S220 commit be3d0026a after controller review PASS. If QA passes, integrate c19d5fcf8, 61473d06f, be3d0026a and the QA report into main, then approve S221. Shared or production database execution remains unauthorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-16 12:24 +08:00
+last_verified: 2026-08-16 13:57 +08:00
 ---
 
 # Upstream v0.1.177 Group Pricing And Long Context S220
@@ -85,6 +85,15 @@ last_verified: 2026-08-16 12:24 +08:00
   because unrelated unit-tag compile failures otherwise let the default
   focused command silently run only two gateway tests. Acceptance now requires
   discovery of all five names before `-count=10`.
+- `PASS / controller-review S220-R3`: Developer commit `be3d0026a` is clean
+  and contains 36 approved files, including Amendment 7's default-tag test.
+  Fresh controller runs passed five-of-five discovery and x10, migrations,
+  complete service (61.998s), handler (27.333s), repository, server, compile,
+  24 focused frontend tests, typecheck, and Vite build (21.94s). A fresh
+  task-owned PostgreSQL database independently proved legacy malformed/missing
+  backfill, explicit true preservation, default false, SQLSTATE 22023 strict
+  rejection, audit-column default/not-null, and second-run idempotency. Advance
+  to independent Terra QA.
 
 # Upstream v0.1.177 Codex Turn-State S219
 
