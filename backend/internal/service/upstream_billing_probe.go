@@ -146,6 +146,17 @@ type upstreamBillingProbeResponse struct {
 	ObservedAt              string   `json:"observed_at"`
 }
 
+type upstreamUsageProbeResponse struct {
+	Mode      string   `json:"mode"`
+	Unit      string   `json:"unit"`
+	Remaining *float64 `json:"remaining"`
+	Balance   *float64 `json:"balance"`
+	Quota     *struct {
+		Remaining *float64 `json:"remaining"`
+		Unit      string   `json:"unit"`
+	} `json:"quota"`
+}
+
 // GetUpstreamBillingProbeSettings returns defaults when the setting is absent.
 func (s *SettingService) GetUpstreamBillingProbeSettings(ctx context.Context) (*UpstreamBillingProbeSettings, error) {
 	defaults := defaultUpstreamBillingProbeSettings()
@@ -677,6 +688,7 @@ func (s *UpstreamBillingProbeService) probeLoadedAccount(ctx context.Context, ac
 	if err != nil {
 		return s.persistProbeFailure(ctx, account, intervalMinutes, now, resp.StatusCode, "invalid_response", retryAfter(resp.Header, now))
 	}
+	data["upstream_balance"] = s.probeUpstreamUsageBalance(ctx, normalizedBaseURL, apiKey, proxyURL, account, tlsProfile)
 	snapshot := &UpstreamBillingProbeSnapshot{
 		Status:        UpstreamBillingProbeStatusOK,
 		Data:          data,
@@ -720,6 +732,72 @@ func (s *UpstreamBillingProbeService) probeLoadedAccount(ctx context.Context, ac
 		)
 	}
 	return snapshot, nil
+}
+
+// probeUpstreamUsageBalance reads the key-scoped Sub2API usage endpoint after
+// a compatible billing response has already established the upstream identity.
+// Its result is intentionally best-effort: a relay can expose billing-rate
+// introspection without exposing a balance, and that must not invalidate rate
+// synchronization or scheduling.
+func (s *UpstreamBillingProbeService) probeUpstreamUsageBalance(
+	ctx context.Context,
+	baseURL, apiKey, proxyURL string,
+	account *Account,
+	tlsProfile *tlsfingerprint.Profile,
+) map[string]any {
+	result := map[string]any{"status": UpstreamBillingProbeStatusFailed}
+	probeCtx, cancel := context.WithTimeout(ctx, upstreamBillingProbeRequestTimeout)
+	defer cancel()
+	probeURL := buildOpenAIEndpointURL(baseURL, "/v1/usage")
+	req, err := http.NewRequestWithContext(probeCtx, http.MethodGet, probeURL, bytes.NewReader(nil))
+	if err != nil {
+		result["last_error"] = "request_build_failed"
+		return result
+	}
+	req = req.WithContext(WithHTTPUpstreamRedirectsDisabled(req.Context()))
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	resp, err := s.accountTestService.httpUpstream.DoWithTLS(req, proxyURL, account.ID, account.Concurrency, tlsProfile)
+	if err != nil {
+		result["last_error"] = "request_failed"
+		return result
+	}
+	if resp == nil || resp.Body == nil {
+		result["last_error"] = "empty_response"
+		return result
+	}
+	defer func() { _ = resp.Body.Close() }()
+	result["http_status"] = resp.StatusCode
+	body, readErr := io.ReadAll(io.LimitReader(resp.Body, upstreamBillingProbeMaxBodyBytes+1))
+	if readErr != nil {
+		result["last_error"] = "response_read_failed"
+		return result
+	}
+	if len(body) > upstreamBillingProbeMaxBodyBytes {
+		result["last_error"] = "response_too_large"
+		return result
+	}
+	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusMethodNotAllowed {
+		result["status"] = UpstreamBillingProbeStatusUnsupported
+		result["last_error"] = "unsupported"
+		return result
+	}
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		result["last_error"] = "http_error"
+		return result
+	}
+	if !upstreamBillingProbeResponseIsJSON(resp.Header.Get("Content-Type")) {
+		result["last_error"] = "invalid_content_type"
+		return result
+	}
+	balance, err := parseUpstreamUsageBalance(body)
+	if err != nil {
+		result["last_error"] = "invalid_response"
+		return result
+	}
+	balance["status"] = UpstreamBillingProbeStatusOK
+	balance["http_status"] = resp.StatusCode
+	return balance
 }
 
 func (s *UpstreamBillingProbeService) persistProbeFailure(
@@ -855,6 +933,60 @@ func parseUpstreamBillingProbeResponse(body []byte) (map[string]any, error) {
 		return nil, fmt.Errorf("inconsistent effective billing multiplier")
 	}
 	return data, nil
+}
+
+func parseUpstreamUsageBalance(body []byte) (map[string]any, error) {
+	var response upstreamUsageProbeResponse
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, err
+	}
+	mode := strings.TrimSpace(response.Mode)
+	unit := strings.TrimSpace(response.Unit)
+	if unit == "" && response.Quota != nil {
+		unit = strings.TrimSpace(response.Quota.Unit)
+	}
+	if unit != "USD" {
+		return nil, fmt.Errorf("unexpected usage balance unit")
+	}
+
+	kind := ""
+	var amount *float64
+	switch mode {
+	case "quota_limited":
+		if response.Quota == nil {
+			return nil, fmt.Errorf("missing quota balance")
+		}
+		kind = "quota"
+		amount = response.Quota.Remaining
+	case "unrestricted":
+		if response.Balance != nil {
+			kind = "wallet"
+			amount = response.Balance
+		} else {
+			kind = "subscription"
+			if response.Remaining != nil && *response.Remaining == -1 {
+				return map[string]any{
+					"kind":      kind,
+					"unlimited": true,
+					"unit":      unit,
+				}, nil
+			}
+			amount = response.Remaining
+		}
+	default:
+		return nil, fmt.Errorf("unexpected usage mode")
+	}
+	if amount == nil || math.IsNaN(*amount) || math.IsInf(*amount, 0) {
+		return nil, fmt.Errorf("invalid usage balance")
+	}
+	if kind == "subscription" && *amount < 0 {
+		return nil, fmt.Errorf("invalid subscription remaining balance")
+	}
+	return map[string]any{
+		"kind":   kind,
+		"amount": *amount,
+		"unit":   unit,
+	}, nil
 }
 
 func upstreamBillingRateAt(data map[string]any, now time.Time) (float64, bool) {

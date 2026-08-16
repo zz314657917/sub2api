@@ -1089,6 +1089,20 @@ export interface UpstreamBillingData {
   effective_rate_multiplier: number
   timezone?: string
   observed_at: string
+  upstream_balance?: UpstreamBillingBalance
+}
+
+export type UpstreamBillingBalanceStatus = 'ok' | 'unsupported' | 'failed'
+export type UpstreamBillingBalanceKind = 'quota' | 'wallet' | 'subscription'
+
+export interface UpstreamBillingBalance {
+  status: UpstreamBillingBalanceStatus
+  kind?: UpstreamBillingBalanceKind
+  amount?: number
+  unlimited?: boolean
+  unit?: 'USD'
+  http_status?: number
+  last_error?: string
 }
 
 export type UpstreamBillingProbeStatus = 'ok' | 'unsupported' | 'failed'
