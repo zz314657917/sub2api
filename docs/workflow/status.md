@@ -6,7 +6,7 @@ pending_action: Independent gpt-5.6-terra Developer implements S222 in E:/codex-
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-16 15:29 +08:00
+last_verified: 2026-08-16 15:44 +08:00
 ---
 
 # Upstream v0.1.177 Group Pricing And Long Context S220
@@ -169,6 +169,12 @@ last_verified: 2026-08-16 15:29 +08:00
   Groups locale owners `frontend/src/i18n/locales/{en,zh}/admin/groups.ts`.
   This is required for the bilingual yesterday label and changes no other
   implementation or authorization boundary.
+- `PASS / Amendment 2`: the upstream generic Redis/Wire leader-lock framework
+  is absent locally. Preserve multi-replica exclusion with distinct startup and
+  scheduled PostgreSQL advisory locks held on dedicated connections inside the
+  existing dashboard service/repository paths. Peer-held/error skips fail
+  closed; release/unlock/close and two-connection reacquisition require fresh
+  database evidence. Do not add global lock infrastructure or weaken to no lock.
 
 # Upstream v0.1.177 Codex Turn-State S219
 

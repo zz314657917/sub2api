@@ -29,10 +29,12 @@ tail, using the server-configured timezone.
 - Migrations 222/223 create daily rollup and state tables, publication
   watermark, retained lower bound, configured timezone, and concurrency-safe
   invalidation triggers for insert/update/delete and historical cleanup.
-- Startup performs a bounded 30-minute backfill under an independent leader
-  lock whose TTL is timeout plus one minute. Scheduled aggregation synchronizes
-  rollups after each elected cycle under a five-minute lock, including early
-  dashboard-watermark returns.
+- Startup performs a bounded 30-minute backfill under an independent PostgreSQL
+  advisory leader lock. Scheduled aggregation synchronizes rollups under a
+  distinct advisory leader lock after every cycle, including early dashboard
+  watermark returns. Each lock is held on a dedicated connection, released
+  before that connection closes, and automatically released on process or
+  connection failure.
 - Rollup publication is atomic and watermark-last. A timezone change, future or
   invalid watermark, recompute, historical mutation, partition cleanup, or
   retained-history deletion invalidates/rebuilds the required range.
@@ -124,7 +126,8 @@ $service = '^(' + (@(
   'TestGroupUsageYesterdayStartHandlesDST',
   'TestDashboardAggregationService_RunScheduledAggregationSyncsGroupUsageRollups',
   'TestDashboardAggregationService_RunScheduledAggregationSyncsGroupAfterDashboardEarlyReturn',
-  'TestDashboardAggregationService_StartupGroupSyncUsesIndependentLongLivedLeaderLock'
+  'TestDashboardAggregationService_StartupGroupSyncUsesIndependentAdvisoryLeaderLock',
+  'TestDashboardAggregationService_RunScheduledAggregationUsesAdvisoryLeaderLock'
 ) -join '|') + ')$'
 go test ./internal/service -run $service -count=10
 if ($LASTEXITCODE -ne 0) { throw 'S222 focused service failed' }
@@ -187,7 +190,9 @@ foreach ($commit in @('cb7b03795','89d826be2','45dcce0e4')) {
   delete, cascaded historical delete, and cleanup invalidation; late historical
   insert versus publication serialization; watermark-last publication;
   timezone change rebuild; DST-safe today/yesterday boundaries; rollup plus live
-  tail summary; and exact database deletion after the run.
+  tail summary; two independent database connections proving startup and
+  scheduled advisory-lock peer exclusion plus reacquisition after release; and
+  exact database deletion after the run.
 
 ## Stop Rules
 
@@ -220,3 +225,19 @@ checkout. The local Groups page already reads `admin.groups.usageToday` and
 allowlist paths with those two actual locale owners so the required yesterday
 label remains bilingual. No other frontend, source, test, migration,
 dependency, database, deployment, or push boundary changes.
+
+`PASS / Amendment 2` (2026-08-16 15:44 +08:00): this checkout does not contain
+the upstream generic Redis/Wire `tryAcquireSingletonLeaderLock`, `lockCache`,
+`db`, or `instanceID` prerequisite chain. Do not weaken S222 to ungated
+multi-replica sync and do not import that unrelated global framework. Instead,
+within the existing dashboard service/repository allowlist, expose an optional
+PostgreSQL advisory-lock capability backed by a dedicated `*sql.Conn` using
+`pg_try_advisory_lock`, deferred `pg_advisory_unlock`, and connection close.
+Startup and scheduled group-rollup sync use distinct stable lock IDs; a peer-held
+lock or acquisition error skips that sync fail-closed, while repositories without
+the optional capability retain unit-test/single-instance ungated behavior. The
+task contexts bound runtime, and PostgreSQL releases a lock on process or
+connection failure, so no Redis TTL is required. Add focused service coverage
+and fresh-PostgreSQL two-connection exclusion/reacquisition evidence. No new
+dependency, Wire, shared lock service, provider, deployment, push, or database
+authorization is granted.
