@@ -66,6 +66,10 @@ last_verified: 2026-08-16 12:24 +08:00
   default-off backfill, boolean validation, shadow synchronization, idempotent
   trigger replacement, and disposable PostgreSQL evidence. Migration 221
   remains ordered immediately after it; no shared/production DB is authorized.
+- `PASS / Amendment 5`: local usage-log INSERT/SELECT/scan ownership is the
+  monolithic `backend/internal/repository/usage_log_repo.go`, not the absent
+  upstream split files. Add that one path so the approved audit field can be
+  persisted and exposed; all other boundaries remain unchanged.
 
 # Upstream v0.1.177 Codex Turn-State S219
 

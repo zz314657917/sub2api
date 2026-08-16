@@ -102,6 +102,7 @@ the group switch without being disabled by the OpenAI-only account setting.
 - `backend/internal/repository/api_key_repo.go`
 - `backend/internal/repository/group_repo.go`
 - `backend/internal/repository/openai_long_context_billing_migration_integration_test.go`
+- `backend/internal/repository/usage_log_repo.go`
 - `backend/internal/repository/usage_log_repo_insert.go`
 - `backend/internal/repository/usage_log_repo_query.go`
 - `backend/internal/repository/usage_log_repo_request_type_test.go`
@@ -304,3 +305,11 @@ OpenAI default-off backfill, strict boolean validation, shadow synchronization,
 and idempotent trigger replacement. Migration 221 remains unchanged and runs
 after 220. Disposable PostgreSQL validation remains mandatory; shared and
 production databases remain forbidden.
+
+`PASS / Amendment 5` (2026-08-16 13:04 +08:00): the local checkout keeps
+usage-log INSERT, SELECT, and scan behavior in the monolithic
+`backend/internal/repository/usage_log_repo.go`; the two upstream split files
+listed in the contract do not exist locally. Add the monolithic file so the
+already-approved `long_context_billing_applied` audit field can be persisted
+and returned. No other schema, migration, frontend, provider, dependency, or
+runtime boundary changes.
