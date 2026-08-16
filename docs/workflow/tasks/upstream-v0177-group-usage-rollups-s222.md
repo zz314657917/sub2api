@@ -267,3 +267,21 @@ already-allowlisted frontend test files must be created and executed; their
 absence is not a topology exemption. These are acceptance and test-coverage
 corrections only and do not expand product, migration, dependency, database,
 deployment, or push scope.
+
+## Controller Review R2
+
+`PASS / advance-to-independent-QA` (2026-08-16 16:34 +08:00): Developer fix
+`ea91e490a` and controller-only formatting commit `6ae204733` satisfy the
+amended source and acceptance boundaries. The worker report intentionally
+remains `### FAIL` because its deleted local dependency directory could not
+resolve `vite/client`; controller direct invocation of the preserved S221
+toolchain passed both focused Vitest files, `vue-tsc --noEmit`, `vue-tsc -b`,
+and Vite build, then removed the exact S222 junction. Focused service discovery
+is 9/9, repository discovery is 4/4, config TZ x10 and complete service,
+handler, repository, server, and server compile pass. An independent controller
+database `sub2api_s222_controller` passed two migration rounds, insert/update/
+delete/cascade invalidation, timezone rebuild, 23-hour DST boundaries, rollup
+plus live-tail `8/5/3`, startup/scheduled advisory exclusion and reacquisition,
+and late-write serialization (`1567ms`, final watermark `2026-08-13`), then was
+exactly deleted. Next legal action is a separate `gpt-5.6-terra` QA that creates
+and deletes its own database and commits only the QA report.
