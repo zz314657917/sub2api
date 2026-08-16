@@ -83,6 +83,7 @@ const (
 )
 
 const openAIEndpointCapabilitiesCredentialKey = "openai_capabilities"
+const openAILongContextBillingEnabledKey = "openai_long_context_billing_enabled"
 
 type AccountCapability string
 
@@ -1334,6 +1335,17 @@ func (a *Account) IsAPIKeyOrBedrock() bool {
 
 func (a *Account) IsOpenAI() bool {
 	return a.Platform == PlatformOpenAI
+}
+
+// IsOpenAILongContextBillingEnabled fails closed for missing or malformed
+// account metadata. The group setting alone must never opt an OpenAI account
+// into the higher long-context token prices.
+func (a *Account) IsOpenAILongContextBillingEnabled() bool {
+	if a == nil || !a.IsOpenAI() || a.Extra == nil {
+		return false
+	}
+	enabled, ok := a.Extra[openAILongContextBillingEnabledKey].(bool)
+	return ok && enabled
 }
 
 func (a *Account) IsAnthropic() bool {

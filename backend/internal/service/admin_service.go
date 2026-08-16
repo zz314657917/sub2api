@@ -3304,6 +3304,52 @@ func normalizeAccountConcurrency(platform, accountType string, concurrency int) 
 	return concurrency
 }
 
+// ValidateOpenAILongContextBillingExtra rejects ambiguous values at writable
+// admin boundaries. Database migration remains responsible for old rows.
+func ValidateOpenAILongContextBillingExtra(platform string, extra map[string]any) error {
+	if platform != PlatformOpenAI || extra == nil {
+		return nil
+	}
+	if raw, exists := extra[openAILongContextBillingEnabledKey]; exists {
+		if _, ok := raw.(bool); !ok {
+			return infraerrors.BadRequest(
+				"OPENAI_LONG_CONTEXT_BILLING_INVALID",
+				"openai_long_context_billing_enabled must be a boolean",
+			)
+		}
+	}
+	return nil
+}
+
+func normalizeOpenAILongContextBillingExtra(platform string, extra map[string]any) (map[string]any, error) {
+	if err := ValidateOpenAILongContextBillingExtra(platform, extra); err != nil {
+		return nil, err
+	}
+	if platform != PlatformOpenAI {
+		return extra, nil
+	}
+	normalized := mergeMap(nil, extra)
+	if _, exists := normalized[openAILongContextBillingEnabledKey]; !exists {
+		normalized[openAILongContextBillingEnabledKey] = false
+	}
+	return normalized, nil
+}
+
+func normalizeOpenAILongContextBillingUpdateExtra(account *Account, extra map[string]any) (map[string]any, error) {
+	platform := ""
+	if account != nil {
+		platform = account.Platform
+	}
+	normalized, err := normalizeOpenAILongContextBillingExtra(platform, extra)
+	if err != nil || platform != PlatformOpenAI {
+		return normalized, err
+	}
+	if _, provided := extra[openAILongContextBillingEnabledKey]; !provided {
+		normalized[openAILongContextBillingEnabledKey] = account.IsOpenAILongContextBillingEnabled()
+	}
+	return normalized, nil
+}
+
 func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccountInput) (*Account, error) {
 	// 绑定分组
 	groupIDs := input.GroupIDs
@@ -3329,6 +3375,11 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 	}
 
 	accountExtra := ApplyAccountSupportedCapabilities(input.Extra)
+	var err error
+	accountExtra, err = normalizeOpenAILongContextBillingExtra(input.Platform, accountExtra)
+	if err != nil {
+		return nil, err
+	}
 	delete(accountExtra, UpstreamBillingProbeEnabledExtraKey)
 	delete(accountExtra, UpstreamBillingRateSyncEnabledExtraKey)
 	delete(accountExtra, UpstreamBillingProbeExtraKey)
@@ -3440,6 +3491,12 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	account, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	if input.Extra != nil {
+		input.Extra, err = normalizeOpenAILongContextBillingUpdateExtra(account, input.Extra)
+		if err != nil {
+			return nil, err
+		}
 	}
 	wasOveragesEnabled := account.IsOveragesEnabled()
 	previousProbeIdentity := upstreamBillingProbeIdentity(account)
@@ -3672,6 +3729,9 @@ func (s *adminServiceImpl) UpdateAccountExtra(ctx context.Context, id int64, upd
 	if account == nil {
 		return ErrAccountNotFound
 	}
+	if err := ValidateOpenAILongContextBillingExtra(account.Platform, updates); err != nil {
+		return err
+	}
 	if err := ValidateAccountAvailabilityConfig(mergeMap(account.Extra, updates)); err != nil {
 		return err
 	}
@@ -3715,7 +3775,8 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 			break
 		}
 	}
-	needAccountPreload := needMixedChannelCheck || input.ProbeEnabled != nil || input.RateMultiplier != nil || hasAvailabilityUpdate
+	_, hasLongContextBillingUpdate := input.Extra[openAILongContextBillingEnabledKey]
+	needAccountPreload := needMixedChannelCheck || input.ProbeEnabled != nil || input.RateMultiplier != nil || hasAvailabilityUpdate || hasLongContextBillingUpdate
 
 	// 预加载账号平台信息，以便在写入前完成混合渠道和探测资格校验。
 	accountsByID := make(map[int64]*Account, len(input.AccountIDs))
@@ -3759,6 +3820,17 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 				return nil, ErrAccountNotFound
 			}
 			if err := ValidateAccountAvailabilityConfig(mergeMap(account.Extra, input.Extra)); err != nil {
+				return nil, err
+			}
+		}
+	}
+	if hasLongContextBillingUpdate {
+		for _, accountID := range input.AccountIDs {
+			account, ok := accountsByID[accountID]
+			if !ok {
+				return nil, ErrAccountNotFound
+			}
+			if err := ValidateOpenAILongContextBillingExtra(account.Platform, input.Extra); err != nil {
 				return nil, err
 			}
 		}

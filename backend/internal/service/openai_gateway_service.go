@@ -7013,6 +7013,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		usageLog.CacheReadCost = cost.CacheReadCost
 		usageLog.TotalCost = cost.TotalCost
 		usageLog.ActualCost = cost.ActualCost
+		usageLog.LongContextBillingApplied = cost.LongContextBillingApplied
 	}
 	billingMode := resolveUsageLogBillingMode(result.ImageCount, cost)
 	usageLog.RateMultiplier = usageRateMultiplier(billingMode, result.ImageCount, multiplier, perRequestMultiplier, imageMultiplier)
@@ -7355,19 +7356,14 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 			LongContextBillingEnabled: openAIAccountLongContextBillingGate(account),
 		})
 	}
-	return s.billingService.CalculateCostWithServiceTier(billingModel, tokens, tokenMultiplier, serviceTier)
+	return s.billingService.calculateCostWithServiceTierPolicy(billingModel, tokens, tokenMultiplier, serviceTier, account.IsOpenAILongContextBillingEnabled())
 }
 
 func openAIAccountLongContextBillingGate(account *Account) *bool {
 	if account == nil || account.Platform != PlatformOpenAI {
 		return nil
 	}
-	enabled := false
-	if account.Extra != nil {
-		if configured, ok := account.Extra["openai_long_context_billing_enabled"].(bool); ok {
-			enabled = configured
-		}
-	}
+	enabled := account.IsOpenAILongContextBillingEnabled()
 	return &enabled
 }
 

@@ -28,7 +28,7 @@ import (
 	gocache "github.com/patrickmn/go-cache"
 )
 
-const usageLogSelectColumns = "id, user_id, api_key_id, account_id, request_id, model, requested_model, upstream_model, group_id, subscription_id, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, cache_creation_5m_tokens, cache_creation_1h_tokens, image_output_tokens, image_output_cost, image_input_tokens, image_input_cost, input_cost, output_cost, cache_creation_cost, cache_read_cost, total_cost, actual_cost, rate_multiplier, account_rate_multiplier, billing_type, request_type, stream, openai_ws_mode, duration_ms, first_token_ms, user_agent, ip_address, session_id, image_count, image_size, image_input_size, image_output_size, image_size_source, image_size_breakdown, service_tier, reasoning_effort, inbound_endpoint, upstream_endpoint, cache_ttl_overridden, channel_id, model_mapping_chain, billing_tier, billing_mode, account_stats_cost, media_type, created_at"
+const usageLogSelectColumns = "id, user_id, api_key_id, account_id, request_id, model, requested_model, upstream_model, group_id, subscription_id, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, cache_creation_5m_tokens, cache_creation_1h_tokens, image_output_tokens, image_output_cost, image_input_tokens, image_input_cost, input_cost, output_cost, cache_creation_cost, cache_read_cost, total_cost, actual_cost, rate_multiplier, long_context_billing_applied, account_rate_multiplier, billing_type, request_type, stream, openai_ws_mode, duration_ms, first_token_ms, user_agent, ip_address, session_id, image_count, image_size, image_input_size, image_output_size, image_size_source, image_size_breakdown, service_tier, reasoning_effort, inbound_endpoint, upstream_endpoint, cache_ttl_overridden, channel_id, model_mapping_chain, billing_tier, billing_mode, account_stats_cost, media_type, created_at"
 
 // usageLogInsertArgTypes must stay in the same order as:
 //  1. prepareUsageLogInsert().args
@@ -64,6 +64,7 @@ var usageLogInsertArgTypes = [...]string{
 	"numeric",     // total_cost
 	"numeric",     // actual_cost
 	"numeric",     // rate_multiplier
+	"boolean",     // long_context_billing_applied
 	"numeric",     // account_rate_multiplier
 	"smallint",    // billing_type
 	"smallint",    // request_type
@@ -440,6 +441,7 @@ func (r *usageLogRepository) createSingle(ctx context.Context, sqlq sqlExecutor,
 			total_cost,
 			actual_cost,
 			rate_multiplier,
+			long_context_billing_applied,
 			account_rate_multiplier,
 			billing_type,
 			request_type,
@@ -474,7 +476,7 @@ func (r *usageLogRepository) createSingle(ctx context.Context, sqlq sqlExecutor,
 			$10, $11, $12, $13,
 			$14, $15, $16, $17,
 			$18, $19, $20, $21, $22, $23,
-			$24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, $54
+			$24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55
 		)
 		ON CONFLICT (request_id, api_key_id) DO NOTHING
 		RETURNING id, created_at, user_id, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, actual_cost
@@ -495,7 +497,7 @@ func (r *usageLogRepository) createSingle(ctx context.Context, sqlq sqlExecutor,
 			)
 			SELECT
 				user_id,
-				(created_at AT TIME ZONE $55)::date AS usage_date,
+				(created_at AT TIME ZONE $56)::date AS usage_date,
 				1 AS requests,
 				COALESCE(input_tokens, 0) AS input_tokens,
 				COALESCE(output_tokens, 0) AS output_tokens,
@@ -504,8 +506,8 @@ func (r *usageLogRepository) createSingle(ctx context.Context, sqlq sqlExecutor,
 				COALESCE(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens, 0) AS tokens,
 				actual_cost,
 				CASE
-					WHEN EXTRACT(HOUR FROM created_at AT TIME ZONE $55) >= 0
-						AND EXTRACT(HOUR FROM created_at AT TIME ZONE $55) < 6 THEN 1
+					WHEN EXTRACT(HOUR FROM created_at AT TIME ZONE $56) >= 0
+						AND EXTRACT(HOUR FROM created_at AT TIME ZONE $56) < 6 THEN 1
 					ELSE 0
 				END AS night_requests,
 				NOW() AS updated_at
@@ -983,6 +985,7 @@ func buildUsageLogBatchInsertQuery(keys []string, preparedByKey map[string]usage
 			total_cost,
 			actual_cost,
 			rate_multiplier,
+			long_context_billing_applied,
 			account_rate_multiplier,
 			billing_type,
 			request_type,
@@ -1068,6 +1071,7 @@ func buildUsageLogBatchInsertQuery(keys []string, preparedByKey map[string]usage
 				total_cost,
 				actual_cost,
 				rate_multiplier,
+				long_context_billing_applied,
 				account_rate_multiplier,
 				billing_type,
 				request_type,
@@ -1124,6 +1128,7 @@ func buildUsageLogBatchInsertQuery(keys []string, preparedByKey map[string]usage
 				total_cost,
 				actual_cost,
 				rate_multiplier,
+				long_context_billing_applied,
 				account_rate_multiplier,
 				billing_type,
 				request_type,
@@ -1285,6 +1290,7 @@ func buildUsageLogBestEffortInsertQueryInternal(preparedList []usageLogInsertPre
 			total_cost,
 			actual_cost,
 			rate_multiplier,
+			long_context_billing_applied,
 			account_rate_multiplier,
 			billing_type,
 			request_type,
@@ -1379,6 +1385,7 @@ func buildUsageLogBestEffortInsertQueryInternal(preparedList []usageLogInsertPre
 			total_cost,
 			actual_cost,
 			rate_multiplier,
+			long_context_billing_applied,
 			account_rate_multiplier,
 			billing_type,
 			request_type,
@@ -1435,6 +1442,7 @@ func buildUsageLogBestEffortInsertQueryInternal(preparedList []usageLogInsertPre
 			total_cost,
 			actual_cost,
 			rate_multiplier,
+			long_context_billing_applied,
 			account_rate_multiplier,
 			billing_type,
 			request_type,
@@ -1588,6 +1596,7 @@ func execUsageLogInsertNoResult(ctx context.Context, sqlq sqlExecutor, prepared 
 			total_cost,
 			actual_cost,
 			rate_multiplier,
+			long_context_billing_applied,
 			account_rate_multiplier,
 			billing_type,
 			request_type,
@@ -1622,7 +1631,7 @@ func execUsageLogInsertNoResult(ctx context.Context, sqlq sqlExecutor, prepared 
 			$10, $11, $12, $13,
 			$14, $15, $16, $17,
 			$18, $19, $20, $21, $22, $23,
-			$24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, $54
+			$24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55
 		)
 		ON CONFLICT (request_id, api_key_id) DO NOTHING
 		RETURNING id, created_at, user_id, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, actual_cost
@@ -1643,7 +1652,7 @@ func execUsageLogInsertNoResult(ctx context.Context, sqlq sqlExecutor, prepared 
 			)
 			SELECT
 				user_id,
-				(created_at AT TIME ZONE $55)::date AS usage_date,
+				(created_at AT TIME ZONE $56)::date AS usage_date,
 				1 AS requests,
 				COALESCE(input_tokens, 0) AS input_tokens,
 				COALESCE(output_tokens, 0) AS output_tokens,
@@ -1652,8 +1661,8 @@ func execUsageLogInsertNoResult(ctx context.Context, sqlq sqlExecutor, prepared 
 				COALESCE(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens, 0) AS tokens,
 				actual_cost,
 				CASE
-					WHEN EXTRACT(HOUR FROM created_at AT TIME ZONE $55) >= 0
-						AND EXTRACT(HOUR FROM created_at AT TIME ZONE $55) < 6 THEN 1
+					WHEN EXTRACT(HOUR FROM created_at AT TIME ZONE $56) >= 0
+						AND EXTRACT(HOUR FROM created_at AT TIME ZONE $56) < 6 THEN 1
 					ELSE 0
 				END AS night_requests,
 				NOW() AS updated_at
@@ -1752,6 +1761,7 @@ func prepareUsageLogInsert(log *service.UsageLog) usageLogInsertPrepared {
 			log.TotalCost,
 			log.ActualCost,
 			rateMultiplier,
+			log.LongContextBillingApplied,
 			log.AccountRateMultiplier,
 			log.BillingType,
 			requestType,
@@ -5966,61 +5976,62 @@ func (r *usageLogRepository) loadSubscriptions(ctx context.Context, ids []int64)
 
 func scanUsageLog(scanner interface{ Scan(...any) error }) (*service.UsageLog, error) {
 	var (
-		id                    int64
-		userID                int64
-		apiKeyID              int64
-		accountID             int64
-		requestID             sql.NullString
-		model                 string
-		requestedModel        sql.NullString
-		upstreamModel         sql.NullString
-		groupID               sql.NullInt64
-		subscriptionID        sql.NullInt64
-		inputTokens           int
-		outputTokens          int
-		cacheCreationTokens   int
-		cacheReadTokens       int
-		cacheCreation5m       int
-		cacheCreation1h       int
-		imageOutputTokens     int
-		imageOutputCost       float64
-		imageInputTokens      int
-		imageInputCost        float64
-		inputCost             float64
-		outputCost            float64
-		cacheCreationCost     float64
-		cacheReadCost         float64
-		totalCost             float64
-		actualCost            float64
-		rateMultiplier        float64
-		accountRateMultiplier sql.NullFloat64
-		billingType           int16
-		requestTypeRaw        int16
-		stream                bool
-		openaiWSMode          bool
-		durationMs            sql.NullInt64
-		firstTokenMs          sql.NullInt64
-		userAgent             sql.NullString
-		ipAddress             sql.NullString
-		sessionID             sql.NullString
-		imageCount            int
-		imageSize             sql.NullString
-		imageInputSize        sql.NullString
-		imageOutputSize       sql.NullString
-		imageSizeSource       sql.NullString
-		imageSizeBreakdown    sql.NullString
-		serviceTier           sql.NullString
-		reasoningEffort       sql.NullString
-		inboundEndpoint       sql.NullString
-		upstreamEndpoint      sql.NullString
-		cacheTTLOverridden    bool
-		channelID             sql.NullInt64
-		modelMappingChain     sql.NullString
-		billingTier           sql.NullString
-		billingMode           sql.NullString
-		accountStatsCost      sql.NullFloat64
-		mediaType             sql.NullString
-		createdAt             time.Time
+		id                        int64
+		userID                    int64
+		apiKeyID                  int64
+		accountID                 int64
+		requestID                 sql.NullString
+		model                     string
+		requestedModel            sql.NullString
+		upstreamModel             sql.NullString
+		groupID                   sql.NullInt64
+		subscriptionID            sql.NullInt64
+		inputTokens               int
+		outputTokens              int
+		cacheCreationTokens       int
+		cacheReadTokens           int
+		cacheCreation5m           int
+		cacheCreation1h           int
+		imageOutputTokens         int
+		imageOutputCost           float64
+		imageInputTokens          int
+		imageInputCost            float64
+		inputCost                 float64
+		outputCost                float64
+		cacheCreationCost         float64
+		cacheReadCost             float64
+		totalCost                 float64
+		actualCost                float64
+		rateMultiplier            float64
+		longContextBillingApplied bool
+		accountRateMultiplier     sql.NullFloat64
+		billingType               int16
+		requestTypeRaw            int16
+		stream                    bool
+		openaiWSMode              bool
+		durationMs                sql.NullInt64
+		firstTokenMs              sql.NullInt64
+		userAgent                 sql.NullString
+		ipAddress                 sql.NullString
+		sessionID                 sql.NullString
+		imageCount                int
+		imageSize                 sql.NullString
+		imageInputSize            sql.NullString
+		imageOutputSize           sql.NullString
+		imageSizeSource           sql.NullString
+		imageSizeBreakdown        sql.NullString
+		serviceTier               sql.NullString
+		reasoningEffort           sql.NullString
+		inboundEndpoint           sql.NullString
+		upstreamEndpoint          sql.NullString
+		cacheTTLOverridden        bool
+		channelID                 sql.NullInt64
+		modelMappingChain         sql.NullString
+		billingTier               sql.NullString
+		billingMode               sql.NullString
+		accountStatsCost          sql.NullFloat64
+		mediaType                 sql.NullString
+		createdAt                 time.Time
 	)
 
 	if err := scanner.Scan(
@@ -6051,6 +6062,7 @@ func scanUsageLog(scanner interface{ Scan(...any) error }) (*service.UsageLog, e
 		&totalCost,
 		&actualCost,
 		&rateMultiplier,
+		&longContextBillingApplied,
 		&accountRateMultiplier,
 		&billingType,
 		&requestTypeRaw,
@@ -6084,35 +6096,36 @@ func scanUsageLog(scanner interface{ Scan(...any) error }) (*service.UsageLog, e
 	}
 
 	log := &service.UsageLog{
-		ID:                    id,
-		UserID:                userID,
-		APIKeyID:              apiKeyID,
-		AccountID:             accountID,
-		Model:                 model,
-		RequestedModel:        coalesceTrimmedString(requestedModel, model),
-		InputTokens:           inputTokens,
-		OutputTokens:          outputTokens,
-		CacheCreationTokens:   cacheCreationTokens,
-		CacheReadTokens:       cacheReadTokens,
-		CacheCreation5mTokens: cacheCreation5m,
-		CacheCreation1hTokens: cacheCreation1h,
-		ImageOutputTokens:     imageOutputTokens,
-		ImageOutputCost:       imageOutputCost,
-		ImageInputTokens:      imageInputTokens,
-		ImageInputCost:        imageInputCost,
-		InputCost:             inputCost,
-		OutputCost:            outputCost,
-		CacheCreationCost:     cacheCreationCost,
-		CacheReadCost:         cacheReadCost,
-		TotalCost:             totalCost,
-		ActualCost:            actualCost,
-		RateMultiplier:        rateMultiplier,
-		AccountRateMultiplier: nullFloat64Ptr(accountRateMultiplier),
-		BillingType:           int8(billingType),
-		RequestType:           service.RequestTypeFromInt16(requestTypeRaw),
-		ImageCount:            imageCount,
-		CacheTTLOverridden:    cacheTTLOverridden,
-		CreatedAt:             createdAt,
+		ID:                        id,
+		UserID:                    userID,
+		APIKeyID:                  apiKeyID,
+		AccountID:                 accountID,
+		Model:                     model,
+		RequestedModel:            coalesceTrimmedString(requestedModel, model),
+		InputTokens:               inputTokens,
+		OutputTokens:              outputTokens,
+		CacheCreationTokens:       cacheCreationTokens,
+		CacheReadTokens:           cacheReadTokens,
+		CacheCreation5mTokens:     cacheCreation5m,
+		CacheCreation1hTokens:     cacheCreation1h,
+		ImageOutputTokens:         imageOutputTokens,
+		ImageOutputCost:           imageOutputCost,
+		ImageInputTokens:          imageInputTokens,
+		ImageInputCost:            imageInputCost,
+		InputCost:                 inputCost,
+		OutputCost:                outputCost,
+		CacheCreationCost:         cacheCreationCost,
+		CacheReadCost:             cacheReadCost,
+		TotalCost:                 totalCost,
+		ActualCost:                actualCost,
+		RateMultiplier:            rateMultiplier,
+		LongContextBillingApplied: longContextBillingApplied,
+		AccountRateMultiplier:     nullFloat64Ptr(accountRateMultiplier),
+		BillingType:               int8(billingType),
+		RequestType:               service.RequestTypeFromInt16(requestTypeRaw),
+		ImageCount:                imageCount,
+		CacheTTLOverridden:        cacheTTLOverridden,
+		CreatedAt:                 createdAt,
 	}
 	// 先回填 legacy 字段，再基于 legacy + request_type 计算最终请求类型，保证历史数据兼容。
 	log.Stream = stream

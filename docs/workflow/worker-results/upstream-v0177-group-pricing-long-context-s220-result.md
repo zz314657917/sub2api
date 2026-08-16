@@ -1,116 +1,110 @@
 ### DONE: upstream-v0177-group-pricing-long-context-s220
 
-## Verdict
+# Worker Result
 
-S220 and its two approved amendments are complete in the isolated worktree.
-Group model pricing resolves as Group -> Channel -> built-in; the group
-long-context switch uses preset token ladders, OpenAI also observes its
-account-level veto, and Grok does not. The admin Groups UI now sends a typed
-`model_pricing` array instead of raw JSON. Group video pricing uses resolution
-tiers and charges `video_count * duration_seconds` usage units while retaining
-the established per-request video tier behavior as its fallback.
+## Task ID
+upstream-v0177-group-pricing-long-context-s220
 
-## Historical Block (Superseded)
+## Status
+done
 
-The initial S220 report correctly stopped when the local OpenAI record-usage
-path was not allowlisted. Amendment 1 added
-`backend/internal/service/openai_gateway_service.go`. Amendment 2 then added
-the local async video path and its regression file. Both topology blocks are
-resolved; this history is retained only as the audit trail, not as a current
-implementation or verification limitation.
+## Summary
+- Ported the approved OpenAI account long-context billing veto and usage-log
+  audit trail into the local group-pricing implementation, including strict
+  migration normalization, account/CRS write handling, DTO persistence, and
+  Create Account controls.
+- Kept group pricing resolution and long-context behavior covered by five
+  default-tag contract tests. The OpenAI account veto applies only to OpenAI;
+  Grok continues to follow the group switch alone.
+- Corrected migration 220 so malformed legacy account values are normalized
+  before the strict trigger is installed. A fresh task-owned PostgreSQL
+  fixture proved string, numeric, and missing legacy values backfill to false,
+  valid true remains true, new OpenAI rows default false, malformed later
+  writes fail with SQLSTATE 22023, and a second migration run is idempotent.
 
-## R1 Changed Files
-
+## Changed Files
+- `backend/ent/migrate/schema.go`
+- `backend/ent/mutation.go`
+- `backend/ent/runtime/runtime.go`
+- `backend/ent/schema/usage_log.go`
+- `backend/ent/usagelog.go`
+- `backend/ent/usagelog/usagelog.go`
+- `backend/ent/usagelog/where.go`
+- `backend/ent/usagelog_create.go`
+- `backend/ent/usagelog_update.go`
+- `backend/internal/handler/dto/mappers.go`
+- `backend/internal/handler/dto/types.go`
+- `backend/internal/repository/openai_long_context_billing_migration_integration_test.go`
+- `backend/internal/repository/usage_log_repo.go`
+- `backend/internal/repository/usage_log_repo_request_type_test.go`
+- `backend/internal/service/account.go`
+- `backend/internal/service/account_long_context_billing_test.go`
+- `backend/internal/service/admin_service.go`
 - `backend/internal/service/billing_service.go`
 - `backend/internal/service/billing_service_test.go`
-- `backend/internal/service/channel.go`
-- `backend/internal/service/channel_service.go`
-- `backend/internal/service/group.go`
-- `backend/internal/service/model_pricing_resolver.go`
+- `backend/internal/service/crs_sync_long_context_billing_test.go`
+- `backend/internal/service/crs_sync_service.go`
+- `backend/internal/service/gateway_service.go`
+- `backend/internal/service/group_pricing_long_context_test.go`
+- `backend/internal/service/openai_gateway_record_usage_test.go`
 - `backend/internal/service/openai_gateway_service.go`
-- `backend/internal/service/openai_videos.go`
-- `backend/internal/service/openai_videos_test.go`
-- `frontend/src/components/admin/channel/PricingEntryCard.vue`
-- `frontend/src/constants/channel.ts`
-- `frontend/src/i18n/locales/en/admin/channels.ts`
-- `frontend/src/i18n/locales/zh/admin/channels.ts`
-- `frontend/src/views/admin/GroupsView.vue`
-- `frontend/src/views/admin/__tests__/GroupsView.modelPricing.spec.ts`
-- `frontend/src/views/admin/__tests__/groupsVideoModelPricing.spec.ts`
+- `backend/internal/service/usage_log.go`
+- `backend/migrations/220_openai_long_context_billing.sql`
+- `backend/migrations/openai_long_context_billing_migration_test.go`
+- `frontend/src/components/account/CreateAccountModal.vue`
+- `frontend/src/components/account/__tests__/CreateAccountModal.spec.ts`
+- `frontend/src/components/admin/usage/UsageTable.vue`
+- `frontend/src/components/admin/usage/__tests__/UsageTable.spec.ts`
+- `frontend/src/i18n/locales/en/admin/accounts.ts`
+- `frontend/src/i18n/locales/zh/admin/accounts.ts`
+- `frontend/src/types/index.ts`
 - `docs/workflow/worker-results/upstream-v0177-group-pricing-long-context-s220-result.md`
 
-## Implementation Notes
-
-- `BillingModeVideo` is a first-class resolver, validation, billing, usage-log,
-  and UI mode. Its configured tier price is per video-second and
-  `CostInput.UsageUnits` carries the video count times duration seconds.
-- `openai_videos.go` preserves the legacy `per_request` exact-duration tier and
-  base-resolution per-second fallback. `video` mode instead selects the base
-  resolution tier (`480p`, `720p`, or `1080p`) and always applies usage units.
-- The form conversion functions are exported from `GroupsView.vue` for real
-  behavior tests. They convert per-token values to and from per-MTok display
-  values, omit entries with no model, set the current group platform, and clear
-  token-mode custom intervals before create or edit persistence.
-- The new card prop `hideTokenIntervals` prevents group token entries from
-  accepting intervals that the resolver intentionally ignores. Existing image,
-  image quality, peak-rate, profit, and group controls remain local controls.
-
-## Verification
-
-```powershell
-Set-Location backend
-go generate ./ent
-go test ./internal/service -run '^(TestCalculateCostUnified_GroupLongContextToggleUsesPresetLadder|TestResolve_GroupPricingOverridesChannel|TestResolve_GroupLongContextUsesPresetNotCustomIntervals|TestOpenAIGatewayServiceRecordUsage_GroupAndAccountLongContextMustBothAllow|TestOpenAIGatewayServiceRecordUsage_GrokLongContextFollowsGroupToggleOnly|TestCalculateCostUnified_VideoUsesDurationUnitsAndResolutionTier|TestOpenAIGatewayServiceEstimateOpenAIVideoCost_GroupVideoPricingUsesResolutionAndDuration)$' -count=10
-go test ./internal/service -run '^(TestCalculateCostUnified_VideoUsesDurationUnitsAndResolutionTier|TestOpenAIGatewayServiceEstimateOpenAIVideoCost.*|TestOpenAIGatewayServiceRecordUsage_ChannelVideoBillingUsesBaseTierAsPerSecondPrice)$' -count=10
-go test ./migrations -run '^TestMigration221' -count=1
-go test ./internal/service -count=1
-go test ./internal/repository -count=1
-go test ./internal/server -count=1
-go test ./internal/handler -run '^$' -count=0
-go test ./cmd/server -run '^$' -count=0
-
-Set-Location frontend
-.\node_modules\.bin\vitest.cmd run src/views/admin/__tests__/GroupsView.modelPricing.spec.ts src/views/admin/__tests__/groupsImagePricing.spec.ts src/views/admin/__tests__/groupsVideoModelPricing.spec.ts
-.\node_modules\.bin\vue-tsc.cmd --noEmit
-.\node_modules\.bin\vite.cmd build
-
-Set-Location ..
-git diff --check
-rg -n "^(<<<<<<< .+|=======$|>>>>>>> .+)$" <allowed R1 paths>
-git merge-base f3d949107 upstream/main
-git merge-base b830bc14d upstream/main
-git merge-base fd82dfd52 upstream/main
+## Commands Run
+```text
+go generate ./ent -> pass
+go test ./migrations -run '^(TestMigration220|TestMigration221|TestOpenAILongContextBillingMigration)' -count=1 -> pass
+go test ./internal/service -list <five contract tests> -> all five discovered
+go test ./internal/service -run <five contract tests> -count=10 -> pass
+go test ./internal/service -count=1 -> pass (61.609s)
+go test ./internal/handler -count=1 -> pass (27.449s)
+go test ./internal/repository -count=1 -> pass
+go test ./internal/server -count=1 -> pass
+go test ./cmd/server -run '^$' -count=0 -> pass
+pnpm.cmd exec vitest run <five focused files> -> 5 files / 24 tests passed
+pnpm.cmd run typecheck -> pass
+pnpm.cmd run build -> pass (Vite built in 21.57s)
+git diff --check -> pass
 ```
 
-All listed Go focused tests, migration fixture test, repository/server and
-compile gates passed. The focused Vitest suite passed 3 files / 6 tests;
-`vue-tsc --noEmit` and Vite production build passed. Vite emitted only existing
-dynamic-import/chunk-size warnings, and Browserslist reported stale local data.
+## Test Output
+```text
+Fresh disposable PostgreSQL fixture: migration 220 reported UPDATE 3 and
+CREATE TRIGGER. Legacy OpenAI values became false, false, false, true; the
+non-OpenAI row was unchanged. New OpenAI insert stored false. A string write
+was rejected by enforce_openai_long_context_billing_extra with SQLSTATE 22023.
+The second migration run reported UPDATE 0 and recreated the trigger safely.
+```
 
-## Migration Boundary And Risks
-
-- Migration 221 was exercised only through the repository's disposable test
-  fixture. No shared or production database was opened or migrated.
-- Video providers may expose counts under provider-specific keys. The local
-  parser accepts `n`, `num_videos`, and `count`, defaulting safely to one; an
-  unknown provider key therefore cannot overcharge.
-- The `pnpm` wrapper attempted a local dependency bootstrap and generated an
-  untracked workspace file plus a lockfile edit. Both task-owned artifacts were
-  removed/restored before this result; dependency declarations and lockfiles are
-  unchanged.
-
-## Contract Compliance
-
-- The final diff contains only approved S220 paths, including Amendment 2's
-  video service and test. No account modal, fingerprint, rollup, migration
-  222/223, dependency, CI, deployment, container, provider, `outputs/`, or
-  main-worktree path changed.
-- No shared database, production data, push, merge, deployment, container
-  action, branch cleanup, or worktree cleanup was performed.
-- Generated Ent state comes from `go generate ./ent`; no generated file was
-  hand-edited.
+## Risks
+- `go test -tags=unit ./internal/service` remains a pre-existing unrelated
+  compile baseline failure (duplicate `stringPtr`, stale billing signatures,
+  and other incompatible test fixtures). The three pricing contract tests were
+  moved to a new default-tag file and now execute in the accepted focused and
+  complete default-tag service suites.
+- The repository's Docker/Testcontainers migration harness was not used because
+  no Linux Docker engine was available. The portable PostgreSQL proof used only
+  the task-owned `sub2api_s220_m220` database and will be removed after this
+  report; no shared or production database was accessed.
 
 ## Knowledge Candidates
+- None.
 
-- None. The group pricing and video-unit behavior is task-local contract
-  evidence; no durable `knowledge/` update is warranted before evaluator review.
+## Contract Compliance
+- allowed_paths_only: yes (including approved Amendment 7 test path)
+- denied_paths_touched: no
+- success_criteria_met: yes
+- stop_rules_triggered: no
+
+## Blocked Reason
+- None.

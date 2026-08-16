@@ -607,6 +607,14 @@ func (s *CRSSyncService) SyncFromCRS(ctx context.Context, input SyncFromCRSInput
 			credentials = mergeMap(existing.Credentials, credentials)
 		}
 		reconcileCRSUpstreamBillingProbeExtra(existing, PlatformOpenAI, AccountTypeOAuth, credentials, extra)
+		extra, err = mergeCRSOpenAILongContextBillingExtra(existing, extra)
+		if err != nil {
+			item.Action = "failed"
+			item.Error = "invalid long-context billing setting: " + err.Error()
+			result.Failed++
+			result.Items = append(result.Items, item)
+			continue
+		}
 
 		if existing == nil {
 			if !shouldCreateAccount(src.ID, selectedSet) {
@@ -739,6 +747,14 @@ func (s *CRSSyncService) SyncFromCRS(ctx context.Context, input SyncFromCRSInput
 			credentials = mergeMap(existing.Credentials, credentials)
 		}
 		reconcileCRSUpstreamBillingProbeExtra(existing, PlatformOpenAI, AccountTypeAPIKey, credentials, extra)
+		extra, err = mergeCRSOpenAILongContextBillingExtra(existing, extra)
+		if err != nil {
+			item.Action = "failed"
+			item.Error = "invalid long-context billing setting: " + err.Error()
+			result.Failed++
+			result.Items = append(result.Items, item)
+			continue
+		}
 
 		if existing == nil {
 			if !shouldCreateAccount(src.ID, selectedSet) {
@@ -1054,6 +1070,16 @@ func mergeMap(existing map[string]any, updates map[string]any) map[string]any {
 		out[k] = v
 	}
 	return out
+}
+
+// mergeCRSOpenAILongContextBillingExtra preserves a prior explicit setting on
+// updates, defaults a new account off, and rejects malformed external input.
+func mergeCRSOpenAILongContextBillingExtra(existing *Account, updates map[string]any) (map[string]any, error) {
+	base := updates
+	if existing != nil {
+		base = mergeMap(existing.Extra, updates)
+	}
+	return normalizeOpenAILongContextBillingExtra(PlatformOpenAI, base)
 }
 
 func reconcileCRSUpstreamBillingProbeExtra(
