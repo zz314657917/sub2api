@@ -40,7 +40,7 @@ export default {
         userStatus: 'Status'
       },
       usageToday: 'Today',
-		usageYesterday: 'Yesterday',
+      usageYesterday: 'Yesterday',
       usageTotal: 'Total',
       accountsAvailable: 'Avail:',
       accountsRateLimited: 'Limited:',

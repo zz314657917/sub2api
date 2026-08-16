@@ -4913,7 +4913,7 @@ const loadUsageSummary = async () => {
     for (const item of data) {
       map.set(item.group_id, {
         today_cost: item.today_cost,
-		yesterday_cost: item.yesterday_cost,
+        yesterday_cost: item.yesterday_cost,
         total_cost: item.total_cost,
       });
     }
