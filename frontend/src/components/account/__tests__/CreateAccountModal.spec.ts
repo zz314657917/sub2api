@@ -35,13 +35,22 @@ const OAuthAuthorizationFlowStub = defineComponent({
   emits: ['import-codex-session'],
   template: '<button data-testid="import-codex-session" @click="$emit(\'import-codex-session\', \'session-json\')">session</button>',
 })
+const SelectStub = defineComponent({
+  props: { modelValue: { type: String, default: '' }, options: { type: Array, default: () => [] } },
+  emits: ['update:modelValue'],
+  template: `
+    <select v-bind="$attrs" :value="modelValue" @change="$emit('update:modelValue', $event.target.value)">
+      <option v-for="option in options" :key="option.value" :value="option.value">{{ option.label }}</option>
+    </select>
+  `,
+})
 
 function mountModal() {
   return mount(CreateAccountModal, {
     props: { show: true, proxies: [], groups: [] },
     global: {
       stubs: {
-        BaseDialog: BaseDialogStub, OAuthAuthorizationFlow: OAuthAuthorizationFlowStub, Toggle: true, ConfirmDialog: true, Select: true, PlatformIcon: true, Icon: true,
+        BaseDialog: BaseDialogStub, OAuthAuthorizationFlow: OAuthAuthorizationFlowStub, Toggle: true, ConfirmDialog: true, Select: SelectStub, PlatformIcon: true, Icon: true,
         ProxySelector: true, GroupSelector: true, ModelWhitelistSelector: true, AccountCapabilitySelector: true,
         QuotaLimitCard: true, ShareDisplayCard: true,
       },
@@ -147,6 +156,23 @@ describe('CreateAccountModal OpenAI billing default', () => {
 
     expect(importCodexSession).toHaveBeenCalledWith(expect.objectContaining({
       extra: expect.objectContaining({ openai_long_context_billing_enabled: false }),
+    }))
+  })
+
+  it('keeps the OAuth fingerprint mode absent by default and persists an explicit opt-in', async () => {
+    const wrapper = mountModal()
+    await selectOpenAI(wrapper)
+    expect(wrapper.get('[data-testid="create-codex-fingerprint-mode-select"]').element).toBeInstanceOf(HTMLSelectElement)
+
+    await wrapper.get('[data-testid="create-codex-fingerprint-mode-select"]').setValue('full')
+    await wrapper.get('[data-tour="account-form-name"]').setValue('Codex fingerprint import')
+    await wrapper.get('#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+    await wrapper.get('[data-testid="import-codex-session"]').trigger('click')
+    await flushPromises()
+
+    expect(importCodexSession).toHaveBeenCalledWith(expect.objectContaining({
+      extra: expect.objectContaining({ codex_fingerprint_mode: 'full' }),
     }))
   })
 })

@@ -375,6 +375,73 @@ describe('EditAccountModal', () => {
     })
   })
 
+  it('defaults, loads, and persists the OpenAI long-context billing setting', async () => {
+    const account = buildAccount()
+    account.extra = { openai_long_context_billing_enabled: true }
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+    const toggle = wrapper.get('[data-testid="openai-long-context-billing-toggle"]')
+    expect(toggle.attributes('aria-checked')).toBe('true')
+
+    await toggle.trigger('click')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.openai_long_context_billing_enabled).toBe(false)
+  })
+
+  it('does not expose or write long-context billing for a Spark shadow account', async () => {
+    const account = buildOpenAIAccount('oauth')
+    account.parent_account_id = 7
+    account.extra = { openai_long_context_billing_enabled: true }
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+    expect(wrapper.find('[data-testid="openai-long-context-billing-toggle"]').exists()).toBe(false)
+
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty(
+      'openai_long_context_billing_enabled'
+    )
+  })
+
+  it('loads valid fingerprint modes, rejects invalid values, and deletes off mode', async () => {
+    const account = buildOpenAIAccount('oauth')
+    account.extra = { codex_fingerprint_mode: 'unexpected' }
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+    const select = wrapper.get('[data-testid="edit-codex-fingerprint-mode-select"]')
+    expect((select.element as HTMLSelectElement).value).toBe('off')
+
+    await select.setValue('session')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.codex_fingerprint_mode).toBe('session')
+
+    updateAccountMock.mockReset()
+    await select.setValue('off')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty('codex_fingerprint_mode')
+  })
+
+  it('only exposes fingerprint convergence for OpenAI OAuth accounts', () => {
+    expect(mountModal(buildAccount()).find('[data-testid="edit-codex-fingerprint-mode-select"]').exists()).toBe(false)
+  })
+
   it('submits OpenAI APIKey Responses support override mode', async () => {
     const account = buildAccount()
     account.extra = {

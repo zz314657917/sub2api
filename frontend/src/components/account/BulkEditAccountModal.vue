@@ -887,6 +887,39 @@
         </div>
       </div>
 
+      <div v-if="allOpenAIOAuth" class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div class="mb-3 flex items-center justify-between">
+          <label
+            id="bulk-edit-codex-fingerprint-mode-label"
+            class="input-label mb-0"
+            for="bulk-edit-codex-fingerprint-mode-enabled"
+          >
+            {{ t('admin.accounts.openai.codexFingerprintMode') }}
+          </label>
+          <input
+            v-model="enableCodexFingerprintMode"
+            id="bulk-edit-codex-fingerprint-mode-enabled"
+            type="checkbox"
+            aria-controls="bulk-edit-codex-fingerprint-mode"
+            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+          />
+        </div>
+        <div
+          id="bulk-edit-codex-fingerprint-mode"
+          :class="!enableCodexFingerprintMode && 'pointer-events-none opacity-50'"
+        >
+          <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">
+            {{ t('admin.accounts.openai.codexFingerprintModeDesc') }}
+          </p>
+          <Select
+            v-model="codexFingerprintMode"
+            data-testid="bulk-codex-fingerprint-mode-select"
+            :options="codexFingerprintModeOptions"
+            aria-labelledby="bulk-edit-codex-fingerprint-mode-label"
+          />
+        </div>
+      </div>
+
       <!-- OpenAI API Key WS mode -->
       <div v-if="allOpenAIAPIKey" class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <div class="mb-3 flex items-center justify-between">
@@ -1405,6 +1438,7 @@ const enableOpenAIWSMode = ref(false)
 const enableOpenAIAPIKeyWSMode = ref(false)
 const enableUpstreamBillingAutoProbe = ref(false)
 const enableCodexCLIOnly = ref(false)
+const enableCodexFingerprintMode = ref(false)
 const enableOpenAIQuotaAutoPause5h = ref(false)
 const enableOpenAIQuotaAutoPause7d = ref(false)
 const enableOpenAICompactMode = ref(false)
@@ -1436,6 +1470,14 @@ const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF
 const openaiAPIKeyResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
 const upstreamBillingAutoProbeMode = ref<'enabled' | 'disabled'>('enabled')
 const codexCLIOnlyEnabled = ref(false)
+type CodexFingerprintMode = 'off' | 'device' | 'session' | 'full'
+const codexFingerprintMode = ref<CodexFingerprintMode>('off')
+const codexFingerprintModeOptions = computed(() => [
+  { value: 'off' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintOff') },
+  { value: 'device' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintDevice') },
+  { value: 'session' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintSession') },
+  { value: 'full' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintFull') },
+])
 const openAIQuotaAutoPause5hThreshold = ref<number | null>(null)
 const openAIQuotaAutoPause7dThreshold = ref<number | null>(null)
 const openAIQuotaAutoPause5hDisabled = ref(false)
@@ -1712,6 +1754,17 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
     extra.codex_cli_only = codexCLIOnlyEnabled.value
   }
 
+  if (enableCodexFingerprintMode.value) {
+    const extra = ensureExtra()
+    if (codexFingerprintMode.value === 'off') {
+      // Bulk updates merge JSONB. null is the explicit delete sentinel handled
+      // only for this key by the repository layer.
+      extra.codex_fingerprint_mode = null
+    } else {
+      extra.codex_fingerprint_mode = codexFingerprintMode.value
+    }
+  }
+
   if (enableOpenAIQuotaAutoPause5h.value) {
     const extra = ensureExtra()
     extra.auto_pause_5h_threshold = normalizeOpenAIQuotaAutoPauseThreshold(
@@ -1835,6 +1888,7 @@ const handleSubmit = async () => {
     enableOpenAIAPIKeyWSMode.value ||
     enableUpstreamBillingAutoProbe.value ||
     enableCodexCLIOnly.value ||
+    enableCodexFingerprintMode.value ||
     enableOpenAIQuotaAutoPause5h.value ||
     enableOpenAIQuotaAutoPause7d.value ||
     enableOpenAICompactMode.value ||
@@ -1945,6 +1999,7 @@ watch(
       enableOpenAIAPIKeyWSMode.value = false
       enableUpstreamBillingAutoProbe.value = false
       enableCodexCLIOnly.value = false
+      enableCodexFingerprintMode.value = false
       enableOpenAIQuotaAutoPause5h.value = false
       enableOpenAIQuotaAutoPause7d.value = false
       enableOpenAICompactMode.value = false
@@ -1972,6 +2027,7 @@ watch(
       openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
       upstreamBillingAutoProbeMode.value = 'enabled'
       codexCLIOnlyEnabled.value = false
+      codexFingerprintMode.value = 'off'
       openAIQuotaAutoPause5hThreshold.value = null
       openAIQuotaAutoPause7dThreshold.value = null
       openAIQuotaAutoPause5hDisabled.value = false

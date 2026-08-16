@@ -2591,6 +2591,9 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 		if upstreamBillingProbeExplicitlyDisabled(updates.Extra) || upstreamBillingProbeSnapshotClearRequested(updates.Extra) {
 			extraExpression = "(" + extraExpression + ") - 'upstream_billing_probe'"
 		}
+		if fingerprintMode, ok := updates.Extra["codex_fingerprint_mode"]; ok && fingerprintMode == nil {
+			extraExpression = "(" + extraExpression + ") - 'codex_fingerprint_mode'"
+		}
 		setClauses = append(setClauses, "extra = "+extraExpression)
 		args = append(args, payload)
 		idx++

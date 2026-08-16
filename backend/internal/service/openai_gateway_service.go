@@ -3011,6 +3011,20 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		if codexResult.PromptCacheKey != "" {
 			promptCacheKey = codexResult.PromptCacheKey
 		}
+		if !isCompactRequest {
+			var clientHeaders http.Header
+			if c != nil && c.Request != nil {
+				clientHeaders = c.Request.Header
+			}
+			fpIDs := resolveCodexFingerprintIDsFromRequest(account, clientHeaders)
+			if applyCodexFingerprintClientMetadata(reqBody, fpIDs) {
+				bodyModified = true
+				disablePatch()
+			}
+			// Overwrite stale IDs on every attempt, including nil, so failover cannot
+			// reuse convergence state from a previous account.
+			stageCodexFingerprintIDs(c, fpIDs)
+		}
 	}
 
 	// Handle max_output_tokens based on platform and account type
@@ -3632,6 +3646,24 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 			body = normalizedBody
 		}
 		reqStream = gjson.GetBytes(body, "stream").Bool()
+
+		if !isOpenAIResponsesCompactPath(c) {
+			var clientHeaders http.Header
+			if c != nil && c.Request != nil {
+				clientHeaders = c.Request.Header
+			}
+			fpIDs := resolveCodexFingerprintIDsFromRequest(account, clientHeaders)
+			if fpIDs != nil {
+				fingerprintBody, changed, fingerprintErr := applyCodexFingerprintClientMetadataRaw(body, fpIDs)
+				if fingerprintErr != nil {
+					return nil, fingerprintErr
+				}
+				if changed {
+					body = fingerprintBody
+				}
+			}
+			stageCodexFingerprintIDs(c, fpIDs)
+		}
 	}
 
 	sanitizedBody, sanitized, err := sanitizeEmptyBase64InputImagesInOpenAIBody(body)
@@ -3987,6 +4019,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthrough(
 	if account.Type == AccountTypeOAuth && !isOpenAICompatMessagesBridgeContext(c) && !openai.IsCodexOfficialClientRequest(req.Header.Get("user-agent")) {
 		req.Header.Set("user-agent", codexCLIUserAgent)
 	}
+	applyStagedCodexFingerprintHeaders(c, account, req.Header)
 	enforceCodexIdentityHeaders(req.Header)
 	applyOpenAICodexBetaFeatures(c, account, req.Header)
 
@@ -4884,6 +4917,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.
 	if account.Type == AccountTypeOAuth && !isOpenAICompatMessagesBridgeContext(c) && !openai.IsCodexOfficialClientRequest(req.Header.Get("user-agent")) {
 		req.Header.Set("user-agent", codexCLIUserAgent)
 	}
+	applyStagedCodexFingerprintHeaders(c, account, req.Header)
 	enforceCodexIdentityHeaders(req.Header)
 	applyOpenAICodexBetaFeatures(c, account, req.Header)
 
