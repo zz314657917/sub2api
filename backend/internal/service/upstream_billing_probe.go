@@ -1125,7 +1125,16 @@ func decodeUpstreamBillingProbeSnapshot(extra map[string]any) *UpstreamBillingPr
 // type=apikey by the admin form, so only pre-existing type=upstream rows
 // cannot turn the probe on.
 func IsUpstreamBillingProbeIdentity(platform, accountType string) bool {
-	return strings.TrimSpace(platform) != "" && accountType == AccountTypeAPIKey
+	if accountType != AccountTypeAPIKey {
+		return false
+	}
+	switch platform {
+	case PlatformOpenAI, PlatformAnthropic, PlatformGemini, PlatformAntigravity, PlatformGrok,
+		PlatformKimi, PlatformZhipu, PlatformDeepseek:
+		return true
+	default:
+		return false
+	}
 }
 
 func isUpstreamBillingProbeAccount(account *Account) bool {
@@ -1152,6 +1161,10 @@ var upstreamBillingProbeOfficialAPIDomains = []string{
 	"grok.com",
 	"openai.com",
 	"ollama.com",
+	"moonshot.cn",
+	"kimi.com",
+	"bigmodel.cn",
+	"deepseek.com",
 }
 
 func upstreamBillingProbeTargetIsOfficialAPI(baseURL string) bool {

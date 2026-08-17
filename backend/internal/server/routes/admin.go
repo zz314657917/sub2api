@@ -56,6 +56,8 @@ func RegisterAdminRoutes(
 		// Grok OAuth
 		registerGrokOAuthRoutes(admin, h)
 
+		registerCNProviderRoutes(admin, h)
+
 		// 代理管理
 		registerProxyRoutes(admin, h, stepUpAuth)
 
@@ -127,6 +129,15 @@ func RegisterAdminRoutes(
 
 		registerAuditLogRoutes(admin, h)
 	}
+}
+
+func registerCNProviderRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	if h == nil || h.Admin == nil || h.Admin.CNProvider == nil {
+		return
+	}
+	cn := admin.Group("/cn-providers")
+	cn.GET("/accounts/:id/quota", h.Admin.CNProvider.QueryQuota)
+	cn.GET("/accounts/:id/balance", h.Admin.CNProvider.QueryBalance)
 }
 
 func registerPromptAuditRoutes(admin *gin.RouterGroup, h *handler.Handlers) {

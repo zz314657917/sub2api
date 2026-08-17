@@ -871,7 +871,14 @@ type GatewayConfig struct {
 
 	// UserMessageQueue: 用户消息串行队列配置
 	// 对 role:"user" 的真实用户消息实施账号级串行化 + RPM 自适应延迟
-	UserMessageQueue UserMessageQueueConfig `mapstructure:"user_message_queue"`
+	UserMessageQueue UserMessageQueueConfig   `mapstructure:"user_message_queue"`
+	CNProviders      GatewayCNProvidersConfig `mapstructure:"cn_providers"`
+}
+
+type GatewayCNProvidersConfig struct {
+	BalanceCheckEnabled         bool    `mapstructure:"balance_check_enabled"`
+	BalanceThreshold            float64 `mapstructure:"balance_threshold"`
+	BalanceCheckIntervalMinutes int     `mapstructure:"balance_check_interval_minutes"`
 }
 
 type GatewayLiveConfig struct {

@@ -109,6 +109,7 @@ func provideCleanup(
 	channelMonitorRunner *service.ChannelMonitorRunner,
 	promptAudit *securityaudit.PromptService,
 	upstreamBillingProbe *service.UpstreamBillingProbeService,
+	cnProviderBalanceCheck *service.CNProviderBalanceCheckService,
 ) func() {
 	return func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -121,6 +122,12 @@ func provideCleanup(
 
 		// 应用层清理步骤可并行执行，基础设施资源（Redis/Ent）最后按顺序关闭。
 		parallelSteps := []cleanupStep{
+			{"CNProviderBalanceCheckService", func() error {
+				if cnProviderBalanceCheck != nil {
+					cnProviderBalanceCheck.Stop()
+				}
+				return nil
+			}},
 			{"PromptAuditService", func() error {
 				if promptAudit != nil {
 					return promptAudit.Shutdown(ctx)

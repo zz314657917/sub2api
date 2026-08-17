@@ -16,6 +16,7 @@ import (
 func TestUpstreamBillingProbeIdentityCoversAllAPIKeyPlatforms(t *testing.T) {
 	for _, platform := range []string{
 		PlatformOpenAI, PlatformGrok, PlatformAnthropic, PlatformGemini, PlatformAntigravity,
+		PlatformKimi, PlatformZhipu, PlatformDeepseek,
 	} {
 		require.True(t, IsUpstreamBillingProbeIdentity(platform, AccountTypeAPIKey), platform)
 		require.True(t, isUpstreamBillingProbeAccount(&Account{Platform: platform, Type: AccountTypeAPIKey}), platform)
@@ -24,7 +25,7 @@ func TestUpstreamBillingProbeIdentityCoversAllAPIKeyPlatforms(t *testing.T) {
 	require.False(t, IsUpstreamBillingProbeIdentity(PlatformGrok, AccountTypeOAuth))
 	require.False(t, IsUpstreamBillingProbeIdentity(PlatformAnthropic, AccountTypeBedrock))
 	require.False(t, IsUpstreamBillingProbeIdentity("", AccountTypeAPIKey))
-	require.True(t, IsUpstreamBillingProbeIdentity("future-platform", AccountTypeAPIKey))
+	require.False(t, IsUpstreamBillingProbeIdentity("future-platform", AccountTypeAPIKey))
 	require.False(t, isUpstreamBillingProbeAccount(nil))
 }
 
@@ -124,6 +125,10 @@ func TestUpstreamBillingProbeOfficialAPIBaseURLIsUnsupportedWithoutRequest(t *te
 		{PlatformAnthropic, "https://ollama.com/v1"},
 		{PlatformAnthropic, "https://ollama.com"},
 		{PlatformAnthropic, "https://www.ollama.com/v1"},
+		{PlatformKimi, "https://api.moonshot.cn/v1"},
+		{PlatformKimi, "https://api.kimi.com/coding"},
+		{PlatformZhipu, "https://open.bigmodel.cn/api/paas/v4"},
+		{PlatformDeepseek, "https://api.deepseek.com"},
 	}
 	for i, tc := range cases {
 		account := &Account{
@@ -160,6 +165,10 @@ func TestUpstreamBillingProbeOfficialAPIHostMatchingIsNormalized(t *testing.T) {
 	require.True(t, upstreamBillingProbeTargetIsOfficialAPI("https://ollama.com:443/v1"))
 	require.True(t, upstreamBillingProbeTargetIsOfficialAPI("https://www.ollama.com/v1"))
 	require.True(t, upstreamBillingProbeTargetIsOfficialAPI("HTTPS://OLLAMA.COM./v1"))
+	require.True(t, upstreamBillingProbeTargetIsOfficialAPI("https://api.moonshot.cn/v1"))
+	require.True(t, upstreamBillingProbeTargetIsOfficialAPI("https://api.kimi.com/coding/v1"))
+	require.True(t, upstreamBillingProbeTargetIsOfficialAPI("https://open.bigmodel.cn/api/anthropic"))
+	require.True(t, upstreamBillingProbeTargetIsOfficialAPI("https://api.deepseek.com/anthropic"))
 	// 相似但不同的注册域不拦：中转完全可能叫 *-x.ai 之外的任何名字。
 	require.False(t, upstreamBillingProbeTargetIsOfficialAPI("https://relay.example/v1"))
 	require.False(t, upstreamBillingProbeTargetIsOfficialAPI("https://notx.ai"))

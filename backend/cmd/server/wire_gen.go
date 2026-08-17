@@ -94,6 +94,9 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	cafeLobbyActivityService := service.NewCafeLobbyActivityService(redisClient, configConfig)
 	usageLogRepository := repository.ProvideUsageLogRepository(client, db, cafeLobbyActivityService)
 	httpUpstream := repository.NewHTTPUpstream(configConfig)
+	cnProviderQuotaService := service.NewCNProviderQuotaService(accountRepository, proxyRepository, httpUpstream, configConfig)
+	cnProviderBalanceService := service.NewCNProviderBalanceService(accountRepository, proxyRepository, httpUpstream, configConfig)
+	cnProviderBalanceCheckService := service.ProvideCNProviderBalanceCheckService(accountRepository, cnProviderBalanceService, cnProviderQuotaService, configConfig)
 	claudeUsageFetcher := repository.NewClaudeUsageFetcher(httpUpstream)
 	geminiQuotaService := service.NewGeminiQuotaService(configConfig, settingRepository)
 	antigravityQuotaFetcher := service.NewAntigravityQuotaFetcher(proxyRepository)
@@ -233,6 +236,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	antigravityOAuthHandler := admin.NewAntigravityOAuthHandler(antigravityOAuthService)
 	grokQuotaService := service.ProvideGrokQuotaService(accountRepository, proxyRepository, grokTokenProvider, httpUpstream)
 	grokOAuthHandler := admin.NewGrokOAuthHandler(grokOAuthService, adminService, grokQuotaService)
+	cnProviderHandler := admin.NewCNProviderHandler(cnProviderQuotaService, cnProviderBalanceService)
 	proxyHandler := admin.NewProxyHandler(adminService)
 	adminRedeemHandler := admin.NewRedeemHandler(adminService, redeemService)
 	promoHandler := admin.NewPromoHandler(promoService)
@@ -303,7 +307,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	auditLogService := service.ProvideAuditLogService(auditLogRepository, settingService)
 	auditLogHandler := admin.NewAuditLogHandler(auditLogService, totpService)
 	upstreamBillingProbeService := service.ProvideUpstreamBillingProbeService(accountRepository, accountTestService, settingService, db)
-	adminHandlers := handler.ProvideAdminHandlers(dashboardHandler, adminUserHandler, groupHandler, accountHandler, adminAnnouncementHandler, adminTutorialPageHandler, dataManagementHandler, backupHandler, oAuthHandler, openAIOAuthHandler, geminiOAuthHandler, antigravityOAuthHandler, grokOAuthHandler, proxyHandler, adminRedeemHandler, promoHandler, settingHandler, opsHandler, systemHandler, adminSubscriptionHandler, adminUsageHandler, userAttributeHandler, errorPassthroughHandler, tlsFingerprintProfileHandler, adminAPIKeyHandler, scheduledTestHandler, channelHandler, channelMonitorHandler, channelMonitorRequestTemplateHandler, contentModerationHandler, promptAdminHandler, paymentHandler, affiliateHandler, groupBuyHandler, cafeRoomHandler, imageCreatorStorageGovernanceHandler, adminTicketHandler, auditLogHandler, upstreamBillingProbeService)
+	adminHandlers := handler.ProvideAdminHandlers(dashboardHandler, adminUserHandler, groupHandler, accountHandler, adminAnnouncementHandler, adminTutorialPageHandler, dataManagementHandler, backupHandler, oAuthHandler, openAIOAuthHandler, geminiOAuthHandler, antigravityOAuthHandler, grokOAuthHandler, cnProviderHandler, proxyHandler, adminRedeemHandler, promoHandler, settingHandler, opsHandler, systemHandler, adminSubscriptionHandler, adminUsageHandler, userAttributeHandler, errorPassthroughHandler, tlsFingerprintProfileHandler, adminAPIKeyHandler, scheduledTestHandler, channelHandler, channelMonitorHandler, channelMonitorRequestTemplateHandler, contentModerationHandler, promptAdminHandler, paymentHandler, affiliateHandler, groupBuyHandler, cafeRoomHandler, imageCreatorStorageGovernanceHandler, adminTicketHandler, auditLogHandler, upstreamBillingProbeService)
 	usageRecordWorkerPool := service.NewUsageRecordWorkerPool(configConfig)
 	userMsgQueueCache := repository.NewUserMsgQueueCache(redisClient)
 	userMessageQueueService := service.ProvideUserMessageQueueService(userMsgQueueCache, rpmCache, configConfig)
@@ -358,7 +362,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	cafeRoomLifecycleService := service.ProvideCafeRoomLifecycleService(client, groupBuyService, cafeRoomActivationService, cafeRoomExpiryService)
 	groupBuyLifecycleService := service.ProvideGroupBuyLifecycleService(groupBuyService, cafeRoomLifecycleService)
 	channelMonitorRunner := service.ProvideChannelMonitorRunner(channelMonitorService, settingService)
-	v2 := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, affiliateRiskScannerService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, schedulerSnapshotService, tokenRefreshService, accountExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, auditLogService, leaderboardLotteryRunner, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, openAIGatewayService, imageCreatorService, scheduledTestRunnerService, backupService, paymentOrderExpiryService, groupBuyLifecycleService, channelMonitorRunner, promptService, upstreamBillingProbeService)
+	v2 := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, affiliateRiskScannerService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, schedulerSnapshotService, tokenRefreshService, accountExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, auditLogService, leaderboardLotteryRunner, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, openAIGatewayService, imageCreatorService, scheduledTestRunnerService, backupService, paymentOrderExpiryService, groupBuyLifecycleService, channelMonitorRunner, promptService, upstreamBillingProbeService, cnProviderBalanceCheckService)
 	application := &Application{
 		Server:      httpServer,
 		PromptAudit: promptService,
@@ -423,6 +427,7 @@ func provideCleanup(
 	channelMonitorRunner *service.ChannelMonitorRunner,
 	promptAudit *securityaudit.PromptService,
 	upstreamBillingProbe *service.UpstreamBillingProbeService,
+	cnProviderBalanceCheck *service.CNProviderBalanceCheckService,
 ) func() {
 	return func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -434,6 +439,12 @@ func provideCleanup(
 		}
 
 		parallelSteps := []cleanupStep{
+			{"CNProviderBalanceCheckService", func() error {
+				if cnProviderBalanceCheck != nil {
+					cnProviderBalanceCheck.Stop()
+				}
+				return nil
+			}},
 			{"PromptAuditService", func() error {
 				if promptAudit != nil {
 					return promptAudit.Shutdown(ctx)
