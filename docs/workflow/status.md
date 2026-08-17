@@ -1,12 +1,12 @@
 ---
-phase: build
+phase: done
 current_sprint: upstream-billing-quantize-s224
 total_sprints: 224
-pending_action: Run independent Terra QA against S224 candidate b68afce67 using approved base b7d10c957. Preserve all user-owned account-modal, knowledge, and outputs paths. S223 remains integrated locally and unpushed.
+pending_action: Draft and review S225 against main ac3244191 for upstream User-Agent persistence validation from fe2c265c9. Preserve local Claude and Stainless defaults plus all user-owned account-modal, knowledge, and outputs paths. Keep all integration local and unpushed.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-17 14:55 +08:00
+last_verified: 2026-08-17 15:25 +08:00
 ---
 
 # Upstream Billing Quantization S224
@@ -17,6 +17,14 @@ last_verified: 2026-08-17 14:55 +08:00
   the two allowed business files. Controller runs passed all eight focused tests
   x10, complete service (60.207s), and complete repository (1.670s). Amendment 1
   corrects the allowlist base to approval commit `b7d10c957`; advance to QA.
+- `PASS / independent-qa-main-integration`: independent Terra QA report
+  `eef234f7c` found no defect. Main integrated the business change as
+  `69be22fae`, the Developer report as `7242b824a`, and QA evidence as
+  `ac3244191`. The integrated main rediscovered all eight focused tests and
+  passed them x10 (0.087s), plus formatting, diff, provenance, conflict, and
+  index checks. User account-modal and knowledge patch IDs remain unchanged;
+  `outputs/` is untouched. No push, deployment, container, or database action
+  occurred.
 - Only `usage_billing.go`, a focused default-tag test, and task reports are
   allowed. No SQL, migration, dependency, frontend, provider, container,
   deployment, remote push, or production operation is authorized.
