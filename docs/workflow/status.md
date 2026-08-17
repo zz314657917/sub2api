@@ -6,7 +6,7 @@ pending_action: Run independent Terra QA against S225 business candidate 569080e
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-17 15:53 +08:00
+last_verified: 2026-08-17 15:54 +08:00
 ---
 
 # Upstream Fingerprint User-Agent Validation S225
@@ -35,6 +35,10 @@ last_verified: 2026-08-17 15:53 +08:00
   complete service passed (60.469s), server compilation passed, and formatting,
   diff, provenance, conflict, index, exact local defaults, and both `ClientID`
   preservation branches passed review. Advance to independent Terra QA.
+- `qa / independent-qa-dispatched`: QA worktree
+  `E:/codex-worktrees/sub2api/upstream-fingerprint-user-agent-validation-s225-qa`
+  starts at Developer report `74c2b2b9e`. Independent Terra QA may add only its
+  report and must rerun all contract checks before a final verdict.
 
 # Upstream Billing Quantization S224
 
