@@ -1006,3 +1006,4 @@
 260817 1455 | upstream-billing-quantize-s224 | contract-draft | Planner | Drafted bounded NUMERIC(20,8) quantization contract from e2652eb85, including local prepaid amount and raw fingerprint ordering.
 260817 1455 | upstream-billing-quantize-s224 | contract-review | Codex Evaluator | PASS: local prepaid amount is included, fingerprint ordering is preserved, decimal dependency exists, and the two-file allowlist is executable.
 260817 1512 | upstream-billing-quantize-s224 | controller-review-pass | Codex Evaluator | PASS b68afce67: two-file allowlist, focused x10, service 60.207s, repository 1.670s; amended exact base to b7d10c957 and advanced to independent Terra QA.
+260817 1512 | upstream-billing-quantize-s224 | contract-amendment-2 | Codex Evaluator | Added the previously omitted single QA report path; business allowlist and acceptance behavior are unchanged.

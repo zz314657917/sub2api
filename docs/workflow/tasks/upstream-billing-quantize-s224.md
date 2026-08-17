@@ -46,6 +46,7 @@ fingerprint used for idempotency.
 - `backend/internal/service/usage_billing.go`
 - `backend/internal/service/usage_billing_quantize_test.go`
 - `docs/workflow/worker-results/upstream-billing-quantize-s224-result.md`
+- `docs/workflow/qa-reports/upstream-billing-quantize-s224-qa.md`
 
 ## Denied Paths
 
@@ -140,3 +141,6 @@ and discoverable after implementation; no denied path is needed.
   passed in 60.207s, and complete repository passed in 1.670s.
 - Independent QA must use `b7d10c957...` for range and allowlist checks and
   must not treat inherited workflow approval files as implementation changes.
+- QA may create only
+  `docs/workflow/qa-reports/upstream-billing-quantize-s224-qa.md`; it must not
+  modify either business file or the Developer report.
