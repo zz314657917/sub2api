@@ -10,7 +10,7 @@
 
 ## 当前目标
 
-- 用户已授权完成 S226 剩余计划。S226-C 的 C0 保护基线已冻结；下一步是在隔离 worktree 调度 Terra Developer。当前不启动 D、独立 QA，也不把 A/B 业务提交集成到 main。
+- 用户已授权完成 S226 剩余计划。S226-C 已从 C0 基线调度 Terra Developer；等待其结果后进行 Controller 验收。当前不启动 D、独立 QA，也不把 A/B 业务提交集成到 main。
 
 ## 本次已完成
 
@@ -49,12 +49,12 @@
 
 ## 当前结论
 
-- `BUILD / S226-C-contract-amended-awaiting-developer-dispatch`。
+- `BUILD / S226-C-developer-dispatched`。
 - A 的平台/账号基础和 B 的额度/余额探测、管理 API 已分别通过 Controller；C 的新用户基线已冻结，A/B 均未集成 main，D-E 未开始，独立 QA 仍只允许在 E 执行。
 
 ## 下一步
 
-- 调度 S226-C Developer -> 验证：从 `f6b380e21d7419a5a3f9f726f7a28de876383fd7` 创建 clean worktree，按 C allowlist 调度 Terra Developer；B3 timeout、协议矩阵、16 个 focused x10、affected packages/server compile、范围与 C0 protected-main 全部 PASS 后才可进入 D。
+- S226-C Developer 返回 -> 验证：Controller 独立审 diff、B3 timeout、协议矩阵、16 个 focused x10、完整 affected packages/server compile、Wire/allowlist/provenance 和 C0 protected-main；PASS 前不开始 D。
 - C PASS 后等待用户授权 S226-D；D -> E 均要求前一批精确 commit、allowlist、focused/full gates 和报告 PASS，最终 E PASS 后才允许主线集成。
 - 发布当前本地提交（需用户授权） -> 验证：push 前后比较 `HEAD`、`origin/main` 和远端 `refs/heads/main`，只允许普通 push。
 
@@ -70,3 +70,4 @@
 - S226-B Controller：先修复读取失败/无效响应不能覆盖旧快照或暂停账号的缺陷；17/17 可发现，20 项 focused/鲁棒性 x10 `0.090s`，config `0.710s`、service `60.407s`、routes `1.491s`、cmd/server `0.086s`，B4 零出站、owned-pause、多币种、proxy、Wire、gofmt、diff、allowlist、冲突/index、三项 provenance 和主工作区保护均 PASS。业务 patch-id `a8c91f5789b96a93ffb6c8d99969519726906e03`；主工作区为 `main@73cf6aa21`，`origin/main@a865d8b6e`，领先 24，用户 patch/hash 和 `outputs/` 状态不变。
 - B PASS 后的 live protection check：TutorialView patch 已由用户更新为 `ce6749a8c5d0256cfa1a986f3e4d8d7377df6753`；B worktree、报告和 Controller workflow 提交均未包含该路径。保留该用户变化；不要用 B gate 的旧 `9e0894bc...` 值继续派发 C。
 - C0 amendment：当前 TutorialView patch 再次变为 `a07a7c33f09d9fa0e308a1bddf6bf0ee9d7cf671`，并新增四个教程 migration/test 未跟踪文件；C+ 使用这组当前 patch 和六个教程文件 SHA256 作为保护基线，历史 A/B 值只保留审计用途。
+- S226-C worktree `E:/codex-worktrees/sub2api/upstream-cn-providers-s226-c` 已从 B report `f6b380e21` 创建，分支为 `pge/upstream-cn-providers-s226-c`，工作树洁净；Developer 仅可改 C allowlist 和结果报告。

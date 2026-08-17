@@ -2,7 +2,7 @@
 phase: build
 current_sprint: upstream-cn-providers-s226
 total_sprints: 226
-pending_action: C0 baseline approved at 2026-08-17 23:22 +08:00. Create the S226-C Terra Developer worktree from exact B report f6b380e21, enforce B3 timeout/protocol gates and the new user patch/untracked-file protection snapshot; do not start D, independent QA, or main integration before Controller PASS.
+pending_action: Await the S226-C Terra Developer result from the isolated worktree at exact base f6b380e21, then perform Controller review of B3 stream timeouts, platform/protocol isolation, reactive cooldown semantics, 16 focused tests x10, affected packages, exact allowlist, C0 protected main state, and Wire/server compile. Do not start S226-D, independent QA, or main integration before Controller PASS.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
@@ -71,6 +71,12 @@ last_verified: 2026-08-17 23:22 +08:00
   report, Controller commit, or other protected patch caused the change. Preserve
   it; if S226-C is authorized, freeze the new value before dispatch rather than
   treating the historical B gate as a current C baseline.
+- `build / S226-C developer-dispatched`: clean worktree
+  `E:/codex-worktrees/sub2api/upstream-cn-providers-s226-c`, branch
+  `pge/upstream-cn-providers-s226-c`, exact B report base `f6b380e21`. Terra
+  Developer owns only the S226-C allowlisted gateway/timeout files plus report.
+  C0 protects the current user TutorialView patch and six untracked tutorial
+  files. Controller review is required; do not start D, QA, or main integration.
 
 # Upstream Fingerprint User-Agent Validation S225
 
