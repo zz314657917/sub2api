@@ -1,13 +1,38 @@
 ---
-phase: done
-current_sprint: upstream-fingerprint-user-agent-validation-s225
-total_sprints: 225
-pending_action: Await user direction on a separate S226 audit for upstream Kimi/Zhipu/DeepSeek support or on publishing the current local commits. The new upstream slice touches the user-owned account modal and collides with local migration 224, so it must not start without a new contract and authorization. No push or deployment has occurred.
+phase: contract-approved
+current_sprint: upstream-cn-providers-s226
+total_sprints: 226
+pending_action: Await explicit user authorization to start S226-A from frozen base 98daf5b8d. The approved contract requires ordered A-D implementation commits and S226-E independent QA; no worktree or worker has been created, and no business code, push, deployment, container, database, or provider action has occurred.
 project_type: fullstack
 qa_mode: runtime
-approval_required: false
-last_verified: 2026-08-17 16:04 +08:00
+approval_required: true
+last_verified: 2026-08-17 16:54 +08:00
 ---
+
+# Upstream CN Providers S226
+
+- `PASS / contract-approved`: port the locally reachable Kimi/Zhipu/DeepSeek
+  first-class account, probe, gateway, and frontend behavior from
+  `901a0439f -> 4b667ccd4 -> e72854538` through ordered batches A-D, followed by
+  integration-only S226-E independent QA.
+- B1 `docker-compose.yml` and B2 `user_platform_quotas` migration/product scope
+  are excluded. The local checkout has neither the quota product nor the
+  generic scheduling-threshold prerequisite, so S226 adds no migration 226 and
+  does not import the 123-file quota or 55-file threshold slices.
+- B3 Anthropic-native interval pumping is mandatory in S226-C. B4 URL policy
+  validation with zero egress on rejection is mandatory in S226-B.
+- Upstream split gateway files are absent locally; their behavior must be
+  adapted into the named monolithic local owners. Direct apply checks fail and
+  wholesale merge/cherry-pick is forbidden.
+- S226-D must preserve the user-owned account-modal patch as a non-integrated
+  task-local baseline. Protected user patch IDs remain
+  `5d316e5b6935fdc5dbf825f940feaf231d79ac0f` and
+  `7f5afe57708ae3cc6b5781989c25195eaa6ffda5` and
+  `2abee47db90ce1d54e1f9ba7d1a3cc2d633c2374`; `outputs/` stays untracked.
+- Contract: `docs/workflow/tasks/upstream-cn-providers-s226.md`.
+- Current legal action: wait for user authorization, then create only the
+  S226-A worktree from `98daf5b8d` and dispatch the Terra Developer. Do not
+  start B-D or independent QA early.
 
 # Upstream Fingerprint User-Agent Validation S225
 

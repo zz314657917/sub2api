@@ -2187,3 +2187,41 @@ and existing poisoned cache entries recover automatically.
 - Complete service regression, server compilation, formatting, exact allowlist,
   provenance, conflict/index checks, and dirty-worktree protection must pass
   under independent Terra QA before local-main integration.
+
+# Upstream CN Providers Addendum (S226)
+
+## Goal
+
+Behaviorally port the locally reachable Kimi, Zhipu, and DeepSeek first-class
+support from `901a0439f`, including the B3 stream timeout and B4 probe URL
+security fixes in `4b667ccd4`, without merging the divergent upstream history.
+
+## Boundary
+
+- S226-A establishes platform constants, account modes, protocols, default Base
+  URLs, credential access, authentication, and model-list behavior without
+  enabling gateway routes.
+- S226-B adds Coding Plan quota and payg balance probes, periodic detection,
+  URL-policy enforcement, admin endpoints, and Wire integration.
+- S226-C adds exact-platform scheduling, Chat Completions/native Anthropic/
+  DeepSeek Responses forwarding, count-tokens behavior, bounded stream pumping,
+  reactive 429/reset handling, and recoverable balance pauses.
+- S226-D adds account create/edit controls, presets, status cells, platform
+  visuals, types, and bilingual strings while preserving the user modal patch.
+- S226-E is integration and independent QA only; it adds no product behavior.
+- Exclude the accidental root Docker Compose file, the absent
+  `user_platform_quotas` product and migration, the absent generic scheduling-
+  threshold product, dependencies, deployment, provider calls, shared data,
+  push, and all unrelated local changes.
+
+## Acceptance Boundary
+
+- Each A-D batch is one independently compiling implementation commit with
+  focused repeated tests and Controller approval before the next batch starts.
+- B4 tests prove a rejected final probe URL sends no request and cannot expose
+  an API key. B3 tests prove all four native stream loops time out, close their
+  bodies, and preserve accumulated usage semantics.
+- S226-E reruns complete affected backend/frontend suites, typecheck/build,
+  desktop/mobile UI inspection with task-owned browser cleanup, exact allowlist
+  and provenance checks, and both user patch-ID checks under independent Terra
+  QA before any local-main integration.
