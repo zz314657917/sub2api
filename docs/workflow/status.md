@@ -1,12 +1,12 @@
 ---
-phase: contract-approved
+phase: build
 current_sprint: upstream-cn-providers-s226
 total_sprints: 226
-pending_action: Await explicit user authorization to start S226-B from Controller-approved S226-A report commit 3ed89c995. A passed all Controller gates; do not create the B worktree, modify B paths, or start independent QA before authorization.
+pending_action: Await the S226-B Terra Developer result from the isolated worktree at exact base 3ed89c995, then perform Controller review of B4 zero-egress URL policy, quota/balance semantics, admin/Wire integration, 17 focused tests x10, affected packages, exact allowlist, and protected main state. Do not start S226-C or independent QA before Controller PASS.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-17 18:01 +08:00
+last_verified: 2026-08-17 18:07 +08:00
 ---
 
 # Upstream CN Providers S226
@@ -46,6 +46,12 @@ last_verified: 2026-08-17 18:01 +08:00
   Quota/threshold platform expansion and `IsOpenAICompatible` routing changes
   remain excluded. Await explicit authorization for S226-B; its exact base is
   `3ed89c9952f09e03861e197d59aad456f3b19b29`.
+- `build / S226-B developer-dispatched`: clean worktree
+  `E:/codex-worktrees/sub2api/upstream-cn-providers-s226-b`, branch
+  `pge/upstream-cn-providers-s226-b`, exact base `3ed89c995`. Terra Developer
+  owns only the 20 S226-B business/test paths plus its report. B4 URL-policy
+  rejection must occur before request creation or dispatch and prove zero
+  network I/O. Controller review is required; do not start C-D or QA early.
 
 # Upstream Fingerprint User-Agent Validation S225
 

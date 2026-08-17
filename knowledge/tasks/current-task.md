@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-17 18:01 +08:00
+最后更新：2026-08-17 18:07 +08:00
 
 ## 背景
 
@@ -10,7 +10,7 @@
 
 ## 当前目标
 
-- S226-A 已由 Terra Developer 完成并通过 Controller 独立验收；等待用户明确授权从精确 base `3ed89c995` 创建 S226-B worktree。当前不创建 B worktree、不启动 QA、不把 A 业务提交集成到 main。
+- S226-B 已从精确 base `3ed89c995` 创建隔离 worktree 并调度 Terra Developer；等待实现结果后做 Controller 独立验收。当前不启动 C、独立 QA，也不把 A/B 业务提交集成到 main。
 
 ## 本次已完成
 
@@ -22,6 +22,7 @@
 - S226 contract review 已 PASS；批准时停在 `contract-approved`，当时尚未创建 S226 worktree 或调用 Developer/QA。
 - S226-A worktree `E:/codex-worktrees/sub2api/upstream-cn-providers-s226-a` 从冻结 base `98daf5b8d` 创建；Developer 实现 `ba7c00c78`、报告 `3ed89c995`，未进入 B 或 QA。
 - S226-A Controller review PASS：7 个业务/测试文件加报告严格 allowlist，8/8 focused 可发现且 x10 PASS，完整 service、server compile、格式、Git/provenance 与主工作区保护门禁均 PASS。
+- S226-B worktree `E:/codex-worktrees/sub2api/upstream-cn-providers-s226-b` 已从 A 报告 commit `3ed89c995` 创建，分支为 `pge/upstream-cn-providers-s226-b`；仅授权 20 个 B 业务/测试路径和结果报告。
 
 ## 已确认事实
 
@@ -39,7 +40,7 @@
 
 ## 待验证点
 
-- S226-B 启动前需用户明确授权，并由 Controller 从精确 commit `3ed89c9952f09e03861e197d59aad456f3b19b29` 创建唯一 B worktree；验证：A 实现与报告均为祖先、B allowlist 精确、主工作区保护指纹不变。
+- S226-B Developer 完成后需由 Controller 独立审查；验证：17 个 focused 测试均可发现且 x10 PASS，affected packages PASS，B4 拒绝 URL 时零网络 I/O，快照失败保留旧值，恢复只清理由 CN balance 子系统写入的临时暂停，Wire 生成无无关 churn。
 - S226-D 仍需验证用户 modal 临时 baseline/最终合入策略；验证：业务 commit 不包含用户 patch，主工作区 account patch-id 在集成前后均为 `5d316e5b...`。
 - 前端当前 `node_modules` 缺少 `vitest/vue-tsc/vite` 可执行文件；D/E 开始时必须在任务 worktree 恢复工具链，否则 QA 报 `BLOCKED`，不得跳过。
 - 若授权发布：先复核最终 `git status`、主线测试证据和远端差异，再执行普通 `git push origin main`；当前没有发布授权。
@@ -47,13 +48,13 @@
 
 ## 当前结论
 
-- `PASS / S226-A-controller-review`。
-- A 的平台/账号基础已在隔离分支实现并通过 Controller；尚未集成 main。B-E 未开始，独立 QA 仍只允许在 E 执行。
+- `BUILD / S226-B-developer-dispatched`。
+- A 的平台/账号基础已通过 Controller；B 正在隔离分支实现。A/B 均未集成 main，C-E 未开始，独立 QA 仍只允许在 E 执行。
 
 ## 下一步
 
-- 用户授权 S226-B -> 验证：从 `3ed89c995` 创建唯一 B worktree，按 contract 调用 Terra Developer；B Controller PASS 前不开始 C。
-- 后续依次 S226-C -> D -> E；每批验证：前一批精确 commit、allowlist、focused/full gates 和报告均 PASS，最终 E PASS 后才允许主线集成。
+- S226-B Developer 返回 -> 验证：Controller 独立审 diff、B4 零出站、17 个 focused x10、完整 affected packages、Wire/allowlist/provenance 和主工作区保护状态；PASS 前不开始 C。
+- B PASS 后等待用户授权 S226-C；后续 D -> E 均要求前一批精确 commit、allowlist、focused/full gates 和报告 PASS，最终 E PASS 后才允许主线集成。
 - 发布当前本地提交（需用户授权） -> 验证：push 前后比较 `HEAD`、`origin/main` 和远端 `refs/heads/main`，只允许普通 push。
 
 ## 验证记录

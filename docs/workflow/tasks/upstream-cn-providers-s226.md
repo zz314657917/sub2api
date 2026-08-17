@@ -157,6 +157,10 @@ returns to the owner of the failing batch.
   `E:/codex-worktrees/sub2api/upstream-cn-providers-s226-a`, branch
   `pge/upstream-cn-providers-s226-a`, exact clean HEAD
   `98daf5b8d9008c9db6753631a62ede9a3ff8ca6d`.
+- S226-B dispatch worktree:
+  `E:/codex-worktrees/sub2api/upstream-cn-providers-s226-b`, branch
+  `pge/upstream-cn-providers-s226-b`, exact clean HEAD and approved base
+  `3ed89c9952f09e03861e197d59aad456f3b19b29`.
 - Controller main-worktree protection snapshot at S226-A dispatch: account
   modal `5d316e5b6935fdc5dbf825f940feaf231d79ac0f`, tutorial view
   `9e0894bc8af07e9d358f06d367dc976cf3bb3f65`, knowledge
@@ -325,7 +329,8 @@ Controller-owned workflow files may be updated only at gates:
   Close the session and prove the task profile and Playwright daemon are gone.
 - Protected main-worktree patch IDs must remain:
   - account modal: `5d316e5b6935fdc5dbf825f940feaf231d79ac0f`
-  - tutorial view: `7f5afe57708ae3cc6b5781989c25195eaa6ffda5`
+  - tutorial view: `9e0894bc8af07e9d358f06d367dc976cf3bb3f65`
+  - backend tutorial tests: `a81fbffbe14121ef62387f28cfee09a6d247ac94`
   - knowledge files: `2abee47db90ce1d54e1f9ba7d1a3cc2d633c2374`
 
 ## Acceptance Commands
