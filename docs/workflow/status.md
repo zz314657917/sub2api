@@ -2,11 +2,11 @@
 phase: build
 current_sprint: upstream-cn-providers-s226
 total_sprints: 226
-pending_action: Await explicit authorization for S226-C. S226-B Controller PASS is frozen at report f6b380e21 (business 316fa46c6, exact approved base 3ed89c995); a post-review user TutorialView patch changed to ce6749a8, so C authorization must first freeze that new protected baseline. Do not start S226-C or independent QA and do not integrate A/B into main before the ordered batch gates permit it.
+pending_action: C0 baseline approved at 2026-08-17 23:22 +08:00. Create the S226-C Terra Developer worktree from exact B report f6b380e21, enforce B3 timeout/protocol gates and the new user patch/untracked-file protection snapshot; do not start D, independent QA, or main integration before Controller PASS.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-17 18:55 +08:00
+last_verified: 2026-08-17 23:22 +08:00
 ---
 
 # Upstream CN Providers S226

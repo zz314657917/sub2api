@@ -167,6 +167,27 @@ returns to the owner of the failing batch.
   `2abee47db90ce1d54e1f9ba7d1a3cc2d633c2374`, backend tutorial tests
   `a81fbffbe14121ef62387f28cfee09a6d247ac94`; untracked migrations 226/227
   and `outputs/` remain excluded.
+- `PASS / C0 protection-baseline amendment`: after B Controller PASS, the
+  user updated TutorialView and added tutorial-only untracked files. For every
+  C+ Controller gate, preserve account modal
+  `5d316e5b6935fdc5dbf825f940feaf231d79ac0f`, TutorialView
+  `a07a7c33f09d9fa0e308a1bddf6bf0ee9d7cf671`, knowledge
+  `2abee47db90ce1d54e1f9ba7d1a3cc2d633c2374`, and backend tutorial tests
+  `a81fbffbe14121ef62387f28cfee09a6d247ac94`. Also preserve untracked files
+  `226_update_image_model_tutorial_domains_to_cc.sql`
+  `D7EDF11F2D7F5A1BCE0D6D10CE7BF50C6FEC35D8F01AD46E93DE8526DC4DB839`,
+  `227_format_image_model_tutorial_parameters.sql`
+  `A426D11E76E029D4CF6A6BD1606E2894FB59029425888B6AB9CB40E59F73CF61`,
+  `228_expand_image_model_tutorial_details.sql`
+  `854BBC7BCEDC47682FB78FD315EBB88678AF7488E0B6A8E5E1D9EA8C64CF82C5`,
+  `229_format_image_tutorial_curl_examples.sql`
+  `C9676B553D0526142311AB5CFD90317937F3031AD91F72BEF302646608F488D1`,
+  `image_model_tutorial_curl_format_test.go`
+  `84C47AB0226587D7D098A3D98786081CE8A98860AECBE8EBC2FCC4BCF0D85C27`,
+  and `image_model_tutorial_details_test.go`
+  `6D07FA3C646BDD7CB90E3B7039FE933F815163F70050CEC8EA3324A89442DC54`.
+  The historical A-dispatch snapshot remains evidence for A/B only; C+ must
+  use this C0 snapshot and must not stage, commit, alter, or delete it.
 - Direct apply checks fail across Wire, config, gateway, missing quota schema,
   and split-file topology. Manual behavioral adaptation is mandatory.
 - Read first: this contract, `docs/workflow/spec.md`,
@@ -329,9 +350,11 @@ Controller-owned workflow files may be updated only at gates:
   Close the session and prove the task profile and Playwright daemon are gone.
 - Protected main-worktree patch IDs must remain:
   - account modal: `5d316e5b6935fdc5dbf825f940feaf231d79ac0f`
-  - tutorial view: `9e0894bc8af07e9d358f06d367dc976cf3bb3f65`
+  - tutorial view (C0, C+): `a07a7c33f09d9fa0e308a1bddf6bf0ee9d7cf671`
   - backend tutorial tests: `a81fbffbe14121ef62387f28cfee09a6d247ac94`
   - knowledge files: `2abee47db90ce1d54e1f9ba7d1a3cc2d633c2374`
+- The six C0 tutorial migration/test files listed in Context and `outputs/`
+  must remain untracked and byte-identical through C+ gates.
 
 ## Acceptance Commands
 
@@ -489,12 +512,24 @@ $accountID = ($accountPatch | git patch-id --stable).Split(' ')[0]
 if ($accountID -ne '5d316e5b6935fdc5dbf825f940feaf231d79ac0f') { throw 'account modal patch changed' }
 $tutorialPatch = git diff -- frontend/src/views/public/TutorialView.vue frontend/src/views/public/__tests__/TutorialView.spec.ts
 $tutorialID = ($tutorialPatch | git patch-id --stable).Split(' ')[0]
-if ($tutorialID -ne '9e0894bc8af07e9d358f06d367dc976cf3bb3f65') { throw 'tutorial view patch changed' }
+if ($tutorialID -ne 'a07a7c33f09d9fa0e308a1bddf6bf0ee9d7cf671') { throw 'tutorial view patch changed' }
 $knowledgePatch = git diff -- knowledge/00-start-here.md knowledge/05-current-focus.md
 $knowledgeID = ($knowledgePatch | git patch-id --stable).Split(' ')[0]
 if ($knowledgeID -ne '2abee47db90ce1d54e1f9ba7d1a3cc2d633c2374') { throw 'knowledge patch changed' }
 $outputState = git status --porcelain=v1 --untracked-files=all -- outputs/
 if (-not ($outputState | Select-String '^\?\?')) { throw 'outputs state changed unexpectedly' }
+$protectedFiles = @{
+  'backend/migrations/226_update_image_model_tutorial_domains_to_cc.sql' = 'D7EDF11F2D7F5A1BCE0D6D10CE7BF50C6FEC35D8F01AD46E93DE8526DC4DB839'
+  'backend/migrations/227_format_image_model_tutorial_parameters.sql' = 'A426D11E76E029D4CF6A6BD1606E2894FB59029425888B6AB9CB40E59F73CF61'
+  'backend/migrations/228_expand_image_model_tutorial_details.sql' = '854BBC7BCEDC47682FB78FD315EBB88678AF7488E0B6A8E5E1D9EA8C64CF82C5'
+  'backend/migrations/229_format_image_tutorial_curl_examples.sql' = 'C9676B553D0526142311AB5CFD90317937F3031AD91F72BEF302646608F488D1'
+  'backend/migrations/image_model_tutorial_curl_format_test.go' = '84C47AB0226587D7D098A3D98786081CE8A98860AECBE8EBC2FCC4BCF0D85C27'
+  'backend/migrations/image_model_tutorial_details_test.go' = '6D07FA3C646BDD7CB90E3B7039FE933F815163F70050CEC8EA3324A89442DC54'
+}
+foreach ($entry in $protectedFiles.GetEnumerator()) {
+  if (-not (Test-Path $entry.Key) -or (Get-FileHash $entry.Key -Algorithm SHA256).Hash -ne $entry.Value) { throw "protected tutorial file changed: $($entry.Key)" }
+  if (-not (git status --porcelain=v1 --untracked-files=all -- $entry.Key | Select-String '^\?\?')) { throw "protected tutorial file is no longer untracked: $($entry.Key)" }
+}
 ```
 
 S226-E additionally runs all A-D focused gates, complete backend service/
