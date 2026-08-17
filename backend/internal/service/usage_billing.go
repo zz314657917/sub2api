@@ -6,7 +6,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
+
+	"github.com/shopspring/decimal"
 )
 
 var ErrUsageBillingRequestIDRequired = errors.New("usage billing request_id is required")
@@ -56,6 +59,34 @@ func (c *UsageBillingCommand) Normalize() {
 	if strings.TrimSpace(c.RequestFingerprint) == "" {
 		c.RequestFingerprint = buildUsageBillingFingerprint(c)
 	}
+	c.quantizeMonetaryFields()
+}
+
+// UsageBillingMonetaryScale aligns command amounts with PostgreSQL NUMERIC(20,8).
+const UsageBillingMonetaryScale = 8
+
+// quantizeMonetaryFields normalizes every amount that is persisted as billing
+// cost. It must run after request-fingerprint generation so retries keep the
+// raw-value fingerprint produced before this normalization was introduced.
+func (c *UsageBillingCommand) quantizeMonetaryFields() {
+	c.BalanceCost = QuantizeUsageBillingAmount(c.BalanceCost)
+	c.PrepaidBalanceCost = QuantizeUsageBillingAmount(c.PrepaidBalanceCost)
+	c.SubscriptionCost = QuantizeUsageBillingAmount(c.SubscriptionCost)
+	c.APIKeyQuotaCost = QuantizeUsageBillingAmount(c.APIKeyQuotaCost)
+	c.APIKeyRateLimitCost = QuantizeUsageBillingAmount(c.APIKeyRateLimitCost)
+	c.AccountQuotaCost = QuantizeUsageBillingAmount(c.AccountQuotaCost)
+}
+
+// QuantizeUsageBillingAmount rounds an amount to UsageBillingMonetaryScale
+// fractional digits using PostgreSQL NUMERIC's half-away-from-zero behavior.
+// Decimal arithmetic avoids binary multiplication and division drift at
+// rounding boundaries. Nonfinite inputs are deliberately preserved.
+func QuantizeUsageBillingAmount(v float64) float64 {
+	if v == 0 || math.IsNaN(v) || math.IsInf(v, 0) {
+		return v
+	}
+	quantized, _ := decimal.NewFromFloat(v).Round(UsageBillingMonetaryScale).Float64()
+	return quantized
 }
 
 func buildUsageBillingFingerprint(c *UsageBillingCommand) string {
