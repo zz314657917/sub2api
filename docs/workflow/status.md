@@ -1,12 +1,12 @@
 ---
-phase: qa
+phase: done
 current_sprint: upstream-fingerprint-user-agent-validation-s225
 total_sprints: 225
-pending_action: Run independent Terra QA against S225 business candidate 569080eb0 and Developer report 74c2b2b9e from frozen base 06e0e6ea5. QA may add only its report and must preserve all user-owned dirty paths. No push or deployment.
+pending_action: Await user direction on a separate S226 audit for upstream Kimi/Zhipu/DeepSeek support or on publishing the current local commits. The new upstream slice touches the user-owned account modal and collides with local migration 224, so it must not start without a new contract and authorization. No push or deployment has occurred.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-17 15:54 +08:00
+last_verified: 2026-08-17 16:04 +08:00
 ---
 
 # Upstream Fingerprint User-Agent Validation S225
@@ -39,6 +39,18 @@ last_verified: 2026-08-17 15:54 +08:00
   `E:/codex-worktrees/sub2api/upstream-fingerprint-user-agent-validation-s225-qa`
   starts at Developer report `74c2b2b9e`. Independent Terra QA may add only its
   report and must rerun all contract checks before a final verdict.
+- `PASS / independent-qa-main-integration`: independent Terra QA commit
+  `a198c2d6c` found no implementation defect after 11/11 focused tests x10,
+  complete service, server compilation, scope, provenance, exact-default, and
+  `ClientID` checks. Main integrated the business change as `ba42a434e`, the
+  Developer report as `b82c9c998`, and QA evidence as `51b9a47bd`. Integrated
+  main repeated all focused tests x10 (0.077s); the business patch-id is
+  unchanged. User account-modal and knowledge patch IDs remain unchanged and
+  `outputs/` is untouched. No real Redis/provider call, push, deployment,
+  container, or database action occurred.
+- `PASS / task-cleanup`: completed S223, S224, and S225 worktrees and their five
+  `pge/*` branches were removed after patch-id parity checks. The unrelated
+  detached `tutorial-nav-20260817` worktree was intentionally preserved.
 
 # Upstream Billing Quantization S224
 
