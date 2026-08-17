@@ -1,8 +1,8 @@
 ---
-phase: contract-approved
+phase: build
 current_sprint: upstream-billing-quantize-s224
 total_sprints: 224
-pending_action: Dispatch the approved S224 billing quantization contract to an isolated Terra Developer Worker. Preserve all user-owned account-modal, knowledge, and outputs paths. S223 remains integrated locally and unpushed.
+pending_action: Run independent Terra QA against S224 candidate b68afce67 using approved base b7d10c957. Preserve all user-owned account-modal, knowledge, and outputs paths. S223 remains integrated locally and unpushed.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
@@ -13,6 +13,10 @@ last_verified: 2026-08-17 14:55 +08:00
 
 - `PASS / contract-approved`: adapt `e2652eb85` to the local billing command, including
   `PrepaidBalanceCost`, while preserving raw-value request fingerprints.
+- `PASS / controller-review`: Developer candidate `b68afce67` changes exactly
+  the two allowed business files. Controller runs passed all eight focused tests
+  x10, complete service (60.207s), and complete repository (1.670s). Amendment 1
+  corrects the allowlist base to approval commit `b7d10c957`; advance to QA.
 - Only `usage_billing.go`, a focused default-tag test, and task reports are
   allowed. No SQL, migration, dependency, frontend, provider, container,
   deployment, remote push, or production operation is authorized.

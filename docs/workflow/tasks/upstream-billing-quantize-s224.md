@@ -35,7 +35,7 @@ fingerprint used for idempotency.
 ## Context
 
 - Repo: `F:/mcplugins/sub2api`
-- Frozen base: `6eb2bb5640d3c13d5a3bc5826fe0bd93b14486e3`
+- Approved implementation base: `b7d10c957f09a42d29ab43b3d3fce2629350c045`
 - Worktree: `E:/codex-worktrees/sub2api/upstream-billing-quantize-s224`
 - Branch: `pge/upstream-billing-quantize-s224`
 - Upstream head: `396a9d1130c9a8ab977e6a959a4fdd2d9f95dd27`
@@ -92,7 +92,7 @@ go test ./internal/repository -count=1
 if ($LASTEXITCODE -ne 0) { throw 'S224 repository regression failed' }
 Pop-Location
 
-$base = '6eb2bb5640d3c13d5a3bc5826fe0bd93b14486e3'
+$base = 'b7d10c957f09a42d29ab43b3d3fce2629350c045'
 $paths = @('backend/internal/service/usage_billing.go','backend/internal/service/usage_billing_quantize_test.go')
 $formatDiff = gofmt -d $paths
 if ($LASTEXITCODE -ne 0 -or $formatDiff) { throw 'S224 formatting check failed' }
@@ -129,3 +129,14 @@ if ($LASTEXITCODE -ne 0) { throw 'S224 upstream provenance failed' }
 is explicitly covered; fingerprint calculation remains before quantization;
 the existing decimal dependency is sufficient; the focused tests are default-tag
 and discoverable after implementation; no denied path is needed.
+
+## Amendment 1: Approved Base And Controller Evidence
+
+- The implementation worktree was created after the contract-approval commit,
+  so the exact allowlist base is `b7d10c957...`, not the earlier pre-contract
+  product commit `6eb2bb564...`.
+- Controller review found exactly the two allowed business files in
+  `b68afce67`. Eight focused tests passed with `-count=10`, complete service
+  passed in 60.207s, and complete repository passed in 1.670s.
+- Independent QA must use `b7d10c957...` for range and allowlist checks and
+  must not treat inherited workflow approval files as implementation changes.
