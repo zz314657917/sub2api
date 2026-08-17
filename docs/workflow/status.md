@@ -1,12 +1,12 @@
 ---
-phase: contract-approved
+phase: build
 current_sprint: upstream-cn-providers-s226
 total_sprints: 226
-pending_action: Await explicit user authorization to start S226-A from frozen base 98daf5b8d. The approved contract requires ordered A-D implementation commits and S226-E independent QA; no worktree or worker has been created, and no business code, push, deployment, container, database, or provider action has occurred.
+pending_action: Await the S226-A Terra Developer result from the isolated worktree at frozen base 98daf5b8d, then perform Controller diff, allowlist, focused x10, full service, server compile, provenance, and protected-main-worktree review. Do not start S226-B or independent QA before Controller PASS.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-17 16:54 +08:00
+last_verified: 2026-08-17 17:45 +08:00
 ---
 
 # Upstream CN Providers S226
@@ -25,14 +25,18 @@ last_verified: 2026-08-17 16:54 +08:00
   adapted into the named monolithic local owners. Direct apply checks fail and
   wholesale merge/cherry-pick is forbidden.
 - S226-D must preserve the user-owned account-modal patch as a non-integrated
-  task-local baseline. Protected user patch IDs remain
-  `5d316e5b6935fdc5dbf825f940feaf231d79ac0f` and
-  `7f5afe57708ae3cc6b5781989c25195eaa6ffda5` and
-  `2abee47db90ce1d54e1f9ba7d1a3cc2d633c2374`; `outputs/` stays untracked.
+  task-local baseline. At S226-A dispatch, protected user patch IDs are account
+  `5d316e5b6935fdc5dbf825f940feaf231d79ac0f`, tutorial
+  `9e0894bc8af07e9d358f06d367dc976cf3bb3f65`, knowledge
+  `2abee47db90ce1d54e1f9ba7d1a3cc2d633c2374`, and backend tutorial tests
+  `a81fbffbe14121ef62387f28cfee09a6d247ac94`. Untracked tutorial migrations
+  226/227 and `outputs/` remain outside S226.
 - Contract: `docs/workflow/tasks/upstream-cn-providers-s226.md`.
-- Current legal action: wait for user authorization, then create only the
-  S226-A worktree from `98daf5b8d` and dispatch the Terra Developer. Do not
-  start B-D or independent QA early.
+- `build / S226-A developer-dispatched`: clean worktree
+  `E:/codex-worktrees/sub2api/upstream-cn-providers-s226-a`, branch
+  `pge/upstream-cn-providers-s226-a`, exact base `98daf5b8d`. Terra Developer
+  owns only the eight S226-A allowlisted paths. Controller review is required;
+  do not start B-D or independent QA early.
 
 # Upstream Fingerprint User-Agent Validation S225
 

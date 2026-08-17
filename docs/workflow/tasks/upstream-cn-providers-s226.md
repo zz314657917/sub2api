@@ -153,6 +153,16 @@ returns to the owner of the failing batch.
 - Origin at contract review: `a865d8b6eb06048f7cf7e3b983b65cf393197806`
 - Upstream at contract review:
   `e330c243a8f142f8963d784916da0093ab7084ee`
+- S226-A dispatch worktree:
+  `E:/codex-worktrees/sub2api/upstream-cn-providers-s226-a`, branch
+  `pge/upstream-cn-providers-s226-a`, exact clean HEAD
+  `98daf5b8d9008c9db6753631a62ede9a3ff8ca6d`.
+- Controller main-worktree protection snapshot at S226-A dispatch: account
+  modal `5d316e5b6935fdc5dbf825f940feaf231d79ac0f`, tutorial view
+  `9e0894bc8af07e9d358f06d367dc976cf3bb3f65`, knowledge
+  `2abee47db90ce1d54e1f9ba7d1a3cc2d633c2374`, backend tutorial tests
+  `a81fbffbe14121ef62387f28cfee09a6d247ac94`; untracked migrations 226/227
+  and `outputs/` remain excluded.
 - Direct apply checks fail across Wire, config, gateway, missing quota schema,
   and split-file topology. Manual behavioral adaptation is mandatory.
 - Read first: this contract, `docs/workflow/spec.md`,
@@ -447,6 +457,11 @@ Pop-Location
 
 ### Cross-cutting scope, provenance, and dirty-worktree gates
 
+Workers run the base, diff, conflict, index, and provenance checks in their
+clean task worktree. The protected dirty-worktree checks are Controller-only
+and run in the main checkout; workers must not recreate, stage, or commit user
+patches merely to satisfy those checks.
+
 ```powershell
 $base = $env:S226_BATCH_BASE
 if (-not $base) { throw 'S226_BATCH_BASE is required' }
@@ -469,7 +484,7 @@ $accountID = ($accountPatch | git patch-id --stable).Split(' ')[0]
 if ($accountID -ne '5d316e5b6935fdc5dbf825f940feaf231d79ac0f') { throw 'account modal patch changed' }
 $tutorialPatch = git diff -- frontend/src/views/public/TutorialView.vue frontend/src/views/public/__tests__/TutorialView.spec.ts
 $tutorialID = ($tutorialPatch | git patch-id --stable).Split(' ')[0]
-if ($tutorialID -ne '7f5afe57708ae3cc6b5781989c25195eaa6ffda5') { throw 'tutorial view patch changed' }
+if ($tutorialID -ne '9e0894bc8af07e9d358f06d367dc976cf3bb3f65') { throw 'tutorial view patch changed' }
 $knowledgePatch = git diff -- knowledge/00-start-here.md knowledge/05-current-focus.md
 $knowledgeID = ($knowledgePatch | git patch-id --stable).Split(' ')[0]
 if ($knowledgeID -ne '2abee47db90ce1d54e1f9ba7d1a3cc2d633c2374') { throw 'knowledge patch changed' }
