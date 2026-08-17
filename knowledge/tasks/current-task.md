@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-17 23:43 +08:00
+最后更新：2026-08-17 23:50 +08:00
 
 ## 背景
 
@@ -10,7 +10,7 @@
 
 ## 当前目标
 
-- 用户已授权完成 S226 剩余计划，但 S226-C 的配置 Terra Developer 在实际调用前被模型访问错误阻断。当前不启动 D、独立 QA，也不把 A/B 业务提交集成到 main。
+- 用户已授权完成 S226 剩余计划，并明确授权采用可用的 `claude-sonnet-4-6` 作为 S226-C Developer 与后续独立 QA 的替代模型。当前将从未变更 C0 基线继续；不启动 D、独立 QA，也不把 A/B 业务提交集成到 main。
 
 ## 本次已完成
 
@@ -25,6 +25,7 @@
 - S226-B worktree `E:/codex-worktrees/sub2api/upstream-cn-providers-s226-b` 已从 A 报告 commit `3ed89c995` 创建，分支为 `pge/upstream-cn-providers-s226-b`；仅授权 20 个 B 业务/测试路径和结果报告。
 - S226-B Controller review PASS：初版候选在读取异常和无效 payload 时会覆盖旧快照并可误触发余额暂停，已退回原 Developer 修复。最终业务 `316fa46c6`、报告 `f6b380e21` 保持两提交边界，18 个业务/测试文件及报告均严格 allowlist；17/17 合同测试可发现，20 个 focused/鲁棒性测试 x10、完整 config/service/routes/cmd-server、B4 零出站、Wire、格式、diff、provenance、冲突/index 和主工作区保护门禁均 PASS。
 - S226-C 实际调用 `gpt-5.6-terra` Worker CLI 时在推理前返回 API `404`；零 token、无业务文件或报告生成，C 工作树仍为精确基线 `f6b380e21` 且洁净。
+- 用户明确允许替代模型；可用性探测确认 `sonnet` 解析为 `claude-sonnet-4-6` 并成功返回，已在 S226 contract 中指定为 Developer 和独立 QA 的具名替代模型。
 
 ## 已确认事实
 
@@ -42,7 +43,7 @@
 
 ## 待验证点
 
-- S226-C 需要恢复 `gpt-5.6-terra` 访问或用户明确授权具名替代 Developer 模型；验证：Worker 可开始推理且仅在 C allowlist 内创建业务提交和报告，再由 Controller 审查 B3 四条 Anthropic-native 阻塞读循环、协议矩阵和 focused x10。
+- S226-C Developer 需要完成 `claude-sonnet-4-6` 受控实现；验证：Worker 仅在 C allowlist 内创建业务提交和报告，再由 Controller 审查 B3 四条 Anthropic-native 阻塞读循环、协议矩阵和 focused x10。
 - S226-D 仍需验证用户 modal 临时 baseline/最终合入策略；验证：业务 commit 不包含用户 patch，主工作区 account patch-id 在集成前后均为 `5d316e5b...`。
 - 前端当前 `node_modules` 缺少 `vitest/vue-tsc/vite` 可执行文件；D/E 开始时必须在任务 worktree 恢复工具链，否则 QA 报 `BLOCKED`，不得跳过。
 - 若授权发布：先复核最终 `git status`、主线测试证据和远端差异，再执行普通 `git push origin main`；当前没有发布授权。
@@ -50,12 +51,12 @@
 
 ## 当前结论
 
-- `BLOCKED / S226-C Developer model access`：配置的 `gpt-5.6-terra` 返回 API `404`，在推理前停止，不能按 Agent Matrix 静默降级。
+- `BUILD / S226-C approved fallback`：用户已授权且本机实测可用 `claude-sonnet-4-6`；`gpt-5.6-terra` 的 API 404 仅作为历史阻塞证据保留。
 - A 的平台/账号基础和 B 的额度/余额探测、管理 API 已分别通过 Controller；C 的新用户基线已冻结，A/B 均未集成 main，D-E 未开始，独立 QA 仍只允许在 E 执行。
 
 ## 下一步
 
-- 恢复 Terra 访问或授权具名替代 Developer 模型 -> 验证：从未变更的 C 工作树 `f6b380e21` 重新运行 S226-C Worker，确认报告首行、业务/报告两提交边界与 C allowlist 后，再进行 Controller 验收；PASS 前不开始 D。
+- 调用 `claude-sonnet-4-6` S226-C Developer -> 验证：从未变更的 C 工作树 `f6b380e21` 运行 Worker，确认报告首行、业务/报告两提交边界与 C allowlist 后，再进行 Controller 验收；PASS 前不开始 D。
 - C PASS 后等待用户授权 S226-D；D -> E 均要求前一批精确 commit、allowlist、focused/full gates 和报告 PASS，最终 E PASS 后才允许主线集成。
 - 发布当前本地提交（需用户授权） -> 验证：push 前后比较 `HEAD`、`origin/main` 和远端 `refs/heads/main`，只允许普通 push。
 
@@ -73,3 +74,4 @@
 - C0 amendment：当前 TutorialView patch 再次变为 `a07a7c33f09d9fa0e308a1bddf6bf0ee9d7cf671`，并新增四个教程 migration/test 未跟踪文件；C+ 使用这组当前 patch 和六个教程文件 SHA256 作为保护基线，历史 A/B 值只保留审计用途。
 - S226-C worktree `E:/codex-worktrees/sub2api/upstream-cn-providers-s226-c` 已从 B report `f6b380e21` 创建，分支为 `pge/upstream-cn-providers-s226-c`，工作树洁净；Developer 仅可改 C allowlist 和结果报告。
 - S226-C Worker retry 证据：`claude.cmd --bare -p` 携带配置模型 `gpt-5.6-terra` 返回 `api_error_status: 404`、`input_tokens: 0`、`total_cost_usd: 0`；未生成 worker report，未改动 C 工作树或主工作区保护文件。
+- 具名替代模型探测：用户授权后，以 `--model sonnet` 运行的最小无写入请求成功，CLI 报告实际模型为 `claude-sonnet-4-6`；此探测未读取或修改业务文件。

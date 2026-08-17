@@ -10,10 +10,13 @@
 
 ## Role
 
-Planner, Terra Developer Worker, independent Terra QA Worker, and Final
-Evaluator. Implementation is split into ordered batches `S226-A` through
-`S226-D`; `S226-E` is integration-only QA. No worker may start until the user
-explicitly authorizes the next batch and the Controller records its exact base.
+Planner, approved alternate Developer Worker `claude-sonnet-4-6`, independent
+approved alternate QA Worker `claude-sonnet-4-6`, and Final Evaluator.
+Implementation is split into ordered batches `S226-A` through `S226-D`; `S226-E`
+is integration-only QA. No worker may start until the user explicitly authorizes
+the next batch and the Controller records its exact base. The user authorized
+this named fallback on 2026-08-17 after `gpt-5.6-terra` returned API 404 before
+inference; Developer and QA remain independent roles and evidence gates.
 
 ## Goal
 
@@ -566,13 +569,14 @@ inspection. No real provider or shared database is part of acceptance.
 - Stop if a user patch baseline is committed as product code, either protected
   patch ID changes, or `outputs/` is added/removed/modified.
 - Stop if focused tests are undiscoverable, frontend tools are unavailable,
-  browser ownership/cleanup cannot be proven, Terra is unavailable, or the
-  active batch base is not the exact prior approved commit.
+  browser ownership/cleanup cannot be proven, the selected approved Worker
+  model is unavailable, or the active batch base is not the exact prior
+  approved commit.
 
 ## Budget
 
-- developer_worker_model: `gpt-5.6-terra`
-- qa_worker_model: `gpt-5.6-terra`
+- developer_worker_model: `claude-sonnet-4-6` (user-authorized fallback)
+- qa_worker_model: `claude-sonnet-4-6` (user-authorized fallback)
 - worktree_root: `E:/codex-worktrees/sub2api`
 - worktree sequence: one clean implementation worktree per active batch; do not
   touch `E:/codex-worktrees/sub2api/tutorial-nav-20260817`

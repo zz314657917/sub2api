@@ -1,12 +1,12 @@
 ---
-phase: blocked
+phase: build
 current_sprint: upstream-cn-providers-s226
 total_sprints: 226
-pending_action: BLOCKED: the configured gpt-5.6-terra Developer Worker returned API 404 before inference from the isolated S226-C worktree at exact base f6b380e21. Restore Terra access or obtain explicit authorization for a named alternate model before retrying; do not start S226-D, independent QA, or main integration.
+pending_action: Invoke the user-authorized claude-sonnet-4-6 S226-C Developer Worker from the unchanged isolated worktree at exact base f6b380e21, then perform Controller review of B3 stream timeouts, platform/protocol isolation, reactive cooldown semantics, 16 focused tests x10, affected packages, exact allowlist, C0 protected main state, and Wire/server compile. Do not start S226-D, independent QA, or main integration before Controller PASS.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-17 23:43 +08:00
+last_verified: 2026-08-17 23:50 +08:00
 ---
 
 # Upstream CN Providers S226
@@ -82,6 +82,11 @@ last_verified: 2026-08-17 23:43 +08:00
   with zero tokens and no worktree changes. The Agent Matrix prohibits a silent
   fallback. Restore Terra access or explicitly authorize a named alternate
   Developer model before retrying from the unchanged exact base `f6b380e21`.
+- `build / S226-C approved fallback`: the user authorized an available
+  `claude-sonnet-4-6` fallback for the Developer and future independent QA.
+  Its one-turn availability probe completed successfully. The C base, allowlist,
+  C0 protection boundary, ordered gates, and no-push/no-deploy restriction are
+  unchanged.
 
 # Upstream Fingerprint User-Agent Validation S225
 
