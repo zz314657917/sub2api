@@ -10,8 +10,8 @@ WHERE slug IN (
     'gpt-image-2-official',
     'gemini-3-pro-image-preview',
     'gemini-3-pro-image-preview-official',
-    'gemini-3.1-flash-image-preview',
-    'gemini-3.1-flash-image-preview-official',
+    'gemini-3-1-flash-image-preview',
+    'gemini-3-1-flash-image-preview-official',
     'midjourney',
     'doubao-seedance-4-0',
     'doubao-seedance-4-5'

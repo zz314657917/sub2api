@@ -1,6 +1,7 @@
 package migrations
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -25,13 +26,17 @@ func TestImageModelTutorialPages(t *testing.T) {
 		{"gpt-image-2-official", "gpt-image-2-official"},
 		{"gemini-3-pro-image-preview", "gemini-3-pro-image-preview"},
 		{"gemini-3-pro-image-preview-official", "gemini-3-pro-image-preview-official"},
-		{"gemini-3.1-flash-image-preview", "gemini-3.1-flash-image-preview"},
-		{"gemini-3.1-flash-image-preview-official", "gemini-3.1-flash-image-preview-official"},
+		{"gemini-3-1-flash-image-preview", "gemini-3.1-flash-image-preview"},
+		{"gemini-3-1-flash-image-preview-official", "gemini-3.1-flash-image-preview-official"},
 		{"midjourney", "midjourney"},
 		{"doubao-seedance-4-0", "doubao-seedance-4-0"},
 		{"doubao-seedance-4-5", "doubao-seedance-4-5"},
 	}
+	validSlug := regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$`)
 	for _, page := range pages {
+		if !validSlug.MatchString(page.slug) {
+			t.Fatalf("tutorial slug %q violates tutorial_pages_slug_check", page.slug)
+		}
 		if strings.Count(sql, "'"+page.slug+"'") != 1 {
 			t.Fatalf("expected exactly one seeded slug %q", page.slug)
 		}

@@ -148,7 +148,7 @@ console.log((await response.json()).data[0].url);
 
 网关返回最终 `{"created": 0, "data": [{"url": "..."}]}`，不应轮询上游任务。遇到 `401` 请检查 Bearer 密钥；遇到请求错误请确认模型 ID、分辨率和不超过 14 张的参考图。
 $md$, NOW()),
-('gemini-3.1-flash-image-preview', 'Gemini 3.1 Flash Image Preview 图像生成', '使用 Gemini 3.1 Flash Image Preview 生成图像。', '图像模型', 2244, 'published', $md$
+('gemini-3-1-flash-image-preview', 'Gemini 3.1 Flash Image Preview 图像生成', '使用 Gemini 3.1 Flash Image Preview 生成图像。', '图像模型', 2244, 'published', $md$
 # Gemini 3.1 Flash Image Preview 图像生成
 
 模型 ID：`gemini-3.1-flash-image-preview`。使用 `POST https://ai.3zapi.top/v1/images/generations`，认证为 `Authorization: Bearer YOUR_API_KEY`。
@@ -185,7 +185,7 @@ console.log((await response.json()).data[0].url);
 
 网关同步等待并返回 `{"created": 0, "data": [{"url": "..."}]}`；提交后不必轮询上游任务。`401` 时检查 Bearer 密钥；`0.5k`、超过 14 张参考图或无效搜索布尔值会导致请求错误。
 $md$, NOW()),
-('gemini-3.1-flash-image-preview-official', 'Gemini 3.1 Flash Image Preview 官方图像生成', '使用 Gemini 3.1 Flash Image Preview 官方路径生成图像。', '图像模型', 2245, 'published', $md$
+('gemini-3-1-flash-image-preview-official', 'Gemini 3.1 Flash Image Preview 官方图像生成', '使用 Gemini 3.1 Flash Image Preview 官方路径生成图像。', '图像模型', 2245, 'published', $md$
 # Gemini 3.1 Flash Image Preview 官方图像生成
 
 模型 ID：`gemini-3.1-flash-image-preview-official`。请求 `POST https://ai.3zapi.top/v1/images/generations`，认证头是 `Authorization: Bearer YOUR_API_KEY`。
