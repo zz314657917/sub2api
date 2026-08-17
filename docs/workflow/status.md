@@ -1,12 +1,12 @@
 ---
-phase: build
+phase: blocked
 current_sprint: upstream-cn-providers-s226
 total_sprints: 226
-pending_action: Await the S226-C Terra Developer result from the isolated worktree at exact base f6b380e21, then perform Controller review of B3 stream timeouts, platform/protocol isolation, reactive cooldown semantics, 16 focused tests x10, affected packages, exact allowlist, C0 protected main state, and Wire/server compile. Do not start S226-D, independent QA, or main integration before Controller PASS.
+pending_action: BLOCKED: the configured gpt-5.6-terra Developer Worker returned API 404 before inference from the isolated S226-C worktree at exact base f6b380e21. Restore Terra access or obtain explicit authorization for a named alternate model before retrying; do not start S226-D, independent QA, or main integration.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-17 23:22 +08:00
+last_verified: 2026-08-17 23:43 +08:00
 ---
 
 # Upstream CN Providers S226
@@ -77,6 +77,11 @@ last_verified: 2026-08-17 23:22 +08:00
   Developer owns only the S226-C allowlisted gateway/timeout files plus report.
   C0 protects the current user TutorialView patch and six untracked tutorial
   files. Controller review is required; do not start D, QA, or main integration.
+- `BLOCKED / S226-C Developer Worker`: the configured
+  `gpt-5.6-terra` Worker CLI invocation returned API `404` before inference,
+  with zero tokens and no worktree changes. The Agent Matrix prohibits a silent
+  fallback. Restore Terra access or explicitly authorize a named alternate
+  Developer model before retrying from the unchanged exact base `f6b380e21`.
 
 # Upstream Fingerprint User-Agent Validation S225
 
