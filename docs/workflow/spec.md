@@ -2156,3 +2156,34 @@ fingerprint used for idempotency.
   nonfinite values, and negative values.
 - Complete service/repository regression, formatting, exact allowlist,
   provenance, and dirty-worktree protection require independent Terra QA.
+
+# Upstream Fingerprint User-Agent Validation Addendum (S225)
+
+## Goal
+
+Behaviorally port upstream `fe2c265c9` so malformed, local-build, or implausible
+Claude CLI User-Agent values cannot become an account's persistent fingerprint,
+and existing poisoned cache entries recover automatically.
+
+## Boundary
+
+- Validate both first creation and version upgrade. A valid client User-Agent
+  heals a poisoned cache; otherwise use the existing local default. Both healing
+  paths preserve the cached `ClientID` and do not replace the cache interface.
+- Keep the exact local `claude-cli/2.1.92` and Stainless defaults unchanged.
+  `claude.CLICurrentVersion` is used only to derive a reasonable Claude CLI
+  major-version ceiling. Non-Claude products receive syntax validation without
+  the Claude-specific major ceiling.
+- No Redis/TTL, gateway, request body, frontend, dependency, schema/migration,
+  provider, container, deployment, push, production, user-owned dirty file, or
+  `outputs/` change is included.
+
+## Acceptance Boundary
+
+- Default-tag focused tests cover syntax and length rejection, local/dev/build
+  suffixes, sentinel major versions, valid non-Claude products, creation,
+  upgrade, healthy-cache no-op, both poisoned-cache healing branches, default
+  fallback, exact local defaults, and `ClientID` preservation.
+- Complete service regression, server compilation, formatting, exact allowlist,
+  provenance, conflict/index checks, and dirty-worktree protection must pass
+  under independent Terra QA before local-main integration.

@@ -1,13 +1,29 @@
 ---
-phase: done
-current_sprint: upstream-billing-quantize-s224
-total_sprints: 224
-pending_action: Draft and review S225 against main ac3244191 for upstream User-Agent persistence validation from fe2c265c9. Preserve local Claude and Stainless defaults plus all user-owned account-modal, knowledge, and outputs paths. Keep all integration local and unpushed.
+phase: contract-approved
+current_sprint: upstream-fingerprint-user-agent-validation-s225
+total_sprints: 225
+pending_action: Dispatch Terra Developer in an isolated worktree from frozen base 06e0e6ea5. Implement only S225 User-Agent validation, focused tests, and the Developer report; preserve local defaults and all user-owned dirty paths. No push or deployment.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-17 15:25 +08:00
+last_verified: 2026-08-17 15:33 +08:00
 ---
+
+# Upstream Fingerprint User-Agent Validation S225
+
+- `PASS / contract-approved`: behaviorally port upstream `fe2c265c9` into the
+  local identity topology. Validate User-Agent on both create and upgrade,
+  reject malformed/local-build and implausible Claude CLI versions, and heal
+  already-poisoned cached values while preserving `ClientID`.
+- Keep the local default fingerprint exactly at `claude-cli/2.1.92`, Stainless
+  package `0.70.0`, runtime `v24.13.0`, and the existing remaining Stainless
+  fields. `claude.CLICurrentVersion` may be imported only to derive the Claude
+  CLI major-version upper bound; it must not replace local defaults.
+- Business scope is exactly `identity_service.go` plus one default-tag focused
+  test file. Cache interfaces, Redis/TTL behavior, gateway callers, frontend,
+  dependencies, provider calls, containers, deployment, push, and all
+  user-owned dirty paths remain denied.
+- Contract: `docs/workflow/tasks/upstream-fingerprint-user-agent-validation-s225.md`.
 
 # Upstream Billing Quantization S224
 
