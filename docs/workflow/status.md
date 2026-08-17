@@ -1,13 +1,50 @@
 ---
 phase: done
-current_sprint: upstream-v0177-group-usage-rollups-s222
-total_sprints: 222
-pending_action: Monitor upstream/main and the next v0.1.177+ tags. S220/S221/S222 are integrated, task worktrees/branches and the portable PostgreSQL runtime are removed, and origin/main matches local main. Preserve the two remaining user dirty account-modal files and outputs/.
+current_sprint: image-model-tutorials-s223
+total_sprints: 223
+pending_action: S223 has been integrated locally on main. The nine Tutorial Management pages will publish when migration 224 is applied through the normal environment workflow; preserve the user-owned account-modal, knowledge, and outputs paths. Do not run migration 224 against shared or production databases without separate authorization.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-16 17:21 +08:00
+last_verified: 2026-08-17 12:40 +08:00
 ---
+
+# Image Model Tutorials S223
+
+- `PASS / contract-approved`: add exactly nine published Chinese image-model
+  guides through migration 224 and a focused static migration test. Existing
+  tutorial CRUD/UI already supports the requested Tutorial Management delivery.
+- GPT, Gemini, and Midjourney use the local gateway's final OpenAI-compatible
+  response; Seedream keeps its current task submission plus
+  `/v1/tasks/{task_id}` query flow. Unsupported Gemini Flash `0.5k` is excluded.
+- Reference branding, hosts, key-management copy, provider calls, gateway code,
+  existing migrations, frontend source, dependencies, shared/production DB,
+  containers, deployment, push, user account-modal/knowledge edits, and
+  `outputs/` are outside scope.
+- Contract: `docs/workflow/tasks/image-model-tutorials-s223.md`.
+- `build / developer-dispatched`: the legacy Claude CLI route returned a model
+  404 before inference. The same approved clean worktree is now owned by an
+  independent `gpt-5.6-terra` agent; no fallback model is used.
+- `FAIL / controller-review S223-R1`: the migration has the correct nine-page
+  scope, but it sends 1k/2k/4k values through `size` instead of `resolution`
+  and reads Seedream task IDs from the wrong response location. Correct these
+  examples and related prose, then rerun the same static gates before QA.
+- `PASS / controller-review S223-R2`: amended candidate `aa85faf32c` is limited
+  to the original three files. Fresh migration tests (focused x10 and complete),
+  server compile, scoped diff, zero forbidden-brand hits, exact 9-page coverage,
+  `resolution` payload fields, no tier-as-size payload, Seedream envelope IDs,
+  terminal polling, and non-transparent official GPT sample all pass. Advance to
+  independent `gpt-5.6-terra` QA.
+
+- `PASS / independent QA`: Terra QA report `42115f91d` found no defect after
+  static content/runtime-owner review, migration tests, server compile, brand
+  scans, and Git integrity checks. It did not execute a real migration or call
+  a credentialed provider endpoint.
+- `PASS / main integration`: Developer candidate is on main as `7af27c591` and
+  QA evidence as `3a3aeb601`. Main repeated the focused migration test x10,
+  complete migrations package test, server compile, forbidden-brand scan, local
+  host scan, and integrated diff check. User-owned account-modal, knowledge,
+  and `outputs/` changes remain unmodified.
 
 # Upstream v0.1.177 Group Pricing And Long Context S220
 

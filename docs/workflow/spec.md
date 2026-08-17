@@ -2102,3 +2102,33 @@ a second non-refundable reset.
   packages, server compilation, typecheck/build when dependencies are available,
   format/diff, allowlist, conflict-marker, unmerged-index, provenance, and
   preservation of user-owned files must pass before local-main integration.
+
+# Image Model Tutorials Addendum (S223)
+
+## Goal
+
+Publish local Chinese API calling guides in Tutorial Management for the nine
+image models shown by the user, using the existing tutorial CMS and the actual
+`ai.3zapi.top` gateway behavior.
+
+## Boundary
+
+- Add one migration with nine published tutorial pages and one focused migration
+  content test. Existing tutorial CRUD, Vue layout, fallback content, gateway
+  routing, providers, dependencies, containers, deployment, and user data stay
+  unchanged.
+- Use the external reference only for information hierarchy and parameter
+  research. Remove its brand, host, key-management copy, support links, and
+  verbatim prose.
+- GPT, Gemini, and Midjourney document the local final OpenAI-compatible image
+  response. Seedream documents submit plus `/v1/tasks/{task_id}` polling because
+  it does not use the local internal image-task polling branch.
+- Source migration only: do not execute against shared or production databases.
+
+## Acceptance Boundary
+
+- Static tests prove exact nine-model coverage, published/category state,
+  local-host examples, collision-safe inserts, and absence of reference branding.
+- Migration package tests, server compile, UTF-8/content review, scoped diff,
+  conflict/index checks, and desktop/mobile tutorial rendering must pass under
+  independent Terra QA before final PASS.
