@@ -10,7 +10,7 @@
 
 ## 当前目标
 
-- S226-B 已通过 Controller；等待用户明确授权 S226-C。当前不启动 C、独立 QA，也不把 A/B 业务提交集成到 main。
+- S226-B 已通过 Controller；等待用户明确授权 S226-C。B 验收后用户更新了 TutorialView patch，若授权 C 必须先冻结新基线。当前不启动 C、独立 QA，也不把 A/B 业务提交集成到 main。
 
 ## 本次已完成
 
@@ -37,11 +37,11 @@
 - B3 四个 Anthropic-native 读循环的 interval timeout 属于 S226-C；B4 探测 URL allowlist 与拒绝时零出站属于 S226-B。
 - 上游多个拆分 gateway 文件本地不存在；contract 已将其改写到 `gateway_service.go`、`openai_gateway_service.go`、`openai_gateway_chat_completions_raw.go` 和 `openai_ws_forwarder.go` 等本地 owner。
 - S226-A 保留 `IsOpenAICompatible` 的 openai/grok 语义，未提前开放 CN 路由；也未扩展 `AllowedQuotaPlatforms` 或 `AllowedSchedulingThresholdPlatforms`。业务 patch-id 为 `b0ec5bd95a5e00fffd8e06000f2f96dfbe552680`。
-- 用户未提交内容包括两个 backend 教程测试、两个 account-modal 文件、`TutorialView.vue` 及其测试、`knowledge/00-start-here.md`、`knowledge/05-current-focus.md`、两个未跟踪教程 migration 和 `outputs/`。patch-id 分别为 backend `a81fbffb...`、account `5d316e5b...`、tutorial `9e0894bc...`、knowledge `2abee47d...`，S226-A 验收前后不变。
+- 用户未提交内容包括两个 backend 教程测试、两个 account-modal 文件、`TutorialView.vue` 及其测试、`knowledge/00-start-here.md`、`knowledge/05-current-focus.md`、两个未跟踪教程 migration 和 `outputs/`。B Controller gate 时 patch-id 为 backend `a81fbffb...`、account `5d316e5b...`、tutorial `9e0894bc...`、knowledge `2abee47d...`；随后观察到用户 TutorialView patch 变为 `ce6749a8c5d0256cfa1a986f3e4d8d7377df6753`，其余三组、两个 migration hash 和 `outputs/` 均不变。
 
 ## 待验证点
 
-- S226-C 授权后需从精确 base `f6b380e21` 创建新 worktree；验证：B3 四条 Anthropic-native 阻塞读循环按 interval timeout 关闭响应体，CN 多协议网关/429 冷却的 focused x10、affected packages、Wire 和 protected-main 门禁均 PASS。
+- S226-C 授权后需先冻结用户 TutorialView 的新 patch-id `ce6749a8...`，再从精确 base `f6b380e21` 创建新 worktree；验证：B3 四条 Anthropic-native 阻塞读循环按 interval timeout 关闭响应体，CN 多协议网关/429 冷却的 focused x10、affected packages、Wire 和 protected-main 门禁均 PASS。
 - S226-D 仍需验证用户 modal 临时 baseline/最终合入策略；验证：业务 commit 不包含用户 patch，主工作区 account patch-id 在集成前后均为 `5d316e5b...`。
 - 前端当前 `node_modules` 缺少 `vitest/vue-tsc/vite` 可执行文件；D/E 开始时必须在任务 worktree 恢复工具链，否则 QA 报 `BLOCKED`，不得跳过。
 - 若授权发布：先复核最终 `git status`、主线测试证据和远端差异，再执行普通 `git push origin main`；当前没有发布授权。
@@ -54,7 +54,7 @@
 
 ## 下一步
 
-- 用户授权 S226-C -> 验证：从 `f6b380e21d7419a5a3f9f726f7a28de876383fd7` 创建 clean worktree，按 C allowlist 调度 Terra Developer；B3 timeout、协议矩阵、16 个 focused x10、affected packages/server compile、范围与主工作区保护全部 PASS 后才可进入 D。
+- 用户授权 S226-C -> 验证：先将当前 TutorialView patch `ce6749a8c5d0256cfa1a986f3e4d8d7377df6753` 记录为 C 的保护基线，再从 `f6b380e21d7419a5a3f9f726f7a28de876383fd7` 创建 clean worktree，按 C allowlist 调度 Terra Developer；B3 timeout、协议矩阵、16 个 focused x10、affected packages/server compile、范围与主工作区保护全部 PASS 后才可进入 D。
 - C PASS 后等待用户授权 S226-D；D -> E 均要求前一批精确 commit、allowlist、focused/full gates 和报告 PASS，最终 E PASS 后才允许主线集成。
 - 发布当前本地提交（需用户授权） -> 验证：push 前后比较 `HEAD`、`origin/main` 和远端 `refs/heads/main`，只允许普通 push。
 
@@ -68,3 +68,4 @@
 - S226-A Controller：focused 8/8 可发现，x10 `0.079s`；service `60.255s`；server compile `0.071s`；gofmt、diff、allowlist、冲突/index、三项 upstream provenance 与 batch boundary PASS。
 - S226-A 保护状态：`main@6ebabe92b`，`origin/main@a865d8b6e`，本地领先 22；backend/account/tutorial/knowledge patch-id 与两个 migration SHA256 均和 dispatch 快照一致，暂存区为空，`outputs/` 保持未跟踪。
 - S226-B Controller：先修复读取失败/无效响应不能覆盖旧快照或暂停账号的缺陷；17/17 可发现，20 项 focused/鲁棒性 x10 `0.090s`，config `0.710s`、service `60.407s`、routes `1.491s`、cmd/server `0.086s`，B4 零出站、owned-pause、多币种、proxy、Wire、gofmt、diff、allowlist、冲突/index、三项 provenance 和主工作区保护均 PASS。业务 patch-id `a8c91f5789b96a93ffb6c8d99969519726906e03`；主工作区为 `main@73cf6aa21`，`origin/main@a865d8b6e`，领先 24，用户 patch/hash 和 `outputs/` 状态不变。
+- B PASS 后的 live protection check：TutorialView patch 已由用户更新为 `ce6749a8c5d0256cfa1a986f3e4d8d7377df6753`；B worktree、报告和 Controller workflow 提交均未包含该路径。保留该用户变化；不要用 B gate 的旧 `9e0894bc...` 值继续派发 C。

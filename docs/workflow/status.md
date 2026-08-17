@@ -2,7 +2,7 @@
 phase: build
 current_sprint: upstream-cn-providers-s226
 total_sprints: 226
-pending_action: Await explicit authorization for S226-C. S226-B Controller PASS is frozen at report f6b380e21 (business 316fa46c6, exact approved base 3ed89c995); do not start S226-C or independent QA and do not integrate A/B into main before the ordered batch gates permit it.
+pending_action: Await explicit authorization for S226-C. S226-B Controller PASS is frozen at report f6b380e21 (business 316fa46c6, exact approved base 3ed89c995); a post-review user TutorialView patch changed to ce6749a8, so C authorization must first freeze that new protected baseline. Do not start S226-C or independent QA and do not integrate A/B into main before the ordered batch gates permit it.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
@@ -65,6 +65,12 @@ last_verified: 2026-08-17 18:55 +08:00
   `a8c91f5789b96a93ffb6c8d99969519726906e03`. B4 reject paths make zero
   `HTTPUpstream.Do` calls; recovery clears only the owned balance-pause prefix.
   Await explicit S226-C authorization from exact approved base `f6b380e21`.
+- `NOTICE / post-B user dirty change`: after the Controller protection gate,
+  the user-owned TutorialView patch changed from the S226-A dispatch snapshot
+  `9e0894bc...` to `ce6749a8c5d0256cfa1a986f3e4d8d7377df6753`. No S226 code,
+  report, Controller commit, or other protected patch caused the change. Preserve
+  it; if S226-C is authorized, freeze the new value before dispatch rather than
+  treating the historical B gate as a current C baseline.
 
 # Upstream Fingerprint User-Agent Validation S225
 
