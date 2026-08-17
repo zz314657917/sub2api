@@ -1,12 +1,12 @@
 ---
-phase: contract-approved
+phase: build
 current_sprint: upstream-fingerprint-user-agent-validation-s225
 total_sprints: 225
-pending_action: Dispatch Terra Developer in an isolated worktree from frozen base 06e0e6ea5. Implement only S225 User-Agent validation, focused tests, and the Developer report; preserve local defaults and all user-owned dirty paths. No push or deployment.
+pending_action: Await Terra Developer candidate from the isolated S225 worktree at frozen base 06e0e6ea5, then review the exact diff and worker report before independent QA. Preserve all user-owned dirty paths; no push or deployment.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-17 15:33 +08:00
+last_verified: 2026-08-17 15:31 +08:00
 ---
 
 # Upstream Fingerprint User-Agent Validation S225
@@ -24,6 +24,11 @@ last_verified: 2026-08-17 15:33 +08:00
   dependencies, provider calls, containers, deployment, push, and all
   user-owned dirty paths remain denied.
 - Contract: `docs/workflow/tasks/upstream-fingerprint-user-agent-validation-s225.md`.
+- `build / developer-dispatched`: isolated worktree
+  `E:/codex-worktrees/sub2api/upstream-fingerprint-user-agent-validation-s225`,
+  branch `pge/upstream-fingerprint-user-agent-validation-s225`, frozen base
+  `06e0e6ea5`. Terra Developer owns only the two business files and its report;
+  controller diff review is required before independent QA.
 
 # Upstream Billing Quantization S224
 
