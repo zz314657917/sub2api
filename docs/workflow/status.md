@@ -2,11 +2,11 @@
 phase: build
 current_sprint: upstream-cn-providers-s226
 total_sprints: 226
-pending_action: Await the S226-B Terra Developer result from the isolated worktree at exact base 3ed89c995, then perform Controller review of B4 zero-egress URL policy, quota/balance semantics, admin/Wire integration, 17 focused tests x10, affected packages, exact allowlist, and protected main state. Do not start S226-C or independent QA before Controller PASS.
+pending_action: Await explicit authorization for S226-C. S226-B Controller PASS is frozen at report f6b380e21 (business 316fa46c6, exact approved base 3ed89c995); do not start S226-C or independent QA and do not integrate A/B into main before the ordered batch gates permit it.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-17 18:07 +08:00
+last_verified: 2026-08-17 18:55 +08:00
 ---
 
 # Upstream CN Providers S226
@@ -52,6 +52,19 @@ last_verified: 2026-08-17 18:07 +08:00
   owns only the 20 S226-B business/test paths plus its report. B4 URL-policy
   rejection must occur before request creation or dispatch and prove zero
   network I/O. Controller review is required; do not start C-D or QA early.
+- `PASS / S226-B controller-review`: implementation `316fa46c6` and report
+  `f6b380e21` are limited to 18 changed B business/test files plus the required
+  report. Controller first rejected the body-read/invalid-payload path because
+  it could overwrite a prior snapshot and falsely pause an account; the amended
+  implementation now preserves snapshots and leaves balances unpaused on read,
+  JSON, or required-field failures. Controller independently discovered all 17
+  contract tests, passed 20 focused/robustness tests x10 in 0.090s, full config,
+  service (60.407s), routes (1.491s), and server (0.086s), plus gofmt, diff,
+  exact allowlist, Wire compile, conflict/index, three provenance checks, and
+  protected main patch/hash checks. Business patch-id is
+  `a8c91f5789b96a93ffb6c8d99969519726906e03`. B4 reject paths make zero
+  `HTTPUpstream.Do` calls; recovery clears only the owned balance-pause prefix.
+  Await explicit S226-C authorization from exact approved base `f6b380e21`.
 
 # Upstream Fingerprint User-Agent Validation S225
 
