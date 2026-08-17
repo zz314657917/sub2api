@@ -12,6 +12,11 @@ func TestImageModelTutorialPages(t *testing.T) {
 	}
 
 	sql := string(content)
+	domainContent, err := FS.ReadFile("225_update_image_model_tutorial_domains.sql")
+	if err != nil {
+		t.Fatalf("read image-model tutorial domain migration: %v", err)
+	}
+	domainSQL := string(domainContent)
 	pages := []struct {
 		slug  string
 		model string
@@ -32,6 +37,18 @@ func TestImageModelTutorialPages(t *testing.T) {
 		}
 		if !strings.Contains(sql, "`"+page.model+"`") {
 			t.Fatalf("migration is missing model ID %q", page.model)
+		}
+		if strings.Count(domainSQL, "'"+page.slug+"'") != 1 {
+			t.Fatalf("domain migration must target tutorial %q exactly once", page.slug)
+		}
+	}
+
+	for _, required := range []string{
+		"replace(", "content_md,", "'https://ai.3zapi.top'", "'https://ai.3zapi.com'",
+		"updated_at = NOW()", "content_md LIKE '%https://ai.3zapi.top%'",
+	} {
+		if !strings.Contains(domainSQL, required) {
+			t.Fatalf("domain migration is missing required content %q", required)
 		}
 	}
 
