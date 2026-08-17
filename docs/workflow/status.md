@@ -1,12 +1,12 @@
 ---
-phase: build
+phase: contract-approved
 current_sprint: upstream-cn-providers-s226
 total_sprints: 226
-pending_action: Await the S226-A Terra Developer result from the isolated worktree at frozen base 98daf5b8d, then perform Controller diff, allowlist, focused x10, full service, server compile, provenance, and protected-main-worktree review. Do not start S226-B or independent QA before Controller PASS.
+pending_action: Await explicit user authorization to start S226-B from Controller-approved S226-A report commit 3ed89c995. A passed all Controller gates; do not create the B worktree, modify B paths, or start independent QA before authorization.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-17 17:45 +08:00
+last_verified: 2026-08-17 18:01 +08:00
 ---
 
 # Upstream CN Providers S226
@@ -37,6 +37,15 @@ last_verified: 2026-08-17 17:45 +08:00
   `pge/upstream-cn-providers-s226-a`, exact base `98daf5b8d`. Terra Developer
   owns only the eight S226-A allowlisted paths. Controller review is required;
   do not start B-D or independent QA early.
+- `PASS / S226-A controller-review`: implementation `ba7c00c78` and report
+  `3ed89c995` are limited to seven business/test files plus the required report.
+  Controller independently discovered all eight focused tests, passed x10 in
+  0.079s, full service in 60.255s, server compile in 0.071s, gofmt, diff,
+  allowlist, conflict/index, provenance, protected patch IDs, and excluded-file
+  hashes. Business patch-id is `b0ec5bd95a5e00fffd8e06000f2f96dfbe552680`.
+  Quota/threshold platform expansion and `IsOpenAICompatible` routing changes
+  remain excluded. Await explicit authorization for S226-B; its exact base is
+  `3ed89c9952f09e03861e197d59aad456f3b19b29`.
 
 # Upstream Fingerprint User-Agent Validation S225
 

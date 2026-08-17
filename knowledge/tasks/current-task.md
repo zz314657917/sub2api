@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-17 16:54 +08:00
+最后更新：2026-08-17 18:01 +08:00
 
 ## 背景
 
@@ -10,7 +10,7 @@
 
 ## 当前目标
 
-- S226 contract 已批准，等待用户明确授权从 S226-A 开始实现。当前不创建 worktree、不调度 worker、不改业务代码。
+- S226-A 已由 Terra Developer 完成并通过 Controller 独立验收；等待用户明确授权从精确 base `3ed89c995` 创建 S226-B worktree。当前不创建 B worktree、不启动 QA、不把 A 业务提交集成到 main。
 
 ## 本次已完成
 
@@ -19,7 +19,9 @@
 - S225 已本地合入：业务 `ba42a434e`、Developer 报告 `b82c9c998`、独立 QA `51b9a47bd`。
 - S223、S224 Developer/QA、S225 Developer/QA 共五个 worktree 和五个 `pge/*` 分支已清理；无关 detached `tutorial-nav-20260817` 保留。
 - 新增 `docs/workflow/tasks/upstream-cn-providers-s226.md`，将实现拆为 A 平台/账号基础、B 额度余额探测与管理 API、C 多协议网关与冷却、D 前端账户管理、E 集成与独立 QA。
-- S226 contract review 已 PASS；workflow 状态停在 `contract-approved`，没有创建 S226 worktree 或调用 Developer/QA。
+- S226 contract review 已 PASS；批准时停在 `contract-approved`，当时尚未创建 S226 worktree 或调用 Developer/QA。
+- S226-A worktree `E:/codex-worktrees/sub2api/upstream-cn-providers-s226-a` 从冻结 base `98daf5b8d` 创建；Developer 实现 `ba7c00c78`、报告 `3ed89c995`，未进入 B 或 QA。
+- S226-A Controller review PASS：7 个业务/测试文件加报告严格 allowlist，8/8 focused 可发现且 x10 PASS，完整 service、server compile、格式、Git/provenance 与主工作区保护门禁均 PASS。
 
 ## 已确认事实
 
@@ -32,11 +34,12 @@
 - 上游可配置调度阈值又依赖本地缺失的 `7c62382d0`（55 文件/3542 行）。S226 保留额度快照和响应式 429 重置点冷却，但不暗中引入通用阈值产品或前端设置面板。
 - B3 四个 Anthropic-native 读循环的 interval timeout 属于 S226-C；B4 探测 URL allowlist 与拒绝时零出站属于 S226-B。
 - 上游多个拆分 gateway 文件本地不存在；contract 已将其改写到 `gateway_service.go`、`openai_gateway_service.go`、`openai_gateway_chat_completions_raw.go` 和 `openai_ws_forwarder.go` 等本地 owner。
-- 用户未提交内容包括两个 account-modal 文件、`TutorialView.vue` 及其测试、`knowledge/00-start-here.md`、`knowledge/05-current-focus.md` 和 `outputs/`。account patch-id 为 `5d316e5b6935fdc5dbf825f940feaf231d79ac0f`，tutorial patch-id 为 `7f5afe57708ae3cc6b5781989c25195eaa6ffda5`，knowledge patch-id 为 `2abee47db90ce1d54e1f9ba7d1a3cc2d633c2374`。
+- S226-A 保留 `IsOpenAICompatible` 的 openai/grok 语义，未提前开放 CN 路由；也未扩展 `AllowedQuotaPlatforms` 或 `AllowedSchedulingThresholdPlatforms`。业务 patch-id 为 `b0ec5bd95a5e00fffd8e06000f2f96dfbe552680`。
+- 用户未提交内容包括两个 backend 教程测试、两个 account-modal 文件、`TutorialView.vue` 及其测试、`knowledge/00-start-here.md`、`knowledge/05-current-focus.md`、两个未跟踪教程 migration 和 `outputs/`。patch-id 分别为 backend `a81fbffb...`、account `5d316e5b...`、tutorial `9e0894bc...`、knowledge `2abee47d...`，S226-A 验收前后不变。
 
 ## 待验证点
 
-- S226-A 实现前需由 Controller 记录精确 base `98daf5b8d` 并建立单独 worktree；验证：只允许 A 的 7 个业务/测试路径和报告，focused x10、完整 service、server compile 均 PASS。
+- S226-B 启动前需用户明确授权，并由 Controller 从精确 commit `3ed89c9952f09e03861e197d59aad456f3b19b29` 创建唯一 B worktree；验证：A 实现与报告均为祖先、B allowlist 精确、主工作区保护指纹不变。
 - S226-D 仍需验证用户 modal 临时 baseline/最终合入策略；验证：业务 commit 不包含用户 patch，主工作区 account patch-id 在集成前后均为 `5d316e5b...`。
 - 前端当前 `node_modules` 缺少 `vitest/vue-tsc/vite` 可执行文件；D/E 开始时必须在任务 worktree 恢复工具链，否则 QA 报 `BLOCKED`，不得跳过。
 - 若授权发布：先复核最终 `git status`、主线测试证据和远端差异，再执行普通 `git push origin main`；当前没有发布授权。
@@ -44,13 +47,13 @@
 
 ## 当前结论
 
-- `PASS / S226-contract-approved-only`。
-- A-E 分批、上游阻断项处置、本地 owner、allowlist、验收和 stop rules 已冻结；S226 业务尚未实现或运行态验证。
+- `PASS / S226-A-controller-review`。
+- A 的平台/账号基础已在隔离分支实现并通过 Controller；尚未集成 main。B-E 未开始，独立 QA 仍只允许在 E 执行。
 
 ## 下一步
 
-- 用户授权 S226-A -> 验证：从 `98daf5b8d` 创建唯一 A worktree，按 contract 调用 Terra Developer；A Controller PASS 前不开始 B。
-- 后续依次 S226-B -> C -> D -> E；每批验证：前一批精确 commit、allowlist、focused/full gates 和报告均 PASS，最终 E 才允许主线集成。
+- 用户授权 S226-B -> 验证：从 `3ed89c995` 创建唯一 B worktree，按 contract 调用 Terra Developer；B Controller PASS 前不开始 C。
+- 后续依次 S226-C -> D -> E；每批验证：前一批精确 commit、allowlist、focused/full gates 和报告均 PASS，最终 E PASS 后才允许主线集成。
 - 发布当前本地提交（需用户授权） -> 验证：push 前后比较 `HEAD`、`origin/main` 和远端 `refs/heads/main`，只允许普通 push。
 
 ## 验证记录
@@ -60,4 +63,5 @@
 - S225 Controller：focused x10 `0.092s`、service `60.469s`、server compile PASS；独立 QA：focused x10 `0.077s`、service `60.243s`、server compile PASS。
 - S225 集成主线：focused x10 `0.077s`、patch-id/format/provenance/conflict/index 与两组用户 patch-id PASS。
 - S226 contract：目标链 ancestry 在 `upstream/main@e330c243a` 可达；直接 apply 检查失败并确认需手工适配；quota 前置 123 文件、threshold 前置 55 文件均已量化并排除。
-- S226 保护状态：`main@98daf5b8d`，`origin/main@a865d8b6e`，本地领先 20；account patch-id `5d316e5b...`、tutorial patch-id `7f5afe57...`、knowledge patch-id `2abee47d...`，暂存区为空，`outputs/` 保持未跟踪。
+- S226-A Controller：focused 8/8 可发现，x10 `0.079s`；service `60.255s`；server compile `0.071s`；gofmt、diff、allowlist、冲突/index、三项 upstream provenance 与 batch boundary PASS。
+- S226-A 保护状态：`main@6ebabe92b`，`origin/main@a865d8b6e`，本地领先 22；backend/account/tutorial/knowledge patch-id 与两个 migration SHA256 均和 dispatch 快照一致，暂存区为空，`outputs/` 保持未跟踪。
