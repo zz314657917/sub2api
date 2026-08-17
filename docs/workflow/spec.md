@@ -2132,3 +2132,27 @@ image models shown by the user, using the existing tutorial CMS and the actual
 - Migration package tests, server compile, UTF-8/content review, scoped diff,
   conflict/index checks, and desktop/mobile tutorial rendering must pass under
   independent Terra QA before final PASS.
+
+# Upstream Billing Quantization Addendum (S224)
+
+## Goal
+
+Quantize every `UsageBillingCommand` monetary amount to PostgreSQL
+`NUMERIC(20,8)` before persistence while preserving the raw-value request
+fingerprint used for idempotency.
+
+## Boundary
+
+- Quantization runs after fingerprint generation and covers the local prepaid
+  balance field in addition to all upstream monetary fields.
+- Reuse the existing decimal dependency. SQL, migrations, repositories, cost
+  calculation, routing, frontend, provider calls, containers, deployment, push,
+  and production operations are excluded.
+
+## Acceptance Boundary
+
+- Default-tag tests prove rounding boundaries, exact balance/quota reconciliation,
+  all monetary fields, raw fingerprint ordering, explicit fingerprints,
+  nonfinite values, and negative values.
+- Complete service/repository regression, formatting, exact allowlist,
+  provenance, and dirty-worktree protection require independent Terra QA.

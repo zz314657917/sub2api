@@ -1,13 +1,21 @@
 ---
-phase: done
-current_sprint: image-model-tutorials-s223
-total_sprints: 223
-pending_action: S223 has been integrated locally on main. The nine Tutorial Management pages will publish when migration 224 is applied through the normal environment workflow; preserve the user-owned account-modal, knowledge, and outputs paths. Do not run migration 224 against shared or production databases without separate authorization.
+phase: contract-approved
+current_sprint: upstream-billing-quantize-s224
+total_sprints: 224
+pending_action: Dispatch the approved S224 billing quantization contract to an isolated Terra Developer Worker. Preserve all user-owned account-modal, knowledge, and outputs paths. S223 remains integrated locally and unpushed.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-17 12:40 +08:00
+last_verified: 2026-08-17 14:55 +08:00
 ---
+
+# Upstream Billing Quantization S224
+
+- `PASS / contract-approved`: adapt `e2652eb85` to the local billing command, including
+  `PrepaidBalanceCost`, while preserving raw-value request fingerprints.
+- Only `usage_billing.go`, a focused default-tag test, and task reports are
+  allowed. No SQL, migration, dependency, frontend, provider, container,
+  deployment, remote push, or production operation is authorized.
 
 # Image Model Tutorials S223
 
