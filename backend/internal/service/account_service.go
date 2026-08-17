@@ -466,6 +466,9 @@ func (s *AccountService) TestCredentials(ctx context.Context, id int64) error {
 	case PlatformGrok:
 		// Grok OAuth credentials are validated via token exchange/refresh and request-path probes.
 		return nil
+	case PlatformKimi, PlatformZhipu, PlatformDeepseek:
+		// CN provider credentials are API keys; probing is introduced in S226-B.
+		return nil
 	default:
 		return fmt.Errorf("unsupported platform: %s", account.Platform)
 	}
