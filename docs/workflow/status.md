@@ -1,12 +1,12 @@
 ---
-phase: done
-current_sprint: upstream-cn-provider-billing-s229-b
+phase: contract-approved
+current_sprint: upstream-cn-provider-403-s229-c
 total_sprints: 229
-pending_action: Evaluate the next independently verifiable S229 slice; 403 policy and disconnect drain/finalize remain separate.
+pending_action: Implement S229-C only in an isolated worktree, then run Controller review and independent QA; disconnect drain/finalize remains separate.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-18 16:08 +08:00
+last_verified: 2026-08-18 16:16 +08:00
 ---
 
 # Upstream Ops Small Fixes S227
@@ -102,6 +102,17 @@ last_verified: 2026-08-18 16:08 +08:00
   to Claude pricing; explicit Group/Channel pricing remains eligible and
   empty candidates persist zero-cost usage. No push/deployment/provider/
   database/container operation occurred.
+
+# Upstream CN Provider 403 S229-C
+
+- `contract-approved`: manually adapt only the `handle403` platform dispatch from
+  upstream `10c8b7020` at frozen `main@44fa47124`. CN providers will reuse the
+  existing OpenAI HTML exemption, counter, temporary cooldown, and threshold
+  disable behavior.
+- Billing, partial-result usage, disconnect drain/finalize, stream handlers,
+  frontend, migrations, dependencies, user-owned files, provider/database/
+  container operations, deployment, and push are denied.
+- Contract: `docs/workflow/tasks/upstream-cn-provider-403-s229-c.md`.
 - `contract-amendment`: Go module commands are run from `backend/`; no product
   scope or acceptance behavior changed.
 

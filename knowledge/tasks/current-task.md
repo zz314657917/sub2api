@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-18 16:08 +08:00
+最后更新：2026-08-18 16:16 +08:00
 
 ## 背景
 
@@ -10,7 +10,7 @@
 
 ## 当前目标
 
-- S226、S228、S229-A 与 S229-B 已按批准边界集成 `main`；当前评估 `10c8b7020` 剩余 403 与断开排水切片，未执行 push、部署或真实 provider 操作。
+- S226、S228、S229-A 与 S229-B 已按批准边界集成 `main`；S229-C 403 contract 已批准，将在隔离 worktree 实现，未执行 push、部署或真实 provider 操作。
 
 ## 本次已完成
 
@@ -35,6 +35,7 @@
 - S229-A 已完成独立实现、Controller review 和独立 QA：业务 `ce0ffdb65`，Controller report `fb391fd08`，QA report `fe11096aa`；按顺序集成到 `main` 为 `2422b9b15`/`65ac54145`/`de62dd8d6`。
 - S229-B billing-only contract 已批准：基线 `main@de62dd8d6`，上游 source `10c8b7020`，范围限定 CN 计费候选过滤、显式定价放行与空候选 zero-cost usage；403 和断开排水切片继续分离。
 - S229-B 已完成隔离实现、Controller review、独立 QA 和主线集成：业务 `c3b0ed259`，Controller report `upstream-cn-provider-billing-s229-b-result.md`，QA report `upstream-cn-provider-billing-s229-b-qa.md`，主线仍未 push。
+- S229-C 403-only contract 已批准：基线 `main@44fa47124`，上游 source `10c8b7020`，范围限定 CN 403 分派复用 OpenAI 策略；断开排水切片继续分离。
 
 ## 已确认事实
 
@@ -54,7 +55,7 @@
 
 ## 待验证点
 
-- 评估 `10c8b7020` 下一片 -> 验证：分别审计 CN 403 处置与 partial-result/stream drain owners，单独建立 contract，不与 S229-B 混合。
+- S229-C isolated implementation -> 验证：只修改 ratelimit owner 与 focused tests，完成 Controller review 后再建立独立 QA worktree。
 - 若授权发布：先复核最终 `git status`、主线测试证据和远端差异，再执行普通 `git push origin main`；当前没有发布授权。
 - S225/S226/S228 均未运行真实 Redis 或上游 provider 集成；合同禁止这些操作，当前证据来自 mock/httptest、包回归、server 编译和前端构建。
 
