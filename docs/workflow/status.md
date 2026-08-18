@@ -1,12 +1,12 @@
 ---
-phase: fix
+phase: qa
 current_sprint: upstream-cn-providers-s226
 total_sprints: 226
-pending_action: Controller takeover of S226-D in the unchanged isolated worktree at exact base 5bb985cb6 plus non-integrated baseline d7158e916 after two failed Developer attempts; preserve the D allowlist and baseline boundary, implement and review the frontend delta, then keep independent QA for S226-E. No main integration occurs before E PASS.
+pending_action: Dispatch independent S226-E QA from D report c539d1f01 in a clean task worktree; rerun all A-D gates, frontend build/typecheck/focused tests, full affected backend packages, and task-owned UI inspection before any main integration.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-18 11:20 +08:00
+last_verified: 2026-08-18 12:22 +08:00
 ---
 
 # Upstream CN Providers S226
@@ -121,6 +121,14 @@ last_verified: 2026-08-18 11:20 +08:00
   report changes. This is the second invalid Worker attempt, so the P/G/E stop
   rule ends low-cost dispatch. Controller takes over the same D
   allowlist/baseline; independent E QA remains mandatory.
+- `PASS / S226-D controller-review`: Controller implementation `a559956f7` and
+  report `c539d1f01` are limited to the D frontend allowlist plus the required
+  report, with the user modal baseline `d7158e916` excluded from the business
+  diff. Seven focused Vitest files (87 tests), typecheck, production build,
+  diff/allowlist/conflict/index, three provenance checks, and protected-main
+  patch IDs all passed. Business patch-id is
+  `04fc586c994a0264280db52a88c6398d83e29ebe`. Advance to independent S226-E
+  QA; do not integrate D into main before the E gate.
 
 # Upstream Fingerprint User-Agent Validation S225
 

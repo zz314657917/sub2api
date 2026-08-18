@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-18 11:20 +08:00
+最后更新：2026-08-18 12:22 +08:00
 
 ## 背景
 
@@ -10,7 +10,7 @@
 
 ## 当前目标
 
-- 用户已授权完成 S226 剩余计划。S226-C 已由 Controller 通过；S226-D 的低成本 Worker 也连续两次无有效产物，已按 P/G/E 停止低成本循环并由 Controller 在同一隔离 baseline/allowlist 内接管。A-C 均未集成 main，独立 QA 仍只允许在 S226-E。
+- 用户已授权完成 S226 剩余计划。S226-C 已由 Controller 通过；S226-D 的低成本 Worker 也连续两次无有效产物，已按 P/G/E 停止低成本循环并由 Controller 在同一隔离 baseline/allowlist 内接管。D Controller review 已通过，A-D 均未集成 main，当前进入 S226-E 独立 QA。
 
 ## 本次已完成
 
@@ -53,11 +53,12 @@
 ## 当前结论
 
 - `PASS / S226-C Controller review`：连续两次 Worker 无有效产物后，Controller 在同一 allowlist 内完成并通过所有 C 门禁；独立 QA 仍保留为 S226-E 的独立门禁。
-- A 的平台/账号基础、B 的额度/余额探测和管理 API、C 的多协议网关与冷却均已通过 Controller；三批均未集成 main，D-E 未开始。
+- `PASS / S226-D Controller review`：两次 Worker 失败后，Controller 在相同 baseline/allowlist 内完成前端账户控件与状态单元格；D 门禁全部通过，独立 S226-E QA 待派发。
+- A-D 均未集成 main；下一合法动作是从 D 报告提交 `c539d1f01` 创建独立 S226-E QA 工作树。
 
 ## 下一步
 
-- Controller 接管 S226-D -> 验证：在 `E:/codex-worktrees/sub2api/upstream-cn-providers-s226-d` 从 `d7158e916` 之后仅修改 D allowlist，形成业务/报告边界并独立执行 focused Vitest、typecheck、build；工具状态与 manifest/lockfile 保护保持不变。
+- S226-E 独立 QA -> 验证：从 D 报告提交 `c539d1f01` 创建 clean QA 工作树，QA 仅写 `docs/workflow/qa-reports/upstream-cn-providers-s226-qa.md`，独立重跑 A-D focused/full gates、frontend typecheck/build 和 task-owned UI inspection。
 - S226-D -> E 均要求前一批精确 commit、allowlist、focused/full gates 和报告 PASS，最终 E PASS 后才允许主线集成。
 - 发布当前本地提交（需用户授权） -> 验证：push 前后比较 `HEAD`、`origin/main` 和远端 `refs/heads/main`，只允许普通 push。
 
@@ -81,3 +82,4 @@
 - S226-D dispatch：工作树从 `5bb985cb6` 创建，用户 account modal patch 以 `d7158e916` 作为不合入 baseline；主工作区 patch-id 仍为 `5d316e5b6935fdc5dbf825f940feaf231d79ac0f`，D 仅允许 baseline 之后的前端 allowlist 差异。
 - S226-D Developer attempt 1：Sonnet 因 contract 路径解析到 D 工作树外并达到 `$0.10` 预算而退出，实际 `$0.1079`；无业务 diff、报告或依赖清单变化，D 仍停在 `d7158e916`，允许一次绝对路径受控重试。
 - S226-D Developer attempt 2：绝对路径重试立即返回 `Content block not found`，零 token、零文件和报告变化；按连续失败规则停止 Worker loop，Controller 接管 D 实现，范围、baseline 与 E 独立 QA 门禁不变。
+- S226-D Controller review PASS：业务 `a559956f7`、报告 `c539d1f01` 保持两提交边界；D 工作树从 `5bb985cb6` 加用户 modal 临时 baseline `d7158e916` 开始，业务 diff 仅含 D allowlist。7 个 focused Vitest 文件共 87 项、typecheck、build、diff、allowlist、冲突/index、三项 provenance 和主工作区保护门禁均 PASS；业务 patch-id 为 `04fc586c994a0264280db52a88c6398d83e29ebe`。独立 QA 尚未开始，D 未集成 main。
