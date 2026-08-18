@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-18 12:22 +08:00
+最后更新：2026-08-18 12:55 +08:00
 
 ## 背景
 
@@ -10,7 +10,7 @@
 
 ## 当前目标
 
-- 用户已授权完成 S226 剩余计划。S226-C 已由 Controller 通过；S226-D 的低成本 Worker 也连续两次无有效产物，已按 P/G/E 停止低成本循环并由 Controller 在同一隔离 baseline/allowlist 内接管。D Controller review 已通过，A-D 均未集成 main，当前进入 S226-E 独立 QA。
+- 用户已授权完成 S226 剩余计划。S226-E 独立 QA 已 PASS，A-D 已按批准边界集成 `main`；当前只等待用户明确授权后再按普通流程 push，未执行 push、部署或真实 provider 操作。
 
 ## 本次已完成
 
@@ -28,6 +28,9 @@
 - 用户明确允许替代模型；可用性探测确认 `sonnet` 解析为 `claude-sonnet-4-6` 并成功返回，已在 S226 contract 中指定为 Developer 和独立 QA 的具名替代模型。
 - 两次具名 Worker 尝试均未形成有效报告或业务提交：首次无报告退出，第二次返回 `Content block not found`；只读探针显示 CLI 把 C 路径映射到其他环境。低成本 Worker 循环已停止，Controller 接管实现，范围和验收门禁不变。
 - S226-C Controller review PASS：业务 `24873abf1`、报告 `5bb985cb6` 保持两提交边界，且仅含 C allowlist 和报告；16/16 合同测试及新增凭证/WebSocket 回归共 17 项均可发现并 x10 PASS，完整 `service`/`handler`/`routes`、`cmd/server` 编译、gofmt、diff、allowlist、冲突/index、三项 provenance 与 C0 主工作区保护门禁全部 PASS。业务 patch-id 为 `d6ee6e8e161ad9343b86f8092e55a4be9e2fbe88`。
+- S226-D Controller review PASS：业务 `a559956f7`、报告 `c539d1f01`，D 工作树以用户 modal baseline `d7158e916` 隔离；7 个 focused 文件共 87 项、typecheck/build、allowlist、provenance 和保护门禁通过，业务 patch-id 为 `04fc586c994a0264280db52a88c6398d83e29ebe`。
+- S226-E 独立 QA PASS：QA report `5ca12b78b`；A-C focused 40 项均可发现并 x10 PASS，完整 backend service/handler/routes、server compile、前端 focused/typecheck/build、scope/provenance/conflict/index 和保护 patch/hash 通过。浏览器 session `s226-e-qa-20260818-final` 检查公共首页非空并完成清理；无登录态导致后台账号页真实操作未覆盖，已记录为残余风险。
+- S226 已本地集成：A-C 业务/报告、无 baseline 的 D 业务提交 `501c3830a`、D 报告和 QA 报告依序进入 `main`，最终 HEAD `6ca47c2f8`，相对 `origin/main` ahead 45；D 集成 patch-id 保持 `04fc586c...`。
 
 ## 已确认事实
 
@@ -45,21 +48,17 @@
 
 ## 待验证点
 
-- S226-D 已建立隔离工作树并完成用户 modal 临时 baseline `d7158e916`；验证：业务提交只包含 baseline 之后的 D allowlist 差异，主工作区 account patch-id 在集成前后仍为 `5d316e5b...`。
-- 前端当前 `node_modules` 缺少 `vitest/vue-tsc/vite` 可执行文件；D/E 开始时必须在任务 worktree 恢复工具链，否则 QA 报 `BLOCKED`，不得跳过。
 - 若授权发布：先复核最终 `git status`、主线测试证据和远端差异，再执行普通 `git push origin main`；当前没有发布授权。
-- S225 未运行真实 Redis 或上游 provider 集成；合同禁止这些操作，允许范围由 mock cache、完整 service 和 server 编译覆盖。
+- S225/S226 均未运行真实 Redis 或上游 provider 集成；合同禁止这些操作，当前证据来自 mock/httptest、完整包回归、server 编译和前端构建。
 
 ## 当前结论
 
-- `PASS / S226-C Controller review`：连续两次 Worker 无有效产物后，Controller 在同一 allowlist 内完成并通过所有 C 门禁；独立 QA 仍保留为 S226-E 的独立门禁。
-- `PASS / S226-D Controller review`：两次 Worker 失败后，Controller 在相同 baseline/allowlist 内完成前端账户控件与状态单元格；D 门禁全部通过，独立 S226-E QA 待派发。
-- A-D 均未集成 main；下一合法动作是从 D 报告提交 `c539d1f01` 创建独立 S226-E QA 工作树。
+- `PASS / S226-E independent QA`：独立 QA 报告 `5ca12b78b`，静态、运行态、构建、scope/provenance 和保护边界均通过；UI 登录态限制已显式记录。
+- `PASS / S226 main integration`：A-D 业务与证据提交已按顺序集成 `main@6ca47c2f8`，用户 dirty patch IDs、未跟踪教程文件和 `outputs/` 均保持原值。
 
 ## 下一步
 
-- S226-E 独立 QA -> 验证：从 D 报告提交 `c539d1f01` 创建 clean QA 工作树，QA 仅写 `docs/workflow/qa-reports/upstream-cn-providers-s226-qa.md`，独立重跑 A-D focused/full gates、frontend typecheck/build 和 task-owned UI inspection。
-- S226-D -> E 均要求前一批精确 commit、allowlist、focused/full gates 和报告 PASS，最终 E PASS 后才允许主线集成。
+- S226 已完成；保留当前本地提交和用户 dirty 内容，等待明确发布授权。
 - 发布当前本地提交（需用户授权） -> 验证：push 前后比较 `HEAD`、`origin/main` 和远端 `refs/heads/main`，只允许普通 push。
 
 ## 验证记录
@@ -83,3 +82,5 @@
 - S226-D Developer attempt 1：Sonnet 因 contract 路径解析到 D 工作树外并达到 `$0.10` 预算而退出，实际 `$0.1079`；无业务 diff、报告或依赖清单变化，D 仍停在 `d7158e916`，允许一次绝对路径受控重试。
 - S226-D Developer attempt 2：绝对路径重试立即返回 `Content block not found`，零 token、零文件和报告变化；按连续失败规则停止 Worker loop，Controller 接管 D 实现，范围、baseline 与 E 独立 QA 门禁不变。
 - S226-D Controller review PASS：业务 `a559956f7`、报告 `c539d1f01` 保持两提交边界；D 工作树从 `5bb985cb6` 加用户 modal 临时 baseline `d7158e916` 开始，业务 diff 仅含 D allowlist。7 个 focused Vitest 文件共 87 项、typecheck、build、diff、allowlist、冲突/index、三项 provenance 和主工作区保护门禁均 PASS；业务 patch-id 为 `04fc586c994a0264280db52a88c6398d83e29ebe`。独立 QA 尚未开始，D 未集成 main。
+- S226-E QA：`5ca12b78b`；QA worktree 在 `c539d1f01` 上无产品 diff，A-C 40 项 focused x10、完整 backend service/handler/routes、server compile、D 87 项 focused、typecheck/build、provenance、scope、冲突/index 和保护 patch/hash 均 PASS；浏览器 session `s226-e-qa-20260818-final` 首页检查非空，后台账号页因无登录态未操作，session/profile/daemon/server 均已清理。
+- S226 主线集成：`1219d5352`/`cb34acf28`、`0a6990ea4`/`f32deb2ee`、`974793cd4`/`b93324820`、无 baseline 的 D `501c3830a`、`b97272adc`、`6ca47c2f8` 按序进入 `main`；A/B/C/D patch-id 分别为 `b0ec5bd95...`、`a8c91f578...`、`d6ee6e8e1...`、`04fc586c...`，最终主线前端/后端 fresh verification 全部通过。

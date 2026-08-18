@@ -1,12 +1,12 @@
 ---
-phase: qa
+phase: done
 current_sprint: upstream-cn-providers-s226
 total_sprints: 226
-pending_action: Dispatch independent S226-E QA from D report c539d1f01 in a clean task worktree; rerun all A-D gates, frontend build/typecheck/focused tests, full affected backend packages, and task-owned UI inspection before any main integration.
+pending_action: Await explicit publish authorization; S226 is integrated locally and no push/deployment has been performed.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-18 12:22 +08:00
+last_verified: 2026-08-18 12:55 +08:00
 ---
 
 # Upstream CN Providers S226
@@ -2566,5 +2566,7 @@ last_verified: 2026-08-18 12:22 +08:00
   - staged denied-path audit returned `NO_DENIED_PATHS` because no files were staged.
 - S42 QA 结论：PASS，详见 `docs/workflow/worker-results/upstream-main-v0143-user-model-stats-requested-s42-result.md` 和 `docs/workflow/qa-reports/upstream-main-v0143-user-model-stats-requested-s42-qa.md`。
 - S45 已合入 `main`：merge commit `d1bc3aa40 merge: add affiliate risk scanner alerts`，功能分支 head `41e1befc docs: align affiliate risk workflow status`。
-- 下一合法动作：进入下一个已批准 Sprint，或按发布流程做 S45 上线前验证。
+- `PASS / S226-E independent-qa`: QA report `5ca12b78b`，A-C focused 40 项均可发现并 x10 PASS，完整 backend service/handler/routes、server compile、D focused 87 项、typecheck、build、provenance、scope、冲突/index 与保护 patch/hash 均通过；浏览器 session `s226-e-qa-20260818-final` 检查公共首页非空并完成 profile/daemon/server 清理，后台账号页因无登录态列为未覆盖风险。
+- `PASS / S226 main-integration`: A-C 业务/报告与无 baseline 的 D 集成提交已按顺序进入 `main`，最终 HEAD `6ca47c2f8`，相对 `origin/main` ahead 45；主线前端 7 files/87 tests、typecheck、build，后端 service/handler/routes 与 server compile 均通过。用户 account/tutorial/knowledge patch IDs、六个未跟踪教程文件和 `outputs/` 均保持不变；未 push、未部署。
+- 下一合法动作：等待用户授权后按发布流程复核并普通 push；否则进入下一个已批准 Sprint。
 - 状态推进规则：`contract-draft -> contract-approved -> build -> qa -> fix -> retest -> done`。
