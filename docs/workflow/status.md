@@ -2,7 +2,7 @@
 phase: build
 current_sprint: upstream-cn-providers-s226
 total_sprints: 226
-pending_action: Prepare S226-D from exact approved C report 5bb985cb6: create an isolated worktree, apply the user-owned EditAccountModal patch only as a non-integrated task-local baseline, restore the frontend toolchain without manifest/lockfile changes, then dispatch the D implementation under its allowlist. No independent QA or main integration occurs before S226-E.
+pending_action: S226-D Developer is dispatched in the isolated worktree at exact base 5bb985cb6 plus non-integrated baseline d7158e916; restore and verify the frontend toolchain inside that worktree, then implement only the D allowlist and produce the worker report. No independent QA or main integration occurs before S226-E.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
@@ -103,6 +103,14 @@ last_verified: 2026-08-18 11:20 +08:00
   Business patch-id is `d6ee6e8e161ad9343b86f8092e55a4be9e2fbe88`.
   S226-D may now be prepared only from report commit `5bb985cb6`; independent
   QA and all main integration remain deferred to S226-E.
+- `build / S226-D developer-dispatched`: isolated worktree
+  `E:/codex-worktrees/sub2api/upstream-cn-providers-s226-d`, branch
+  `pge/upstream-cn-providers-s226-d`, exact approved C report base
+  `5bb985cb6`, and task-local user modal baseline `d7158e916`. The baseline
+  contains only the two user-owned account-modal files and must never be
+  integrated. The approved alternate Developer is `claude-sonnet-4-6`; only
+  the S226-D frontend paths and result report are allowed. Frontend dependencies
+  may be restored only in this worktree with no manifest or lockfile changes.
 
 # Upstream Fingerprint User-Agent Validation S225
 

@@ -45,7 +45,7 @@
 
 ## 待验证点
 
-- S226-D 需先建立用户 modal 的临时 baseline；验证：从 `5bb985cb6` 创建隔离工作树，业务提交只包含 baseline 之后的 D allowlist 差异，主工作区 account patch-id 在集成前后仍为 `5d316e5b...`。
+- S226-D 已建立隔离工作树并完成用户 modal 临时 baseline `d7158e916`；验证：业务提交只包含 baseline 之后的 D allowlist 差异，主工作区 account patch-id 在集成前后仍为 `5d316e5b...`。
 - 前端当前 `node_modules` 缺少 `vitest/vue-tsc/vite` 可执行文件；D/E 开始时必须在任务 worktree 恢复工具链，否则 QA 报 `BLOCKED`，不得跳过。
 - 若授权发布：先复核最终 `git status`、主线测试证据和远端差异，再执行普通 `git push origin main`；当前没有发布授权。
 - S225 未运行真实 Redis 或上游 provider 集成；合同禁止这些操作，允许范围由 mock cache、完整 service 和 server 编译覆盖。
@@ -57,7 +57,7 @@
 
 ## 下一步
 
-- 准备 S226-D -> 验证：从 C 报告 `5bb985cb6` 创建隔离工作树，只应用用户 `EditAccountModal` 及其测试补丁为任务内 baseline；安装前端工具链不得修改 manifest/lockfile，工具缺失则按合同 BLOCKED。
+- 执行 S226-D Developer -> 验证：在 `E:/codex-worktrees/sub2api/upstream-cn-providers-s226-d` 恢复前端工具链（不改 manifest/lockfile），只修改 D allowlist 并生成首行合法的 worker report；工具仍缺失则按合同 BLOCKED。
 - S226-D -> E 均要求前一批精确 commit、allowlist、focused/full gates 和报告 PASS，最终 E PASS 后才允许主线集成。
 - 发布当前本地提交（需用户授权） -> 验证：push 前后比较 `HEAD`、`origin/main` 和远端 `refs/heads/main`，只允许普通 push。
 
@@ -78,3 +78,4 @@
 - 具名替代模型探测：用户授权后，以 `--model sonnet` 运行的最小无写入请求成功，CLI 报告实际模型为 `claude-sonnet-4-6`；此探测未读取或修改业务文件。
 - Worker 升级证据：Sonnet 重试没有业务 diff；一次无报告退出，另一次返回 `Content block not found`，只读探针在 `$0.05` 上限内反复解析错误路径后停止。Controller 接管，不再重复低成本 Worker 调度。
 - S226-C Controller：17 项 focused 回归（16 合同项加凭证/WebSocket）均可发现并 `-count=10` PASS；完整 `go test ./internal/service ./internal/handler ./internal/server/routes -count=1` 与 `go test ./cmd/server -run '^$' -count=1` PASS。gofmt、diff、allowlist、冲突/index、三项 provenance 和 C0 保护均 PASS；业务/报告提交为 `24873abf1` / `5bb985cb6`。
+- S226-D dispatch：工作树从 `5bb985cb6` 创建，用户 account modal patch 以 `d7158e916` 作为不合入 baseline；主工作区 patch-id 仍为 `5d316e5b6935fdc5dbf825f940feaf231d79ac0f`，D 仅允许 baseline 之后的前端 allowlist 差异。
