@@ -129,6 +129,7 @@ export default {
           responses: 'Responses',
           responsesDesc: 'Provider native Responses endpoint, ideal for Codex.',
         },
+        balance: 'Balance --',
         window5h: '5-hour window',
         windowWeekly: 'Weekly window',
         probeTooltip: 'Query rolling 5-hour / weekly quota usage',
@@ -150,6 +151,7 @@ export default {
       status: {
         active: 'Active',
         inactive: 'Inactive',
+        expired: 'Expired',
         disabled: 'Disabled',
         error: 'Error',
         cooldown: 'Cooldown',

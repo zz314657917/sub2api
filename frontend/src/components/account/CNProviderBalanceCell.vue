@@ -81,7 +81,7 @@ const formatEntry = (entry: CNProviderBalanceEntry) =>
   `${entry.currency || '¥'} ${entry.balance >= 100 ? entry.balance.toFixed(0) : entry.balance.toFixed(2)}`
 const balanceLabel = computed(() => currentEntries.value.length
   ? currentEntries.value.map(formatEntry).join(' · ')
-  : t('admin.accounts.grokBalance')?.trim() || 'Balance')
+  : t('admin.accounts.cnProviders.balance'))
 const extractError = (cause: unknown): string => {
   const err = cause as { message?: string; reason?: string; response?: { data?: { message?: string; error?: string } } }
   return err?.message || err?.reason || err?.response?.data?.message || err?.response?.data?.error || t('common.error')

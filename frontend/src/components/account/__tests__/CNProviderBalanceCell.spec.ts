@@ -57,6 +57,16 @@ describe('CNProviderBalanceCell', () => {
     expect(wrapper.find('button').exists()).toBe(true)
   })
 
+  it('uses the CN balance placeholder when no snapshot is available', () => {
+    const account = makeAccount('payg')
+    account.extra = {}
+
+    const wrapper = mount(CNProviderBalanceCell, { props: { account } })
+
+    expect(wrapper.text()).toContain('admin.accounts.cnProviders.balance')
+    expect(wrapper.text()).not.toContain('admin.accounts.grokBalance')
+  })
+
   it('retains the snapshot when a manual probe fails', async () => {
     queryBalance.mockResolvedValue({ success: false, error: 'provider unavailable' })
     const wrapper = mount(CNProviderBalanceCell, { props: { account: makeAccount('payg') } })
