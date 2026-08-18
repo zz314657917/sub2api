@@ -1,8 +1,8 @@
 ---
-phase: build
+phase: fix
 current_sprint: upstream-cn-providers-s226
 total_sprints: 226
-pending_action: Retry S226-D Developer once in the unchanged isolated worktree at exact base 5bb985cb6 plus non-integrated baseline d7158e916, using the absolute contract path and the approved frontend allowlist. The first attempt ended before any file change because it resolved the contract outside the worktree and reached its budget. No independent QA or main integration occurs before S226-E.
+pending_action: Controller takeover of S226-D in the unchanged isolated worktree at exact base 5bb985cb6 plus non-integrated baseline d7158e916 after two failed Developer attempts; preserve the D allowlist and baseline boundary, implement and review the frontend delta, then keep independent QA for S226-E. No main integration occurs before E PASS.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
@@ -116,6 +116,11 @@ last_verified: 2026-08-18 11:20 +08:00
   stopped at its `$0.10` budget (`$0.1079` actual); no D file, report, or
   dependency manifest changed, and the worktree remains at baseline
   `d7158e916`. One controlled retry is allowed with an absolute contract path.
+- `FIX / S226-D Controller takeover`: the absolute-path Sonnet retry returned
+  `Content block not found` before inference with zero tokens and no file or
+  report changes. This is the second invalid Worker attempt, so the P/G/E stop
+  rule ends low-cost dispatch. Controller takes over the same D
+  allowlist/baseline; independent E QA remains mandatory.
 
 # Upstream Fingerprint User-Agent Validation S225
 

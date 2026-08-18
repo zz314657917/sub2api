@@ -10,7 +10,7 @@
 
 ## 当前目标
 
-- 用户已授权完成 S226 剩余计划。S226-C 的低成本 Worker 连续两次无有效产物后已按 P/G/E 升级为 Controller 接管，并在同一 C0 基线和 allowlist 内通过；下一步进入 S226-D 的隔离前端基线和实现。A-C 均未集成 main，独立 QA 仍只允许在 S226-E。
+- 用户已授权完成 S226 剩余计划。S226-C 已由 Controller 通过；S226-D 的低成本 Worker 也连续两次无有效产物，已按 P/G/E 停止低成本循环并由 Controller 在同一隔离 baseline/allowlist 内接管。A-C 均未集成 main，独立 QA 仍只允许在 S226-E。
 
 ## 本次已完成
 
@@ -57,7 +57,7 @@
 
 ## 下一步
 
-- 执行 S226-D Developer -> 验证：在 `E:/codex-worktrees/sub2api/upstream-cn-providers-s226-d` 恢复前端工具链（不改 manifest/lockfile），只修改 D allowlist 并生成首行合法的 worker report；工具仍缺失则按合同 BLOCKED。
+- Controller 接管 S226-D -> 验证：在 `E:/codex-worktrees/sub2api/upstream-cn-providers-s226-d` 从 `d7158e916` 之后仅修改 D allowlist，形成业务/报告边界并独立执行 focused Vitest、typecheck、build；工具状态与 manifest/lockfile 保护保持不变。
 - S226-D -> E 均要求前一批精确 commit、allowlist、focused/full gates 和报告 PASS，最终 E PASS 后才允许主线集成。
 - 发布当前本地提交（需用户授权） -> 验证：push 前后比较 `HEAD`、`origin/main` 和远端 `refs/heads/main`，只允许普通 push。
 
@@ -80,3 +80,4 @@
 - S226-C Controller：17 项 focused 回归（16 合同项加凭证/WebSocket）均可发现并 `-count=10` PASS；完整 `go test ./internal/service ./internal/handler ./internal/server/routes -count=1` 与 `go test ./cmd/server -run '^$' -count=1` PASS。gofmt、diff、allowlist、冲突/index、三项 provenance 和 C0 保护均 PASS；业务/报告提交为 `24873abf1` / `5bb985cb6`。
 - S226-D dispatch：工作树从 `5bb985cb6` 创建，用户 account modal patch 以 `d7158e916` 作为不合入 baseline；主工作区 patch-id 仍为 `5d316e5b6935fdc5dbf825f940feaf231d79ac0f`，D 仅允许 baseline 之后的前端 allowlist 差异。
 - S226-D Developer attempt 1：Sonnet 因 contract 路径解析到 D 工作树外并达到 `$0.10` 预算而退出，实际 `$0.1079`；无业务 diff、报告或依赖清单变化，D 仍停在 `d7158e916`，允许一次绝对路径受控重试。
+- S226-D Developer attempt 2：绝对路径重试立即返回 `Content block not found`，零 token、零文件和报告变化；按连续失败规则停止 Worker loop，Controller 接管 D 实现，范围、baseline 与 E 独立 QA 门禁不变。
