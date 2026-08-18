@@ -14,6 +14,24 @@ const openAIDefaultCodexOriginator = openaipkg.CodexDefaultOriginator
 // 若请求携带 version 且低于该值，上游直接 404。
 const codexUpstreamMinVersion = "0.144.0"
 
+// CodexCanonicalAuthIdentity returns the credential-face identity pair used by
+// the real Codex client for token exchange and refresh requests.
+func CodexCanonicalAuthIdentity() (userAgent, originator string) {
+	return codexCLIUserAgent, openAIDefaultCodexOriginator
+}
+
+// ApplyCodexCanonicalAuthIdentity writes the credential-face identity pair and
+// deliberately removes the inference-only version header.
+func ApplyCodexCanonicalAuthIdentity(headers http.Header) {
+	if headers == nil {
+		return
+	}
+	userAgent, originator := CodexCanonicalAuthIdentity()
+	headers.Set("user-agent", userAgent)
+	headers.Set("originator", originator)
+	headers.Del("version")
+}
+
 // codexOriginatorNormalization controls whether the shared egress boundary rewrites load-shed
 // Codex identities to the CLI identity. The gateway constructor publishes the startup config snapshot.
 var codexOriginatorNormalization = func() *atomic.Bool {

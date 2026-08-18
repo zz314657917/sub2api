@@ -15,12 +15,14 @@ import (
 )
 
 type codexManifestHTTPStub struct {
-	body   string
-	status int
-	etag   string
+	body    string
+	status  int
+	etag    string
+	lastReq *http.Request
 }
 
 func (s *codexManifestHTTPStub) Do(req *http.Request, _ string, _ int64, _ int) (*http.Response, error) {
+	s.lastReq = req
 	status := s.status
 	if status == 0 {
 		status = http.StatusOK
@@ -35,6 +37,22 @@ func (s *codexManifestHTTPStub) Do(req *http.Request, _ string, _ int64, _ int) 
 		Header:     header,
 		Body:       io.NopCloser(strings.NewReader(s.body)),
 	}, nil
+}
+
+func TestFetchCodexModelsManifestAPIKeyFallsBackForStaleHeaderVersion(t *testing.T) {
+	upstream := &codexManifestHTTPStub{body: `{"models":[{"slug":"gpt-5.6-sol"}]}`}
+	service := &OpenAIGatewayService{
+		cfg:          &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
+		httpUpstream: upstream,
+	}
+	account := &Account{ID: 4, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://provider.example/v1"}}
+
+	manifest, err := service.FetchCodexModelsManifest(context.Background(), account, "0.125.0", "")
+
+	require.NoError(t, err)
+	require.NotNil(t, manifest)
+	require.Equal(t, "0.125.0", upstream.lastReq.URL.Query().Get("client_version"))
+	require.Equal(t, codexCLIVersion, upstream.lastReq.Header.Get("Version"))
 }
 
 func (s *codexManifestHTTPStub) DoWithTLS(req *http.Request, proxyURL string, accountID int64, accountConcurrency int, _ *tlsfingerprint.Profile) (*http.Response, error) {

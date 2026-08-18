@@ -113,6 +113,20 @@ func TestEnforceCodexIdentityHeaders(t *testing.T) {
 	}
 }
 
+func TestCodexCanonicalAuthIdentityUsesPairedHeadersWithoutVersion(t *testing.T) {
+	userAgent, originator := CodexCanonicalAuthIdentity()
+	require.Equal(t, codexCLIUserAgent, userAgent)
+	require.Equal(t, openAIDefaultCodexOriginator, originator)
+
+	h := make(http.Header)
+	h.Set("version", "0.125.0")
+	ApplyCodexCanonicalAuthIdentity(h)
+
+	require.Equal(t, userAgent, h.Get("user-agent"))
+	require.Equal(t, originator, h.Get("originator"))
+	require.Empty(t, h.Get("version"))
+}
+
 // 开关是进程级快照，零值 Config（测试 / 工具手工构造，不经 viper）必须落在「归一化开启」
 // 一侧。开关类用例不能并行，因为它们会改写进程级状态。
 func TestCodexOriginatorNormalizationZeroValueConfigKeepsItEnabled(t *testing.T) {
