@@ -1,8 +1,8 @@
 ---
 phase: done
-current_sprint: upstream-gemini-skipped-error-policy-s231
+current_sprint: upstream-gemini-tool-config-s232
 total_sprints: 230
-pending_action: Review the next upstream candidate/history; S231 is integrated locally and no push is authorized.
+pending_action: Review the next upstream candidate/history; S232 is integrated locally and no push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
@@ -10,6 +10,23 @@ last_verified: 2026-08-18 20:49 +08:00
 ---
 
 # Upstream Gemini Skipped Error Policy S231
+
+# Upstream Gemini Typed Tool Config S232
+
+- `PASS / controller-review`: business `94cd14e18` and `5490a1b1b`, Controller
+  report `975e802ea`, and independent QA report `b109cabe8` are integrated on
+  main. Mixed Google Search plus function declarations now emit the typed
+  `includeServerSideToolInvocations` flag; pure function and pure web-search
+  paths remain unchanged. Focused x10, complete Antigravity/service, server
+  compile, format, scope, provenance, conflict/index, and protected-main gates
+  passed. No push, provider, database, deployment, or user dirty path changed.
+
+# Upstream Channel Pricing S232 (Deferred)
+
+- `BLOCKED / topology`: upstream `8f6f45983` depends on the absent local
+  channel model-sync and time-pricing owners (`92ad68a31`/`9f24a5530`). No
+  product changes were made; revisit only after those prerequisites are
+  intentionally introduced as a separate contract.
 
 - `contract-approved`: manually adapt upstream `ab0fcd1a0` at frozen
   `main@6d14a6dd1`; only Gemini native/Messages/Chat Completions
