@@ -24,6 +24,32 @@ type openAIInputTokensCountRequest struct {
 	ToolChoice   json.RawMessage           `json:"tool_choice,omitempty"`
 }
 
+func estimateAnthropicCountTokensLocally(body []byte) (int, error) {
+	var anthropicReq apicompat.AnthropicRequest
+	if err := json.Unmarshal(body, &anthropicReq); err != nil {
+		return 0, fmt.Errorf("parse anthropic count_tokens request: %w", err)
+	}
+	if strings.TrimSpace(anthropicReq.Model) == "" {
+		return 0, fmt.Errorf("parse anthropic count_tokens request: model is required")
+	}
+	responsesReq, err := apicompat.AnthropicToResponses(&anthropicReq)
+	if err != nil {
+		return 0, fmt.Errorf("convert anthropic request: %w", err)
+	}
+	payload, err := json.Marshal(responsesReq)
+	if err != nil {
+		return 0, fmt.Errorf("marshal local count_tokens payload: %w", err)
+	}
+	// The local checkout intentionally has no tokenizer dependency. Use a
+	// conservative UTF-8 size estimate for CN providers, which only need a
+	// deterministic non-network count_tokens response.
+	estimated := len([]rune(string(payload))) / 4
+	if estimated < 1 {
+		estimated = 1
+	}
+	return estimated, nil
+}
+
 // ForwardCountTokensAsAnthropic bridges Anthropic /v1/messages/count_tokens to
 // OpenAI POST /v1/responses/input_tokens and returns Anthropic-compatible output.
 func (s *OpenAIGatewayService) ForwardCountTokensAsAnthropic(
@@ -36,6 +62,19 @@ func (s *OpenAIGatewayService) ForwardCountTokensAsAnthropic(
 	if account == nil {
 		writeAnthropicCountTokensError(c, http.StatusServiceUnavailable, "api_error", "No available OpenAI accounts")
 		return fmt.Errorf("count_tokens: missing account")
+	}
+
+	if account.IsAnthropicProtocol() {
+		return s.forwardCountTokensViaNativeAnthropic(ctx, c, account, body, defaultMappedModel)
+	}
+	if account.IsCNProvider() {
+		estimated, err := estimateAnthropicCountTokensLocally(body)
+		if err != nil {
+			writeAnthropicCountTokensError(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
+			return fmt.Errorf("count_tokens: estimate cn provider input tokens: %w", err)
+		}
+		c.JSON(http.StatusOK, gin.H{"input_tokens": estimated})
+		return nil
 	}
 
 	var anthropicReq apicompat.AnthropicRequest

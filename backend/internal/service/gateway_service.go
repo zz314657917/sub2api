@@ -10640,3 +10640,84 @@ func (s *GatewayService) debugLogGatewaySnapshot(tag string, headers http.Header
 	// 写入文件（调试用，并发写入可能交错但不影响可读性）
 	_, _ = f.WriteString(buf.String())
 }
+
+const (
+	cnWebSearchServerToolUse = "server_tool_use"
+	cnWebSearchToolResult    = "web_search_tool_result"
+)
+
+// FilterWebSearchHistoryBlocks removes locally synthesized web-search blocks
+// from replayed Anthropic messages. CN Anthropic-compatible upstreams reject
+// these server-tool block types, while strict Anthropic/unknown models retain
+// genuine blocks and only remove locally prefixed synthetic ones.
+func FilterWebSearchHistoryBlocks(body []byte, mappedModel string) []byte {
+	if !bytes.Contains(body, []byte(`"server_tool_use"`)) && !bytes.Contains(body, []byte(`"web_search_tool_result"`)) {
+		return body
+	}
+	stripAll := ResolveThinkingProtocol(mappedModel) == ThinkingProtocolPassbackRequired
+	var root map[string]any
+	if err := json.Unmarshal(body, &root); err != nil {
+		return body
+	}
+	rawMessages, ok := root["messages"].([]any)
+	if !ok {
+		return body
+	}
+	modified := false
+	for _, raw := range rawMessages {
+		msg, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		content, ok := msg["content"].([]any)
+		if !ok {
+			continue
+		}
+		filtered := make([]any, 0, len(content))
+		removed := false
+		for _, blockRaw := range content {
+			block, ok := blockRaw.(map[string]any)
+			if ok && shouldStripCNWebSearchBlock(block, stripAll) {
+				removed = true
+				continue
+			}
+			filtered = append(filtered, blockRaw)
+		}
+		if !removed {
+			continue
+		}
+		if len(filtered) == 0 {
+			placeholder := "(content removed)"
+			if role, _ := msg["role"].(string); role == "assistant" {
+				placeholder = "(assistant content removed)"
+			}
+			filtered = []any{map[string]any{"type": "text", "text": placeholder}}
+		}
+		msg["content"] = filtered
+		modified = true
+	}
+	if !modified {
+		return body
+	}
+	out, err := json.Marshal(root)
+	if err != nil {
+		return body
+	}
+	return out
+}
+
+func shouldStripCNWebSearchBlock(block map[string]any, stripAll bool) bool {
+	blockType, _ := block["type"].(string)
+	if blockType != cnWebSearchServerToolUse && blockType != cnWebSearchToolResult {
+		return false
+	}
+	if stripAll {
+		return true
+	}
+	key := "id"
+	if blockType == cnWebSearchToolResult {
+		key = "tool_use_id"
+	}
+	id, _ := block[key].(string)
+	return strings.HasPrefix(id, webSearchToolUseIDPrefix)
+}

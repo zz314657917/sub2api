@@ -354,7 +354,7 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 		_ = s.service.deleteStickySessionAccountID(ctx, req.GroupID, sessionHash)
 		return nil, nil
 	}
-	if shouldClearStickySessionWithContext(ctx, account, req.RequestedModel) || account.Platform != normalizeOpenAICompatiblePlatform(req.Platform) || !account.IsOpenAICompatible() || !account.IsSchedulableWithContext(ctx) {
+	if shouldClearStickySessionWithContext(ctx, account, req.RequestedModel) || account.Platform != normalizeOpenAICompatiblePlatform(req.Platform) || !isOpenAICompatibleAccount(account) || !account.IsSchedulableWithContext(ctx) {
 		_ = s.service.deleteStickySessionAccountID(ctx, req.GroupID, sessionHash)
 		return nil, nil
 	}
@@ -729,7 +729,7 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 				continue
 			}
 		}
-		if !account.IsSchedulableWithContext(ctx) || account.Platform != normalizeOpenAICompatiblePlatform(req.Platform) || !account.IsOpenAICompatible() {
+		if !account.IsSchedulableWithContext(ctx) || account.Platform != normalizeOpenAICompatiblePlatform(req.Platform) || !isOpenAICompatibleAccount(account) {
 			continue
 		}
 		if !accountAllowedByAPIKeyPoolStrategy(ctx, account, req.Sub2APIUserID) {

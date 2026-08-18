@@ -45,7 +45,8 @@ func RegisterGatewayRoutes(
 
 	isOpenAIResponsesCompatibleGatewayPlatform := func(c *gin.Context) bool {
 		switch getGroupPlatform(c) {
-		case service.PlatformOpenAI, service.PlatformGrok:
+		case service.PlatformOpenAI, service.PlatformGrok,
+			service.PlatformKimi, service.PlatformZhipu, service.PlatformDeepseek:
 			return true
 		default:
 			return false
@@ -105,11 +106,11 @@ func RegisterGatewayRoutes(
 			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/messages/count_tokens", false) {
 				return
 			}
-			if isOpenAIGatewayPlatform(c) {
+			switch getGroupPlatform(c) {
+			case service.PlatformOpenAI, service.PlatformKimi, service.PlatformZhipu, service.PlatformDeepseek:
 				h.OpenAIGateway.CountTokens(c)
 				return
-			}
-			if isOpenAIResponsesCompatibleGatewayPlatform(c) {
+			case service.PlatformGrok:
 				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
 				c.JSON(http.StatusNotFound, gin.H{
 					"type": "error",
@@ -281,6 +282,27 @@ func RegisterGatewayRoutes(
 	}
 	r.POST("/responses", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, responsesHandler)
 	r.POST("/responses/*subpath", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, guardResponsesSubpath(responsesHandler))
+	r.POST("/messages/count_tokens", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, func(c *gin.Context) {
+		if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/messages/count_tokens", false) {
+			return
+		}
+		switch getGroupPlatform(c) {
+		case service.PlatformOpenAI, service.PlatformKimi, service.PlatformZhipu, service.PlatformDeepseek:
+			h.OpenAIGateway.CountTokens(c)
+			return
+		case service.PlatformGrok:
+			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
+			c.JSON(http.StatusNotFound, gin.H{
+				"type": "error",
+				"error": gin.H{
+					"type":    "not_found_error",
+					"message": "Token counting is not supported for this platform",
+				},
+			})
+			return
+		}
+		h.Gateway.CountTokens(c)
+	})
 	r.GET("/responses", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, h.OpenAIGateway.ResponsesWebSocket)
 	codexDirect := r.Group("/backend-api/codex")
 	codexDirect.Use(bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic)

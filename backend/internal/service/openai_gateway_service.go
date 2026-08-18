@@ -236,6 +236,10 @@ type OpenAIForwardResult struct {
 	// UpstreamModel is the actual model sent to the upstream provider after mapping.
 	// Empty when no mapping was applied (requested model was used as-is).
 	UpstreamModel string
+	// UpstreamEndpoint identifies the protocol endpoint used for the request
+	// (for example /v1/messages or /v1/responses) when a gateway path converts
+	// between client and upstream protocols.
+	UpstreamEndpoint string
 	// ServiceTier records the OpenAI Responses API service tier, e.g. "priority" / "flex".
 	// Nil means the request did not specify a recognized tier.
 	ServiceTier *string
@@ -1532,10 +1536,21 @@ func (e openAISelectionUnavailableError) Error() string { return string(e) }
 func (e openAISelectionUnavailableError) Unwrap() error { return ErrNoAvailableAccounts }
 
 func normalizeOpenAICompatiblePlatform(platform string) string {
-	if platform == PlatformGrok {
-		return PlatformGrok
+	switch platform {
+	case PlatformGrok, PlatformKimi, PlatformZhipu, PlatformDeepseek:
+		return platform
 	}
 	return PlatformOpenAI
+}
+
+// NormalizeOpenAICompatiblePlatform exposes the exact platform normalization
+// used by scheduler and handler routing without changing account.go ownership.
+func NormalizeOpenAICompatiblePlatform(platform string) string {
+	return normalizeOpenAICompatiblePlatform(platform)
+}
+
+func isOpenAICompatibleAccount(account *Account) bool {
+	return account != nil && (account.IsOpenAICompatible() || account.IsCNProvider())
 }
 
 func noAvailableOpenAISelectionError(requestedModel string, compactBlocked bool) error {
@@ -1567,7 +1582,7 @@ func openAICompactSupportTier(account *Account) int {
 // isOpenAIAccountEligibleForRequest centralises the schedulable / OpenAI / model /
 // compact-support checks used during account selection.
 func isOpenAIAccountEligibleForRequest(ctx context.Context, account *Account, requestedModel string, requireCompact bool, requiredCapability OpenAIEndpointCapability, requiredAccountCapability AccountCapability) bool {
-	if account == nil || !account.IsOpenAICompatible() || !account.IsSchedulableForModelWithContext(ctx, requestedModel) {
+	if !isOpenAICompatibleAccount(account) || !account.IsSchedulableForModelWithContext(ctx, requestedModel) {
 		return false
 	}
 	if account.IsOpenAI() {
@@ -2599,7 +2614,7 @@ func (s *OpenAIGatewayService) GetAccessToken(ctx context.Context, account *Acco
 			}
 			return apiKey, "apikey", nil
 		}
-		apiKey := account.GetOpenAIApiKey()
+		apiKey := strings.TrimSpace(account.GetOpenAIProtocolAPIKey())
 		if apiKey == "" {
 			return "", "", errors.New("api_key not found in credentials")
 		}
@@ -2629,6 +2644,60 @@ func (s *OpenAIGatewayService) shouldFailoverOpenAIUpstreamResponse(statusCode i
 		return true
 	}
 	return isOpenAITransientProcessingError(statusCode, upstreamMsg, upstreamBody)
+}
+
+// readOpenAIUpstreamError reads and restores an error response body so the
+// caller can still pass it through the shared compatibility error handler.
+func (s *OpenAIGatewayService) readOpenAIUpstreamError(resp *http.Response) ([]byte, string) {
+	if resp == nil || resp.Body == nil {
+		return nil, ""
+	}
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+	resp.Body = io.NopCloser(bytes.NewReader(body))
+	msg := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(body)))
+	if msg == "" && resp.StatusCode > 0 {
+		msg = fmt.Sprintf("Upstream error: %d", resp.StatusCode)
+	}
+	return body, msg
+}
+
+// failoverOpenAIUpstreamHTTPError applies the OpenAI gateway's normal account
+// side effects and returns a failover error when the response is retryable.
+// CN protocol adapters use this helper because their source files are kept
+// separate from the monolithic local gateway owner.
+func (s *OpenAIGatewayService) failoverOpenAIUpstreamHTTPError(
+	ctx context.Context,
+	c *gin.Context,
+	account *Account,
+	resp *http.Response,
+	responseBody []byte,
+	upstreamMsg string,
+	requestedModel string,
+) error {
+	if resp == nil || !s.shouldFailoverOpenAIUpstreamResponse(resp.StatusCode, upstreamMsg, responseBody) {
+		return nil
+	}
+	if c != nil {
+		appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+			Platform:           account.Platform,
+			AccountID:          account.ID,
+			AccountName:        account.Name,
+			UpstreamStatusCode: resp.StatusCode,
+			UpstreamRequestID:  resp.Header.Get("x-request-id"),
+			Kind:               "failover",
+			Message:            upstreamMsg,
+		})
+	}
+	s.handleOpenAIAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, responseBody, requestedModel)
+	retryLimit, retryBackoffBase := openAISameAccountRetryPolicy(upstreamMsg, responseBody)
+	return &UpstreamFailoverError{
+		StatusCode:                  resp.StatusCode,
+		ResponseBody:                responseBody,
+		ResponseHeaders:             resp.Header.Clone(),
+		RetryableOnSameAccount:      retryLimit > 0 || (account != nil && account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode)),
+		SameAccountRetryLimit:       retryLimit,
+		SameAccountRetryBackoffBase: retryBackoffBase,
+	}
 }
 
 func (s *OpenAIGatewayService) handleFailoverSideEffects(ctx context.Context, resp *http.Response, account *Account, responseBody []byte, requestedModel ...string) {
@@ -2677,6 +2746,10 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	if account.Platform == PlatformGrok {
 		_ = promptCacheKey
 		return s.forwardGrokResponses(ctx, c, account, body, originalModel, reqStream, startTime)
+	}
+
+	if account.IsAnthropicProtocol() {
+		return s.forwardResponsesViaNativeAnthropic(ctx, c, account, body, reqModel)
 	}
 
 	// Native remote compaction v2 must keep its Responses payload intact. The
@@ -3910,6 +3983,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthrough(
 	body []byte,
 	token string,
 ) (*http.Request, error) {
+	body = normalizeDeepSeekResponsesRequestBody(account, body)
 	targetURL := openaiPlatformAPIURL
 	switch account.Type {
 	case AccountTypeOAuth:
@@ -3921,7 +3995,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthrough(
 			if err != nil {
 				return nil, err
 			}
-			targetURL = buildOpenAIResponsesURL(validatedURL)
+			targetURL = buildOpenAIResponsesURLForPlatform(account.Platform, validatedURL)
 		}
 	}
 	targetURL = appendOpenAIResponsesRequestPathSuffix(targetURL, openAIResponsesRequestPathSuffix(c))
@@ -4806,6 +4880,7 @@ func writeOpenAIPassthroughResponseHeaders(dst http.Header, src http.Header, fil
 }
 
 func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.Context, account *Account, body []byte, token string, isStream bool, promptCacheKey string, isCodexCLI bool) (*http.Request, error) {
+	body = normalizeDeepSeekResponsesRequestBody(account, body)
 	// Determine target URL based on account type
 	var targetURL string
 	switch account.Type {
@@ -4822,7 +4897,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.
 			if err != nil {
 				return nil, err
 			}
-			targetURL = buildOpenAIResponsesURL(validatedURL)
+			targetURL = buildOpenAIResponsesURLForPlatform(account.Platform, validatedURL)
 		}
 	default:
 		targetURL = openaiPlatformAPIURL
@@ -6572,6 +6647,27 @@ func (s *OpenAIGatewayService) validateUpstreamBaseURL(raw string) (string, erro
 // - 其他情况：追加 /v1/responses
 func buildOpenAIResponsesURL(base string) string {
 	return buildOpenAIEndpointURL(base, "/v1/responses")
+}
+
+func buildOpenAIResponsesURLForPlatform(platform string, base string) string {
+	if platform == PlatformDeepseek {
+		return buildOpenAIEndpointURL(base, "/responses")
+	}
+	return buildOpenAIResponsesURL(base)
+}
+
+func normalizeDeepSeekResponsesRequestBody(account *Account, body []byte) []byte {
+	if account == nil || account.Platform != PlatformDeepseek || account.GetAPIProtocol() != APIProtocolResponses {
+		return body
+	}
+	normalized, err := sjson.SetBytes(body, "store", false)
+	if err != nil {
+		return body
+	}
+	if stripped, err := sjson.DeleteBytes(normalized, "previous_response_id"); err == nil {
+		normalized = stripped
+	}
+	return normalized
 }
 
 func trimOpenAIEncryptedReasoningItems(reqBody map[string]any) bool {
