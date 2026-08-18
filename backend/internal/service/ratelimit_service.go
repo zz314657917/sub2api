@@ -725,7 +725,7 @@ func (s *RateLimitService) handle403(ctx context.Context, account *Account, upst
 	if account.Platform == PlatformAntigravity {
 		return s.handleAntigravity403(ctx, account, upstreamMsg, responseBody)
 	}
-	if account.Platform == PlatformOpenAI {
+	if account.Platform == PlatformOpenAI || IsCNProvider(account.Platform) {
 		return s.handleOpenAI403(ctx, account, upstreamMsg, responseBody)
 	}
 	// 非 Antigravity 平台：保持原有行为
