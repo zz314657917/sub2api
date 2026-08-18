@@ -217,7 +217,7 @@ func TestGeminiErrorPolicyIntegration(t *testing.T) {
 			expectHandleError: true,
 		},
 		{
-			name: "custom_codes_skipped_500_no_failover",
+			name: "custom_codes_skipped_500_failover",
 			account: &Account{
 				ID:       201,
 				Type:     AccountTypeAPIKey,
@@ -229,6 +229,22 @@ func TestGeminiErrorPolicyIntegration(t *testing.T) {
 			},
 			statusCode:        500,
 			respBody:          []byte(`{"error":"internal"}`),
+			expectFailover:    true,
+			expectHandleError: false,
+		},
+		{
+			name: "custom_codes_skipped_400_no_failover",
+			account: &Account{
+				ID:       205,
+				Type:     AccountTypeAPIKey,
+				Platform: PlatformGemini,
+				Credentials: map[string]any{
+					"custom_error_codes_enabled": true,
+					"custom_error_codes":         []any{float64(429)},
+				},
+			},
+			statusCode:        400,
+			respBody:          []byte(`{"error":"bad request"}`),
 			expectFailover:    false,
 			expectHandleError: false,
 		},
@@ -308,8 +324,8 @@ func TestGeminiErrorPolicyIntegration(t *testing.T) {
 			if svc.rateLimitService != nil {
 				switch svc.rateLimitService.CheckErrorPolicy(ctx, account, statusCode, respBody) {
 				case ErrorPolicySkipped:
-					// Skipped → return error directly (no handleGeminiUpstreamError, no failover)
-					gotFailover = false
+					// Skipped → 不标记账号状态；可 failover 的状态码仍换号。
+					gotFailover = svc.skippedErrorPolicyFailoverError(c, account, statusCode, respBody, "req-test") != nil
 					handleErrorCalled = false
 					goto verify
 				case ErrorPolicyMatched, ErrorPolicyTempUnscheduled:
