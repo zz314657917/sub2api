@@ -68,7 +68,7 @@ qa_mode: runtime
 
 ```powershell
 Push-Location backend
-go test -tags=unit ./internal/service -run "TestGeminiForward(Native|AsChatCompletions|Messages)_.*Skipped|TestWriteGemini(MappedError|ChatCompletionsMappedError)_400KeepsUpstreamMessage|TestSkippedErrorPolicyFailoverError|TestGeminiErrorPolicyIntegration" -count=10
+go test ./internal/service -run "TestGeminiForward(Native|Messages|AsChatCompletions).*|TestWriteGeminiMappedError_400KeepsUpstreamMessage|TestSkippedErrorPolicyFailoverError_CustomCodeMiss500HasNoSameAccountRetry" -count=10
 go test ./internal/service -count=1
 go test ./cmd/server -run "^$" -count=1
 gofmt -d internal/service/gemini_messages_compat_service.go internal/service/gemini_chat_completions_compat_service.go internal/service/gemini_error_policy_test.go internal/service/gemini_error_policy_skipped_write_test.go
