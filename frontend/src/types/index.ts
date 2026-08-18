@@ -948,7 +948,7 @@ export interface AccountGroup {
 
 // ==================== Account & Proxy Types ====================
 
-export type AccountPlatform = 'anthropic' | 'openai' | 'gemini' | 'antigravity' | 'grok'
+export type AccountPlatform = 'anthropic' | 'openai' | 'gemini' | 'antigravity' | 'grok' | 'kimi' | 'zhipu' | 'deepseek'
 export type AccountType = 'oauth' | 'setup-token' | 'apikey' | 'upstream' | 'bedrock' | 'service_account'
 export type AccountCapability = 'chat' | 'image' | 'video' | 'embedding'
 export type OAuthAddMethod = 'oauth' | 'setup-token'

@@ -77,6 +77,9 @@ const platformLabel = computed(() => {
   if (props.platform === 'openai') return 'OpenAI'
   if (props.platform === 'antigravity') return 'Antigravity'
   if (props.platform === 'grok') return 'Grok'
+  if (props.platform === 'kimi') return 'Kimi'
+  if (props.platform === 'zhipu') return 'Zhipu GLM'
+  if (props.platform === 'deepseek') return 'DeepSeek'
   return 'Gemini'
 })
 
@@ -131,6 +134,10 @@ const platformClass = computed(() => {
   if (props.platform === 'antigravity') {
     return 'bg-[#f5f0e8] text-[#6c6a64] dark:bg-[#8e8b82]/15 dark:text-[#d8cec2]'
   }
+  if (props.platform === 'grok') return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+  if (props.platform === 'kimi') return 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400'
+  if (props.platform === 'zhipu') return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
+  if (props.platform === 'deepseek') return 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400'
   return 'bg-[#fffaf5] text-[#6c6a64] ring-1 ring-[#d8cec2] dark:bg-[#8e8b82]/15 dark:text-[#d8cec2] dark:ring-[#8e8b82]/40'
 })
 
@@ -144,6 +151,10 @@ const typeClass = computed(() => {
   if (props.platform === 'antigravity') {
     return 'bg-[#f5f0e8] text-[#6c6a64] dark:bg-[#8e8b82]/15 dark:text-[#d8cec2]'
   }
+  if (props.platform === 'grok') return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+  if (props.platform === 'kimi') return 'bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400'
+  if (props.platform === 'zhipu') return 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400'
+  if (props.platform === 'deepseek') return 'bg-teal-100 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400'
   return 'bg-[#fffaf5] text-[#6c6a64] ring-1 ring-[#d8cec2] dark:bg-[#8e8b82]/15 dark:text-[#d8cec2] dark:ring-[#8e8b82]/40'
 })
 

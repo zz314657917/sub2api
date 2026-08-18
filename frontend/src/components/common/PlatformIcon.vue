@@ -25,6 +25,18 @@
     <path stroke-linecap="round" stroke-linejoin="round" d="M8 5h11v11" />
     <path stroke-linecap="round" stroke-linejoin="round" d="M5 6l13 13" />
   </svg>
+  <!-- CN provider marks use compact, monochrome shapes so they inherit the surrounding platform color. -->
+  <svg v-else-if="platform === 'kimi'" :class="sizeClass" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M4 3h4v7.1L15.4 3H21l-8 8.5L21 21h-5.6L8 13.8V21H4z" />
+  </svg>
+  <svg v-else-if="platform === 'zhipu'" :class="sizeClass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <circle cx="12" cy="4" r="2" /><circle cx="5" cy="10" r="2" /><circle cx="19" cy="10" r="2" /><circle cx="8" cy="19" r="2" /><circle cx="16" cy="19" r="2" />
+    <path d="m10.5 5.4-4 3.2m7-3.2 4 3.2m-11 3 1.2 5.4m10.1-5.4-1.2 5.4m-7.4.8h5.8" />
+  </svg>
+  <svg v-else-if="platform === 'deepseek'" :class="sizeClass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M3 12c2.4-5.8 10.4-8.8 16-4.5 1.9 1.5 2.1 4.2.4 6.2-2.3 2.7-6.9 3.5-10.1 1.7-1.7-.9-2.9-2.4-3.5-4.1" />
+    <path d="M3 12c.5 3.8 3.7 6.8 7.7 7 3.1.2 5.8-1.2 7.4-3.5M9 12h.01M15 10h.01" />
+  </svg>
   <!-- Fallback: generic platform icon -->
   <svg v-else :class="sizeClass" fill="currentColor" viewBox="0 0 24 24">
     <path
@@ -35,10 +47,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { GroupPlatform } from '@/types'
+import type { AccountPlatform } from '@/types'
 
 interface Props {
-  platform?: GroupPlatform
+  platform?: AccountPlatform
   size?: 'xs' | 'sm' | 'md' | 'lg'
 }
 

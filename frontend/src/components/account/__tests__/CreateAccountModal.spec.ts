@@ -175,4 +175,35 @@ describe('CreateAccountModal OpenAI billing default', () => {
       extra: expect.objectContaining({ codex_fingerprint_mode: 'full' }),
     }))
   })
+
+  it('creates a Kimi Coding Plan account with protocol-aware credentials', async () => {
+    const wrapper = mountModal()
+    await wrapper.get('[data-testid="cn-platform-selector"] button').trigger('click')
+    await wrapper.findAll('[data-testid="cn-account-mode"]')[1].trigger('click')
+    await wrapper.get('[data-tour="account-form-name"]').setValue('Kimi coding')
+    await wrapper.get('input[type="password"]').setValue('kimi-key')
+    await wrapper.get('#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(createAccount).toHaveBeenCalledWith(expect.objectContaining({
+      platform: 'kimi',
+      type: 'apikey',
+      credentials: expect.objectContaining({
+        base_url: 'https://api.kimi.com/coding/v1',
+        api_key: 'kimi-key',
+        account_mode: 'coding',
+        api_protocol: 'chat_completions',
+      }),
+    }))
+  })
+
+  it('keeps a custom Base URL when the mode changes', async () => {
+    const wrapper = mountModal()
+    await wrapper.get('[data-testid="cn-platform-selector"] button').trigger('click')
+    const baseUrl = wrapper.get('input[placeholder="https://api.moonshot.cn/v1"]')
+    await baseUrl.setValue('https://gateway.example.test/kimi')
+    await wrapper.findAll('[data-testid="cn-account-mode"]')[1].trigger('click')
+
+    expect((baseUrl.element as HTMLInputElement).value).toBe('https://gateway.example.test/kimi')
+  })
 })

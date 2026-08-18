@@ -28,23 +28,54 @@
 
       <!-- API Key fields (only for apikey type) -->
       <div v-if="account.type === 'apikey'" class="space-y-4">
+        <div v-if="isCNApiKeyAccount" class="space-y-4 rounded-lg border border-gray-200 p-3 dark:border-dark-600">
+          <div>
+            <label class="input-label">{{ t('admin.accounts.cnProviders.accountMode.title') }}</label>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <button
+                v-for="mode in cnAccountModeOptions"
+                :key="mode.value"
+                type="button"
+                data-testid="cn-edit-account-mode"
+                :class="['rounded-lg border-2 px-3 py-1.5 text-xs transition-all', editAccountMode === mode.value ? cnActiveClass : 'border-gray-200 dark:border-dark-600']"
+                @click="editAccountMode = mode.value"
+              >{{ t(`admin.accounts.cnProviders.accountMode.${mode.labelKey}`) }}</button>
+            </div>
+            <p class="input-hint">{{ t(`admin.accounts.cnProviders.accountMode.${editAccountMode}Desc`) }}</p>
+          </div>
+          <div>
+            <label class="input-label">{{ t('admin.accounts.cnProviders.apiProtocol.title') }}</label>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <button
+                v-for="protocol in cnProtocolOptions"
+                :key="protocol.value"
+                type="button"
+                data-testid="cn-edit-api-protocol"
+                :class="['rounded-lg border-2 px-3 py-1.5 text-xs transition-all', editApiProtocol === protocol.value ? cnActiveClass : 'border-gray-200 dark:border-dark-600']"
+                @click="editApiProtocol = protocol.value"
+              >{{ t(`admin.accounts.cnProviders.apiProtocol.${protocol.labelKey}`) }}</button>
+            </div>
+            <p class="input-hint">{{ t(`admin.accounts.cnProviders.apiProtocol.${cnProtocolDescriptionKey}Desc`) }}</p>
+          </div>
+        </div>
         <div>
           <label class="input-label">{{ t('admin.accounts.baseUrl') }}</label>
           <input
             v-model="editBaseUrl"
             type="text"
             class="input"
-            :placeholder="
-              account.platform === 'openai'
-                ? 'https://api.openai.com'
-                : account.platform === 'gemini'
-                  ? 'https://generativelanguage.googleapis.com'
-                  : account.platform === 'antigravity'
-                    ? 'https://cloudcode-pa.googleapis.com'
-                    : 'https://api.anthropic.com'
-            "
+            :placeholder="editBaseUrlPlaceholder"
           />
           <p class="input-hint">{{ baseUrlHint }}</p>
+          <CnBaseUrlPresets
+            v-if="isCNApiKeyAccount"
+            class="mt-2"
+            :platform="cnPresetPlatform"
+            :mode="editAccountMode"
+            :protocol="editApiProtocol"
+            :current-url="editBaseUrl"
+            @select="onCnPresetSelect"
+          />
         </div>
         <div>
           <label class="input-label">{{ t('admin.accounts.apiKey') }}</label>
@@ -56,15 +87,7 @@
             data-1p-ignore
             data-lpignore="true"
             data-bwignore="true"
-            :placeholder="
-              account.platform === 'openai'
-                ? 'sk-proj-...'
-                : account.platform === 'gemini'
-                  ? 'AIza...'
-                  : account.platform === 'antigravity'
-                    ? 'sk-...'
-                    : 'sk-ant-...'
-            "
+            :placeholder="editApiKeyPlaceholder"
           />
           <p class="input-hint">{{ t('admin.accounts.leaveEmptyToKeep') }}</p>
         </div>
@@ -2503,7 +2526,7 @@
           v-if="!authStore.isSimpleMode"
           v-model="form.group_ids"
           :groups="groups"
-          :platform="account?.platform"
+          :platform="groupSelectorPlatform"
           :mixed-scheduling="mixedScheduling"
           data-tour="account-form-groups"
         />
@@ -2578,7 +2601,7 @@ import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { adminAPI } from '@/api/admin'
 import { useQuotaNotifyState } from '@/composables/useQuotaNotifyState'
-import type { Account, Proxy, AdminGroup, CheckMixedChannelResponse, OpenAICompactMode, OpenAIResponsesMode, AccountCapability } from '@/types'
+import type { Account, Proxy, AdminGroup, GroupPlatform, CheckMixedChannelResponse, OpenAICompactMode, OpenAIResponsesMode, AccountCapability } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Select from '@/components/common/Select.vue'
@@ -2591,7 +2614,8 @@ import AccountCapabilitySelector from '@/components/account/AccountCapabilitySel
 import AccountTimeAvailabilityWindow from '@/components/account/AccountTimeAvailabilityWindow.vue'
 import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
 import ShareDisplayCard from '@/components/account/ShareDisplayCard.vue'
-import { applyInterceptWarmup } from '@/components/account/credentialsBuilder'
+import CnBaseUrlPresets from '@/components/account/CnBaseUrlPresets.vue'
+import { applyInterceptWarmup, defaultCNBaseUrl, type CnAccountMode, type CnApiProtocol } from '@/components/account/credentialsBuilder'
 import { formatDateTime, formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/utils/format'
 import { createStableObjectKeyResolver } from '@/utils/stableObjectKey'
 import { normalizeTimeInputValue } from '@/utils/peak-rate'
@@ -2658,6 +2682,43 @@ interface TempUnschedRuleForm {
 const submitting = ref(false)
 const editBaseUrl = ref('https://api.anthropic.com')
 const editApiKey = ref('')
+const editAccountMode = ref<CnAccountMode>('payg')
+const editApiProtocol = ref<CnApiProtocol>('chat_completions')
+const isCNApiKeyAccount = computed(() => props.account?.type === 'apikey' && (props.account.platform === 'kimi' || props.account.platform === 'zhipu' || props.account.platform === 'deepseek'))
+const groupSelectorPlatform = computed<GroupPlatform | undefined>(() => {
+  const platform = props.account?.platform
+  return platform === 'anthropic' || platform === 'openai' || platform === 'gemini' || platform === 'antigravity' || platform === 'grok'
+    ? platform
+    : undefined
+})
+const cnPresetPlatform = computed<'kimi' | 'zhipu' | 'deepseek'>(() => isCNApiKeyAccount.value ? props.account!.platform as 'kimi' | 'zhipu' | 'deepseek' : 'kimi')
+const cnAccountModeOptions = computed(() => [
+  { value: 'payg' as const, labelKey: 'payg' },
+  ...(props.account?.platform === 'deepseek' ? [] : [{ value: 'coding' as const, labelKey: 'coding' }])
+])
+const cnProtocolOptions = computed(() => [
+  { value: 'chat_completions' as const, labelKey: 'chatCompletions' },
+  { value: 'anthropic' as const, labelKey: 'anthropic' },
+  ...(props.account?.platform === 'deepseek' ? [{ value: 'responses' as const, labelKey: 'responses' }] : [])
+])
+const cnProtocolDescriptionKey = computed(() => cnProtocolOptions.value.find(option => option.value === editApiProtocol.value)?.labelKey || 'chatCompletions')
+const cnActiveClass = computed(() => props.account?.platform === 'kimi' ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/20' : props.account?.platform === 'zhipu' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-teal-500 bg-teal-50 dark:bg-teal-900/20')
+const editBaseUrlPlaceholder = computed(() => isCNApiKeyAccount.value ? defaultCNBaseUrl(props.account!.platform, editAccountMode.value, editApiProtocol.value) : props.account?.platform === 'openai' ? 'https://api.openai.com' : props.account?.platform === 'gemini' ? 'https://generativelanguage.googleapis.com' : props.account?.platform === 'antigravity' ? 'https://cloudcode-pa.googleapis.com' : 'https://api.anthropic.com')
+const editApiKeyPlaceholder = computed(() => props.account?.platform === 'zhipu' ? '<api-key>.<secret>' : props.account?.platform === 'gemini' ? 'AIza...' : 'sk-...')
+
+function onCnPresetSelect(preset: { mode: CnAccountMode; protocol: CnApiProtocol; url: string }) {
+  editAccountMode.value = preset.mode
+  editApiProtocol.value = preset.protocol
+  editBaseUrl.value = preset.url
+}
+
+watch([editAccountMode, editApiProtocol], ([mode, protocol], [previousMode, previousProtocol]) => {
+  if (!isCNApiKeyAccount.value || !props.account) return
+  const previousDefault = defaultCNBaseUrl(props.account.platform, previousMode, previousProtocol)
+  if (!editBaseUrl.value || editBaseUrl.value === previousDefault) {
+    editBaseUrl.value = defaultCNBaseUrl(props.account.platform, mode, protocol)
+  }
+}, { flush: 'sync' })
 // Bedrock credentials
 const editBedrockAccessKeyId = ref('')
 const editBedrockSecretAccessKey = ref('')
@@ -3219,6 +3280,9 @@ const tempUnschedPresets = computed(() => [
 
 // Computed: default base URL based on platform
 const defaultBaseUrl = computed(() => {
+  if (isCNApiKeyAccount.value && props.account) {
+    return defaultCNBaseUrl(props.account.platform, editAccountMode.value, editApiProtocol.value)
+  }
   if (props.account?.platform === 'openai') return 'https://api.openai.com'
   if (props.account?.platform === 'gemini') return 'https://generativelanguage.googleapis.com'
   return 'https://api.anthropic.com'
@@ -3325,9 +3389,21 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     : 'active'
   form.group_ids = newAccount.group_ids || []
   form.expires_at = newAccount.expires_at ?? null
+  const credentials = newAccount.credentials as Record<string, unknown> | undefined
+
+  if (newAccount.platform === 'kimi' || newAccount.platform === 'zhipu' || newAccount.platform === 'deepseek') {
+    const storedMode = (credentials?.account_mode as string) === 'coding' ? 'coding' : 'payg'
+    editAccountMode.value = newAccount.platform === 'deepseek' ? 'payg' : storedMode
+    const storedProtocol = credentials?.api_protocol
+    editApiProtocol.value = newAccount.platform === 'deepseek' && (storedProtocol === 'responses' || storedProtocol === 'anthropic')
+      ? storedProtocol
+      : storedProtocol === 'anthropic' ? 'anthropic' : 'chat_completions'
+  } else {
+    editAccountMode.value = 'payg'
+    editApiProtocol.value = 'chat_completions'
+  }
 
   // Load intercept warmup requests setting (applies to all account types)
-  const credentials = newAccount.credentials as Record<string, unknown> | undefined
   interceptWarmupRequests.value = credentials?.intercept_warmup_requests === true
   autoPauseOnExpired.value = newAccount.auto_pause_on_expired === true
   editVertexProjectId.value = ''
@@ -3569,6 +3645,8 @@ const syncFormFromAccount = (newAccount: Account | null) => {
         ? 'https://api.openai.com'
         : newAccount.platform === 'gemini'
           ? 'https://generativelanguage.googleapis.com'
+          : newAccount.platform === 'kimi' || newAccount.platform === 'zhipu' || newAccount.platform === 'deepseek'
+            ? defaultCNBaseUrl(newAccount.platform, editAccountMode.value, editApiProtocol.value)
           : 'https://api.anthropic.com'
     editBaseUrl.value = (credentials.base_url as string) || platformDefaultUrl
 
@@ -3636,6 +3714,8 @@ const syncFormFromAccount = (newAccount: Account | null) => {
         ? 'https://api.openai.com'
         : newAccount.platform === 'gemini'
           ? 'https://generativelanguage.googleapis.com'
+          : newAccount.platform === 'kimi' || newAccount.platform === 'zhipu' || newAccount.platform === 'deepseek'
+            ? defaultCNBaseUrl(newAccount.platform, editAccountMode.value, editApiProtocol.value)
           : 'https://api.anthropic.com'
     editBaseUrl.value = platformDefaultUrl
 
@@ -4171,6 +4251,10 @@ const handleSubmit = async () => {
       const newCredentials: Record<string, unknown> = {
         ...currentCredentials,
         base_url: newBaseUrl
+      }
+      if (isCNApiKeyAccount.value) {
+        newCredentials.account_mode = editAccountMode.value
+        newCredentials.api_protocol = editApiProtocol.value
       }
 
       // Handle API key

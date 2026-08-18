@@ -3,17 +3,23 @@ import { flushPromises, mount } from '@vue/test-utils'
 import AccountUsageCell from '../AccountUsageCell.vue'
 import type { Account } from '@/types'
 
-const { getUsage, queryOpenAIQuota, refreshOpenAIQuota, resetOpenAIQuota } = vi.hoisted(() => ({
+const { getUsage, queryOpenAIQuota, refreshOpenAIQuota, resetOpenAIQuota, queryCNBalance, queryCNQuota } = vi.hoisted(() => ({
   getUsage: vi.fn(),
   queryOpenAIQuota: vi.fn(),
   refreshOpenAIQuota: vi.fn(),
-  resetOpenAIQuota: vi.fn()
+  resetOpenAIQuota: vi.fn(),
+  queryCNBalance: vi.fn(),
+  queryCNQuota: vi.fn()
 }))
 
 vi.mock('@/api/admin', () => ({
   adminAPI: {
     accounts: {
       getUsage
+    },
+    cnProviders: {
+      queryBalance: queryCNBalance,
+      queryQuota: queryCNQuota
     }
   }
 }))
@@ -69,6 +75,8 @@ describe('AccountUsageCell', () => {
     queryOpenAIQuota.mockReset()
     refreshOpenAIQuota.mockReset()
     resetOpenAIQuota.mockReset()
+    queryCNBalance.mockReset()
+    queryCNQuota.mockReset()
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
       value: vi.fn().mockImplementation(() => ({
@@ -806,6 +814,30 @@ describe('AccountUsageCell', () => {
 		await flushPromises()
 		await wrapper.get('button[aria-label="common.refreshQuota"]').trigger('click')
 
-		expect(wrapper.emitted('refresh-quota')?.[0]?.[0]).toEqual(account)
+    expect(wrapper.emitted('refresh-quota')?.[0]?.[0]).toEqual(account)
+  })
+
+  it('renders CN provider status cells according to the account mode', async () => {
+    const wrapper = mount(AccountUsageCell, {
+      props: {
+        account: makeAccount({
+          id: 4100,
+          platform: 'kimi',
+          type: 'apikey',
+          credentials: { account_mode: 'coding' },
+          extra: {
+            kimi_5h_used_percent: 25,
+            kimi_weekly_used_percent: 40,
+            kimi_usage_updated_at: new Date().toISOString()
+          }
+        })
+      }
+    })
+    await flushPromises()
+
+    expect(wrapper.findComponent({ name: 'CNProviderQuotaCell' }).exists()).toBe(true)
+    expect(wrapper.findComponent({ name: 'CNProviderBalanceCell' }).exists()).toBe(true)
+    expect(wrapper.text()).toContain('25%')
+    expect(wrapper.text()).not.toContain('admin.accounts.cnProviders.noBalanceEndpoint')
   })
 })

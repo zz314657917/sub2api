@@ -27,11 +27,11 @@ vi.mock('@/composables/useClipboard', () => ({
 
 import ModelWhitelistSelector from '../ModelWhitelistSelector.vue'
 
-function mountSelector() {
+function mountSelector(platform: 'openai' | 'kimi' = 'openai') {
   return mount(ModelWhitelistSelector, {
     props: {
       modelValue: [],
-      platform: 'openai'
+      platform
     },
     global: {
       stubs: {
@@ -77,5 +77,13 @@ describe('ModelWhitelistSelector', () => {
 
     expect(wrapper.emitted('update:modelValue')).toEqual([[['gpt-5.6-sol']]])
     expect(copyToClipboard).not.toHaveBeenCalled()
+  })
+
+  it('exposes Kimi coding models without cross-provider suggestions', async () => {
+    const wrapper = mountSelector('kimi')
+    await wrapper.get('div.cursor-pointer').trigger('click')
+
+    expect(findModelRow(wrapper, 'kimi-for-coding').exists()).toBe(true)
+    expect(wrapper.findAll('[data-testid="model-option"]').some(row => row.text().includes('gpt-5.6-sol'))).toBe(false)
   })
 })

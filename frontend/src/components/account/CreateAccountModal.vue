@@ -163,6 +163,20 @@
         </div>
       </div>
 
+      <div class="mt-2 flex flex-wrap rounded-lg bg-gray-100 p-1 dark:bg-dark-700" data-testid="cn-platform-selector">
+        <button
+          v-for="platform in cnPlatforms"
+          :key="platform.value"
+          type="button"
+          class="flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all"
+          :class="form.platform === platform.value ? platform.activeClass : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'"
+          @click="selectCNPlatform(platform.value)"
+        >
+          <PlatformIcon :platform="platform.value" size="sm" />
+          {{ platform.label }}
+        </button>
+      </div>
+
       <!-- Account Type Selection (Anthropic) -->
       <div v-if="form.platform === 'anthropic'">
         <label class="input-label">{{ t('admin.accounts.accountType') }}</label>
@@ -1071,21 +1085,54 @@
 
       <!-- API Key input (only for apikey type, excluding Antigravity which has its own fields) -->
       <div v-if="form.type === 'apikey' && form.platform !== 'antigravity'" class="space-y-4">
+        <div v-if="isCNPlatform" class="space-y-4 rounded-lg border border-gray-200 p-3 dark:border-dark-600">
+          <div>
+            <label class="input-label">{{ t('admin.accounts.cnProviders.accountMode.title') }}</label>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <button
+                v-for="mode in cnAccountModeOptions"
+                :key="mode.value"
+                type="button"
+                data-testid="cn-account-mode"
+                :class="['rounded-lg border-2 px-3 py-1.5 text-xs transition-all', accountMode === mode.value ? cnActiveClass : 'border-gray-200 dark:border-dark-600']"
+                @click="accountMode = mode.value"
+              >{{ t(`admin.accounts.cnProviders.accountMode.${mode.labelKey}`) }}</button>
+            </div>
+            <p class="input-hint">{{ t(`admin.accounts.cnProviders.accountMode.${accountMode}Desc`) }}</p>
+          </div>
+          <div>
+            <label class="input-label">{{ t('admin.accounts.cnProviders.apiProtocol.title') }}</label>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <button
+                v-for="protocol in cnProtocolOptions"
+                :key="protocol.value"
+                type="button"
+                data-testid="cn-api-protocol"
+                :class="['rounded-lg border-2 px-3 py-1.5 text-xs transition-all', apiProtocol === protocol.value ? cnActiveClass : 'border-gray-200 dark:border-dark-600']"
+                @click="apiProtocol = protocol.value"
+              >{{ t(`admin.accounts.cnProviders.apiProtocol.${protocol.labelKey}`) }}</button>
+            </div>
+            <p class="input-hint">{{ t(`admin.accounts.cnProviders.apiProtocol.${cnProtocolDescriptionKey}Desc`) }}</p>
+          </div>
+        </div>
         <div>
           <label class="input-label">{{ t('admin.accounts.baseUrl') }}</label>
           <input
             v-model="apiKeyBaseUrl"
             type="text"
             class="input"
-            :placeholder="
-              form.platform === 'openai'
-                ? 'https://api.openai.com'
-                : form.platform === 'gemini'
-                  ? 'https://generativelanguage.googleapis.com'
-                  : 'https://api.anthropic.com'
-            "
+            :placeholder="apiKeyBaseUrlPlaceholder"
           />
           <p class="input-hint">{{ baseUrlHint }}</p>
+          <CnBaseUrlPresets
+            v-if="isCNPlatform"
+            class="mt-2"
+            :platform="cnPresetPlatform"
+            :mode="accountMode"
+            :protocol="apiProtocol"
+            :current-url="apiKeyBaseUrl"
+            @select="onCnPresetSelect"
+          />
         </div>
         <div>
           <label class="input-label">{{ t('admin.accounts.apiKeyRequired') }}</label>
@@ -1094,13 +1141,7 @@
             type="password"
             required
             class="input font-mono"
-            :placeholder="
-              form.platform === 'openai'
-                ? 'sk-proj-...'
-                : form.platform === 'gemini'
-                  ? 'AIza...'
-                  : 'sk-ant-...'
-            "
+            :placeholder="apiKeyPlaceholder"
           />
           <p class="input-hint">{{ apiKeyHint }}</p>
         </div>
@@ -2962,7 +3003,7 @@
           v-if="!authStore.isSimpleMode"
           v-model="form.group_ids"
           :groups="groups"
-          :platform="form.platform"
+          :platform="groupSelectorPlatform"
           :mixed-scheduling="mixedScheduling"
           data-tour="account-form-groups"
         />
@@ -3341,6 +3382,7 @@ import type {
   Proxy,
   AdminGroup,
   AccountPlatform,
+  GroupPlatform,
   AccountType,
   AccountCapability,
   CheckMixedChannelResponse,
@@ -3362,7 +3404,8 @@ import AccountCapabilitySelector from '@/components/account/AccountCapabilitySel
 import AccountTimeAvailabilityWindow from '@/components/account/AccountTimeAvailabilityWindow.vue'
 import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
 import ShareDisplayCard from '@/components/account/ShareDisplayCard.vue'
-import { applyInterceptWarmup } from '@/components/account/credentialsBuilder'
+import CnBaseUrlPresets from '@/components/account/CnBaseUrlPresets.vue'
+import { applyInterceptWarmup, defaultCNBaseUrl, type CnAccountMode, type CnApiProtocol } from '@/components/account/credentialsBuilder'
 import { formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/utils/format'
 import { createStableObjectKeyResolver } from '@/utils/stableObjectKey'
 import { VERTEX_LOCATION_OPTIONS } from '@/constants/account'
@@ -3495,6 +3538,63 @@ const accountCategory = ref<'oauth-based' | 'apikey' | 'bedrock' | 'service_acco
 const addMethod = ref<AddMethod>('oauth') // For oauth-based: 'oauth' or 'setup-token'
 const apiKeyBaseUrl = ref('https://api.anthropic.com')
 const apiKeyValue = ref('')
+const accountMode = ref<CnAccountMode>('payg')
+const apiProtocol = ref<CnApiProtocol>('chat_completions')
+const cnPlatforms = [
+  { value: 'kimi' as const, label: 'Kimi', activeClass: 'bg-white text-pink-600 shadow-sm dark:bg-dark-600 dark:text-pink-400' },
+  { value: 'zhipu' as const, label: 'Zhipu GLM', activeClass: 'bg-white text-indigo-600 shadow-sm dark:bg-dark-600 dark:text-indigo-400' },
+  { value: 'deepseek' as const, label: 'DeepSeek', activeClass: 'bg-white text-teal-600 shadow-sm dark:bg-dark-600 dark:text-teal-400' }
+]
+const isCNPlatform = computed(() => form.platform === 'kimi' || form.platform === 'zhipu' || form.platform === 'deepseek')
+const groupSelectorPlatform = computed<GroupPlatform | undefined>(() =>
+  form.platform === 'anthropic' || form.platform === 'openai' || form.platform === 'gemini' || form.platform === 'antigravity' || form.platform === 'grok'
+    ? form.platform
+    : undefined
+)
+const cnPresetPlatform = computed<'kimi' | 'zhipu' | 'deepseek'>(() => isCNPlatform.value ? form.platform as 'kimi' | 'zhipu' | 'deepseek' : 'kimi')
+const cnAccountModeOptions = computed(() => [
+  { value: 'payg' as const, labelKey: 'payg' },
+  ...(form.platform === 'deepseek' ? [] : [{ value: 'coding' as const, labelKey: 'coding' }])
+])
+const cnProtocolOptions = computed(() => [
+  { value: 'chat_completions' as const, labelKey: 'chatCompletions' },
+  { value: 'anthropic' as const, labelKey: 'anthropic' },
+  ...(form.platform === 'deepseek' ? [{ value: 'responses' as const, labelKey: 'responses' }] : [])
+])
+const cnProtocolDescriptionKey = computed(() => cnProtocolOptions.value.find(option => option.value === apiProtocol.value)?.labelKey || 'chatCompletions')
+const cnActiveClass = computed(() => form.platform === 'kimi' ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/20' : form.platform === 'zhipu' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-teal-500 bg-teal-50 dark:bg-teal-900/20')
+const apiKeyBaseUrlPlaceholder = computed(() => isCNPlatform.value ? defaultCNBaseUrl(form.platform, accountMode.value, apiProtocol.value) : form.platform === 'openai' ? 'https://api.openai.com' : form.platform === 'gemini' ? 'https://generativelanguage.googleapis.com' : 'https://api.anthropic.com')
+const apiKeyPlaceholder = computed(() => form.platform === 'zhipu' ? '<api-key>.<secret>' : form.platform === 'gemini' ? 'AIza...' : 'sk-...')
+
+function selectCNPlatform(platform: 'kimi' | 'zhipu' | 'deepseek') {
+  form.platform = platform
+  form.type = 'apikey'
+  accountCategory.value = 'apikey'
+  accountMode.value = platform === 'deepseek' ? 'payg' : accountMode.value
+  apiProtocol.value = 'chat_completions'
+  apiKeyBaseUrl.value = defaultCNBaseUrl(platform, accountMode.value, apiProtocol.value)
+}
+
+function onCnPresetSelect(preset: { mode: CnAccountMode; protocol: CnApiProtocol; url: string }) {
+  accountMode.value = preset.mode
+  apiProtocol.value = preset.protocol
+  apiKeyBaseUrl.value = preset.url
+}
+
+watch(accountMode, (mode, previousMode) => {
+  if (!isCNPlatform.value) return
+  const previousDefault = defaultCNBaseUrl(form.platform, previousMode, apiProtocol.value)
+  if (!apiKeyBaseUrl.value || apiKeyBaseUrl.value === previousDefault) {
+    apiKeyBaseUrl.value = defaultCNBaseUrl(form.platform, mode, apiProtocol.value)
+  }
+}, { flush: 'sync' })
+watch(apiProtocol, (protocol, previousProtocol) => {
+  if (!isCNPlatform.value) return
+  const previousDefault = defaultCNBaseUrl(form.platform, accountMode.value, previousProtocol)
+  if (!apiKeyBaseUrl.value || apiKeyBaseUrl.value === previousDefault) {
+    apiKeyBaseUrl.value = defaultCNBaseUrl(form.platform, accountMode.value, protocol)
+  }
+}, { flush: 'sync' })
 const upstreamBillingAutoProbeEnabled = ref(false)
 const accountAvailabilityEnabled = ref(false)
 const accountAvailabilityStart = ref('')
@@ -3502,14 +3602,33 @@ const accountAvailabilityEnd = ref('')
 const accountAvailabilityValid = ref(true)
 const accountAvailabilityWindowValid = ref(false)
 
-const syncPreviewCredentials = computed(() => {
+const syncPreviewCredentials = computed<{
+  platform: string
+  type: string
+  base_url?: string
+  api_key: string
+  account_mode?: string
+  api_protocol?: string
+} | undefined>(() => {
   if (!apiKeyValue.value) return undefined
-  return {
+  const credentials: {
+    platform: string
+    type: string
+    base_url?: string
+    api_key: string
+    account_mode?: string
+    api_protocol?: string
+  } = {
     platform: form.platform,
     type: form.type,
     base_url: apiKeyBaseUrl.value || undefined,
     api_key: apiKeyValue.value
   }
+  if (isCNPlatform.value) {
+    credentials.account_mode = accountMode.value
+    credentials.api_protocol = apiProtocol.value
+  }
+  return credentials
 })
 
 const editQuotaLimit = ref<number | null>(null)
@@ -3944,8 +4063,9 @@ watch(
   () => form.platform,
   (newPlatform) => {
     // Reset base URL based on platform
-    apiKeyBaseUrl.value =
-      (newPlatform === 'openai')
+    apiKeyBaseUrl.value = (newPlatform === 'kimi' || newPlatform === 'zhipu' || newPlatform === 'deepseek')
+      ? defaultCNBaseUrl(newPlatform, accountMode.value, apiProtocol.value)
+      : newPlatform === 'openai'
         ? 'https://api.openai.com'
         : newPlatform === 'gemini'
           ? 'https://generativelanguage.googleapis.com'
@@ -3976,6 +4096,12 @@ watch(
       modelRestrictionMode.value = 'mapping'
       form.concurrency = 1
       form.load_factor = null
+    }
+    if (newPlatform === 'kimi' || newPlatform === 'zhipu' || newPlatform === 'deepseek') {
+      accountCategory.value = 'apikey'
+      form.type = 'apikey'
+      accountMode.value = newPlatform === 'deepseek' ? 'payg' : accountMode.value
+      apiProtocol.value = 'chat_completions'
     }
     if (newPlatform !== 'gemini' && newPlatform !== 'anthropic' && accountCategory.value === 'service_account') {
       accountCategory.value = 'oauth-based'
@@ -4380,6 +4506,8 @@ const resetForm = () => {
   addMethod.value = 'oauth'
   apiKeyBaseUrl.value = 'https://api.anthropic.com'
   apiKeyValue.value = ''
+  accountMode.value = 'payg'
+  apiProtocol.value = 'chat_completions'
   upstreamBillingAutoProbeEnabled.value = false
   accountAvailabilityEnabled.value = false
   accountAvailabilityStart.value = ''
@@ -4877,7 +5005,9 @@ const handleSubmit = async () => {
 
   // Determine default base URL based on platform
   const defaultBaseUrl =
-    form.platform === 'openai'
+    isCNPlatform.value
+      ? defaultCNBaseUrl(form.platform, accountMode.value, apiProtocol.value)
+      : form.platform === 'openai'
       ? 'https://api.openai.com'
       : form.platform === 'gemini'
         ? 'https://generativelanguage.googleapis.com'
@@ -4890,6 +5020,10 @@ const handleSubmit = async () => {
   }
   if (form.platform === 'gemini') {
     credentials.tier_id = geminiTierAIStudio.value
+  }
+  if (isCNPlatform.value) {
+    credentials.account_mode = accountMode.value
+    credentials.api_protocol = apiProtocol.value
   }
 
   // Add model mapping if configured（OpenAI 开启自动透传时不应用）

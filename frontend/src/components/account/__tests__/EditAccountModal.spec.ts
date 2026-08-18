@@ -1111,4 +1111,40 @@ describe('EditAccountModal', () => {
 
     expect(updateAccountMock).not.toHaveBeenCalled()
   })
+
+  it('rehydrates and persists CN mode/protocol while preserving a custom Base URL', async () => {
+    const account = buildAccount()
+    account.name = 'Kimi account'
+    account.platform = 'kimi'
+    account.credentials = {
+      base_url: 'https://api.kimi.com/coding',
+      api_key: 'kimi-key',
+      account_mode: 'coding',
+      api_protocol: 'anthropic'
+    }
+    account.credentials_status = { has_api_key: true }
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+    await flushPromises()
+    const baseUrl = wrapper.findAll('input').find(input =>
+      (input.element as HTMLInputElement).value === 'https://api.kimi.com/coding'
+    )
+    expect(baseUrl).toBeDefined()
+    await baseUrl!.setValue('https://gateway.example.test/kimi')
+    await wrapper.findAll('[data-testid="cn-edit-account-mode"]')[0].trigger('click')
+    await wrapper.findAll('[data-testid="cn-edit-api-protocol"]')[0].trigger('click')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toEqual(expect.objectContaining({
+      base_url: 'https://gateway.example.test/kimi',
+      account_mode: 'payg',
+      api_protocol: 'chat_completions'
+    }))
+  })
 })

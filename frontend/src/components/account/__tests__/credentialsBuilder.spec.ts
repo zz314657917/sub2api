@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { applyInterceptWarmup } from '../credentialsBuilder'
+import {
+  applyInterceptWarmup,
+  cnBalanceCellVisible,
+  cnQuotaCellVisible,
+  defaultCNBaseUrl,
+} from '../credentialsBuilder'
 
 describe('applyInterceptWarmup', () => {
   it('create + enabled=true: should set intercept_warmup_requests to true', () => {
@@ -42,5 +47,24 @@ describe('applyInterceptWarmup', () => {
     expect(creds.api_key).toBe('sk')
     expect(creds.base_url).toBe('url')
     expect('intercept_warmup_requests' in creds).toBe(false)
+  })
+})
+
+describe('CN provider credential presets', () => {
+  it('resolves provider/mode/protocol defaults and rejects illegal combinations', () => {
+    expect(defaultCNBaseUrl('kimi', 'payg', 'chat_completions')).toBe('https://api.moonshot.cn/v1')
+    expect(defaultCNBaseUrl('kimi', 'coding', 'anthropic')).toBe('https://api.kimi.com/coding')
+    expect(defaultCNBaseUrl('deepseek', 'payg', 'responses')).toBe('https://api.deepseek.com')
+    expect(defaultCNBaseUrl('kimi', 'payg', 'responses')).toBe('')
+    expect(defaultCNBaseUrl('deepseek', 'coding', 'chat_completions')).toBe('')
+  })
+
+  it('exposes quota and balance cells only for their owning plan types', () => {
+    expect(cnQuotaCellVisible('kimi', 'coding')).toBe(true)
+    expect(cnQuotaCellVisible('zhipu', 'coding')).toBe(true)
+    expect(cnQuotaCellVisible('deepseek', 'coding')).toBe(false)
+    expect(cnBalanceCellVisible('kimi', 'payg')).toBe(true)
+    expect(cnBalanceCellVisible('deepseek', 'payg')).toBe(true)
+    expect(cnBalanceCellVisible('zhipu', 'payg')).toBe(false)
   })
 })
