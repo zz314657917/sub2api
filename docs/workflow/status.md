@@ -1,13 +1,27 @@
 ---
-phase: done
-current_sprint: upstream-openai-passthrough-model-discovery-s230-b
-total_sprints: 229
-pending_action: Review the next upstream candidate/history; S230-A and S230-B are integrated locally and no push is authorized.
+phase: contract-approved
+current_sprint: upstream-gemini-skipped-error-policy-s231
+total_sprints: 230
+pending_action: Implement S231 in an isolated worktree, then run Controller review and separate QA; no push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-18 20:11 +08:00
+last_verified: 2026-08-18 20:17 +08:00
 ---
+
+# Upstream Gemini Skipped Error Policy S231
+
+- `contract-approved`: manually adapt upstream `ab0fcd1a0` at frozen
+  `main@6d14a6dd1`; only Gemini native/Messages/Chat Completions
+  `ErrorPolicySkipped` failover and client-write semantics are in scope.
+- Pool-mode non-failover 4xx keeps its real status semantics; custom-code misses
+  hide upstream details behind a fixed 500 response; failover-worthy skipped
+  statuses still switch accounts without applying account-state penalties.
+- Existing retry loops, count_tokens fallback, Google project 400 handling,
+  billing, scheduling, frontend, migrations, dependencies, user dirty files,
+  provider/database/container operations, deployment, and push are denied.
+- Contract:
+  `docs/workflow/tasks/upstream-gemini-skipped-error-policy-s231.md`.
 
 # Upstream Ops Small Fixes S227
 

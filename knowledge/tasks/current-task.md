@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-18 20:11 +08:00
+最后更新：2026-08-18 20:17 +08:00
 
 ## 背景
 
@@ -10,7 +10,7 @@
 
 ## 当前目标
 
-- S226、S228、S229-A、S229-B、S229-C、S229-D、S229-E、S230-A 与 S230-B 已按批准边界集成 `main`；上游 `10c8b7020` 五项 CN 缺陷切片及两个后续小修均已独立收口，未执行 push、部署或真实 provider 操作。
+- S226、S228、S229-A、S229-B、S229-C、S229-D、S229-E、S230-A 与 S230-B 已按批准边界集成 `main`；S231 已完成 `ab0fcd1a0` 拓扑审计和 contract review，下一步在隔离 worktree 手工移植 Gemini `ErrorPolicySkipped` 三协议错误语义。
 
 ## 本次已完成
 
@@ -41,6 +41,7 @@
 - S229-E 已完成隔离实现、Controller review、独立 QA 和主线集成：业务 `08f5f6ec7`（候选 `29bc3c8e3`）、Controller report `upstream-cn-provider-partial-usage-s229-e-result.md`、QA report `upstream-cn-provider-partial-usage-s229-e-qa.md`（提交 `2cae1394d`）。主线 focused helper/quota x10、完整 handler、server compile、scope/provenance/conflict/index 和保护检查均通过；未 push。
 - S230-A 已完成隔离实现、Controller review、独立 QA 和主线集成：业务 `ea2f12acd`（候选 `48b72588d`）、Controller report `upstream-codex-usage-probe-model-s230-a-result.md`、QA report `upstream-codex-usage-probe-model-s230-a-qa.md`（提交 `fb619efab`）。主线 focused probe/version x10、完整 service、server compile、scope/provenance/conflict/index 和保护检查均通过；未 push。
 - S230-B 已完成隔离实现、Controller review、独立 QA 和主线集成：业务 `e81c2a76f`（候选 `90a59030b`）、Controller report `upstream-openai-passthrough-model-discovery-s230-b-result.md`、QA report `upstream-openai-passthrough-model-discovery-s230-b-qa.md`（提交 `ad1df3c11`）。主线 focused passthrough/global-list x10、完整 service、server compile、scope/provenance/conflict/index 和保护检查均通过；未 push。
+- S231 contract 已批准：上游 `ab0fcd1a0` 已进入 `upstream/main@49504adc9`，相关四文件无后续修改；原 patch 因本地预计算 `errorPolicy` 和 retry 拓扑差异无法直接 apply，范围限定 native/Messages/Chat Completions 的 skipped-policy failover、4xx 保真、自定义错误码隐藏和 400 message 映射。
 
 ## 已确认事实
 
@@ -75,7 +76,7 @@
 
 ## 下一步
 
-- 评估 `10c8b7020` 剩余 slices -> 验证：先读取本地 `openai_gateway_service.go`、`ratelimit_service.go` 和 handler/stream owners，确认每片的可独立测试边界。
+- 在 `E:/codex-worktrees/sub2api/upstream-gemini-skipped-error-policy-s231` 从 `main@6d14a6dd1` 实现 S231，先跑 focused x10、完整 service、server compile 和范围门禁，再创建独立 QA worktree。
 - 保留当前本地提交和用户 dirty 内容，等待明确发布授权。
 - 发布当前本地提交（需用户授权） -> 验证：push 前后比较 `HEAD`、`origin/main` 和远端 `refs/heads/main`，只允许普通 push。
 
