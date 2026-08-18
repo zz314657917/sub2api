@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-18 20:17 +08:00
+最后更新：2026-08-18 20:49 +08:00
 
 ## 背景
 
@@ -10,7 +10,7 @@
 
 ## 当前目标
 
-- S226、S228、S229-A、S229-B、S229-C、S229-D、S229-E、S230-A 与 S230-B 已按批准边界集成 `main`；S231 已完成 `ab0fcd1a0` 拓扑审计和 contract review，下一步在隔离 worktree 手工移植 Gemini `ErrorPolicySkipped` 三协议错误语义。
+- S226、S228、S229-A、S229-B、S229-C、S229-D、S229-E、S230-A、S230-B 与 S231 已按批准边界集成 `main`；Gemini `ErrorPolicySkipped` 三协议错误语义已收口，下一步只评估新的上游候选或历史提交。
 
 ## 本次已完成
 
@@ -43,6 +43,7 @@
 - S230-B 已完成隔离实现、Controller review、独立 QA 和主线集成：业务 `e81c2a76f`（候选 `90a59030b`）、Controller report `upstream-openai-passthrough-model-discovery-s230-b-result.md`、QA report `upstream-openai-passthrough-model-discovery-s230-b-qa.md`（提交 `ad1df3c11`）。主线 focused passthrough/global-list x10、完整 service、server compile、scope/provenance/conflict/index 和保护检查均通过；未 push。
 - S231 contract 已批准：上游 `ab0fcd1a0` 已进入 `upstream/main@49504adc9`，相关四文件无后续修改；原 patch 因本地预计算 `errorPolicy` 和 retry 拓扑差异无法直接 apply，范围限定 native/Messages/Chat Completions 的 skipped-policy failover、4xx 保真、自定义错误码隐藏和 400 message 映射。
 - S231 contract amendment：`-tags=unit` 会触发仓库既有无关符号冲突，已将 focused acceptance 改为默认构建标签；S231 测试覆盖三协议全链路，范围和行为门禁不变。
+- S231 已完成隔离实现、Controller review、独立 QA 和主线集成：业务 `c0b1d8966`（候选 `5cf6f3fcd`）、Controller report `9aa26abd5`、QA report `3d94bf9cf`。池模式不可 failover 4xx 保持真实语义，自定义错误码未命中隐藏上游细节，可 failover skipped 状态继续换号；未 push。
 
 ## 已确认事实
 
@@ -63,6 +64,7 @@
 ## 待验证点
 
 - `10c8b7020` 五项 CN 缺陷切片及 S230-A/B 已完成；下一步只评估新的上游候选或历史提交，不再回到已完成切片。
+- `ab0fcd1a0` 的 S231 Gemini skipped-policy 切片已完成；上游相关四文件在该提交后到 `upstream/main@49504adc9` 无后续修改。
 - 若授权发布：先复核最终 `git status`、主线测试证据和远端差异，再执行普通 `git push origin main`；当前没有发布授权。
 - S225/S226/S228 均未运行真实 Redis 或上游 provider 集成；合同禁止这些操作，当前证据来自 mock/httptest、包回归、server 编译和前端构建。
 
@@ -77,7 +79,7 @@
 
 ## 下一步
 
-- 在 `E:/codex-worktrees/sub2api/upstream-gemini-skipped-error-policy-s231` 从 `main@6d14a6dd1` 实现 S231，先跑 focused x10、完整 service、server compile 和范围门禁，再创建独立 QA worktree。
+- 继续审计 `upstream/main@49504adc9` 的后续候选，优先选择可独立测试、无需 schema/产品前置且不触碰用户 dirty 路径的修复。
 - 保留当前本地提交和用户 dirty 内容，等待明确发布授权。
 - 发布当前本地提交（需用户授权） -> 验证：push 前后比较 `HEAD`、`origin/main` 和远端 `refs/heads/main`，只允许普通 push。
 
@@ -112,3 +114,4 @@
 - S229-E 主线集成：focused `TestShouldSubmitOpenAIPartialUsage|TestOpenAIRecordUsageInputsCarryQuotaPlatform` x10、完整 `internal/handler`、`cmd/server` compile、gofmt、diff、scope/provenance/conflict/index 与保护 patch/hash PASS；业务 patch-id `40447810f11ca055e78ffd9431aa952f160433b8`，主线业务提交 `main@2cae1394d` ahead `origin/main` 77，未 push。
 - S230-A 主线集成：focused `TestCodexUsageProbeModel|TestOpenAICodexVersionConsistency` x10、完整 `internal/service`、`cmd/server` compile、gofmt、diff、scope/provenance/conflict/index 与保护 patch/hash PASS；业务 patch-id `45261e82b4a6d1dcfaa9fb81de758f2d26950a41`，主线业务提交 `main@ea2f12acd` ahead `origin/main` 80，未 push。
 - S230-B 主线集成：focused `TestGetAvailableModels_OpenAIPassthroughUsesDefaultFallback|TestGetAvailableModels_GlobalListPreservesMappedModelsWithOpenAIPassthrough|TestGetAvailableModels_ErrorAndGlobalListBranches` x10、完整 `internal/service`、`cmd/server` compile、gofmt、diff、scope/provenance/conflict/index 与保护 patch/hash PASS；业务 patch-id `71034474f0ef8387cff03604f52ddf504f6b711c`，主线业务提交 `main@e81c2a76f` ahead `origin/main` 85，未 push。
+- S231 主线集成：focused 九场景 x10 `11.561s`、完整 `internal/service` `70.832s`、`cmd/server` compile `10.570s`、gofmt、diff、scope/provenance/conflict/index 与保护 patch/hash PASS；业务 patch-id `e8c34a39abb58e03e4e00f52f646f408d5256af0`，主线业务提交 `main@c0b1d8966`，未 push。

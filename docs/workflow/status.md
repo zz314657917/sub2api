@@ -1,12 +1,12 @@
 ---
-phase: contract-approved
+phase: done
 current_sprint: upstream-gemini-skipped-error-policy-s231
 total_sprints: 230
-pending_action: Implement S231 in an isolated worktree, then run Controller review and separate QA; no push is authorized.
+pending_action: Review the next upstream candidate/history; S231 is integrated locally and no push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-18 20:17 +08:00
+last_verified: 2026-08-18 20:49 +08:00
 ---
 
 # Upstream Gemini Skipped Error Policy S231
@@ -26,6 +26,18 @@ last_verified: 2026-08-18 20:17 +08:00
   checkout because unrelated unit-tagged tests collide with existing product
   symbols. The S231 regression file is default-tagged, so acceptance uses the
   same focused tests without `-tags=unit`; scope and behavior are unchanged.
+- `PASS / controller-review`: business `5cf6f3fcd` and Controller report
+  `96d54717b` passed nine focused scenarios x10, complete service, server
+  compile, format, four-file scope, provenance, conflict/index, and protected
+  main gates.
+- `PASS / independent-qa`: report `a24fe44c0` independently reran focused x10,
+  complete service, server compile, format, scope, provenance, conflict/index,
+  and user patch/hash protection from a separate clean worktree.
+- `PASS / main-integration`: business `c0b1d8966`, Controller report
+  `9aa26abd5`, and QA report `3d94bf9cf` are integrated locally. Fresh main
+  focused x10, complete service, server compile, format, patch-id, provenance,
+  conflict/index, and protected-user checks passed; no push, deployment,
+  provider, database, or container operation occurred.
 
 # Upstream Ops Small Fixes S227
 
