@@ -139,6 +139,36 @@ func TestResponsesStreamingFromNativeAnthropic_HangTimesOut(t *testing.T) {
 	}
 }
 
+func TestResponsesStreamingFromNativeAnthropic_ClientDisconnectDrainsUsage(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := newNativeAnthropicHangTestService(5)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", nil)
+	// 首次写出即失败，模拟客户端断开；上游末尾 message_delta 才携带最终 output_tokens。
+	c.Writer = &failingGinWriter{ResponseWriter: c.Writer, failAfter: 0}
+
+	resp, pr, pw := newHangingUpstreamResponse()
+	go func() {
+		_, _ = pw.Write([]byte(miniAnthropicSSEStream()))
+		_ = pw.Close()
+	}()
+	defer pr.Close()
+
+	res, err := svc.handleResponsesStreamingFromNativeAnthropic(
+		resp, c, "glm-4.7", "glm-4.7", "glm-4.7", nil, time.Now())
+	if err != nil {
+		t.Fatalf("expected nil error after draining disconnected client, got %v", err)
+	}
+	if res == nil || !res.ClientDisconnect {
+		t.Fatalf("expected disconnected result, got %+v", res)
+	}
+	if res.Usage.InputTokens != 10 || res.Usage.OutputTokens != 5 {
+		t.Fatalf("expected complete usage after drain, got %+v", res.Usage)
+	}
+}
+
 func TestResponsesBufferedFromNativeAnthropic_HangTimesOut(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := newNativeAnthropicHangTestService(1)
