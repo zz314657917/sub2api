@@ -1,12 +1,12 @@
 ---
-phase: build
+phase: fix
 current_sprint: upstream-cn-providers-s226
 total_sprints: 226
-pending_action: Invoke the user-authorized claude-sonnet-4-6 S226-C Developer Worker from the unchanged isolated worktree at exact base f6b380e21, then perform Controller review of B3 stream timeouts, platform/protocol isolation, reactive cooldown semantics, 16 focused tests x10, affected packages, exact allowlist, C0 protected main state, and Wire/server compile. Do not start S226-D, independent QA, or main integration before Controller PASS.
+pending_action: Controller takeover of S226-C implementation in the unchanged isolated worktree at exact base f6b380e21 after two failed Developer Worker attempts; preserve the same allowlist and two-commit boundary, then perform the full Controller review before S226-D, independent QA, or main integration.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-17 23:50 +08:00
+last_verified: 2026-08-18 08:36 +08:00
 ---
 
 # Upstream CN Providers S226
@@ -87,6 +87,12 @@ last_verified: 2026-08-17 23:50 +08:00
   Its one-turn availability probe completed successfully. The C base, allowlist,
   C0 protection boundary, ordered gates, and no-push/no-deploy restriction are
   unchanged.
+- `fix / S226-C Controller takeover`: two approved Sonnet Worker attempts did
+  not produce a valid report or code. One exited without artifacts; the second
+  returned `Content block not found`, and a read-only probe showed the CLI was
+  resolving worktree paths outside this checkout. Per the P/G/E stop rule,
+  low-cost Worker dispatch is stopped and Controller implementation proceeds in
+  the same exact base and allowlist. Independent QA remains a later gate.
 
 # Upstream Fingerprint User-Agent Validation S225
 
