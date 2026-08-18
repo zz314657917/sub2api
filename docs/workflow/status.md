@@ -1,12 +1,12 @@
 ---
-phase: contract-approved
+phase: done
 current_sprint: upstream-cn-provider-billing-s229-b
 total_sprints: 229
-pending_action: Implement S229-B only in an isolated worktree, then run Controller review and independent QA; 403 and disconnect slices remain separate.
+pending_action: Evaluate the next independently verifiable S229 slice; 403 policy and disconnect drain/finalize remain separate.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-18 15:16 +08:00
+last_verified: 2026-08-18 16:08 +08:00
 ---
 
 # Upstream Ops Small Fixes S227
@@ -89,6 +89,19 @@ last_verified: 2026-08-18 15:16 +08:00
   files, provider/database/container operations, deployment, and push are
   denied.
 - Contract: `docs/workflow/tasks/upstream-cn-provider-billing-s229-b.md`.
+- `PASS / controller-review`: implementation `f07f896a5` and result report
+  `upstream-cn-provider-billing-s229-b-result.md` passed focused billing x10,
+  complete service, server compile, format, scope, provenance, conflict/index,
+  and protected-main checks.
+- `PASS / independent-qa`: report
+  `upstream-cn-provider-billing-s229-b-qa.md` independently passed focused
+  billing x10, complete service, server compile, format, scope, provenance,
+  conflict/index, and protected-main checks.
+- `PASS / main-integration`: business `c3b0ed259` and QA report `f4e7f45d8`
+  are integrated locally. CN unpriced Claude candidates no longer fall back
+  to Claude pricing; explicit Group/Channel pricing remains eligible and
+  empty candidates persist zero-cost usage. No push/deployment/provider/
+  database/container operation occurred.
 - `contract-amendment`: Go module commands are run from `backend/`; no product
   scope or acceptance behavior changed.
 

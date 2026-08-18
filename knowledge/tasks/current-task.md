@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-18 15:10 +08:00
+最后更新：2026-08-18 16:08 +08:00
 
 ## 背景
 
@@ -10,7 +10,7 @@
 
 ## 当前目标
 
-- S226、S228 与 S229-A 已按批准边界集成 `main`；S229-B billing contract 已批准，将在隔离 worktree 实现，未执行 push、部署或真实 provider 操作。
+- S226、S228、S229-A 与 S229-B 已按批准边界集成 `main`；当前评估 `10c8b7020` 剩余 403 与断开排水切片，未执行 push、部署或真实 provider 操作。
 
 ## 本次已完成
 
@@ -34,6 +34,7 @@
 - S228 已完成独立实现、Controller review 和独立 QA：业务 `df43f3876`/`26a5dec9d`，Controller report `b0a7a6e8b`，QA report `9e4beddc2`；按顺序集成到 `main` 为 `22b04fa0d`/`cc1630bd7`/`2cbe98f0b`/`ff241be81`。
 - S229-A 已完成独立实现、Controller review 和独立 QA：业务 `ce0ffdb65`，Controller report `fb391fd08`，QA report `fe11096aa`；按顺序集成到 `main` 为 `2422b9b15`/`65ac54145`/`de62dd8d6`。
 - S229-B billing-only contract 已批准：基线 `main@de62dd8d6`，上游 source `10c8b7020`，范围限定 CN 计费候选过滤、显式定价放行与空候选 zero-cost usage；403 和断开排水切片继续分离。
+- S229-B 已完成隔离实现、Controller review、独立 QA 和主线集成：业务 `c3b0ed259`，Controller report `upstream-cn-provider-billing-s229-b-result.md`，QA report `upstream-cn-provider-billing-s229-b-qa.md`，主线仍未 push。
 
 ## 已确认事实
 
@@ -53,7 +54,7 @@
 
 ## 待验证点
 
-- S229-B isolated implementation -> 验证：Go 验收命令统一从 `backend/` module 目录执行；只修改 billing owner 与 focused tests，完成 Controller review 后再建立独立 QA worktree。
+- 评估 `10c8b7020` 下一片 -> 验证：分别审计 CN 403 处置与 partial-result/stream drain owners，单独建立 contract，不与 S229-B 混合。
 - 若授权发布：先复核最终 `git status`、主线测试证据和远端差异，再执行普通 `git push origin main`；当前没有发布授权。
 - S225/S226/S228 均未运行真实 Redis 或上游 provider 集成；合同禁止这些操作，当前证据来自 mock/httptest、包回归、server 编译和前端构建。
 
@@ -97,3 +98,4 @@
 - S226 主线集成：`1219d5352`/`cb34acf28`、`0a6990ea4`/`f32deb2ee`、`974793cd4`/`b93324820`、无 baseline 的 D `501c3830a`、`b97272adc`、`6ca47c2f8` 按序进入 `main`；A/B/C/D patch-id 分别为 `b0ec5bd95...`、`a8c91f578...`、`d6ee6e8e1...`、`04fc586c...`，最终主线前端/后端 fresh verification 全部通过。
 - S228 主线集成：后端 `go test -tags=unit ./internal/handler/admin -run "TestGroupPlatformBinding" -count=10`、前端 3 个 focused 文件共 7 项和 `pnpm run typecheck` 均 PASS；业务 patch-id `8b0caf6e...`/`cae02fc1...` 与候选一致，主线 ahead 55，远端 refs 未变。
 - S229-A 主线集成：三个 focused Go 回归均 `-count=10` PASS，完整 `handler`/`service` 已由独立 QA PASS，`cmd/server` compile PASS；业务 patch-id `ad03cda9...`，主线 ahead 58，远端 refs 未变。
+- S229-B 主线集成：focused billing 三项测试 x10、完整 `internal/service`、`cmd/server` compile、scope/provenance/conflict/index 和保护 patch/hash 均由独立 QA PASS；业务 patch-id `10ef0f42...`，主线 `main@f4e7f45d8` ahead `origin/main` 62，未 push。
