@@ -2,7 +2,7 @@
 phase: build
 current_sprint: upstream-cn-providers-s226
 total_sprints: 226
-pending_action: S226-D Developer is dispatched in the isolated worktree at exact base 5bb985cb6 plus non-integrated baseline d7158e916; restore and verify the frontend toolchain inside that worktree, then implement only the D allowlist and produce the worker report. No independent QA or main integration occurs before S226-E.
+pending_action: Retry S226-D Developer once in the unchanged isolated worktree at exact base 5bb985cb6 plus non-integrated baseline d7158e916, using the absolute contract path and the approved frontend allowlist. The first attempt ended before any file change because it resolved the contract outside the worktree and reached its budget. No independent QA or main integration occurs before S226-E.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
@@ -111,6 +111,11 @@ last_verified: 2026-08-18 11:20 +08:00
   integrated. The approved alternate Developer is `claude-sonnet-4-6`; only
   the S226-D frontend paths and result report are allowed. Frontend dependencies
   may be restored only in this worktree with no manifest or lockfile changes.
+- `BLOCKED / S226-D Developer attempt 1`: the approved Sonnet invocation
+  resolved the contract to an incorrect path outside the D checkout and then
+  stopped at its `$0.10` budget (`$0.1079` actual); no D file, report, or
+  dependency manifest changed, and the worktree remains at baseline
+  `d7158e916`. One controlled retry is allowed with an absolute contract path.
 
 # Upstream Fingerprint User-Agent Validation S225
 
