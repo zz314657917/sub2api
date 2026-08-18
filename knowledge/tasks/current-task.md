@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-18 16:16 +08:00
+最后更新：2026-08-18 19:20 +08:00
 
 ## 背景
 
@@ -10,7 +10,7 @@
 
 ## 当前目标
 
-- S226、S228、S229-A 与 S229-B 已按批准边界集成 `main`；S229-C 403 contract 已批准，将在隔离 worktree 实现，未执行 push、部署或真实 provider 操作。
+- S226、S228、S229-A、S229-B 与 S229-C 已按批准边界集成 `main`；断开排水/partial-result usage 仍保持独立评估，未执行 push、部署或真实 provider 操作。
 
 ## 本次已完成
 
@@ -36,6 +36,7 @@
 - S229-B billing-only contract 已批准：基线 `main@de62dd8d6`，上游 source `10c8b7020`，范围限定 CN 计费候选过滤、显式定价放行与空候选 zero-cost usage；403 和断开排水切片继续分离。
 - S229-B 已完成隔离实现、Controller review、独立 QA 和主线集成：业务 `c3b0ed259`，Controller report `upstream-cn-provider-billing-s229-b-result.md`，QA report `upstream-cn-provider-billing-s229-b-qa.md`，主线仍未 push。
 - S229-C 403-only contract 已批准：基线 `main@44fa47124`，上游 source `10c8b7020`，范围限定 CN 403 分派复用 OpenAI 策略；断开排水切片继续分离。
+- S229-C 已完成隔离实现、Controller review、独立 QA 和主线集成：业务 `7911a0ef2`（候选 `2d60e8cd0`）、Controller report `upstream-cn-provider-403-s229-c-result.md`、QA report `upstream-cn-provider-403-s229-c-qa.md`（提交 `9e5050aac`）。主线 focused CN 403 x10、完整 service、server compile、scope/provenance/conflict/index 和保护检查均通过；未 push。
 
 ## 已确认事实
 
@@ -55,7 +56,7 @@
 
 ## 待验证点
 
-- S229-C isolated implementation -> 验证：只修改 ratelimit owner 与 focused tests，完成 Controller review 后再建立独立 QA worktree。
+- `10c8b7020` 剩余 disconnect drain/partial-result usage slices -> 验证：继续读取本地 `openai_gateway_service.go`、stream owners 和 usage logging 路径，拆出可独立测试的 contract；不要与已完成 S229-C 混合。
 - 若授权发布：先复核最终 `git status`、主线测试证据和远端差异，再执行普通 `git push origin main`；当前没有发布授权。
 - S225/S226/S228 均未运行真实 Redis 或上游 provider 集成；合同禁止这些操作，当前证据来自 mock/httptest、包回归、server 编译和前端构建。
 
@@ -100,3 +101,4 @@
 - S228 主线集成：后端 `go test -tags=unit ./internal/handler/admin -run "TestGroupPlatformBinding" -count=10`、前端 3 个 focused 文件共 7 项和 `pnpm run typecheck` 均 PASS；业务 patch-id `8b0caf6e...`/`cae02fc1...` 与候选一致，主线 ahead 55，远端 refs 未变。
 - S229-A 主线集成：三个 focused Go 回归均 `-count=10` PASS，完整 `handler`/`service` 已由独立 QA PASS，`cmd/server` compile PASS；业务 patch-id `ad03cda9...`，主线 ahead 58，远端 refs 未变。
 - S229-B 主线集成：focused billing 三项测试 x10、完整 `internal/service`、`cmd/server` compile、scope/provenance/conflict/index 和保护 patch/hash 均由独立 QA PASS；业务 patch-id `10ef0f42...`，主线 `main@f4e7f45d8` ahead `origin/main` 62，未 push。
+- S229-C 主线集成：focused `TestHandleUpstreamError_CNProviderHTML403SkipsAccountPenalty|TestHandleUpstreamError_CNProviderStructured403TempUnschedulable|TestHandleUpstreamError_CNProviderStructured403ThresholdDisables` x10、完整 `internal/service`、`cmd/server` compile、gofmt、diff、scope/provenance/conflict/index 与保护 patch/hash PASS；业务 patch-id `914820cfc3804f2e40a8f58f64ad6f266926b2a2`，主线 `main@9e5050aac` ahead `origin/main` 64，未 push。

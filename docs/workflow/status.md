@@ -1,12 +1,12 @@
 ---
-phase: contract-approved
+phase: done
 current_sprint: upstream-cn-provider-403-s229-c
 total_sprints: 229
-pending_action: Implement S229-C only in an isolated worktree, then run Controller review and independent QA; disconnect drain/finalize remains separate.
+pending_action: Evaluate the remaining 10c8b7020 disconnect drain/partial-result usage slices independently; do not mix them with completed S229-C.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-18 16:16 +08:00
+last_verified: 2026-08-18 19:20 +08:00
 ---
 
 # Upstream Ops Small Fixes S227
@@ -115,6 +115,19 @@ last_verified: 2026-08-18 16:16 +08:00
 - Contract: `docs/workflow/tasks/upstream-cn-provider-403-s229-c.md`.
 - `contract-amendment`: Go module commands are run from `backend/`; no product
   scope or acceptance behavior changed.
+- `PASS / controller-review`: business `2d60e8cd0` and Controller result report
+  `upstream-cn-provider-403-s229-c-result.md` stayed within the ratelimit owner,
+  focused CN 403 tests, and report allowlist. CN HTML exemption, temporary
+  cooldown, cumulative counter, and threshold disable behavior passed focused
+  x10, complete service, server compile, format, diff, conflict/index, and
+  upstream ancestry gates.
+- `PASS / independent-qa`: report `1c1575c50` independently reran focused CN
+  403 x10, complete service, server compile, format, diff, conflict/index, and
+  provenance checks from a separate clean worktree.
+- `PASS / main-integration`: business `7911a0ef2` and QA report `9e5050aac`
+  are integrated locally. CN structured 403s now reuse the OpenAI cooldown and
+  threshold policy while HTML 403s remain exempt; no push, deployment,
+  provider, database, or container operation occurred.
 
 # Upstream CN Providers S226
 
