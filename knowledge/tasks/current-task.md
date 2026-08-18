@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-18 12:55 +08:00
+最后更新：2026-08-18 15:10 +08:00
 
 ## 背景
 
@@ -10,7 +10,7 @@
 
 ## 当前目标
 
-- 用户已授权完成 S226 剩余计划。S226-E 独立 QA 已 PASS，A-D 已按批准边界集成 `main`；当前只等待用户明确授权后再按普通流程 push，未执行 push、部署或真实 provider 操作。
+- S226、S228 与 S229-A 已按批准边界集成 `main`；S229-B billing contract 已批准，将在隔离 worktree 实现，未执行 push、部署或真实 provider 操作。
 
 ## 本次已完成
 
@@ -31,6 +31,9 @@
 - S226-D Controller review PASS：业务 `a559956f7`、报告 `c539d1f01`，D 工作树以用户 modal baseline `d7158e916` 隔离；7 个 focused 文件共 87 项、typecheck/build、allowlist、provenance 和保护门禁通过，业务 patch-id 为 `04fc586c994a0264280db52a88c6398d83e29ebe`。
 - S226-E 独立 QA PASS：QA report `5ca12b78b`；A-C focused 40 项均可发现并 x10 PASS，完整 backend service/handler/routes、server compile、前端 focused/typecheck/build、scope/provenance/conflict/index 和保护 patch/hash 通过。浏览器 session `s226-e-qa-20260818-final` 检查公共首页非空并完成清理；无登录态导致后台账号页真实操作未覆盖，已记录为残余风险。
 - S226 已本地集成：A-C 业务/报告、无 baseline 的 D 业务提交 `501c3830a`、D 报告和 QA 报告依序进入 `main`，最终 HEAD `6ca47c2f8`，相对 `origin/main` ahead 45；D 集成 patch-id 保持 `04fc586c...`。
+- S228 已完成独立实现、Controller review 和独立 QA：业务 `df43f3876`/`26a5dec9d`，Controller report `b0a7a6e8b`，QA report `9e4beddc2`；按顺序集成到 `main` 为 `22b04fa0d`/`cc1630bd7`/`2cbe98f0b`/`ff241be81`。
+- S229-A 已完成独立实现、Controller review 和独立 QA：业务 `ce0ffdb65`，Controller report `fb391fd08`，QA report `fe11096aa`；按顺序集成到 `main` 为 `2422b9b15`/`65ac54145`/`de62dd8d6`。
+- S229-B billing-only contract 已批准：基线 `main@de62dd8d6`，上游 source `10c8b7020`，范围限定 CN 计费候选过滤、显式定价放行与空候选 zero-cost usage；403 和断开排水切片继续分离。
 
 ## 已确认事实
 
@@ -45,20 +48,28 @@
 - 上游多个拆分 gateway 文件本地不存在；contract 已将其改写到 `gateway_service.go`、`openai_gateway_service.go`、`openai_gateway_chat_completions_raw.go` 和 `openai_ws_forwarder.go` 等本地 owner。
 - S226-A 保留 `IsOpenAICompatible` 的 openai/grok 语义，未提前开放 CN 路由；也未扩展 `AllowedQuotaPlatforms` 或 `AllowedSchedulingThresholdPlatforms`。业务 patch-id 为 `b0ec5bd95a5e00fffd8e06000f2f96dfbe552680`。
 - 用户未提交内容包括两个 backend 教程测试、两个 account-modal 文件、`TutorialView.vue` 及其测试、`knowledge/00-start-here.md`、`knowledge/05-current-focus.md`、六个未跟踪教程 migration/test 文件和 `outputs/`。C0 patch-id 为 backend `a81fbffb...`、account `5d316e5b...`、tutorial `a07a7c33...`、knowledge `2abee47d...`；六个文件 SHA256 已记录到 contract，均必须保持原样。
+- S228 集成后 `main@ff241be81` 相对 `origin/main@a865d8b6e` ahead 55；`upstream/main@8869775ed` 未变化。S228 业务 patch-id 为 `8b0caf6e...` 和 `cae02fc1...`，与候选实现一致；精确 allowlist、无冲突索引、三项上游 ancestry 均通过。
+- S229-A 集成后 `main@de62dd8d6` 相对 `origin/main@a865d8b6e` ahead 58；业务 patch-id 为 `ad03cda9...`，与候选 `ce0ffdb65` 一致。三个 focused 测试 x10、完整 handler/service、server compile、scope/provenance/conflict/index 和保护门禁均 PASS。
 
 ## 待验证点
 
+- S229-B isolated implementation -> 验证：只修改 billing owner 与 focused tests，完成 Controller review 后再建立独立 QA worktree。
 - 若授权发布：先复核最终 `git status`、主线测试证据和远端差异，再执行普通 `git push origin main`；当前没有发布授权。
-- S225/S226 均未运行真实 Redis 或上游 provider 集成；合同禁止这些操作，当前证据来自 mock/httptest、完整包回归、server 编译和前端构建。
+- S225/S226/S228 均未运行真实 Redis 或上游 provider 集成；合同禁止这些操作，当前证据来自 mock/httptest、包回归、server 编译和前端构建。
 
 ## 当前结论
 
 - `PASS / S226-E independent QA`：独立 QA 报告 `5ca12b78b`，静态、运行态、构建、scope/provenance 和保护边界均通过；UI 登录态限制已显式记录。
 - `PASS / S226 main integration`：A-D 业务与证据提交已按顺序集成 `main@6ca47c2f8`，用户 dirty patch IDs、未跟踪教程文件和 `outputs/` 均保持原值。
+- `PASS / S228 independent QA`：QA 报告 `docs/workflow/qa-reports/upstream-cn-group-entry-s228-qa.md` 首行为 `### PASS`，后端 binding x10、前端 focused 7 项、admin 117 项、typecheck、scope/provenance/conflict/index 均通过。
+- `PASS / S228 main integration`：业务与证据提交已按序集成 `main@ff241be81`，用户 dirty patch IDs、六个未跟踪教程文件及 `outputs/` 均保持原值；未 push。
+- `PASS / S229-A independent QA`：QA 报告 `docs/workflow/qa-reports/upstream-cn-provider-correctness-s229-a-qa.md` 首行为 `### PASS`，gate/dispatch/count_tokens focused x10、完整 handler/service、server compile、scope/provenance/conflict/index 均通过。
+- `PASS / S229-A main integration`：业务与证据提交已按序集成 `main@de62dd8d6`，用户 dirty patch IDs、六个未跟踪教程文件及 `outputs/` 均保持原值；未 push。
 
 ## 下一步
 
-- S226 已完成；保留当前本地提交和用户 dirty 内容，等待明确发布授权。
+- 评估 `10c8b7020` 剩余 slices -> 验证：先读取本地 `openai_gateway_service.go`、`ratelimit_service.go` 和 handler/stream owners，确认每片的可独立测试边界。
+- 保留当前本地提交和用户 dirty 内容，等待明确发布授权。
 - 发布当前本地提交（需用户授权） -> 验证：push 前后比较 `HEAD`、`origin/main` 和远端 `refs/heads/main`，只允许普通 push。
 
 ## 验证记录
@@ -84,3 +95,5 @@
 - S226-D Controller review PASS：业务 `a559956f7`、报告 `c539d1f01` 保持两提交边界；D 工作树从 `5bb985cb6` 加用户 modal 临时 baseline `d7158e916` 开始，业务 diff 仅含 D allowlist。7 个 focused Vitest 文件共 87 项、typecheck、build、diff、allowlist、冲突/index、三项 provenance 和主工作区保护门禁均 PASS；业务 patch-id 为 `04fc586c994a0264280db52a88c6398d83e29ebe`。独立 QA 尚未开始，D 未集成 main。
 - S226-E QA：`5ca12b78b`；QA worktree 在 `c539d1f01` 上无产品 diff，A-C 40 项 focused x10、完整 backend service/handler/routes、server compile、D 87 项 focused、typecheck/build、provenance、scope、冲突/index 和保护 patch/hash 均 PASS；浏览器 session `s226-e-qa-20260818-final` 首页检查非空，后台账号页因无登录态未操作，session/profile/daemon/server 均已清理。
 - S226 主线集成：`1219d5352`/`cb34acf28`、`0a6990ea4`/`f32deb2ee`、`974793cd4`/`b93324820`、无 baseline 的 D `501c3830a`、`b97272adc`、`6ca47c2f8` 按序进入 `main`；A/B/C/D patch-id 分别为 `b0ec5bd95...`、`a8c91f578...`、`d6ee6e8e1...`、`04fc586c...`，最终主线前端/后端 fresh verification 全部通过。
+- S228 主线集成：后端 `go test -tags=unit ./internal/handler/admin -run "TestGroupPlatformBinding" -count=10`、前端 3 个 focused 文件共 7 项和 `pnpm run typecheck` 均 PASS；业务 patch-id `8b0caf6e...`/`cae02fc1...` 与候选一致，主线 ahead 55，远端 refs 未变。
+- S229-A 主线集成：三个 focused Go 回归均 `-count=10` PASS，完整 `handler`/`service` 已由独立 QA PASS，`cmd/server` compile PASS；业务 patch-id `ad03cda9...`，主线 ahead 58，远端 refs 未变。

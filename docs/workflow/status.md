@@ -1,12 +1,12 @@
 ---
-phase: done
-current_sprint: upstream-ops-small-s227
-total_sprints: 227
-pending_action: S227 is integrated locally; review the next approved upstream candidate before any further build. No push/deployment has been performed.
+phase: contract-approved
+current_sprint: upstream-cn-provider-billing-s229-b
+total_sprints: 229
+pending_action: Implement S229-B only in an isolated worktree, then run Controller review and independent QA; 403 and disconnect slices remain separate.
 project_type: fullstack
 qa_mode: runtime
-approval_required: true
-last_verified: 2026-08-18 12:55 +08:00
+approval_required: false
+last_verified: 2026-08-18 15:16 +08:00
 ---
 
 # Upstream Ops Small Fixes S227
@@ -26,6 +26,69 @@ last_verified: 2026-08-18 12:55 +08:00
   integrated on main. Ops focused 24 tests and frontend typecheck passed in
   isolated Controller and QA worktrees; no denied path, dependency change,
   push, deployment, provider, database, or container operation occurred.
+
+# Upstream CN Group Entry S228
+
+- `contract-approved`: manually adapt `7cdca9e49`, `c38c5beef`, and
+  `cb7841d85` onto the local S226 CN provider topology. Add CN group platform
+  types/allowlist/UI labels and the two translation fixes only.
+- Composite route target eligibility, CN gateway correctness, fingerprint
+  identity seed, pricing topology, migrations, user dirty files, deployment,
+  and push are excluded.
+- Contract: `docs/workflow/tasks/upstream-cn-group-entry-s228.md`.
+- `contract-amendment`: frontend typecheck proved `ChannelsView.vue` owns an
+  exhaustive `Record<GroupPlatform, string[]>`; it is added solely to supply
+  empty CN fallback lists. CN platforms remain excluded from channel
+  `platformOrder`, so this does not add a channel-management product surface.
+- `PASS / controller-review`: business commits `df43f3876` and `26a5dec9d`
+  passed the focused backend/frontend tests, admin suite, typecheck, exact
+  allowlist, conflict/index, and upstream-provenance checks. Controller report
+  `b0a7a6e8b` is recorded in the isolated implementation worktree.
+- `PASS / independent-qa`: QA report `9e4beddc2` independently reran backend
+  binding x10, frontend focused 7 tests, admin 117 tests, typecheck, scope,
+  dependency, conflict/index, and provenance checks from the Controller base.
+- `PASS / main-integration`: business commits `22b04fa0d` and `cc1630bd7`,
+  Controller report `2cbe98f0b`, and independent QA report `ff241be81` are
+  integrated on main. User dirty/untracked files and `outputs/` remain
+  unchanged; no push, deployment, provider, database, or container operation
+  occurred.
+
+# Upstream CN Provider Correctness S229-A
+
+- `contract-approved`: manually adapt only the Messages/count_tokens slice of
+  upstream `10c8b7020` from frozen main `ff241be81`.
+- CN and Grok groups bypass the OpenAI-only Messages switch, while OpenAI
+  remains controlled. CN dispatch must not inherit GPT default mappings, and
+  all three CN protocols must use the existing local count_tokens estimator
+  with zero upstream calls.
+- Billing candidate filtering, 403 policy, partial-result usage submission,
+  response-stream drain/finalize, frontend, migrations, dependencies, user
+  dirty files, deployment, and push are separate deferred slices.
+- Contract: `docs/workflow/tasks/upstream-cn-provider-correctness-s229-a.md`.
+- `PASS / controller-review`: implementation `ce0ffdb65` and report
+  `fb391fd08` are limited to the seven S229-A business/test paths plus report;
+  focused gate/dispatch/count_tokens tests x10, complete handler/service,
+  server compile, format, scope, conflict/index, and ancestry checks passed.
+- `PASS / independent-qa`: report `fe11096aa` independently reran all three
+  focused tests x10, complete handler/service, server compile, exact scope,
+  conflict/index, provenance, and protected-main checks.
+- `PASS / main-integration`: business `2422b9b15`, Controller report
+  `65ac54145`, and QA report `de62dd8d6` are integrated on main. CN/Grok gate,
+  CN dispatch bypass, and all-protocol local count_tokens behavior are now
+  local; billing, 403, and disconnect slices remain unmerged.
+
+# Upstream CN Provider Billing S229-B
+
+- `contract-approved`: manually adapt only the billing candidate-filter slice
+  of upstream `10c8b7020` from frozen `main@de62dd8d6`. CN accounts filter
+  unpriced `claude-*` candidates, explicit Group/Channel pricing remains
+  eligible, and empty candidates must record zero-cost usage instead of losing
+  the usage log.
+- 403 policy, partial-result usage submission, disconnect drain/finalize,
+  handlers/streams, frontend, migrations, dependencies, user-owned dirty
+  files, provider/database/container operations, deployment, and push are
+  denied.
+- Contract: `docs/workflow/tasks/upstream-cn-provider-billing-s229-b.md`.
 
 # Upstream CN Providers S226
 
