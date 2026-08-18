@@ -105,3 +105,32 @@ func TestOpenAIGatewayService_ForwardCountTokensAsAnthropic_OAuthFallsBackWhenPl
 	require.Equal(t, "Bearer oauth-token", upstream.lastReq.Header.Get("authorization"))
 	require.Empty(t, upstream.lastReq.Header.Get("Chatgpt-Account-Id"))
 }
+
+func TestOpenAIGatewayService_ForwardCountTokensAsAnthropic_CNProviderAllProtocolsUseLocalEstimate(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"claude-sonnet-4-5","messages":[{"role":"user","content":"hello"}]}`)
+
+	for _, tc := range []struct {
+		platform string
+		protocol string
+	}{
+		{PlatformKimi, APIProtocolChatCompletions},
+		{PlatformZhipu, APIProtocolAnthropic},
+		{PlatformDeepseek, APIProtocolResponses},
+	} {
+		t.Run(tc.platform+"/"+tc.protocol, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages/count_tokens", bytes.NewReader(body))
+			upstream := &httpUpstreamRecorder{}
+			svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+			account := cnProviderAccount(tc.platform, "", tc.protocol, "https://upstream.example")
+
+			err := svc.ForwardCountTokensAsAnthropic(context.Background(), c, account, body, "gpt-5.4")
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, rec.Code)
+			require.Greater(t, gjson.Get(rec.Body.String(), "input_tokens").Int(), int64(0))
+			require.Empty(t, upstream.requests)
+		})
+	}
+}

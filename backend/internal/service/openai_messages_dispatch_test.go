@@ -25,3 +25,21 @@ func TestNormalizeOpenAIMessagesDispatchModelConfig(t *testing.T) {
 		"claude-sonnet-4-5-20250929": "gpt-5.2",
 	}, cfg.ExactModelMappings)
 }
+
+func TestResolveMessagesDispatchModel_CNProvidersBypassOpenAIDefaults(t *testing.T) {
+	for _, platform := range []string{PlatformKimi, PlatformZhipu, PlatformDeepseek} {
+		t.Run(platform, func(t *testing.T) {
+			group := &Group{
+				Platform: platform,
+				MessagesDispatchModelConfig: OpenAIMessagesDispatchModelConfig{
+					OpusMappedModel:    "gpt-5.4",
+					ExactModelMappings: map[string]string{"claude-sonnet-4-5": "gpt-5.3-codex"},
+				},
+			}
+			require.Empty(t, group.ResolveMessagesDispatchModel("claude-sonnet-4-5"))
+		})
+	}
+
+	openAI := &Group{Platform: PlatformOpenAI}
+	require.Equal(t, defaultOpenAIMessagesDispatchOpusMappedModel, openAI.ResolveMessagesDispatchModel("claude-opus-4-5"))
+}

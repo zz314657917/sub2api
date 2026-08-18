@@ -64,7 +64,7 @@ func (s *OpenAIGatewayService) ForwardCountTokensAsAnthropic(
 		return fmt.Errorf("count_tokens: missing account")
 	}
 
-	if account.IsAnthropicProtocol() {
+	if account.IsAnthropicProtocol() && !account.IsCNProvider() {
 		return s.forwardCountTokensViaNativeAnthropic(ctx, c, account, body, defaultMappedModel)
 	}
 	if account.IsCNProvider() {
