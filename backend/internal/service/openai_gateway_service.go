@@ -7035,6 +7035,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		result.UpstreamModel,
 		result.Model,
 	)
+	billingModels = s.filterCNProviderBillingModelCandidates(ctx, account, apiKey, billingModels)
 	if result.ImageCount > 0 {
 		imageMultiplier = apimartGPTImage2UsageMultiplierForModels(account, billingModels, imageMultiplier)
 	}
@@ -7394,7 +7395,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 		return s.calculateOpenAIImageCost(ctx, billingModel, apiKey, result, imageMultiplier), nil
 	}
 	if len(billingModels) == 0 || billingModel == "" {
-		return nil, errors.New("openai usage billing model is empty")
+		return nil, fmt.Errorf("%w: openai usage billing model is empty", ErrModelPricingUnavailable)
 	}
 	var lastErr error
 	for _, candidate := range billingModels {
@@ -7409,7 +7410,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 		lastErr = err
 	}
 	if lastErr == nil {
-		lastErr = errors.New("no non-empty billing model candidates")
+		lastErr = fmt.Errorf("%w: no non-empty billing model candidates", ErrModelPricingUnavailable)
 	}
 	return nil, fmt.Errorf("calculate OpenAI usage cost failed for billing models %s: %w", strings.Join(billingModels, ","), lastErr)
 }
@@ -7555,6 +7556,29 @@ func (s *OpenAIGatewayService) resolveOpenAIChannelPricing(ctx context.Context, 
 		return resolved
 	}
 	return nil
+}
+
+// filterCNProviderBillingModelCandidates prevents client-requested claude-*
+// fallback names from silently billing CN provider traffic at Claude pricing.
+// A locally configured Group or Channel price is an explicit operator override
+// and remains eligible for billing.
+func (s *OpenAIGatewayService) filterCNProviderBillingModelCandidates(ctx context.Context, account *Account, apiKey *APIKey, candidates []string) []string {
+	if account == nil || !account.IsCNProvider() {
+		return candidates
+	}
+
+	filtered := make([]string, 0, len(candidates))
+	for _, candidate := range candidates {
+		trimmed := strings.TrimSpace(candidate)
+		if trimmed == "" {
+			continue
+		}
+		if strings.Contains(strings.ToLower(trimmed), "claude") && s.resolveOpenAIChannelPricing(ctx, trimmed, apiKey) == nil {
+			continue
+		}
+		filtered = append(filtered, candidate)
+	}
+	return filtered
 }
 
 // ParseCodexRateLimitHeaders extracts Codex usage limits from response headers.
