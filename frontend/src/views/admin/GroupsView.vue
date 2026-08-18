@@ -124,11 +124,17 @@
                 'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium',
                 value === 'anthropic'
                   ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
-                  : value === 'openai'
-                    ? 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]'
-                    : value === 'antigravity'
-                      ? 'console-badge-accent'
-                      : 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]',
+                    : value === 'openai'
+                      ? 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]'
+                      : value === 'antigravity'
+                        ? 'console-badge-accent'
+                        : value === 'kimi'
+                          ? 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400'
+                          : value === 'zhipu'
+                            ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
+                            : value === 'deepseek'
+                              ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400'
+                              : 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]',
               ]"
             >
               <PlatformIcon :platform="value" size="xs" />
@@ -3499,7 +3505,13 @@
                         ? 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]'
                         : group.platform === 'antigravity'
                           ? 'console-badge-accent'
-                          : 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]',
+                          : group.platform === 'kimi'
+                            ? 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400'
+                            : group.platform === 'zhipu'
+                              ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
+                              : group.platform === 'deepseek'
+                                ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400'
+                                : 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]',
                   ]"
                 >
                   {{ t("admin.groups.platforms." + group.platform) }}
@@ -3768,6 +3780,9 @@ const platformOptions = computed(() => [
   { value: "gemini", label: "Gemini" },
   { value: "antigravity", label: "Antigravity" },
   { value: "grok", label: "Grok" },
+  { value: "kimi", label: "Kimi" },
+  { value: "zhipu", label: "Zhipu GLM" },
+  { value: "deepseek", label: "DeepSeek" },
 ]);
 
 const platformFilterOptions = computed(() => [
@@ -3777,6 +3792,9 @@ const platformFilterOptions = computed(() => [
   { value: "gemini", label: "Gemini" },
   { value: "antigravity", label: "Antigravity" },
   { value: "grok", label: "Grok" },
+  { value: "kimi", label: "Kimi" },
+  { value: "zhipu", label: "Zhipu GLM" },
+  { value: "deepseek", label: "DeepSeek" },
 ]);
 
 const editStatusOptions = computed(() => [

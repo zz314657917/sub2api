@@ -784,6 +784,9 @@ const fallbackModelSuggestions: Record<GroupPlatform, string[]> = {
     'grok-4.20-0309-non-reasoning',
     'grok-*',
   ],
+  kimi: [],
+  zhipu: [],
+  deepseek: [],
 }
 
 // ── Helpers ──
