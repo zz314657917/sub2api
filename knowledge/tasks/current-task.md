@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-18 19:32 +08:00
+最后更新：2026-08-18 19:46 +08:00
 
 ## 背景
 
@@ -10,7 +10,7 @@
 
 ## 当前目标
 
-- S226、S228、S229-A、S229-B、S229-C 与 S229-D 已按批准边界集成 `main`；partial-result usage 仍保持独立评估，未执行 push、部署或真实 provider 操作。
+- S226、S228、S229-A、S229-B、S229-C、S229-D 与 S229-E 已按批准边界集成 `main`；上游 `10c8b7020` 的五项 CN 缺陷切片均已独立收口，未执行 push、部署或真实 provider 操作。
 
 ## 本次已完成
 
@@ -38,6 +38,7 @@
 - S229-C 403-only contract 已批准：基线 `main@44fa47124`，上游 source `10c8b7020`，范围限定 CN 403 分派复用 OpenAI 策略；断开排水切片继续分离。
 - S229-C 已完成隔离实现、Controller review、独立 QA 和主线集成：业务 `7911a0ef2`（候选 `2d60e8cd0`）、Controller report `upstream-cn-provider-403-s229-c-result.md`、QA report `upstream-cn-provider-403-s229-c-qa.md`（提交 `9e5050aac`）。主线 focused CN 403 x10、完整 service、server compile、scope/provenance/conflict/index 和保护检查均通过；未 push。
 - S229-D 已完成隔离实现、Controller review、独立 QA 和主线集成：业务 `2c1f097a0`（候选 `53938b174`）、Controller report `upstream-cn-provider-responses-drain-s229-d-result.md`、QA report `upstream-cn-provider-responses-drain-s229-d-qa.md`（提交 `13d8f6b55`）。主线 focused drain/timeout/normal x10、完整 service、server compile、scope/provenance/conflict/index 和保护检查均通过；未 push。
+- S229-E 已完成隔离实现、Controller review、独立 QA 和主线集成：业务 `08f5f6ec7`（候选 `29bc3c8e3`）、Controller report `upstream-cn-provider-partial-usage-s229-e-result.md`、QA report `upstream-cn-provider-partial-usage-s229-e-qa.md`（提交 `2cae1394d`）。主线 focused helper/quota x10、完整 handler、server compile、scope/provenance/conflict/index 和保护检查均通过；未 push。
 
 ## 已确认事实
 
@@ -57,7 +58,7 @@
 
 ## 待验证点
 
-- `10c8b7020` 剩余 partial-result usage slice -> 验证：仅覆盖 `openai_chat_completions.go`、`openai_gateway_handler.go` 的 Chat/Responses/Messages 错误路径，确保 failover 不重复计费、客户端断开结果入账；不要与已完成 S229-C/S229-D 混合。
+- `10c8b7020` 五项 CN 缺陷切片已完成；下一步只评估新的上游候选或历史提交，不再回到已完成的 S229-A/B/C/D/E。
 - 若授权发布：先复核最终 `git status`、主线测试证据和远端差异，再执行普通 `git push origin main`；当前没有发布授权。
 - S225/S226/S228 均未运行真实 Redis 或上游 provider 集成；合同禁止这些操作，当前证据来自 mock/httptest、包回归、server 编译和前端构建。
 
@@ -104,3 +105,4 @@
 - S229-B 主线集成：focused billing 三项测试 x10、完整 `internal/service`、`cmd/server` compile、scope/provenance/conflict/index 和保护 patch/hash 均由独立 QA PASS；业务 patch-id `10ef0f42...`，主线 `main@f4e7f45d8` ahead `origin/main` 62，未 push。
 - S229-C 主线集成：focused `TestHandleUpstreamError_CNProviderHTML403SkipsAccountPenalty|TestHandleUpstreamError_CNProviderStructured403TempUnschedulable|TestHandleUpstreamError_CNProviderStructured403ThresholdDisables` x10、完整 `internal/service`、`cmd/server` compile、gofmt、diff、scope/provenance/conflict/index 与保护 patch/hash PASS；业务 patch-id `914820cfc3804f2e40a8f58f64ad6f266926b2a2`，主线 `main@9e5050aac` ahead `origin/main` 64，未 push。
 - S229-D 主线集成：focused `TestResponsesStreamingFromNativeAnthropic_ClientDisconnectDrainsUsage|TestResponsesStreamingFromNativeAnthropic_HangTimesOut|TestResponsesStreamingFromNativeAnthropic_HappyPathStillConverts` x10、完整 `internal/service`、`cmd/server` compile、gofmt、diff、scope/provenance/conflict/index 与保护 patch/hash PASS；业务 patch-id `647578e803222267e158abc44d5e3ae9d7d9298c`，主线 `main@13d8f6b55` ahead `origin/main` 72，未 push。
+- S229-E 主线集成：focused `TestShouldSubmitOpenAIPartialUsage|TestOpenAIRecordUsageInputsCarryQuotaPlatform` x10、完整 `internal/handler`、`cmd/server` compile、gofmt、diff、scope/provenance/conflict/index 与保护 patch/hash PASS；业务 patch-id `40447810f11ca055e78ffd9431aa952f160433b8`，主线业务提交 `main@2cae1394d` ahead `origin/main` 77，未 push。

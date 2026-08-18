@@ -2,11 +2,11 @@
 phase: done
 current_sprint: upstream-cn-provider-partial-usage-s229-e
 total_sprints: 229
-pending_action: Draft and review the remaining 10c8b7020 partial-result usage slice across the three OpenAI handlers; S229-C and S229-D remain done.
+pending_action: Review the next upstream candidate/history; all five approved 10c8b7020 CN defect slices are now independently integrated.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-18 19:32 +08:00
+last_verified: 2026-08-18 19:46 +08:00
 ---
 
 # Upstream Ops Small Fixes S227
@@ -144,6 +144,24 @@ last_verified: 2026-08-18 19:32 +08:00
   `ea456524a`, and QA report `13d8f6b55` are integrated locally. After client
   disconnect, upstream SSE is drained to preserve terminal usage; no push,
   deployment, provider, database, or container operation occurred.
+
+# Upstream CN Provider Partial Usage S229-E
+
+- `contract-approved`: manually adapt only non-failover partial-result usage
+  submission from upstream `10c8b7020` at frozen `main@ddddcab70`; the three
+  handler owners reuse their existing successful usage-record fields.
+- `PASS / controller-review`: business `29bc3c8e3` and result report
+  `upstream-cn-provider-partial-usage-s229-e-result.md` passed focused helper and
+  quota contract x10, complete handler, server compile, format, scope,
+  provenance, conflict/index, and protected-main gates.
+- `PASS / independent-qa`: report `2dbfcc8ac` independently passed focused
+  x10, complete handler, server compile, format, scope, conflict/index, and
+  ancestry checks from a clean QA worktree.
+- `PASS / main-integration`: business `08f5f6ec7`, Controller report
+  `52b2cff40`, and QA report `2cae1394d` are integrated locally. Non-failover
+  partial results from Chat/Responses/Messages now submit usage, while
+  failover errors remain excluded; no push, deployment, provider, database, or
+  container operation occurred.
 
 # Upstream CN Providers S226
 
