@@ -1,13 +1,31 @@
 ---
 phase: done
-current_sprint: upstream-cn-providers-s226
-total_sprints: 226
-pending_action: Await explicit publish authorization; S226 is integrated locally and no push/deployment has been performed.
+current_sprint: upstream-ops-small-s227
+total_sprints: 227
+pending_action: S227 is integrated locally; review the next approved upstream candidate before any further build. No push/deployment has been performed.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
 last_verified: 2026-08-18 12:55 +08:00
 ---
+
+# Upstream Ops Small Fixes S227
+
+- `contract-approved`: selectively port `e8ff2017c` and `943f09d35` from
+  `upstream/main@8869775ed` into the local Ops frontend owners.
+- Scope is limited to the two Ops components, the existing Ops formatter, its
+  focused test, and the two workflow reports. CN provider, Codex fingerprint,
+  Docker, migration, user-owned dirty files, deployment, and push work are
+  explicitly excluded.
+- Implementation and QA must use separate worktrees from the frozen base
+  `3ccb86afc`; main integration is allowed only after the focused tests,
+  typecheck, scope, conflict/index, and protected-main checks pass.
+- Contract: `docs/workflow/tasks/upstream-ops-small-s227.md`.
+- `PASS / main-integration`: business commits `4a1474b41` and `381bc3e43`,
+  Controller report `c61211ad8`, and independent QA report `5f8bfc9e8` are
+  integrated on main. Ops focused 24 tests and frontend typecheck passed in
+  isolated Controller and QA worktrees; no denied path, dependency change,
+  push, deployment, provider, database, or container operation occurred.
 
 # Upstream CN Providers S226
 
