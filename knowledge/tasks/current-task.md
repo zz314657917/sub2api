@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-18 08:36 +08:00
+最后更新：2026-08-18 11:20 +08:00
 
 ## 背景
 
@@ -10,7 +10,7 @@
 
 ## 当前目标
 
-- 用户已授权完成 S226 剩余计划，并明确授权采用可用的 `claude-sonnet-4-6` 作为 S226-C Worker 替代模型；连续两次 Worker 调用仍无法产生有效实现。按 P/G/E 连续失败升级规则，当前由 Controller 在同一 C0 基线和 allowlist 内接管实现；不启动 D、独立 QA，也不把 A/B 业务提交集成到 main。
+- 用户已授权完成 S226 剩余计划。S226-C 的低成本 Worker 连续两次无有效产物后已按 P/G/E 升级为 Controller 接管，并在同一 C0 基线和 allowlist 内通过；下一步进入 S226-D 的隔离前端基线和实现。A-C 均未集成 main，独立 QA 仍只允许在 S226-E。
 
 ## 本次已完成
 
@@ -27,6 +27,7 @@
 - S226-C 实际调用 `gpt-5.6-terra` Worker CLI 时在推理前返回 API `404`；零 token、无业务文件或报告生成，C 工作树仍为精确基线 `f6b380e21` 且洁净。
 - 用户明确允许替代模型；可用性探测确认 `sonnet` 解析为 `claude-sonnet-4-6` 并成功返回，已在 S226 contract 中指定为 Developer 和独立 QA 的具名替代模型。
 - 两次具名 Worker 尝试均未形成有效报告或业务提交：首次无报告退出，第二次返回 `Content block not found`；只读探针显示 CLI 把 C 路径映射到其他环境。低成本 Worker 循环已停止，Controller 接管实现，范围和验收门禁不变。
+- S226-C Controller review PASS：业务 `24873abf1`、报告 `5bb985cb6` 保持两提交边界，且仅含 C allowlist 和报告；16/16 合同测试及新增凭证/WebSocket 回归共 17 项均可发现并 x10 PASS，完整 `service`/`handler`/`routes`、`cmd/server` 编译、gofmt、diff、allowlist、冲突/index、三项 provenance 与 C0 主工作区保护门禁全部 PASS。业务 patch-id 为 `d6ee6e8e161ad9343b86f8092e55a4be9e2fbe88`。
 
 ## 已确认事实
 
@@ -44,21 +45,20 @@
 
 ## 待验证点
 
-- Controller 需要完成 S226-C 受控实现；验证：仅在 C allowlist 内创建业务提交和报告，再执行 B3 四条 Anthropic-native 阻塞读循环、协议矩阵和 focused x10 的独立验收。
-- S226-D 仍需验证用户 modal 临时 baseline/最终合入策略；验证：业务 commit 不包含用户 patch，主工作区 account patch-id 在集成前后均为 `5d316e5b...`。
+- S226-D 需先建立用户 modal 的临时 baseline；验证：从 `5bb985cb6` 创建隔离工作树，业务提交只包含 baseline 之后的 D allowlist 差异，主工作区 account patch-id 在集成前后仍为 `5d316e5b...`。
 - 前端当前 `node_modules` 缺少 `vitest/vue-tsc/vite` 可执行文件；D/E 开始时必须在任务 worktree 恢复工具链，否则 QA 报 `BLOCKED`，不得跳过。
 - 若授权发布：先复核最终 `git status`、主线测试证据和远端差异，再执行普通 `git push origin main`；当前没有发布授权。
 - S225 未运行真实 Redis 或上游 provider 集成；合同禁止这些操作，允许范围由 mock cache、完整 service 和 server 编译覆盖。
 
 ## 当前结论
 
-- `FIX / S226-C Controller takeover`：连续两次 Worker 无有效产物，按 P/G/E stop rule 停止低成本循环，由 Controller 在同一 allowlist 内实现并保留独立 QA 门禁。
-- A 的平台/账号基础和 B 的额度/余额探测、管理 API 已分别通过 Controller；C 的新用户基线已冻结，A/B 均未集成 main，D-E 未开始，独立 QA 仍只允许在 E 执行。
+- `PASS / S226-C Controller review`：连续两次 Worker 无有效产物后，Controller 在同一 allowlist 内完成并通过所有 C 门禁；独立 QA 仍保留为 S226-E 的独立门禁。
+- A 的平台/账号基础、B 的额度/余额探测和管理 API、C 的多协议网关与冷却均已通过 Controller；三批均未集成 main，D-E 未开始。
 
 ## 下一步
 
-- Controller 接管 S226-C 实现 -> 验证：从未变更的 C 工作树 `f6b380e21` 仅修改 C allowlist，形成业务/报告两提交边界，再执行全部 focused/full/Wire/C0 保护门禁；PASS 前不开始 D。
-- C PASS 后等待用户授权 S226-D；D -> E 均要求前一批精确 commit、allowlist、focused/full gates 和报告 PASS，最终 E PASS 后才允许主线集成。
+- 准备 S226-D -> 验证：从 C 报告 `5bb985cb6` 创建隔离工作树，只应用用户 `EditAccountModal` 及其测试补丁为任务内 baseline；安装前端工具链不得修改 manifest/lockfile，工具缺失则按合同 BLOCKED。
+- S226-D -> E 均要求前一批精确 commit、allowlist、focused/full gates 和报告 PASS，最终 E PASS 后才允许主线集成。
 - 发布当前本地提交（需用户授权） -> 验证：push 前后比较 `HEAD`、`origin/main` 和远端 `refs/heads/main`，只允许普通 push。
 
 ## 验证记录
@@ -77,3 +77,4 @@
 - S226-C Worker retry 证据：`claude.cmd --bare -p` 携带配置模型 `gpt-5.6-terra` 返回 `api_error_status: 404`、`input_tokens: 0`、`total_cost_usd: 0`；未生成 worker report，未改动 C 工作树或主工作区保护文件。
 - 具名替代模型探测：用户授权后，以 `--model sonnet` 运行的最小无写入请求成功，CLI 报告实际模型为 `claude-sonnet-4-6`；此探测未读取或修改业务文件。
 - Worker 升级证据：Sonnet 重试没有业务 diff；一次无报告退出，另一次返回 `Content block not found`，只读探针在 `$0.05` 上限内反复解析错误路径后停止。Controller 接管，不再重复低成本 Worker 调度。
+- S226-C Controller：17 项 focused 回归（16 合同项加凭证/WebSocket）均可发现并 `-count=10` PASS；完整 `go test ./internal/service ./internal/handler ./internal/server/routes -count=1` 与 `go test ./cmd/server -run '^$' -count=1` PASS。gofmt、diff、allowlist、冲突/index、三项 provenance 和 C0 保护均 PASS；业务/报告提交为 `24873abf1` / `5bb985cb6`。

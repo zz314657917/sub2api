@@ -1,12 +1,12 @@
 ---
-phase: fix
+phase: build
 current_sprint: upstream-cn-providers-s226
 total_sprints: 226
-pending_action: Controller takeover of S226-C implementation in the unchanged isolated worktree at exact base f6b380e21 after two failed Developer Worker attempts; preserve the same allowlist and two-commit boundary, then perform the full Controller review before S226-D, independent QA, or main integration.
+pending_action: Prepare S226-D from exact approved C report 5bb985cb6: create an isolated worktree, apply the user-owned EditAccountModal patch only as a non-integrated task-local baseline, restore the frontend toolchain without manifest/lockfile changes, then dispatch the D implementation under its allowlist. No independent QA or main integration occurs before S226-E.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-18 08:36 +08:00
+last_verified: 2026-08-18 11:20 +08:00
 ---
 
 # Upstream CN Providers S226
@@ -93,6 +93,16 @@ last_verified: 2026-08-18 08:36 +08:00
   resolving worktree paths outside this checkout. Per the P/G/E stop rule,
   low-cost Worker dispatch is stopped and Controller implementation proceeds in
   the same exact base and allowlist. Independent QA remains a later gate.
+- `PASS / S226-C controller-review`: Controller implementation `24873abf1`
+  and report `5bb985cb6` are clean from exact base `f6b380e21` and limited to
+  the C gateway/timeout allowlist plus report. All 16 contract tests and the
+  additional protocol-credential/WebSocket regression were discoverable; the
+  17 focused tests passed x10. Complete `service`, `handler`, and `routes`
+  regressions, server compilation, gofmt, diff, exact allowlist,
+  conflict/index, three upstream-provenance, and C0 protected-main gates passed.
+  Business patch-id is `d6ee6e8e161ad9343b86f8092e55a4be9e2fbe88`.
+  S226-D may now be prepared only from report commit `5bb985cb6`; independent
+  QA and all main integration remain deferred to S226-E.
 
 # Upstream Fingerprint User-Agent Validation S225
 
