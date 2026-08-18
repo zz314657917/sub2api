@@ -42,6 +42,7 @@
 - S230-A 已完成隔离实现、Controller review、独立 QA 和主线集成：业务 `ea2f12acd`（候选 `48b72588d`）、Controller report `upstream-codex-usage-probe-model-s230-a-result.md`、QA report `upstream-codex-usage-probe-model-s230-a-qa.md`（提交 `fb619efab`）。主线 focused probe/version x10、完整 service、server compile、scope/provenance/conflict/index 和保护检查均通过；未 push。
 - S230-B 已完成隔离实现、Controller review、独立 QA 和主线集成：业务 `e81c2a76f`（候选 `90a59030b`）、Controller report `upstream-openai-passthrough-model-discovery-s230-b-result.md`、QA report `upstream-openai-passthrough-model-discovery-s230-b-qa.md`（提交 `ad1df3c11`）。主线 focused passthrough/global-list x10、完整 service、server compile、scope/provenance/conflict/index 和保护检查均通过；未 push。
 - S231 contract 已批准：上游 `ab0fcd1a0` 已进入 `upstream/main@49504adc9`，相关四文件无后续修改；原 patch 因本地预计算 `errorPolicy` 和 retry 拓扑差异无法直接 apply，范围限定 native/Messages/Chat Completions 的 skipped-policy failover、4xx 保真、自定义错误码隐藏和 400 message 映射。
+- S231 contract amendment：`-tags=unit` 会触发仓库既有无关符号冲突，已将 focused acceptance 改为默认构建标签；S231 测试覆盖三协议全链路，范围和行为门禁不变。
 
 ## 已确认事实
 

@@ -22,6 +22,10 @@ last_verified: 2026-08-18 20:17 +08:00
   provider/database/container operations, deployment, and push are denied.
 - Contract:
   `docs/workflow/tasks/upstream-gemini-skipped-error-policy-s231.md`.
+- `contract-amendment`: the initial `-tags=unit` probe is not executable in this
+  checkout because unrelated unit-tagged tests collide with existing product
+  symbols. The S231 regression file is default-tagged, so acceptance uses the
+  same focused tests without `-tags=unit`; scope and behavior are unchanged.
 
 # Upstream Ops Small Fixes S227
 
