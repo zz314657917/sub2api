@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-18 19:59 +08:00
+最后更新：2026-08-18 20:11 +08:00
 
 ## 背景
 
@@ -10,7 +10,7 @@
 
 ## 当前目标
 
-- S226、S228、S229-A、S229-B、S229-C、S229-D、S229-E 与 S230-A 已按批准边界集成 `main`；上游 `10c8b7020` 五项 CN 缺陷切片及 S230-A Codex probe 修复均已独立收口，未执行 push、部署或真实 provider 操作。
+- S226、S228、S229-A、S229-B、S229-C、S229-D、S229-E、S230-A 与 S230-B 已按批准边界集成 `main`；上游 `10c8b7020` 五项 CN 缺陷切片及两个后续小修均已独立收口，未执行 push、部署或真实 provider 操作。
 
 ## 本次已完成
 
@@ -40,6 +40,7 @@
 - S229-D 已完成隔离实现、Controller review、独立 QA 和主线集成：业务 `2c1f097a0`（候选 `53938b174`）、Controller report `upstream-cn-provider-responses-drain-s229-d-result.md`、QA report `upstream-cn-provider-responses-drain-s229-d-qa.md`（提交 `13d8f6b55`）。主线 focused drain/timeout/normal x10、完整 service、server compile、scope/provenance/conflict/index 和保护检查均通过；未 push。
 - S229-E 已完成隔离实现、Controller review、独立 QA 和主线集成：业务 `08f5f6ec7`（候选 `29bc3c8e3`）、Controller report `upstream-cn-provider-partial-usage-s229-e-result.md`、QA report `upstream-cn-provider-partial-usage-s229-e-qa.md`（提交 `2cae1394d`）。主线 focused helper/quota x10、完整 handler、server compile、scope/provenance/conflict/index 和保护检查均通过；未 push。
 - S230-A 已完成隔离实现、Controller review、独立 QA 和主线集成：业务 `ea2f12acd`（候选 `48b72588d`）、Controller report `upstream-codex-usage-probe-model-s230-a-result.md`、QA report `upstream-codex-usage-probe-model-s230-a-qa.md`（提交 `fb619efab`）。主线 focused probe/version x10、完整 service、server compile、scope/provenance/conflict/index 和保护检查均通过；未 push。
+- S230-B 已完成隔离实现、Controller review、独立 QA 和主线集成：业务 `e81c2a76f`（候选 `90a59030b`）、Controller report `upstream-openai-passthrough-model-discovery-s230-b-result.md`、QA report `upstream-openai-passthrough-model-discovery-s230-b-qa.md`（提交 `ad1df3c11`）。主线 focused passthrough/global-list x10、完整 service、server compile、scope/provenance/conflict/index 和保护检查均通过；未 push。
 
 ## 已确认事实
 
@@ -59,7 +60,7 @@
 
 ## 待验证点
 
-- `10c8b7020` 五项 CN 缺陷切片及 S230-A 已完成；下一步只评估新的上游候选或历史提交，不再回到已完成切片。
+- `10c8b7020` 五项 CN 缺陷切片及 S230-A/B 已完成；下一步只评估新的上游候选或历史提交，不再回到已完成切片。
 - 若授权发布：先复核最终 `git status`、主线测试证据和远端差异，再执行普通 `git push origin main`；当前没有发布授权。
 - S225/S226/S228 均未运行真实 Redis 或上游 provider 集成；合同禁止这些操作，当前证据来自 mock/httptest、包回归、server 编译和前端构建。
 
@@ -108,3 +109,4 @@
 - S229-D 主线集成：focused `TestResponsesStreamingFromNativeAnthropic_ClientDisconnectDrainsUsage|TestResponsesStreamingFromNativeAnthropic_HangTimesOut|TestResponsesStreamingFromNativeAnthropic_HappyPathStillConverts` x10、完整 `internal/service`、`cmd/server` compile、gofmt、diff、scope/provenance/conflict/index 与保护 patch/hash PASS；业务 patch-id `647578e803222267e158abc44d5e3ae9d7d9298c`，主线 `main@13d8f6b55` ahead `origin/main` 72，未 push。
 - S229-E 主线集成：focused `TestShouldSubmitOpenAIPartialUsage|TestOpenAIRecordUsageInputsCarryQuotaPlatform` x10、完整 `internal/handler`、`cmd/server` compile、gofmt、diff、scope/provenance/conflict/index 与保护 patch/hash PASS；业务 patch-id `40447810f11ca055e78ffd9431aa952f160433b8`，主线业务提交 `main@2cae1394d` ahead `origin/main` 77，未 push。
 - S230-A 主线集成：focused `TestCodexUsageProbeModel|TestOpenAICodexVersionConsistency` x10、完整 `internal/service`、`cmd/server` compile、gofmt、diff、scope/provenance/conflict/index 与保护 patch/hash PASS；业务 patch-id `45261e82b4a6d1dcfaa9fb81de758f2d26950a41`，主线业务提交 `main@ea2f12acd` ahead `origin/main` 80，未 push。
+- S230-B 主线集成：focused `TestGetAvailableModels_OpenAIPassthroughUsesDefaultFallback|TestGetAvailableModels_GlobalListPreservesMappedModelsWithOpenAIPassthrough|TestGetAvailableModels_ErrorAndGlobalListBranches` x10、完整 `internal/service`、`cmd/server` compile、gofmt、diff、scope/provenance/conflict/index 与保护 patch/hash PASS；业务 patch-id `71034474f0ef8387cff03604f52ddf504f6b711c`，主线业务提交 `main@e81c2a76f` ahead `origin/main` 85，未 push。

@@ -1,12 +1,12 @@
 ---
 phase: done
-current_sprint: upstream-codex-usage-probe-model-s230-a
+current_sprint: upstream-openai-passthrough-model-discovery-s230-b
 total_sprints: 229
-pending_action: Review the next upstream candidate/history; S230-A is integrated locally and no push is authorized.
+pending_action: Review the next upstream candidate/history; S230-A and S230-B are integrated locally and no push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-18 19:59 +08:00
+last_verified: 2026-08-18 20:11 +08:00
 ---
 
 # Upstream Ops Small Fixes S227
@@ -177,6 +177,22 @@ last_verified: 2026-08-18 19:59 +08:00
 - `PASS / main-integration`: business `ea2f12acd`, Controller report `6371f4d3d`,
   and QA report `fb619efab` are integrated locally. OAuth Codex probes now use
   `codex-auto-review`; ordinary `DefaultTestModel` behavior is unchanged.
+
+# Upstream OpenAI Passthrough Model Discovery S230-B
+
+- `contract-approved`: selectively adapt upstream `1ea4150bf` at frozen
+  `main@266ac8298`; only OpenAI passthrough model-list fallback is in scope.
+- `PASS / controller-review`: business `90a59030b` and result report
+  `upstream-openai-passthrough-model-discovery-s230-b-result.md` passed focused
+  passthrough/global-list x10, complete service, server compile, format, scope,
+  provenance, conflict/index, and protected-main gates.
+- `PASS / independent-qa`: report `fe8fed444` independently passed focused x10,
+  complete service, server compile, format, scope, conflict/index, and ancestry
+  checks from a clean QA worktree.
+- `PASS / main-integration`: business `e81c2a76f`, Controller report `ff1fcbf23`,
+  and QA report `ad1df3c11` are integrated locally. Passthrough accounts now
+  ignore stale mappings for discovery; no push, deployment, provider, database,
+  or container operation occurred.
 
 # Upstream CN Providers S226
 
