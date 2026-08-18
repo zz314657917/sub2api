@@ -1,12 +1,12 @@
 ---
 phase: done
-current_sprint: upstream-cn-provider-403-s229-c
+current_sprint: upstream-cn-provider-partial-usage-s229-e
 total_sprints: 229
-pending_action: Evaluate the remaining 10c8b7020 disconnect drain/partial-result usage slices independently; do not mix them with completed S229-C.
+pending_action: Draft and review the remaining 10c8b7020 partial-result usage slice across the three OpenAI handlers; S229-C and S229-D remain done.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-18 19:20 +08:00
+last_verified: 2026-08-18 19:32 +08:00
 ---
 
 # Upstream Ops Small Fixes S227
@@ -128,6 +128,22 @@ last_verified: 2026-08-18 19:20 +08:00
   are integrated locally. CN structured 403s now reuse the OpenAI cooldown and
   threshold policy while HTML 403s remain exempt; no push, deployment,
   provider, database, or container operation occurred.
+
+# Upstream CN Provider Responses Drain S229-D
+
+- `contract-approved`: manually adapt only the Responses×native-Anthropic
+  disconnect drain/finalize behavior from upstream `10c8b7020` at frozen
+  `main@ba6f4ab04`; partial-result usage submission remains separate.
+- `PASS / controller-review`: business `53938b174` and result report
+  `upstream-cn-provider-responses-drain-s229-d-result.md` passed focused drain,
+  timeout, and normal-stream x10, complete service, server compile, format,
+  scope, provenance, conflict/index, and protected-main gates.
+- `PASS / independent-qa`: report `07facaaf5` independently passed the same
+  focused x10 and package/build/scope gates from a clean QA worktree.
+- `PASS / main-integration`: business `2c1f097a0`, Controller report
+  `ea456524a`, and QA report `13d8f6b55` are integrated locally. After client
+  disconnect, upstream SSE is drained to preserve terminal usage; no push,
+  deployment, provider, database, or container operation occurred.
 
 # Upstream CN Providers S226
 
