@@ -53,7 +53,7 @@
 
 ## 待验证点
 
-- S229-B isolated implementation -> 验证：只修改 billing owner 与 focused tests，完成 Controller review 后再建立独立 QA worktree。
+- S229-B isolated implementation -> 验证：Go 验收命令统一从 `backend/` module 目录执行；只修改 billing owner 与 focused tests，完成 Controller review 后再建立独立 QA worktree。
 - 若授权发布：先复核最终 `git status`、主线测试证据和远端差异，再执行普通 `git push origin main`；当前没有发布授权。
 - S225/S226/S228 均未运行真实 Redis 或上游 provider 集成；合同禁止这些操作，当前证据来自 mock/httptest、包回归、server 编译和前端构建。
 

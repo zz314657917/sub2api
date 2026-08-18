@@ -57,6 +57,7 @@ Codex Controller/Generator；使用独立实现 worktree 和独立 QA worktree�
 ## Acceptance Commands
 
 ```powershell
+Push-Location backend
 go test ./internal/service -run "TestFilterCNProviderBillingModelCandidates|TestCalculateOpenAIRecordUsageCost_EmptyCandidatesIsPricingUnavailable|TestOpenAIGatewayServiceRecordUsage_CNFilteredCandidatesWriteZeroCostLog" -count=10
 go test ./internal/service -count=1
 go test ./cmd/server -run "^$" -count=1
@@ -65,6 +66,7 @@ git diff --check
 git diff --name-only --diff-filter=U
 git ls-files -u
 git merge-base --is-ancestor 10c8b70203feac8fbd744d386af6600aa87c3837 upstream/main
+Pop-Location
 ```
 
 ## Protected Main Baseline

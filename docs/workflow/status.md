@@ -89,6 +89,8 @@ last_verified: 2026-08-18 15:16 +08:00
   files, provider/database/container operations, deployment, and push are
   denied.
 - Contract: `docs/workflow/tasks/upstream-cn-provider-billing-s229-b.md`.
+- `contract-amendment`: Go module commands are run from `backend/`; no product
+  scope or acceptance behavior changed.
 
 # Upstream CN Providers S226
 
