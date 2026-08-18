@@ -1,12 +1,12 @@
 ---
 phase: done
-current_sprint: upstream-cn-provider-partial-usage-s229-e
+current_sprint: upstream-codex-usage-probe-model-s230-a
 total_sprints: 229
-pending_action: Review the next upstream candidate/history; all five approved 10c8b7020 CN defect slices are now independently integrated.
+pending_action: Review the next upstream candidate/history; S230-A is integrated locally and no push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-18 19:46 +08:00
+last_verified: 2026-08-18 19:59 +08:00
 ---
 
 # Upstream Ops Small Fixes S227
@@ -162,6 +162,21 @@ last_verified: 2026-08-18 19:46 +08:00
   partial results from Chat/Responses/Messages now submit usage, while
   failover errors remain excluded; no push, deployment, provider, database, or
   container operation occurred.
+
+# Upstream Codex Usage Probe Model S230-A
+
+- `contract-approved`: selectively adapt upstream `16e4f7ecc` (merge `c0325d24f`)
+  at frozen `main@a7834f088`; only the OAuth Codex quota probe model selection is
+  in scope.
+- `PASS / controller-review`: business `48b72588d` and result report
+  `upstream-codex-usage-probe-model-s230-a-result.md` passed focused probe/version
+  x10, complete service, server compile, format, scope, provenance, conflict/index,
+  and protected-main gates.
+- `PASS / independent-qa`: report `3318d944d` independently passed the same
+  focused x10 and package/build/scope gates from a clean QA worktree.
+- `PASS / main-integration`: business `ea2f12acd`, Controller report `6371f4d3d`,
+  and QA report `fb619efab` are integrated locally. OAuth Codex probes now use
+  `codex-auto-review`; ordinary `DefaultTestModel` behavior is unchanged.
 
 # Upstream CN Providers S226
 
