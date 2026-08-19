@@ -74,27 +74,27 @@ func TestQuickstartTutorialConfig_DefaultAndPersistence(t *testing.T) {
 
 	updated := *defaults
 	updated.Platforms = append([]QuickstartTutorialPlatform(nil), defaults.Platforms...)
-	updated.Platforms[0].BaseURL = "https://ai.3zapi.com"
+	updated.Platforms[0].BaseURL = "https://ai.3zapi.cc"
 	saved, err := service.SetQuickstartTutorialConfig(context.Background(), &updated)
 	require.NoError(t, err)
-	require.Equal(t, "https://ai.3zapi.com", saved.Platforms[0].BaseURL)
-	require.Contains(t, repo.values[SettingKeyQuickstartTutorialConfig], "ai.3zapi.com")
+	require.Equal(t, "https://ai.3zapi.cc", saved.Platforms[0].BaseURL)
+	require.Contains(t, repo.values[SettingKeyQuickstartTutorialConfig], "ai.3zapi.cc")
 
 	reloaded, err := service.GetQuickstartTutorialConfig(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, "https://ai.3zapi.com", reloaded.Platforms[0].BaseURL)
+	require.Equal(t, "https://ai.3zapi.cc", reloaded.Platforms[0].BaseURL)
 }
 
 func TestQuickstartTutorialConfig_UsesConfiguredAPIBaseURLBeforeFirstSave(t *testing.T) {
 	repo := &quickstartTutorialSettingRepoStub{values: map[string]string{
-		SettingKeyAPIBaseURL: "https://ai.3zapi.com/v1",
+		SettingKeyAPIBaseURL: "https://ai.3zapi.cc/v1",
 	}}
 	service := NewSettingService(repo, &config.Config{})
 
 	cfg, err := service.GetQuickstartTutorialConfig(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, "https://ai.3zapi.com", cfg.Platforms[0].BaseURL)
-	require.Equal(t, "https://ai.3zapi.com", cfg.Platforms[1].BaseURL)
+	require.Equal(t, "https://ai.3zapi.cc", cfg.Platforms[0].BaseURL)
+	require.Equal(t, "https://ai.3zapi.cc", cfg.Platforms[1].BaseURL)
 }
 
 func TestQuickstartTutorialConfig_RejectsUnsafeTextAndInvalidURL(t *testing.T) {
