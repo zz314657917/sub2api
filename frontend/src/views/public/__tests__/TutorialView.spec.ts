@@ -80,6 +80,48 @@ echo shortcode
 ]
 
 const summaries: TutorialPageSummary[] = tutorialPages.map(({ content_md: _content, ...page }) => page)
+const imageTutorialPages: TutorialPage[] = [
+  {
+    id: 74,
+    slug: 'gemini-3-pro-image-preview',
+    title: 'Gemini 3 Pro Image Preview 图像生成',
+    description: '使用 Gemini 3 Pro Image Preview 生成图像。',
+    category: '图像模型',
+    sort_order: 2242,
+    status: 'published',
+    created_at: timestamp,
+    updated_at: timestamp,
+    published_at: timestamp,
+    content_md: '# Gemini 3 Pro Image Preview 图像生成\n\n图像教程正文。',
+  },
+  {
+    id: 75,
+    slug: 'gemini-3-pro-image-preview-official',
+    title: 'Gemini 3 Pro Image Preview 官方图像生成',
+    description: '使用 Gemini 3 Pro Image Preview 官方路径生成图像。',
+    category: '图像模型',
+    sort_order: 2243,
+    status: 'published',
+    created_at: timestamp,
+    updated_at: timestamp,
+    published_at: timestamp,
+    content_md: '# Gemini 3 Pro Image Preview 官方图像生成\n\n官方图像教程正文。',
+  },
+  {
+    id: 80,
+    slug: 'doubao-seedance-4-5',
+    title: '豆包 Seedance 4.5 图像生成',
+    description: '使用豆包 Seedance 4.5 异步图像生成。',
+    category: '图像模型',
+    sort_order: 2248,
+    status: 'published',
+    created_at: timestamp,
+    updated_at: timestamp,
+    published_at: timestamp,
+    content_md: '# 豆包 Seedance 4.5 图像生成\n\n异步图像教程正文。',
+  },
+]
+const imageSummaries: TutorialPageSummary[] = imageTutorialPages.map(({ content_md: _content, ...page }) => page)
 const mountedWrappers: VueWrapper[] = []
 const scrollIntoViewMock = vi.fn()
 const originalScrollIntoView = HTMLElement.prototype.scrollIntoView
@@ -166,14 +208,14 @@ afterEach(() => {
 describe('TutorialView reading flow', () => {
   it('uses the public quick-start configuration for the Base URL and generated commands', async () => {
     const config = JSON.parse(JSON.stringify(defaultQuickstartTutorialConfig))
-    config.platforms[0].base_url = 'https://ai.3zapi.com'
+    config.platforms[0].base_url = 'https://ai.3zapi.cc'
     getQuickstartConfigMock.mockResolvedValue(config)
 
     const { wrapper } = await mountTutorial('/tutorial')
 
-    expect(wrapper.find('.tutorial-quickstart-facts').text()).toContain('https://ai.3zapi.com')
-    expect(wrapper.find('.tutorial-quickstart-steps').text()).toContain('base_url = "https://ai.3zapi.com"')
-    expect(wrapper.find('.tutorial-quickstart-code--large').text()).toContain('curl https://ai.3zapi.com/responses')
+    expect(wrapper.find('.tutorial-quickstart-facts').text()).toContain('https://ai.3zapi.cc')
+    expect(wrapper.find('.tutorial-quickstart-steps').text()).toContain('base_url = "https://ai.3zapi.cc"')
+    expect(wrapper.find('.tutorial-quickstart-code--large').text()).toContain('curl https://ai.3zapi.cc/responses')
   })
 
   it('keeps quick start separate from the searchable full tutorial directory', async () => {
@@ -295,6 +337,40 @@ describe('TutorialView reading flow', () => {
     await nextTick()
     expect(router.currentRoute.value.hash).toBe('#安装-0')
     expect(scrollIntoViewMock).toHaveBeenCalledWith('安装-0', { behavior: 'auto', block: 'start' })
+  })
+
+  it('uses concise image model names in navigation while preserving the full article title', async () => {
+    listMock.mockResolvedValue([...summaries, ...imageSummaries])
+    getBySlugMock.mockImplementation(async (slug: string) => {
+      const page = [...tutorialPages, ...imageTutorialPages].find((item) => item.slug === slug)
+      if (!page) throw errorWithStatus(404, '教程不存在')
+      return page
+    })
+
+    const { wrapper } = await mountTutorial('/tutorial/gemini-3-pro-image-preview')
+    const desktopLabels = wrapper.findAll('.tutorial-tab-link strong')
+
+    expect(desktopLabels.map((label) => label.text())).toEqual(expect.arrayContaining([
+      'Gemini 3 Pro',
+      'Gemini 3 Pro 官方',
+      'Seedance 4.5',
+    ]))
+
+    const activeDesktopLabel = desktopLabels.find(
+      (label) => label.attributes('title') === 'Gemini 3 Pro Image Preview 图像生成'
+    )
+    expect(activeDesktopLabel?.text()).toBe('Gemini 3 Pro')
+
+    const directoryToggle = wrapper.find('.tutorial-mobile-directory-toggle')
+    expect(directoryToggle.find('strong').text()).toBe('Gemini 3 Pro')
+    expect(directoryToggle.find('strong').attributes('title')).toBe('Gemini 3 Pro Image Preview 图像生成')
+
+    await directoryToggle.trigger('click')
+    const mobileLabel = wrapper
+      .findAll('#tutorial-mobile-directory-list strong')
+      .find((label) => label.attributes('title') === 'Gemini 3 Pro Image Preview 图像生成')
+    expect(mobileLabel?.text()).toBe('Gemini 3 Pro')
+    expect(wrapper.find('.tutorial-article h1').text()).toBe('Gemini 3 Pro Image Preview 图像生成')
   })
 
   it('separates detail loading, retryable error, and 404 states', async () => {

@@ -252,7 +252,7 @@
                 :class="{ 'is-active': activeSlug === page.slug }"
                 :aria-current="activeSlug === page.slug ? 'page' : undefined"
               >
-                <strong>{{ page.title }}</strong>
+                <strong :title="page.title">{{ getTutorialNavigationTitle(page) }}</strong>
                 <span>{{ page.category || '教程' }}</span>
               </router-link>
             </nav>
@@ -268,7 +268,7 @@
                 @click="mobileDirectoryOpen = !mobileDirectoryOpen"
               >
                 <span>当前教程</span>
-                <strong>{{ activePageTitle }}</strong>
+                <strong :title="activePageTitle">{{ activeNavigationTitle }}</strong>
                 <span>{{ mobileDirectoryOpen ? '收起目录' : '展开目录' }}</span>
               </button>
               <nav
@@ -285,7 +285,7 @@
                   :aria-current="activeSlug === page.slug ? 'page' : undefined"
                   @click="mobileDirectoryOpen = false"
                 >
-                  <strong>{{ page.title }}</strong>
+                  <strong :title="page.title">{{ getTutorialNavigationTitle(page) }}</strong>
                   <span>{{ page.category || '教程' }}</span>
                 </router-link>
               </nav>
@@ -537,6 +537,10 @@ const activeSlug = computed(() => routeSlug.value)
 const activePage = computed(() => loadedPages.value[activeSlug.value] ?? null)
 const activeSummary = computed(() => orderedPages.value.find((page) => page.slug === activeSlug.value) ?? null)
 const activePageTitle = computed(() => activePage.value?.title || activeSummary.value?.title || '教程详情')
+const activeNavigationTitle = computed(() => {
+  const page = activePage.value ?? activeSummary.value
+  return page ? getTutorialNavigationTitle(page) : '教程详情'
+})
 const activePageIndex = computed(() => orderedPages.value.findIndex((page) => page.slug === activeSlug.value))
 const previousPage = computed(() => {
   const index = activePageIndex.value
@@ -550,6 +554,17 @@ const articleProgressLabel = computed(() => {
   if (activePageIndex.value < 0) return `共 ${orderedPages.value.length} 篇`
   return `第 ${activePageIndex.value + 1} 篇，共 ${orderedPages.value.length} 篇`
 })
+
+function getTutorialNavigationTitle(page: Pick<TutorialPageSummary, 'title' | 'category'>) {
+  if (page.category !== '图像模型') return page.title
+
+  return page.title
+    .replace(/\s*图像生成$/, '')
+    .replace(/\s+Image Preview(?=\s+官方$|$)/, '')
+    .replace(/^豆包\s+/, '')
+    .replace(/^Gemini 3\.1 Flash/, 'Gemini Flash')
+    .trim()
+}
 const tutorialCategories = computed(() => {
   return Array.from(new Set(orderedPages.value.map((page) => page.category || '教程')))
 })
@@ -1443,6 +1458,7 @@ onUnmounted(() => {
 
 .tutorial-tabs {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.45rem;
 }
 
@@ -1452,6 +1468,7 @@ onUnmounted(() => {
   justify-content: space-between;
   gap: 0.65rem;
   min-height: 2.35rem;
+  min-width: 0;
   padding: 0.45rem 0.55rem;
   border: 1px solid transparent;
   border-radius: 8px;
@@ -1481,6 +1498,10 @@ onUnmounted(() => {
   color: var(--public-muted-soft);
   line-height: 1;
   white-space: nowrap;
+}
+
+.tutorial-sidebar .tutorial-tabs span {
+  display: none;
 }
 
 .tutorial-main-column {
@@ -1839,13 +1860,15 @@ onUnmounted(() => {
 
 .tutorial-content :deep(pre) {
   margin: 0;
-  overflow-x: auto;
+  overflow-x: hidden;
   padding: 0.9rem;
 }
 
 .tutorial-content :deep(pre code) {
   display: block;
-  min-width: max-content;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
   background: transparent;
   color: #faf9f5;
   padding: 0;
