@@ -55,8 +55,8 @@ the current local frontend owners rather than cherry-picking the whole tag.
 - `frontend/src/style.css`
 - `frontend/src/components/user/dashboard/UserDashboardStats.vue`
 - `frontend/src/views/admin/AnnouncementsView.vue`
-- `frontend/src/i18n/locales/en/admin/resources.ts`
-- `frontend/src/i18n/locales/zh/admin/resources.ts`
+- `frontend/src/i18n/locales/en/admin/announcements.ts`
+- `frontend/src/i18n/locales/zh/admin/announcements.ts`
 - `frontend/src/components/layout/__tests__/AppHeader.spec.ts`
 - `frontend/src/components/common/__tests__/DateRangePicker.spec.ts`
 - `frontend/src/components/user/dashboard/__tests__/UserDashboardStats.spec.ts`
@@ -109,4 +109,6 @@ is `### PASS`, `### FAIL`, or `### BLOCKED`.
 
 ## Status
 
-`contract-approved`
+`contract-approved` (amended 2026-08-19: local announcement i18n owners are
+the split `announcements.ts` files, not the upstream monolithic `resources.ts`
+owners; behavior and all other scope remain unchanged.)
