@@ -1,12 +1,12 @@
 ---
-phase: done
-current_sprint: upstream-codex-fingerprint-convergence-s233
-total_sprints: 233
-pending_action: Review the next upstream candidate/history; S233 is integrated locally and no push is authorized.
+phase: contract-approved
+current_sprint: upstream-v178-ui-polish-s234
+total_sprints: 234
+pending_action: Implement and independently verify S234; no push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-19 00:16 +08:00
+last_verified: 2026-08-19 00:30 +08:00
 ---
 
 # Upstream Gemini Skipped Error Policy S231
