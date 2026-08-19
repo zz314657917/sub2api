@@ -28,7 +28,6 @@ import (
 const (
 	opsModelKey                  = "ops_model"
 	opsStreamKey                 = "ops_stream"
-	opsRequestBodyKey            = "ops_request_body"
 	opsAccountIDKey              = "ops_account_id"
 	opsRoutingCapacityLimitedKey = "ops_routing_capacity_limited"
 
@@ -73,26 +72,38 @@ const (
 	opsErrorLogMinQueueSize       = 256
 	opsErrorLogMaxQueueSize       = 8192
 	opsErrorLogBatchSize          = 32
+	opsErrorLogMaxQueueBytes      = 32 * 1024 * 1024
+	opsErrorLogMaxUserAgentBytes  = 512
 )
 
+// keyPrefix 返回脱敏前缀(前 n 个字符);不足 n 则原样返回。
+func keyPrefix(key string, n int) string {
+	if len(key) <= n {
+		return key
+	}
+	return key[:n]
+}
+
 type opsErrorLogJob struct {
-	ops   *service.OpsService
-	entry *service.OpsInsertErrorLogInput
+	ops         *service.OpsService
+	entry       *service.OpsInsertErrorLogInput
+	queuedBytes int64
 }
 
 var (
 	opsErrorLogOnce  sync.Once
 	opsErrorLogQueue chan opsErrorLogJob
 
-	opsErrorLogStopOnce  sync.Once
-	opsErrorLogWorkersWg sync.WaitGroup
-	opsErrorLogMu        sync.RWMutex
-	opsErrorLogStopping  bool
-	opsErrorLogQueueLen  atomic.Int64
-	opsErrorLogEnqueued  atomic.Int64
-	opsErrorLogDropped   atomic.Int64
-	opsErrorLogProcessed atomic.Int64
-	opsErrorLogSanitized atomic.Int64
+	opsErrorLogStopOnce   sync.Once
+	opsErrorLogWorkersWg  sync.WaitGroup
+	opsErrorLogMu         sync.RWMutex
+	opsErrorLogStopping   bool
+	opsErrorLogQueueLen   atomic.Int64
+	opsErrorLogQueueBytes atomic.Int64
+	opsErrorLogEnqueued   atomic.Int64
+	opsErrorLogDropped    atomic.Int64
+	opsErrorLogProcessed  atomic.Int64
+	opsErrorLogSanitized  atomic.Int64
 
 	opsErrorLogLastDropLogAt atomic.Int64
 
@@ -112,6 +123,7 @@ func startOpsErrorLogWorkers() {
 	workerCount, queueSize := opsErrorLogConfig()
 	opsErrorLogQueue = make(chan opsErrorLogJob, queueSize)
 	opsErrorLogQueueLen.Store(0)
+	opsErrorLogQueueBytes.Store(0)
 
 	opsErrorLogWorkersWg.Add(workerCount)
 	for i := 0; i < workerCount; i++ {
@@ -123,6 +135,7 @@ func startOpsErrorLogWorkers() {
 					return
 				}
 				opsErrorLogQueueLen.Add(-1)
+				opsErrorLogQueueBytes.Add(-job.queuedBytes)
 				batch := make([]opsErrorLogJob, 0, opsErrorLogBatchSize)
 				batch = append(batch, job)
 
@@ -142,6 +155,7 @@ func startOpsErrorLogWorkers() {
 							return
 						}
 						opsErrorLogQueueLen.Add(-1)
+						opsErrorLogQueueBytes.Add(-nextJob.queuedBytes)
 						batch = append(batch, nextJob)
 					case <-timer.C:
 						break batchLoop
@@ -197,6 +211,20 @@ func enqueueOpsErrorLog(ops *service.OpsService, entry *service.OpsInsertErrorLo
 	if ops == nil || entry == nil {
 		return
 	}
+	entry.UserAgent = normalizeOpsPersistentUserAgent(entry.UserAgent)
+	if entry.ErrorBody != "" {
+		originalBody := entry.ErrorBody
+		body, truncated := service.SanitizeOpsErrorBodyForQueue(originalBody)
+		entry.ErrorBody = body
+		if truncated || body != originalBody {
+			opsErrorLogSanitized.Add(1)
+		}
+	}
+	if err := service.SanitizeOpsUpstreamErrorsForQueue(entry); err != nil {
+		opsErrorLogDropped.Add(1)
+		maybeLogOpsErrorLogDrop()
+		return
+	}
 	select {
 	case <-opsErrorLogShutdownCh:
 		return
@@ -217,16 +245,27 @@ func enqueueOpsErrorLog(ops *service.OpsService, entry *service.OpsInsertErrorLo
 	if opsErrorLogStopping || opsErrorLogQueue == nil {
 		return
 	}
+	queuedBytes := estimateOpsErrorLogJobBytes(entry)
+	if !reserveOpsErrorLogQueueBytes(queuedBytes) {
+		opsErrorLogDropped.Add(1)
+		maybeLogOpsErrorLogDrop()
+		return
+	}
 
 	select {
-	case opsErrorLogQueue <- opsErrorLogJob{ops: ops, entry: entry}:
-		opsErrorLogQueueLen.Add(1)
+	case opsErrorLogQueue <- opsErrorLogJob{ops: ops, entry: entry, queuedBytes: queuedBytes}:
 		opsErrorLogEnqueued.Add(1)
 	default:
+		opsErrorLogQueueLen.Add(-1)
+		opsErrorLogQueueBytes.Add(-queuedBytes)
 		// Queue is full; drop to avoid blocking request handling.
 		opsErrorLogDropped.Add(1)
 		maybeLogOpsErrorLogDrop()
 	}
+}
+
+func normalizeOpsPersistentUserAgent(value string) string {
+	return truncateString(strings.TrimSpace(strings.ToValidUTF8(value, "")), opsErrorLogMaxUserAgentBytes)
 }
 
 func StopOpsErrorLogWorkers() bool {
@@ -251,6 +290,7 @@ func stopOpsErrorLogWorkers() bool {
 
 	if ch == nil {
 		opsErrorLogQueueLen.Store(0)
+		opsErrorLogQueueBytes.Store(0)
 		return true
 	}
 
@@ -263,6 +303,7 @@ func stopOpsErrorLogWorkers() bool {
 	select {
 	case <-done:
 		opsErrorLogQueueLen.Store(0)
+		opsErrorLogQueueBytes.Store(0)
 		return true
 	case <-time.After(opsErrorLogDrainTimeout):
 		return false
@@ -271,6 +312,14 @@ func stopOpsErrorLogWorkers() bool {
 
 func OpsErrorLogQueueLength() int64 {
 	return opsErrorLogQueueLen.Load()
+}
+
+func OpsErrorLogQueueBytes() int64 {
+	return opsErrorLogQueueBytes.Load()
+}
+
+func OpsErrorLogQueueBytesCapacity() int64 {
+	return opsErrorLogMaxQueueBytes
 }
 
 func OpsErrorLogQueueCapacity() int {
@@ -313,17 +362,60 @@ func maybeLogOpsErrorLogDrop() {
 	}
 
 	queued := opsErrorLogQueueLen.Load()
+	queuedBytes := opsErrorLogQueueBytes.Load()
 	queueCap := OpsErrorLogQueueCapacity()
 
 	log.Printf(
-		"[OpsErrorLogger] queue is full; dropping logs (queued=%d cap=%d enqueued_total=%d dropped_total=%d processed_total=%d sanitized_total=%d)",
+		"[OpsErrorLogger] queue is full; dropping logs (queued=%d cap=%d queued_bytes=%d bytes_cap=%d enqueued_total=%d dropped_total=%d processed_total=%d sanitized_total=%d)",
 		queued,
 		queueCap,
+		queuedBytes,
+		opsErrorLogMaxQueueBytes,
 		opsErrorLogEnqueued.Load(),
 		opsErrorLogDropped.Load(),
 		opsErrorLogProcessed.Load(),
 		opsErrorLogSanitized.Load(),
 	)
+}
+
+func reserveOpsErrorLogQueueBytes(size int64) bool {
+	if size < 1 {
+		size = 1
+	}
+	for {
+		current := opsErrorLogQueueBytes.Load()
+		if current > opsErrorLogMaxQueueBytes-size {
+			return false
+		}
+		if opsErrorLogQueueBytes.CompareAndSwap(current, current+size) {
+			opsErrorLogQueueLen.Add(1)
+			return true
+		}
+	}
+}
+
+func estimateOpsErrorLogJobBytes(entry *service.OpsInsertErrorLogInput) int64 {
+	if entry == nil {
+		return 1
+	}
+	const fixedOverhead = 512
+	size := fixedOverhead + len(entry.RequestID) + len(entry.ClientRequestID) +
+		len(entry.Platform) + len(entry.Model) + len(entry.RequestPath) +
+		len(entry.InboundEndpoint) + len(entry.UpstreamEndpoint) +
+		len(entry.RequestedModel) + len(entry.UpstreamModel) + len(entry.UserAgent) +
+		len(entry.ErrorPhase) + len(entry.ErrorType) + len(entry.Severity) +
+		len(entry.ErrorMessage) + len(entry.ErrorBody) + len(entry.ErrorSource) +
+		len(entry.ErrorOwner) + len(entry.APIKeyPrefix)
+	if entry.UpstreamErrorMessage != nil {
+		size += len(*entry.UpstreamErrorMessage)
+	}
+	if entry.UpstreamErrorDetail != nil {
+		size += len(*entry.UpstreamErrorDetail)
+	}
+	if entry.UpstreamErrorsJSON != nil {
+		size += len(*entry.UpstreamErrorsJSON)
+	}
+	return int64(size)
 }
 
 func opsErrorLogConfig() (workerCount int, queueSize int) {
@@ -346,16 +438,13 @@ func opsErrorLogConfig() (workerCount int, queueSize int) {
 	return workerCount, queueSize
 }
 
-func setOpsRequestContext(c *gin.Context, model string, stream bool, requestBody []byte) {
+func setOpsRequestContext(c *gin.Context, model string, stream bool) {
 	if c == nil {
 		return
 	}
 	model = strings.TrimSpace(model)
 	c.Set(opsModelKey, model)
 	c.Set(opsStreamKey, stream)
-	if len(requestBody) > 0 {
-		c.Set(opsRequestBodyKey, requestBody)
-	}
 	if c.Request != nil && model != "" {
 		ctx := context.WithValue(c.Request.Context(), ctxkey.Model, model)
 		c.Request = c.Request.WithContext(ctx)
@@ -372,22 +461,6 @@ func setOpsEndpointContext(c *gin.Context, upstreamModel string, requestType int
 		c.Set(opsUpstreamModelKey, upstreamModel)
 	}
 	c.Set(opsRequestTypeKey, requestType)
-}
-
-func attachOpsRequestBodyToEntry(c *gin.Context, entry *service.OpsInsertErrorLogInput) {
-	if c == nil || entry == nil {
-		return
-	}
-	v, ok := c.Get(opsRequestBodyKey)
-	if !ok {
-		return
-	}
-	raw, ok := v.([]byte)
-	if !ok || len(raw) == 0 {
-		return
-	}
-	entry.RequestBodyJSON, entry.RequestBodyTruncated, entry.RequestBodyBytes = service.PrepareOpsRequestBodyForQueue(raw)
-	opsErrorLogSanitized.Add(1)
 }
 
 func setOpsSelectedAccount(c *gin.Context, accountID int64, platform ...string) {
@@ -445,11 +518,16 @@ func isOpsNoAvailableAccountError(err error) bool {
 
 type opsCaptureWriter struct {
 	gin.ResponseWriter
-	limit int
-	buf   bytes.Buffer
+	limit        int
+	buf          bytes.Buffer
+	probe        []byte
+	sseCapturing bool
+	ctx          *gin.Context
 }
 
-const opsCaptureWriterLimit = 64 * 1024
+const opsCaptureWriterLimit = service.OpsErrorLogQueueBodyMaxBytes
+
+const opsCaptureWriterPoolMaxRetainedCapacity = service.OpsErrorLogQueueBodyMaxBytes
 
 var opsCaptureWriterPool = sync.Pool{
 	New: func() any {
@@ -465,6 +543,8 @@ func acquireOpsCaptureWriter(rw gin.ResponseWriter) *opsCaptureWriter {
 	w.ResponseWriter = rw
 	w.limit = opsCaptureWriterLimit
 	w.buf.Reset()
+	w.probe = w.probe[:0]
+	w.sseCapturing = false
 	return w
 }
 
@@ -473,9 +553,19 @@ func releaseOpsCaptureWriter(w *opsCaptureWriter) {
 		return
 	}
 	w.ResponseWriter = nil
+	w.ctx = nil
 	w.limit = opsCaptureWriterLimit
+	w.probe = w.probe[:0]
+	w.sseCapturing = false
+	if !shouldPoolOpsCaptureWriter(w) {
+		return
+	}
 	w.buf.Reset()
 	opsCaptureWriterPool.Put(w)
+}
+
+func shouldPoolOpsCaptureWriter(w *opsCaptureWriter) bool {
+	return w != nil && w.buf.Cap() <= opsCaptureWriterPoolMaxRetainedCapacity
 }
 
 func (w *opsCaptureWriter) Status() int {
@@ -554,13 +644,8 @@ func (w *opsCaptureWriter) Write(b []byte) (int, error) {
 	if w.ResponseWriter == nil {
 		return 0, nil
 	}
-	if w.Status() >= 400 && w.limit > 0 && w.buf.Len() < w.limit {
-		remaining := w.limit - w.buf.Len()
-		if len(b) > remaining {
-			_, _ = w.buf.Write(b[:remaining])
-		} else {
-			_, _ = w.buf.Write(b)
-		}
+	if w.shouldCapture() {
+		w.captureResponseChunk(b, w.Status())
 	}
 	return w.ResponseWriter.Write(b)
 }
@@ -569,26 +654,112 @@ func (w *opsCaptureWriter) WriteString(s string) (int, error) {
 	if w.ResponseWriter == nil {
 		return 0, nil
 	}
-	if w.Status() >= 400 && w.limit > 0 && w.buf.Len() < w.limit {
-		remaining := w.limit - w.buf.Len()
-		if len(s) > remaining {
-			_, _ = w.buf.WriteString(s[:remaining])
-		} else {
-			_, _ = w.buf.WriteString(s)
-		}
+	if w.shouldCapture() {
+		w.captureResponseChunk([]byte(s), w.Status())
 	}
 	return w.ResponseWriter.WriteString(s)
+}
+
+var opsTerminalSSEMarkers = [][]byte{
+	[]byte("event: response.failed"),
+	[]byte("event: error"),
+	[]byte(`data: {"type":"response.failed"`),
+	[]byte(`data:{"type":"response.failed"`),
+	[]byte(`data: {"type":"error"`),
+	[]byte(`data:{"type":"error"`),
+}
+
+func (w *opsCaptureWriter) captureResponseChunk(chunk []byte, status int) {
+	if w == nil || w.limit <= 0 || w.buf.Len() >= w.limit || len(chunk) == 0 {
+		return
+	}
+	if status >= 400 || w.sseCapturing {
+		w.appendCapturedResponse(chunk)
+		return
+	}
+
+	combined := make([]byte, 0, len(w.probe)+len(chunk))
+	combined = append(combined, w.probe...)
+	combined = append(combined, chunk...)
+	if start := findOpsTerminalSSEStart(combined); start >= 0 {
+		w.sseCapturing = true
+		w.probe = w.probe[:0]
+		w.appendCapturedResponse(combined[start:])
+		return
+	}
+
+	// Retain one full marker width so a marker split across writes still has
+	// its preceding byte available for the SSE line-boundary check.
+	keep := opsTerminalSSEProbeSize
+	if keep > len(combined) {
+		keep = len(combined)
+	}
+	w.probe = append(w.probe[:0], combined[len(combined)-keep:]...)
+}
+
+func (w *opsCaptureWriter) appendCapturedResponse(chunk []byte) {
+	remaining := w.limit - w.buf.Len()
+	if remaining <= 0 {
+		return
+	}
+	if len(chunk) > remaining {
+		chunk = chunk[:remaining]
+	}
+	_, _ = w.buf.Write(chunk)
+}
+
+func findOpsTerminalSSEStart(data []byte) int {
+	earliest := -1
+	for _, marker := range opsTerminalSSEMarkers {
+		searchFrom := 0
+		for searchFrom < len(data) {
+			idx := bytes.Index(data[searchFrom:], marker)
+			if idx < 0 {
+				break
+			}
+			idx += searchFrom
+			if idx == 0 || data[idx-1] == '\n' {
+				if earliest < 0 || idx < earliest {
+					earliest = idx
+				}
+				break
+			}
+			searchFrom = idx + 1
+		}
+	}
+	return earliest
+}
+
+func maxOpsTerminalSSEMarkerSize() int {
+	maxSize := 0
+	for _, marker := range opsTerminalSSEMarkers {
+		if len(marker) > maxSize {
+			maxSize = len(marker)
+		}
+	}
+	return maxSize
+}
+
+var opsTerminalSSEProbeSize = maxOpsTerminalSSEMarkerSize()
+
+func (w *opsCaptureWriter) shouldCapture() bool {
+	if w.ctx == nil {
+		return true
+	}
+	_, rejected := middleware2.GetIngressRejectReason(w.ctx)
+	return !rejected
 }
 
 // OpsErrorLoggerMiddleware records error responses (status >= 400) into ops_error_logs.
 //
 // Notes:
-// - It buffers response bodies only when status >= 400 to avoid overhead for successful traffic.
+// - It buffers response bodies only for status >= 400 or terminal SSE frames.
 // - Streaming errors after the response has started (SSE) may still need explicit logging.
 func OpsErrorLoggerMiddleware(ops *service.OpsService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		originalWriter := c.Writer
 		w := acquireOpsCaptureWriter(originalWriter)
+		w.ctx = c
 		defer func() {
 			// Restore the original writer before returning so outer middlewares
 			// don't observe a pooled wrapper that has been released.
@@ -600,271 +771,35 @@ func OpsErrorLoggerMiddleware(ops *service.OpsService) gin.HandlerFunc {
 		c.Writer = w
 		c.Next()
 
+		if _, rejected := middleware2.GetIngressRejectReason(c); rejected {
+			return
+		}
+
 		if ops == nil {
 			return
 		}
 		if !ops.IsMonitoringEnabled(c.Request.Context()) {
 			return
 		}
+
 		if shouldSkipOpsErrorLogForCyber(c) {
 			return
 		}
 
 		status := c.Writer.Status()
+		body := w.buf.Bytes()
+		parsed := parseOpsErrorResponse(body)
 		if status < 400 {
-			// Even when the client request succeeds, we still want to persist upstream error attempts
-			// (retries/failover) so ops can observe upstream instability that gets "covered" by retries.
-			var events []*service.OpsUpstreamErrorEvent
-			if v, ok := c.Get(service.OpsUpstreamErrorsKey); ok {
-				if arr, ok := v.([]*service.OpsUpstreamErrorEvent); ok && len(arr) > 0 {
-					events = arr
-				}
-			}
-			// Also accept single upstream fields set by gateway services (rare for successful requests).
-			hasUpstreamContext := len(events) > 0
-			if !hasUpstreamContext {
-				if v, ok := c.Get(service.OpsUpstreamStatusCodeKey); ok {
-					switch t := v.(type) {
-					case int:
-						hasUpstreamContext = t > 0
-					case int64:
-						hasUpstreamContext = t > 0
-					}
-				}
-			}
-			if !hasUpstreamContext {
-				if v, ok := c.Get(service.OpsUpstreamErrorMessageKey); ok {
-					if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
-						hasUpstreamContext = true
-					}
-				}
-			}
-			if !hasUpstreamContext {
-				if v, ok := c.Get(service.OpsUpstreamErrorDetailKey); ok {
-					if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
-						hasUpstreamContext = true
-					}
-				}
-			}
-			if !hasUpstreamContext {
-				// The response may already be committed as HTTP 200 while an in-band
-				// SSE error was emitted later. Record the marker before returning.
+			if parsed.StreamFailure {
+				status = inferStreamFailureStatus(c, parsed)
+			} else {
+				// Locally generated in-band errors use an explicit context marker and
+				// may not have a capturable terminal frame. Preserve that fallback,
+				// but never turn recovered upstream attempts into request errors.
 				logOpsStreamError(c, ops, status)
 				return
 			}
-
-			apiKey, _ := middleware2.GetAPIKeyFromContext(c)
-			clientRequestID, _ := c.Request.Context().Value(ctxkey.ClientRequestID).(string)
-
-			model, _ := c.Get(opsModelKey)
-			streamV, _ := c.Get(opsStreamKey)
-			accountIDV, _ := c.Get(opsAccountIDKey)
-
-			var modelName string
-			if s, ok := model.(string); ok {
-				modelName = s
-			}
-			stream := false
-			if b, ok := streamV.(bool); ok {
-				stream = b
-			}
-
-			// Prefer showing the account that experienced the upstream error (if we have events),
-			// otherwise fall back to the final selected account (best-effort).
-			var accountID *int64
-			if len(events) > 0 {
-				if last := events[len(events)-1]; last != nil && last.AccountID > 0 {
-					v := last.AccountID
-					accountID = &v
-				}
-			}
-			if accountID == nil {
-				if v, ok := accountIDV.(int64); ok && v > 0 {
-					accountID = &v
-				}
-			}
-
-			fallbackPlatform := guessPlatformFromPath(c.Request.URL.Path)
-			platform := resolveOpsPlatform(apiKey, fallbackPlatform)
-
-			requestID := c.Writer.Header().Get("X-Request-Id")
-			if requestID == "" {
-				requestID = c.Writer.Header().Get("x-request-id")
-			}
-
-			// Best-effort backfill single upstream fields from the last event (if present).
-			var upstreamStatusCode *int
-			var upstreamErrorMessage *string
-			var upstreamErrorDetail *string
-			if len(events) > 0 {
-				last := events[len(events)-1]
-				if last != nil {
-					if last.UpstreamStatusCode > 0 {
-						code := last.UpstreamStatusCode
-						upstreamStatusCode = &code
-					}
-					if msg := strings.TrimSpace(last.Message); msg != "" {
-						upstreamErrorMessage = &msg
-					}
-					if detail := strings.TrimSpace(last.Detail); detail != "" {
-						upstreamErrorDetail = &detail
-					}
-				}
-			}
-
-			if upstreamStatusCode == nil {
-				if v, ok := c.Get(service.OpsUpstreamStatusCodeKey); ok {
-					switch t := v.(type) {
-					case int:
-						if t > 0 {
-							code := t
-							upstreamStatusCode = &code
-						}
-					case int64:
-						if t > 0 {
-							code := int(t)
-							upstreamStatusCode = &code
-						}
-					}
-				}
-			}
-			if upstreamErrorMessage == nil {
-				if v, ok := c.Get(service.OpsUpstreamErrorMessageKey); ok {
-					if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
-						msg := strings.TrimSpace(s)
-						upstreamErrorMessage = &msg
-					}
-				}
-			}
-			if upstreamErrorDetail == nil {
-				if v, ok := c.Get(service.OpsUpstreamErrorDetailKey); ok {
-					if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
-						detail := strings.TrimSpace(s)
-						upstreamErrorDetail = &detail
-					}
-				}
-			}
-
-			// If we still have nothing meaningful, skip.
-			if upstreamStatusCode == nil && upstreamErrorMessage == nil && upstreamErrorDetail == nil && len(events) == 0 {
-				return
-			}
-
-			effectiveUpstreamStatus := 0
-			if upstreamStatusCode != nil {
-				effectiveUpstreamStatus = *upstreamStatusCode
-			}
-
-			recoveredMsg := "Recovered upstream error"
-			if effectiveUpstreamStatus > 0 {
-				recoveredMsg += " " + strconvItoa(effectiveUpstreamStatus)
-			}
-			if upstreamErrorMessage != nil && strings.TrimSpace(*upstreamErrorMessage) != "" {
-				recoveredMsg += ": " + strings.TrimSpace(*upstreamErrorMessage)
-			}
-			recoveredMsg = truncateString(recoveredMsg, 2048)
-
-			entry := &service.OpsInsertErrorLogInput{
-				RequestID:       requestID,
-				ClientRequestID: clientRequestID,
-
-				AccountID: accountID,
-				Platform:  platform,
-				Model:     modelName,
-				RequestPath: func() string {
-					if c.Request != nil && c.Request.URL != nil {
-						return c.Request.URL.Path
-					}
-					return ""
-				}(),
-				Stream:           stream,
-				InboundEndpoint:  GetInboundEndpoint(c),
-				UpstreamEndpoint: GetUpstreamEndpoint(c, platform),
-				RequestedModel:   modelName,
-				UpstreamModel: func() string {
-					if v, ok := c.Get(opsUpstreamModelKey); ok {
-						if s, ok := v.(string); ok {
-							return strings.TrimSpace(s)
-						}
-					}
-					return ""
-				}(),
-				RequestType: func() *int16 {
-					if v, ok := c.Get(opsRequestTypeKey); ok {
-						switch t := v.(type) {
-						case int16:
-							return &t
-						case int:
-							v16 := int16(t)
-							return &v16
-						}
-					}
-					return nil
-				}(),
-				UserAgent: c.GetHeader("User-Agent"),
-
-				ErrorPhase: "upstream",
-				ErrorType:  "upstream_error",
-				// Severity/retryability should reflect the upstream failure, not the final client status (200).
-				Severity:          classifyOpsSeverity("upstream_error", effectiveUpstreamStatus),
-				StatusCode:        status,
-				IsBusinessLimited: false,
-				IsCountTokens:     isCountTokensRequest(c),
-
-				ErrorMessage: recoveredMsg,
-				ErrorBody:    "",
-
-				ErrorSource: "upstream_http",
-				ErrorOwner:  "provider",
-
-				UpstreamStatusCode:   upstreamStatusCode,
-				UpstreamErrorMessage: upstreamErrorMessage,
-				UpstreamErrorDetail:  upstreamErrorDetail,
-				UpstreamErrors:       events,
-
-				IsRetryable: classifyOpsIsRetryable("upstream_error", effectiveUpstreamStatus),
-				RetryCount:  0,
-				CreatedAt:   time.Now(),
-			}
-			applyOpsLatencyFieldsFromContext(c, entry)
-
-			if apiKey != nil {
-				entry.APIKeyID = &apiKey.ID
-				if apiKey.User != nil {
-					entry.UserID = &apiKey.User.ID
-				}
-				if apiKey.GroupID != nil {
-					entry.GroupID = apiKey.GroupID
-				}
-				// Prefer group platform if present (more stable than inferring from path).
-				if apiKey.Group != nil && apiKey.Group.Platform != "" {
-					entry.Platform = apiKey.Group.Platform
-				}
-			}
-
-			var clientIP string
-			if ip := strings.TrimSpace(ip.GetClientIP(c)); ip != "" {
-				clientIP = ip
-				entry.ClientIP = &clientIP
-			}
-
-			// Store request headers/body only when an upstream error occurred to keep overhead minimal.
-			entry.RequestHeadersJSON = extractOpsRetryRequestHeaders(c)
-			attachOpsRequestBodyToEntry(c, entry)
-
-			// Skip logging if a passthrough rule with skip_monitoring=true matched.
-			if v, ok := c.Get(service.OpsSkipPassthroughKey); ok {
-				if skip, _ := v.(bool); skip {
-					return
-				}
-			}
-
-			enqueueOpsErrorLog(ops, entry)
-			return
 		}
-
-		body := w.buf.Bytes()
-		parsed := parseOpsErrorResponse(body)
 
 		// Skip logging if a passthrough rule with skip_monitoring=true matched.
 		if v, ok := c.Get(service.OpsSkipPassthroughKey); ok {
@@ -878,7 +813,7 @@ func OpsErrorLoggerMiddleware(ops *service.OpsService) gin.HandlerFunc {
 			return
 		}
 
-		apiKey, _ := middleware2.GetAPIKeyFromContext(c)
+		apiKey := getOpsAPIKey(c)
 
 		clientRequestID, _ := c.Request.Context().Value(ctxkey.ClientRequestID).(string)
 
@@ -900,14 +835,19 @@ func OpsErrorLoggerMiddleware(ops *service.OpsService) gin.HandlerFunc {
 		}
 
 		fallbackPlatform := guessPlatformFromPath(c.Request.URL.Path)
-		platform := resolveOpsPlatform(apiKey, fallbackPlatform)
+		platform := resolveOpsPlatform(c.Request.Context(), apiKey, fallbackPlatform)
 
-		requestID := c.Writer.Header().Get("X-Request-Id")
+		requestID, _ := c.Request.Context().Value(ctxkey.RequestID).(string)
+		requestID = strings.TrimSpace(requestID)
 		if requestID == "" {
-			requestID = c.Writer.Header().Get("x-request-id")
+			requestID = c.Writer.Header().Get("X-Request-Id")
+			if requestID == "" {
+				requestID = c.Writer.Header().Get("x-request-id")
+			}
 		}
 
 		normalizedType := normalizeOpsErrorType(parsed.ErrorType, parsed.Code)
+
 		phase, isBusinessLimited, errorOwner, errorSource := classifyOpsErrorLog(c, normalizedType, parsed.Message, parsed.Code, status)
 
 		entry := &service.OpsInsertErrorLogInput{
@@ -957,74 +897,30 @@ func OpsErrorLoggerMiddleware(ops *service.OpsService) gin.HandlerFunc {
 			IsCountTokens:     isCountTokensRequest(c),
 
 			ErrorMessage: parsed.Message,
-			// Keep the full captured error body (capture is already capped at 64KB) so the
+			// Keep the captured error body (already capped at the queue-safe limit) so the
 			// service layer can sanitize JSON before truncating for storage.
 			ErrorBody:   string(body),
 			ErrorSource: errorSource,
 			ErrorOwner:  errorOwner,
 
-			IsRetryable: classifyOpsIsRetryable(normalizedType, status),
-			RetryCount:  0,
-			CreatedAt:   time.Now(),
+			CreatedAt: time.Now(),
 		}
 		applyOpsLatencyFieldsFromContext(c, entry)
-
-		// Capture upstream error context set by gateway services (if present).
-		// This does NOT affect the client response; it enriches Ops troubleshooting data.
-		{
-			if v, ok := c.Get(service.OpsUpstreamStatusCodeKey); ok {
-				switch t := v.(type) {
-				case int:
-					if t > 0 {
-						code := t
-						entry.UpstreamStatusCode = &code
-					}
-				case int64:
-					if t > 0 {
-						code := int(t)
-						entry.UpstreamStatusCode = &code
-					}
-				}
+		applyOpsUpstreamFieldsFromContext(c, entry)
+		if parsed.StreamFailure {
+			if message := strings.TrimSpace(parsed.Message); message != "" {
+				entry.UpstreamErrorMessage = &message
 			}
-			if v, ok := c.Get(service.OpsUpstreamErrorMessageKey); ok {
-				if s, ok := v.(string); ok {
-					if msg := strings.TrimSpace(s); msg != "" {
-						entry.UpstreamErrorMessage = &msg
-					}
-				}
-			}
-			if v, ok := c.Get(service.OpsUpstreamErrorDetailKey); ok {
-				if s, ok := v.(string); ok {
-					if detail := strings.TrimSpace(s); detail != "" {
-						entry.UpstreamErrorDetail = &detail
-					}
-				}
-			}
-			if v, ok := c.Get(service.OpsUpstreamErrorsKey); ok {
-				if events, ok := v.([]*service.OpsUpstreamErrorEvent); ok && len(events) > 0 {
-					entry.UpstreamErrors = events
-					// Best-effort backfill the single upstream fields from the last event when missing.
-					last := events[len(events)-1]
-					if last != nil {
-						if entry.UpstreamStatusCode == nil && last.UpstreamStatusCode > 0 {
-							code := last.UpstreamStatusCode
-							entry.UpstreamStatusCode = &code
-						}
-						if entry.UpstreamErrorMessage == nil && strings.TrimSpace(last.Message) != "" {
-							msg := strings.TrimSpace(last.Message)
-							entry.UpstreamErrorMessage = &msg
-						}
-						if entry.UpstreamErrorDetail == nil && strings.TrimSpace(last.Detail) != "" {
-							detail := strings.TrimSpace(last.Detail)
-							entry.UpstreamErrorDetail = &detail
-						}
-					}
-				}
+			if status >= 400 {
+				finalStatus := status
+				entry.UpstreamStatusCode = &finalStatus
 			}
 		}
 
 		if apiKey != nil {
 			entry.APIKeyID = &apiKey.ID
+			// 有效 key 报错时快照前缀，key 之后被删也保留。
+			entry.APIKeyPrefix = keyPrefix(apiKey.Key, 8)
 			if apiKey.User != nil {
 				entry.UserID = &apiKey.User.ID
 			}
@@ -1043,48 +939,56 @@ func OpsErrorLoggerMiddleware(ops *service.OpsService) gin.HandlerFunc {
 			entry.ClientIP = &clientIP
 		}
 
-		// Persist only a minimal, whitelisted set of request headers to improve retry fidelity.
-		// Do NOT store Authorization/Cookie/etc.
-		entry.RequestHeadersJSON = extractOpsRetryRequestHeaders(c)
-		attachOpsRequestBodyToEntry(c, entry)
-
 		enqueueOpsErrorLog(ops, entry)
 	}
 }
 
-// logOpsStreamError records an in-band error emitted after an SSE response was
-// committed. It is only called for wire statuses below 400 when no upstream
-// error context exists, so recovered upstream attempts are not double logged.
+// logOpsStreamError 记录一次挂在已固化 HTTP 200 SSE 流上的就地错误。
+// 由于 wire 状态码停留在 200，常规的 status>=400 捕获路径永远不会触发；
+// handleStreamingAwareError 通过 service.MarkOpsStreamError 标记这类错误，
+// 此函数据此补记一条错误日志，让并发限流/流内失败在错误看板里可见。
+//
+// 仅在 status<400 且不存在上游错误上下文时调用：上游透传错误已由中间件的
+// upstream-context 分支落库，无需在此重复记录。
 func logOpsStreamError(c *gin.Context, ops *service.OpsService, wireStatus int) {
 	streamErr, ok := service.GetOpsStreamError(c)
 	if !ok {
 		return
 	}
 
+	// 命中 skip_monitoring=true 透传规则的请求跳过落库，与其它分支一致。
 	if v, ok := c.Get(service.OpsSkipPassthroughKey); ok {
 		if skip, _ := v.(bool); skip {
 			return
 		}
 	}
 
+	// 复用与 status>=400 分支相同的设置过滤（context canceled / 无可用账号等）。
 	if shouldSkipOpsErrorLog(c.Request.Context(), ops, streamErr.Message, streamErr.Message, c.Request.URL.Path) {
 		return
 	}
 
+	// 分级用「本应返回的状态码」(如并发限流 429)，wire 状态码缺省时回退。
 	classifyStatus := streamErr.IntendedStatus
 	if classifyStatus <= 0 {
 		classifyStatus = wireStatus
 	}
-	normalizedType := normalizeOpsErrorType(streamErr.ErrType, "")
-	phase, isBusinessLimited, errorOwner, errorSource := classifyOpsErrorLog(
-		c,
-		normalizedType,
-		streamErr.Message,
-		"",
-		classifyStatus,
-	)
+	normalizedType := normalizeOpsErrorType(streamErr.ErrType, streamErr.Code)
+	phase, isBusinessLimited, errorOwner, errorSource := classifyOpsErrorLog(c, normalizedType, streamErr.Message, streamErr.Code, classifyStatus)
+	recordedStatus := wireStatus
+	if streamErr.CountTowardsSLA && streamErr.IntendedStatus >= 400 {
+		recordedStatus = streamErr.IntendedStatus
+	}
+	errorBody := ""
+	if streamErr.Code != "" {
+		if payload, err := json.Marshal(gin.H{"error": gin.H{
+			"type": normalizedType, "code": streamErr.Code, "message": streamErr.Message,
+		}}); err == nil {
+			errorBody = string(payload)
+		}
+	}
 
-	apiKey, _ := middleware2.GetAPIKeyFromContext(c)
+	apiKey := getOpsAPIKey(c)
 	clientRequestID, _ := c.Request.Context().Value(ctxkey.ClientRequestID).(string)
 
 	model, _ := c.Get(opsModelKey)
@@ -1092,7 +996,6 @@ func logOpsStreamError(c *gin.Context, ops *service.OpsService, wireStatus int) 
 	if s, ok := model.(string); ok {
 		modelName = s
 	}
-
 	accountIDV, _ := c.Get(opsAccountIDKey)
 	var accountID *int64
 	if v, ok := accountIDV.(int64); ok && v > 0 {
@@ -1100,11 +1003,15 @@ func logOpsStreamError(c *gin.Context, ops *service.OpsService, wireStatus int) 
 	}
 
 	fallbackPlatform := guessPlatformFromPath(c.Request.URL.Path)
-	platform := resolveOpsPlatform(apiKey, fallbackPlatform)
+	platform := resolveOpsPlatform(c.Request.Context(), apiKey, fallbackPlatform)
 
-	requestID := c.Writer.Header().Get("X-Request-Id")
+	requestID, _ := c.Request.Context().Value(ctxkey.RequestID).(string)
+	requestID = strings.TrimSpace(requestID)
 	if requestID == "" {
-		requestID = c.Writer.Header().Get("x-request-id")
+		requestID = c.Writer.Header().Get("X-Request-Id")
+		if requestID == "" {
+			requestID = c.Writer.Header().Get("x-request-id")
+		}
 	}
 
 	entry := &service.OpsInsertErrorLogInput{
@@ -1120,6 +1027,7 @@ func logOpsStreamError(c *gin.Context, ops *service.OpsService, wireStatus int) 
 			}
 			return ""
 		}(),
+		// 就地 SSE 错误只出现在流式请求上。
 		Stream:           true,
 		InboundEndpoint:  GetInboundEndpoint(c),
 		UpstreamEndpoint: GetUpstreamEndpoint(c, platform),
@@ -1149,21 +1057,23 @@ func logOpsStreamError(c *gin.Context, ops *service.OpsService, wireStatus int) 
 		ErrorPhase:        phase,
 		ErrorType:         normalizedType,
 		Severity:          classifyOpsSeverity(normalizedType, classifyStatus),
-		StatusCode:        wireStatus,
+		StatusCode:        recordedStatus,
 		IsBusinessLimited: isBusinessLimited,
 		IsCountTokens:     isCountTokensRequest(c),
 
 		ErrorMessage: streamErr.Message,
-		ErrorBody:    "",
+		ErrorBody:    errorBody,
 		ErrorSource:  errorSource,
 		ErrorOwner:   errorOwner,
 
 		CreatedAt: time.Now(),
 	}
 	applyOpsLatencyFieldsFromContext(c, entry)
+	applyOpsUpstreamFieldsFromContext(c, entry)
 
 	if apiKey != nil {
 		entry.APIKeyID = &apiKey.ID
+		entry.APIKeyPrefix = keyPrefix(apiKey.Key, 8)
 		if apiKey.User != nil {
 			entry.UserID = &apiKey.User.ID
 		}
@@ -1182,43 +1092,16 @@ func logOpsStreamError(c *gin.Context, ops *service.OpsService, wireStatus int) 
 	enqueueOpsErrorLog(ops, entry)
 }
 
-var opsRetryRequestHeaderAllowlist = []string{
-	"anthropic-beta",
-	"anthropic-version",
-}
-
 // isCountTokensRequest checks if the request is a count_tokens request
 func isCountTokensRequest(c *gin.Context) bool {
 	if c == nil || c.Request == nil || c.Request.URL == nil {
 		return false
 	}
-	return strings.Contains(c.Request.URL.Path, "/count_tokens")
+	return isTokenCountRequestPath(c.Request.URL.Path)
 }
 
-func extractOpsRetryRequestHeaders(c *gin.Context) *string {
-	if c == nil || c.Request == nil {
-		return nil
-	}
-
-	headers := make(map[string]string, 4)
-	for _, key := range opsRetryRequestHeaderAllowlist {
-		v := strings.TrimSpace(c.GetHeader(key))
-		if v == "" {
-			continue
-		}
-		// Keep headers small even if a client sends something unexpected.
-		headers[key] = truncateString(v, 512)
-	}
-	if len(headers) == 0 {
-		return nil
-	}
-
-	raw, err := json.Marshal(headers)
-	if err != nil {
-		return nil
-	}
-	s := string(raw)
-	return &s
+func isTokenCountRequestPath(path string) bool {
+	return strings.Contains(path, "/count_tokens") || strings.Contains(path, "/responses/input_tokens")
 }
 
 func applyOpsLatencyFieldsFromContext(c *gin.Context, entry *service.OpsInsertErrorLogInput) {
@@ -1230,6 +1113,77 @@ func applyOpsLatencyFieldsFromContext(c *gin.Context, entry *service.OpsInsertEr
 	entry.UpstreamLatencyMs = getContextLatencyMs(c, service.OpsUpstreamLatencyMsKey)
 	entry.ResponseLatencyMs = getContextLatencyMs(c, service.OpsResponseLatencyMsKey)
 	entry.TimeToFirstTokenMs = getContextLatencyMs(c, service.OpsTimeToFirstTokenMsKey)
+}
+
+// applyOpsUpstreamFieldsFromContext captures attempt-level upstream context.
+// A final account_auth event owns the top-level status and forces it to zero;
+// prior inference statuses remain available in UpstreamErrors.
+func applyOpsUpstreamFieldsFromContext(c *gin.Context, entry *service.OpsInsertErrorLogInput) {
+	if c == nil || entry == nil {
+		return
+	}
+	if v, ok := c.Get(service.OpsUpstreamStatusCodeKey); ok {
+		switch t := v.(type) {
+		case int:
+			if t > 0 {
+				code := t
+				entry.UpstreamStatusCode = &code
+			}
+		case int64:
+			if t > 0 {
+				code := int(t)
+				entry.UpstreamStatusCode = &code
+			}
+		}
+	}
+	if v, ok := c.Get(service.OpsUpstreamErrorMessageKey); ok {
+		if value, ok := v.(string); ok {
+			if message := strings.TrimSpace(value); message != "" {
+				entry.UpstreamErrorMessage = &message
+			}
+		}
+	}
+	if v, ok := c.Get(service.OpsUpstreamErrorDetailKey); ok {
+		if value, ok := v.(string); ok {
+			if detail := strings.TrimSpace(value); detail != "" {
+				entry.UpstreamErrorDetail = &detail
+			}
+		}
+	}
+	if v, ok := c.Get(service.OpsUpstreamErrorsKey); ok {
+		if events, ok := v.([]*service.OpsUpstreamErrorEvent); ok && len(events) > 0 {
+			entry.UpstreamErrors = events
+			last := events[len(events)-1]
+			if last == nil {
+				return
+			}
+			if last.Stage == string(service.GatewayFailureStageAccountAuth) {
+				code := 0
+				entry.UpstreamStatusCode = &code
+				entry.UpstreamErrorMessage = nil
+				if message := strings.TrimSpace(last.Message); message != "" {
+					entry.UpstreamErrorMessage = &message
+				}
+				entry.UpstreamErrorDetail = nil
+				if detail := strings.TrimSpace(last.Detail); detail != "" {
+					entry.UpstreamErrorDetail = &detail
+				}
+			} else {
+				if entry.UpstreamStatusCode == nil && last.UpstreamStatusCode > 0 {
+					code := last.UpstreamStatusCode
+					entry.UpstreamStatusCode = &code
+				}
+				if entry.UpstreamErrorMessage == nil && strings.TrimSpace(last.Message) != "" {
+					message := strings.TrimSpace(last.Message)
+					entry.UpstreamErrorMessage = &message
+				}
+				if entry.UpstreamErrorDetail == nil && strings.TrimSpace(last.Detail) != "" {
+					detail := strings.TrimSpace(last.Detail)
+					entry.UpstreamErrorDetail = &detail
+				}
+			}
+		}
+	}
 }
 
 func getContextLatencyMs(c *gin.Context, key string) *int64 {
@@ -1260,14 +1214,18 @@ func getContextLatencyMs(c *gin.Context, key string) *int64 {
 }
 
 type parsedOpsError struct {
-	ErrorType string
-	Message   string
-	Code      string
+	ErrorType     string
+	Message       string
+	Code          string
+	StreamFailure bool
 }
 
 func parseOpsErrorResponse(body []byte) parsedOpsError {
 	if len(body) == 0 {
 		return parsedOpsError{}
+	}
+	if parsed, ok := parseOpsSSEFailure(body); ok {
+		return parsed
 	}
 
 	// Fast path: attempt to decode into a generic map.
@@ -1280,17 +1238,9 @@ func parseOpsErrorResponse(body []byte) parsedOpsError {
 	if errObj, ok := m["error"].(map[string]any); ok {
 		t, _ := errObj["type"].(string)
 		msg, _ := errObj["message"].(string)
-		// Gemini googleError also uses "error": { code, message, status }
-		if msg == "" {
-			if v, ok := errObj["message"]; ok {
-				msg, _ = v.(string)
-			}
-		}
 		if t == "" {
-			// Gemini error does not have "type" field.
 			t = "api_error"
 		}
-		// For gemini error, capture numeric code as string for business-limited mapping if needed.
 		var code string
 		if v, ok := errObj["code"]; ok {
 			switch n := v.(type) {
@@ -1315,7 +1265,171 @@ func parseOpsErrorResponse(body []byte) parsedOpsError {
 	return parsedOpsError{Message: truncateString(string(body), 1024)}
 }
 
-func resolveOpsPlatform(apiKey *service.APIKey, fallback string) string {
+func parseOpsSSEFailure(body []byte) (parsedOpsError, bool) {
+	normalized := strings.ReplaceAll(string(body), "\r\n", "\n")
+	if findOpsTerminalSSEStart([]byte(normalized)) < 0 {
+		return parsedOpsError{}, false
+	}
+
+	var errorCandidate *parsedOpsError
+	for _, frame := range strings.Split(normalized, "\n\n") {
+		frame = strings.TrimSpace(frame)
+		if frame == "" {
+			continue
+		}
+		var eventType string
+		dataLines := make([]string, 0, 1)
+		for _, line := range strings.Split(frame, "\n") {
+			switch {
+			case strings.HasPrefix(line, "event:"):
+				eventType = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
+			case strings.HasPrefix(line, "data:"):
+				dataLines = append(dataLines, strings.TrimSpace(strings.TrimPrefix(line, "data:")))
+			}
+		}
+		if eventType != "response.failed" && eventType != "error" && len(dataLines) == 0 {
+			continue
+		}
+
+		payload := strings.Join(dataLines, "\n")
+		var event map[string]any
+		if err := json.Unmarshal([]byte(payload), &event); err == nil {
+			if eventType == "" {
+				eventType, _ = event["type"].(string)
+			}
+		}
+		if eventType != "response.failed" && eventType != "error" {
+			continue
+		}
+
+		parsed := parsedOpsError{ErrorType: "upstream_error", StreamFailure: true}
+		if eventType == "error" {
+			parsed.ErrorType = "api_error"
+		}
+		if errObj := opsSSEErrorObject(event); errObj != nil {
+			parsed.ErrorType, _ = errObj["type"].(string)
+			parsed.Message, _ = errObj["message"].(string)
+			parsed.Code, _ = errObj["code"].(string)
+			if parsed.ErrorType == "" {
+				parsed.ErrorType = inferResponsesFailedOpsErrorType(parsed.Code)
+			}
+			if parsed.ErrorType == "" {
+				if eventType == "error" {
+					parsed.ErrorType = "api_error"
+				} else {
+					parsed.ErrorType = "upstream_error"
+				}
+			}
+		}
+		if strings.TrimSpace(parsed.Message) == "" && payload != "" {
+			parsed.Message = truncateString(payload, 1024)
+		}
+		if eventType == "response.failed" {
+			return parsed, true
+		}
+		candidate := parsed
+		errorCandidate = &candidate
+	}
+	if errorCandidate != nil {
+		return *errorCandidate, true
+	}
+	return parsedOpsError{}, false
+}
+
+func opsSSEErrorObject(event map[string]any) map[string]any {
+	if event == nil {
+		return nil
+	}
+	if errObj, ok := event["error"].(map[string]any); ok {
+		return errObj
+	}
+	if response, ok := event["response"].(map[string]any); ok {
+		if errObj, ok := response["error"].(map[string]any); ok {
+			return errObj
+		}
+	}
+	return nil
+}
+
+func inferResponsesFailedOpsErrorType(code string) string {
+	switch strings.TrimSpace(code) {
+	case "rate_limit_exceeded":
+		return "rate_limit_error"
+	case "permission_denied", "cyber_policy", "content_policy":
+		return "permission_error"
+	case "invalid_request", "context_length_exceeded":
+		return "invalid_request_error"
+	case "server_is_overloaded":
+		return "overloaded_error"
+	case "authentication_failed":
+		return "authentication_error"
+	default:
+		return ""
+	}
+}
+
+func inferStreamFailureStatus(c *gin.Context, parsed parsedOpsError) int {
+	switch strings.TrimSpace(parsed.Code) {
+	case "rate_limit_exceeded":
+		return http.StatusTooManyRequests
+	case "permission_denied", "cyber_policy", "content_policy":
+		return http.StatusForbidden
+	case "invalid_request", "context_length_exceeded":
+		return http.StatusBadRequest
+	case "server_is_overloaded":
+		return http.StatusServiceUnavailable
+	case "authentication_failed":
+		return http.StatusUnauthorized
+	}
+
+	switch strings.TrimSpace(parsed.ErrorType) {
+	case "rate_limit_error":
+		return http.StatusTooManyRequests
+	case "permission_error", "forbidden_error":
+		return http.StatusForbidden
+	case "authentication_error":
+		return http.StatusUnauthorized
+	case "invalid_request_error":
+		return http.StatusBadRequest
+	case "overloaded_error", "service_unavailable_error":
+		return http.StatusServiceUnavailable
+	}
+
+	if c != nil {
+		if v, ok := c.Get(service.OpsUpstreamStatusCodeKey); ok {
+			switch code := v.(type) {
+			case int:
+				if code >= 400 {
+					return code
+				}
+			case int64:
+				if code >= 400 {
+					return int(code)
+				}
+			}
+		}
+	}
+	return http.StatusBadGateway
+}
+
+// getOpsAPIKey 返回用于 Ops 错误日志的 API Key：优先取已鉴权写入的正式 key；
+// 鉴权早退（分组停用/删除、Key 停用/过期/额度、用户停用、IP 限制等）时，
+// 正式 key 尚未写入，回退到 middleware 写入的 ops fallback key
+// （含 User/Group/Platform），从而让日志能展示 用户/分组/平台。
+func getOpsAPIKey(c *gin.Context) *service.APIKey {
+	if apiKey, ok := middleware2.GetAPIKeyFromContext(c); ok && apiKey != nil {
+		return apiKey
+	}
+	if apiKey, ok := middleware2.GetOpsFallbackAPIKey(c); ok && apiKey != nil {
+		return apiKey
+	}
+	return nil
+}
+
+func resolveOpsPlatform(ctx context.Context, apiKey *service.APIKey, fallback string) string {
+	if platform, ok := service.ResolvedTargetPlatformFromContext(ctx); ok {
+		return platform
+	}
 	if apiKey != nil && apiKey.Group != nil && apiKey.Group.Platform != "" {
 		return apiKey.Group.Platform
 	}
@@ -1349,6 +1463,7 @@ func isKnownOpsErrorType(t string) bool {
 		"subscription_error",
 		"upstream_error",
 		"overloaded_error",
+		"service_unavailable_error",
 		"api_error",
 		"not_found_error",
 		"forbidden_error":
@@ -1373,7 +1488,7 @@ func normalizeOpsErrorType(errType string, code string) string {
 
 func classifyOpsPhase(errType, message, code string) string {
 	msg := strings.ToLower(message)
-	// Standardized phases: request|auth|routing|upstream|network|internal
+	// Standardized phases: request|auth|account_auth|routing|upstream|network|internal
 	// Map billing/concurrency/response => request; scheduling => routing.
 	if isOpsClientAuthError(code, msg) {
 		return "auth"
@@ -1423,30 +1538,15 @@ func classifyOpsSeverity(errType string, status int) string {
 	return "P3"
 }
 
-func classifyOpsIsRetryable(errType string, statusCode int) bool {
-	switch errType {
-	case "authentication_error", "invalid_request_error":
-		return false
-	case "timeout_error":
-		return true
-	case "rate_limit_error":
-		// May be transient (upstream or queue); retry can help.
-		return true
-	case "billing_error", "subscription_error":
-		return false
-	case "upstream_error", "overloaded_error":
-		return statusCode >= 500 || statusCode == 429 || statusCode == 529
-	default:
-		return statusCode >= 500
-	}
-}
-
 func classifyOpsErrorLog(c *gin.Context, errType, message, code string, status int) (phase string, isBusinessLimited bool, errorOwner string, errorSource string) {
 	phase = classifyOpsPhase(errType, message, code)
 	routingCapacityLimited := isOpsRoutingCapacityLimited(c)
 	clientBusinessLimited := service.HasOpsClientBusinessLimited(c)
 	upstreamError := hasOpsUpstreamErrorContext(c)
-	if upstreamError && !routingCapacityLimited {
+	accountAuthFailure := hasOpsAccountAuthFailure(c)
+	if accountAuthFailure && !routingCapacityLimited {
+		phase = "account_auth"
+	} else if upstreamError && !routingCapacityLimited {
 		phase = "upstream"
 	}
 	if clientBusinessLimited && !upstreamError && !routingCapacityLimited {
@@ -1571,6 +1671,22 @@ func hasOpsUpstreamErrorContext(c *gin.Context) bool {
 	return false
 }
 
+func hasOpsAccountAuthFailure(c *gin.Context) bool {
+	if c == nil {
+		return false
+	}
+	if v, ok := c.Get(service.OpsUpstreamErrorsKey); ok {
+		if events, ok := v.([]*service.OpsUpstreamErrorEvent); ok {
+			for i := len(events) - 1; i >= 0; i-- {
+				if events[i] != nil {
+					return events[i].Stage == string(service.GatewayFailureStageAccountAuth)
+				}
+			}
+		}
+	}
+	return false
+}
+
 func isOpsNoAvailableAccountMessage(message string) bool {
 	msg := strings.ToLower(message)
 	return strings.Contains(msg, opsErrNoAvailableAccounts) ||
@@ -1584,6 +1700,8 @@ func classifyOpsErrorOwner(phase string, message string) string {
 	// Standardized owners: client|provider|platform
 	switch phase {
 	case "upstream", "network":
+		return "provider"
+	case "account_auth":
 		return "provider"
 	case "request", "auth":
 		return "client"
@@ -1602,6 +1720,8 @@ func classifyOpsErrorSource(phase string, message string) string {
 	switch phase {
 	case "upstream":
 		return "upstream_http"
+	case "account_auth":
+		return "gateway"
 	case "network":
 		return "gateway"
 	case "request", "auth":
@@ -1635,10 +1755,6 @@ func strconvItoa(v int) string {
 	return strconv.Itoa(v)
 }
 
-func shouldSkipOpsErrorLogForCyber(c *gin.Context) bool {
-	return service.GetOpsCyberPolicy(c) != nil
-}
-
 // shouldSkipOpsErrorLog determines if an error should be skipped from logging based on settings.
 // Returns true for errors that should be filtered according to OpsAdvancedSettings.
 func shouldSkipOpsErrorLog(ctx context.Context, ops *service.OpsService, message, body, requestPath string) bool {
@@ -1647,17 +1763,14 @@ func shouldSkipOpsErrorLog(ctx context.Context, ops *service.OpsService, message
 	}
 
 	// Get advanced settings to check filter configuration
-	settings, err := ops.GetOpsAdvancedSettings(ctx)
-	if err != nil || settings == nil {
-		// If we can't get settings, don't skip (fail open)
-		return false
-	}
+	_ = ctx
+	settings := ops.OpsAdvancedSettingsSnapshot()
 
 	msgLower := strings.ToLower(message)
 	bodyLower := strings.ToLower(body)
 
 	// Check if count_tokens errors should be ignored
-	if settings.IgnoreCountTokensErrors && strings.Contains(requestPath, "/count_tokens") {
+	if settings.IgnoreCountTokensErrors && isTokenCountRequestPath(requestPath) {
 		return true
 	}
 
@@ -1692,4 +1805,10 @@ func shouldSkipOpsErrorLog(ctx context.Context, ops *service.OpsService, message
 	}
 
 	return false
+}
+
+// shouldSkipOpsErrorLogForCyber：cyber_policy 命中的请求由 recordCyberPolicyIfMarked
+// 统一落一条 status=403 的错误请求，故中间件跳过自身落库，避免双写。
+func shouldSkipOpsErrorLogForCyber(c *gin.Context) bool {
+	return service.GetOpsCyberPolicy(c) != nil
 }
