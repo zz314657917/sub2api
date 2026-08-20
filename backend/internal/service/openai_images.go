@@ -89,10 +89,12 @@ type OpenAIImagesRequest struct {
 	Stream             bool
 	N                  int
 	Size               string
+	AspectRatio        string
 	Resolution         string
 	ExplicitSize       bool
 	SizeTier           string
 	ResponseFormat     string
+	NSFWCheck          *bool
 	Quality            string
 	Background         string
 	OutputFormat       string
@@ -254,6 +256,9 @@ func (s *OpenAIGatewayService) ParseOpenAIImagesRequest(c *gin.Context, body []b
 	if err := validateOpenAIImagesReferenceLimit(req, req.Model); err != nil {
 		return nil, err
 	}
+	if err := validateAPIMartGrokImagine20Request(req); err != nil {
+		return nil, err
+	}
 	req.SizeTier = normalizeOpenAIImageSizeTier(req.Size)
 	req.RequiredCapability = classifyOpenAIImagesCapability(req)
 	return req, nil
@@ -287,6 +292,9 @@ func parseOpenAIImagesJSONRequest(body []byte, req *OpenAIImagesRequest) error {
 		req.Size = strings.TrimSpace(sizeResult.String())
 		req.ExplicitSize = req.Size != ""
 	}
+	if aspectRatio := gjson.GetBytes(body, "aspect_ratio"); aspectRatio.Exists() {
+		req.AspectRatio = strings.TrimSpace(aspectRatio.String())
+	}
 	if resolutionResult := gjson.GetBytes(body, "resolution"); resolutionResult.Exists() {
 		req.Resolution = strings.TrimSpace(resolutionResult.String())
 	}
@@ -296,6 +304,13 @@ func parseOpenAIImagesJSONRequest(body []byte, req *OpenAIImagesRequest) error {
 		}
 	}
 	req.ResponseFormat = strings.ToLower(strings.TrimSpace(gjson.GetBytes(body, "response_format").String()))
+	if nsfw := gjson.GetBytes(body, "nsfw_check"); nsfw.Exists() {
+		value, err := parseOpenAIImagesJSONBool(nsfw, "nsfw_check")
+		if err != nil {
+			return err
+		}
+		req.NSFWCheck = &value
+	}
 	req.Quality = strings.TrimSpace(gjson.GetBytes(body, "quality").String())
 	req.Background = strings.TrimSpace(gjson.GetBytes(body, "background").String())
 	if req.Background == "" {
@@ -757,11 +772,20 @@ func isAPIMartMidjourneyImageModel(model string) bool {
 
 func isAPIMartGrokImagineImageModel(model string) bool {
 	switch strings.ToLower(strings.TrimSpace(model)) {
-	case "grok-imagine-1.5-apimart", "grok-imagine-1.5-edit-apimart":
+	case "grok-imagine-1.5-apimart", "grok-imagine-1.5-edit-apimart",
+		"grok-imagine-2.0-ext", "grok-imagine-image-2.0":
 		return true
 	default:
 		return false
 	}
+}
+
+func isAPIMartGrokImagine20ExtModel(model string) bool {
+	return strings.EqualFold(strings.TrimSpace(model), "grok-imagine-2.0-ext")
+}
+
+func isAPIMartGrokImagine20ImageModel(model string) bool {
+	return strings.EqualFold(strings.TrimSpace(model), "grok-imagine-image-2.0")
 }
 
 func isAPIMartSeedreamImageModel(model string) bool {
@@ -799,7 +823,13 @@ func validateOpenAIImagesReferenceLimit(req *OpenAIImagesRequest, model string) 
 	case isAPIMartMidjourneyImageModel(model):
 		limit = 4
 	case isAPIMartGrokImagineImageModel(model):
-		limit = 1
+		if isAPIMartGrokImagine20ExtModel(model) {
+			limit = 0
+		} else if isAPIMartGrokImagine20ImageModel(model) {
+			limit = 3
+		} else {
+			limit = 1
+		}
 	case isAPIMartSeedreamImageModel(model):
 		count := len(compactTrimmedStrings(req.InputImageURLs)) + len(req.Uploads)
 		if count+maxInt(1, req.N) > 15 {
@@ -812,6 +842,28 @@ func validateOpenAIImagesReferenceLimit(req *OpenAIImagesRequest, model string) 
 	count := len(compactTrimmedStrings(req.InputImageURLs)) + len(req.Uploads)
 	if count > limit {
 		return fmt.Errorf("%s supports at most %d reference images, got %d", strings.TrimSpace(model), limit, count)
+	}
+	return nil
+}
+
+func validateAPIMartGrokImagine20Request(req *OpenAIImagesRequest) error {
+	if req == nil {
+		return nil
+	}
+	model := strings.TrimSpace(req.Model)
+	if isAPIMartGrokImagine20ExtModel(model) {
+		if req.N > 12 {
+			return fmt.Errorf("%s supports at most 12 output images, got %d", model, req.N)
+		}
+		if len(compactTrimmedStrings(req.InputImageURLs))+len(req.Uploads) > 0 {
+			return fmt.Errorf("%s does not support reference images", model)
+		}
+		if req.ResponseFormat != "" && !strings.EqualFold(req.ResponseFormat, "url") {
+			return fmt.Errorf("%s only supports response_format=url", model)
+		}
+	}
+	if isAPIMartGrokImagine20ImageModel(model) && req.N > 10 {
+		return fmt.Errorf("%s supports at most 10 output images, got %d", model, req.N)
 	}
 	return nil
 }
@@ -2080,6 +2132,9 @@ func buildAPIMartImagesPayload(parsed *OpenAIImagesRequest, upstreamModel string
 		return buildAPIMartMidjourneyImagesPayload(parsed, upstreamModel, imageURLs)
 	}
 	if isAPIMartGrokImagineImageModel(upstreamModel) {
+		if isAPIMartGrokImagine20ExtModel(upstreamModel) || isAPIMartGrokImagine20ImageModel(upstreamModel) {
+			return buildAPIMartGrokImagine20ImagesPayload(parsed, upstreamModel, imageURLs)
+		}
 		return buildAPIMartGrokImagineImagesPayload(parsed, upstreamModel, imageURLs)
 	}
 	payload := map[string]any{
@@ -2201,6 +2256,42 @@ func buildAPIMartGrokImagineImagesPayload(parsed *OpenAIImagesRequest, upstreamM
 			return nil, fmt.Errorf("%s requires image_urls", upstreamModel)
 		}
 		payload["image_urls"] = imageURLs[:1]
+	}
+	return json.Marshal(payload)
+}
+
+func buildAPIMartGrokImagine20ImagesPayload(parsed *OpenAIImagesRequest, upstreamModel string, imageURLs []string) ([]byte, error) {
+	payload := map[string]any{
+		"model":  upstreamModel,
+		"prompt": strings.TrimSpace(parsed.Prompt),
+		"n":      parsed.N,
+	}
+	if isAPIMartGrokImagine20ExtModel(upstreamModel) {
+		if len(imageURLs) > 0 {
+			return nil, fmt.Errorf("%s does not support reference images", upstreamModel)
+		}
+		if size := strings.TrimSpace(parsed.Size); size != "" {
+			payload["size"] = size
+		}
+		if responseFormat := strings.TrimSpace(parsed.ResponseFormat); responseFormat != "" {
+			payload["response_format"] = responseFormat
+		}
+	} else {
+		if aspectRatio := strings.TrimSpace(parsed.AspectRatio); aspectRatio != "" {
+			payload["aspect_ratio"] = aspectRatio
+		}
+		if len(imageURLs) > 0 {
+			payload["image_urls"] = compactTrimmedStrings(imageURLs)
+		}
+		if quality := strings.TrimSpace(parsed.Quality); quality != "" && len(imageURLs) == 0 {
+			payload["quality"] = quality
+		}
+	}
+	if resolution := strings.TrimSpace(parsed.Resolution); resolution != "" {
+		payload["resolution"] = resolution
+	}
+	if parsed.NSFWCheck != nil {
+		payload["nsfw_check"] = *parsed.NSFWCheck
 	}
 	return json.Marshal(payload)
 }
