@@ -95,6 +95,9 @@ type OpenAIImagesRequest struct {
 	SizeTier           string
 	ResponseFormat     string
 	NSFWCheck          *bool
+	Watermark          *bool
+	SequentialMode     string
+	SequentialMax      *int
 	Quality            string
 	Background         string
 	OutputFormat       string
@@ -259,6 +262,9 @@ func (s *OpenAIGatewayService) ParseOpenAIImagesRequest(c *gin.Context, body []b
 	if err := validateAPIMartGrokImagine20Request(req); err != nil {
 		return nil, err
 	}
+	if err := validateAPIMartSeedream50Request(req); err != nil {
+		return nil, err
+	}
 	req.SizeTier = normalizeOpenAIImageSizeTier(req.Size)
 	req.RequiredCapability = classifyOpenAIImagesCapability(req)
 	return req, nil
@@ -310,6 +316,21 @@ func parseOpenAIImagesJSONRequest(body []byte, req *OpenAIImagesRequest) error {
 			return err
 		}
 		req.NSFWCheck = &value
+	}
+	if watermark := gjson.GetBytes(body, "watermark"); watermark.Exists() {
+		value, err := parseOpenAIImagesJSONBool(watermark, "watermark")
+		if err != nil {
+			return err
+		}
+		req.Watermark = &value
+	}
+	req.SequentialMode = strings.TrimSpace(gjson.GetBytes(body, "sequential_image_generation").String())
+	if maxImages := gjson.GetBytes(body, "sequential_image_generation_options.max_images"); maxImages.Exists() {
+		if maxImages.Type != gjson.Number {
+			return fmt.Errorf("invalid sequential_image_generation_options.max_images field type")
+		}
+		value := int(maxImages.Int())
+		req.SequentialMax = &value
 	}
 	req.Quality = strings.TrimSpace(gjson.GetBytes(body, "quality").String())
 	req.Background = strings.TrimSpace(gjson.GetBytes(body, "background").String())
@@ -790,11 +811,23 @@ func isAPIMartGrokImagine20ImageModel(model string) bool {
 
 func isAPIMartSeedreamImageModel(model string) bool {
 	switch strings.ToLower(strings.TrimSpace(model)) {
-	case "doubao-seedance-4-0", "doubao-seedance-4-5":
+	case "doubao-seedance-4-0", "doubao-seedance-4-5",
+		"seedream-5-0-pro", "seedream-5.0-pro",
+		"seedream-5-0-lite", "seedream-5.0-lite":
 		return true
 	default:
 		return false
 	}
+}
+
+func isAPIMartSeedream50ProModel(model string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(model))
+	return normalized == "seedream-5-0-pro" || normalized == "seedream-5.0-pro"
+}
+
+func isAPIMartSeedream50LiteModel(model string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(model))
+	return normalized == "seedream-5-0-lite" || normalized == "seedream-5.0-lite"
 }
 
 func isAPIMartGrokImagineEditModel(model string) bool {
@@ -864,6 +897,29 @@ func validateAPIMartGrokImagine20Request(req *OpenAIImagesRequest) error {
 	}
 	if isAPIMartGrokImagine20ImageModel(model) && req.N > 10 {
 		return fmt.Errorf("%s supports at most 10 output images, got %d", model, req.N)
+	}
+	return nil
+}
+
+func validateAPIMartSeedream50Request(req *OpenAIImagesRequest) error {
+	if req == nil {
+		return nil
+	}
+	model := strings.TrimSpace(req.Model)
+	inputCount := len(compactTrimmedStrings(req.InputImageURLs)) + len(req.Uploads)
+	if isAPIMartSeedream50ProModel(model) {
+		if req.N != 1 {
+			return fmt.Errorf("%s supports exactly 1 output image, got %d", model, req.N)
+		}
+		if inputCount > 10 {
+			return fmt.Errorf("%s supports at most 10 reference images, got %d", model, inputCount)
+		}
+		if req.Stream {
+			return fmt.Errorf("%s does not support streaming", model)
+		}
+	}
+	if isAPIMartSeedream50LiteModel(model) && inputCount+maxInt(1, req.N) > 15 {
+		return fmt.Errorf("%s supports at most 15 input and output images, got %d", model, inputCount+maxInt(1, req.N))
 	}
 	return nil
 }
@@ -1905,7 +1961,8 @@ func isAPIMartImagesAsyncModel(model string) bool {
 		normalized == "gpt-image-2-official" ||
 		isAPIMartGeminiImageModel(normalized) ||
 		isAPIMartMidjourneyImageModel(normalized) ||
-		isAPIMartGrokImagineImageModel(normalized)
+		isAPIMartGrokImagineImageModel(normalized) ||
+		isAPIMartSeedreamImageModel(normalized)
 }
 
 func (s *OpenAIGatewayService) forwardAPIMartImages(
@@ -2137,6 +2194,9 @@ func buildAPIMartImagesPayload(parsed *OpenAIImagesRequest, upstreamModel string
 		}
 		return buildAPIMartGrokImagineImagesPayload(parsed, upstreamModel, imageURLs)
 	}
+	if isAPIMartSeedream50ProModel(upstreamModel) || isAPIMartSeedream50LiteModel(upstreamModel) {
+		return buildAPIMartSeedream50ImagesPayload(parsed, upstreamModel, imageURLs)
+	}
 	payload := map[string]any{
 		"model":      upstreamModel,
 		"prompt":     strings.TrimSpace(parsed.Prompt),
@@ -2182,6 +2242,46 @@ func buildAPIMartImagesPayload(parsed *OpenAIImagesRequest, upstreamModel string
 	}
 	if maskURL := strings.TrimSpace(maskURL); maskURL != "" {
 		payload["mask_url"] = maskURL
+	}
+	return json.Marshal(payload)
+}
+
+func buildAPIMartSeedream50ImagesPayload(parsed *OpenAIImagesRequest, upstreamModel string, imageURLs []string) ([]byte, error) {
+	payload := map[string]any{
+		"model":  upstreamModel,
+		"prompt": strings.TrimSpace(parsed.Prompt),
+		"n":      parsed.N,
+	}
+	if size := strings.TrimSpace(parsed.Size); size != "" {
+		payload["size"] = size
+	}
+	if resolution := strings.TrimSpace(parsed.Resolution); resolution != "" {
+		payload["resolution"] = resolution
+	}
+	imageURLs = compactTrimmedStrings(imageURLs)
+	if len(imageURLs) > 0 {
+		payload["image_urls"] = imageURLs
+	}
+	if parsed.NSFWCheck != nil {
+		payload["nsfw_check"] = *parsed.NSFWCheck
+	}
+	if outputFormat := strings.TrimSpace(parsed.OutputFormat); outputFormat != "" {
+		payload["output_format"] = outputFormat
+	}
+	if parsed.Watermark != nil {
+		payload["watermark"] = *parsed.Watermark
+	}
+	if isAPIMartSeedream50LiteModel(upstreamModel) {
+		mode := strings.TrimSpace(parsed.SequentialMode)
+		if parsed.N > 1 && mode == "" {
+			mode = "auto"
+		}
+		if mode != "" {
+			payload["sequential_image_generation"] = mode
+		}
+		if parsed.SequentialMax != nil {
+			payload["sequential_image_generation_options"] = map[string]int{"max_images": *parsed.SequentialMax}
+		}
 	}
 	return json.Marshal(payload)
 }
