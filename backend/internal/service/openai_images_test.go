@@ -722,6 +722,56 @@ func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
 		require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityEmbeddings))
 	})
 
+	t.Run("empty capability containers do not restrict OAuth text endpoints", func(t *testing.T) {
+		cases := []struct {
+			name  string
+			value any
+		}{
+			{name: "empty any slice", value: []any{}},
+			{name: "empty string slice", value: []string{}},
+			{name: "empty any map", value: map[string]any{}},
+			{name: "empty bool map", value: map[string]bool{}},
+		}
+
+		for _, tt := range cases {
+			t.Run(tt.name, func(t *testing.T) {
+				account := &Account{
+					Platform: PlatformOpenAI,
+					Type:     AccountTypeOAuth,
+					Credentials: map[string]any{
+						"openai_capabilities": tt.value,
+					},
+				}
+
+				require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions))
+			})
+		}
+	})
+
+	t.Run("non-empty false map remains restrictive", func(t *testing.T) {
+		account := &Account{
+			Platform: PlatformOpenAI,
+			Type:     AccountTypeOAuth,
+			Credentials: map[string]any{
+				"openai_capabilities": map[string]any{"chat_completions": false},
+			},
+		}
+
+		require.False(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions))
+	})
+
+	t.Run("malformed capability value remains restrictive", func(t *testing.T) {
+		account := &Account{
+			Platform: PlatformOpenAI,
+			Type:     AccountTypeOAuth,
+			Credentials: map[string]any{
+				"openai_capabilities": "chat_completions",
+			},
+		}
+
+		require.False(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions))
+	})
+
 	t.Run("unknown capability is not allowed by default", func(t *testing.T) {
 		account := &Account{
 			Platform: PlatformOpenAI,
