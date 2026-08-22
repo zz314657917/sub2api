@@ -811,6 +811,64 @@ func TestBuildOpenAIWSReplayInputSequence(t *testing.T) {
 		require.Equal(t, "hello", gjson.GetBytes(items[0], "text").String())
 		require.Equal(t, "world", gjson.GetBytes(items[1], "text").String())
 	})
+
+	t.Run("previous_response_id_filters_orphan_historical_custom_tool_call", func(t *testing.T) {
+		previousFull := []json.RawMessage{
+			json.RawMessage(`{"type":"input_text","text":"hello"}`),
+			json.RawMessage(`{"type":"custom_tool_call","call_id":"call_orphan","name":"exec","input":"pwd"}`),
+		}
+		items, exists, err := buildOpenAIWSReplayInputSequence(
+			previousFull, true,
+			[]byte(`{"previous_response_id":"resp_1","input":[{"role":"user","content":"continue"}]}`), true,
+		)
+		require.NoError(t, err)
+		require.True(t, exists)
+		require.Len(t, items, 2)
+		require.Equal(t, "hello", gjson.GetBytes(items[0], "text").String())
+		require.Equal(t, "user", gjson.GetBytes(items[1], "role").String())
+	})
+
+	t.Run("previous_response_id_preserves_paired_historical_function_call", func(t *testing.T) {
+		previousFull := []json.RawMessage{
+			json.RawMessage(`{"type":"function_call","call_id":"call_1","name":"lookup","arguments":"{}"}`),
+			json.RawMessage(`{"type":"function_call_output","call_id":"call_1","output":"ok"}`),
+		}
+		items, exists, err := buildOpenAIWSReplayInputSequence(
+			previousFull, true,
+			[]byte(`{"previous_response_id":"resp_1","input":[{"role":"user","content":"continue"}]}`), true,
+		)
+		require.NoError(t, err)
+		require.True(t, exists)
+		require.Len(t, items, 3)
+		require.Equal(t, "function_call", gjson.GetBytes(items[0], "type").String())
+		require.Equal(t, "function_call_output", gjson.GetBytes(items[1], "type").String())
+	})
+
+	t.Run("item_reference_does_not_complete_historical_call", func(t *testing.T) {
+		previousFull := []json.RawMessage{
+			json.RawMessage(`{"type":"custom_tool_call","call_id":"call_1","name":"exec","input":"pwd"}`),
+		}
+		items, exists, err := buildOpenAIWSReplayInputSequence(
+			previousFull, true,
+			[]byte(`{"previous_response_id":"resp_1","input":[{"type":"item_reference","id":"call_1"},{"role":"user","content":"continue"}]}`), true,
+		)
+		require.NoError(t, err)
+		require.True(t, exists)
+		require.Len(t, items, 2)
+		require.Equal(t, "item_reference", gjson.GetBytes(items[0], "type").String())
+		require.Equal(t, "user", gjson.GetBytes(items[1], "role").String())
+	})
+
+	t.Run("previous_response_id_preserves_current_orphan_custom_tool_call", func(t *testing.T) {
+		items, exists, err := buildOpenAIWSReplayInputSequence(
+			lastFull, true,
+			[]byte(`{"previous_response_id":"resp_1","input":[{"type":"custom_tool_call","call_id":"call_live","name":"exec","input":"pwd"}]}`), true,
+		)
+		require.NoError(t, err)
+		require.True(t, exists)
+		require.Len(t, items, 2)
+		require.Equal(t, "custom_tool_call", gjson.GetBytes(items[1], "type").String())
+	})
 }
 
 func TestOpenAIWSRawPayloadHasToolCallOutput(t *testing.T) {

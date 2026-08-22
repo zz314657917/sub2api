@@ -1636,6 +1636,40 @@ func openAIWSRawItemsHasPrefix(items []json.RawMessage, prefix []json.RawMessage
 	return true
 }
 
+func sanitizeOpenAIWSHistoricalReplayToolCalls(
+	previousItems []json.RawMessage,
+	currentItems []json.RawMessage,
+) []json.RawMessage {
+	if len(previousItems) == 0 {
+		return cloneOpenAIWSRawMessages(previousItems)
+	}
+	outputCallIDs := make(map[string]struct{})
+	collectOutputCallIDs := func(items []json.RawMessage) {
+		for _, item := range items {
+			if !isCodexToolCallOutputItemType(gjson.GetBytes(item, "type").String()) {
+				continue
+			}
+			if callID := strings.TrimSpace(gjson.GetBytes(item, "call_id").String()); callID != "" {
+				outputCallIDs[callID] = struct{}{}
+			}
+		}
+	}
+	collectOutputCallIDs(previousItems)
+	collectOutputCallIDs(currentItems)
+
+	sanitized := make([]json.RawMessage, 0, len(previousItems))
+	for _, item := range previousItems {
+		if isCodexToolCallContextItemType(gjson.GetBytes(item, "type").String()) {
+			callID := strings.TrimSpace(gjson.GetBytes(item, "call_id").String())
+			if _, paired := outputCallIDs[callID]; !paired {
+				continue
+			}
+		}
+		sanitized = append(sanitized, append(json.RawMessage(nil), item...))
+	}
+	return sanitized
+}
+
 func openAIWSRawItemsHasFunctionCallOutput(items []json.RawMessage) bool {
 	for _, item := range items {
 		if isCodexToolCallOutputItemType(gjson.GetBytes(item, "type").String()) {
@@ -1683,6 +1717,7 @@ func buildOpenAIWSReplayInputSequence(
 	if !previousFullInputExists {
 		return cloneOpenAIWSRawMessages(currentItems), currentExists, nil
 	}
+	previousFullInput = sanitizeOpenAIWSHistoricalReplayToolCalls(previousFullInput, currentItems)
 	if !currentExists || len(currentItems) == 0 {
 		return cloneOpenAIWSRawMessages(previousFullInput), true, nil
 	}
@@ -2948,7 +2983,9 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			}
 			bridgePayloadRaw := currentBridgePayload.payloadRaw
 			bridgePayloadBytes := currentBridgePayload.payloadBytes
-			needsBridgeReplay := currentBridgePayload.previousResponseID != "" || openAIWSRawPayloadHasToolCallOutput(currentBridgePayload.payloadRaw)
+			toolOutputCoverage := AnalyzeToolCallOutputContextCoverageBytes(currentBridgePayload.payloadRaw)
+			needsBridgeReplay := currentBridgePayload.previousResponseID != "" ||
+				(toolOutputCoverage.HasFunctionCallOutput && !toolOutputCoverage.ContextCoversAllCallIDs)
 			turnReplayInput, turnReplayInputExists, replayInputErr := buildOpenAIWSReplayInputSequence(
 				bridgeReplayInput,
 				bridgeReplayInputExists,

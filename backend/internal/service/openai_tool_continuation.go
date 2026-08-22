@@ -24,6 +24,13 @@ type FunctionCallOutputValidation struct {
 	HasItemReferenceForAllCallIDs      bool
 }
 
+// ToolCallOutputContextCoverage reports whether every tool output in input can
+// be replayed with a matching tool-call context or item reference.
+type ToolCallOutputContextCoverage struct {
+	HasFunctionCallOutput   bool
+	ContextCoversAllCallIDs bool
+}
+
 func isCodexToolCallContextItemType(typ string) bool {
 	switch strings.TrimSpace(typ) {
 	case "tool_call",
@@ -293,6 +300,65 @@ func ValidateFunctionCallOutputContextBytes(body []byte) FunctionCallOutputValid
 	}
 	result.HasItemReferenceForAllCallIDs = allReferenced
 	return result
+}
+
+// AnalyzeToolCallOutputContextCoverageBytes handles both array and object
+// input forms and requires an exact call_id match for every tool output.
+func AnalyzeToolCallOutputContextCoverageBytes(body []byte) ToolCallOutputContextCoverage {
+	coverage := ToolCallOutputContextCoverage{}
+	if len(body) == 0 {
+		return coverage
+	}
+	input := gjson.ParseBytes(body).Get("input")
+	if !input.IsArray() && !input.IsObject() {
+		return coverage
+	}
+
+	missingCallID := false
+	outputCallIDs := make(map[string]struct{})
+	contextIDs := make(map[string]struct{})
+	analyzeItem := func(item gjson.Result) {
+		if !item.IsObject() {
+			return
+		}
+		itemType := item.Get("type").String()
+		switch {
+		case isCodexToolCallOutputItemType(itemType):
+			coverage.HasFunctionCallOutput = true
+			callID := strings.TrimSpace(item.Get("call_id").String())
+			if callID == "" {
+				missingCallID = true
+				return
+			}
+			outputCallIDs[callID] = struct{}{}
+		case isCodexToolCallContextItemType(itemType):
+			if callID := strings.TrimSpace(item.Get("call_id").String()); callID != "" {
+				contextIDs[callID] = struct{}{}
+			}
+		case itemType == "item_reference":
+			if id := strings.TrimSpace(item.Get("id").String()); id != "" {
+				contextIDs[id] = struct{}{}
+			}
+		}
+	}
+	if input.IsArray() {
+		input.ForEach(func(_, item gjson.Result) bool {
+			analyzeItem(item)
+			return true
+		})
+	} else {
+		analyzeItem(input)
+	}
+	if !coverage.HasFunctionCallOutput || missingCallID {
+		return coverage
+	}
+	for callID := range outputCallIDs {
+		if _, ok := contextIDs[callID]; !ok {
+			return coverage
+		}
+	}
+	coverage.ContextCoversAllCallIDs = true
+	return coverage
 }
 
 // HasFunctionCallOutput 判断 input 是否包含任意 Codex 工具输出，用于触发续链校验。

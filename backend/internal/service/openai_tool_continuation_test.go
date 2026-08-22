@@ -142,3 +142,47 @@ func TestValidateFunctionCallOutputContextBytesMatchesMapValidation(t *testing.T
 		require.Equal(t, ValidateFunctionCallOutputContext(body), ValidateFunctionCallOutputContextBytes(bodyBytes))
 	}
 }
+
+func TestAnalyzeToolCallOutputContextCoverageBytes(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		body        string
+		hasOutput   bool
+		fullyPaired bool
+	}{
+		{
+			name:      "array_context_item",
+			body:      `{"input":[{"type":"custom_tool_call","call_id":"call_a"},{"type":"custom_tool_call_output","call_id":"call_a"}]}`,
+			hasOutput: true, fullyPaired: true,
+		},
+		{
+			name:      "object_output_is_detected_but_not_paired",
+			body:      `{"input":{"type":"custom_tool_call_output","call_id":"call_a"}}`,
+			hasOutput: true, fullyPaired: false,
+		},
+		{
+			name:      "item_reference_pairs_exact_call_id",
+			body:      `{"input":[{"type":"function_call_output","call_id":"call_a"},{"type":"item_reference","id":"call_a"}]}`,
+			hasOutput: true, fullyPaired: true,
+		},
+		{
+			name:      "partial_context_is_not_complete",
+			body:      `{"input":[{"type":"function_call","call_id":"call_a"},{"type":"function_call_output","call_id":"call_a"},{"type":"function_call_output","call_id":"call_b"}]}`,
+			hasOutput: true, fullyPaired: false,
+		},
+		{
+			name:      "missing_call_id_is_not_complete",
+			body:      `{"input":[{"type":"custom_tool_call_output","output":"ok"}]}`,
+			hasOutput: true, fullyPaired: false,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			coverage := AnalyzeToolCallOutputContextCoverageBytes([]byte(test.body))
+			require.Equal(t, test.hasOutput, coverage.HasFunctionCallOutput)
+			require.Equal(t, test.fullyPaired, coverage.ContextCoversAllCallIDs)
+		})
+	}
+}
