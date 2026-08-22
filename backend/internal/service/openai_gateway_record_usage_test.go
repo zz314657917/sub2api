@@ -2599,6 +2599,53 @@ func TestOpenAIGatewayServiceRecordUsage_UsesForwardResultCostOverrideForAPIMart
 	require.Equal(t, "2576x3216:medium", *usageRepo.lastLog.BillingTier)
 }
 
+func TestOpenAIGatewayServiceRecordUsage_APIMartResultCostOverrideWinsOverPreflight(t *testing.T) {
+	groupID := int64(1331)
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+
+	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID:       "resp_apimart_image_result_cost_over_preflight",
+			Model:           "gpt-image-2",
+			BillingModel:    "gpt-image-2",
+			UpstreamModel:   "gpt-image-2",
+			ImageCount:      1,
+			ImageSize:       "1K",
+			ImageOutputSize: "1024x1024",
+			Duration:        time.Second,
+			CostOverride: &CostBreakdown{
+				TotalCost:   1.5,
+				BillingMode: string(BillingModeImage),
+			},
+		},
+		APIKey: &APIKey{
+			ID:      101331,
+			GroupID: i64p(groupID),
+			Group: &Group{
+				ID:                   groupID,
+				RateMultiplier:       1,
+				ImageRateIndependent: true,
+				ImageRateMultiplier:  1,
+			},
+		},
+		User:                &User{ID: 201331},
+		Account:             &Account{ID: 301331, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"base_url": "https://api.apimart.ai"}},
+		RequireBalanceCheck: true,
+		CostOverride: &CostBreakdown{
+			TotalCost:   0.15,
+			ActualCost:  1.26,
+			BillingMode: string(BillingModeImage),
+		},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, usageRepo.lastLog)
+	require.InDelta(t, 1.5, usageRepo.lastLog.TotalCost, 1e-12)
+	require.InDelta(t, 12.6, usageRepo.lastLog.ActualCost, 1e-12)
+	require.InDelta(t, apimartGPTImage2OfficialBalanceMultiplier, usageRepo.lastLog.RateMultiplier, 1e-12)
+}
+
 func TestOpenAIGatewayServiceRecordUsage_APIMartGPTImage2OfficialCostOverrideUsesRequestedModelMultiplier(t *testing.T) {
 	groupID := int64(134)
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}

@@ -2027,8 +2027,9 @@ func (s *OpenAIGatewayService) forwardAPIMartImages(
 
 	imageOutputSizes := apimartImageResultSizes(images)
 	costOverride := apimartImageResultCostOverride(images)
+	responseCost := apimartImageResultResponseCost(images)
 	sizeResolution := resolveAPIMartImageBillingSize(parsed, imageOutputSizes)
-	body, err := buildAPIMartOpenAIImagesResponse(apimartImageResultURLs(images), parsed, costOverride)
+	body, err := buildAPIMartOpenAIImagesResponse(apimartImageResultURLs(images), parsed, costOverride, responseCost)
 	if err != nil {
 		return nil, err
 	}
@@ -2832,15 +2833,17 @@ func extractAPIMartImageMessage(body []byte) string {
 }
 
 type apimartImageResult struct {
-	URL  string
-	Size string
-	Cost *float64
+	URL         string
+	Size        string
+	Cost        *float64
+	CreditsCost *float64
 }
 
 func extractAPIMartImageResults(body []byte, parsed *OpenAIImagesRequest) []apimartImageResult {
 	var out []apimartImageResult
 	fallbackSize := apimartExplicitPixelSize(parsed)
 	taskCost := firstAPIMartTaskCost(body)
+	taskCreditsCost := firstAPIMartTaskCreditsCost(body)
 	for _, path := range []string{
 		"data.result.images",
 		"result.images",
@@ -2853,30 +2856,40 @@ func extractAPIMartImageResults(body []byte, parsed *OpenAIImagesRequest) []apim
 		}
 		for _, item := range items.Array() {
 			cost := takeAPIMartTaskCost(&taskCost)
+			creditsCost := takeAPIMartTaskCost(&taskCreditsCost)
 			if item.Type == gjson.String {
-				out = appendAPIMartImageResult(out, item.String(), fallbackSize, cost)
+				out = appendAPIMartImageResult(out, item.String(), fallbackSize, cost, creditsCost)
 				continue
 			}
 			size := firstAPIMartImageResultSize(item, fallbackSize)
 			if cost == nil {
 				cost = firstAPIMartImageResultCost(item)
 			}
+			if creditsCost == nil {
+				creditsCost = firstAPIMartImageResultCreditsCost(item)
+			}
 			urls := item.Get("url")
 			if urls.IsArray() {
 				for i, u := range urls.Array() {
 					imageCost := cost
+					imageCreditsCost := creditsCost
 					if i > 0 && taskCost == nil {
 						imageCost = nil
 					}
-					out = appendAPIMartImageResult(out, u.String(), size, imageCost)
+					if i > 0 && taskCreditsCost == nil {
+						imageCreditsCost = nil
+					}
+					out = appendAPIMartImageResult(out, u.String(), size, imageCost, imageCreditsCost)
 				}
 				cost = nil
+				creditsCost = nil
 			} else if urls.Type == gjson.String {
-				out = appendAPIMartImageResult(out, urls.String(), size, cost)
+				out = appendAPIMartImageResult(out, urls.String(), size, cost, creditsCost)
 				cost = nil
+				creditsCost = nil
 			}
 			if value := strings.TrimSpace(item.Get("image_url").String()); value != "" {
-				out = appendAPIMartImageResult(out, value, size, cost)
+				out = appendAPIMartImageResult(out, value, size, cost, creditsCost)
 			}
 		}
 		if len(out) > 0 {
@@ -2890,15 +2903,20 @@ func extractAPIMartImageResultURLs(body []byte) []string {
 	return apimartImageResultURLs(extractAPIMartImageResults(body, nil))
 }
 
-func appendAPIMartImageResult(out []apimartImageResult, rawURL string, size string, cost *float64) []apimartImageResult {
+func appendAPIMartImageResult(out []apimartImageResult, rawURL string, size string, cost *float64, creditsCosts ...*float64) []apimartImageResult {
 	rawURL = strings.TrimSpace(rawURL)
 	if rawURL == "" {
 		return out
 	}
+	var creditsCost *float64
+	if len(creditsCosts) > 0 {
+		creditsCost = creditsCosts[0]
+	}
 	return append(out, apimartImageResult{
-		URL:  rawURL,
-		Size: normalizeAPIMartImageSize(size),
-		Cost: cost,
+		URL:         rawURL,
+		Size:        normalizeAPIMartImageSize(size),
+		Cost:        cost,
+		CreditsCost: creditsCost,
 	})
 }
 
@@ -2944,10 +2962,17 @@ func apimartImageResultSizes(results []apimartImageResult) []string {
 }
 
 func apimartImageResultCostOverride(results []apimartImageResult) *CostBreakdown {
+	// APIMart exposes amount (cost) and billing credits (credits_cost). Keep
+	// credits as the local pre-multiplier base; the documented 10x relation is
+	// only a fallback when an older response omits credits_cost.
 	total := 0.0
 	for _, result := range results {
+		if result.CreditsCost != nil && *result.CreditsCost > 0 {
+			total += *result.CreditsCost
+			continue
+		}
 		if result.Cost != nil && *result.Cost > 0 {
-			total += *result.Cost
+			total += *result.Cost * apimartCreditsPerCost
 		}
 	}
 	if total <= 0 {
@@ -2958,6 +2983,23 @@ func apimartImageResultCostOverride(results []apimartImageResult) *CostBreakdown
 		ActualCost:  0,
 		BillingMode: string(BillingModeImage),
 	}
+}
+
+func apimartImageResultResponseCost(results []apimartImageResult) *float64 {
+	total := 0.0
+	for _, result := range results {
+		if result.Cost != nil && *result.Cost > 0 {
+			total += *result.Cost
+			continue
+		}
+		if result.CreditsCost != nil && *result.CreditsCost > 0 {
+			total += *result.CreditsCost / apimartCreditsPerCost
+		}
+	}
+	if total <= 0 {
+		return nil
+	}
+	return &total
 }
 
 func firstAPIMartImageResultSize(item gjson.Result, fallbackSize string) string {
@@ -3009,6 +3051,26 @@ func firstAPIMartTaskCost(body []byte) *float64 {
 	return nil
 }
 
+func firstAPIMartTaskCreditsCost(body []byte) *float64 {
+	for _, path := range []string{
+		"data.credits_cost",
+		"credits_cost",
+		"result.credits_cost",
+		"data.billing.credits_cost",
+		"billing.credits_cost",
+	} {
+		value := gjson.GetBytes(body, path)
+		if !value.Exists() {
+			continue
+		}
+		creditsCost := value.Float()
+		if creditsCost > 0 {
+			return &creditsCost
+		}
+	}
+	return nil
+}
+
 func firstAPIMartImageResultCost(item gjson.Result) *float64 {
 	for _, path := range []string{
 		"cost",
@@ -3024,6 +3086,24 @@ func firstAPIMartImageResultCost(item gjson.Result) *float64 {
 		cost := value.Float()
 		if cost > 0 {
 			return &cost
+		}
+	}
+	return nil
+}
+
+func firstAPIMartImageResultCreditsCost(item gjson.Result) *float64 {
+	for _, path := range []string{
+		"credits_cost",
+		"metadata.credits_cost",
+		"billing.credits_cost",
+	} {
+		value := item.Get(path)
+		if !value.Exists() {
+			continue
+		}
+		creditsCost := value.Float()
+		if creditsCost > 0 {
+			return &creditsCost
 		}
 	}
 	return nil
@@ -3056,10 +3136,16 @@ func apimartExplicitPixelSize(parsed *OpenAIImagesRequest) string {
 	return ""
 }
 
-func buildAPIMartOpenAIImagesResponse(images []string, parsed *OpenAIImagesRequest, costOverride *CostBreakdown) ([]byte, error) {
+func buildAPIMartOpenAIImagesResponse(images []string, parsed *OpenAIImagesRequest, costOverride *CostBreakdown, responseCosts ...*float64) ([]byte, error) {
 	out := []byte(`{"created":0,"data":[]}`)
 	out, _ = sjson.SetBytes(out, "created", time.Now().Unix())
-	if costOverride != nil && costOverride.TotalCost > 0 {
+	var responseCost *float64
+	if len(responseCosts) > 0 {
+		responseCost = responseCosts[0]
+	}
+	if responseCost != nil && *responseCost > 0 {
+		out, _ = sjson.SetBytes(out, "cost", *responseCost)
+	} else if costOverride != nil && costOverride.TotalCost > 0 {
 		out, _ = sjson.SetBytes(out, "cost", costOverride.TotalCost)
 	}
 	prompt := ""

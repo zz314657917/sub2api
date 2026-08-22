@@ -7043,7 +7043,9 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	if result.ServiceTier != nil {
 		serviceTier = strings.TrimSpace(*result.ServiceTier)
 	}
-	if overrideSource := firstNonNilCostBreakdown(input.CostOverride, result.CostOverride); overrideSource != nil {
+	// The completed upstream result is authoritative. The input override is the
+	// preflight estimate and must only be used when the result has no measured cost.
+	if overrideSource := firstNonNilCostBreakdown(result.CostOverride, input.CostOverride); overrideSource != nil {
 		override := *overrideSource
 		if override.BillingMode == "" {
 			override.BillingMode = string(BillingModeToken)

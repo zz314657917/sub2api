@@ -10,6 +10,7 @@ const (
 	apimartGPTImage2OfficialModel             = "gpt-image-2-official"
 	apimartOpenAIBaseURLHost                  = "api.apimart.ai"
 	apimartGPTImage2OfficialBalanceMultiplier = 7 * 1.2
+	apimartCreditsPerCost                     = 10
 	apimartGPTImage2OfficialDefaultPrice      = 0.2109
 )
 

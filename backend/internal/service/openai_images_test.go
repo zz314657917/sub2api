@@ -2259,9 +2259,10 @@ func TestOpenAIGatewayServiceForwardImages_APIMartOfficialCarriesExactOutputSize
 	require.Equal(t, map[string]int{ImageBillingSize4K: 1}, result.ImageSizeBreakdown)
 	require.Equal(t, "medium", result.ImageQuality)
 	require.NotNil(t, result.CostOverride)
-	require.InDelta(t, 0.1126, result.CostOverride.TotalCost, 1e-12)
+	require.InDelta(t, 1.126, result.CostOverride.TotalCost, 1e-12)
 	require.Equal(t, 0.0, result.CostOverride.ActualCost)
 	require.Equal(t, string(BillingModeImage), result.CostOverride.BillingMode)
+	require.InDelta(t, 0.1126, gjson.GetBytes(rec.Body.Bytes(), "cost").Float(), 1e-12)
 	require.Equal(t, http.StatusOK, rec.Code)
 }
 
@@ -2290,7 +2291,32 @@ func TestExtractAPIMartImageResults_UsesTaskCostOnce(t *testing.T) {
 	require.Nil(t, results[1].Cost)
 	cost := apimartImageResultCostOverride(results)
 	require.NotNil(t, cost)
-	require.InDelta(t, 0.1126, cost.TotalCost, 1e-12)
+	require.InDelta(t, 1.126, cost.TotalCost, 1e-12)
+	require.InDelta(t, 0.1126, *apimartImageResultResponseCost(results), 1e-12)
+}
+
+func TestExtractAPIMartImageResults_PrefersCreditsCostForBilling(t *testing.T) {
+	body := []byte(`{
+		"data": {
+			"cost": 0.15,
+			"credits_cost": 1.5,
+			"result": {
+				"images": [{"url": ["https://upload.apimart.ai/credits.png"]}]
+			}
+		}
+	}`)
+
+	results := extractAPIMartImageResults(body, nil)
+	require.Len(t, results, 1)
+	require.NotNil(t, results[0].Cost)
+	require.InDelta(t, 0.15, *results[0].Cost, 1e-12)
+	require.NotNil(t, results[0].CreditsCost)
+	require.InDelta(t, 1.5, *results[0].CreditsCost, 1e-12)
+
+	cost := apimartImageResultCostOverride(results)
+	require.NotNil(t, cost)
+	require.InDelta(t, 1.5, cost.TotalCost, 1e-12)
+	require.InDelta(t, 0.15, *apimartImageResultResponseCost(results), 1e-12)
 }
 
 func TestOpenAIGatewayServiceForwardImages_APIMartDefaultsBillingToUpstreamResolution(t *testing.T) {
