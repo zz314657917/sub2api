@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-22 12:20 +08:00
+最后更新：2026-08-23 02:42 +08:00
 
 ## 背景
 
@@ -48,6 +48,9 @@
 - S237-A 已完成隔离实现、Controller review、独立 QA 和主线集成：候选业务 `53e80223c`，Controller 证据 `ec6e3091f`，QA 报告 `50b1d8a04`；按序合入主线为 `87b96d25f`、`79806bd30`、`7bfeae6a8`。
 - S238-A 已完成隔离实现、Controller review、独立 QA 和主线集成：候选业务 `bd86e3464`、结果 `1a03186d7`、QA 报告 `0a0e0abb9`；按序合入主线为 `8b6a6e937`、`60507d82c`、`f04104623`。组合工作树 focused capability 测试 x10 通过，用户 APIMart 脏改动保持未暂存。
 - S239-A 已完成隔离实现、Controller review、独立 QA 和主线集成：上游 `f646a1f97`，候选业务 `fcd7f71e8`、结果 `3cfb2360a`、QA 报告 `cf82c597b`；按序合入主线为 `948a330ed`、`dea98d5da`、`a619cfb80`，contract 证据为 `236542909`。`ChatFunctionCall.Name` 现在仅省略空值，流式 arguments-only delta 不再发送空 `name`。
+- S242 已完成 OpenAI custom client tools 适配：整理后业务提交为 `4af84f519`、workflow 证据为 `71f8066c6`；API-key Responses custom tools lowering/restoration、WS-HTTP bridge 多轮映射继承、显式 tools 覆盖和 failover mapping 清理均通过 focused/full service、server compile 与独立 QA。
+- S243 已完成 OpenAI WS replay 适配：整理后业务提交为 `4e89f19a4`、workflow 证据为 `9bd550326`；对象/数组 input 覆盖分析、完整工具上下文避免重复 replay、历史孤儿 tool call 清理均通过主线 focused x10、完整 service、server compile 和独立 QA。QA 首轮因遗漏 `openai_tool_continuation_test.go` 的 exact allowlist 判 FAIL，补 contract 后复验 PASS。
+- S240-S243 提交已按 Sprint 重整为业务/测试与 workflow 证据边界；整理前完整历史保留在本地备份引用 `backup/pre-reorg-s240-s243-20260823`，未 push。
 
 ## 已确认事实
 
@@ -93,7 +96,7 @@
 
 ## 下一步
 
-- 继续审计 `upstream/main@67380eafd` 的后续候选，优先选择可独立测试、无需 schema/产品前置且不触碰用户 dirty 路径的修复。
+- 继续审计当前 `upstream/main` 的后续候选，优先选择可独立测试、无需 schema/产品前置且不触碰用户 dirty 路径的修复。
 - 保留当前本地提交和用户 dirty 内容，等待明确发布授权。
 - 发布当前本地提交（需用户授权） -> 验证：push 前后比较 `HEAD`、`origin/main` 和远端 `refs/heads/main`，只允许普通 push。
 
