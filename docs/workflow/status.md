@@ -1,12 +1,12 @@
 ---
 phase: done
-current_sprint: upstream-openai-empty-tool-name-s239-a
-total_sprints: 239
-pending_action: Review the next upstream candidate/history; S239-A is integrated locally and no push is authorized.
+current_sprint: upstream-openai-client-tools-s242
+total_sprints: 242
+pending_action: S242 is integrated locally; review the next upstream candidate/history. No push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-22 12:20 +08:00
+last_verified: 2026-08-22 23:05 +08:00
 ---
 
 # Upstream CN Account Test Routing S237-A
