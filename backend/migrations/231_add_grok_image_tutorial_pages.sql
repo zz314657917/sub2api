@@ -49,7 +49,7 @@ curl https://ai.3zapi.cc/v1/images/generations \
 - `502 upstream_error` / `503 api_error`: 上游暂时不可用，稍后重试。
 
 错误通常为 `{"error":{"type":"...","message":"..."}}`。记录 `type`、`message` 和请求 ID（如有），不要记录 API Key。
-$md$),
+$md$, NOW()),
 ('grok-imagine-1-5-edit', 'Grok Imagine 1.5 图像编辑', '使用 Grok Imagine 1.5 根据参考图进行编辑。', '图像模型', 2250, 'published', $md$
 # Grok Imagine 1.5 图像编辑
 
@@ -99,4 +99,4 @@ curl https://ai.3zapi.cc/v1/images/edits \
 - `502 upstream_error` / `503 api_error`: 上游暂时不可用，稍后重试。
 
 错误通常为 `{"error":{"type":"...","message":"..."}}`。先检查参考图是否可读、格式是否有效，再决定是否重试；不要重复提交同一编辑任务造成重复扣费。
-$md$);
+$md$, NOW());

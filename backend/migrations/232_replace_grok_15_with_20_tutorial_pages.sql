@@ -56,7 +56,7 @@ curl https://ai.3zapi.cc/v1/images/generations \
 - `429 rate_limit_error`：遵循 `Retry-After` 退避。
 
 错误通常位于 `error.type`、`error.code` 和 `error.message`；网络超时后不要立即换新的幂等 Key。
-$md$),
+$md$, NOW()),
 ('grok-imagine-image-2-0', 'Grok Imagine Image 2.0 图像生成与编辑', '使用 Grok Imagine Image 2.0 进行文生图、单图编辑和多图参考。', '图像模型', 2250, 'published', $md$
 # Grok Imagine Image 2.0 图像生成与编辑
 
@@ -123,4 +123,4 @@ curl https://ai.3zapi.cc/v1/images/generations \
 - `429 rate_limit_error`：降低并发并按照 `Retry-After` 退避。
 
 程序应保留 `request_id`、任务 ID 和错误字段，不能记录 API Key；不要把提交成功的 HTTP 202 当成图片已完成。
-$md$);
+$md$, NOW());

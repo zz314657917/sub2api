@@ -24,7 +24,7 @@ func TestGrokImageTutorialPages(t *testing.T) {
 		if start < 0 {
 			t.Fatalf("missing tutorial slug %q", page.slug)
 		}
-		end := strings.Index(sql[start:], "$md$)")
+		end := strings.Index(sql[start:], "$md$, NOW())")
 		if end < 0 {
 			t.Fatalf("unterminated tutorial %q", page.slug)
 		}
