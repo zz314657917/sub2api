@@ -62,6 +62,10 @@ const BaseDialogStub = defineComponent({
     show: {
       type: Boolean,
       default: false
+    },
+    width: {
+      type: String,
+      default: 'normal'
     }
   },
   template: '<div v-if="show"><slot /><slot name="footer" /></div>'
@@ -223,7 +227,7 @@ function mountModal(account = buildAccount()) {
 }
 
 describe('EditAccountModal', () => {
-	it('places the group selector and account availability window side by side on wide screens', async () => {
+	it('uses the expanded API-key-style layout for groups and account availability on wide screens', async () => {
 		authStoreMock.isSimpleMode = false
 		try {
 			const wrapper = mountModal()
@@ -236,9 +240,10 @@ describe('EditAccountModal', () => {
 			expect(layout).not.toBeNull()
 			expect(layout?.classList.contains('grid')).toBe(true)
 			expect(layout?.classList.contains('grid-cols-1')).toBe(true)
-			expect(layout?.classList.contains('lg:grid-cols-2')).toBe(true)
+			expect(layout?.classList.contains('lg:grid-cols-[minmax(0,1fr)_minmax(28rem,36rem)]')).toBe(true)
 			expect(groupSelector.element.parentElement).toBe(layout)
 			expect(availabilitySection.classes()).toContain('lg:border-t-0')
+			expect(wrapper.findComponent(BaseDialogStub).props('width')).toBe('extra-wide')
 		} finally {
 			authStoreMock.isSimpleMode = true
 		}

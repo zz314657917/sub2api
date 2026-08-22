@@ -2,7 +2,7 @@
   <BaseDialog
     :show="show"
     :title="t('admin.accounts.editAccount')"
-    width="wide"
+    width="extra-wide"
     @close="handleClose"
   >
     <form
@@ -2517,8 +2517,8 @@
 
       <div
         :class="[
-          'grid grid-cols-1 gap-6',
-          !authStore.isSimpleMode && 'lg:grid-cols-2'
+          'grid grid-cols-1 gap-5',
+          !authStore.isSimpleMode && 'lg:grid-cols-[minmax(0,1fr)_minmax(28rem,36rem)] lg:items-start'
         ]"
       >
         <!-- Group Selection - 仅标准模式显示 -->
