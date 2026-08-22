@@ -1,31 +1,49 @@
 # 当前主线
 
-## 2026-08-12 之后
+## 2026-08-16 之后
 
-- 默认续做心智已从 `Usage S135-S138` / `Pixel Cafe S139+` 继续前移到 `S211 标准分组时段倍率` 与 `S212 账号时段可用性`；较早的 Pixel Cafe、Usage、`S111/S112`、`group-buy` 和更早的 Studio Bridge 语境只保留为背景。
+- 默认续做心智已从 `S211 标准分组时段倍率` 与 `S212 账号时段可用性`，继续前移到 `S220 分组定价与长上下文账户 veto`、`S221 Codex fingerprint convergence`、`S222 分组用量日汇总`；较早的 Pixel Cafe、Usage、`S111/S112`、`group-buy` 和更早的 Studio Bridge 语境只保留为背景。
 - 继续接手时，先看 `docs/workflow/status.md` 和 `knowledge/tasks/current-task.md`，再用 `knowledge/tasks/timeline.md` 回收最近阶段历史。
+- 当前 `origin/main` 已与本地 `main` 同步；下一合法动作是监控新的 `upstream/main` / `v0.1.177+` tag，并在不触碰用户 account-modal dirty、`outputs/` 和未授权数据库范围的前提下重新走 contract。
 
-最后更新：2026-08-12
+最后更新：2026-08-20
 
 ## 当前阶段
 
-Sub2API 近期稳定主线再次前移。截至 2026-08-12，默认续做心智应先落在 `S211 标准分组时段倍率 + S212 账号时段可用性 + phase=done + 当前 workflow/status 为准`，而不是继续停在 2026-08-03 的 `Usage S135-S138 + Pixel Cafe S139+` 语境。
+Sub2API 近期稳定主线再次前移。截至 2026-08-20，默认续做心智应先落在 `S234 upstream-v178-ui-polish` 的阻塞与恢复边界；S220/S221/S222 作为已合入的分组定价、Codex fingerprint 和日汇总稳定基线保留，而不是继续停在 `S211/S212` 或更早语境。
+
+## S234 当前边界
+
+- `docs/workflow/status.md` 当前为 `phase=contract-approved`、`current_sprint=upstream-v178-ui-polish-s234`，下一动作是获得授权的前端依赖环境重试。
+- 当前工作树仍需保护 account modal 两个用户改动和 `outputs/`；S234 未形成业务提交或推送，不得把阻塞状态误写成产品完成或发布完成。
 
 ## 当前重点
 
-1. `S211 标准分组时段倍率` 已成为当前最近一层分组 / 计费主线
+1. `S220/S221/S222` 已成为当前最近一层后端/调度/聚合主线
+   - `S220` 把分组 built-in pricing、group long-context 开关、OpenAI group/account intersection 与 Grok 非 OpenAI veto 修正并入当前基线；`S221` 把 opt-in `codex_fingerprint_mode` 收口到本地 OpenAI gateway、repository null-delete 与 account 编辑链路；`S222` 把分组日汇总、invalidations、timezone rebuild、DST 23-hour 边界与 advisory lock 622101/622102 exclusion/reacquisition 并入 dashboard 稳态。
+   - 继续接手 group pricing、account scheduling、Codex/OpenAI 能力判定、usage 统计或 dashboard 数据时，应先把这三组 `v0.1.177` 授权切片视为当前默认工程基线，而不是回退到更早的 `S211/S212`。
+
+2. 当前工作树边界已收敛到“主线干净 + 用户 account-modal dirty”
+   - `origin/main` 已与本地 `main` 同步，S220/S221/S222 的任务 worktree、分支和 portable PostgreSQL runtime 已清理。
+   - 后续任何新的上游迁移或知识回写，都要先保护 `frontend/src/components/account/EditAccountModal.vue`、对应测试和 `outputs/`；不要把这组用户内容误当成新 Sprint 的残留噪声。
+
+3. 数据库授权边界已经从“完全不动”前移到“只允许任务专属 disposable validation”
+   - migrations 220/221/222/223 的源码和 task-owned PostgreSQL 验证已经完成，但共享/生产数据库执行仍未授权。
+   - 因此后续如果继续看新的 migration、rollup、group/account aggregate 或 usage repair，不应把这轮通过的 disposable DB evidence 误写成“可直接上线数据库变更”。
+
+4. `S211 标准分组时段倍率` 已从当前主线退到最近一层背景
    - 标准分组现在也支持既有 `peak_rate_*` 语义的同日时段倍率；窗口外返回 `1.0`，不改字段名、不引入 schema/migration。
-   - 继续接手 group、rate、usage、billing 或调度相关工作时，要先把 `S211` 视为当前默认产品/工程基线，而不是先回退到更早的 Usage 统计语境。
+   - 继续接手 group、rate、usage、billing 或调度相关工作时，要把它视为当前 `S220` 基线之下的既有约束，而不是最近默认主线本身。
 
-2. `S212 账号时段可用性` 已成为当前最近一层账号 / 调度主线
+5. `S212 账号时段可用性` 已从当前主线退到最近一层背景
    - 单账号可配置 server-timezone 的每日可用窗口；窗口外账号会被排除出新请求调度，但不会改持久化 `status`、`schedulable`、分组绑定或 API Key 绑定。
-   - 这条主线直接覆盖账号调度、Antigravity gate、account dialog、管理员配置与局部视觉验收边界，已经值得进入入口知识，而不应只留在 workflow/current-task。
+   - 这条能力仍直接覆盖账号调度、Antigravity gate、account dialog 与管理员配置，但现在是 `S220/S221` 的下层前置，而不再是最靠前的默认续做入口。
 
-3. 当前工作树边界已经切到 `S211/S212` 的 account/group/admin 实现面
-   - 主工作树当前高频未提交改动集中在 `backend/internal/service/**`、`backend/internal/handler/**`、`frontend/src/components/account/**`、`frontend/src/views/admin/GroupsView.vue` 与 `docs/workflow/**`。
-   - 这意味着后续做任何上游小步迁移、调度兼容、管理端 UI 或知识回写时，都要先确认本轮范围，不能再沿用 8 月初那批 Pixel Cafe / group-buy dirt 的边界判断。
+6. 当前工作树边界不再是 `S211/S212` 的 account/group/admin 实现面
+   - 当前更接近事实的边界是：S220/S221/S222 已收口并 push，主工作树只剩 `frontend/src/components/account/EditAccountModal.vue`、对应测试和 `outputs/` 这组用户内容。
+   - 这段判断已经过期。当前更接近事实的边界是：S220/S221/S222 已收口并 push，主工作树只剩用户 account-modal dirty 与 `outputs/`；后续做上游小步迁移或知识回写时，不能继续沿用当时的“高频未提交实现面”判断。
 
-4. `S210`、`S209`、`S208`、`S207` 已退成前一层稳定工程背景，但不能丢失
+7. `S210`、`S209`、`S208`、`S207` 已退成前一层稳定工程背景，但不能丢失
    - `S210` 的 streaming terminal audit / WebSocket audit dedupe、`S209` 的 API key 输入校验、`S208` 的 streaming route cooldown 传递、`S207` 的 availability / fallback 小步上游适配都已经进入当前网关稳态。
    - 继续做分组倍率、账号可用性、网关调度或管理端配置时，不应把这些能力当成“另一个旧 Sprint”；它们是当前主线默认继承的下层基线。
 

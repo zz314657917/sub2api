@@ -1,16 +1,17 @@
 # 当前任务快照
 
-最后更新：2026-08-18 20:49 +08:00
+最后更新：2026-08-22 12:20 +08:00
 
 ## 背景
 
 - 用户要求持续比较本地与上游历史，只选择性移植可独立验证的修复，禁止整包合并长期分叉历史。
 - S223-S225 已完成；本轮为国产供应商一等支持建立独立 S226 contract，并先按可独立编译、验收的提交批次整理范围。
+- S237-A 已完成固定协议国产供应商账号连接测试路由的选择性移植；仅合入可独立验证的 Chat Completions、原生 Anthropic 与 DeepSeek Responses 行为。
 - 所有新提交仅在本地 `main`；未授权 push、部署、容器、共享/生产数据库或真实 provider 操作。
 
 ## 当前目标
 
-- S226、S228、S229-A、S229-B、S229-C、S229-D、S229-E、S230-A、S230-B 与 S231 已按批准边界集成 `main`；Gemini `ErrorPolicySkipped` 三协议错误语义已收口，下一步只评估新的上游候选或历史提交。
+- S226、S228、S229-A、S229-B、S229-C、S229-D、S229-E、S230-A、S230-B、S231、S237-A、S238-A 与 S239-A 已按批准边界集成 `main`；下一步只评估新的上游候选或历史提交。
 
 ## 本次已完成
 
@@ -44,13 +45,16 @@
 - S231 contract 已批准：上游 `ab0fcd1a0` 已进入 `upstream/main@49504adc9`，相关四文件无后续修改；原 patch 因本地预计算 `errorPolicy` 和 retry 拓扑差异无法直接 apply，范围限定 native/Messages/Chat Completions 的 skipped-policy failover、4xx 保真、自定义错误码隐藏和 400 message 映射。
 - S231 contract amendment：`-tags=unit` 会触发仓库既有无关符号冲突，已将 focused acceptance 改为默认构建标签；S231 测试覆盖三协议全链路，范围和行为门禁不变。
 - S231 已完成隔离实现、Controller review、独立 QA 和主线集成：业务 `c0b1d8966`（候选 `5cf6f3fcd`）、Controller report `9aa26abd5`、QA report `3d94bf9cf`。池模式不可 failover 4xx 保持真实语义，自定义错误码未命中隐藏上游细节，可 failover skipped 状态继续换号；未 push。
+- S237-A 已完成隔离实现、Controller review、独立 QA 和主线集成：候选业务 `53e80223c`，Controller 证据 `ec6e3091f`，QA 报告 `50b1d8a04`；按序合入主线为 `87b96d25f`、`79806bd30`、`7bfeae6a8`。
+- S238-A 已完成隔离实现、Controller review、独立 QA 和主线集成：候选业务 `bd86e3464`、结果 `1a03186d7`、QA 报告 `0a0e0abb9`；按序合入主线为 `8b6a6e937`、`60507d82c`、`f04104623`。组合工作树 focused capability 测试 x10 通过，用户 APIMart 脏改动保持未暂存。
+- S239-A 已完成隔离实现、Controller review、独立 QA 和主线集成：上游 `f646a1f97`，候选业务 `fcd7f71e8`、结果 `3cfb2360a`、QA 报告 `cf82c597b`；按序合入主线为 `948a330ed`、`dea98d5da`、`a619cfb80`，contract 证据为 `236542909`。`ChatFunctionCall.Name` 现在仅省略空值，流式 arguments-only delta 不再发送空 `name`。
 
 ## 已确认事实
 
 - S224 在生成/保留原始请求指纹后，用 decimal 八位量化六个金额字段，包含本地 `PrepaidBalanceCost`。Developer、Controller、独立 QA 与集成主线 focused 均 PASS。
 - S225 保留本地 `claude-cli/2.1.92`、Stainless `0.70.0/v24.13.0` 等默认值；创建和升级共用 UA 校验，污染缓存两种自愈均保留 `ClientID`。独立 QA 未发现实现缺陷。
 - S225 集成主线 11/11 focused 测试 x10 PASS（0.077s）；候选与主线业务 patch-id 均为 `3c649274094273e6c75c14859669eed1b6c8e753`。
-- `origin/main` 仍为 `a865d8b6e`，本轮没有 push。`upstream/main` 已 fetch 到 `e330c243a`。
+- S237-A 集成后 `main@7bfeae6a8` 相对 `origin/main@4e59289ec` ahead 3；本轮没有 push，`upstream/main` 为 `67380eafd`。
 - 上游目标链为 `901a0439f -> 4b667ccd4 -> e72854538`，最终约 78 文件、6195 新增/125 删除；直接 apply 在 Wire、config、gateway 和缺失 schema 处失败，必须按本地拓扑手工移植。
 - `4b667ccd4` 的 B1 根 `docker-compose.yml` 排除；B2 `user_platform_quotas` 迁移在本地 N/A，不改号为 226。该产品前置 `6b39b344d` 本身为 123 文件/14220 行，并有后续 flusher，不属于国产供应商探测或网关的必要前置。
 - 上游可配置调度阈值又依赖本地缺失的 `7c62382d0`（55 文件/3542 行）。S226 保留额度快照和响应式 429 重置点冷却，但不暗中引入通用阈值产品或前端设置面板。
@@ -60,11 +64,15 @@
 - 用户未提交内容包括两个 backend 教程测试、两个 account-modal 文件、`TutorialView.vue` 及其测试、`knowledge/00-start-here.md`、`knowledge/05-current-focus.md`、六个未跟踪教程 migration/test 文件和 `outputs/`。C0 patch-id 为 backend `a81fbffb...`、account `5d316e5b...`、tutorial `a07a7c33...`、knowledge `2abee47d...`；六个文件 SHA256 已记录到 contract，均必须保持原样。
 - S228 集成后 `main@ff241be81` 相对 `origin/main@a865d8b6e` ahead 55；`upstream/main@8869775ed` 未变化。S228 业务 patch-id 为 `8b0caf6e...` 和 `cae02fc1...`，与候选实现一致；精确 allowlist、无冲突索引、三项上游 ancestry 均通过。
 - S229-A 集成后 `main@de62dd8d6` 相对 `origin/main@a865d8b6e` ahead 58；业务 patch-id 为 `ad03cda9...`，与候选 `ce0ffdb65` 一致。三个 focused 测试 x10、完整 handler/service、server compile、scope/provenance/conflict/index 和保护门禁均 PASS。
+- S237-A 业务范围严格为三个 account-test 文件；QA 四项 focused 测试可发现并 x10 PASS，完整 service、server compile、gofmt、diff-check、allowlist、冲突/index、上游 provenance 与 fake-upstream 审计均 PASS。
+- S238-A 业务范围严格为 `account.go` 与既有 OpenAI capability 测试 owner；空 `[]any`、`[]string`、`map[string]any`、`map[string]bool` 视为未配置，非空 false map 与 malformed value 仍保持限制。主线 `f04104623` 相对 `origin/main@4e59289ec` ahead 6，`upstream/main@67380eafd` 未变；未 push。
+- S239-A 业务范围严格为 `backend/internal/pkg/apicompat/types.go` 与一个 focused test；主线 `236542909` 相对 `origin/main@4e59289ec` ahead 10，`upstream/main@67380eafd` 未变；focused x10、完整 apicompat、server compile-only、gofmt、scope/provenance/conflict/index 和保护检查通过，未 push。
 
 ## 待验证点
 
 - `10c8b7020` 五项 CN 缺陷切片及 S230-A/B 已完成；下一步只评估新的上游候选或历史提交，不再回到已完成切片。
 - `ab0fcd1a0` 的 S231 Gemini skipped-policy 切片已完成；上游相关四文件在该提交后到 `upstream/main@49504adc9` 无后续修改。
+- S237-A 无待修复项；若继续工作，只需从 `upstream/main@67380eafd` 重新审计新的独立候选，并先建立 contract。
 - 若授权发布：先复核最终 `git status`、主线测试证据和远端差异，再执行普通 `git push origin main`；当前没有发布授权。
 - S225/S226/S228 均未运行真实 Redis 或上游 provider 集成；合同禁止这些操作，当前证据来自 mock/httptest、包回归、server 编译和前端构建。
 
@@ -76,10 +84,16 @@
 - `PASS / S228 main integration`：业务与证据提交已按序集成 `main@ff241be81`，用户 dirty patch IDs、六个未跟踪教程文件及 `outputs/` 均保持原值；未 push。
 - `PASS / S229-A independent QA`：QA 报告 `docs/workflow/qa-reports/upstream-cn-provider-correctness-s229-a-qa.md` 首行为 `### PASS`，gate/dispatch/count_tokens focused x10、完整 handler/service、server compile、scope/provenance/conflict/index 均通过。
 - `PASS / S229-A main integration`：业务与证据提交已按序集成 `main@de62dd8d6`，用户 dirty patch IDs、六个未跟踪教程文件及 `outputs/` 均保持原值；未 push。
+- `PASS / S237-A independent QA`：QA 报告首行为 `### PASS: upstream-cn-account-test-routing-s237-a`，聚焦 x10、完整 service、server compile、scope/provenance/conflict/index 和 fake-upstream 均通过。
+- `PASS / S237-A main integration`：业务、Controller 证据、QA 证据已按序进入 `main@7bfeae6a8`；用户产品脏改动、未跟踪文件和 `outputs/` 保留，未 push。
+- `PASS / S238-A independent QA`：QA 报告 `0a0e0abb9` 首行为 `### PASS`，聚焦 x10、完整 service、server compile、gofmt、scope/provenance/conflict/index 均通过。
+- `PASS / S238-A main integration`：业务、Controller 证据、QA 证据已按序进入 `main@f04104623`；组合工作树 focused x10 通过，用户产品脏改动、未跟踪文件和 `outputs/` 保留，未 push。
+- `PASS / S239-A independent QA`：QA 报告 `cf82c597b` 首行为 `### PASS`，聚焦 x10、完整 apicompat、server compile-only、gofmt、scope/provenance/conflict/index 和保护检查均通过。
+- `PASS / S239-A main integration`：业务、Developer/QA 证据和 contract 已按序进入 `main@236542909`；主线 fresh focused x10、完整 apicompat、server compile-only、gofmt、diff/scope/provenance/conflict/index 均通过，用户产品脏改动、未跟踪文件和 `outputs/` 保留，未 push。
 
 ## 下一步
 
-- 继续审计 `upstream/main@49504adc9` 的后续候选，优先选择可独立测试、无需 schema/产品前置且不触碰用户 dirty 路径的修复。
+- 继续审计 `upstream/main@67380eafd` 的后续候选，优先选择可独立测试、无需 schema/产品前置且不触碰用户 dirty 路径的修复。
 - 保留当前本地提交和用户 dirty 内容，等待明确发布授权。
 - 发布当前本地提交（需用户授权） -> 验证：push 前后比较 `HEAD`、`origin/main` 和远端 `refs/heads/main`，只允许普通 push。
 
@@ -115,3 +129,5 @@
 - S230-A 主线集成：focused `TestCodexUsageProbeModel|TestOpenAICodexVersionConsistency` x10、完整 `internal/service`、`cmd/server` compile、gofmt、diff、scope/provenance/conflict/index 与保护 patch/hash PASS；业务 patch-id `45261e82b4a6d1dcfaa9fb81de758f2d26950a41`，主线业务提交 `main@ea2f12acd` ahead `origin/main` 80，未 push。
 - S230-B 主线集成：focused `TestGetAvailableModels_OpenAIPassthroughUsesDefaultFallback|TestGetAvailableModels_GlobalListPreservesMappedModelsWithOpenAIPassthrough|TestGetAvailableModels_ErrorAndGlobalListBranches` x10、完整 `internal/service`、`cmd/server` compile、gofmt、diff、scope/provenance/conflict/index 与保护 patch/hash PASS；业务 patch-id `71034474f0ef8387cff03604f52ddf504f6b711c`，主线业务提交 `main@e81c2a76f` ahead `origin/main` 85，未 push。
 - S231 主线集成：focused 九场景 x10 `11.561s`、完整 `internal/service` `70.832s`、`cmd/server` compile `10.570s`、gofmt、diff、scope/provenance/conflict/index 与保护 patch/hash PASS；业务 patch-id `e8c34a39abb58e03e4e00f52f646f408d5256af0`，主线业务提交 `main@c0b1d8966`，未 push。
+- S237-A QA：focused discovery 列出 4 项；`go test ./internal/service -run 'TestAccountTestService_(CN|DeepSeek)' -count=10` PASS，完整 `go test ./internal/service -count=1` PASS，`go test ./cmd/server -run '^$' -count=1` PASS，gofmt 无输出。
+- S237-A 主线 fresh verification：focused discovery、focused x10、完整 service `75.562s`、server compile `5.465s`、gofmt、diff-check、冲突扫描、精确 scope、clean index 和四项上游 provenance PASS。
