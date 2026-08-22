@@ -70,6 +70,7 @@ const DataTableStub = {
         <slot name="cell-model" :row="row" :value="row.model" />
         <slot name="cell-billing_mode" :row="row" />
         <slot name="cell-tokens" :row="row" />
+        <slot name="cell-cache_read" :row="row" />
         <slot name="cell-cost" :row="row" />
         <slot name="cell-latency" :row="row" />
       </div>
@@ -220,6 +221,26 @@ describe('admin UsageTable tooltip', () => {
     expect(text).toContain('$5.0000 / 1M tokens')
     expect(text).toContain('$30.0000 / 1M tokens')
     expect(text).toContain('$0.069568')
+  })
+
+  it('shows cache read percentage using input and cache token totals', () => {
+    const row = {
+      ...baseImageRow,
+      request_id: 'req-admin-cache-read-percent',
+      billing_mode: 'token',
+      input_tokens: 100,
+      cache_creation_tokens: 300,
+      cache_read_tokens: 100,
+    }
+
+    const wrapper = mount(UsageTable, {
+      props: { data: [row], loading: false, columns: [] },
+      global: { stubs: { DataTable: DataTableStub, EmptyState: true, Icon: true, Teleport: true } },
+    })
+
+    expect(wrapper.get('[data-testid="cache-read-percent"]').text()).toBe('20.0%')
+    expect(wrapper.get('[data-testid="cache-read-percent"]').element.parentElement?.getAttribute('title'))
+      .toBe('100 (20.0%)')
   })
 
   it('splits image input and output token usage from text usage', async () => {

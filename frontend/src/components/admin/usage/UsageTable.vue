@@ -151,11 +151,14 @@
           <div
             v-if="!isImageUsage(row) && row.cache_read_tokens > 0"
             class="inline-flex items-center gap-1 text-sm"
-            :title="row.cache_read_tokens.toLocaleString()"
+            :title="`${row.cache_read_tokens.toLocaleString()} (${formatCacheReadPercent(row)})`"
           >
             <Icon name="database" size="sm" class="h-3.5 w-3.5 text-[#a9583e]" />
             <span class="font-medium text-[#a9583e] dark:text-[#f0b89e]">
               {{ formatCacheTokens(row.cache_read_tokens) }}
+            </span>
+            <span data-testid="cache-read-percent" class="text-xs font-medium text-[#8e8b82] dark:text-[#d8cec2]/80">
+              {{ formatCacheReadPercent(row) }}
             </span>
           </div>
           <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
@@ -297,7 +300,7 @@
             </div>
             <div v-if="tokenTooltipData && tokenTooltipData.cache_read_tokens > 0" class="flex items-center justify-between gap-4">
               <span class="text-[#6c6a64] dark:text-gray-400">{{ t('admin.usage.cacheReadTokens') }}</span>
-              <span class="font-medium text-[#141413] dark:text-white">{{ tokenTooltipData.cache_read_tokens.toLocaleString() }}</span>
+              <span class="font-medium text-[#141413] dark:text-white">{{ tokenTooltipData.cache_read_tokens.toLocaleString() }} ({{ formatCacheReadPercent(tokenTooltipData) }})</span>
             </div>
           </div>
           <div class="flex items-center justify-between gap-6 border-t border-[#d8cec2] pt-1.5 dark:border-gray-700">
@@ -505,6 +508,14 @@ function getDisplayBillingMode(row: Pick<AdminUsageLog, 'billing_mode' | 'image_
 function isImageUsage(row: Pick<AdminUsageLog, 'billing_mode' | 'image_count'> | null | undefined): boolean {
   const mode = getDisplayBillingMode(row)
   return mode === BILLING_MODE_IMAGE || mode === BILLING_MODE_PER_REQUEST
+}
+
+function formatCacheReadPercent(row: Pick<AdminUsageLog, 'input_tokens' | 'cache_creation_tokens' | 'cache_read_tokens'>): string {
+  const total = (row.input_tokens ?? 0) + (row.cache_creation_tokens ?? 0) + (row.cache_read_tokens ?? 0)
+  if (total <= 0) return '0%'
+  const percent = ((row.cache_read_tokens ?? 0) / total) * 100
+  if (percent >= 99.95 && percent < 100) return '99.9%'
+  return `${percent.toFixed(1)}%`
 }
 
 import DataTable from '@/components/common/DataTable.vue'
