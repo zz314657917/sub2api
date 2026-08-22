@@ -2710,6 +2710,7 @@ func (s *OpenAIGatewayService) handleFailoverSideEffects(ctx context.Context, re
 // Forward forwards request to OpenAI API
 func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, account *Account, body []byte) (*OpenAIForwardResult, error) {
 	startTime := time.Now()
+	clearOpenAIResponsesClientToolMapping(c)
 
 	restrictionResult := s.detectCodexClientRestriction(c, account)
 	apiKeyID := getAPIKeyIDFromContext(c)
@@ -3667,6 +3668,77 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}
 }
 
+const openAIResponsesClientToolMappingContextKey = "openai_responses_client_tool_mapping"
+
+func hasOpenAIResponsesClientToolMapping(mapping apicompat.ResponsesClientToolMapping) bool {
+	return len(mapping.CustomTools) > 0
+}
+
+func openAIResponsesClientToolMapping(c *gin.Context) (apicompat.ResponsesClientToolMapping, bool) {
+	if c == nil {
+		return apicompat.ResponsesClientToolMapping{}, false
+	}
+	value, ok := c.Get(openAIResponsesClientToolMappingContextKey)
+	mapping, typed := value.(apicompat.ResponsesClientToolMapping)
+	return mapping, ok && typed && hasOpenAIResponsesClientToolMapping(mapping)
+}
+
+func setOpenAIResponsesClientToolMapping(c *gin.Context, mapping apicompat.ResponsesClientToolMapping) {
+	if c == nil {
+		return
+	}
+	if !hasOpenAIResponsesClientToolMapping(mapping) {
+		clearOpenAIResponsesClientToolMapping(c)
+		return
+	}
+	c.Set(openAIResponsesClientToolMappingContextKey, mapping)
+}
+
+// clearOpenAIResponsesClientToolMapping removes state from a prior forwarding
+// attempt. The same Gin context can be reused when the scheduler fails over an
+// account before any client-visible output is written.
+func clearOpenAIResponsesClientToolMapping(c *gin.Context) {
+	if c == nil {
+		return
+	}
+	if _, exists := c.Get(openAIResponsesClientToolMappingContextKey); exists {
+		c.Set(openAIResponsesClientToolMappingContextKey, apicompat.ResponsesClientToolMapping{})
+	}
+}
+
+func adaptOpenAIResponsesClientTools(body []byte) ([]byte, apicompat.ResponsesClientToolMapping, error) {
+	if !needsOpenAIResponsesClientToolAdaptation(body) {
+		return body, apicompat.ResponsesClientToolMapping{}, nil
+	}
+	adapted, mapping, err := adaptResponsesClientToolsForFunctionUpstream(body, "OpenAI")
+	if err != nil {
+		return body, apicompat.ResponsesClientToolMapping{}, err
+	}
+	return adapted, mapping, nil
+}
+
+func needsOpenAIResponsesClientToolAdaptation(body []byte) bool {
+	var visit func(gjson.Result) bool
+	visit = func(value gjson.Result) bool {
+		if value.IsObject() && strings.TrimSpace(value.Get("type").String()) == "custom" {
+			return true
+		}
+		if value.IsObject() || value.IsArray() {
+			found := false
+			value.ForEach(func(_, child gjson.Result) bool {
+				if visit(child) {
+					found = true
+					return false
+				}
+				return true
+			})
+			return found
+		}
+		return false
+	}
+	return visit(gjson.ParseBytes(body))
+}
+
 func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 	ctx context.Context,
 	c *gin.Context,
@@ -3677,7 +3749,9 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 	reqStream bool,
 	startTime time.Time,
 ) (*OpenAIForwardResult, error) {
+	clearOpenAIResponsesClientToolMapping(c)
 	upstreamPassthroughModel := ""
+	var clientToolMapping apicompat.ResponsesClientToolMapping
 	if isOpenAIResponsesCompactPath(c) {
 		compactMappedModel := resolveOpenAICompactForwardModel(account, reqModel)
 		if compactMappedModel != "" && compactMappedModel != reqModel {
@@ -3688,6 +3762,14 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 			body = nextBody
 			upstreamPassthroughModel = compactMappedModel
 		}
+	}
+	if account != nil && account.Platform == PlatformOpenAI && account.Type == AccountTypeAPIKey && !isOpenAIResponsesCompactPath(c) {
+		adaptedBody, mapping, adaptErr := adaptOpenAIResponsesClientTools(body)
+		if adaptErr != nil {
+			return nil, adaptErr
+		}
+		body = adaptedBody
+		clientToolMapping = mapping
 	}
 
 	if account != nil && account.Type == AccountTypeOAuth {
@@ -3844,6 +3926,8 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 	agentTaskRecoveryTried := false
 	var resp *http.Response
 	for {
+		clearOpenAIResponsesClientToolMapping(c)
+		setOpenAIResponsesClientToolMapping(c, clientToolMapping)
 		upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
 		upstreamReq, buildErr := s.buildUpstreamRequestOpenAIPassthrough(upstreamCtx, c, account, body, token)
 		releaseUpstreamCtx()
@@ -4541,6 +4625,9 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 	if s.cfg != nil && s.cfg.Gateway.MaxLineSize > 0 {
 		maxLineSize = s.cfg.Gateway.MaxLineSize
 	}
+	if mapping, ok := openAIResponsesClientToolMapping(c); ok {
+		resp.Body = newResponsesClientToolStreamBody(resp.Body, mapping, maxLineSize)
+	}
 	scanBuf := getSSEScannerBuf64K()
 	scanner.Buffer(scanBuf[:0], maxLineSize)
 	defer putSSEScannerBuf64K(scanBuf)
@@ -4738,6 +4825,13 @@ func (s *OpenAIGatewayService) handleNonStreamingResponsePassthrough(
 	if normalized, changed := normalizeOpenAIResponsesCustomToolNamespaces(body); changed {
 		body = normalized
 	}
+	if mapping, ok := openAIResponsesClientToolMapping(c); ok && json.Valid(body) {
+		restored, _, restoreErr := apicompat.RestoreResponsesClientToolPayload(body, mapping)
+		if restoreErr != nil {
+			return nil, fmt.Errorf("restore OpenAI Responses client tools: %w", restoreErr)
+		}
+		body = restored
+	}
 	if !writeOpenAICompactSSEBridge(c, resp.StatusCode, body) {
 		c.Data(resp.StatusCode, contentType, body)
 	}
@@ -4780,6 +4874,13 @@ func (s *OpenAIGatewayService) handlePassthroughSSEToJSON(resp *http.Response, c
 		}
 		// Correct tool calls in final response
 		body = s.correctToolCallsInResponseBody(body)
+		if mapping, ok := openAIResponsesClientToolMapping(c); ok && json.Valid(body) {
+			restored, _, restoreErr := apicompat.RestoreResponsesClientToolPayload(body, mapping)
+			if restoreErr != nil {
+				return nil, fmt.Errorf("restore OpenAI Responses client tools: %w", restoreErr)
+			}
+			body = restored
+		}
 	} else {
 		terminalType, terminalPayload, terminalOK := extractOpenAISSETerminalEvent(bodyText)
 		if terminalOK && terminalType == "response.failed" {
