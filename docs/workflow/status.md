@@ -1,15 +1,145 @@
 ---
-phase: contract-approved
-current_sprint: upstream-v178-ui-polish-s234
-total_sprints: 234
-pending_action: Retry S234 in an authorized frontend dependency environment; no business commit or push is authorized.
+phase: done
+current_sprint: upstream-openai-empty-tool-name-s239-a
+total_sprints: 239
+pending_action: Review the next upstream candidate/history; S239-A is integrated locally and no push is authorized.
 project_type: fullstack
 qa_mode: runtime
-approval_required: false
-last_verified: 2026-08-19 00:52 +08:00
+approval_required: true
+last_verified: 2026-08-22 12:20 +08:00
 ---
 
+# Upstream CN Account Test Routing S237-A
+
+- `contract-approved`: selectively adapt upstream fixed-protocol CN account
+  connection-test routing at frozen `main@e191ebc5d`. Chat Completions,
+  Anthropic, and DeepSeek Responses probes must use their configured native
+  URL/key/model semantics; the current CN fallthrough to the generic Claude
+  tester and its `api.anthropic.com` default is forbidden.
+- Scope is limited to the account-test dispatcher, one CN protocol owner, its
+  focused tests, and workflow evidence. Adaptive, gateway forwarding, account
+  schema, frontend, migrations, dependencies, containers, databases, provider
+  traffic, deployment, push, and all existing dirty/untracked paths are denied.
+- Contract:
+  `docs/workflow/tasks/upstream-cn-account-test-routing-s237-a.md`.
+- `BLOCKED / developer-dispatch`: a zero-tool availability probe for the
+  required `gpt-5.6-terra` returned API 404 before inference with 0 input/output
+  tokens and zero cost. No S237-A worktree or business change was created;
+  Agent Matrix forbids silent model fallback.
+- `BLOCKED / native-worker-dispatch`: the same required model was attempted via
+  the native collaboration Worker and returned `403 NO_MATCHING_GROUP_ROUTE`
+  before inference. The temporary clean E-drive worktree and `pge/*` branch
+  were removed after confirming `HEAD=e191ebc5d` and zero business diff.
+- `contract-amendment`: main advanced to `4e59289ec` after the initial draft via
+  the Seedream image/tutorial commit. The affected account-test owners have no
+  diff between `e191ebc5d` and `4e59289ec`; the frozen base and worktree were
+  refreshed to `4e59289ec` before Developer dispatch.
+- `build / controller-review-pass`: Controller completed the fixed-protocol
+  owner after the Terra Developer hit two `429` retry-limit failures. Business
+  commit `53e80223c` and evidence commit `ec6e3091f` pass focused CN/DeepSeek
+  x10, full service, server compile, format, diff, scope, and provenance gates.
+- `PASS / independent-qa`: QA worktree based on `53e80223c` independently
+  passed focused CN/DeepSeek x10, complete service, server compile, format,
+  scope, provenance, conflict/index, and fake-upstream gates. Report:
+  `docs/workflow/qa-reports/upstream-cn-account-test-routing-s237-a-qa.md`.
+- `PASS / main-integration`: business `87b96d25f`, Controller evidence
+  `79806bd30`, and QA evidence `7bfeae6a8` were cherry-picked in order onto
+  `main@7bfeae6a8`. Fresh mainline focused, complete service, server compile,
+  format, diff, scope, provenance, conflict/index, and protected-main checks
+  passed; no push or deployment occurred.
+
+# Upstream OpenAI Empty Capabilities S238-A
+
+- `build / controller-review-pass`: business `bd86e3464` and result `1a03186d7`
+  pass the focused/full/server/gofmt/scope/provenance gates; independent QA is
+  required before integration.
+- `contract-approved`: selectively adapt upstream `40c26f343` onto local
+  `main@7bfeae6a8`. Empty OpenAI endpoint capability containers must behave as
+  unset, while non-empty explicit deny maps and malformed values remain
+  restrictive.
+- Scope is limited to `account.go`, the existing OpenAI capability test file,
+  and one worker result report. Schema, gateway, frontend, dependencies,
+  migrations, provider traffic, deployment, push, and all existing dirty or
+  untracked paths remain denied.
+- Contract: `docs/workflow/tasks/upstream-openai-empty-capabilities-s238-a.md`.
+- `contract-amendment`: independent QA is allowed to add only
+  `docs/workflow/qa-reports/upstream-openai-empty-capabilities-s238-a-qa.md` in
+  its separate worktree; no product scope changes.
+- `PASS / independent-qa`: QA worktree based on `1a03186d7` passed focused
+  x10, complete service, server compile, gofmt, diff/index, conflict, scope,
+  and provenance gates. Report commit: `0a0e0abb9`.
+- `PASS / main-integration`: business `8b6a6e937`, Controller evidence
+  `60507d82c`, and independent QA evidence `f04104623` are integrated on
+  `main`. The combined-worktree focused capability test passed x10; the
+  APIMart user changes remained unstaged and untouched. No push, provider,
+  database, container, or deployment operation occurred.
+
+# Upstream OpenAI Empty Streamed Tool Name S239-A
+
+- `contract-draft`: scope only the upstream `f646a1f97` streamed arguments
+  delta serialization fix to local `apicompat/types.go` plus one focused test.
+  The first-parent diff applies cleanly; all other gateway, frontend, schema,
+  dependency, provider, database, deployment, push, and dirty paths remain
+  denied.
+- Contract: `docs/workflow/tasks/upstream-openai-empty-tool-name-s239-a.md`.
+- `contract-review`: PASS. Source ancestry, first-parent patch applicability,
+  exact product/test allowlist, focused/default-tag commands, no dirty-path
+  overlap, and provider/database/deployment/push stop rules were reviewed.
+- `controller-review-pass`: Developer business `fcd7f71e8` and result report
+  `3cfb2360a` contain only the approved paths; focused x10, complete
+  `apicompat`, server compile, gofmt, diff, scope, conflict/index, and
+  provenance gates passed. Independent QA is required.
+- `PASS / independent-qa`: QA report `cf82c597b` independently passed
+  focused x10, complete `apicompat`, server compile-only, gofmt, diff,
+  scope, provenance, conflict/index, and protected-main checks. The QA report
+  records that the ignored contract was absent from its base; the contract is
+  now force-added to main as workflow evidence.
+- `PASS / main-integration`: business `948a330ed`, Developer evidence
+  `dea98d5da`, QA evidence `a619cfb80`, and contract evidence `236542909` are
+  integrated on `main`. Fresh main focused x10, complete `apicompat`, server
+  compile-only, gofmt, diff, scope, provenance, conflict/index, and protected
+  dirty-state checks passed. No push, provider, database, deployment,
+  container, or shared-state operation occurred.
+
 # Upstream Gemini Skipped Error Policy S231
+
+# Pixel Cafe Room Plan S236
+
+- `contract-approved`: complete the missing Room-plan configuration path in the
+  existing embedded admin group-buy editor. The Pixel Cafe schema and activation
+  code already persist/use fulfillment mode, managed-key quota/limits, and
+  `auto_create_room_key`; this Sprint only exposes and validates that existing
+  contract at the service/API/UI boundary.
+- Room plans must use an active subscription group with `access_mode =
+  room_managed`, one full-range tier, automatic managed-key creation, and no
+  ordinary manual/automatic group-buy round creation. Ordinary plans remain
+  flexible aggregate-tier plans and remain visible to the ordinary group-buy
+  flow.
+- Contract: `docs/workflow/tasks/pixel-cafe-room-plan-s236.md`.
+- `contract-amendment`: inspection found the persisted `groups.access_mode`
+  field is not exposed by the admin group API or group editor. S236 therefore
+  includes the minimal group DTO/write/UI path required to deliberately create
+  an eligible `room_managed` subscription group; no schema/data change is added.
+- `build`: QA found that an existing ordinary plan could be switched to Room
+  mode after it already had ordinary rounds. S236 now rejects that conversion,
+  and also rejects changing a Room plan with an existing cafe room back to an
+  ordinary plan. The plan row is locked through the related-record check and
+  update; room create/update transactions now lock and recheck the same plan
+  before writing a room, preserving the immutable lifecycle boundary under
+  concurrent room/round creation.
+- `fix`: independent QA verified the final plan/room locking tests, but rejected
+  the first QA gate because the task contract omitted the necessary
+  `api_key_repo.go` `AccessMode` hydration path and the stale frontend dependency
+  tree prevented Vitest from starting. The contract now explicitly permits the
+  mapper-only change; restore dependencies strictly from `pnpm-lock.yaml`, then
+  rerun focused frontend checks and the final browser flow before retest.
+- `PASS / independent-qa`: the revised contract, plan/room concurrency controls,
+  SQL lock regression, backend focused checks, frontend Vitest 9/9, typecheck,
+  production build, and scope review passed. Browser evidence submitted a fully
+  intercepted Room-plan payload with target group and managed-key policy; all
+  task-owned browser and Vite processes were cleaned. Reports:
+  `docs/workflow/worker-results/pixel-cafe-room-plan-s236-result.md` and
+  `docs/workflow/qa-reports/pixel-cafe-room-plan-s236-qa.md`.
 
 # Upstream Gemini Typed Tool Config S232
 
