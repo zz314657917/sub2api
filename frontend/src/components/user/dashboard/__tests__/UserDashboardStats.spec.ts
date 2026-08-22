@@ -20,6 +20,9 @@ vi.mock('vue-i18n', () => ({
         'dashboard.overview.userRetentionNote': 'Total requests are lifetime accumulated',
         'dashboard.overview.failureRateNote': 'Failure stats are not returned by the current API',
         'dashboard.overview.averageRequestCostNote': 'Calculated as total spend / total requests',
+        'dashboard.input': 'Input',
+        'dashboard.output': 'Output',
+        'dashboard.cache': 'Cache',
       }
       return messages[key] ?? key
     },
@@ -86,6 +89,10 @@ describe('UserDashboardStats', () => {
         stats: makeStats({
           total_requests: 100,
           total_tokens: 2500000,
+          total_input_tokens: 1200000,
+          total_output_tokens: 1000000,
+          total_cache_creation_tokens: 100000,
+          total_cache_read_tokens: 200000,
           total_actual_cost: 12.5,
           today_cost: 0.48,
           today_actual_cost: 0.42,
@@ -102,6 +109,10 @@ describe('UserDashboardStats', () => {
       notation: 'compact',
       maximumFractionDigits: 1,
     }).format(2500000)
+    const formatCompact = (value: number) => new Intl.NumberFormat(undefined, {
+      notation: 'compact',
+      maximumFractionDigits: value >= 1000 ? 1 : 0,
+    }).format(value)
 
     expect(wrapper.text()).toContain('✪ 12.50')
     expect(wrapper.text()).toContain(expectedCompactTokens)
@@ -109,6 +120,9 @@ describe('UserDashboardStats', () => {
     expect(wrapper.text()).toContain('0%')
     expect(wrapper.text()).toContain('✪ 0.125')
     expect(wrapper.text()).toContain('2/3 API keys active')
+    expect(wrapper.text()).toContain(
+      `Input: ${formatCompact(1200000)} / Output: ${formatCompact(1000000)} / Cache: ${formatCompact(300000)}`
+    )
     expect(wrapper.text()).toContain('Failure stats are not returned by the current API')
   })
 

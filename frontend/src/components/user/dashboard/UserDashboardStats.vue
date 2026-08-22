@@ -68,6 +68,10 @@ const activeApiKeyNote = computed(() =>
   })
 )
 
+const tokenBreakdownNote = computed(() =>
+  `${activeApiKeyNote.value} · ${t('dashboard.input')}: ${formatCompact(props.stats.total_input_tokens || 0)} / ${t('dashboard.output')}: ${formatCompact(props.stats.total_output_tokens || 0)} / ${t('dashboard.cache')}: ${formatCompact((props.stats.total_cache_creation_tokens || 0) + (props.stats.total_cache_read_tokens || 0))}`
+)
+
 const statCards = computed<Array<{
   key: string
   label: string
@@ -99,7 +103,7 @@ const statCards = computed<Array<{
     trend: successTrend.value,
     trendClass: 'dashboard-stat-trend--positive',
     trendIcon: 'trendingUp',
-    note: activeApiKeyNote.value,
+    note: tokenBreakdownNote.value,
   },
   {
     key: 'total-requests',

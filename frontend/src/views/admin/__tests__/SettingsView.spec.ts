@@ -219,6 +219,44 @@ vi.mock("vue-i18n", async () => {
     "admin.settings.features.leaderboardDailyReward.lotteryAmount": "抽奖金额",
     "admin.settings.features.leaderboardDailyReward.lotteryCron": "开奖 Cron",
     "admin.settings.features.leaderboardDailyReward.lotteryCronHint": "按服务端时区解释，例如 0 12 * * 4 表示每周四 12:00。",
+    "admin.settings.openaiExperimentalScheduler.lowRatePriorityTitle": "低倍率优先",
+    "admin.settings.openaiExperimentalScheduler.lowRatePriorityDescription": "开启后优先选择计费倍率较低的账号；倍率相同时，再比较账号优先级和当前负载等。启用实验调度策略后，此开关不生效。",
+    "admin.settings.openaiExperimentalScheduler.oauthRateTitle": "OAuth 调度参考倍率",
+    "admin.settings.openaiExperimentalScheduler.oauthRatePriorityDescription": "同一分组同时包含 API Key 和 OAuth 账号时，OAuth 账号按此倍率与已探测的 API Key 计费倍率一起排序。",
+    "admin.settings.openaiExperimentalScheduler.oauthRateWeightedDescription": "同一分组同时包含 API Key 和 OAuth 账号时，计算“计费倍率”得分时，OAuth 账号按此倍率参与计算。",
+    "admin.settings.openaiExperimentalScheduler.stickyWeightedTitle": "粘性加权",
+    "admin.settings.openaiExperimentalScheduler.stickyWeightedDescription": "开启后 previous_response_id 和 session_hash 粘性进入高级调度打分；关闭时仍按旧逻辑硬命中粘性账号。",
+    "admin.settings.openaiExperimentalScheduler.subscriptionPriorityTitle": "订阅优先",
+    "admin.settings.openaiExperimentalScheduler.subscriptionPriorityDescription": "开启后先在 ChatGPT 订阅账号池中按权值选取；订阅池拿不到席位时再回退到非订阅账号池。",
+    "admin.settings.openaiExperimentalScheduler.weightsTitle": "调度权值覆盖",
+    "admin.settings.openaiExperimentalScheduler.weightsDescription": "留空时使用配置/环境变量值；配置未设置时使用内置默认值。页面非空设置优先。",
+    "admin.settings.openaiExperimentalScheduler.defaultPlaceholder": "配置/默认：{value}",
+    "admin.settings.openaiExperimentalScheduler.topKLabel": "TopK",
+    "admin.settings.openaiExperimentalScheduler.priorityWeight": "优先级",
+    "admin.settings.openaiExperimentalScheduler.loadWeight": "负载",
+    "admin.settings.openaiExperimentalScheduler.queueWeight": "排队",
+    "admin.settings.openaiExperimentalScheduler.errorRateWeight": "错误率",
+    "admin.settings.openaiExperimentalScheduler.ttftWeight": "首包延迟",
+    "admin.settings.openaiExperimentalScheduler.resetWeight": "重置窗口",
+    "admin.settings.openaiExperimentalScheduler.quotaHeadroomWeight": "额度余量",
+    "admin.settings.openaiExperimentalScheduler.upstreamCostWeight": "计费倍率",
+    "admin.settings.openaiExperimentalScheduler.previousResponseWeight": "previous_response 粘性",
+    "admin.settings.openaiExperimentalScheduler.sessionStickyWeight": "session_hash 粘性",
+    "admin.settings.upstreamBillingProbe.title": "上游倍率自动探测",
+    "admin.settings.upstreamBillingProbe.description": "定期获取 OpenAI API Key 所连接上游 Sub2API 站点声明的计费倍率。",
+    "admin.settings.upstreamBillingProbe.enabled": "启用全局自动探测",
+    "admin.settings.upstreamBillingProbe.enabledHint": "开启后，仅对账号自身已启用自动检测的账号执行定时探测。",
+    "admin.settings.upstreamBillingProbe.intervalMinutes": "探测周期（分钟）",
+    "admin.settings.upstreamBillingProbe.intervalHint": "范围 5–1440 分钟。",
+    "admin.settings.upstreamBillingProbe.saved": "上游倍率自动探测设置已保存",
+    "admin.settings.upstreamBillingProbe.saveFailed": "保存上游倍率自动探测设置失败",
+    "admin.settings.openaiFastPolicy.summaryTargetModels": "目标模型",
+    "admin.settings.openaiFastPolicy.summaryAllModels": "全部模型",
+    "admin.settings.openaiFastPolicy.summaryOtherModels": "其他模型",
+    "admin.settings.openaiFastPolicy.summaryAction.filter": "过滤",
+    "admin.settings.openaiFastPolicy.summaryAction.pass": "透传",
+    "admin.settings.security.passkeyDeploymentHint":
+      "请由服务器运维在部署配置中将 webauthn.enabled 设为 true，填写 webauthn.rp_id（仅域名）与 webauthn.rp_origins（完整 HTTPS 来源），然后重启服务。",
     "admin.settings.site.uploadImage": "上传图片",
     "admin.settings.site.remove": "移除",
   };
@@ -597,6 +635,16 @@ async function openFeaturesTab(wrapper: ReturnType<typeof mountView>) {
 
   expect(featuresTabButton).toBeDefined();
   await featuresTabButton?.trigger("click");
+  await flushPromises();
+}
+
+async function openGatewayTab(wrapper: ReturnType<typeof mountView>) {
+  const gatewayTabButton = wrapper
+    .findAll("button")
+    .find((node) => node.text().includes("admin.settings.tabs.gateway"));
+
+  expect(gatewayTabButton).toBeDefined();
+  await gatewayTabButton?.trigger("click");
   await flushPromises();
 }
 
@@ -1358,6 +1406,7 @@ describe("admin SettingsView payment visible method controls", () => {
       },
     ]);
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+
     const wrapper = mountView();
 
     await flushPromises();
@@ -1386,6 +1435,43 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(backfillDefaultKeyFallback).toHaveBeenCalledTimes(1);
     expect(showSuccess).toHaveBeenCalledWith("已补齐 3 个未分组默认 API Key。");
     confirmSpy.mockRestore();
+  });
+
+  it("summarizes target and other-model actions, then switches to all models", async () => {
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse,
+      openai_fast_policy_settings: {
+        rules: [
+          {
+            service_tier: "all",
+            action: "filter",
+            scope: "all",
+            model_whitelist: ["gpt-5.6-sol"],
+            fallback_action: "pass",
+          },
+        ],
+      },
+    });
+    const wrapper = mountView();
+
+    await flushPromises();
+    await openGatewayTab(wrapper);
+
+    const summary = wrapper.get('[data-testid="openai-fast-policy-summary-0"]');
+    expect(summary.text()).toContain("目标模型");
+    expect(summary.text()).toContain("过滤");
+    expect(summary.text()).toContain("其他模型");
+    expect(summary.text()).toContain("透传");
+
+    await wrapper
+      .get(
+        '[role="group"][aria-labelledby="openai-fast-policy-models-label-0"] input[type="text"]',
+      )
+      .setValue("");
+    expect(summary.text()).toContain("全部模型");
+    expect(summary.text()).toContain("过滤");
+    expect(summary.text()).not.toContain("其他模型");
+    expect(summary.text()).not.toContain("透传");
   });
 
   it("passes translated upload and remove labels to the payment help image uploader", async () => {
