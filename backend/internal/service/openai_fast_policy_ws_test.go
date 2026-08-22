@@ -401,6 +401,7 @@ func TestBuildOpenAIFastPolicyBlockedWSEvent_NilSafe(t *testing.T) {
 // only filters reads).
 type fakePassthroughFrameConn struct {
 	reads     [][]byte
+	readTypes []coderws.MessageType
 	idx       int
 	writes    [][]byte
 	closeOnce bool
@@ -411,8 +412,12 @@ func (f *fakePassthroughFrameConn) ReadFrame(ctx context.Context) (coderws.Messa
 		return coderws.MessageText, nil, errOpenAIWSConnClosed
 	}
 	payload := f.reads[f.idx]
+	msgType := coderws.MessageText
+	if f.idx < len(f.readTypes) {
+		msgType = f.readTypes[f.idx]
+	}
 	f.idx++
-	return coderws.MessageText, payload, nil
+	return msgType, payload, nil
 }
 
 func (f *fakePassthroughFrameConn) WriteFrame(ctx context.Context, msgType coderws.MessageType, payload []byte) error {
@@ -936,6 +941,36 @@ func TestPolicyEnforcingFrameConn_SessionUpdateRotatesCapturedModel(t *testing.T
 	require.NoError(t, err)
 	require.NotContains(t, string(payload3), `"service_tier"`,
 		"fix1: post-rotate response.create without model must use refreshed capturedSessionModel and trigger filter")
+}
+
+func TestPolicyEnforcingFrameConn_BinaryResponseCreateUsesPolicyAndHook(t *testing.T) {
+	svc := newOpenAIGatewayServiceWithSettings(t, gpt55WhitelistFastPolicy())
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	payload := []byte(`{"type":"response.create","model":"gpt-5.5","service_tier":"priority"}`)
+	inner := &fakePassthroughFrameConn{
+		reads:     [][]byte{payload},
+		readTypes: []coderws.MessageType{coderws.MessageBinary},
+	}
+	hookCalled := false
+	wrapper := &openAIWSPolicyEnforcingFrameConn{
+		inner: inner,
+		filter: func(msgType coderws.MessageType, body []byte) ([]byte, *OpenAIFastBlockedError, error) {
+			if msgType != coderws.MessageText && msgType != coderws.MessageBinary {
+				return body, nil, nil
+			}
+			if strings.TrimSpace(gjson.GetBytes(body, "type").String()) == "response.create" {
+				hookCalled = true
+			}
+			model := openAIWSPassthroughPolicyModelForFrame(account, body)
+			return svc.applyOpenAIFastPolicyToWSResponseCreate(context.Background(), account, model, body)
+		},
+	}
+
+	msgType, filtered, err := wrapper.ReadFrame(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, coderws.MessageBinary, msgType)
+	require.True(t, hookCalled, "binary response.create must enter the same request hook path")
+	require.NotContains(t, string(filtered), `"service_tier"`, "binary response.create must receive the fast policy filter")
 }
 
 // TestPolicyModelFromSessionFrame_OnlySessionUpdate covers the negative

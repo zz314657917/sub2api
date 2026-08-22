@@ -1340,10 +1340,10 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PassthroughImage
 
 	serverErrCh := make(chan error, 1)
 	resultCh := make(chan *OpenAIForwardResult, 2)
-	beforeRequestPayloadCh := make(chan []byte, 1)
+	beforeRequestPayloadCh := make(chan []byte, 4)
 	hooks := &OpenAIWSIngressHooks{
-		BeforeRequest: func(turn int, payload []byte, _ string) error {
-			if turn == 2 {
+		BeforeRequest: func(_ int, payload []byte, _ string) error {
+			if strings.TrimSpace(gjson.GetBytes(payload, "type").String()) == "response.create" {
 				beforeRequestPayloadCh <- append([]byte(nil), payload...)
 			}
 			return nil
@@ -1425,9 +1425,9 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PassthroughImage
 	cancelWrite()
 	require.NoError(t, err)
 
-	cancelFrame := []byte(`{"type":"response.cancel","marker":"cancel-unchanged"}`)
+	cancelFrame := []byte(`{"type":"response.cancel","marker":"cancel-unchanged","tools":[{"type":"namespace","name":"image_gen"}]}`)
 	writeCtx, cancelWrite = context.WithTimeout(context.Background(), 3*time.Second)
-	err = clientConn.Write(writeCtx, coderws.MessageText, cancelFrame)
+	err = clientConn.Write(writeCtx, coderws.MessageBinary, cancelFrame)
 	cancelWrite()
 	require.NoError(t, err)
 
@@ -1470,13 +1470,25 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PassthroughImage
 			t.Fatalf("未收到 passthrough turn result: %s", wantID)
 		}
 	}
-	select {
-	case hookedPayload := <-beforeRequestPayloadCh:
-		require.False(t, IsImageGenerationIntent(openAIResponsesEndpoint, "", hookedPayload))
-		require.Equal(t, "second", gjson.GetBytes(hookedPayload, "input.0.content").String())
-	case <-time.After(2 * time.Second):
-		t.Fatal("未收到 second-turn BeforeRequest payload")
+	var binaryHookPayload, secondHookPayload []byte
+	for i := 0; i < 2; i++ {
+		select {
+		case hookedPayload := <-beforeRequestPayloadCh:
+			switch {
+			case gjson.GetBytes(hookedPayload, "marker").String() == "binary-unchanged":
+				binaryHookPayload = hookedPayload
+			case gjson.GetBytes(hookedPayload, "input.0.content").String() == "second":
+				secondHookPayload = hookedPayload
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatal("未收到预期的二进制/第二文本 response.create BeforeRequest payload")
+		}
 	}
+	require.NotEmpty(t, binaryHookPayload, "binary response.create must enter BeforeRequest")
+	require.False(t, IsImageGenerationIntent(openAIResponsesEndpoint, "", binaryHookPayload))
+	require.NotEmpty(t, secondHookPayload, "second text response.create must enter BeforeRequest")
+	require.False(t, IsImageGenerationIntent(openAIResponsesEndpoint, "", secondHookPayload))
+	require.Equal(t, "second", gjson.GetBytes(secondHookPayload, "input.0.content").String())
 
 	require.Equal(t, 1, captureDialer.DialCount())
 	require.Len(t, upstreamConn.writes, 4)
@@ -1490,10 +1502,13 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PassthroughImage
 
 	binaryUpstream := requestToJSONString(upstreamConn.writes[1])
 	require.Equal(t, "binary-unchanged", gjson.Get(binaryUpstream, "marker").String())
-	require.True(t, gjson.Get(binaryUpstream, `tools.#(name=="image_gen")`).Exists())
+	require.False(t, IsImageGenerationIntent(openAIResponsesEndpoint, "", []byte(binaryUpstream)),
+		"binary response.create must receive the same image-tool policy as text")
 	cancelUpstream := requestToJSONString(upstreamConn.writes[2])
 	require.Equal(t, "response.cancel", gjson.Get(cancelUpstream, "type").String())
 	require.Equal(t, "cancel-unchanged", gjson.Get(cancelUpstream, "marker").String())
+	require.Equal(t, "image_gen", gjson.Get(cancelUpstream, "tools.0.name").String(),
+		"binary non-response.create frames must remain byte-transparent")
 	secondUpstream := requestToJSONString(upstreamConn.writes[3])
 	require.False(t, IsImageGenerationIntent(openAIResponsesEndpoint, "", []byte(secondUpstream)))
 	require.True(t, gjson.Get(secondUpstream, `tools.#(name=="shell")`).Exists())
