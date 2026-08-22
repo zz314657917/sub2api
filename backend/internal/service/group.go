@@ -15,6 +15,11 @@ import (
 type OpenAIMessagesDispatchModelConfig = domain.OpenAIMessagesDispatchModelConfig
 type GroupModelsListConfig = domain.GroupModelsListConfig
 
+const (
+	GroupAccessModeNormal      = "normal"
+	GroupAccessModeRoomManaged = "room_managed"
+)
+
 type Group struct {
 	ID             int64
 	Name           string
@@ -29,6 +34,7 @@ type Group struct {
 	PeakRateMultiplier float64
 	IsExclusive        bool
 	Status             string
+	AccessMode         string
 	Hydrated           bool // indicates the group was loaded from a trusted repository source
 	// DuplicateOperationID is internal persistence metadata used only to recover
 	// an already committed one-click copy. It must never be mapped to API DTOs.

@@ -98,6 +98,7 @@ type Group struct {
 	RateMultiplier float64 `json:"rate_multiplier"`
 	IsExclusive    bool    `json:"is_exclusive"`
 	Status         string  `json:"status"`
+	AccessMode     string  `json:"access_mode"`
 
 	SubscriptionType          string   `json:"subscription_type"`
 	RoutingScope              string   `json:"routing_scope"`

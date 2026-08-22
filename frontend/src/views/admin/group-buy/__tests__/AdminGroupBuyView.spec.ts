@@ -5,6 +5,7 @@ import AdminGroupBuyView from '../AdminGroupBuyView.vue'
 
 const {
   listPlans,
+  createPlan,
   listRounds,
   listRoundSeats,
   processRefunds,
@@ -14,6 +15,7 @@ const {
   showSuccess,
 } = vi.hoisted(() => ({
   listPlans: vi.fn(),
+  createPlan: vi.fn(),
   listRounds: vi.fn(),
   listRoundSeats: vi.fn(),
   processRefunds: vi.fn(),
@@ -25,7 +27,7 @@ const {
 
 vi.mock('@/api/admin', () => ({
   adminAPI: {
-    groupBuy: { listPlans, listRounds, listRoundSeats, processRefunds, updatePlan },
+    groupBuy: { listPlans, createPlan, listRounds, listRoundSeats, processRefunds, updatePlan },
     groups: { getAll },
   },
 }))
@@ -58,6 +60,12 @@ describe('AdminGroupBuyView', () => {
       quota_label: '50 USD/月',
       max_shares_per_user: 10,
       target_group_id: 7,
+      fulfillment_mode: 'aggregate_tier',
+      room_key_quota_usd: 0,
+      room_key_rate_limit_5h: 0,
+      room_key_rate_limit_1d: 0,
+      room_key_rate_limit_7d: 0,
+      auto_create_room_key: false,
       tier_group_ids: { '1': 7 },
       tier_groups: [],
       tier_rules: [{ min_shares: 1, max_shares: 10, target_group_id: 7, label: '默认' }],
@@ -106,8 +114,9 @@ describe('AdminGroupBuyView', () => {
       updated_at: '',
     }] })
     processRefunds.mockReset().mockResolvedValue({ data: { processed: 1, succeeded: 1, pending: 0, failed: 0, failures: [] } })
+    createPlan.mockReset().mockResolvedValue({ data: {} })
     updatePlan.mockReset().mockResolvedValue({ data: {} })
-    getAll.mockReset().mockResolvedValue([{ id: 7, name: '订阅组', status: 'active', subscription_type: 'subscription', platform: 'openai' }])
+    getAll.mockReset().mockResolvedValue([{ id: 7, name: '订阅组', status: 'active', subscription_type: 'subscription', access_mode: 'normal', platform: 'openai' }])
     showError.mockReset()
     showSuccess.mockReset()
   })
@@ -210,6 +219,61 @@ describe('AdminGroupBuyView', () => {
 
     expect(wrapper.find('[data-testid="group-buy-layout"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('拼团计划')
+    wrapper.unmount()
+  })
+
+  it('submits a Room plan with the managed group and key policy', async () => {
+    getAll.mockResolvedValue([
+      { id: 7, name: '普通订阅组', status: 'active', subscription_type: 'subscription', access_mode: 'normal', platform: 'openai' },
+      { id: 19, name: '网吧托管组', status: 'active', subscription_type: 'subscription', access_mode: 'room_managed', platform: 'openai' },
+    ])
+    const wrapper = mount(AdminGroupBuyView, {
+      props: { embedded: true },
+      global: { stubs: { Icon: { template: '<span />' } } },
+    })
+    await flushPromises()
+
+    const createButton = wrapper.findAll('button').find((button) => button.text().includes('新建拼团'))
+    await createButton!.trigger('click')
+    await flushPromises()
+
+    const modal = document.body.querySelector<HTMLElement>('.admin-group-buy-modal')!
+    const mode = Array.from(modal.querySelectorAll<HTMLSelectElement>('select')).find((select) =>
+      Array.from(select.options).some((option) => option.value === 'room_subscription'),
+    )!
+    mode.value = 'room_subscription'
+    mode.dispatchEvent(new Event('change', { bubbles: true }))
+    await flushPromises()
+
+    const title = modal.querySelector<HTMLInputElement>('input')!
+    title.value = 'A 区四人房'
+    title.dispatchEvent(new Event('input', { bubbles: true }))
+    const priceLabel = Array.from(modal.querySelectorAll('label')).find((label) => label.textContent?.includes('单份价格'))!
+    const price = priceLabel.querySelector<HTMLInputElement>('input')!
+    price.value = '12'
+    price.dispatchEvent(new Event('input', { bubbles: true }))
+    const groupSelect = Array.from(modal.querySelectorAll<HTMLSelectElement>('select')).find((select) =>
+      Array.from(select.options).some((option) => option.value === '19'),
+    )!
+    groupSelect.value = '19'
+    groupSelect.dispatchEvent(new Event('change', { bubbles: true }))
+    expect(title.value).toBe('A 区四人房')
+    expect(price.value).toBe('12')
+    expect(groupSelect.value).toBe('19')
+    expect(mode.value).toBe('room_subscription')
+    await flushPromises()
+
+    const saveButton = Array.from(modal.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent?.includes('保存拼团'))!
+    expect(saveButton.disabled).toBe(false)
+    saveButton.click()
+    await flushPromises()
+
+    expect(createPlan).toHaveBeenCalledWith(expect.objectContaining({
+      fulfillment_mode: 'room_subscription',
+      target_group_id: 19,
+      auto_create_room_key: true,
+      tier_rules: [expect.objectContaining({ min_shares: 1, max_shares: 10, target_group_id: 19 })],
+    }))
     wrapper.unmount()
   })
 })

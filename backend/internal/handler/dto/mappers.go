@@ -204,6 +204,7 @@ func groupFromServiceBase(g *service.Group) Group {
 		RateMultiplier:                  g.RateMultiplier,
 		IsExclusive:                     g.IsExclusive,
 		Status:                          g.Status,
+		AccessMode:                      g.AccessMode,
 		SubscriptionType:                g.SubscriptionType,
 		RoutingScope:                    g.EffectiveRoutingScope(),
 		DailyLimitUSD:                   g.DailyLimitUSD,

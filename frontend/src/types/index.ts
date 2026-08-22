@@ -685,6 +685,8 @@ export type GroupPlatform = 'anthropic' | 'openai' | 'gemini' | 'antigravity' | 
 
 export type SubscriptionType = 'standard' | 'subscription'
 
+export type GroupAccessMode = 'normal' | 'room_managed'
+
 export type GroupRoutingScope = 'inference' | 'image' | 'video' | 'embedding'
 
 export interface OpenAIMessagesDispatchModelConfig {
@@ -703,6 +705,7 @@ export interface Group {
   rpm_limit?: number // Group-level RPM cap (0 = unlimited); overrides user-level rpm_limit when set
   is_exclusive: boolean
   status: 'active' | 'inactive'
+  access_mode?: GroupAccessMode
   subscription_type: SubscriptionType
   routing_scope: GroupRoutingScope
   daily_limit_usd: number | null
@@ -857,6 +860,7 @@ export interface CreateGroupRequest {
   platform?: GroupPlatform
   rate_multiplier?: number
   is_exclusive?: boolean
+  access_mode?: GroupAccessMode
   subscription_type?: SubscriptionType
   routing_scope?: GroupRoutingScope
   daily_limit_usd?: number | null
@@ -900,6 +904,7 @@ export interface UpdateGroupRequest {
   platform?: GroupPlatform
   rate_multiplier?: number
   is_exclusive?: boolean
+  access_mode?: GroupAccessMode
   status?: 'active' | 'inactive'
   subscription_type?: SubscriptionType
   routing_scope?: GroupRoutingScope

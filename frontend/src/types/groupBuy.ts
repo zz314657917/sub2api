@@ -5,6 +5,7 @@ export type GroupBuyRoundStatus = 'open' | 'activating' | 'active' | 'failed' | 
 export type GroupBuySeatStatus = 'locked' | 'released' | 'paid' | 'active' | 'refund_pending' | 'refund_processing' | 'refunded' | 'cancelled'
 export type GroupBuyRefundMode = 'balance_credit' | 'provider_refund'
 export type GroupBuyLaunchMode = 'auto' | 'manual'
+export type GroupBuyFulfillmentMode = 'aggregate_tier' | 'room_subscription'
 export type GroupBuyEntitlementStatus = 'active' | 'inactive'
 
 export interface GroupBuyGroupView {
@@ -71,7 +72,12 @@ export interface GroupBuyPlan {
   quota_label: string
   max_shares_per_user: number
   target_group_id: number
-  fulfillment_mode?: 'aggregate_tier' | 'room_subscription' | string
+  fulfillment_mode: GroupBuyFulfillmentMode
+  room_key_quota_usd: number
+  room_key_rate_limit_5h: number
+  room_key_rate_limit_1d: number
+  room_key_rate_limit_7d: number
+  auto_create_room_key: boolean
   target_group?: GroupBuyGroupView
   tier_group_ids: Record<string, number>
   tier_groups: GroupBuyTier[]

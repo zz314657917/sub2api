@@ -187,6 +187,126 @@ func TestGroupBuyAdminPlanViewExposesFulfillmentMode(t *testing.T) {
 	require.Equal(t, "room_subscription", plans[0].FulfillmentMode)
 }
 
+func TestGroupBuyAdminRoomPlanPersistsKeyPolicyAndBlocksOrdinaryRounds(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "groupbuy_room_plan_policy")
+	groupID := createGroupBuyTestGroup(t, ctx, client, 1, 100)
+	groupRepo := newGroupBuyGroupRepoStubWithGroups(map[int64]*Group{
+		groupID: {
+			ID:               groupID,
+			Status:           StatusActive,
+			Platform:         PlatformOpenAI,
+			SubscriptionType: SubscriptionTypeSubscription,
+			AccessMode:       GroupAccessModeRoomManaged,
+		},
+	})
+	svc := newGroupBuyTestService(client, groupRepo, nil)
+	input := GroupBuyPlanInput{
+		Title:              "Pixel Cafe Room",
+		TotalShares:        4,
+		PricePerShare:      12,
+		QuotaPerShareLabel: "25 USD",
+		MaxSharesPerUser:   1,
+		TargetGroupID:      groupID,
+		TierRules: []GroupBuyTierInput{{
+			MinShares: 1, MaxShares: 4, TargetGroupID: groupID, Label: "房间座位",
+		}},
+		ValidityDays:       30,
+		TimeoutMinutes:     60,
+		LaunchMode:         GroupBuyLaunchModeManual,
+		FulfillmentMode:    CafeRoomFulfillmentMode,
+		RoomKeyQuotaUsd:    25,
+		RoomKeyRateLimit5h: 5,
+		RoomKeyRateLimit1d: 10,
+		RoomKeyRateLimit7d: 15,
+		AutoCreateRoomKey:  true,
+		Status:             GroupBuyPlanStatusActive,
+	}
+
+	plan, err := svc.AdminCreatePlan(ctx, input)
+	require.NoError(t, err)
+	require.Equal(t, CafeRoomFulfillmentMode, plan.FulfillmentMode)
+	require.True(t, plan.AutoCreateRoomKey)
+	require.Equal(t, 25.0, plan.RoomKeyQuotaUsd)
+	require.Equal(t, 5.0, plan.RoomKeyRateLimit5h)
+	require.Equal(t, 10.0, plan.RoomKeyRateLimit1d)
+	require.Equal(t, 15.0, plan.RoomKeyRateLimit7d)
+
+	_, err = svc.AdminCreateRound(ctx, plan.ID)
+	require.ErrorIs(t, err, ErrCafeRoundLifecycleDeferred)
+	rounds, err := client.GroupBuyRound.Query().Count(ctx)
+	require.NoError(t, err)
+	require.Zero(t, rounds)
+}
+
+func TestGroupBuyAdminRoomPlanRejectsNonManagedTargetGroup(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "groupbuy_room_plan_target")
+	groupID := createGroupBuyTestGroup(t, ctx, client, 1, 100)
+	groupRepo := newGroupBuyGroupRepoStubWithGroup(groupID)
+	svc := newGroupBuyTestService(client, groupRepo, nil)
+
+	_, err := svc.AdminCreatePlan(ctx, GroupBuyPlanInput{
+		Title:              "Invalid Room",
+		TotalShares:        2,
+		PricePerShare:      12,
+		QuotaPerShareLabel: "25 USD",
+		MaxSharesPerUser:   1,
+		TargetGroupID:      groupID,
+		TierRules: []GroupBuyTierInput{{
+			MinShares: 1, MaxShares: 2, TargetGroupID: groupID, Label: "房间座位",
+		}},
+		ValidityDays:      30,
+		TimeoutMinutes:    60,
+		FulfillmentMode:   CafeRoomFulfillmentMode,
+		AutoCreateRoomKey: true,
+		Status:            GroupBuyPlanStatusActive,
+	})
+	require.ErrorIs(t, err, ErrGroupBuyTargetGroupInvalid)
+}
+
+func TestGroupBuyAdminPlanCannotSwitchOrdinaryRoundsToRoom(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "groupbuy_room_plan_mode_switch")
+	groupID := createGroupBuyTestGroup(t, ctx, client, 1, 100)
+	groupRepo := newGroupBuyGroupRepoStubWithGroups(map[int64]*Group{
+		groupID: {
+			ID:               groupID,
+			Status:           StatusActive,
+			Platform:         PlatformOpenAI,
+			SubscriptionType: SubscriptionTypeSubscription,
+			AccessMode:       GroupAccessModeRoomManaged,
+		},
+	})
+	svc := newGroupBuyTestService(client, groupRepo, nil)
+	plan := createGroupBuyTestPlan(t, ctx, client, groupID, GroupBuyLaunchModeManual, 4)
+	_, err := svc.AdminCreateRound(ctx, plan.ID)
+	require.NoError(t, err)
+
+	_, err = svc.AdminUpdatePlan(ctx, plan.ID, GroupBuyPlanInput{
+		Title:              "Converted Room",
+		ProductKey:         GroupBuyProductTokenPinPinPin,
+		TotalShares:        4,
+		PricePerShare:      12,
+		QuotaPerShareLabel: "25 USD",
+		MaxSharesPerUser:   1,
+		TargetGroupID:      groupID,
+		TierRules: []GroupBuyTierInput{{
+			MinShares: 1, MaxShares: 4, TargetGroupID: groupID, Label: "房间座位",
+		}},
+		ValidityDays:      30,
+		TimeoutMinutes:    60,
+		FulfillmentMode:   CafeRoomFulfillmentMode,
+		AutoCreateRoomKey: true,
+		Status:            GroupBuyPlanStatusActive,
+	})
+	require.ErrorIs(t, err, ErrGroupBuyPlanFulfillmentLocked)
+
+	reloaded, err := client.GroupBuyPlan.Get(ctx, plan.ID)
+	require.NoError(t, err)
+	require.NotEqual(t, CafeRoomFulfillmentMode, reloaded.FulfillmentMode)
+}
+
 func TestGroupBuyUserEndpointsExcludeRoomSubscriptionPlans(t *testing.T) {
 	ctx := context.Background()
 	client := newGroupBuyTestClient(t, "groupbuy_user_excludes_room_subscription")

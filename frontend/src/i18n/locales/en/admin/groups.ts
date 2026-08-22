@@ -143,6 +143,8 @@ export default {
         typeNotEditable: 'Billing type cannot be changed after group creation.',
         standard: 'Standard (Credits)',
         subscription: 'Subscription (Quota)',
+        roomManaged: 'Pixel Cafe managed group',
+        roomManagedHint: 'For Pixel Cafe Room plans only. Activating a room creates managed API keys.',
         dailyLimit: 'Daily Credit Limit',
         weeklyLimit: 'Weekly Credit Limit',
         monthlyLimit: 'Monthly Credit Limit',

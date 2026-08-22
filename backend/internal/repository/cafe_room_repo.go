@@ -143,6 +143,9 @@ func (r *cafeRoomRepository) Create(ctx context.Context, room *service.CafeRoom)
 	txClient := tx.Client()
 	defer func() { _ = tx.Rollback() }()
 
+	if err := lockCafeRoomPlan(ctx, txClient, room.PlanID); err != nil {
+		return nil, err
+	}
 	if err := lockAccountAndCheckAssignment(ctx, txClient, *room.AccountID, 0); err != nil {
 		return nil, err
 	}
@@ -191,6 +194,9 @@ func (r *cafeRoomRepository) Update(ctx context.Context, room *service.CafeRoom)
 		if dbent.IsNotFound(err) {
 			return nil, service.ErrCafeRoomNotFound
 		}
+		return nil, err
+	}
+	if err := lockCafeRoomPlan(ctx, txClient, room.PlanID); err != nil {
 		return nil, err
 	}
 	if err := lockAccountAndCheckAssignment(ctx, txClient, *room.AccountID, room.ID); err != nil {
@@ -331,6 +337,27 @@ func lockAccountAndCheckAssignment(ctx context.Context, client *dbent.Client, ac
 	}
 	if assigned {
 		return service.ErrCafeAccountAssigned
+	}
+	return nil
+}
+
+func lockCafeRoomPlan(ctx context.Context, client *dbent.Client, planID int64) error {
+	planQ := client.GroupBuyPlan.Query().Where(
+		groupbuyplan.IDEQ(planID),
+		groupbuyplan.DeletedAtIsNil(),
+	)
+	if client.Driver().Dialect() != dialect.SQLite {
+		planQ = planQ.ForUpdate()
+	}
+	plan, err := planQ.Only(ctx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return service.ErrCafePlanNotFound
+		}
+		return err
+	}
+	if plan.FulfillmentMode != service.CafeRoomFulfillmentMode {
+		return service.ErrCafePlanInvalid
 	}
 	return nil
 }

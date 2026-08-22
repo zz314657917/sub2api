@@ -679,6 +679,20 @@
             v-if="createForm.subscription_type === 'subscription'"
             class="space-y-4 border-l-2 border-primary-200 pl-4 dark:border-primary-800"
           >
+            <label class="flex cursor-pointer items-start gap-3 rounded-md border border-gray-200 p-3 text-sm dark:border-dark-600">
+              <input
+                v-model="createForm.access_mode"
+                type="checkbox"
+                true-value="room_managed"
+                false-value="normal"
+                data-testid="create-room-managed"
+                class="mt-0.5 h-4 w-4"
+              />
+              <span>
+                <b>{{ t('admin.groups.subscription.roomManaged') }}</b>
+                <small class="mt-1 block text-gray-500 dark:text-gray-400">{{ t('admin.groups.subscription.roomManagedHint') }}</small>
+              </span>
+            </label>
             <div>
               <label class="input-label">{{
                 t("admin.groups.subscription.dailyLimit")
@@ -2203,6 +2217,20 @@
             v-if="editForm.subscription_type === 'subscription'"
             class="space-y-4 border-l-2 border-primary-200 pl-4 dark:border-primary-800"
           >
+            <label class="flex cursor-pointer items-start gap-3 rounded-md border border-gray-200 p-3 text-sm dark:border-dark-600">
+              <input
+                v-model="editForm.access_mode"
+                type="checkbox"
+                true-value="room_managed"
+                false-value="normal"
+                data-testid="edit-room-managed"
+                class="mt-0.5 h-4 w-4"
+              />
+              <span>
+                <b>{{ t('admin.groups.subscription.roomManaged') }}</b>
+                <small class="mt-1 block text-gray-500 dark:text-gray-400">{{ t('admin.groups.subscription.roomManagedHint') }}</small>
+              </span>
+            </label>
             <div>
               <label class="input-label">{{
                 t("admin.groups.subscription.dailyLimit")
@@ -3663,6 +3691,7 @@ import type {
 } from "@/api/admin/channels";
 import type {
   AdminGroup,
+  GroupAccessMode,
   GroupPlatform,
   GroupRoutingScope,
   SubscriptionType,
@@ -4023,6 +4052,7 @@ const createForm = reactive({
   routing_scope: "inference" as GroupRoutingScope,
   rate_multiplier: 1.0,
   is_exclusive: false,
+  access_mode: "normal" as GroupAccessMode,
   subscription_type: "standard" as SubscriptionType,
   daily_limit_usd: null as number | null,
   weekly_limit_usd: null as number | null,
@@ -4364,6 +4394,7 @@ const editForm = reactive({
   rate_multiplier: 1.0,
   is_exclusive: false,
   status: "active" as "active" | "inactive",
+  access_mode: "normal" as GroupAccessMode,
   subscription_type: "standard" as SubscriptionType,
   daily_limit_usd: null as number | null,
   weekly_limit_usd: null as number | null,
@@ -5017,6 +5048,7 @@ const closeCreateModal = () => {
   createForm.routing_scope = "inference";
   createForm.rate_multiplier = 1.0;
   createForm.is_exclusive = false;
+  createForm.access_mode = "normal";
   createForm.subscription_type = "standard";
   createForm.daily_limit_usd = null;
   createForm.weekly_limit_usd = null;
@@ -5235,6 +5267,7 @@ const handleEdit = async (group: AdminGroup) => {
   editForm.rate_multiplier = group.rate_multiplier;
   editForm.is_exclusive = group.is_exclusive;
   editForm.status = group.status;
+  editForm.access_mode = group.access_mode || "normal";
   editForm.subscription_type = group.subscription_type || "standard";
   editForm.daily_limit_usd = group.daily_limit_usd;
   editForm.weekly_limit_usd = group.weekly_limit_usd;
@@ -5299,6 +5332,7 @@ const closeEditModal = () => {
   editModelRoutingRules.value = [];
   resetImageQualityPrices(editImageQualityPrices);
   editForm.copy_accounts_from_group_ids = [];
+  editForm.access_mode = "normal";
   editForm.peak_rate_enabled = false;
   editForm.peak_start = "";
   editForm.peak_end = "";
@@ -5495,6 +5529,8 @@ watch(
     if (newVal === "subscription") {
       createForm.is_exclusive = true;
       createForm.fallback_group_id_on_invalid_request = null;
+    } else {
+      createForm.access_mode = "normal";
     }
   },
 );

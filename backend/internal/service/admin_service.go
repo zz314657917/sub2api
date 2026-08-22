@@ -209,6 +209,7 @@ type CreateGroupInput struct {
 	Platform                  string
 	RateMultiplier            float64
 	IsExclusive               bool
+	AccessMode                string
 	SubscriptionType          string   // standard/subscription
 	RoutingScope              string   // inference/image/video/embedding
 	DailyLimitUSD             *float64 // 日限额 (USD)
@@ -259,6 +260,7 @@ type UpdateGroupInput struct {
 	Platform                  string
 	RateMultiplier            *float64 // 使用指针以支持设置为0
 	IsExclusive               *bool
+	AccessMode                *string
 	Status                    string
 	SubscriptionType          string   // standard/subscription
 	RoutingScope              string   // inference/image/video/embedding
@@ -2062,6 +2064,10 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 	if subscriptionType == "" {
 		subscriptionType = SubscriptionTypeStandard
 	}
+	accessMode, err := normalizeGroupAccessMode(input.AccessMode, subscriptionType)
+	if err != nil {
+		return nil, err
+	}
 
 	// 限额字段：nil/0/负数 表示"无限制"，正数表示具体限额
 	dailyLimit := normalizeLimit(input.DailyLimitUSD)
@@ -2152,6 +2158,7 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		RateMultiplier:                  input.RateMultiplier,
 		IsExclusive:                     input.IsExclusive,
 		Status:                          StatusActive,
+		AccessMode:                      accessMode,
 		SubscriptionType:                subscriptionType,
 		RoutingScope:                    NormalizeGroupRoutingScope(input.RoutingScope, input.AllowImageGeneration),
 		DailyLimitUSD:                   dailyLimit,
@@ -2235,6 +2242,20 @@ func normalizeLimit(limit *float64) *float64 {
 		return nil
 	}
 	return limit
+}
+
+func normalizeGroupAccessMode(mode, subscriptionType string) (string, error) {
+	switch strings.TrimSpace(mode) {
+	case "", GroupAccessModeNormal:
+		return GroupAccessModeNormal, nil
+	case GroupAccessModeRoomManaged:
+		if subscriptionType != SubscriptionTypeSubscription {
+			return "", errors.New("room_managed access mode requires a subscription group")
+		}
+		return GroupAccessModeRoomManaged, nil
+	default:
+		return "", errors.New("invalid group access mode")
+	}
 }
 
 // normalizePrice 将负数转换为 nil（表示使用默认价格），0 保留（表示免费）
@@ -2359,6 +2380,18 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	// 订阅相关字段
 	if input.SubscriptionType != "" {
 		group.SubscriptionType = input.SubscriptionType
+	}
+	if input.AccessMode != nil {
+		accessMode, normalizeErr := normalizeGroupAccessMode(*input.AccessMode, group.SubscriptionType)
+		if normalizeErr != nil {
+			return nil, normalizeErr
+		}
+		group.AccessMode = accessMode
+	} else if group.AccessMode == "" {
+		group.AccessMode = GroupAccessModeNormal
+	}
+	if group.AccessMode == GroupAccessModeRoomManaged && group.SubscriptionType != SubscriptionTypeSubscription {
+		return nil, errors.New("room_managed access mode requires a subscription group")
 	}
 	// 限额字段：nil/0/负数 表示"无限制"，正数表示具体限额
 	// 前端始终发送这三个字段，无需 nil 守卫

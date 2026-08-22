@@ -1,6 +1,6 @@
 import { apiClient } from '../client'
 import type { BasePaginationResponse } from '@/types'
-import type { GroupBuyAdminSeat, GroupBuyPlan, GroupBuyRefundBatchResult, GroupBuyRound, GroupBuyTier } from '@/types/groupBuy'
+import type { GroupBuyAdminSeat, GroupBuyFulfillmentMode, GroupBuyPlan, GroupBuyRefundBatchResult, GroupBuyRound, GroupBuyTier } from '@/types/groupBuy'
 
 export interface GroupBuyPlanPayload {
   title: string
@@ -15,6 +15,12 @@ export interface GroupBuyPlanPayload {
   quota_label: string
   max_shares_per_user: number
   target_group_id: number
+  fulfillment_mode: GroupBuyFulfillmentMode
+  room_key_quota_usd: number
+  room_key_rate_limit_5h: number
+  room_key_rate_limit_1d: number
+  room_key_rate_limit_7d: number
+  auto_create_room_key: boolean
   tier_group_ids: Record<string, number>
   tier_rules: GroupBuyTier[]
   launch_mode: 'auto' | 'manual'

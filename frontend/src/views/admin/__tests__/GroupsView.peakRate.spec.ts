@@ -253,6 +253,23 @@ describe('GroupsView standard group time-window billing', () => {
     wrapper.unmount()
   })
 
+  it('submits room_managed only after the administrator selects subscription mode', async () => {
+    const wrapper = mountView()
+    await openCreateForm(wrapper)
+    await wrapper.get('[data-testid="create-subscription-type"]').setValue('subscription')
+    await wrapper.get('[data-testid="create-room-managed"]').setValue(true)
+
+    createGroup.mockRejectedValueOnce(new Error('stop after payload capture'))
+    await wrapper.get('#create-group-form').trigger('submit')
+    await flushPromises()
+
+    expect(createGroup).toHaveBeenCalledWith(expect.objectContaining({
+      subscription_type: 'subscription',
+      access_mode: 'room_managed',
+    }))
+    wrapper.unmount()
+  })
+
   it('rejects an empty subscription multiplier instead of silently normalizing it', async () => {
     const wrapper = mountView()
     await openCreateForm(wrapper)

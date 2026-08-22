@@ -11,6 +11,7 @@ import (
 
 	"entgo.io/ent/dialect"
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/caferoom"
 	dbgroup "github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyentitlement"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
@@ -84,19 +85,20 @@ const (
 )
 
 var (
-	ErrGroupBuyPlanNotFound       = infraerrors.NotFound("GROUP_BUY_PLAN_NOT_FOUND", "group buy plan not found")
-	ErrGroupBuyPlanUnavailable    = infraerrors.Forbidden("GROUP_BUY_PLAN_UNAVAILABLE", "group buy plan is unavailable")
-	ErrGroupBuyTargetGroupInvalid = infraerrors.BadRequest("GROUP_BUY_TARGET_GROUP_INVALID", "target groups must be active subscription groups")
-	ErrGroupBuyTierMappingInvalid = infraerrors.BadRequest("GROUP_BUY_TIER_MAPPING_INVALID", "tier rules must cover the configured share range without gaps or overlaps")
-	ErrGroupBuyShareUnavailable   = infraerrors.Conflict("GROUP_BUY_SHARE_UNAVAILABLE", "not enough shares are available in this round")
-	ErrGroupBuyShareLimitExceeded = infraerrors.Conflict("GROUP_BUY_SHARE_LIMIT_EXCEEDED", "share count exceeds user limit")
-	ErrGroupBuyRoundUnavailable   = infraerrors.Conflict("GROUP_BUY_ROUND_UNAVAILABLE", "no open round is available")
-	ErrGroupBuySeatNotFound       = infraerrors.NotFound("GROUP_BUY_SEAT_NOT_FOUND", "group buy share batch not found")
-	ErrGroupBuySeatNotActive      = infraerrors.BadRequest("GROUP_BUY_SEAT_NOT_ACTIVE", "share batch is not active")
-	ErrGroupBuyRoundNotFound      = infraerrors.NotFound("GROUP_BUY_ROUND_NOT_FOUND", "group buy round not found")
-	ErrGroupBuyInvalidStatus      = infraerrors.BadRequest("GROUP_BUY_INVALID_STATUS", "invalid group buy status")
-	ErrGroupBuyDisabled           = infraerrors.Forbidden("GROUP_BUY_DISABLED", "Token拼拼拼 is disabled")
-	ErrCafeRoundLifecycleDeferred = infraerrors.Conflict("CAFE_ROUND_LIFECYCLE_DEFERRED", "cafe room lifecycle is handled by the cafe activation service")
+	ErrGroupBuyPlanNotFound          = infraerrors.NotFound("GROUP_BUY_PLAN_NOT_FOUND", "group buy plan not found")
+	ErrGroupBuyPlanUnavailable       = infraerrors.Forbidden("GROUP_BUY_PLAN_UNAVAILABLE", "group buy plan is unavailable")
+	ErrGroupBuyPlanFulfillmentLocked = infraerrors.Conflict("GROUP_BUY_PLAN_FULFILLMENT_LOCKED", "cannot change plan fulfillment mode after it has related rounds or rooms")
+	ErrGroupBuyTargetGroupInvalid    = infraerrors.BadRequest("GROUP_BUY_TARGET_GROUP_INVALID", "target groups must be active subscription groups")
+	ErrGroupBuyTierMappingInvalid    = infraerrors.BadRequest("GROUP_BUY_TIER_MAPPING_INVALID", "tier rules must cover the configured share range without gaps or overlaps")
+	ErrGroupBuyShareUnavailable      = infraerrors.Conflict("GROUP_BUY_SHARE_UNAVAILABLE", "not enough shares are available in this round")
+	ErrGroupBuyShareLimitExceeded    = infraerrors.Conflict("GROUP_BUY_SHARE_LIMIT_EXCEEDED", "share count exceeds user limit")
+	ErrGroupBuyRoundUnavailable      = infraerrors.Conflict("GROUP_BUY_ROUND_UNAVAILABLE", "no open round is available")
+	ErrGroupBuySeatNotFound          = infraerrors.NotFound("GROUP_BUY_SEAT_NOT_FOUND", "group buy share batch not found")
+	ErrGroupBuySeatNotActive         = infraerrors.BadRequest("GROUP_BUY_SEAT_NOT_ACTIVE", "share batch is not active")
+	ErrGroupBuyRoundNotFound         = infraerrors.NotFound("GROUP_BUY_ROUND_NOT_FOUND", "group buy round not found")
+	ErrGroupBuyInvalidStatus         = infraerrors.BadRequest("GROUP_BUY_INVALID_STATUS", "invalid group buy status")
+	ErrGroupBuyDisabled              = infraerrors.Forbidden("GROUP_BUY_DISABLED", "Token拼拼拼 is disabled")
+	ErrCafeRoundLifecycleDeferred    = infraerrors.Conflict("CAFE_ROUND_LIFECYCLE_DEFERRED", "cafe room lifecycle is handled by the cafe activation service")
 )
 
 type GroupBuyService struct {
@@ -210,6 +212,12 @@ type GroupBuyPlanInput struct {
 	QuotaLabel         string              `json:"quota_label"`
 	MaxSharesPerUser   int                 `json:"max_shares_per_user"`
 	TargetGroupID      int64               `json:"target_group_id"`
+	FulfillmentMode    string              `json:"fulfillment_mode"`
+	RoomKeyQuotaUsd    float64             `json:"room_key_quota_usd"`
+	RoomKeyRateLimit5h float64             `json:"room_key_rate_limit_5h"`
+	RoomKeyRateLimit1d float64             `json:"room_key_rate_limit_1d"`
+	RoomKeyRateLimit7d float64             `json:"room_key_rate_limit_7d"`
+	AutoCreateRoomKey  bool                `json:"auto_create_room_key"`
 	TierGroupIDs       map[string]int64    `json:"tier_group_ids"`
 	TierGroups         []GroupBuyTierInput `json:"tier_groups"`
 	TierRules          []GroupBuyTierInput `json:"tier_rules"`
@@ -261,6 +269,11 @@ type GroupBuyPlanView struct {
 	MaxSharesPerUser   int                `json:"max_shares_per_user"`
 	TargetGroupID      int64              `json:"target_group_id"`
 	FulfillmentMode    string             `json:"fulfillment_mode"`
+	RoomKeyQuotaUsd    float64            `json:"room_key_quota_usd"`
+	RoomKeyRateLimit5h float64            `json:"room_key_rate_limit_5h"`
+	RoomKeyRateLimit1d float64            `json:"room_key_rate_limit_1d"`
+	RoomKeyRateLimit7d float64            `json:"room_key_rate_limit_7d"`
+	AutoCreateRoomKey  bool               `json:"auto_create_room_key"`
 	TargetGroup        *GroupBuyGroupView `json:"target_group,omitempty"`
 	TierGroupIDs       map[string]int64   `json:"tier_group_ids"`
 	TierGroups         []GroupBuyTierView `json:"tier_groups"`
@@ -1743,6 +1756,12 @@ func (s *GroupBuyService) AdminCreatePlan(ctx context.Context, input GroupBuyPla
 		SetQuotaLabel(strings.TrimSpace(input.QuotaPerShareLabel)).
 		SetMaxSharesPerUser(input.MaxSharesPerUser).
 		SetTargetGroupID(input.TargetGroupID).
+		SetFulfillmentMode(input.FulfillmentMode).
+		SetRoomKeyQuotaUsd(input.RoomKeyQuotaUsd).
+		SetRoomKeyRateLimit5h(input.RoomKeyRateLimit5h).
+		SetRoomKeyRateLimit1d(input.RoomKeyRateLimit1d).
+		SetRoomKeyRateLimit7d(input.RoomKeyRateLimit7d).
+		SetAutoCreateRoomKey(input.AutoCreateRoomKey).
 		SetTierGroupIds(input.TierGroupIDs).
 		SetTierRules(tierRuleInputsToDomain(input.TierRules)).
 		SetValidityDays(input.ValidityDays).
@@ -1756,7 +1775,7 @@ func (s *GroupBuyService) AdminCreatePlan(ctx context.Context, input GroupBuyPla
 	if err != nil {
 		return nil, fmt.Errorf("create group buy plan: %w", err)
 	}
-	if plan.LaunchMode == GroupBuyLaunchModeAuto && plan.Status == GroupBuyPlanStatusActive {
+	if plan.FulfillmentMode != CafeRoomFulfillmentMode && plan.LaunchMode == GroupBuyLaunchModeAuto && plan.Status == GroupBuyPlanStatusActive {
 		if err := s.ensureAutoNextRound(ctx, plan.ID); err != nil {
 			return nil, err
 		}
@@ -1772,7 +1791,26 @@ func (s *GroupBuyService) AdminUpdatePlan(ctx context.Context, id int64, input G
 	if err := s.validatePlanInput(ctx, &input); err != nil {
 		return nil, err
 	}
-	plan, err := s.entClient.GroupBuyPlan.UpdateOneID(id).
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin group buy plan update tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	txCtx := dbent.NewTxContext(ctx, tx)
+
+	planQuery := tx.GroupBuyPlan.Query().
+		Where(groupbuyplan.IDEQ(id), groupbuyplan.DeletedAtIsNil())
+	existingPlan, err := s.groupBuyPlanForUpdate(planQuery).Only(txCtx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, ErrGroupBuyPlanNotFound
+		}
+		return nil, fmt.Errorf("load group buy plan before update: %w", err)
+	}
+	if err := s.validatePlanFulfillmentModeChangeInTx(txCtx, tx, existingPlan, input.FulfillmentMode); err != nil {
+		return nil, err
+	}
+	plan, err := tx.GroupBuyPlan.UpdateOneID(id).
 		SetTitle(strings.TrimSpace(input.Title)).
 		SetDescription(strings.TrimSpace(input.Description)).
 		SetProductKey(input.ProductKey).
@@ -1785,6 +1823,12 @@ func (s *GroupBuyService) AdminUpdatePlan(ctx context.Context, id int64, input G
 		SetQuotaLabel(strings.TrimSpace(input.QuotaPerShareLabel)).
 		SetMaxSharesPerUser(input.MaxSharesPerUser).
 		SetTargetGroupID(input.TargetGroupID).
+		SetFulfillmentMode(input.FulfillmentMode).
+		SetRoomKeyQuotaUsd(input.RoomKeyQuotaUsd).
+		SetRoomKeyRateLimit5h(input.RoomKeyRateLimit5h).
+		SetRoomKeyRateLimit1d(input.RoomKeyRateLimit1d).
+		SetRoomKeyRateLimit7d(input.RoomKeyRateLimit7d).
+		SetAutoCreateRoomKey(input.AutoCreateRoomKey).
 		SetTierGroupIds(input.TierGroupIDs).
 		SetTierRules(tierRuleInputsToDomain(input.TierRules)).
 		SetValidityDays(input.ValidityDays).
@@ -1794,14 +1838,17 @@ func (s *GroupBuyService) AdminUpdatePlan(ctx context.Context, id int64, input G
 		SetAgreementText(strings.TrimSpace(input.AgreementText)).
 		SetStatus(normalizeGroupBuyPlanStatus(input.Status)).
 		SetSortOrder(input.SortOrder).
-		Save(ctx)
+		Save(txCtx)
 	if err != nil {
 		if dbent.IsNotFound(err) {
 			return nil, ErrGroupBuyPlanNotFound
 		}
 		return nil, fmt.Errorf("update group buy plan: %w", err)
 	}
-	if plan.LaunchMode == GroupBuyLaunchModeAuto && plan.Status == GroupBuyPlanStatusActive {
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit group buy plan update: %w", err)
+	}
+	if plan.FulfillmentMode != CafeRoomFulfillmentMode && plan.LaunchMode == GroupBuyLaunchModeAuto && plan.Status == GroupBuyPlanStatusActive {
 		if err := s.ensureAutoNextRound(ctx, plan.ID); err != nil {
 			return nil, err
 		}
@@ -1847,6 +1894,9 @@ func (s *GroupBuyService) AdminCreateRound(ctx context.Context, planID int64) (*
 	}
 	if plan.Status != GroupBuyPlanStatusActive {
 		return nil, ErrGroupBuyPlanUnavailable
+	}
+	if plan.FulfillmentMode == CafeRoomFulfillmentMode {
+		return nil, ErrCafeRoundLifecycleDeferred
 	}
 	if err := s.validatePlanTierRulesInTx(txCtx, tx, plan); err != nil {
 		return nil, err
@@ -2725,6 +2775,10 @@ func (s *GroupBuyService) validatePlanInput(ctx context.Context, input *GroupBuy
 	input.LaunchMode = normalizeGroupBuyLaunchMode(input.LaunchMode)
 	input.RefundMode = normalizeGroupBuyRefundMode(input.RefundMode)
 	input.Status = normalizeGroupBuyPlanStatus(input.Status)
+	input.FulfillmentMode = normalizeGroupBuyFulfillmentMode(input.FulfillmentMode)
+	if input.FulfillmentMode == "" {
+		return infraerrors.BadRequest("INVALID_INPUT", "invalid fulfillment_mode")
+	}
 	input.TierRules = normalizeTierRuleInputs(input.TotalShares, input.TargetGroupID, input.TierRules, input.TierGroups, input.TierGroupIDs)
 	if err := validateTierRuleShape(input.TierRules, input.TotalShares); err != nil {
 		return err
@@ -2734,7 +2788,73 @@ func (s *GroupBuyService) validatePlanInput(ctx context.Context, input *GroupBuy
 	if input.TargetGroupID <= 0 {
 		input.TargetGroupID = input.TierRules[len(input.TierRules)-1].TargetGroupID
 	}
+	if input.FulfillmentMode == CafeRoomFulfillmentMode {
+		if len(input.TierRules) != 1 || input.TierRules[0].MinShares != groupBuyMinShareCount || input.TierRules[0].MaxShares != input.TotalShares || input.TierRules[0].TargetGroupID != input.TargetGroupID {
+			return ErrGroupBuyTierMappingInvalid
+		}
+		if !input.AutoCreateRoomKey {
+			return infraerrors.BadRequest("INVALID_ROOM_PLAN", "room plans must automatically create managed keys")
+		}
+		if input.RoomKeyQuotaUsd < 0 || input.RoomKeyRateLimit5h < 0 || input.RoomKeyRateLimit1d < 0 || input.RoomKeyRateLimit7d < 0 {
+			return infraerrors.BadRequest("INVALID_ROOM_PLAN", "room key quota and rate limits cannot be negative")
+		}
+		if err := s.validateRoomManagedTargetGroup(ctx, input.TargetGroupID); err != nil {
+			return err
+		}
+	}
 	return s.validateTierRules(ctx, input.TierRules)
+}
+
+func normalizeGroupBuyFulfillmentMode(mode string) string {
+	switch strings.TrimSpace(mode) {
+	case "", "aggregate_tier":
+		return "aggregate_tier"
+	case CafeRoomFulfillmentMode:
+		return CafeRoomFulfillmentMode
+	default:
+		return ""
+	}
+}
+
+func (s *GroupBuyService) validatePlanFulfillmentModeChangeInTx(ctx context.Context, tx *dbent.Tx, plan *dbent.GroupBuyPlan, nextMode string) error {
+	if plan == nil || plan.FulfillmentMode == nextMode {
+		return nil
+	}
+	if nextMode == CafeRoomFulfillmentMode {
+		hasOrdinaryRounds, err := tx.GroupBuyRound.Query().
+			Where(groupbuyround.PlanIDEQ(plan.ID), groupbuyround.CafeRoomIDIsNil()).
+			Exist(ctx)
+		if err != nil {
+			return fmt.Errorf("check ordinary rounds before changing plan fulfillment mode: %w", err)
+		}
+		if hasOrdinaryRounds {
+			return ErrGroupBuyPlanFulfillmentLocked
+		}
+		return nil
+	}
+	if plan.FulfillmentMode == CafeRoomFulfillmentMode {
+		hasRooms, err := tx.CafeRoom.Query().
+			Where(caferoom.PlanIDEQ(plan.ID)).
+			Exist(ctx)
+		if err != nil {
+			return fmt.Errorf("check cafe rooms before changing plan fulfillment mode: %w", err)
+		}
+		if hasRooms {
+			return ErrGroupBuyPlanFulfillmentLocked
+		}
+	}
+	return nil
+}
+
+func (s *GroupBuyService) validateRoomManagedTargetGroup(ctx context.Context, groupID int64) error {
+	group, err := s.groupRepo.GetByID(ctx, groupID)
+	if err != nil {
+		return ErrGroupBuyTargetGroupInvalid.WithCause(err)
+	}
+	if group == nil || group.Status != StatusActive || !group.IsSubscriptionType() || group.AccessMode != GroupAccessModeRoomManaged {
+		return ErrGroupBuyTargetGroupInvalid
+	}
+	return nil
 }
 
 func normalizeTierRuleInputs(totalShares int, fallbackGroupID int64, primary []GroupBuyTierInput, legacy []GroupBuyTierInput, raw map[string]int64) []GroupBuyTierInput {
@@ -3100,6 +3220,11 @@ func (s *GroupBuyService) planView(ctx context.Context, p *dbent.GroupBuyPlan) G
 		MaxSharesPerUser:   p.MaxSharesPerUser,
 		TargetGroupID:      p.TargetGroupID,
 		FulfillmentMode:    p.FulfillmentMode,
+		RoomKeyQuotaUsd:    p.RoomKeyQuotaUsd,
+		RoomKeyRateLimit5h: p.RoomKeyRateLimit5h,
+		RoomKeyRateLimit1d: p.RoomKeyRateLimit1d,
+		RoomKeyRateLimit7d: p.RoomKeyRateLimit7d,
+		AutoCreateRoomKey:  p.AutoCreateRoomKey,
 		TierGroupIDs:       copyTierGroupIDs(p.TierGroupIds),
 		ValidityDays:       p.ValidityDays,
 		TimeoutMinutes:     p.TimeoutMinutes,

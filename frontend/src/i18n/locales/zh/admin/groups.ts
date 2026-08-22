@@ -173,6 +173,8 @@ export default {
         typeNotEditable: '分组创建后无法修改计费类型。',
         standard: '标准（积分）',
         subscription: '订阅（配额）',
+        roomManaged: '网吧房间托管分组',
+        roomManagedHint: '仅供像素网吧 Room 计划使用；房间激活时系统会创建受管 API Key。',
         dailyLimit: '每日积分限额',
         weeklyLimit: '每周积分限额',
         monthlyLimit: '每月积分限额',
