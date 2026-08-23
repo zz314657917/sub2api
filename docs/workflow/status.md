@@ -2,11 +2,11 @@
 phase: contract-approved
 current_sprint: upstream-token-refresh-lock-s244
 total_sprints: 244
-pending_action: Dispatch the approved S244 contract to the Terra Developer in an isolated E-drive worktree. No push is authorized.
+pending_action: Controller deep-review the exact S244 patch with amended direct-binary frontend checks after the Terra worker loop stopped. No push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-23 18:49 +08:00
+last_verified: 2026-08-23 19:05 +08:00
 ---
 
 # Upstream Token Refresh Lock S244
@@ -23,6 +23,17 @@ last_verified: 2026-08-23 18:49 +08:00
   the frozen base, source ancestry and no dirty-path overlap are confirmed,
   commit-range scope checks replace the ineffective clean-tree-only check, and
   focused x10/typecheck/build plus independent Terra QA remain mandatory.
+- `BLOCKED / CLI Developer`: the required Terra model returned API 404 before
+  inference with zero tokens and zero cost; the CLI attempt made no business
+  change.
+- `FAILED / native Developer loop`: the exact patch and focused 7/7 test pass,
+  but two attempts stopped because pnpm 11.19.0 synchronized denied workspace
+  metadata. Both attempts restored the lockfile/workspace paths and created no
+  commit; the low-cost worker loop is closed after two failures.
+- `contract-amendment / Controller takeover`: the same local Vitest binary
+  passes 7/7 without changing the lockfile. Acceptance now calls the existing
+  Vitest, vue-tsc, and Vite executables directly, forbids install/update, and
+  requires explicit lockfile/workspace cleanliness before Controller review.
 
 # Upstream CN Account Test Routing S237-A
 

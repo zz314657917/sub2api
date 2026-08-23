@@ -90,14 +90,24 @@ published recognizable replacement state.
 From `frontend/` in the isolated worktree:
 
 ```powershell
-pnpm exec vitest run src/api/__tests__/tokenRefresh.spec.ts
+& .\node_modules\.bin\vitest.cmd run src/api/__tests__/tokenRefresh.spec.ts
 1..10 | ForEach-Object {
-  pnpm exec vitest run src/api/__tests__/tokenRefresh.spec.ts
+  & .\node_modules\.bin\vitest.cmd run src/api/__tests__/tokenRefresh.spec.ts
   if ($LASTEXITCODE -ne 0) { throw "tokenRefresh focused iteration $_ failed" }
 }
-pnpm run typecheck
-pnpm run build
+& .\node_modules\.bin\vue-tsc.cmd --noEmit
+if ($LASTEXITCODE -ne 0) { throw "frontend typecheck failed" }
+& .\node_modules\.bin\vue-tsc.cmd -b
+if ($LASTEXITCODE -ne 0) { throw "frontend build typecheck failed" }
+& .\node_modules\.bin\vite.cmd build
+if ($LASTEXITCODE -ne 0) { throw "frontend Vite build failed" }
 ```
+
+These direct local executables are the exact bodies of the repository's
+`test`, `typecheck`, and `build` scripts. They replace `pnpm exec/run` for this
+worktree because pnpm 11.19.0 automatically synchronizes the existing lockfile
+before executing even a focused test. Do not run install/add/update or accept
+any dependency, lockfile, or workspace metadata change.
 
 From the worktree root:
 
@@ -110,6 +120,8 @@ git diff --check "$dispatchBase..$businessCommit"
 git diff --name-only "$dispatchBase..$businessCommit"
 git diff-tree --no-commit-id --name-only -r $businessCommit
 git diff-tree --no-commit-id --name-only -r $evidenceCommit
+git diff --exit-code -- frontend/pnpm-lock.yaml
+if (Test-Path 'frontend/pnpm-workspace.yaml') { throw "unexpected pnpm workspace file" }
 git diff --cached --name-only
 git ls-files -u
 git merge-base --is-ancestor 3445485ebc21f8912b95397d0d68e32f2e4c154e upstream/main
