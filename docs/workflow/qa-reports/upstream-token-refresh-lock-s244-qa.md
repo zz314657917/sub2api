@@ -1,64 +1,79 @@
-### FAIL: upstream-token-refresh-lock-s244
+### PASS: upstream-token-refresh-lock-s244
 
 # Independent QA Report
 
 ## Findings
 
-- QA stopped before executing frontend acceptance commands because the required
-  primary-worktree protection gate failed. The contract requires exactly 11
-  tracked dirty files with patch ID
-  `370ac77de0e2f530ab652b99fb3eb35e809f4c84`; read-only inspection instead
-  found 12 tracked dirty paths and patch ID
-  `97ae91cd822976bf9709be3d5617cdadc21a3708`.
-- The extra tracked dirty path is `docs/workflow/main-log.md`. The candidate QA
-  worktree itself was clean before this report and is based at controller
-  evidence `a345614d4` following business commit `0f27ab7e4`.
-- Candidate business scope is exact: `0f27ab7e4` changes only
+- Independent QA accepted business commit `0f27ab7e4` and Controller evidence
+  commit `a345614d4`. The business commit changes exactly
   `frontend/src/api/tokenRefresh.ts` and
-  `frontend/src/api/__tests__/tokenRefresh.spec.ts`; candidate evidence
-  `a345614d4` changes only the approved worker result report. Upstream source
-  `3445485eb` and merge `5fc977846` first-parent both have the same two product
-  paths.
+  `frontend/src/api/__tests__/tokenRefresh.spec.ts`; the evidence commit changes
+  exactly `docs/workflow/worker-results/upstream-token-refresh-lock-s244-result.md`.
+- The business patch ID is `103c149ba901659c14be13616449cf2e25ae3d37`, equal
+  to both upstream source `3445485eb` and the first-parent diff of merge
+  `5fc977846`. `3445485eb` is an ancestor of `upstream/main`.
+- Initial QA correctly stopped because it calculated the protected patch ID over
+  an over-broad primary-worktree diff that included Controller-owned workflow
+  state. Contract correction `8c3b13fdd` explicitly limits that gate to the
+  eleven listed user-owned Pixel Cafe paths. The retest calculated only those
+  paths and obtained the required
+  `370ac77de0e2f530ab652b99fb3eb35e809f4c84`; Controller-owned workflow files
+  were checked separately and were not part of that user patch ID.
 
 ## Commands Run
 
-- `git status --short`, `git log --oneline --decorate -8`, and commit identity
-  / scope inspection in the isolated QA worktree.
-- `git merge-base --is-ancestor 5183430fb3373683e938227f34b328788991bac6 HEAD`,
-  `git diff --check 5183430fb3373683e938227f34b328788991bac6..0f27ab7e4`, and
-  first-parent upstream path checks.
-- Read-only protected-primary checks:
-  `git status --short`, `git diff | git patch-id --stable`,
-  `git diff --cached --name-only`, `git ls-files -u`, and an `outputs/`
-  untracked-state query from `F:/mcplugins/sub2api`.
+From the isolated QA worktree frontend, using direct existing executables only:
+
+- `& .\node_modules\.bin\vitest.cmd run src/api/__tests__/tokenRefresh.spec.ts`
+- Ten additional identical focused Vitest runs, each guarded for a nonzero
+  exit code.
+- `& .\node_modules\.bin\vue-tsc.cmd --noEmit`
+- `& .\node_modules\.bin\vue-tsc.cmd -b`
+- `& .\node_modules\.bin\vite.cmd build`
+
+From the QA worktree and read-only primary worktree:
+
+- Exact business/evidence commit scope, stable patch-ID, upstream ancestry,
+  frozen-range `git diff --check`, lockfile/workspace, index, unmerged-index,
+  and conflict-marker checks.
+- Scoped eleven-path protected-primary patch-ID and path-list check; separate
+  Controller-owned workflow-path check; staged/unmerged-index and untracked
+  `outputs/` count check.
 
 ## Key Output
 
-- `baseAncestor=0`; candidate range diff check exited `0`.
-- Candidate scopes: business = two allowed product/test paths; evidence = one
-  allowed worker-result path.
-- Primary worktree: `git diff --cached --name-only` and `git ls-files -u` were
-  empty; `outputs/` still listed two untracked files. Its tracked dirty
-  baseline, however, did not match the contract:
-  `97ae91cd822976bf9709be3d5617cdadc21a3708 0000000000000000000000000000000000000000`.
+- Focused Vitest passed once plus ten repetitions: every run reported `1` test
+  file passed and `7` tests passed.
+- `vue-tsc --noEmit`: `VUE_TSC_NOEMIT_EXIT=0`; `vue-tsc -b`:
+  `VUE_TSC_BUILD_EXIT=0`; Vite production build transformed `1880` modules,
+  completed in `19.81s`, and returned `VITE_BUILD_EXIT=0`.
+- Vite emitted only existing dynamic-import/chunk-size warnings; it did not
+  report a build error. No pnpm command was run.
+- Candidate frozen-range diff check and lockfile diff both exited `0`;
+  `frontend/pnpm-workspace.yaml` is absent, staged index and unmerged index are
+  empty, and no conflict marker was found in either product/test owner.
+- The exact eleven primary user paths remain dirty with required stable patch
+  ID `370ac77de0e2f530ab652b99fb3eb35e809f4c84`. The primary staged and
+  unmerged indexes are empty; `outputs/` still has exactly two untracked files.
 
 ## Risks
 
-- Running direct Vitest, vue-tsc, or Vite acceptance after a protected-primary
-  baseline mismatch would violate the contract's stop rule and could incorrectly
-  certify a moving primary-worktree state. Those commands were deliberately not
-  run; no behavioral PASS is claimed.
-- No pnpm command, dependency operation, browser automation, provider call,
-  deployment, container, push, or business-file modification was performed.
+- Browser automation, real provider traffic, production data, deployment,
+  containers, and push were not exercised; all are denied by this contract.
+- Vite warning output notes existing dynamic-import and large-chunk guidance.
+  The production build nevertheless completed successfully and QA found no
+  S244 scope expansion.
 
 ## Contract Compliance
 
-- QA used the isolated `E:/codex-worktrees/sub2api/upstream-token-refresh-lock-s244-qa`
-  worktree and modified only this permitted QA report.
-- The protected-primary baseline mismatch is an explicit stop condition in the
-  contract; QA stopped immediately on detection. Re-establish the approved
-  primary baseline (or amend the contract with a newly recorded baseline) before
-  a fresh independent QA reruns the required direct local frontend commands.
+- QA ran only in `E:/codex-worktrees/sub2api/upstream-token-refresh-lock-s244-qa`
+  and used the Controller-provided task-local `node_modules` junction through
+  direct `vitest.cmd`, `vue-tsc.cmd`, and `vite.cmd` invocation.
+- No `pnpm`, install/add/update/exec/run command, dependency operation,
+  lockfile/workspace change, business-file change, browser automation, remote
+  write, provider call, deployment, container operation, or push occurred.
+- This retest modifies only the allowed QA report. The initial FAIL was resolved
+  by the Controller's contract-scoping correction, not by any product change.
 
 ## knowledge_candidates
 
