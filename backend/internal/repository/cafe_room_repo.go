@@ -2,12 +2,15 @@ package repository
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/sql"
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/caferoom"
+	dbgroup "github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
@@ -49,7 +52,7 @@ func (r *cafeRoomRepository) List(ctx context.Context, params pagination.Paginat
 	}
 	params.Page = page
 	rooms, err := q.
-		Order(dbent.Asc(caferoom.FieldFeatured), dbent.Asc(caferoom.FieldSortOrder), dbent.Asc(caferoom.FieldID)).
+		Order(cafeRoomListOrder(params)...).
 		Offset(params.Offset()).
 		Limit(params.Limit()).
 		All(ctx)
@@ -143,10 +146,11 @@ func (r *cafeRoomRepository) Create(ctx context.Context, room *service.CafeRoom)
 	txClient := tx.Client()
 	defer func() { _ = tx.Rollback() }()
 
-	if err := lockCafeRoomPlan(ctx, txClient, room.PlanID); err != nil {
+	plan, err := lockCafeRoomPlan(ctx, txClient, room.PlanID)
+	if err != nil {
 		return nil, err
 	}
-	if err := lockAccountAndCheckAssignment(ctx, txClient, *room.AccountID, 0); err != nil {
+	if err := lockCafeRoomAccount(ctx, txClient, *room.AccountID, 0, plan); err != nil {
 		return nil, err
 	}
 	metadata := room.Metadata
@@ -190,16 +194,28 @@ func (r *cafeRoomRepository) Update(ctx context.Context, room *service.CafeRoom)
 	if txClient.Driver().Dialect() != dialect.SQLite {
 		roomQ = roomQ.ForUpdate()
 	}
-	if _, err := roomQ.Only(ctx); err != nil {
+	currentRoom, err := roomQ.Only(ctx)
+	if err != nil {
 		if dbent.IsNotFound(err) {
 			return nil, service.ErrCafeRoomNotFound
 		}
 		return nil, err
 	}
-	if err := lockCafeRoomPlan(ctx, txClient, room.PlanID); err != nil {
+	live, err := txClient.GroupBuyRound.Query().Where(
+		groupbuyround.CafeRoomIDEQ(room.ID),
+		groupbuyround.StatusIn(service.CafeRoundStatusOpen, "activating", "active"),
+	).Exist(ctx)
+	if err != nil {
 		return nil, err
 	}
-	if err := lockAccountAndCheckAssignment(ctx, txClient, *room.AccountID, room.ID); err != nil {
+	if live && (currentRoom.PlanID != room.PlanID || currentRoom.AccountID == nil || *currentRoom.AccountID != *room.AccountID || room.Status != service.CafeRoomStatusEnabled) {
+		return nil, service.ErrCafeRoomLive
+	}
+	plan, err := lockCafeRoomPlan(ctx, txClient, room.PlanID)
+	if err != nil {
+		return nil, err
+	}
+	if err := lockCafeRoomAccount(ctx, txClient, *room.AccountID, room.ID, plan); err != nil {
 		return nil, err
 	}
 	metadata := room.Metadata
@@ -269,6 +285,13 @@ func (r *cafeRoomRepository) CreateOpenRound(ctx context.Context, roomID int64, 
 	if room.AccountID == nil || *room.AccountID <= 0 || room.Edges.Plan == nil {
 		return nil, service.ErrCafeRoomInvalid
 	}
+	plan, err := lockCafeRoomPlan(ctx, txClient, room.PlanID)
+	if err != nil {
+		return nil, err
+	}
+	if err := lockCafeRoomAccount(ctx, txClient, *room.AccountID, roomID, plan); err != nil {
+		return nil, err
+	}
 	exists, err := txClient.GroupBuyRound.Query().Where(
 		groupbuyround.CafeRoomIDEQ(roomID),
 		groupbuyround.StatusIn(service.CafeRoundStatusOpen, "activating", "active"),
@@ -279,7 +302,6 @@ func (r *cafeRoomRepository) CreateOpenRound(ctx context.Context, roomID int64, 
 	if exists {
 		return nil, service.ErrCafeRoundExists
 	}
-	plan := room.Edges.Plan
 	totalShares := plan.TotalShares
 	if totalShares <= 0 {
 		totalShares = plan.SeatCount
@@ -313,16 +335,39 @@ func (r *cafeRoomRepository) CreateOpenRound(ctx context.Context, roomID int64, 
 	return &converted, nil
 }
 
-func lockAccountAndCheckAssignment(ctx context.Context, client *dbent.Client, accountID, excludeRoomID int64) error {
-	accountQ := client.Account.Query().Where(account.IDEQ(accountID))
+func lockCafeRoomAccount(ctx context.Context, client *dbent.Client, accountID, excludeRoomID int64, plan *dbent.GroupBuyPlan) error {
+	accountQ := client.Account.Query().Where(account.IDEQ(accountID)).WithGroups()
 	if client.Driver().Dialect() != dialect.SQLite {
 		accountQ = accountQ.ForUpdate()
 	}
-	if _, err := accountQ.Only(ctx); err != nil {
+	assignedAccount, err := accountQ.Only(ctx)
+	if err != nil {
 		if dbent.IsNotFound(err) {
 			return service.ErrCafeAccountNotFound
 		}
 		return err
+	}
+	if assignedAccount.Status != service.StatusActive {
+		return service.ErrCafeAccountIncompatible
+	}
+	if err := validateCafePlanFields(plan); err != nil {
+		return err
+	}
+	if plan.Edges.TargetGroup == nil {
+		group, err := client.Group.Query().Where(dbgroup.IDEQ(plan.TargetGroupID), dbgroup.DeletedAtIsNil()).Only(ctx)
+		if err != nil {
+			if dbent.IsNotFound(err) {
+				return service.ErrCafeGroupInvalid
+			}
+			return err
+		}
+		plan.Edges.TargetGroup = group
+	}
+	if plan.Edges.TargetGroup.Status != service.StatusActive || plan.Edges.TargetGroup.AccessMode != service.CafeRoomGroupAccessMode {
+		return service.ErrCafeGroupInvalid
+	}
+	if assignedAccount.Platform != plan.Edges.TargetGroup.Platform || !accountBelongsToGroup(assignedAccount, plan.TargetGroupID) {
+		return service.ErrCafeAccountIncompatible
 	}
 	roomQ := client.CafeRoom.Query().Where(
 		caferoom.AccountIDEQ(accountID),
@@ -341,7 +386,36 @@ func lockAccountAndCheckAssignment(ctx context.Context, client *dbent.Client, ac
 	return nil
 }
 
-func lockCafeRoomPlan(ctx context.Context, client *dbent.Client, planID int64) error {
+func validateCafePlanEntity(plan *dbent.GroupBuyPlan) error {
+	if err := validateCafePlanFields(plan); err != nil {
+		return err
+	}
+	if plan.Edges.TargetGroup == nil || plan.Edges.TargetGroup.Status != service.StatusActive || plan.Edges.TargetGroup.AccessMode != service.CafeRoomGroupAccessMode {
+		return service.ErrCafeGroupInvalid
+	}
+	return nil
+}
+
+func validateCafePlanFields(plan *dbent.GroupBuyPlan) error {
+	if plan == nil || plan.Status != service.GroupBuyPlanStatusActive || plan.FulfillmentMode != service.CafeRoomFulfillmentMode || !plan.AutoCreateRoomKey || plan.ValidityDays <= 0 {
+		return service.ErrCafePlanInvalid
+	}
+	return nil
+}
+
+func accountBelongsToGroup(item *dbent.Account, groupID int64) bool {
+	if item == nil {
+		return false
+	}
+	for _, group := range item.Edges.Groups {
+		if group.ID == groupID {
+			return true
+		}
+	}
+	return false
+}
+
+func lockCafeRoomPlan(ctx context.Context, client *dbent.Client, planID int64) (*dbent.GroupBuyPlan, error) {
 	planQ := client.GroupBuyPlan.Query().Where(
 		groupbuyplan.IDEQ(planID),
 		groupbuyplan.DeletedAtIsNil(),
@@ -352,14 +426,43 @@ func lockCafeRoomPlan(ctx context.Context, client *dbent.Client, planID int64) e
 	plan, err := planQ.Only(ctx)
 	if err != nil {
 		if dbent.IsNotFound(err) {
-			return service.ErrCafePlanNotFound
+			return nil, service.ErrCafePlanNotFound
 		}
-		return err
+		return nil, err
 	}
-	if plan.FulfillmentMode != service.CafeRoomFulfillmentMode {
-		return service.ErrCafePlanInvalid
+	if err := validateCafePlanFields(plan); err != nil {
+		return nil, err
 	}
-	return nil
+	return plan, nil
+}
+
+func cafeRoomListOrder(params pagination.PaginationParams) []caferoom.OrderOption {
+	sortBy := strings.ToLower(strings.TrimSpace(params.SortBy))
+	sortOrder := params.NormalizedSortOrder(pagination.SortOrderAsc)
+	if sortBy == "" {
+		return []caferoom.OrderOption{caferoom.ByFeatured(sql.OrderDesc()), caferoom.BySortOrder(sql.OrderAsc()), caferoom.ByID(sql.OrderAsc())}
+	}
+	var order func(...sql.OrderTermOption) caferoom.OrderOption
+	switch sortBy {
+	case "id":
+		order = caferoom.ByID
+	case "code":
+		order = caferoom.ByCode
+	case "name":
+		order = caferoom.ByName
+	case "status":
+		order = caferoom.ByStatus
+	case "featured":
+		order = caferoom.ByFeatured
+	case "sort_order":
+		order = caferoom.BySortOrder
+	default:
+		order = caferoom.BySortOrder
+	}
+	if sortOrder == pagination.SortOrderDesc {
+		return []caferoom.OrderOption{order(sql.OrderDesc()), caferoom.ByID(sql.OrderDesc())}
+	}
+	return []caferoom.OrderOption{order(sql.OrderAsc()), caferoom.ByID(sql.OrderAsc())}
 }
 
 func cafeRoomToService(room *dbent.CafeRoom) service.CafeRoom {
@@ -388,18 +491,21 @@ func cafeRoomToService(room *dbent.CafeRoom) service.CafeRoom {
 
 func cafePlanToService(plan *dbent.GroupBuyPlan) service.CafeRoomPlan {
 	converted := service.CafeRoomPlan{
-		ID:              plan.ID,
-		Title:           plan.Title,
-		TargetGroupID:   plan.TargetGroupID,
-		FulfillmentMode: plan.FulfillmentMode,
-		TotalShares:     plan.TotalShares,
-		SeatCount:       plan.SeatCount,
-		TimeoutMinutes:  plan.TimeoutMinutes,
-		ValidityDays:    plan.ValidityDays,
+		ID:                plan.ID,
+		Title:             plan.Title,
+		Status:            plan.Status,
+		TargetGroupID:     plan.TargetGroupID,
+		FulfillmentMode:   plan.FulfillmentMode,
+		AutoCreateRoomKey: plan.AutoCreateRoomKey,
+		TotalShares:       plan.TotalShares,
+		SeatCount:         plan.SeatCount,
+		TimeoutMinutes:    plan.TimeoutMinutes,
+		ValidityDays:      plan.ValidityDays,
 	}
 	if plan.Edges.TargetGroup != nil {
 		converted.GroupPlatform = plan.Edges.TargetGroup.Platform
 		converted.GroupAccessMode = plan.Edges.TargetGroup.AccessMode
+		converted.TargetGroupStatus = plan.Edges.TargetGroup.Status
 	}
 	return converted
 }

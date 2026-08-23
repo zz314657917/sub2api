@@ -639,6 +639,9 @@ func (s *GroupBuyService) lockSharesAndCreateOrder(ctx context.Context, req Crea
 	if lockedPlan.Status != GroupBuyPlanStatusActive {
 		return nil, nil, nil, ErrGroupBuyPlanUnavailable
 	}
+	if lockedPlan.FulfillmentMode == CafeRoomFulfillmentMode {
+		return nil, nil, nil, ErrCafeRoundLifecycleDeferred
+	}
 	if err := s.validatePlanTierRulesInTx(txCtx, tx, lockedPlan); err != nil {
 		return nil, nil, nil, err
 	}
@@ -767,6 +770,9 @@ func (s *GroupBuyService) lockSharesAndCreateOrder(ctx context.Context, req Crea
 }
 
 func (s *GroupBuyService) findOpenRoundTx(ctx context.Context, tx *dbent.Tx, plan *dbent.GroupBuyPlan, createIfAuto bool) (*dbent.GroupBuyRound, error) {
+	if plan != nil && plan.FulfillmentMode == CafeRoomFulfillmentMode {
+		return nil, ErrCafeRoundLifecycleDeferred
+	}
 	now := s.now()
 	roundQuery := tx.GroupBuyRound.Query().
 		Where(
@@ -799,6 +805,9 @@ func (s *GroupBuyService) findOpenRoundTx(ctx context.Context, tx *dbent.Tx, pla
 }
 
 func (s *GroupBuyService) createRoundForPlanTx(ctx context.Context, tx *dbent.Tx, plan *dbent.GroupBuyPlan) (*dbent.GroupBuyRound, error) {
+	if plan != nil && plan.FulfillmentMode == CafeRoomFulfillmentMode {
+		return nil, ErrCafeRoundLifecycleDeferred
+	}
 	now := s.now()
 	deadline := now.Add(time.Duration(plan.TimeoutMinutes) * time.Minute)
 	round, err := tx.GroupBuyRound.Create().

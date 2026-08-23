@@ -206,22 +206,12 @@ describe('AdminCafeRoomsView', () => {
     expect(wrapper.text()).not.toContain('Legacy plan')
   })
 
-  it('switches between room and embedded group-buy workspaces', async () => {
+  it('renders room management and embedded plan management together', async () => {
     const wrapper = mountView()
     await flushPromises()
 
-    expect(wrapper.find('[data-testid="cafe-workspace-rooms"]').attributes('aria-selected')).toBe('true')
     expect(wrapper.text()).toContain('OpenAI 七号房')
-    expect(wrapper.find('[data-testid="embedded-group-buy"]').exists()).toBe(false)
-
-    await wrapper.find('[data-testid="cafe-workspace-group-buy"]').trigger('click')
-    expect(wrapper.find('[data-testid="cafe-workspace-group-buy"]').attributes('aria-selected')).toBe('true')
     expect(wrapper.find('[data-testid="embedded-group-buy"]').attributes('data-embedded')).toBe('true')
-    expect(wrapper.text()).not.toContain('OpenAI 七号房')
-
-    await wrapper.find('[data-testid="cafe-workspace-rooms"]').trigger('click')
-    expect(wrapper.find('[data-testid="embedded-group-buy"]').exists()).toBe(false)
-    expect(wrapper.text()).toContain('OpenAI 七号房')
   })
 
   it('submits create input without client-owned price or group fields and opens a round', async () => {
@@ -287,5 +277,30 @@ describe('AdminCafeRoomsView', () => {
     expect(bulkCreate).toHaveBeenCalledWith(expect.objectContaining({ plan_id: 21, account_ids: [41, 42] }))
     expect(wrapper.text()).toContain('CAFE_ACCOUNT_ALREADY_ASSIGNED')
     expect(showSuccess).toHaveBeenCalled()
+  })
+
+  it('loads all active accounts across paginated dependency responses', async () => {
+    listAccounts.mockReset()
+      .mockResolvedValueOnce({
+        items: [{ id: 41, name: 'First account', platform: 'openai', status: 'active', concurrency: 3 }],
+        total: 201,
+        page: 1,
+        page_size: 200,
+        pages: 2,
+      })
+      .mockResolvedValueOnce({
+        items: [{ id: 241, name: 'Later account', platform: 'openai', status: 'active', concurrency: 2 }],
+        total: 201,
+        page: 2,
+        page_size: 200,
+        pages: 2,
+      })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.findAll('button').find((button) => button.text().includes('新建房间'))?.trigger('click')
+
+    expect(listAccounts).toHaveBeenNthCalledWith(2, 2, 200, { status: 'active', lite: 'true' })
+    expect(wrapper.find('#cafe-room-form').text()).toContain('Later account')
   })
 })

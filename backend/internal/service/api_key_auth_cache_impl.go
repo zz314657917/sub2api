@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 17 // v17: include Cafe strict fixed-account binding facts
+const apiKeyAuthSnapshotVersion = 18 // v18: preserve Group.AccessMode in auth snapshots
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -335,6 +335,7 @@ func apiKeyAuthGroupSnapshotFromGroup(group *Group) *APIKeyAuthGroupSnapshot {
 		ID:                              group.ID,
 		Name:                            group.Name,
 		Platform:                        group.Platform,
+		AccessMode:                      group.AccessMode,
 		IsExclusive:                     group.IsExclusive,
 		Status:                          group.Status,
 		SubscriptionType:                group.SubscriptionType,
@@ -435,6 +436,7 @@ func groupFromAPIKeyAuthSnapshot(snapshot *APIKeyAuthGroupSnapshot) *Group {
 		ID:                              snapshot.ID,
 		Name:                            snapshot.Name,
 		Platform:                        snapshot.Platform,
+		AccessMode:                      snapshot.AccessMode,
 		IsExclusive:                     snapshot.IsExclusive,
 		Status:                          snapshot.Status,
 		Hydrated:                        true,

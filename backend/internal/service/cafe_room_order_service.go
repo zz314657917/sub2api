@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -168,7 +169,9 @@ func (s *CafeRoomOrderService) CreateOrder(ctx context.Context, input CafeRoomOr
 	result, err := s.paymentSvc.invokeProvider(ctx, order, req, cfg, orderAmount, payAmountStr, payAmount, nil, sel)
 	if err != nil {
 		_, _ = s.entClient.PaymentOrder.UpdateOneID(order.ID).SetStatus(OrderStatusFailed).Save(ctx)
-		_ = s.groupBuySvc.ReleaseGroupBuySeatForOrder(context.Background(), order.ID, "provider create failed")
+		if releaseErr := s.groupBuySvc.ReleaseGroupBuySeatForOrder(context.Background(), order.ID, "provider create failed"); releaseErr != nil {
+			slog.Error("release cafe seat after provider create failure failed", "order_id", order.ID, "error", releaseErr)
+		}
 		return nil, err
 	}
 	return &CafeRoomOrderResponse{CreateOrderResponse: *result, RoomID: room.ID, RoundID: round.ID, SeatNo: input.SeatNo}, nil
@@ -193,7 +196,7 @@ func (s *CafeRoomOrderService) lockSeatAndCreateOrder(ctx context.Context, req C
 	if lockedRoom.Status != CafeRoomStatusEnabled || lockedRoom.AccountID == nil {
 		return nil, nil, ErrCafeOrderUnavailable
 	}
-	planQuery := tx.GroupBuyPlan.Query().Where(groupbuyplan.IDEQ(lockedRoom.PlanID), groupbuyplan.DeletedAtIsNil())
+	planQuery := tx.GroupBuyPlan.Query().Where(groupbuyplan.IDEQ(lockedRoom.PlanID), groupbuyplan.DeletedAtIsNil()).WithTargetGroup()
 	lockedPlan, err := s.groupBuySvc.groupBuyPlanForUpdate(planQuery).Only(txCtx)
 	if err != nil {
 		if dbent.IsNotFound(err) {
@@ -201,7 +204,7 @@ func (s *CafeRoomOrderService) lockSeatAndCreateOrder(ctx context.Context, req C
 		}
 		return nil, nil, fmt.Errorf("lock cafe room plan: %w", err)
 	}
-	if lockedPlan.Status != GroupBuyPlanStatusActive || lockedPlan.FulfillmentMode != CafeRoomFulfillmentMode {
+	if !isCafeOperationalPlanEntity(lockedPlan) {
 		return nil, nil, ErrCafeOrderUnavailable
 	}
 	if err := s.paymentSvc.checkPendingLimit(txCtx, tx, req.UserID, cfg.MaxPendingOrders); err != nil {
@@ -232,11 +235,21 @@ func (s *CafeRoomOrderService) lockSeatAndCreateOrder(ctx context.Context, req C
 	if round.PlanID != lockedPlan.ID || round.AssignedAccountID == nil {
 		return nil, nil, ErrCafeOrderUnavailable
 	}
-	accountReady, err := tx.Account.Query().Where(account.IDEQ(*round.AssignedAccountID), account.StatusEQ(StatusActive)).Exist(txCtx)
+	if *round.AssignedAccountID != *lockedRoom.AccountID {
+		return nil, nil, ErrCafeOrderUnavailable
+	}
+	accountQuery := tx.Account.Query().Where(account.IDEQ(*round.AssignedAccountID), account.StatusEQ(StatusActive)).WithGroups()
+	if s.entClient.Driver().Dialect() != dialect.SQLite {
+		accountQuery = accountQuery.ForUpdate()
+	}
+	assignedAccount, err := accountQuery.Only(txCtx)
 	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, nil, ErrCafeOrderUnavailable
+		}
 		return nil, nil, fmt.Errorf("check cafe room account: %w", err)
 	}
-	if !accountReady {
+	if lockedPlan.Edges.TargetGroup == nil || assignedAccount.Platform != lockedPlan.Edges.TargetGroup.Platform || !cafeAccountBelongsToGroup(assignedAccount, lockedPlan.TargetGroupID) {
 		return nil, nil, ErrCafeOrderUnavailable
 	}
 	if _, err := s.groupBuySvc.releaseExpiredLockedSeatsForRoundTx(txCtx, tx, round.ID); err != nil {
@@ -389,17 +402,45 @@ func (s *CafeRoomOrderService) loadAvailableRoom(ctx context.Context, roomID int
 	if s == nil || s.entClient == nil {
 		return nil, nil, infraerrors.InternalServer("CAFE_ORDER_SERVICE_UNAVAILABLE", "cafe room order service is unavailable")
 	}
-	room, err := s.entClient.CafeRoom.Query().Where(caferoom.IDEQ(roomID), caferoom.DeletedAtIsNil()).WithPlan().Only(ctx)
+	room, err := s.entClient.CafeRoom.Query().Where(caferoom.IDEQ(roomID), caferoom.DeletedAtIsNil()).WithPlan(func(planQuery *dbent.GroupBuyPlanQuery) {
+		planQuery.WithTargetGroup()
+	}).Only(ctx)
 	if err != nil {
 		if dbent.IsNotFound(err) {
 			return nil, nil, ErrCafeRoomNotFound
 		}
 		return nil, nil, fmt.Errorf("load cafe room: %w", err)
 	}
-	if room.Status != CafeRoomStatusEnabled || room.AccountID == nil || room.Edges.Plan == nil || room.Edges.Plan.Status != GroupBuyPlanStatusActive || room.Edges.Plan.FulfillmentMode != CafeRoomFulfillmentMode {
+	if room.Status != CafeRoomStatusEnabled || room.AccountID == nil || room.Edges.Plan == nil || !isCafeOperationalPlanEntity(room.Edges.Plan) || room.Edges.Plan.Edges.TargetGroup == nil {
+		return nil, nil, ErrCafeOrderUnavailable
+	}
+	account, err := s.entClient.Account.Query().Where(account.IDEQ(*room.AccountID), account.StatusEQ(StatusActive)).WithGroups().Only(ctx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, nil, ErrCafeOrderUnavailable
+		}
+		return nil, nil, fmt.Errorf("load cafe room account: %w", err)
+	}
+	if account.Platform != room.Edges.Plan.Edges.TargetGroup.Platform || !cafeAccountBelongsToGroup(account, room.Edges.Plan.TargetGroupID) {
 		return nil, nil, ErrCafeOrderUnavailable
 	}
 	return room, room.Edges.Plan, nil
+}
+
+func isCafeOperationalPlanEntity(plan *dbent.GroupBuyPlan) bool {
+	return plan != nil && plan.Status == GroupBuyPlanStatusActive && plan.FulfillmentMode == CafeRoomFulfillmentMode && plan.AutoCreateRoomKey && plan.ValidityDays > 0 && plan.Edges.TargetGroup != nil && plan.Edges.TargetGroup.Status == StatusActive && plan.Edges.TargetGroup.AccessMode == CafeRoomGroupAccessMode
+}
+
+func cafeAccountBelongsToGroup(item *dbent.Account, groupID int64) bool {
+	if item == nil {
+		return false
+	}
+	for _, group := range item.Edges.Groups {
+		if group.ID == groupID {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *CafeRoomOrderService) requireEnabled(ctx context.Context) error {

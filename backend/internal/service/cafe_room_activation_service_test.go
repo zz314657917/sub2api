@@ -27,12 +27,20 @@ type cafeActivationFailOnceAPIKeyRepo struct {
 	failNextCreate bool
 }
 
+type cafeActivationFailAlwaysAPIKeyRepo struct {
+	*cafeActivationAPIKeyRepo
+}
+
 func (r *cafeActivationFailOnceAPIKeyRepo) Create(ctx context.Context, key *APIKey) error {
 	if r.failNextCreate {
 		r.failNextCreate = false
 		return errors.New("injected managed key persistence failure")
 	}
 	return r.cafeActivationAPIKeyRepo.Create(ctx, key)
+}
+
+func (r *cafeActivationFailAlwaysAPIKeyRepo) Create(context.Context, *APIKey) error {
+	return errors.New("injected managed key persistence failure")
 }
 
 func (r *cafeActivationAPIKeyRepo) Create(ctx context.Context, key *APIKey) error {

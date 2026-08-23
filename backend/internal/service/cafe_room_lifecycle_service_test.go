@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyrefund"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
@@ -166,6 +167,47 @@ func TestCafeRoomLifecycleRetriesValidActivatingRound(t *testing.T) {
 	require.Equal(t, GroupBuyRoundStatusActive, round.Status)
 }
 
+func TestCafeRoomLifecycleStopsAfterMaximumActivationFailures(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "cafe_room_lifecycle_activation_retry_limit")
+	now := time.Date(2026, 8, 3, 18, 0, 0, 0, time.UTC)
+	fixture := newCafeActivationFixture(t, ctx, client, now, 1)
+	baseRepo := fixture.service.apiKeyRepo.(*cafeActivationAPIKeyRepo)
+	fixture.service.apiKeyRepo = &cafeActivationFailAlwaysAPIKeyRepo{cafeActivationAPIKeyRepo: baseRepo}
+
+	// The initial callback is the first failed attempt.
+	require.ErrorIs(t, fixture.service.ActivateRound(ctx, fixture.round.ID), ErrCafeActivationFailed)
+
+	groupBuySvc := newGroupBuyTestService(client, nil, nil)
+	expirySvc := NewCafeRoomExpiryService(client, &cafeExpiryCacheInvalidatorStub{})
+	lifecycle := NewCafeRoomLifecycleService(client, groupBuySvc, fixture.service, expirySvc)
+	lifecycle.now = func() time.Time { return now.Add(time.Minute) }
+
+	for attempt := 0; attempt < 2; attempt++ {
+		_, err := lifecycle.RunCafeLifecycle(ctx)
+		require.ErrorIs(t, err, ErrCafeActivationFailed)
+		round, roundErr := client.GroupBuyRound.Get(ctx, fixture.round.ID)
+		require.NoError(t, roundErr)
+		require.Equal(t, GroupBuyRoundStatusActivating, round.Status)
+	}
+
+	updated, err := lifecycle.RunCafeLifecycle(ctx)
+	require.ErrorIs(t, err, ErrCafeActivationFailed)
+	require.Equal(t, 1, updated)
+	round, err := client.GroupBuyRound.Get(ctx, fixture.round.ID)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuyRoundStatusFailed, round.Status)
+	seat, err := client.GroupBuySeat.Query().Where(groupbuyseat.RoundIDEQ(fixture.round.ID)).Only(ctx)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuySeatStatusRefundPending, seat.Status)
+	failureEvents, err := client.GroupBuyEvent.Query().Where(
+		groupbuyevent.RoundIDEQ(fixture.round.ID),
+		groupbuyevent.EventTypeEQ("activation_failed"),
+	).Count(ctx)
+	require.NoError(t, err)
+	require.Equal(t, cafeActivationMaxAttempts, failureEvents)
+}
+
 func TestCafeRoomLifecycleCompensatesPaidFullOpenRound(t *testing.T) {
 	ctx := context.Background()
 	client := newGroupBuyTestClient(t, "cafe_room_lifecycle_open_full_retry")
@@ -186,7 +228,7 @@ func TestCafeRoomLifecycleCompensatesPaidFullOpenRound(t *testing.T) {
 	require.Equal(t, GroupBuyRoundStatusActive, round.Status)
 }
 
-func TestCafeRoomLifecycleLeavesInvalidActivatingRoundUntouched(t *testing.T) {
+func TestCafeRoomLifecycleFailsInvalidActivatingRoundAndQueuesRefund(t *testing.T) {
 	ctx := context.Background()
 	client := newGroupBuyTestClient(t, "cafe_room_lifecycle_invalid_activation")
 	now := time.Date(2026, 8, 3, 18, 0, 0, 0, time.UTC)
@@ -203,8 +245,11 @@ func TestCafeRoomLifecycleLeavesInvalidActivatingRoundUntouched(t *testing.T) {
 
 	updated, err := lifecycle.RunCafeLifecycle(ctx)
 	require.ErrorIs(t, err, ErrCafeActivationFailed)
-	require.Zero(t, updated)
+	require.Equal(t, 1, updated)
 	round, err := client.GroupBuyRound.Query().Where(groupbuyround.IDEQ(fixture.round.ID)).Only(ctx)
 	require.NoError(t, err)
-	require.Equal(t, GroupBuyRoundStatusActivating, round.Status)
+	require.Equal(t, GroupBuyRoundStatusFailed, round.Status)
+	seat, err := client.GroupBuySeat.Query().Where(groupbuyseat.RoundIDEQ(fixture.round.ID)).Only(ctx)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuySeatStatusRefundPending, seat.Status)
 }

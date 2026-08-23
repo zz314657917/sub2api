@@ -7,13 +7,18 @@ import (
 
 	"entgo.io/ent/dialect"
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyrefund"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
+	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
 
-const cafeRoomLifecycleBatchSize = 50
+const (
+	cafeRoomLifecycleBatchSize = 50
+	cafeActivationMaxAttempts  = 3
+)
 
 var ErrCafeLifecycleUnavailable = infraerrors.Conflict("CAFE_LIFECYCLE_UNAVAILABLE", "cafe room lifecycle service is unavailable")
 
@@ -64,6 +69,8 @@ func (s *CafeRoomLifecycleService) RunCafeLifecycle(ctx context.Context) (int, e
 	count, err = s.expireUnfilledCafeRounds(ctx, s.now())
 	record(count, err)
 	count, err = s.processCafeRefunds(ctx)
+	record(count, err)
+	count, err = s.releaseFailedCafeOrderSeats(ctx)
 	record(count, err)
 	count, err = s.reconcileCafePendingProviderRefunds(ctx)
 	record(count, err)
@@ -211,6 +218,43 @@ func (s *CafeRoomLifecycleService) processCafeRefunds(ctx context.Context) (int,
 	return processed, firstErr
 }
 
+// releaseFailedCafeOrderSeats is the durable fallback for a provider failure
+// that occurs after the order/seat transaction has committed. The request path
+// attempts the release immediately; this scan makes a transient cleanup error
+// recoverable on the next lifecycle tick instead of leaving a ghost seat.
+func (s *CafeRoomLifecycleService) releaseFailedCafeOrderSeats(ctx context.Context) (int, error) {
+	seats, err := s.entClient.GroupBuySeat.Query().
+		Where(
+			groupbuyseat.StatusEQ(GroupBuySeatStatusLocked),
+			groupbuyseat.HasRoundWith(groupbuyround.CafeRoomIDNotNil()),
+			groupbuyseat.HasOrderWith(paymentorder.StatusIn(OrderStatusFailed, OrderStatusExpired)),
+		).
+		Order(dbent.Asc(groupbuyseat.FieldUpdatedAt), dbent.Asc(groupbuyseat.FieldID)).
+		Limit(cafeRoomLifecycleBatchSize).
+		All(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("list failed cafe order seats: %w", err)
+	}
+	released := 0
+	var firstErr error
+	for _, seat := range seats {
+		if seat.OrderID == nil {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("failed cafe order seat %d has no order", seat.ID)
+			}
+			continue
+		}
+		if err := s.groupBuy.ReleaseGroupBuySeatForOrder(ctx, *seat.OrderID, "payment provider create failed"); err != nil {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("release failed cafe order seat %d: %w", seat.ID, err)
+			}
+			continue
+		}
+		released++
+	}
+	return released, firstErr
+}
+
 func (s *CafeRoomLifecycleService) reconcileCafePendingProviderRefunds(ctx context.Context) (int, error) {
 	refunds, err := s.entClient.GroupBuyRefund.Query().
 		Where(
@@ -264,8 +308,36 @@ func (s *CafeRoomLifecycleService) compensateCafeActivation(ctx context.Context,
 				continue
 			}
 		} else if !isCafeRoundActivationRetryable(round, now) {
-			if firstErr == nil {
+			changed, failErr := s.failCafeActivationRound(ctx, round.ID, now, "activation facts are missing or expired")
+			if changed {
+				retried++
+			}
+			if failErr != nil && firstErr == nil {
+				firstErr = failErr
+			} else if firstErr == nil {
 				firstErr = ErrCafeActivationFailed.WithMetadata(map[string]string{"round_id": fmt.Sprint(round.ID), "reason": "activation facts are missing or expired"})
+			}
+			continue
+		}
+		failedAttempts, countErr := s.entClient.GroupBuyEvent.Query().Where(
+			groupbuyevent.RoundIDEQ(round.ID),
+			groupbuyevent.EventTypeEQ("activation_failed"),
+		).Count(ctx)
+		if countErr != nil {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("count cafe activation failures for round %d: %w", round.ID, countErr)
+			}
+			continue
+		}
+		if failedAttempts >= cafeActivationMaxAttempts {
+			changed, failErr := s.failCafeActivationRound(ctx, round.ID, now, "activation retry limit reached")
+			if changed {
+				retried++
+			}
+			if failErr != nil && firstErr == nil {
+				firstErr = failErr
+			} else if firstErr == nil {
+				firstErr = ErrCafeActivationFailed.WithMetadata(map[string]string{"round_id": fmt.Sprint(round.ID), "reason": "activation retry limit reached"})
 			}
 			continue
 		}
@@ -278,6 +350,66 @@ func (s *CafeRoomLifecycleService) compensateCafeActivation(ctx context.Context,
 		retried++
 	}
 	return retried, firstErr
+}
+
+func (s *CafeRoomLifecycleService) failCafeActivationRound(ctx context.Context, roundID int64, now time.Time, reason string) (bool, error) {
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return false, fmt.Errorf("begin cafe activation failure transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	txCtx := dbent.NewTxContext(ctx, tx)
+	round, err := s.roundForUpdate(tx.GroupBuyRound.Query().Where(groupbuyround.IDEQ(roundID))).Only(txCtx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("lock cafe activation failure round %d: %w", roundID, err)
+	}
+	if round.Status != GroupBuyRoundStatusActivating || round.CafeRoomID == nil {
+		if err := tx.Commit(); err != nil {
+			return false, err
+		}
+		return false, nil
+	}
+	if _, err := tx.GroupBuyRound.UpdateOneID(round.ID).
+		SetStatus(GroupBuyRoundStatusFailed).
+		SetClosedAt(now).
+		SetCloseReason(reason).
+		SetUpdatedAt(now).
+		Save(txCtx); err != nil {
+		return false, fmt.Errorf("mark cafe activation round %d failed: %w", round.ID, err)
+	}
+	if _, err := tx.GroupBuySeat.Update().
+		Where(groupbuyseat.RoundIDEQ(round.ID), groupbuyseat.StatusEQ(GroupBuySeatStatusPaid)).
+		SetStatus(GroupBuySeatStatusRefundPending).
+		SetUpdatedAt(now).
+		Save(txCtx); err != nil {
+		return false, fmt.Errorf("queue cafe activation refunds for round %d: %w", round.ID, err)
+	}
+	if _, err := tx.GroupBuySeat.Update().
+		Where(groupbuyseat.RoundIDEQ(round.ID), groupbuyseat.StatusEQ(GroupBuySeatStatusLocked)).
+		SetStatus(GroupBuySeatStatusReleased).
+		SetUpdatedAt(now).
+		Save(txCtx); err != nil {
+		return false, fmt.Errorf("release cafe activation seats for round %d: %w", round.ID, err)
+	}
+	if err := s.groupBuy.createEventTxStrict(txCtx, tx.Client(), &groupBuyEventInput{
+		RoundID:   &round.ID,
+		PlanID:    &round.PlanID,
+		EventType: groupBuyEventRoundFailed,
+		Message:   "像素网吧激活失败，已进入退款处理",
+		Metadata: map[string]any{
+			"cafe_room_id": *round.CafeRoomID,
+			"reason":       reason,
+		},
+	}); err != nil {
+		return false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return false, fmt.Errorf("commit cafe activation failure round %d: %w", round.ID, err)
+	}
+	return true, nil
 }
 
 func (s *CafeRoomLifecycleService) roundForUpdate(q *dbent.GroupBuyRoundQuery) *dbent.GroupBuyRoundQuery {

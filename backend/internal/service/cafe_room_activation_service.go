@@ -63,9 +63,24 @@ func (s *CafeRoomActivationService) ActivateRound(ctx context.Context, roundID i
 		return err
 	}
 	if err := s.completeActivation(ctx, roundID); err != nil {
+		if eventErr := s.recordActivationFailure(ctx, roundID, err); eventErr != nil {
+			return ErrCafeActivationFailed.WithCause(fmt.Errorf("%w; record activation failure: %v", err, eventErr))
+		}
 		return ErrCafeActivationFailed.WithCause(err)
 	}
 	return nil
+}
+
+func (s *CafeRoomActivationService) recordActivationFailure(ctx context.Context, roundID int64, cause error) error {
+	if cause == nil {
+		return nil
+	}
+	return s.entClient.GroupBuyEvent.Create().
+		SetRoundID(roundID).
+		SetEventType("activation_failed").
+		SetMessage(cause.Error()).
+		SetMetadata(map[string]any{"error": cause.Error()}).
+		Exec(ctx)
 }
 
 func (s *CafeRoomActivationService) claimActivation(ctx context.Context, roundID int64) (bool, error) {
@@ -274,7 +289,7 @@ func (s *CafeRoomActivationService) loadActivationFacts(ctx context.Context, tx 
 			break
 		}
 	}
-	if !belongsToGroup {
+	if assignedAccount.Platform != targetGroup.Platform || !belongsToGroup {
 		return nil, nil, nil, ErrCafeAccountIncompatible
 	}
 	return room, plan, targetGroup, nil

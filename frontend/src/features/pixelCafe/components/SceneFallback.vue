@@ -38,7 +38,7 @@ defineEmits<{
 const displayedRooms = computed(() => props.rooms.slice(0, CAFE_SCENE_ROOM_LIMIT))
 
 function roomSeatLabel(room: CafePublicRoom): string {
-  if (!room.round) return `${room.plan.total_seats} 席 · 暂未开团`
+  if (!room.round) return `${room.plan.total_seats} 个名额 · 暂未开放`
   return `${room.round.remaining_seats}/${room.plan.total_seats} 空位`
 }
 
@@ -52,7 +52,7 @@ function purchaseStateLabel(state: string): string {
 }
 
 function roomProgressLabel(room: CafePublicRoom): string {
-  if (room.round?.status === 'open') return '等待拼团'
+  if (room.round?.status === 'open') return room.plan.total_seats === 1 ? '可预订' : '可加入'
   if (room.round?.status === 'activating') return '开通中'
   if (room.round?.status === 'active') return '已开通'
   return purchaseStateLabel(room.purchase_state)

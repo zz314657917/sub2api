@@ -13,33 +13,33 @@
             </button>
             <button type="button" class="admin-group-buy-primary" @click="openCreatePlan">
               <Icon name="plus" size="sm" />
-              新建拼团
+              新建房间计划
             </button>
           </div>
         </header>
 
         <div v-if="allSubscriptionGroups.length === 0" class="admin-group-buy-alert">
           <Icon name="exclamationTriangle" size="sm" />
-          <span>需要先创建并启用订阅权益模板，拼团才能绑定真实可用额度。</span>
+          <span>需要先创建并启用网吧房间托管分组，房间计划才能绑定真实可用额度。</span>
         </div>
 
         <section class="admin-group-buy-panel">
           <div class="admin-group-buy-panel-head">
             <div>
-              <h2>拼团计划</h2>
+              <h2>网吧房间计划</h2>
               <p>配置份额、价格、开团模式和权益档位区间规则。</p>
             </div>
           </div>
 
           <div v-if="plans.length === 0 && !loading" class="admin-group-buy-empty">
             <Icon name="gift" size="xl" />
-            <p>暂无拼团计划</p>
+            <p>暂无房间计划</p>
           </div>
           <div v-else class="admin-group-buy-plan-grid">
             <article v-for="plan in plans" :key="plan.id" class="admin-group-buy-plan">
               <div class="admin-group-buy-plan-top">
                 <div class="min-w-0">
-                  <p class="admin-group-buy-eyebrow">{{ fulfillmentModeLabel(plan.fulfillment_mode) }} · 总 {{ totalShares(plan) }} 席{{ isRoomPlan(plan) ? '' : ` · ${launchModeLabel(plan.launch_mode)}` }}</p>
+                  <p class="admin-group-buy-eyebrow">{{ fulfillmentModeLabel(plan.fulfillment_mode) }} · {{ capacityLabel(plan) }}{{ isRoomPlan(plan) ? '' : ` · ${launchModeLabel(plan.launch_mode)}` }}</p>
                   <h3>{{ plan.title }}</h3>
                   <p>{{ plan.description || 'Token拼拼拼 平台托管容量份额' }}</p>
                 </div>
@@ -78,7 +78,7 @@
           <div class="admin-group-buy-panel-head admin-group-buy-panel-head-wrap">
             <div>
               <h2>团次处理</h2>
-              <p>手动关闭、重试成团和处理退款都通过后端事务收口。</p>
+              <p>手动关闭、重试激活和处理退款都通过后端事务收口。</p>
             </div>
             <div class="admin-group-buy-filter">
               <select v-model="roundStatusFilter" @change="loadRounds">
@@ -144,7 +144,7 @@
             <button type="button" class="admin-group-buy-modal-close" @click="closePlanDialog">
               <Icon name="x" size="sm" />
             </button>
-            <p class="admin-group-buy-eyebrow">{{ editingPlan ? '编辑拼团' : '新建拼团' }}</p>
+            <p class="admin-group-buy-eyebrow">{{ editingPlan ? '编辑房间计划' : '新建房间计划' }}</p>
             <h2>{{ editingPlan ? editingPlan.title : 'Token拼拼拼' }}</h2>
 
             <div class="admin-group-buy-form-grid">
@@ -160,7 +160,7 @@
                 </select>
               </label>
               <label>
-                <span>{{ isRoomForm ? '房间座位数' : '总份额' }}</span>
+                <span>{{ isRoomForm ? '房间人数上限（1=独享）' : '总份额' }}</span>
                 <input v-model.number="planForm.total_shares" type="number" min="1" max="10" required />
               </label>
               <label>
@@ -219,7 +219,7 @@
               <div class="admin-group-buy-tier-head">
                 <div>
                   <h3>房间托管配置</h3>
-                  <p>每个已激活座位会创建一把绑定该房间运营账号的受管 API Key。</p>
+                  <p>人数上限为 1 时是独享房间，设置为 2-10 时允许多人共享同一个 Pro 账号。</p>
                 </div>
               </div>
               <div class="admin-group-buy-tier-grid">
@@ -308,7 +308,7 @@
             <div class="admin-group-buy-modal-actions">
               <button type="button" class="admin-group-buy-secondary" @click="closePlanDialog">取消</button>
               <button type="submit" class="admin-group-buy-primary" :disabled="submitting || !canSubmitPlan">
-                {{ submitting ? '保存中' : '保存拼团' }}
+                {{ submitting ? '保存中' : '保存房间计划' }}
               </button>
             </div>
           </form>
@@ -484,7 +484,7 @@ async function loadPlans() {
     const res = await adminAPI.groupBuy.listPlans()
     plans.value = res.data || []
   } catch (err: unknown) {
-    appStore.showError(extractApiErrorMessage(err, '拼团计划加载失败'))
+    appStore.showError(extractApiErrorMessage(err, '房间计划加载失败'))
   }
 }
 
@@ -673,15 +673,15 @@ async function savePlan() {
     const payload = buildPlanPayload()
     if (editingPlan.value) {
       await adminAPI.groupBuy.updatePlan(editingPlan.value.id, payload)
-      appStore.showSuccess('拼团计划已更新')
+      appStore.showSuccess('房间计划已更新')
     } else {
       await adminAPI.groupBuy.createPlan(payload)
-      appStore.showSuccess('拼团计划已创建')
+      appStore.showSuccess('房间计划已创建')
     }
     planDialogOpen.value = false
     await loadPlans()
   } catch (err: unknown) {
-    appStore.showError(extractApiErrorMessage(err, '保存拼团失败'))
+    appStore.showError(extractApiErrorMessage(err, '保存房间计划失败'))
   } finally {
     submitting.value = false
   }
@@ -689,11 +689,11 @@ async function savePlan() {
 
 async function deletePlan(plan: GroupBuyPlan) {
   if (deletingPlanId.value) return
-  if (!window.confirm(`确认删除拼团计划「${plan.title}」？`)) return
+  if (!window.confirm(`确认删除房间计划「${plan.title}」？`)) return
   deletingPlanId.value = plan.id
   try {
     await adminAPI.groupBuy.deletePlan(plan.id)
-    appStore.showSuccess('拼团计划已删除')
+    appStore.showSuccess('房间计划已删除')
     await loadPlans()
   } catch (err: unknown) {
     appStore.showError(extractApiErrorMessage(err, '删除拼团失败'))
@@ -818,6 +818,12 @@ function refundSummaryLabel(round: GroupBuyRound): string {
 
 function totalShares(plan: GroupBuyPlan): number {
   return Number(plan.total_shares || plan.seat_count || 10)
+}
+
+function capacityLabel(plan: GroupBuyPlan): string {
+  const total = totalShares(plan)
+  if (!isRoomPlan(plan)) return `总 ${total} 份`
+  return total === 1 ? '独享房间' : `${total} 人共享`
 }
 
 function buildTierRule(minShares: number, maxShares: number, groupID: number, label: string): GroupBuyTier {

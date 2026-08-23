@@ -32,9 +32,9 @@ describe('AppSidebar Pixel Cafe navigation label', () => {
     expect(componentSource).toContain('pixelCafeEnabled.value ? pixelCafeNavigationLabel.value : groupBuyProductName.value')
   })
 
-  it('hides the redundant admin group-buy leaf when Pixel Cafe is enabled', () => {
-    expect(componentSource).toContain('const flagAdminGroupBuy = () => flagAdminPayment() !== false && !pixelCafeEnabled.value')
-    expect(componentSource).toContain("path: '/admin/group-buy', label: t('nav.groupBuyManagement'), icon: GiftIcon, hideInSimpleMode: true, featureFlag: flagAdminGroupBuy")
+  it('uses Pixel Cafe as the only admin group-buy workspace', () => {
+    expect(componentSource).not.toContain("path: '/admin/group-buy'")
+    expect(componentSource).not.toContain('flagAdminGroupBuy')
     expect(componentSource).toContain("path: '/admin/pixel-cafe/rooms', label: t('nav.pixelCafeRooms')")
   })
 })

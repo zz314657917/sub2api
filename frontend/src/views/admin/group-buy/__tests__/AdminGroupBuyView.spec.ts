@@ -170,7 +170,7 @@ describe('AdminGroupBuyView', () => {
     expect(backdrop).not.toBeNull()
     backdrop!.click()
     await flushPromises()
-    expect(document.body.textContent).toContain('编辑拼团')
+    expect(document.body.textContent).toContain('编辑房间计划')
 
     const textareas = document.body.querySelectorAll<HTMLTextAreaElement>('textarea')
     const agreement = textareas.item(textareas.length - 1)
@@ -178,7 +178,7 @@ describe('AdminGroupBuyView', () => {
     agreement.dispatchEvent(new Event('input', { bubbles: true }))
 
     const saveButton = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find((button) =>
-      button.textContent?.includes('保存拼团'),
+      button.textContent?.includes('保存房间计划'),
     )
     expect(saveButton).toBeDefined()
     saveButton!.click()
@@ -218,7 +218,7 @@ describe('AdminGroupBuyView', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-testid="group-buy-layout"]').exists()).toBe(false)
-    expect(wrapper.text()).toContain('拼团计划')
+    expect(wrapper.text()).toContain('网吧房间计划')
     wrapper.unmount()
   })
 
@@ -233,7 +233,7 @@ describe('AdminGroupBuyView', () => {
     })
     await flushPromises()
 
-    const createButton = wrapper.findAll('button').find((button) => button.text().includes('新建拼团'))
+    const createButton = wrapper.findAll('button').find((button) => button.text().includes('新建房间计划'))
     await createButton!.trigger('click')
     await flushPromises()
 
@@ -263,7 +263,7 @@ describe('AdminGroupBuyView', () => {
     expect(mode.value).toBe('room_subscription')
     await flushPromises()
 
-    const saveButton = Array.from(modal.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent?.includes('保存拼团'))!
+    const saveButton = Array.from(modal.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent?.includes('保存房间计划'))!
     expect(saveButton.disabled).toBe(false)
     saveButton.click()
     await flushPromises()

@@ -69,15 +69,16 @@ func TestAPIKeyService_PinnedSnapshotRoundTripAndRouteStaysOnBoundGroup(t *testi
 			Status:           StatusActive,
 			Hydrated:         true,
 			SubscriptionType: SubscriptionTypeStandard,
+			AccessMode:       GroupAccessModeRoomManaged,
 		},
 	}
 
 	snapshot := svc.snapshotFromAPIKey(nil, apiKey)
-	if snapshot.Version != apiKeyAuthSnapshotVersion || snapshot.PinnedAccountID != 77 || snapshot.ManagedBindingID != 88 || snapshot.ManagedBindingExpiresAt == nil || !snapshot.ManagedBindingExpiresAt.Equal(bindingExpiresAt) {
+	if snapshot.Version != apiKeyAuthSnapshotVersion || snapshot.PinnedAccountID != 77 || snapshot.ManagedBindingID != 88 || snapshot.ManagedBindingExpiresAt == nil || !snapshot.ManagedBindingExpiresAt.Equal(bindingExpiresAt) || snapshot.Group == nil || snapshot.Group.AccessMode != GroupAccessModeRoomManaged {
 		t.Fatalf("pinned auth snapshot did not preserve binding facts: %#v", snapshot)
 	}
 	roundTrip := svc.snapshotToAPIKey(apiKey.Key, snapshot)
-	if roundTrip.PinnedAccountID != 77 || roundTrip.ManagedBindingID != 88 || roundTrip.ManagedBindingExpiresAt == nil || !roundTrip.ManagedBindingExpiresAt.Equal(bindingExpiresAt) || !roundTrip.IsCafeRoomManaged() {
+	if roundTrip.PinnedAccountID != 77 || roundTrip.ManagedBindingID != 88 || roundTrip.ManagedBindingExpiresAt == nil || !roundTrip.ManagedBindingExpiresAt.Equal(bindingExpiresAt) || !roundTrip.IsCafeRoomManaged() || roundTrip.Group == nil || roundTrip.Group.AccessMode != GroupAccessModeRoomManaged {
 		t.Fatalf("pinned auth snapshot did not round-trip: %#v", roundTrip)
 	}
 	if got := svc.ResolveForRequest(nil, roundTrip, "/v1/messages", ""); got == nil || got.GroupID == nil || *got.GroupID != groupID || len(got.MultiGroupRoutes) != 0 {

@@ -288,7 +288,7 @@ func (s *CafePublicService) Get(ctx context.Context, userID, roomID int64) (*Caf
 		Room:       publicRoom,
 		Rules: CafePublicRules{
 			Activation:     "full_only",
-			Refund:         "pending_configuration",
+			Refund:         "automatic",
 			OneSeatPerUser: true,
 		},
 		ServerTime: s.now().UTC(),
@@ -511,37 +511,38 @@ func (s *CafePublicService) listVisibleRoomEntities(ctx context.Context, page, p
 }
 
 func (s *CafePublicService) listZones(ctx context.Context, userID int64) ([]CafePublicZone, error) {
-	var rows []struct {
-		ZoneKey string `json:"zone_key"`
-	}
-	err := s.visibleRoomQuery().Unique(true).Select(caferoom.FieldZoneKey).Scan(ctx, &rows)
+	rooms, err := s.visibleRoomQuery().WithRounds(currentCafeRoundQuery).All(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list public cafe zones: %w", err)
 	}
-	keys := make([]string, 0, len(rows))
-	for _, row := range rows {
-		if key := strings.TrimSpace(row.ZoneKey); key != "" {
-			keys = append(keys, key)
+	zoneCounts := make(map[string]*CafePublicZone)
+	for _, room := range rooms {
+		key := strings.TrimSpace(room.ZoneKey)
+		if key == "" {
+			continue
 		}
+		zone := zoneCounts[key]
+		if zone == nil {
+			zone = &CafePublicZone{Key: key, Name: cafeZoneName(key)}
+			zoneCounts[key] = zone
+		}
+		zone.RoomCount++
+		if len(room.Edges.Rounds) > 0 {
+			round := room.Edges.Rounds[0]
+			remaining := round.TotalSeats - round.PaidSeats - round.ReservedSeats
+			if remaining > 0 {
+				zone.OpenSeatCount += remaining
+			}
+		}
+	}
+	keys := make([]string, 0, len(zoneCounts))
+	for key := range zoneCounts {
+		keys = append(keys, key)
 	}
 	sort.Strings(keys)
 	zones := make([]CafePublicZone, 0, len(keys))
 	for _, key := range keys {
-		rooms, result, err := s.list(ctx, userID, CafePublicListParams{Page: 1, PageSize: cafePublicMaxPageSize, Zone: key})
-		if err != nil {
-			return nil, err
-		}
-		openSeats := 0
-		for _, room := range rooms {
-			if room.Round != nil {
-				openSeats += room.Round.RemainingSeats
-			}
-		}
-		zone := CafePublicZone{Key: key, Name: cafeZoneName(key), OpenSeatCount: openSeats}
-		if result != nil {
-			zone.RoomCount = int(result.Total)
-		}
-		zones = append(zones, zone)
+		zones = append(zones, *zoneCounts[key])
 	}
 	return zones, nil
 }

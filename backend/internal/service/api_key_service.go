@@ -616,10 +616,20 @@ func (s *APIKeyService) incrementAPIKeyErrorCount(ctx context.Context, userID in
 	_ = s.cache.IncrementCreateAttemptCount(ctx, userID)
 }
 
+func validateOrdinaryAPIKeyGroup(group *Group) error {
+	if group == nil || group.AccessMode == GroupAccessModeRoomManaged {
+		return ErrGroupNotAllowed
+	}
+	return nil
+}
+
 // canUserBindGroup 检查用户是否可以绑定指定分组
 // 对于订阅类型分组：检查用户是否有有效订阅
 // 对于标准类型分组：使用原有的 AllowedGroups 和 IsExclusive 逻辑
 func (s *APIKeyService) canUserBindGroup(ctx context.Context, user *User, group *Group) bool {
+	if validateOrdinaryAPIKeyGroup(group) != nil {
+		return false
+	}
 	// 订阅类型分组：需要有效订阅
 	if group.IsSubscriptionType() {
 		_, err := s.userSubRepo.GetActiveByUserIDAndGroupID(ctx, user.ID, group.ID)
@@ -677,15 +687,27 @@ func (s *APIKeyService) validateAPIKeyRouteGroups(ctx context.Context, user *Use
 		if route.ImageOnly && route.TextOnly {
 			return ErrAPIKeyRouteInvalid
 		}
-		if _, preserved := preservedGroupIDs[route.GroupID]; preserved {
-			continue
-		}
+		_, preserved := preservedGroupIDs[route.GroupID]
 		if s.groupRepo == nil {
+			if preserved {
+				continue
+			}
 			return ErrAPIKeyRouteInvalid
 		}
 		group, err := s.groupRepo.GetByID(ctx, route.GroupID)
 		if err != nil {
+			// Preserve legacy bindings that are no longer readable, but validate
+			// any existing group that can still be resolved.
+			if preserved {
+				continue
+			}
 			return fmt.Errorf("get route group: %w", err)
+		}
+		if err := validateOrdinaryAPIKeyGroup(group); err != nil {
+			return err
+		}
+		if preserved {
+			continue
 		}
 		if !skipPermissionCheck && !s.canUserBindGroup(ctx, user, group) {
 			return ErrGroupNotAllowed
@@ -724,6 +746,9 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 		group, err := s.groupRepo.GetByID(ctx, *req.GroupID)
 		if err != nil {
 			return nil, fmt.Errorf("get group: %w", err)
+		}
+		if err := validateOrdinaryAPIKeyGroup(group); err != nil {
+			return nil, err
 		}
 
 		// 检查用户是否可以绑定该分组
@@ -1150,15 +1175,29 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 	if req.GroupID != nil {
 		// 验证分组权限
 		preservingExistingGroup := apiKey.GroupID != nil && *apiKey.GroupID == *req.GroupID
-		if !preservingExistingGroup {
-			user, err := s.userRepo.GetByID(ctx, userID)
-			if err != nil {
-				return nil, fmt.Errorf("get user: %w", err)
+		if preservingExistingGroup {
+			if apiKey.Group != nil {
+				if err := validateOrdinaryAPIKeyGroup(apiKey.Group); err != nil {
+					return nil, err
+				}
+			} else if s.groupRepo != nil {
+				if group, lookupErr := s.groupRepo.GetByID(ctx, *req.GroupID); lookupErr == nil {
+					if err := validateOrdinaryAPIKeyGroup(group); err != nil {
+						return nil, err
+					}
+				}
 			}
-
+		} else {
 			group, err := s.groupRepo.GetByID(ctx, *req.GroupID)
 			if err != nil {
 				return nil, fmt.Errorf("get group: %w", err)
+			}
+			if err := validateOrdinaryAPIKeyGroup(group); err != nil {
+				return nil, err
+			}
+			user, err := s.userRepo.GetByID(ctx, userID)
+			if err != nil {
+				return nil, fmt.Errorf("get user: %w", err)
 			}
 
 			if !s.canUserBindGroup(ctx, user, group) {
@@ -1593,6 +1632,9 @@ func (s *APIKeyService) GetAvailableGroups(ctx context.Context, userID int64) ([
 
 // canUserBindGroupInternal 内部方法，检查用户是否可以绑定分组（使用预加载的订阅数据）
 func (s *APIKeyService) canUserBindGroupInternal(user *User, group *Group, subscribedGroupIDs map[int64]bool) bool {
+	if validateOrdinaryAPIKeyGroup(group) != nil {
+		return false
+	}
 	// 订阅类型分组：需要有效订阅
 	if group.IsSubscriptionType() {
 		return subscribedGroupIDs[group.ID]

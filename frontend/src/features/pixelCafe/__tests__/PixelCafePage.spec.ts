@@ -136,9 +136,9 @@ describe('PixelCafePage', () => {
     expect(wrapper.find('[data-testid="pixel-cafe-room-navigator"]').findAll('.pixel-cafe-room')).toHaveLength(5)
     expect(wrapper.findAll('[data-testid="pixel-cafe-lobby-avatar"]')).toHaveLength(10)
     expect(wrapper.text()).toContain('Claude 深夜包间')
-    expect(wrapper.text()).toContain('等待拼团')
+    expect(wrapper.text()).toContain('可加入')
     expect(wrapper.find('.pixel-cafe-scene-art').exists()).toBe(true)
-    expect(wrapper.find('.pixel-cafe-front-desk').text()).toContain('前台')
+    expect(wrapper.find('.pixel-cafe-front-desk').text()).toContain('共享房间')
     expect(wrapper.find('.pixel-cafe-workbench').exists()).toBe(true)
 
     await wrapper.find('.pixel-cafe-room').trigger('click')
@@ -273,6 +273,32 @@ describe('PixelCafePage', () => {
       agreement_accepted: true,
     }), expect.any(String))
     expect(wrapper.find('[data-testid="payment-status-panel"]').exists()).toBe(true)
+  })
+
+  it('treats a one-seat room as an exclusive room without rendering a seat picker', async () => {
+    const singleRoom = {
+      ...room,
+      id: 19,
+      code: 'C-019',
+      name: 'Claude 独享包间 19',
+      plan: { ...room.plan, total_seats: 1 },
+      round: { ...room.round, id: 1009, paid_seats: 0, remaining_seats: 1, total_seats: 1 },
+      seat_visuals: [{ seat_no: 1, state: 'empty', is_mine: false }],
+    }
+    overview.mockResolvedValueOnce(overviewPayload([singleRoom]))
+    const wrapper = mountPage()
+    await flushPromises()
+    await wrapper.find('.pixel-cafe-room').trigger('click')
+
+    expect(wrapper.text()).toContain('独享房间')
+    expect(wrapper.find('.pixel-cafe-seat-button').exists()).toBe(false)
+    expect(wrapper.find('.pixel-cafe-single-room-note').text()).toContain('独享房间')
+    expect(wrapper.find('.pixel-cafe-primary').text()).toContain('预订独享房间')
+
+    await wrapper.find('.pixel-cafe-agreement input').setValue(true)
+    await wrapper.find('.pixel-cafe-primary').trigger('click')
+    await flushPromises()
+    expect(createOrder).toHaveBeenCalledWith(singleRoom.id, expect.objectContaining({ seat_no: 1 }), expect.any(String))
   })
 
   it('keeps the selector open and shows the order failure', async () => {

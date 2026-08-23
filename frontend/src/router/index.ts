@@ -620,18 +620,6 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/admin/group-buy',
-    name: 'AdminGroupBuy',
-    component: () => import('@/views/admin/group-buy/AdminGroupBuyView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: true,
-      title: 'Group Buy Management',
-      titleKey: 'nav.groupBuyManagement',
-      requiresPayment: true
-    }
-  },
-  {
     path: '/admin/pixel-cafe/rooms',
     name: 'AdminPixelCafeRooms',
     component: () => import('@/views/admin/pixelCafe/AdminCafeRoomsView.vue'),

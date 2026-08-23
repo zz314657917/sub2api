@@ -1,32 +1,7 @@
 <template>
   <AppLayout>
     <div class="space-y-4">
-      <div class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1 dark:border-dark-700 dark:bg-dark-900" role="tablist" aria-label="像素网吧管理工作区">
-        <button
-          type="button"
-          class="btn btn-sm"
-          :class="workspace === 'rooms' ? 'btn-primary' : 'btn-ghost'"
-          role="tab"
-          :aria-selected="workspace === 'rooms'"
-          data-testid="cafe-workspace-rooms"
-          @click="workspace = 'rooms'"
-        >
-          网吧房间
-        </button>
-        <button
-          type="button"
-          class="btn btn-sm"
-          :class="workspace === 'group-buy' ? 'btn-primary' : 'btn-ghost'"
-          role="tab"
-          :aria-selected="workspace === 'group-buy'"
-          data-testid="cafe-workspace-group-buy"
-          @click="workspace = 'group-buy'"
-        >
-          拼团管理
-        </button>
-      </div>
-
-      <TablePageLayout v-if="workspace === 'rooms'">
+      <TablePageLayout>
       <template #filters>
         <div class="flex flex-wrap items-center gap-3">
           <div class="min-w-56 flex-1 sm:max-w-72">
@@ -170,7 +145,7 @@
       </template>
       </TablePageLayout>
 
-      <AdminGroupBuyView v-else embedded />
+      <AdminGroupBuyView embedded />
     </div>
 
     <BaseDialog
@@ -361,7 +336,6 @@ import AdminGroupBuyView from '@/views/admin/group-buy/AdminGroupBuyView.vue'
 const { t } = useI18n()
 const appStore = useAppStore()
 
-const workspace = ref<'rooms' | 'group-buy'>('rooms')
 const rooms = ref<CafeRoom[]>([])
 const plans = ref<GroupBuyPlan[]>([])
 const accounts = ref<Account[]>([])
@@ -503,12 +477,18 @@ function accountPlatform(id: number | null | undefined) {
 async function loadDependencies() {
   dependencyLoading.value = true
   try {
-    const [planResponse, accountResponse] = await Promise.all([
+    const [planResponse, firstAccountResponse] = await Promise.all([
       adminAPI.groupBuy.listPlans(),
       adminAPI.accounts.list(1, 200, { status: 'active', lite: 'true' }),
     ])
     plans.value = planResponse.data
-    accounts.value = accountResponse.items
+    const allAccounts = [...firstAccountResponse.items]
+    const totalPages = Math.max(1, firstAccountResponse.pages || Math.ceil(firstAccountResponse.total / Math.max(firstAccountResponse.page_size, 1)))
+    for (let page = 2; page <= totalPages; page += 1) {
+      const accountResponse = await adminAPI.accounts.list(page, 200, { status: 'active', lite: 'true' })
+      allAccounts.push(...accountResponse.items)
+    }
+    accounts.value = allAccounts
   } catch (error) {
     appStore.showError(extractApiErrorMessage(error, t('admin.pixelCafe.errors.dependencies')))
   } finally {

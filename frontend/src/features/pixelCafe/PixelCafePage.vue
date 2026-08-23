@@ -13,7 +13,7 @@
         <div class="pixel-cafe-my-rooms-heading">
           <div>
             <p class="pixel-cafe-label">我的包间</p>
-            <h2>已购座位</h2>
+            <h2>已加入房间</h2>
           </div>
           <div class="pixel-cafe-my-rooms-tabs" role="tablist" aria-label="我的包间状态">
             <button
@@ -36,7 +36,7 @@
           <button type="button" class="pixel-cafe-my-rooms-retry" @click="loadMyRooms(myRoomsFilter)">重试</button>
         </div>
         <p v-else-if="myRooms.length === 0" class="pixel-cafe-my-rooms-state" data-testid="pixel-cafe-my-rooms-empty">
-          {{ myRoomsFilter === 'history' ? '暂无历史包间记录。' : '暂无进行中的包间座位。' }}
+          {{ myRoomsFilter === 'history' ? '暂无历史包间记录。' : '暂无进行中的包间。' }}
         </p>
         <ul v-else class="pixel-cafe-my-rooms-list" data-testid="pixel-cafe-my-rooms-list">
           <li v-for="membership in myRooms" :key="membership.membership_id" class="pixel-cafe-my-room">
@@ -45,7 +45,7 @@
               <strong>{{ membership.room.name }}</strong>
             </div>
             <span :class="['pixel-cafe-my-room-state', `state-${membership.seat.status}`]">{{ myRoomStateLabel(membership.seat.status) }}</span>
-            <span class="pixel-cafe-my-room-meta">座位 {{ membership.seat.seat_no ?? '-' }} · {{ membership.plan.validity_days }} 天</span>
+            <span class="pixel-cafe-my-room-meta">房间名额 {{ membership.seat.seat_no ?? '-' }} · {{ membership.plan.validity_days }} 天</span>
             <span v-if="membership.managed_api_key" class="pixel-cafe-my-room-key">
               {{ membership.managed_api_key.name }} · {{ membership.managed_api_key.status }} · 额度 {{ membership.managed_api_key.quota }}
             </span>
@@ -84,7 +84,7 @@
             <span class="pixel-cafe-front-desk-lamp" aria-hidden="true"></span>
             <div>
               <p>前台</p>
-              <strong>选择一间包房，预留你的座位。</strong>
+              <strong>选择独享房间，或加入一个共享房间。</strong>
             </div>
           </div>
           <div v-if="loading" class="pixel-cafe-empty pixel-cafe-scene-overlay" data-testid="pixel-cafe-loading">正在加载房间...</div>
@@ -105,8 +105,8 @@
             <h2>{{ selectedRoom.name }}</h2>
             <p class="pixel-cafe-room-code">{{ selectedRoom.code }} / {{ activeZone.name }}</p>
             <dl class="pixel-cafe-stats">
-              <div><dt>座位</dt><dd>{{ roomSeatLabel(selectedRoom) }}</dd></div>
-              <div><dt>状态</dt><dd>{{ roomProgressLabel(selectedRoom) }}</dd></div>
+              <div><dt>模式</dt><dd>{{ roomCapacityModeLabel(selectedRoom) }}</dd></div>
+              <div><dt>名额</dt><dd>{{ roomSeatLabel(selectedRoom) }}</dd></div>
               <div><dt>周期</dt><dd>{{ selectedRoom.plan.validity_days }} 天</dd></div>
             </dl>
             <template v-if="paymentPhase === 'paying'">
@@ -124,7 +124,7 @@
               />
             </template>
             <template v-else-if="selectedRoom.purchase_state === 'available'">
-              <div class="pixel-cafe-seat-picker" aria-label="选择座位">
+              <div v-if="selectedRoom.plan.total_seats > 1" class="pixel-cafe-seat-picker" aria-label="选择房间名额">
                 <button
                   v-for="seat in availableSeats(selectedRoom)"
                   :key="seat.seat_no"
@@ -136,7 +136,8 @@
                   {{ seat.seat_no }}
                 </button>
               </div>
-              <p v-if="availableSeats(selectedRoom).length === 0" class="pixel-cafe-inline-error">当前没有可选座位。</p>
+              <p v-else class="pixel-cafe-single-room-note">这是独享房间，支付后占用唯一名额。</p>
+              <p v-if="availableSeats(selectedRoom).length === 0" class="pixel-cafe-inline-error">当前没有可用名额。</p>
               <label class="pixel-cafe-payment-label">
                 支付方式
                 <select v-model="selectedPaymentMethod" class="pixel-cafe-payment-select">
@@ -145,7 +146,7 @@
               </label>
               <label class="pixel-cafe-agreement">
                 <input v-model="agreementAccepted" type="checkbox" />
-                <span>我已确认当前包间在满员并激活后生效。</span>
+                <span>我已确认加入该房间，具体开通时间以房间状态为准。</span>
               </label>
               <p v-if="orderError" class="pixel-cafe-inline-error" data-testid="pixel-cafe-order-error">{{ orderError }}</p>
               <button
@@ -154,7 +155,7 @@
                 :disabled="isLocalDemoMode || submitting || !selectedSeatNo || !agreementAccepted"
                 @click="submitOrder"
               >
-                {{ isLocalDemoMode ? '本地演示不创建订单' : submitting ? '正在创建订单' : '确认座位并付款' }}
+                {{ isLocalDemoMode ? '本地演示不创建订单' : submitting ? '正在创建订单' : selectedRoom.plan.total_seats === 1 ? '预订独享房间' : '加入房间并付款' }}
               </button>
             </template>
             <p v-else class="pixel-cafe-muted">当前房间暂不接受新座位。</p>
@@ -170,7 +171,7 @@
         <div class="pixel-cafe-notice-icon"><Icon name="infoCircle" size="sm" /></div>
         <div>
           <strong>房间发现已接入</strong>
-          <p>当前展示公开房间信息；选座、支付和受管 Key 按房间状态和账户权益开放。</p>
+            <p>房间人数上限由计划决定：1 人为独享，2-10 人为共享；支付和受管 Key 按房间状态及账户权益开放。</p>
         </div>
       </section>
     </div>
@@ -378,8 +379,12 @@ async function loadRooms(zone: string, overviewRooms?: CafePublicRoom[]): Promis
 }
 
 function roomSeatLabel(room: CafePublicRoom): string {
-  if (!room.round) return `${room.plan.total_seats} 席 · 暂未开团`
+  if (!room.round) return `${room.plan.total_seats} 个名额 · 暂未开放`
   return `${room.round.remaining_seats}/${room.plan.total_seats} 空位`
+}
+
+function roomCapacityModeLabel(room: CafePublicRoom): string {
+  return room.plan.total_seats === 1 ? '独享房间' : `${room.plan.total_seats} 人共享`
 }
 
 function myRoomStateLabel(status: string): string {
@@ -398,7 +403,8 @@ function myRoomStateLabel(status: string): string {
 
 function openRoom(room: CafePublicRoom): void {
   selectedRoom.value = room
-  selectedSeatNo.value = null
+  const firstAvailableSeat = availableSeats(room)[0]
+  selectedSeatNo.value = room.plan.total_seats === 1 ? firstAvailableSeat?.seat_no ?? null : null
   agreementAccepted.value = false
   orderError.value = ''
   paymentPhase.value = 'selecting'
@@ -518,24 +524,6 @@ function isWechatBrowser(): boolean {
   return /MicroMessenger/i.test(window.navigator.userAgent)
 }
 
-function purchaseStateLabel(state: string): string {
-  const labels: Record<string, string> = {
-    available: '可购买',
-    full: '已满',
-    activating: '开通中',
-    active: '已开通',
-    unavailable: '暂不可用',
-  }
-  return labels[state] || '暂不可用'
-}
-
-function roomProgressLabel(room: CafePublicRoom): string {
-  if (room.round?.status === 'open') return '等待拼团'
-  if (room.round?.status === 'activating') return '开通中'
-  if (room.round?.status === 'active') return '已开通'
-  return purchaseStateLabel(room.purchase_state)
-}
-
 function paymentMethodLabel(method: string): string {
   const normalized = method.toLowerCase()
   if (normalized.includes('wxpay')) return '微信支付'
@@ -592,7 +580,7 @@ onUnmounted(() => {
 .pixel-cafe-empty { display: grid; min-height: 240px; padding: 2rem; place-items: center; color: #776e65; text-align: center; }.pixel-cafe-scene-overlay { position: absolute; z-index: 5; inset: 3rem 0 0; min-height: 0; color: #fff6e5; background: rgba(31, 40, 55, .68); text-shadow: 1px 1px 0 rgba(24, 29, 38, .8); }.pixel-cafe-demo-badge { position: absolute; z-index: 6; right: .75rem; bottom: .75rem; margin: 0; padding: .35rem .5rem; border: 1px solid rgba(255, 246, 229, .48); color: #fff6e5; background: rgba(37, 48, 65, .82); font: 700 .68rem/1 monospace; }
 .pixel-cafe-error { gap: .75rem; color: #a94d48; }.pixel-cafe-error p { margin: 0; }.pixel-cafe-retry { padding: .5rem .75rem; border: 1px solid #b97867; color: #824d40; background: #fffdf8; cursor: pointer; }
 .pixel-cafe-inspector { padding: 1.2rem; }.pixel-cafe-inspector-heading { display: flex; justify-content: space-between; color: #9a6a53; }.pixel-cafe-label { font: 700 .7rem monospace; text-transform: uppercase; }.pixel-cafe-inspector h2 { margin: 1.25rem 0 .3rem; font-size: 1.25rem; }.pixel-cafe-room-code { margin: 0; color: #8c8278; font: .75rem monospace; }.pixel-cafe-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin: 1.5rem 0; }.pixel-cafe-stats div { padding: .55rem .4rem; border: 1px solid #e0d6c8; text-align: center; }.pixel-cafe-stats dt { color: #8c8278; font-size: .68rem; }.pixel-cafe-stats dd { margin: .25rem 0 0; font-size: .78rem; font-weight: 700; }.pixel-cafe-primary { width: 100%; padding: .7rem; border: 0; color: #fffdf8; background: #a9785d; font-weight: 700; }.pixel-cafe-primary:disabled { cursor: not-allowed; opacity: .72; }.pixel-cafe-muted { color: #82786e; font-size: .86rem; line-height: 1.6; }
-.pixel-cafe-seat-picker { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .45rem; margin: 1rem 0; }.pixel-cafe-seat-button { min-height: 2.2rem; border: 1px solid #c9bdac; color: #5d5148; background: #fffdf8; cursor: pointer; font: 700 .8rem monospace; }.pixel-cafe-seat-button:hover, .pixel-cafe-seat-button:focus-visible, .pixel-cafe-seat-button.active { border-color: #9a644f; color: #fffdf8; background: #a9785d; outline: 0; }.pixel-cafe-payment-label { display: grid; gap: .35rem; margin: 1rem 0; color: #74695d; font-size: .78rem; }.pixel-cafe-payment-select { width: 100%; min-height: 2.3rem; border: 1px solid #cfc1b2; border-radius: 0; color: #473d36; background: #fffdf8; }.pixel-cafe-agreement { display: flex; align-items: flex-start; gap: .45rem; margin: 1rem 0; color: #74695d; font-size: .76rem; line-height: 1.45; }.pixel-cafe-agreement input { margin-top: .1rem; accent-color: #9a644f; }.pixel-cafe-inline-error { margin: .75rem 0; color: #a94d48; font-size: .78rem; line-height: 1.4; }
+.pixel-cafe-seat-picker { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .45rem; margin: 1rem 0; }.pixel-cafe-seat-button { min-height: 2.2rem; border: 1px solid #c9bdac; color: #5d5148; background: #fffdf8; cursor: pointer; font: 700 .8rem monospace; }.pixel-cafe-seat-button:hover, .pixel-cafe-seat-button:focus-visible, .pixel-cafe-seat-button.active { border-color: #9a644f; color: #fffdf8; background: #a9785d; outline: 0; }.pixel-cafe-single-room-note { margin: 1rem 0; padding: .65rem .7rem; border-left: 3px solid #c28d4c; color: #74695d; background: #f7efe4; font-size: .78rem; line-height: 1.45; }.pixel-cafe-payment-label { display: grid; gap: .35rem; margin: 1rem 0; color: #74695d; font-size: .78rem; }.pixel-cafe-payment-select { width: 100%; min-height: 2.3rem; border: 1px solid #cfc1b2; border-radius: 0; color: #473d36; background: #fffdf8; }.pixel-cafe-agreement { display: flex; align-items: flex-start; gap: .45rem; margin: 1rem 0; color: #74695d; font-size: .76rem; line-height: 1.45; }.pixel-cafe-agreement input { margin-top: .1rem; accent-color: #9a644f; }.pixel-cafe-inline-error { margin: .75rem 0; color: #a94d48; font-size: .78rem; line-height: 1.4; }
 .pixel-cafe-notice { display: flex; gap: .75rem; align-items: flex-start; max-width: 1400px; margin: 1rem auto 0; padding: .85rem 1rem; }.pixel-cafe-notice-icon { display: grid; width: 1.8rem; height: 1.8rem; place-items: center; color: #8f624f; background: #f1e0d3; }.pixel-cafe-notice strong { font-size: .82rem; }.pixel-cafe-notice p { margin: .25rem 0 0; color: #776e65; font-size: .78rem; }
 @media (max-width: 900px) { .pixel-cafe-workbench { grid-template-columns: 1fr; }.pixel-cafe-inspector { min-height: 0; }.pixel-cafe-scene { min-height: 430px; } }
 @media (max-width: 620px) { .pixel-cafe-page { padding: .85rem; }.pixel-cafe-header { align-items: stretch; flex-direction: column; }.pixel-cafe-my-rooms-heading { align-items: flex-start; flex-direction: column; }.pixel-cafe-my-rooms-list { grid-template-columns: 1fr; } }
@@ -608,5 +596,6 @@ onUnmounted(() => {
 .pixel-cafe-my-rooms { order: 2; width: min(100%, 1600px); margin: 1.25rem auto 0; padding: 1rem 0 0; border-top: 1px solid rgba(164, 194, 218, .32); border-bottom: 0; background: transparent; }.pixel-cafe-my-rooms-heading h2 { color: #fff7e5; }.pixel-cafe-my-rooms-tabs { border-color: #385369; }.pixel-cafe-my-rooms-tab { border-color: #385369; color: #aec0ce; background: #0c1d2e; }.pixel-cafe-my-rooms-tab.active { color: #1c120b; background: #efbd68; }.pixel-cafe-my-rooms-state { color: #b6c7d4; }.pixel-cafe-my-rooms-error { color: #ffc2bd; }.pixel-cafe-my-rooms-retry { border-color: #df947e; color: #fff7e5; background: #6f3d37; }.pixel-cafe-my-room { border-left-color: #e3a962; background: #102238; }.pixel-cafe-my-room-code, .pixel-cafe-my-room-meta, .pixel-cafe-my-room-key { color: #aebfcd; }.pixel-cafe-my-room-state { border-color: #5f788b; color: #cbd8e2; background: #0b1928; }.pixel-cafe-my-room-state.state-active { border-color: #73c99a; color: #a2e0bc; }.pixel-cafe-my-room-state.state-refunded, .pixel-cafe-my-room-state.state-cancelled, .pixel-cafe-my-room-state.state-released { border-color: #d6807a; color: #ffb7b0; }
 .pixel-cafe-notice { order: 3; width: min(100%, 1600px); margin: 1rem auto 0; padding: .85rem 0; border-top: 1px solid rgba(164, 194, 218, .2); color: #bdd0dc; background: transparent; box-shadow: none; }.pixel-cafe-notice-icon { color: #efbd68; background: #102238; }.pixel-cafe-notice strong { color: #eff5fb; }.pixel-cafe-notice p { color: #bdd0dc; }
 @media (max-width: 900px) { .pixel-cafe-page { padding: .85rem; }.pixel-cafe-header { position: relative; top: auto; left: auto; order: 0; width: auto; margin: 0 0 .8rem; pointer-events: auto; }.pixel-cafe-zones { position: relative; top: auto; right: auto; order: 0; max-width: none; margin: 0 0 .75rem; }.pixel-cafe-workbench { width: 100%; }.pixel-cafe-scene { overflow: visible; }.pixel-cafe-scene-topline { top: .75rem; right: .75rem; }.pixel-cafe-front-desk { position: relative; right: auto; bottom: auto; left: auto; max-width: none; margin: .75rem 0 0; }.pixel-cafe-inspector { position: relative; right: auto; bottom: auto; width: auto; margin-top: 0; border-top: 0; box-shadow: none; }.pixel-cafe-demo-badge { position: relative; right: auto; bottom: auto; display: table; width: auto; margin: .65rem 0 0 auto; }.pixel-cafe-my-rooms { margin-top: 1rem; } }
+.pixel-cafe-single-room-note { border-left-color: #efbd68; color: #c8d5df; background: rgba(65, 46, 26, .66); }
 @media (max-width: 620px) { .pixel-cafe-page { padding: .7rem; }.pixel-cafe-header h1 { font-size: 2rem; }.pixel-cafe-front-desk { right: .75rem; bottom: .75rem; left: .75rem; max-width: none; }.pixel-cafe-scene-topline > span:first-child { display: none; }.pixel-cafe-inspector { padding: .85rem; }.pixel-cafe-my-rooms-list { grid-template-columns: 1fr; } }
 </style>

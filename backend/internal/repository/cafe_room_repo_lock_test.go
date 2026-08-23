@@ -39,7 +39,7 @@ func TestLockCafeRoomPlanLocksAndRejectsPlanWithoutRoomFulfillment(t *testing.T)
 			"aggregate_tier", 0.0, 0.0, 0.0, 0.0, false, "balance_credit", nil, "active", 0, nil, nil,
 		))
 
-	err = lockCafeRoomPlan(context.Background(), client, 7)
+	_, err = lockCafeRoomPlan(context.Background(), client, 7)
 	require.ErrorIs(t, err, service.ErrCafePlanInvalid)
 	require.Contains(t, strings.ToUpper(capturedSQL), "FOR UPDATE")
 	require.NoError(t, mock.ExpectationsWereMet())

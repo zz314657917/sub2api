@@ -54,16 +54,19 @@ type CafeRoom struct {
 }
 
 type CafeRoomPlan struct {
-	ID              int64  `json:"id"`
-	Title           string `json:"title"`
-	TargetGroupID   int64  `json:"target_group_id"`
-	FulfillmentMode string `json:"fulfillment_mode"`
-	TotalShares     int    `json:"total_shares"`
-	SeatCount       int    `json:"seat_count"`
-	TimeoutMinutes  int    `json:"timeout_minutes"`
-	ValidityDays    int    `json:"validity_days"`
-	GroupPlatform   string `json:"group_platform"`
-	GroupAccessMode string `json:"group_access_mode"`
+	ID                int64  `json:"id"`
+	Title             string `json:"title"`
+	Status            string `json:"status"`
+	TargetGroupID     int64  `json:"target_group_id"`
+	FulfillmentMode   string `json:"fulfillment_mode"`
+	AutoCreateRoomKey bool   `json:"auto_create_room_key"`
+	TotalShares       int    `json:"total_shares"`
+	SeatCount         int    `json:"seat_count"`
+	TimeoutMinutes    int    `json:"timeout_minutes"`
+	ValidityDays      int    `json:"validity_days"`
+	GroupPlatform     string `json:"group_platform"`
+	GroupAccessMode   string `json:"group_access_mode"`
+	TargetGroupStatus string `json:"target_group_status"`
 }
 
 type CafeRound struct {
@@ -213,13 +216,6 @@ func (s *CafeRoomService) Update(ctx context.Context, id int64, input CafeRoomUp
 	if err != nil {
 		return nil, err
 	}
-	live, err := s.repo.HasLiveRound(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	if live && (input.PlanID != nil || input.AccountID != nil || input.ClearAccount) {
-		return nil, ErrCafeRoomLive
-	}
 	if input.Code != nil {
 		room.Code = strings.TrimSpace(*input.Code)
 	}
@@ -342,11 +338,8 @@ func (s *CafeRoomService) validatePlanAccount(ctx context.Context, planID, accou
 	if plan == nil {
 		return ErrCafePlanNotFound
 	}
-	if plan.FulfillmentMode != CafeRoomFulfillmentMode {
-		return ErrCafePlanInvalid
-	}
-	if plan.GroupAccessMode != CafeRoomGroupAccessMode {
-		return ErrCafeGroupInvalid
+	if err := validateCafeOperationalPlan(plan); err != nil {
+		return err
 	}
 	accountStatus, platform, groupIDs, err := s.repo.GetAccount(ctx, accountID)
 	if err != nil {
@@ -366,6 +359,18 @@ func (s *CafeRoomService) validatePlanAccount(ctx context.Context, planID, accou
 		if assigned {
 			return ErrCafeAccountAssigned
 		}
+	}
+	return nil
+}
+
+func validateCafeOperationalPlan(plan *CafeRoomPlan) error {
+	if plan == nil || plan.Status != GroupBuyPlanStatusActive ||
+		plan.FulfillmentMode != CafeRoomFulfillmentMode ||
+		!plan.AutoCreateRoomKey || plan.ValidityDays <= 0 {
+		return ErrCafePlanInvalid
+	}
+	if plan.TargetGroupID <= 0 || plan.GroupAccessMode != CafeRoomGroupAccessMode || plan.TargetGroupStatus != StatusActive {
+		return ErrCafeGroupInvalid
 	}
 	return nil
 }

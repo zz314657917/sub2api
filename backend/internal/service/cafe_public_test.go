@@ -122,6 +122,7 @@ func TestCafePublicServiceListsOnlyEnabledRoomPlansAndRedactsOperations(t *testi
 	require.NoError(t, err)
 	require.Equal(t, "cafe.v1", detail.APIVersion)
 	require.Equal(t, "full_only", detail.Rules.Activation)
+	require.Equal(t, "automatic", detail.Rules.Refund)
 
 	overview, err := svc.Overview(ctx, user.ID, 1)
 	require.NoError(t, err)

@@ -31,16 +31,19 @@ type cafeRoomRepositoryStub struct {
 func newCafeRoomRepositoryStub() *cafeRoomRepositoryStub {
 	return &cafeRoomRepositoryStub{
 		plan: &CafeRoomPlan{
-			ID:              10,
-			Title:           "Pixel Cafe",
-			TargetGroupID:   20,
-			FulfillmentMode: CafeRoomFulfillmentMode,
-			TotalShares:     4,
-			SeatCount:       4,
-			TimeoutMinutes:  60,
-			ValidityDays:    30,
-			GroupPlatform:   "openai",
-			GroupAccessMode: CafeRoomGroupAccessMode,
+			ID:                10,
+			Title:             "Pixel Cafe",
+			Status:            GroupBuyPlanStatusActive,
+			TargetGroupID:     20,
+			FulfillmentMode:   CafeRoomFulfillmentMode,
+			AutoCreateRoomKey: true,
+			TotalShares:       4,
+			SeatCount:         4,
+			TimeoutMinutes:    60,
+			ValidityDays:      30,
+			GroupPlatform:     "openai",
+			GroupAccessMode:   CafeRoomGroupAccessMode,
+			TargetGroupStatus: StatusActive,
 		},
 		accounts: map[int64]cafeAccountStub{
 			1: {status: StatusActive, platform: "openai", groupIDs: []int64{20}},
@@ -113,6 +116,9 @@ func (r *cafeRoomRepositoryStub) Create(_ context.Context, room *CafeRoom) (*Caf
 }
 
 func (r *cafeRoomRepositoryStub) Update(_ context.Context, room *CafeRoom) (*CafeRoom, error) {
+	if current := r.rooms[room.ID]; current != nil && r.live[room.ID] && (current.PlanID != room.PlanID || current.AccountID == nil || room.AccountID == nil || *current.AccountID != *room.AccountID || room.Status != CafeRoomStatusEnabled) {
+		return nil, ErrCafeRoomLive
+	}
 	copy := *room
 	r.rooms[copy.ID] = &copy
 	return &copy, nil

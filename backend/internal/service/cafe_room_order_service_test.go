@@ -169,14 +169,17 @@ func newCafeRoomOrderFixture(t *testing.T, ctx context.Context, client *dbent.Cl
 	t.Helper()
 	user := createGroupBuyTestUser(t, ctx, client, "cafe-order@example.com")
 	groupID := createGroupBuyTestGroup(t, ctx, client, 1, 100)
+	_, err := client.Group.UpdateOneID(groupID).SetAccessMode(CafeRoomGroupAccessMode).Save(ctx)
+	require.NoError(t, err)
 	plan := createGroupBuyTestPlan(t, ctx, client, groupID, GroupBuyLaunchModeManual, totalSeats)
-	plan, err := client.GroupBuyPlan.UpdateOneID(plan.ID).SetFulfillmentMode(CafeRoomFulfillmentMode).Save(ctx)
+	plan, err = client.GroupBuyPlan.UpdateOneID(plan.ID).SetFulfillmentMode(CafeRoomFulfillmentMode).Save(ctx)
 	require.NoError(t, err)
 	account, err := client.Account.Create().
 		SetName("cafe-order-account").
 		SetPlatform(PlatformOpenAI).
 		SetType("api_key").
 		SetStatus(StatusActive).
+		AddGroupIDs(groupID).
 		Save(ctx)
 	require.NoError(t, err)
 	room, round := createCafeRoomOrderRoom(t, ctx, client, plan.ID, account.ID, now, totalSeats, 1)

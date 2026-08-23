@@ -151,6 +151,50 @@ func TestGroupBuyManualPlanWithoutOpenRoundRejectsShareOrder(t *testing.T) {
 	require.Equal(t, 0, roundCount)
 }
 
+func TestGroupBuyOrderRejectsRoomPlanAfterLockedPlanReload(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "groupbuy_order_room_plan_recheck")
+	user := createGroupBuyTestUser(t, ctx, client, "room-plan-recheck@example.com")
+	groupID := createGroupBuyTestGroup(t, ctx, client, 1, 100)
+	plan := createGroupBuyTestPlan(t, ctx, client, groupID, GroupBuyLaunchModeAuto, 4)
+	_, err := client.GroupBuyPlan.UpdateOneID(plan.ID).SetFulfillmentMode(CafeRoomFulfillmentMode).Save(ctx)
+	require.NoError(t, err)
+
+	paymentSvc := &PaymentService{
+		entClient:     client,
+		configService: &PaymentConfigService{},
+		userRepo:      &groupBuyUserRepoStub{users: map[int64]*User{user.ID: user}},
+		now:           time.Now,
+	}
+	svc := newGroupBuyTestService(client, newGroupBuyGroupRepoStubWithGroup(groupID), nil)
+	svc.paymentSvc = paymentSvc
+
+	_, _, _, err = svc.lockSharesAndCreateOrder(ctx, CreateOrderRequest{
+		UserID:      user.ID,
+		PaymentType: payment.TypeStripe,
+		OrderType:   payment.OrderTypeGroupBuy,
+		PlanID:      plan.ID,
+		ClientIP:    "127.0.0.1",
+		SrcHost:     "example.test",
+	}, user, plan, 1, &PaymentConfig{
+		Enabled:          true,
+		OrderTimeoutMin:  30,
+		MaxPendingOrders: 3,
+	}, 0, 12, &payment.InstanceSelection{
+		InstanceID:  "stripe-test",
+		ProviderKey: payment.TypeStripe,
+		Config:      map[string]string{"currency": payment.DefaultPaymentCurrency},
+	})
+	require.ErrorIs(t, err, ErrCafeRoundLifecycleDeferred)
+
+	roundCount, err := client.GroupBuyRound.Query().Count(ctx)
+	require.NoError(t, err)
+	require.Zero(t, roundCount)
+	orderCount, err := client.PaymentOrder.Query().Count(ctx)
+	require.NoError(t, err)
+	require.Zero(t, orderCount)
+}
+
 func TestGroupBuyDisabledBlocksUserSurfaceButKeepsAdminPlans(t *testing.T) {
 	ctx := context.Background()
 	client := newGroupBuyTestClient(t, "groupbuy_disabled")
