@@ -1,12 +1,12 @@
 ---
-phase: contract-approved
+phase: qa
 current_sprint: upstream-openai-sticky-system-prefix-s245
 total_sprints: 245
-pending_action: Dispatch the S245 gpt-5.6-terra Developer in an isolated worktree. No push is authorized.
+pending_action: Run independent S245 gpt-5.6-terra QA from the reviewed candidate. No push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-23 22:01 +08:00
+last_verified: 2026-08-23 22:23 +08:00
 ---
 
 # Upstream OpenAI Sticky System Prefix S245
@@ -28,6 +28,16 @@ last_verified: 2026-08-23 22:01 +08:00
   first-parent behavior, local owner topology, manual-adaptation boundary,
   focused/service/server commands, exact worker allowlist, and protected-main
   gates were reviewed. Isolated Terra Developer dispatch is authorized.
+- `build / developer-dispatch`: the Developer worktree is
+  `E:/codex-worktrees/sub2api/upstream-openai-sticky-system-prefix-s245` at
+  contract base `cc36d6ca5`; only the two seed owners and the Developer report
+  are writable.
+- `PASS / controller-review`: business `b45f9ac38` and Developer evidence
+  `4d373dac6` preserve the required two-commit boundary and exact allowlists.
+  Controller independently passed focused x10, the complete seed suite,
+  complete `internal/service`, server compile, format/diff, ancestry,
+  conflict/index, and protected-primary gates. Independent Terra QA remains
+  required before local-main integration.
 - Candidate `219368ec6` remains deferred: the local tree lacks the upstream
   Composite Resolver and `GrokVideoGeneration` chain, so its route-only patch
   would not make Composite video creation work.
