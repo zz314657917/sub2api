@@ -38,6 +38,10 @@ last_verified: 2026-08-23 22:23 +08:00
   complete `internal/service`, server compile, format/diff, ancestry,
   conflict/index, and protected-primary gates. Independent Terra QA remains
   required before local-main integration.
+- `qa / independent-dispatch`: QA worktree
+  `E:/codex-worktrees/sub2api/upstream-openai-sticky-system-prefix-s245-qa`
+  contains the reviewed business/evidence plus Controller phase commit; QA may
+  modify only its report and must independently rerun all contract gates.
 - Candidate `219368ec6` remains deferred: the local tree lacks the upstream
   Composite Resolver and `GrokVideoGeneration` chain, so its route-only patch
   would not make Composite video creation work.
