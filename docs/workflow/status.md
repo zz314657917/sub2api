@@ -1,12 +1,12 @@
 ---
-phase: contract-approved
+phase: build
 current_sprint: upstream-token-refresh-lock-s244
 total_sprints: 244
-pending_action: Controller deep-review the exact S244 patch with amended direct-binary frontend checks after the Terra worker loop stopped. No push is authorized.
+pending_action: Run independent Terra QA for S244 from the reviewed business/result candidate. No push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-23 19:05 +08:00
+last_verified: 2026-08-23 19:10 +08:00
 ---
 
 # Upstream Token Refresh Lock S244
@@ -34,6 +34,11 @@ last_verified: 2026-08-23 19:05 +08:00
   passes 7/7 without changing the lockfile. Acceptance now calls the existing
   Vitest, vue-tsc, and Vite executables directly, forbids install/update, and
   requires explicit lockfile/workspace cleanliness before Controller review.
+- `PASS / controller-review`: exact-upstream business `5916f1d51` and
+  Controller report `9ba56140b` keep the required two-commit boundary. Focused
+  Vitest passed once plus x10, typecheck/build passed, patch-id equals upstream,
+  scope/index/conflict/lockfile/workspace/provenance and protected-main gates
+  passed. Independent Terra QA remains required before integration.
 
 # Upstream CN Account Test Routing S237-A
 
