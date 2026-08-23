@@ -1,12 +1,12 @@
 ---
-phase: qa
+phase: done
 current_sprint: upstream-openai-sticky-system-prefix-s245
 total_sprints: 245
-pending_action: Run independent S245 gpt-5.6-terra QA from the reviewed candidate. No push is authorized.
+pending_action: S245 is integrated locally; review the next independent upstream candidate. No push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-23 22:23 +08:00
+last_verified: 2026-08-23 22:41 +08:00
 ---
 
 # Upstream OpenAI Sticky System Prefix S245
@@ -42,6 +42,15 @@ last_verified: 2026-08-23 22:23 +08:00
   `E:/codex-worktrees/sub2api/upstream-openai-sticky-system-prefix-s245-qa`
   contains the reviewed business/evidence plus Controller phase commit; QA may
   modify only its report and must independently rerun all contract gates.
+- `PASS / independent-qa`: QA report `558cd74fc` independently passed focused
+  x10, the complete seed suite, complete `internal/service`, server compile,
+  format/diff, exact commit scope, source/merge ancestry, conflict/index, and
+  protected-primary gates without modifying business files.
+- `PASS / main-integration`: business `2cb1cca70`, Developer evidence
+  `69e5b86a7`, and QA evidence `0f12fdb29` are integrated on local `main`.
+  Fresh main focused x10, complete seed/service, server compile, exact eight-
+  path Sprint scope, candidate/main patch identity, ancestry, conflict/index,
+  and protected-user gates passed. No push or deployment occurred.
 - Candidate `219368ec6` remains deferred: the local tree lacks the upstream
   Composite Resolver and `GrokVideoGeneration` chain, so its route-only patch
   would not make Composite video creation work.
