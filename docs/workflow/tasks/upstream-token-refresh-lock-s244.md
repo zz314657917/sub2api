@@ -134,6 +134,29 @@ allowlist for both commits, empty unmerged index, source/merge first-parent
 scope, no user-dirty overlap, and preservation of the primary worktree's
 tracked dirty patch ID plus untracked `outputs/` state.
 
+The protected primary-worktree patch ID is explicitly scoped to these eleven
+user-owned paths only:
+
+- `backend/internal/service/cafe_public.go`
+- `backend/internal/service/cafe_public_test.go`
+- `frontend/src/features/pixelCafe/PixelCafePage.vue`
+- `frontend/src/features/pixelCafe/__tests__/PixelCafePage.spec.ts`
+- `frontend/src/features/pixelCafe/components/CafeScene.vue`
+- `frontend/src/features/pixelCafe/components/SceneFallback.vue`
+- `frontend/src/features/pixelCafe/components/__tests__/CafeScene.spec.ts`
+- `frontend/src/features/pixelCafe/renderer/assetManifest.ts`
+- `frontend/src/features/pixelCafe/renderer/createCafeRenderer.ts`
+- `frontend/src/features/pixelCafe/renderer/sceneLayout.ts`
+- `frontend/src/types/pixelCafe.ts`
+
+Their combined stable patch ID must remain
+`370ac77de0e2f530ab652b99fb3eb35e809f4c84`. Controller-owned changes to
+`docs/workflow/status.md`, `docs/workflow/main-log.md`, this contract, and S244
+evidence are expected during phase transitions and are checked separately;
+they must not be included in the user-dirty patch-ID calculation. The primary
+index/unmerged index must remain empty and `outputs/` must retain its two
+pre-existing untracked files.
+
 ## Output
 
 - Developer produces one business commit containing only the two product/test

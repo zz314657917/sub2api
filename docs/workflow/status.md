@@ -2,11 +2,11 @@
 phase: build
 current_sprint: upstream-token-refresh-lock-s244
 total_sprints: 244
-pending_action: Run independent Terra QA for S244 from the reviewed business/result candidate. No push is authorized.
+pending_action: Retest S244 with the same independent Terra QA worker after the protected-path contract correction. No push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-23 19:10 +08:00
+last_verified: 2026-08-23 19:15 +08:00
 ---
 
 # Upstream Token Refresh Lock S244
@@ -39,6 +39,15 @@ last_verified: 2026-08-23 19:10 +08:00
   Vitest passed once plus x10, typecheck/build passed, patch-id equals upstream,
   scope/index/conflict/lockfile/workspace/provenance and protected-main gates
   passed. Independent Terra QA remains required before integration.
+- `FAIL / independent QA gate`: QA report `239610688` stopped before frontend
+  tests because it included the expected Controller `main-log.md` dispatch
+  update in the user-dirty patch ID. Candidate business/evidence scope and diff
+  passed; no implementation defect or QA business modification was found.
+- `contract-amendment / QA attribution`: the protected patch ID is now computed
+  over the exact eleven Pixel Cafe user paths only. Controller-owned workflow
+  phase/evidence files are checked separately; the protected user patch ID
+  remains `370ac77d...`, the primary index is empty, and `outputs/` still has
+  its two pre-existing untracked files. The same QA worker must retest.
 
 # Upstream CN Account Test Routing S237-A
 
