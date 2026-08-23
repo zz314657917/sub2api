@@ -1,12 +1,12 @@
 ---
-phase: build
+phase: done
 current_sprint: upstream-token-refresh-lock-s244
 total_sprints: 244
-pending_action: Retest S244 with the same independent Terra QA worker after the protected-path contract correction. No push is authorized.
+pending_action: S244 is integrated locally; review the next upstream candidate/history. No push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-23 19:15 +08:00
+last_verified: 2026-08-23 19:27 +08:00
 ---
 
 # Upstream Token Refresh Lock S244
@@ -48,6 +48,15 @@ last_verified: 2026-08-23 19:15 +08:00
   phase/evidence files are checked separately; the protected user patch ID
   remains `370ac77d...`, the primary index is empty, and `outputs/` still has
   its two pre-existing untracked files. The same QA worker must retest.
+- `PASS / independent QA`: final QA report `2885c6606` passed focused Vitest
+  once plus x10, typecheck, build, exact commit scope, three-way patch
+  provenance, lockfile/workspace, index/conflict, and corrected protected-main
+  gates. The initial FAIL remains in history as QA-attribution evidence.
+- `PASS / main-integration`: business `5e0fd6122`, Controller report
+  `c1d1abce3`, initial QA evidence `6a4909b4c`, and final QA evidence
+  `bd3c31773` are integrated on local `main`. Fresh main focused x10,
+  typecheck/build, exact eight-path range, provenance, dependency/index/
+  conflict, and protected-user gates passed; no push or deployment occurred.
 
 # Upstream CN Account Test Routing S237-A
 
