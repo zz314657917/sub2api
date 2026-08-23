@@ -1,13 +1,36 @@
 ---
-phase: done
-current_sprint: upstream-token-refresh-lock-s244
-total_sprints: 244
-pending_action: S244 is integrated locally; review the next upstream candidate/history. No push is authorized.
+phase: contract-approved
+current_sprint: upstream-openai-sticky-system-prefix-s245
+total_sprints: 245
+pending_action: Dispatch the S245 gpt-5.6-terra Developer in an isolated worktree. No push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-23 19:27 +08:00
+last_verified: 2026-08-23 22:01 +08:00
 ---
+
+# Upstream OpenAI Sticky System Prefix S245
+
+- `contract-draft`: behaviorally adapt upstream `e45490a36` from merge
+  `2ddda6735` so Chat Completions content-derived sticky seeds retain only the
+  leading contiguous system/developer prefix and ignore dynamic system messages
+  inserted after conversation history begins.
+- Scope is limited to the local content-session-seed owner, its focused tests,
+  and Developer/QA evidence. Gateway routing, scheduler/cache topology,
+  Responses input behavior, frontend, schema/migrations, dependencies,
+  provider traffic, containers, deployment, push, Pixel Cafe dirty paths, and
+  `outputs/` remain denied.
+- The upstream two-file patch requires manual behavior-level adaptation because
+  the local file predates upstream's unrelated single-scan refactor.
+- Contract:
+  `docs/workflow/tasks/upstream-openai-sticky-system-prefix-s245.md`.
+- `PASS / contract-review`: source and merge ancestry, identical two-file
+  first-parent behavior, local owner topology, manual-adaptation boundary,
+  focused/service/server commands, exact worker allowlist, and protected-main
+  gates were reviewed. Isolated Terra Developer dispatch is authorized.
+- Candidate `219368ec6` remains deferred: the local tree lacks the upstream
+  Composite Resolver and `GrokVideoGeneration` chain, so its route-only patch
+  would not make Composite video creation work.
 
 # Upstream Token Refresh Lock S244
 

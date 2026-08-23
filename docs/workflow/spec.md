@@ -5,6 +5,27 @@ qa_mode: runtime
 last_verified: 2026-08-16 02:41 +08:00
 ---
 
+## Upstream OpenAI Sticky System Prefix Addendum (S245)
+
+- Adapt `e45490a36` from upstream merge `2ddda6735` to the local direct
+  `gjson` content-seed scanner. Chat messages contribute only their leading,
+  contiguous system/developer prefix; any later dynamic system/developer
+  message after conversation history starts must not change sticky identity.
+- Preserve the first user message, model, tools/functions, instructions,
+  canonical JSON, Responses input handling, explicit session hints, scheduler,
+  cache keys, TTLs, and hash format. Do not import upstream's unrelated
+  single-scan refactor.
+- Scope is exactly the content-session-seed owner, its focused tests, and
+  workflow evidence. Other backend/frontend paths, schema/migrations,
+  dependencies, providers, containers, deployment, push, current Pixel Cafe
+  dirty paths, and `outputs/` are excluded.
+- Acceptance requires focused x10, the complete seed regression set, complete
+  service package, server compile, formatting/diff, exact scope, provenance,
+  conflict/index, protected-primary gates, and independent Terra QA.
+- `219368ec6` is deferred rather than partially ported: its apparent two-file
+  Composite video gate depends on upstream Composite Resolver and Grok media
+  handlers that are absent from the local asynchronous OpenAI video topology.
+
 ## Upstream Token Refresh Lock Addendum (S244)
 
 - Remove the proactive-refresh shortcut that accepts an unchanged access
