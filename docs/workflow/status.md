@@ -1,13 +1,28 @@
 ---
-phase: done
-current_sprint: upstream-openai-ws-replay-s243
-total_sprints: 243
-pending_action: S243 is integrated locally; review the next upstream candidate/history. No push is authorized.
+phase: contract-approved
+current_sprint: upstream-token-refresh-lock-s244
+total_sprints: 244
+pending_action: Dispatch the approved S244 contract to the Terra Developer in an isolated E-drive worktree. No push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-23 00:02 +08:00
+last_verified: 2026-08-23 18:49 +08:00
 ---
+
+# Upstream Token Refresh Lock S244
+
+- `contract-approved`: selectively port upstream `3445485eb` from merge
+  `5fc977846` onto frozen local product base `main@5183430fb`.
+- Scope is limited to the token refresh module, its focused Vitest owner, and
+  Developer/QA evidence. All Pixel Cafe dirty paths, `outputs/`, backend,
+  dependencies, deployment, containers, browser automation, and push remain
+  denied.
+- Contract:
+  `docs/workflow/tasks/upstream-token-refresh-lock-s244.md`.
+- `PASS / contract-review`: the exact two-file first-parent patch applies to
+  the frozen base, source ancestry and no dirty-path overlap are confirmed,
+  commit-range scope checks replace the ineffective clean-tree-only check, and
+  focused x10/typecheck/build plus independent Terra QA remain mandatory.
 
 # Upstream CN Account Test Routing S237-A
 

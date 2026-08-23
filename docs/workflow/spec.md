@@ -5,6 +5,23 @@ qa_mode: runtime
 last_verified: 2026-08-16 02:41 +08:00
 ---
 
+## Upstream Token Refresh Lock Addendum (S244)
+
+- Remove the proactive-refresh shortcut that accepts an unchanged access
+  token, refresh token, expiry timestamp, and user identity as peer-refreshed
+  state merely because the expiry remains beyond a two-minute buffer.
+- Preserve actual peer adoption when the rotating refresh token changes and the
+  existing failed-access-token reconciliation proves a replacement. Keep
+  same-document sharing, refresh-token race recovery, cross-user isolation,
+  logout protection, storage keys, timeouts, and API contracts unchanged.
+- Scope is exactly `tokenRefresh.ts`, its focused Vitest owner, and workflow
+  evidence. Backend, other frontend paths, dependencies, configuration,
+  browser automation, deployment, containers, production state, push, current
+  Pixel Cafe dirty paths, and `outputs/` are excluded.
+- Acceptance requires the boundary-jitter regression, focused x10, frontend
+  typecheck/build, exact scope, provenance, diff/index/conflict, and protected
+  primary-worktree gates under independent Terra QA.
+
 ## Upstream v0.1.177 Codex Turn-State (S219)
 
 - Relay `x-codex-turn-state` explicitly across native OpenAI HTTP streaming,
