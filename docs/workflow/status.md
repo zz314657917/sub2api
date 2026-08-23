@@ -1,13 +1,33 @@
 ---
-phase: done
-current_sprint: upstream-openai-sticky-system-prefix-s245
-total_sprints: 245
-pending_action: S245 is integrated locally; review the next independent upstream candidate. No push is authorized.
+phase: contract-approved
+current_sprint: upstream-chat-file-input-s246
+total_sprints: 246
+pending_action: Dispatch the S246 gpt-5.6-terra Developer in an isolated worktree. No push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-23 22:41 +08:00
+last_verified: 2026-08-23 22:46 +08:00
 ---
+
+# Upstream Chat File Input S246
+
+- `contract-draft`: behaviorally adapt upstream `4d4a0be1a` from merge
+  `6244090c1` so Chat Completions `type:"file"` parts become Responses
+  `input_file` parts carrying `filename`, `file_data`, and/or `file_id` instead
+  of being silently dropped.
+- Scope is limited to the three `apicompat` DTO/converter/test owners and
+  Developer/QA evidence. File upload/download products, validation policy,
+  gateway/security-audit behavior, frontend, schema/migrations, dependencies,
+  provider traffic, containers, deployment, push, Pixel Cafe dirty paths, and
+  `outputs/` remain denied.
+- The merge patch requires a manual `types.go` adaptation that preserves local
+  S239 streamed empty-name omission and later compatibility fields.
+- Contract: `docs/workflow/tasks/upstream-chat-file-input-s246.md`.
+- `PASS / contract-review`: source/merge ancestry and three-owner scope, local
+  DTO/converter topology, `types.go` manual-adaptation boundary, S239
+  `omitempty` preservation, focused/package/compile commands, exact allowlist,
+  and protected-primary gates were reviewed. Isolated Terra Developer dispatch
+  is authorized.
 
 # Upstream OpenAI Sticky System Prefix S245
 

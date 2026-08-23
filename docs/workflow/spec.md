@@ -5,6 +5,22 @@ qa_mode: runtime
 last_verified: 2026-08-16 02:41 +08:00
 ---
 
+## Upstream Chat File Input Addendum (S246)
+
+- Adapt `4d4a0be1a`/`6244090c1` so Chat Completions `type:"file"` content
+  parts map to Responses `type:"input_file"`, forwarding `filename`,
+  `file_data`, and `file_id`. Parts with neither payload field remain skipped.
+- Preserve text/image ordering and conversion, empty-content fallback, custom
+  tools, output conversion, and S239 streamed empty tool-name omission. Keep
+  the local DTO/converter topology rather than replaying divergent history.
+- Scope is exactly three `apicompat` owners plus workflow evidence. File upload/
+  download products, validation/MIME/size policy, gateway/security-audit,
+  frontend, schema/migrations, dependencies, provider traffic, containers,
+  deployment, push, current Pixel Cafe dirty paths, and `outputs/` are excluded.
+- Acceptance requires focused x10, complete `apicompat`, service/server compile,
+  format/diff, exact scope, ancestry, conflict/index, protected-primary gates,
+  and independent Terra QA.
+
 ## Upstream OpenAI Sticky System Prefix Addendum (S245)
 
 - Adapt `e45490a36` from upstream merge `2ddda6735` to the local direct
