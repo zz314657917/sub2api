@@ -11,13 +11,14 @@ import (
 )
 
 const (
-	CafeRoomStatusDraft       = "draft"
-	CafeRoomStatusEnabled     = "enabled"
-	CafeRoomStatusMaintenance = "maintenance"
-	CafeRoomStatusDisabled    = "disabled"
-	CafeRoomFulfillmentMode   = "room_subscription"
-	CafeRoomGroupAccessMode   = "room_managed"
-	CafeRoundStatusOpen       = "open"
+	CafeRoomStatusDraft         = "draft"
+	CafeRoomStatusEnabled       = "enabled"
+	CafeRoomStatusMaintenance   = "maintenance"
+	CafeRoomStatusDisabled      = "disabled"
+	CafeRoomFulfillmentMode     = "room_subscription"
+	CafeRoomGroupAccessMode     = "room_managed"
+	CafeRoundStatusOpen         = "open"
+	cafeRoomAccountOptionMaxIDs = 50
 )
 
 var (
@@ -140,11 +141,31 @@ type CafeRoomBulkFailure struct {
 	Message   string `json:"message"`
 }
 
+// CafeRoomAccountOption is deliberately narrower than the administrator Account DTO.
+// It is safe to use in the Pixel Cafe room picker and never includes credentials.
+type CafeRoomAccountOption struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	Platform    string `json:"platform"`
+	Status      string `json:"status"`
+	EmailMasked string `json:"email_masked,omitempty"`
+}
+
+type CafeRoomAccountOptionParams struct {
+	Page          int
+	PageSize      int
+	Search        string
+	PlanID        int64
+	ExcludeRoomID int64
+	IDs           []int64
+}
+
 type CafeRoomRepository interface {
 	List(ctx context.Context, params pagination.PaginationParams, status, zone, search string) ([]CafeRoom, *pagination.PaginationResult, error)
 	GetByID(ctx context.Context, id int64) (*CafeRoom, error)
 	GetPlan(ctx context.Context, id int64) (*CafeRoomPlan, error)
 	GetAccount(ctx context.Context, id int64) (status, platform string, groupIDs []int64, err error)
+	ListAccountOptions(ctx context.Context, params CafeRoomAccountOptionParams) ([]CafeRoomAccountOption, *pagination.PaginationResult, error)
 	HasOperationalAccount(ctx context.Context, accountID, excludeRoomID int64) (bool, error)
 	HasLiveRound(ctx context.Context, roomID int64) (bool, error)
 	Create(ctx context.Context, room *CafeRoom) (*CafeRoom, error)
@@ -181,6 +202,30 @@ func (s *CafeRoomService) Get(ctx context.Context, id int64) (*CafeRoom, error) 
 		return nil, ErrCafeRoomNotFound
 	}
 	return room, nil
+}
+
+func (s *CafeRoomService) ListAccountOptions(ctx context.Context, params CafeRoomAccountOptionParams) ([]CafeRoomAccountOption, *pagination.PaginationResult, error) {
+	if s == nil || s.repo == nil {
+		return nil, nil, errors.InternalServer("CAFE_ROOM_SERVICE_UNAVAILABLE", "cafe room service is unavailable")
+	}
+	if len(params.IDs) > 0 {
+		if len(params.IDs) > cafeRoomAccountOptionMaxIDs {
+			return nil, nil, ErrCafeRoomInvalid
+		}
+		return s.repo.ListAccountOptions(ctx, params)
+	}
+	if params.PlanID <= 0 {
+		return nil, nil, ErrCafeRoomInvalid
+	}
+	plan, err := s.repo.GetPlan(ctx, params.PlanID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := validateCafeOperationalPlan(plan); err != nil {
+		return nil, nil, err
+	}
+	params.Search = strings.TrimSpace(params.Search)
+	return s.repo.ListAccountOptions(ctx, params)
 }
 
 func (s *CafeRoomService) Create(ctx context.Context, input CafeRoomInput) (*CafeRoom, error) {

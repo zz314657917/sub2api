@@ -190,6 +190,7 @@ func registerCafeRoomRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	rooms := admin.Group("/cafe/rooms")
 	{
 		rooms.GET("", h.Admin.CafeRoom.List)
+		rooms.GET("/account-options", h.Admin.CafeRoom.AccountOptions)
 		rooms.POST("", h.Admin.CafeRoom.Create)
 		rooms.POST("/bulk", h.Admin.CafeRoom.BulkCreate)
 		rooms.GET("/:id", h.Admin.CafeRoom.Get)

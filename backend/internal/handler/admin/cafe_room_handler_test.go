@@ -16,11 +16,12 @@ import (
 )
 
 type cafeRoomHandlerRepositoryStub struct {
-	room       *service.CafeRoom
-	listParams pagination.PaginationParams
-	listStatus string
-	listZone   string
-	listSearch string
+	room         *service.CafeRoom
+	listParams   pagination.PaginationParams
+	listStatus   string
+	listZone     string
+	listSearch   string
+	optionParams service.CafeRoomAccountOptionParams
 }
 
 func newCafeRoomHandlerRepositoryStub() *cafeRoomHandlerRepositoryStub {
@@ -76,6 +77,11 @@ func (r *cafeRoomHandlerRepositoryStub) GetAccount(context.Context, int64) (stri
 	return service.StatusActive, "openai", []int64{20}, nil
 }
 
+func (r *cafeRoomHandlerRepositoryStub) ListAccountOptions(_ context.Context, params service.CafeRoomAccountOptionParams) ([]service.CafeRoomAccountOption, *pagination.PaginationResult, error) {
+	r.optionParams = params
+	return []service.CafeRoomAccountOption{{ID: 30, Name: "Cafe account", Platform: "openai", Status: service.StatusActive, EmailMasked: "c***e@example.com"}}, &pagination.PaginationResult{Page: 1, PageSize: 20, Total: 1, Pages: 1}, nil
+}
+
 func (r *cafeRoomHandlerRepositoryStub) HasOperationalAccount(context.Context, int64, int64) (bool, error) {
 	return false, nil
 }
@@ -119,6 +125,7 @@ func newCafeRoomHandlerTestRouter(repo *cafeRoomHandlerRepositoryStub) *gin.Engi
 	handler := NewCafeRoomHandler(service.NewCafeRoomService(repo))
 	router := gin.New()
 	router.GET("/rooms", handler.List)
+	router.GET("/rooms/account-options", handler.AccountOptions)
 	router.POST("/rooms", handler.Create)
 	router.POST("/rooms/bulk", handler.BulkCreate)
 	router.GET("/rooms/:id", handler.Get)
@@ -126,6 +133,42 @@ func newCafeRoomHandlerTestRouter(repo *cafeRoomHandlerRepositoryStub) *gin.Engi
 	router.DELETE("/rooms/:id", handler.Delete)
 	router.POST("/rooms/:id/open-round", handler.OpenRound)
 	return router
+}
+
+func TestCafeRoomHandlerAccountOptionsAreBoundedAndRedacted(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	repo := newCafeRoomHandlerRepositoryStub()
+	router := newCafeRoomHandlerTestRouter(repo)
+
+	recorder := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/rooms/account-options?plan_id=10&page=2&page_size=99&search=owner&exclude_room_id=1", nil)
+	router.ServeHTTP(recorder, req)
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, int64(10), repo.optionParams.PlanID)
+	require.Equal(t, int64(1), repo.optionParams.ExcludeRoomID)
+	require.Equal(t, 2, repo.optionParams.Page)
+	require.Equal(t, 50, repo.optionParams.PageSize)
+	require.Equal(t, "owner", repo.optionParams.Search)
+	for _, prohibited := range []string{"credentials", "api_key", "access_token", "base_url", "proxy"} {
+		require.NotContains(t, recorder.Body.String(), prohibited)
+	}
+	require.Contains(t, recorder.Body.String(), `"email_masked":"c***e@example.com"`)
+
+	for _, path := range []string{
+		"/rooms/account-options?plan_id=0",
+		"/rooms/account-options?plan_id=10&exclude_room_id=nope",
+		"/rooms/account-options?ids=30,invalid",
+		"/rooms/account-options",
+	} {
+		recorder = httptest.NewRecorder()
+		router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))
+		require.Equal(t, http.StatusBadRequest, recorder.Code, path)
+	}
+
+	recorder = httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/rooms/account-options?ids=30,31", nil))
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, []int64{30, 31}, repo.optionParams.IDs)
 }
 
 func TestCafeRoomHandlerListUsesPaginatedEnvelopeAndFilters(t *testing.T) {

@@ -14,10 +14,26 @@ export interface CafeSceneRenderer {
 }
 
 interface AnimatedAvatar {
-  graphic: { y: number }
-  baseY: number
+  graphic: { x: number; y: number }
+  typingIndicator: { alpha: number }
+  start: CafeScenePoint
+  target: CafeScenePoint
   phase: number
+  pause: number
 }
+
+interface CafeScenePoint {
+  x: number
+  y: number
+}
+
+const lobbyWalkPoints: CafeScenePoint[] = [
+  { x: 360, y: 245 },
+  { x: 470, y: 275 },
+  { x: 585, y: 235 },
+  { x: 670, y: 305 },
+  { x: 505, y: 335 },
+]
 
 function avatarColor(seed: string): number {
   return [0xb87565, 0x6f9a83, 0x7b91bb, 0xcb9d59, 0x9d7ab1][getAvatarToneIndex(seed)]
@@ -68,13 +84,26 @@ export async function createCafeRenderer(host: HTMLElement, initialData: CafeSce
 
     current.lobbyAvatars.slice(0, CAFE_SCENE_ROOM_LIMIT).forEach((avatar, index) => {
       const seat = getLobbySeat(avatar.seat_index)
+      const target = lobbyWalkPoints[index % lobbyWalkPoints.length]
       const graphic = new Graphics()
-        .rect(toX(seat.x - 8), toY(seat.y - 14), 16 * scale, 18 * scale)
+        .rect(-8 * scale, -10 * scale, 16 * scale, 18 * scale)
         .fill({ color: avatarColor(avatar.avatar_seed) })
-        .rect(toX(seat.x - 5), toY(seat.y - 23), 10 * scale, 10 * scale)
+        .rect(-5 * scale, -19 * scale, 10 * scale, 10 * scale)
         .fill({ color: 0xf3d0b3 })
+      const typingIndicator = new Graphics()
+        .rect(8 * scale, -2 * scale, 6 * scale, 2 * scale)
+        .fill({ color: 0xf3d0b3 })
+      graphic.addChild(typingIndicator)
       app.stage.addChild(graphic)
-      animatedAvatars.push({ graphic, baseY: graphic.y, phase: index * .7 })
+      graphic.position.set(toX(seat.x), toY(seat.y - 4))
+      animatedAvatars.push({
+        graphic,
+        typingIndicator,
+        start: { x: toX(seat.x), y: toY(seat.y - 4) },
+        target: { x: toX(target.x), y: toY(target.y) },
+        phase: index * .9,
+        pause: index % 3 === 0 ? 1.4 : .4,
+      })
     })
 
     current.rooms.slice(0, CAFE_SCENE_ROOM_LIMIT).forEach((room, index) => {
@@ -93,8 +122,34 @@ export async function createCafeRenderer(host: HTMLElement, initialData: CafeSce
 
   const animate = (): void => {
     if (destroyed || current.reducedMotion) return
-    const time = performance.now() / 480
-    for (const avatar of animatedAvatars) avatar.graphic.y = avatar.baseY + Math.sin(time + avatar.phase) * 1.5
+    const time = performance.now() / 1000
+    for (const avatar of animatedAvatars) {
+      const cycle = 8 + avatar.pause
+      const progress = ((time + avatar.phase) % cycle) / cycle
+      let from = avatar.start
+      let to = avatar.start
+      let walkProgress = 0
+      const isTyping = progress < .16
+      if (progress < .16) {
+        from = avatar.start
+        to = avatar.start
+      } else if (progress < .66) {
+        from = avatar.start
+        to = avatar.target
+        walkProgress = (progress - .16) / .5
+      } else if (progress < .84) {
+        from = avatar.target
+        to = avatar.target
+      } else {
+        from = avatar.target
+        to = avatar.start
+        walkProgress = (progress - .84) / .16
+      }
+      const eased = walkProgress * walkProgress * (3 - 2 * walkProgress)
+      avatar.graphic.x = from.x + (to.x - from.x) * eased
+      avatar.graphic.y = from.y + (to.y - from.y) * eased + Math.sin(time * 7 + avatar.phase) * 1.5
+      avatar.typingIndicator.alpha = isTyping ? 1 : 0
+    }
   }
 
   app.ticker.add(animate)

@@ -11,8 +11,8 @@ const {
   removeRoom,
   bulkCreate,
   openRound,
+  listAccountOptions,
   listPlans,
-  listAccounts,
   showError,
   showSuccess,
 } = vi.hoisted(() => ({
@@ -22,8 +22,8 @@ const {
   removeRoom: vi.fn(),
   bulkCreate: vi.fn(),
   openRound: vi.fn(),
+  listAccountOptions: vi.fn(),
   listPlans: vi.fn(),
-  listAccounts: vi.fn(),
   showError: vi.fn(),
   showSuccess: vi.fn(),
 }))
@@ -32,6 +32,7 @@ vi.mock('@/api/admin', () => ({
   adminAPI: {
     cafeRooms: {
       list: listRooms,
+      listAccountOptions,
       create: createRoom,
       update: updateRoom,
       remove: removeRoom,
@@ -39,7 +40,6 @@ vi.mock('@/api/admin', () => ({
       openRound,
     },
     groupBuy: { listPlans },
-    accounts: { list: listAccounts },
   },
 }))
 
@@ -117,6 +117,12 @@ const ConfirmDialogStub = defineComponent({
   template: '<div v-if="show" class="confirm-dialog"><button type="button" @click="$emit(\'confirm\')">confirm-delete</button></div>',
 })
 
+const CafeRoomAccountPickerStub = defineComponent({
+  props: { modelValue: [Number, Array], multiple: Boolean },
+  emits: ['update:modelValue'],
+  template: '<button type="button" data-testid="cafe-room-account-picker" @click="$emit(\'update:modelValue\', multiple ? [41, 42] : 41)">pick-account</button>',
+})
+
 function room(status: 'enabled' | 'maintenance' = 'enabled') {
   return {
     id: 7,
@@ -159,6 +165,7 @@ function mountView() {
         EmptyState: { props: ['title'], template: '<div>{{ title }}</div>' },
         BaseDialog: BaseDialogStub,
         ConfirmDialog: ConfirmDialogStub,
+        CafeRoomAccountPicker: CafeRoomAccountPickerStub,
         Icon: true,
         AdminGroupBuyView: {
           props: { embedded: Boolean },
@@ -176,10 +183,10 @@ describe('AdminCafeRoomsView', () => {
       { id: 20, title: 'Legacy plan', target_group_id: 4, fulfillment_mode: 'aggregate_tier' },
       { id: 21, title: 'OpenAI Room 5 seats', target_group_id: 5, fulfillment_mode: 'room_subscription' },
     ] })
-    listAccounts.mockReset().mockResolvedValue({ items: [
-      { id: 41, name: 'OpenAI account', platform: 'openai', status: 'active', concurrency: 3 },
-      { id: 42, name: 'Second account', platform: 'openai', status: 'active', concurrency: 2 },
-    ], total: 2, page: 1, page_size: 200, pages: 1 })
+    listAccountOptions.mockReset().mockResolvedValue({ data: { items: [
+      { id: 41, name: 'OpenAI account', platform: 'openai', status: 'active', email_masked: 'o***i@example.com' },
+      { id: 42, name: 'Second account', platform: 'openai', status: 'active', email_masked: 's***d@example.com' },
+    ], total: 2, page: 1, page_size: 20, pages: 1 } })
     createRoom.mockReset().mockResolvedValue({ data: room() })
     updateRoom.mockReset().mockResolvedValue({ data: room() })
     removeRoom.mockReset().mockResolvedValue({ data: { message: 'ok' } })
@@ -197,7 +204,7 @@ describe('AdminCafeRoomsView', () => {
     await flushPromises()
 
     expect(listRooms).toHaveBeenCalledWith(expect.objectContaining({ page: 1, page_size: 20, sort_by: 'sort_order' }))
-    expect(listAccounts).toHaveBeenCalledWith(1, 200, { status: 'active', lite: 'true' })
+    expect(listAccountOptions).toHaveBeenCalledWith({ ids: [41] })
     expect(wrapper.text()).toContain('OpenAI 七号房')
 
     const createButton = wrapper.findAll('button').find((button) => button.text().includes('新建房间'))
@@ -225,7 +232,7 @@ describe('AdminCafeRoomsView', () => {
     await inputs[1].setValue('八号房')
     const selects = form.findAll('select')
     await selects[0].setValue('21')
-    await selects[1].setValue('41')
+    await wrapper.find('[data-testid="cafe-room-account-picker"]').trigger('click')
     await form.trigger('submit')
     await flushPromises()
 
@@ -270,7 +277,7 @@ describe('AdminCafeRoomsView', () => {
     const form = wrapper.find('#cafe-room-bulk-form')
     const selects = form.findAll('select')
     await selects[0].setValue('21')
-    await selects[1].setValue(['41', '42'])
+    await wrapper.find('[data-testid="cafe-room-account-picker"]').trigger('click')
     await form.trigger('submit')
     await flushPromises()
 
@@ -279,28 +286,28 @@ describe('AdminCafeRoomsView', () => {
     expect(showSuccess).toHaveBeenCalled()
   })
 
-  it('loads all active accounts across paginated dependency responses', async () => {
-    listAccounts.mockReset()
-      .mockResolvedValueOnce({
-        items: [{ id: 41, name: 'First account', platform: 'openai', status: 'active', concurrency: 3 }],
-        total: 201,
-        page: 1,
-        page_size: 200,
-        pages: 2,
-      })
-      .mockResolvedValueOnce({
-        items: [{ id: 241, name: 'Later account', platform: 'openai', status: 'active', concurrency: 2 }],
-        total: 201,
-        page: 2,
-        page_size: 200,
-        pages: 2,
-      })
+  it('hydrates table summaries by ids without downloading generic accounts', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    expect(listAccountOptions).toHaveBeenCalledWith({ ids: [41] })
+    expect(listPlans).toHaveBeenCalledTimes(1)
+
+    expect(wrapper.text()).toContain('OpenAI account')
+  })
+
+  it('hydrates every current-page account summary in 50-ID chunks', async () => {
+    const rooms = Array.from({ length: 51 }, (_, index) => ({ ...room(), id: index + 1, account_id: index + 1, name: `Room ${index + 1}` }))
+    listRooms.mockResolvedValue({ data: { items: rooms, total: 51, page: 1, page_size: 100, pages: 1 } })
+    listAccountOptions.mockImplementation(({ ids }: { ids: number[] }) => Promise.resolve({ data: {
+      items: ids.map((id) => ({ id, name: `Hydrated ${id}`, platform: 'openai', status: 'active' })), total: ids.length, page: 1, page_size: ids.length, pages: 1,
+    } }))
 
     const wrapper = mountView()
     await flushPromises()
-    await wrapper.findAll('button').find((button) => button.text().includes('新建房间'))?.trigger('click')
 
-    expect(listAccounts).toHaveBeenNthCalledWith(2, 2, 200, { status: 'active', lite: 'true' })
-    expect(wrapper.find('#cafe-room-form').text()).toContain('Later account')
+    expect(listAccountOptions).toHaveBeenCalledTimes(2)
+    expect(listAccountOptions).toHaveBeenNthCalledWith(1, { ids: Array.from({ length: 50 }, (_, index) => index + 1) })
+    expect(listAccountOptions).toHaveBeenNthCalledWith(2, { ids: [51] })
+    expect(wrapper.text()).toContain('Hydrated 51')
   })
 })

@@ -10,7 +10,7 @@ export default {
   noRooms: 'No rooms',
   noRoomPlans: 'No room_subscription plan is available.',
   noAccounts: 'No active account is available.',
-  loadingDependencies: 'Loading plans and accounts...',
+  loadingDependencies: 'Loading Room plans...',
   columns: {
     room: 'Room',
     zone: 'Zone',
@@ -52,7 +52,6 @@ export default {
   bulk: {
     title: 'Bulk create rooms',
     accounts: 'Operating accounts',
-    accountHint: 'Hold Ctrl or Shift to select multiple accounts',
     codePrefix: 'Code prefix',
     startNumber: 'Start number',
     createOpenRound: 'Open rounds after creation',
@@ -62,6 +61,16 @@ export default {
     created: '{count} created',
     failed: '{count} failed',
     noneSelected: 'Select at least one operating account.',
+  },
+  picker: {
+    search: 'Search operating accounts',
+    searchPlaceholder: 'Search name, platform, or email',
+    choosePlanFirst: 'Choose a Room plan first.',
+    loading: 'Loading eligible accounts...',
+    selected: 'Selected accounts',
+    empty: 'No eligible accounts match.',
+    more: 'Load more',
+    error: 'Failed to load accounts',
   },
   actions: {
     edit: 'Edit',
@@ -85,5 +94,6 @@ export default {
     delete: 'Failed to delete room',
     openRound: 'Failed to create an open round',
     bulk: 'Failed to bulk create rooms',
+    accounts: 'Failed to load room accounts',
   },
 }

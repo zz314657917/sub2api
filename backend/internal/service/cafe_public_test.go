@@ -148,7 +148,10 @@ func TestCafePublicServiceListsMyRoomsWithSafeStatusProjection(t *testing.T) {
 	plan := createGroupBuyTestPlan(t, ctx, client, groupID, GroupBuyLaunchModeManual, 5)
 	_, err := client.GroupBuyPlan.UpdateOneID(plan.ID).SetFulfillmentMode(CafeRoomFulfillmentMode).Save(ctx)
 	require.NoError(t, err)
-	room, err := client.CafeRoom.Create().SetCode("CAFE-MY-001").SetName("我的 Claude 包间").SetPlanID(plan.ID).
+	account, err := client.Account.Create().SetName("Claude Pro 主账号").SetPlatform(PlatformAnthropic).
+		SetType("api_key").SetStatus(StatusActive).SetCredentials(map[string]interface{}{"email": "owner@example.com", "api_key": "must-not-leak"}).Save(ctx)
+	require.NoError(t, err)
+	room, err := client.CafeRoom.Create().SetCode("CAFE-MY-001").SetName("我的 Claude 包间").SetPlanID(plan.ID).SetAccountID(account.ID).
 		SetZoneKey("claude").SetThemeKey("warm_wood").SetStatus(CafeRoomStatusEnabled).Save(ctx)
 	require.NoError(t, err)
 	now := time.Date(2026, 8, 3, 16, 15, 0, 0, time.UTC)
@@ -161,7 +164,7 @@ func TestCafePublicServiceListsMyRoomsWithSafeStatusProjection(t *testing.T) {
 		SetStatus(GroupBuySeatStatusActive).SetActivatedAt(now.Add(-time.Hour)).SetExpiresAt(now.Add(time.Hour)).Save(ctx)
 	require.NoError(t, err)
 	managedKey, err := client.APIKey.Create().SetUserID(user.ID).SetKey("sk-cafe-my-rooms-private").SetName("Claude 包间 CAFE-MY-001 / 座位 1").
-		SetStatus("disabled").SetQuota(100).SetQuotaUsed(12.3).SetRateLimit5h(10).SetRateLimit1d(20).SetRateLimit7d(80).
+		SetStatus("disabled").SetQuota(100).SetQuotaUsed(12.3).SetRateLimit5h(10).SetRateLimit1d(20).SetRateLimit7d(80).SetUsage5h(2.5).SetUsage7d(18.75).
 		SetManagedSourceType(APIKeyManagedSourceCafeRoomSeat).SetManagedSourceID(activeSeat.ID).Save(ctx)
 	require.NoError(t, err)
 	_, err = client.GroupBuySeat.UpdateOneID(activeSeat.ID).SetBoundAPIKeyID(managedKey.ID).Save(ctx)
@@ -210,15 +213,21 @@ func TestCafePublicServiceListsMyRoomsWithSafeStatusProjection(t *testing.T) {
 	require.NotNil(t, activeItem)
 	require.Equal(t, room.ID, activeItem.Room.ID)
 	require.Equal(t, plan.ID, activeItem.Plan.ID)
+	require.NotNil(t, activeItem.Account)
+	require.Equal(t, "Claude Pro 主账号", activeItem.Account.Name)
+	require.Equal(t, PlatformAnthropic, activeItem.Account.Platform)
+	require.Equal(t, "o***r@example.com", activeItem.Account.EmailMasked)
 	require.NotNil(t, activeItem.ManagedAPIKey)
 	require.Equal(t, managedKey.ID, activeItem.ManagedAPIKey.ID)
+	require.Equal(t, 2.5, activeItem.ManagedAPIKey.Usage5h)
+	require.Equal(t, 18.75, activeItem.ManagedAPIKey.Usage7d)
 	require.True(t, activeItem.ManagedAPIKey.Protected)
 	require.NotNil(t, paidItem)
 	require.Nil(t, paidItem.ManagedAPIKey)
 
 	encoded, err := json.Marshal(items)
 	require.NoError(t, err)
-	for _, prohibited := range []string{"\"key\":", "masked_key", "user_id", "group_id", "managed_source_id", "account_id", "sk-cafe-my-rooms-private", "sk-not-for-client"} {
+	for _, prohibited := range []string{"\"key\":", "masked_key", "user_id", "group_id", "managed_source_id", "account_id", "credentials", "must-not-leak", "owner@example.com", "sk-cafe-my-rooms-private", "sk-not-for-client"} {
 		require.NotContains(t, string(encoded), prohibited)
 	}
 
@@ -244,6 +253,30 @@ func TestCafeMyRoomStatusParserFailsClosed(t *testing.T) {
 		require.ErrorIs(t, err, ErrCafeMyRoomsInvalidStatus, raw)
 		require.Equal(t, "CAFE_MY_ROOMS_INVALID_STATUS", infraerrors.Reason(err), raw)
 	}
+}
+
+func TestCafeAccountEmailProjectionFailsClosed(t *testing.T) {
+	for _, account := range []*dbent.Account{
+		nil,
+		{Credentials: nil},
+		{Credentials: map[string]interface{}{"email": ""}},
+		{Credentials: map[string]interface{}{"email": 123}},
+	} {
+		require.Empty(t, cafeAccountEmailMasked(account))
+	}
+	require.Equal(t, "a***e@example.com", cafeAccountEmailMasked(&dbent.Account{
+		Credentials: map[string]interface{}{"email": " alice@example.com "},
+	}))
+}
+
+func TestCafeMyRoomAccountNameMasksEmailShapedLabels(t *testing.T) {
+	masked := cafeAccountDisplayName("owner@example.com")
+	require.Equal(t, "o***r@example.com", masked)
+	encoded, err := json.Marshal(CafeMyRoom{Account: &CafeMyRoomAccount{Name: masked, EmailMasked: cafeAccountEmailMasked(&dbent.Account{Credentials: map[string]interface{}{"email": "owner@example.com", "api_key": "must-not-leak"}})}})
+	require.NoError(t, err)
+	require.NotContains(t, string(encoded), "owner@example.com")
+	require.NotContains(t, string(encoded), "must-not-leak")
+	require.Equal(t, "Cafe account", cafeAccountDisplayName("Cafe account"))
 }
 
 func TestPublicCafeSeatVisualDoesNotUseRawUserIdentity(t *testing.T) {

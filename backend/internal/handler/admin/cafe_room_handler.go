@@ -43,6 +43,20 @@ func (h *CafeRoomHandler) List(c *gin.Context) {
 	})
 }
 
+func (h *CafeRoomHandler) AccountOptions(c *gin.Context) {
+	params, err := parseCafeRoomAccountOptionParams(c)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	items, result, err := h.service.ListAccountOptions(c.Request.Context(), params)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.PaginatedWithResult(c, items, &response.PaginationResult{Total: result.Total, Page: result.Page, PageSize: result.PageSize, Pages: result.Pages})
+}
+
 func (h *CafeRoomHandler) Create(c *gin.Context) {
 	var req service.CafeRoomInput
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -132,4 +146,46 @@ func parseCafeRoomPositiveInt64Param(c *gin.Context, name string) (int64, error)
 		return 0, infraerrors.BadRequest("INVALID_ID", name+" is invalid")
 	}
 	return id, nil
+}
+
+func parseCafeRoomAccountOptionParams(c *gin.Context) (service.CafeRoomAccountOptionParams, error) {
+	page, pageSize := response.ParsePagination(c)
+	if pageSize > 50 {
+		pageSize = 50
+	}
+	params := service.CafeRoomAccountOptionParams{Page: page, PageSize: pageSize, Search: strings.TrimSpace(c.Query("search"))}
+	if raw := strings.TrimSpace(c.Query("plan_id")); raw != "" {
+		value, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || value <= 0 {
+			return params, infraerrors.BadRequest("INVALID_ID", "plan_id is invalid")
+		}
+		params.PlanID = value
+	}
+	if raw := strings.TrimSpace(c.Query("exclude_room_id")); raw != "" {
+		value, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || value <= 0 {
+			return params, infraerrors.BadRequest("INVALID_ID", "exclude_room_id is invalid")
+		}
+		params.ExcludeRoomID = value
+	}
+	if raw := strings.TrimSpace(c.Query("ids")); raw != "" {
+		seen := make(map[int64]struct{})
+		for _, value := range strings.Split(raw, ",") {
+			id, err := strconv.ParseInt(strings.TrimSpace(value), 10, 64)
+			if err != nil || id <= 0 {
+				return params, infraerrors.BadRequest("INVALID_ID", "ids contains an invalid account id")
+			}
+			if _, exists := seen[id]; !exists {
+				params.IDs = append(params.IDs, id)
+				seen[id] = struct{}{}
+			}
+		}
+		if len(params.IDs) > 50 {
+			return params, infraerrors.BadRequest("INVALID_ID", "ids exceeds the maximum of 50 account ids")
+		}
+	}
+	if len(params.IDs) == 0 && params.PlanID <= 0 {
+		return params, infraerrors.BadRequest("INVALID_ID", "plan_id is required unless ids is provided")
+	}
+	return params, nil
 }

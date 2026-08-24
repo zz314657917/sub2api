@@ -7,6 +7,7 @@ import (
 
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqljson"
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/caferoom"
@@ -115,6 +116,83 @@ func (r *cafeRoomRepository) GetAccount(ctx context.Context, id int64) (status, 
 		groupIDs = append(groupIDs, group.ID)
 	}
 	return item.Status, item.Platform, groupIDs, nil
+}
+
+func (r *cafeRoomRepository) ListAccountOptions(ctx context.Context, params service.CafeRoomAccountOptionParams) ([]service.CafeRoomAccountOption, *pagination.PaginationResult, error) {
+	page := params.Page
+	if page < 1 {
+		page = 1
+	}
+	pageSize := params.PageSize
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	if pageSize > 50 {
+		pageSize = 50
+	}
+
+	q := r.client.Account.Query().Where(account.DeletedAtIsNil())
+	if len(params.IDs) > 0 {
+		q = q.Where(account.IDIn(params.IDs...))
+	} else {
+		plan, err := r.client.GroupBuyPlan.Query().
+			Where(groupbuyplan.IDEQ(params.PlanID), groupbuyplan.DeletedAtIsNil()).
+			WithTargetGroup().
+			Only(ctx)
+		if err != nil {
+			if dbent.IsNotFound(err) {
+				return nil, nil, service.ErrCafePlanNotFound
+			}
+			return nil, nil, err
+		}
+		if err := validateCafePlanEntity(plan); err != nil {
+			return nil, nil, err
+		}
+		q = q.Where(
+			account.StatusEQ(service.StatusActive),
+			account.PlatformEQ(plan.Edges.TargetGroup.Platform),
+			account.HasGroupsWith(dbgroup.IDEQ(plan.TargetGroupID), dbgroup.DeletedAtIsNil()),
+			account.Not(account.HasCafeRoomsWith(caferoom.StatusIn(service.CafeRoomStatusEnabled, service.CafeRoomStatusMaintenance), cafeRoomAccountOptionExclusion(params.ExcludeRoomID))),
+		)
+		if search := strings.TrimSpace(params.Search); search != "" {
+			q = q.Where(account.Or(
+				account.NameContainsFold(search),
+				account.PlatformContainsFold(search),
+				func(selector *sql.Selector) {
+					selector.Where(sqljson.StringContains(account.FieldCredentials, search, sqljson.Path("email")))
+				},
+			))
+		}
+	}
+	total, err := q.Count(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	items, err := q.Order(account.ByID(sql.OrderAsc())).Offset((page - 1) * pageSize).Limit(pageSize).All(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	options := make([]service.CafeRoomAccountOption, 0, len(items))
+	for _, item := range items {
+		options = append(options, service.CafeRoomAccountOption{ID: item.ID, Name: item.Name, Platform: item.Platform, Status: item.Status, EmailMasked: cafeRoomAccountEmailMasked(item)})
+	}
+	return options, &pagination.PaginationResult{Page: page, PageSize: pageSize, Total: int64(total), Pages: int((total + pageSize - 1) / pageSize)}, nil
+}
+
+func cafeRoomAccountOptionExclusion(excludeRoomID int64) func(*sql.Selector) {
+	return func(selector *sql.Selector) {
+		if excludeRoomID > 0 {
+			selector.Where(sql.NEQ(selector.C(caferoom.FieldID), excludeRoomID))
+		}
+	}
+}
+
+func cafeRoomAccountEmailMasked(item *dbent.Account) string {
+	if item == nil {
+		return ""
+	}
+	value, ok := item.Credentials["email"].(string)
+	return service.MaskCafeEmail(value, ok)
 }
 
 func (r *cafeRoomRepository) HasOperationalAccount(ctx context.Context, accountID, excludeRoomID int64) (bool, error) {

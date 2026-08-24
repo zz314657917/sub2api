@@ -48,7 +48,8 @@ const myRoom = {
   plan: { id: 3, title: 'Claude Max', validity_days: 30 },
   round: { id: 1008, status: 'active', paid_seats: 5, total_seats: 5 },
   seat: { id: 892, seat_no: 2, status: 'active', activated_at: '2026-08-03T01:00:00Z', expires_at: '2026-09-02T01:00:00Z' },
-  managed_api_key: { id: 3011, name: 'Claude 包间 C-018 / 座位 2', status: 'disabled', quota: 100, quota_used: 12.3, rate_limit_5h: 10, rate_limit_1d: 20, rate_limit_7d: 80, protected: true as const },
+  account: { name: 'Claude Pro 主账号', platform: 'anthropic', email_masked: 'o***r@example.com' },
+  managed_api_key: { id: 3011, name: 'Claude 包间 C-018 / 座位 2', status: 'disabled', quota: 100, quota_used: 12.3, rate_limit_5h: 10, rate_limit_1d: 20, rate_limit_7d: 80, usage_5h: 2.5, usage_7d: 18.75, protected: true as const },
 }
 
 function overviewPayload(rooms = [room]) {
@@ -116,9 +117,9 @@ describe('PixelCafePage', () => {
     await flushPromises()
 
     expect(overview).toHaveBeenCalledWith({ room_limit: 8 })
-    expect(wrapper.find('[data-testid="pixel-cafe-room-navigator"]').text()).toContain('Claude 包间 18')
+    expect(wrapper.find('[data-testid="pixel-cafe-room-list"]').text()).toContain('Claude 包间 18')
     expect(wrapper.text()).toContain('1/5 空位')
-    await wrapper.find('.pixel-cafe-room').trigger('click')
+    await wrapper.find('.pixel-cafe-room-card').trigger('click')
     expect(wrapper.text()).toContain('周期')
     expect(wrapper.text()).toContain('30 天')
     expect(wrapper.find('[data-testid="pixel-cafe-lobby-activity"]').exists()).toBe(false)
@@ -133,15 +134,15 @@ describe('PixelCafePage', () => {
 
     expect(overview).not.toHaveBeenCalled()
     expect(wrapper.find('[data-testid="pixel-cafe-demo-badge"]').text()).toContain('本地演示数据')
-    expect(wrapper.find('[data-testid="pixel-cafe-room-navigator"]').findAll('.pixel-cafe-room')).toHaveLength(5)
-    expect(wrapper.findAll('[data-testid="pixel-cafe-lobby-avatar"]')).toHaveLength(10)
+    expect(wrapper.find('[data-testid="pixel-cafe-room-list"]').findAll('.pixel-cafe-room-card')).toHaveLength(5)
+    expect(wrapper.findAll('[data-testid="pixel-cafe-lobby-avatar"]')).toHaveLength(0)
     expect(wrapper.text()).toContain('Claude 深夜包间')
     expect(wrapper.text()).toContain('可加入')
     expect(wrapper.find('.pixel-cafe-scene-art').exists()).toBe(true)
     expect(wrapper.find('.pixel-cafe-front-desk').text()).toContain('共享房间')
     expect(wrapper.find('.pixel-cafe-workbench').exists()).toBe(true)
 
-    await wrapper.find('.pixel-cafe-room').trigger('click')
+    await wrapper.find('.pixel-cafe-room-card').trigger('click')
     expect(wrapper.text()).toContain('本地演示不创建订单')
     expect((wrapper.find('.pixel-cafe-primary').element as HTMLButtonElement).disabled).toBe(true)
   })
@@ -154,7 +155,7 @@ describe('PixelCafePage', () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    expect(wrapper.findAll('[data-testid="pixel-cafe-lobby-avatar"]')).toHaveLength(1)
+    expect(wrapper.findAll('[data-testid="pixel-cafe-lobby-avatar"]')).toHaveLength(0)
   })
 
   it('renders configured header copy and can hide the entire header block', async () => {
@@ -204,11 +205,47 @@ describe('PixelCafePage', () => {
 
     expect(listMyRooms).toHaveBeenCalledWith({ page: 1, page_size: 20, status: 'active,waiting' })
     expect(wrapper.find('[data-testid="pixel-cafe-my-rooms-list"]').text()).toContain('Claude 包间 C-018 / 座位 2')
+    expect(wrapper.text()).toContain('绑定账号：Claude Pro 主账号')
+    expect(wrapper.text()).toContain('o***r@example.com')
+    expect(wrapper.text()).toContain('5H 2.50 / 10.00')
+    expect(wrapper.text()).toContain('7D 18.75 / 80.00')
     expect(wrapper.text()).toContain('使用中')
     expect(wrapper.text()).not.toContain('sk-cafe-my-rooms-private')
     await wrapper.findAll('.pixel-cafe-my-rooms-tab')[1].trigger('click')
     await flushPromises()
     expect(listMyRooms).toHaveBeenLastCalledWith({ page: 1, page_size: 20, status: 'history' })
+  })
+
+  it('shows safe empty states and unlimited windows for incomplete key projections', async () => {
+    listMyRooms.mockResolvedValueOnce({
+      data: {
+        items: [{
+          ...myRoom,
+          account: null,
+          managed_api_key: {
+            ...myRoom.managed_api_key,
+            quota: 0,
+            quota_used: 0,
+            rate_limit_5h: 0,
+            rate_limit_7d: 0,
+            usage_5h: 0,
+            usage_7d: 0,
+          },
+        }],
+      },
+    })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('未绑定账号')
+    expect(wrapper.text()).toContain('5H 0.00 / 不限')
+    expect(wrapper.text()).toContain('7D 0.00 / 不限')
+
+    listMyRooms.mockResolvedValueOnce({ data: { items: [{ ...myRoom, account: undefined, managed_api_key: undefined }] } })
+    await wrapper.findAll('.pixel-cafe-my-rooms-tab')[1].trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('未绑定账号')
+    expect(wrapper.text()).toContain('暂无受管 Key')
   })
 
   it('shows a retryable my-room error without replacing room discovery', async () => {
@@ -217,7 +254,7 @@ describe('PixelCafePage', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-testid="pixel-cafe-my-rooms-error"]').text()).toContain('my rooms unavailable')
-    expect(wrapper.find('[data-testid="pixel-cafe-room-navigator"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="pixel-cafe-room-list"]').exists()).toBe(true)
     await wrapper.find('.pixel-cafe-my-rooms-retry').trigger('click')
     await flushPromises()
     expect(listMyRooms).toHaveBeenCalledTimes(2)
@@ -257,7 +294,7 @@ describe('PixelCafePage', () => {
   it('submits only a selected empty seat with agreement and opens payment waiting state', async () => {
     const wrapper = mountPage()
     await flushPromises()
-    await wrapper.find('.pixel-cafe-room').trigger('click')
+    await wrapper.find('.pixel-cafe-room-card').trigger('click')
 
     const submit = wrapper.find('.pixel-cafe-primary')
     expect(submit.attributes('disabled')).toBeDefined()
@@ -288,7 +325,7 @@ describe('PixelCafePage', () => {
     overview.mockResolvedValueOnce(overviewPayload([singleRoom]))
     const wrapper = mountPage()
     await flushPromises()
-    await wrapper.find('.pixel-cafe-room').trigger('click')
+    await wrapper.find('.pixel-cafe-room-card').trigger('click')
 
     expect(wrapper.text()).toContain('独享房间')
     expect(wrapper.find('.pixel-cafe-seat-button').exists()).toBe(false)
@@ -305,7 +342,7 @@ describe('PixelCafePage', () => {
     createOrder.mockRejectedValueOnce(new Error('seat unavailable'))
     const wrapper = mountPage()
     await flushPromises()
-    await wrapper.find('.pixel-cafe-room').trigger('click')
+    await wrapper.find('.pixel-cafe-room-card').trigger('click')
     await wrapper.find('.pixel-cafe-seat-button').trigger('click')
     await wrapper.find('.pixel-cafe-agreement input').setValue(true)
     await wrapper.vm.$nextTick()

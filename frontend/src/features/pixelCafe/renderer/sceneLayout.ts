@@ -1,8 +1,7 @@
 export const CAFE_SCENE_DESIGN_WIDTH = 960
 export const CAFE_SCENE_DESIGN_HEIGHT = 400
 export const CAFE_SCENE_ROOM_LIMIT = 12
-export const CAFE_SCENE_WORKSTATION_COUNT = 50
-export const CAFE_SCENE_WORKSTATION_COLUMNS = 10
+export const CAFE_SCENE_WORKSTATION_COUNT = 8
 
 export interface CafeScenePoint {
   x: number
@@ -25,20 +24,17 @@ export interface CafeWorkstationSlot extends CafeScenePoint {
   id: number
 }
 
-export const CAFE_SCENE_WORKSTATIONS: CafeWorkstationSlot[] = Array.from(
-  { length: CAFE_SCENE_WORKSTATION_COUNT },
-  (_, index) => {
-    const row = Math.floor(index / CAFE_SCENE_WORKSTATION_COLUMNS)
-    const column = index % CAFE_SCENE_WORKSTATION_COLUMNS
-    return {
-      id: index + 1,
-      // Keep the full 10-column grid inside the unobstructed floor; the room rail
-      // occupies the right side of the visual scene on desktop.
-      x: 110 + column * 66 + (row % 2) * 8,
-      y: 88 + row * 42,
-    }
-  },
-)
+// These are visual anchors for ambient activity, not a rendered workstation grid.
+export const CAFE_SCENE_WORKSTATIONS: CafeWorkstationSlot[] = [
+  { id: 1, x: 250, y: 145 },
+  { id: 2, x: 330, y: 178 },
+  { id: 3, x: 430, y: 145 },
+  { id: 4, x: 535, y: 185 },
+  { id: 5, x: 640, y: 145 },
+  { id: 6, x: 730, y: 205 },
+  { id: 7, x: 420, y: 300 },
+  { id: 8, x: 590, y: 320 },
+]
 
 const explicitRoomSlots: Record<string, CafeRoomHotspot> = {
   'featured-room-01': defaultRoomHotspots[0],

@@ -10,7 +10,7 @@ export default {
   noRooms: '暂无房间',
   noRoomPlans: '暂无 room_subscription 计划，请先准备兼容计划。',
   noAccounts: '暂无可用账号。',
-  loadingDependencies: '正在加载计划和账号…',
+  loadingDependencies: '正在加载 Room 计划…',
   columns: {
     room: '房间',
     zone: '区域',
@@ -52,7 +52,6 @@ export default {
   bulk: {
     title: '批量创建房间',
     accounts: '运营账号',
-    accountHint: '按住 Ctrl 或 Shift 可多选',
     codePrefix: '编号前缀',
     startNumber: '起始编号',
     createOpenRound: '创建后立即开团',
@@ -62,6 +61,16 @@ export default {
     created: '成功 {count}',
     failed: '失败 {count}',
     noneSelected: '至少选择一个运营账号。',
+  },
+  picker: {
+    search: '搜索运营账号',
+    searchPlaceholder: '按名称、平台或邮箱搜索',
+    choosePlanFirst: '请先选择 Room 计划。',
+    loading: '正在加载可用账号…',
+    selected: '已选账号',
+    empty: '没有匹配的可用账号。',
+    more: '加载更多',
+    error: '加载账号失败',
   },
   actions: {
     edit: '编辑',
@@ -85,5 +94,6 @@ export default {
     delete: '删除房间失败',
     openRound: '创建 open Round 失败',
     bulk: '批量创建失败',
+    accounts: '加载房间账号失败',
   },
 }

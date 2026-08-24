@@ -188,6 +188,8 @@ export interface CafeMyRoomManagedKey {
   rate_limit_5h: number
   rate_limit_1d: number
   rate_limit_7d: number
+  usage_5h: number
+  usage_7d: number
   protected: true
 }
 
@@ -200,6 +202,11 @@ export interface CafeMyRoom {
     zone_key: string
     theme_key: string
   }
+  account?: {
+    name: string
+    platform: string
+    email_masked?: string
+  } | null
   plan: {
     id: number
     title: string

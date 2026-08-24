@@ -151,6 +151,7 @@ type CafeMyRoomsListParams struct {
 type CafeMyRoom struct {
 	MembershipID  int64                 `json:"membership_id"`
 	Room          CafeMyRoomRoom        `json:"room"`
+	Account       *CafeMyRoomAccount    `json:"account,omitempty"`
 	Plan          CafeMyRoomPlan        `json:"plan"`
 	Round         CafeMyRoomRound       `json:"round"`
 	Seat          CafeMyRoomSeat        `json:"seat"`
@@ -163,6 +164,12 @@ type CafeMyRoomRoom struct {
 	Name     string `json:"name"`
 	ZoneKey  string `json:"zone_key"`
 	ThemeKey string `json:"theme_key"`
+}
+
+type CafeMyRoomAccount struct {
+	Name        string `json:"name"`
+	Platform    string `json:"platform"`
+	EmailMasked string `json:"email_masked,omitempty"`
 }
 
 type CafeMyRoomPlan struct {
@@ -195,6 +202,8 @@ type CafeMyRoomManagedKey struct {
 	RateLimit5h float64 `json:"rate_limit_5h"`
 	RateLimit1d float64 `json:"rate_limit_1d"`
 	RateLimit7d float64 `json:"rate_limit_7d"`
+	Usage5h     float64 `json:"usage_5h"`
+	Usage7d     float64 `json:"usage_7d"`
 	Protected   bool    `json:"protected"`
 }
 
@@ -336,7 +345,9 @@ func (s *CafePublicService) MyRooms(ctx context.Context, userID int64, params Ca
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).
 		WithRound(func(roundQuery *dbent.GroupBuyRoundQuery) {
-			roundQuery.WithCafeRoom()
+			roundQuery.WithCafeRoom(func(roomQuery *dbent.CafeRoomQuery) {
+				roomQuery.WithAccount()
+			})
 		}).
 		WithPlan().
 		WithBoundAPIKey().
@@ -437,13 +448,49 @@ func cafeMyRoomFromSeat(seat *dbent.GroupBuySeat) (CafeMyRoom, bool) {
 		Round: CafeMyRoomRound{ID: round.ID, Status: round.Status, PaidSeats: round.PaidSeats, TotalSeats: round.TotalSeats},
 		Seat:  CafeMyRoomSeat{ID: seat.ID, SeatNo: seat.SeatNo, Status: seat.Status, ActivatedAt: seat.ActivatedAt, ExpiresAt: seat.ExpiresAt},
 	}
+	if account := room.Edges.Account; account != nil {
+		item.Account = &CafeMyRoomAccount{
+			Name:        cafeAccountDisplayName(account.Name),
+			Platform:    account.Platform,
+			EmailMasked: cafeAccountEmailMasked(account),
+		}
+	}
 	if key := seat.Edges.BoundAPIKey; key != nil && key.UserID == seat.UserID && key.ManagedSourceType == APIKeyManagedSourceCafeRoomSeat && key.ManagedSourceID != nil && *key.ManagedSourceID == seat.ID {
 		item.ManagedAPIKey = &CafeMyRoomManagedKey{
 			ID: key.ID, Name: key.Name, Status: key.Status, Quota: key.Quota, QuotaUsed: key.QuotaUsed,
-			RateLimit5h: key.RateLimit5h, RateLimit1d: key.RateLimit1d, RateLimit7d: key.RateLimit7d, Protected: true,
+			RateLimit5h: key.RateLimit5h, RateLimit1d: key.RateLimit1d, RateLimit7d: key.RateLimit7d,
+			Usage5h: key.Usage5h, Usage7d: key.Usage7d, Protected: true,
 		}
 	}
 	return item, true
+}
+
+func cafeAccountEmailMasked(account *dbent.Account) string {
+	if account == nil {
+		return ""
+	}
+	value, ok := account.Credentials["email"].(string)
+	return MaskCafeEmail(value, ok)
+}
+
+func cafeAccountDisplayName(name string) string {
+	if masked := MaskCafeEmail(name, true); masked != "" {
+		return masked
+	}
+	return name
+}
+
+// MaskCafeEmail fails closed for incomplete or malformed values before masking.
+func MaskCafeEmail(value string, isString bool) string {
+	value = strings.TrimSpace(value)
+	if !isString || value == "" || strings.Count(value, "@") != 1 || strings.ContainsAny(value, " \t\r\n") {
+		return ""
+	}
+	parts := strings.SplitN(value, "@", 2)
+	if parts[0] == "" || parts[1] == "" || strings.Contains(parts[1], ".") == false {
+		return ""
+	}
+	return MaskEmail(value)
 }
 
 func (s *CafePublicService) list(ctx context.Context, userID int64, params CafePublicListParams) ([]CafePublicRoom, *pagination.PaginationResult, error) {

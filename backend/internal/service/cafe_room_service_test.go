@@ -26,6 +26,7 @@ type cafeRoomRepositoryStub struct {
 	openRoundError map[int64]error
 	deleted        []int64
 	nextRoomID     int64
+	optionParams   CafeRoomAccountOptionParams
 }
 
 func newCafeRoomRepositoryStub() *cafeRoomRepositoryStub {
@@ -86,6 +87,11 @@ func (r *cafeRoomRepositoryStub) GetAccount(_ context.Context, id int64) (string
 		return "", "", nil, nil
 	}
 	return account.status, account.platform, account.groupIDs, nil
+}
+
+func (r *cafeRoomRepositoryStub) ListAccountOptions(_ context.Context, params CafeRoomAccountOptionParams) ([]CafeRoomAccountOption, *pagination.PaginationResult, error) {
+	r.optionParams = params
+	return []CafeRoomAccountOption{{ID: 1, Name: "Cafe account", Platform: "openai", Status: StatusActive}}, &pagination.PaginationResult{Page: 1, PageSize: 20, Total: 1, Pages: 1}, nil
 }
 
 func (r *cafeRoomRepositoryStub) HasOperationalAccount(_ context.Context, accountID, excludeRoomID int64) (bool, error) {
@@ -190,6 +196,27 @@ func TestCafeRoomServiceCreateValidatesStatusAndCompatibility(t *testing.T) {
 		_, err := NewCafeRoomService(repo).Create(context.Background(), input)
 		require.ErrorIs(t, err, ErrCafeAccountAssigned)
 	})
+}
+
+func TestCafeRoomServiceAccountOptionsValidatePlanButAllowBoundedHydration(t *testing.T) {
+	repo := newCafeRoomRepositoryStub()
+	svc := NewCafeRoomService(repo)
+
+	_, _, err := svc.ListAccountOptions(context.Background(), CafeRoomAccountOptionParams{PlanID: 0})
+	require.ErrorIs(t, err, ErrCafeRoomInvalid)
+
+	repo.plan.FulfillmentMode = "aggregate_tier"
+	_, _, err = svc.ListAccountOptions(context.Background(), CafeRoomAccountOptionParams{PlanID: 10})
+	require.ErrorIs(t, err, ErrCafePlanInvalid)
+
+	items, result, err := svc.ListAccountOptions(context.Background(), CafeRoomAccountOptionParams{IDs: []int64{1}})
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.Equal(t, int64(1), result.Total)
+	require.Equal(t, []int64{1}, repo.optionParams.IDs)
+
+	_, _, err = svc.ListAccountOptions(context.Background(), CafeRoomAccountOptionParams{IDs: make([]int64, 51)})
+	require.ErrorIs(t, err, ErrCafeRoomInvalid)
 }
 
 func TestCafeRoomServiceUpdateAndDeleteRespectLiveState(t *testing.T) {

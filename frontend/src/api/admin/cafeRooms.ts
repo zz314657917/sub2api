@@ -1,5 +1,5 @@
 import { apiClient } from '../client'
-import type { PaginatedResponse, Account } from '@/types'
+import type { PaginatedResponse } from '@/types'
 import type {
   CafeRoom,
   CafeRoomBulkInput,
@@ -19,9 +19,32 @@ export interface CafeRoomListParams {
   sort_order?: 'asc' | 'desc'
 }
 
+export interface CafeRoomAccountOption {
+  id: number
+  name: string
+  platform: string
+  status: string
+  email_masked?: string
+}
+
+export interface CafeRoomAccountOptionParams {
+  page?: number
+  page_size?: number
+  search?: string
+  plan_id?: number
+  exclude_room_id?: number
+  ids?: number[]
+}
+
 const cafeRoomsAPI = {
   list(params?: CafeRoomListParams) {
     return apiClient.get<PaginatedResponse<CafeRoom>>('/admin/cafe/rooms', { params })
+  },
+
+  listAccountOptions(params: CafeRoomAccountOptionParams) {
+    return apiClient.get<PaginatedResponse<CafeRoomAccountOption>>('/admin/cafe/rooms/account-options', {
+      params: { ...params, ids: params.ids?.join(',') || undefined },
+    })
   },
 
   get(id: number) {
@@ -48,7 +71,5 @@ const cafeRoomsAPI = {
     return apiClient.post<CafeRound>(`/admin/cafe/rooms/${id}/open-round`)
   },
 }
-
-export type CafeRoomAccountOption = Pick<Account, 'id' | 'name' | 'platform' | 'status' | 'current_concurrency' | 'concurrency'>
 
 export default cafeRoomsAPI

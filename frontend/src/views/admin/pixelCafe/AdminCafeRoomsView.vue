@@ -155,7 +155,8 @@
       @close="closeRoomDialog"
     >
       <form id="cafe-room-form" class="space-y-4" @submit.prevent="saveRoom">
-        <div class="grid gap-4 sm:grid-cols-2">
+        <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.9fr)]">
+          <div class="grid gap-4 sm:grid-cols-2">
           <label class="field">
             <span class="input-label">{{ t('admin.pixelCafe.form.code') }}</span>
             <input v-model.trim="roomForm.code" class="input" required maxlength="64" />
@@ -174,18 +175,6 @@
             </select>
             <span v-if="roomPlans.length === 0" class="field-hint text-amber-600 dark:text-amber-300">
               {{ t('admin.pixelCafe.noRoomPlans') }}
-            </span>
-          </label>
-          <label class="field">
-            <span class="input-label">{{ t('admin.pixelCafe.form.account') }}</span>
-            <select v-model.number="roomForm.account_id" class="input" required>
-              <option :value="0" disabled>{{ t('admin.pixelCafe.form.chooseAccount') }}</option>
-              <option v-for="account in accountOptionsForForm" :key="account.id" :value="account.id">
-                {{ account.name }} · {{ account.platform }} · #{{ account.id }}
-              </option>
-            </select>
-            <span v-if="accounts.length === 0" class="field-hint text-amber-600 dark:text-amber-300">
-              {{ t('admin.pixelCafe.noAccounts') }}
             </span>
           </label>
           <label class="field">
@@ -212,6 +201,16 @@
             <span class="input-label">{{ t('admin.pixelCafe.form.sortOrder') }}</span>
             <input v-model.number="roomForm.sort_order" class="input" type="number" min="0" />
           </label>
+          </div>
+          <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-700">
+            <span class="input-label mb-2 block">{{ t('admin.pixelCafe.form.account') }}</span>
+            <CafeRoomAccountPicker
+              v-model="roomForm.account_id"
+              :plan-id="roomForm.plan_id"
+              :exclude-room-id="editingRoom?.id || 0"
+              :active="roomDialogOpen"
+            />
+          </div>
         </div>
         <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
           <input v-model="roomForm.featured" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600" />
@@ -264,15 +263,10 @@
             <input v-model.trim="bulkForm.theme_key" class="input" maxlength="64" />
           </label>
         </div>
-        <label class="field">
-          <span class="input-label">{{ t('admin.pixelCafe.bulk.accounts') }}</span>
-          <select v-model="bulkForm.account_ids" class="input min-h-48" multiple required>
-            <option v-for="account in accounts" :key="account.id" :value="account.id">
-              {{ account.name }} · {{ account.platform }} · #{{ account.id }}
-            </option>
-          </select>
-          <span class="field-hint">{{ t('admin.pixelCafe.bulk.accountHint') }}</span>
-        </label>
+        <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-700">
+          <span class="input-label mb-2 block">{{ t('admin.pixelCafe.bulk.accounts') }}</span>
+          <CafeRoomAccountPicker v-model="bulkForm.account_ids" multiple :plan-id="bulkForm.plan_id" :active="bulkDialogOpen" />
+        </div>
         <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
           <input v-model="bulkForm.create_open_round" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600" />
           {{ t('admin.pixelCafe.bulk.createOpenRound') }}
@@ -317,7 +311,6 @@ import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import { useAppStore } from '@/stores/app'
 import { extractApiErrorMessage } from '@/utils/apiError'
-import type { Account } from '@/types'
 import type { GroupBuyPlan } from '@/types/groupBuy'
 import type { Column } from '@/components/common/types'
 import type { CafeRoom, CafeRoomBulkResult, CafeRoomInput, CafeRoomStatus } from '@/types/pixelCafe'
@@ -332,13 +325,15 @@ import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import AdminGroupBuyView from '@/views/admin/group-buy/AdminGroupBuyView.vue'
+import CafeRoomAccountPicker from './components/CafeRoomAccountPicker.vue'
+import type { CafeRoomAccountOption } from '@/api/admin/cafeRooms'
 
 const { t } = useI18n()
 const appStore = useAppStore()
 
 const rooms = ref<CafeRoom[]>([])
 const plans = ref<GroupBuyPlan[]>([])
-const accounts = ref<Account[]>([])
+const accountOptionsByID = ref<Record<number, CafeRoomAccountOption>>({})
 const loading = ref(false)
 const dependencyLoading = ref(false)
 const loadError = ref('')
@@ -403,12 +398,6 @@ const zoneOptions = computed(() => [
 ])
 
 const roomPlans = computed(() => plans.value.filter((plan) => plan.fulfillment_mode === 'room_subscription'))
-const accountOptionsForForm = computed<Array<{ id: number; name: string; platform: string }>>(() => {
-  const selected = roomForm.account_id > 0 ? accounts.value.find((account) => account.id === roomForm.account_id) : undefined
-  if (selected || !editingRoom.value?.account_id) return accounts.value
-  return [{ id: editingRoom.value.account_id, name: `#${editingRoom.value.account_id}`, platform: '-' }, ...accounts.value]
-})
-
 function resetRoomForm() {
   Object.assign(roomForm, {
     code: '', name: '', plan_id: roomPlans.value[0]?.id ?? 0, account_id: 0,
@@ -467,7 +456,7 @@ function planMode(room: CafeRoom) {
 }
 
 function accountFor(id: number | null | undefined) {
-  return id ? accounts.value.find((account) => account.id === id) : undefined
+  return id ? accountOptionsByID.value[id] : undefined
 }
 
 function accountPlatform(id: number | null | undefined) {
@@ -477,18 +466,8 @@ function accountPlatform(id: number | null | undefined) {
 async function loadDependencies() {
   dependencyLoading.value = true
   try {
-    const [planResponse, firstAccountResponse] = await Promise.all([
-      adminAPI.groupBuy.listPlans(),
-      adminAPI.accounts.list(1, 200, { status: 'active', lite: 'true' }),
-    ])
+    const planResponse = await adminAPI.groupBuy.listPlans()
     plans.value = planResponse.data
-    const allAccounts = [...firstAccountResponse.items]
-    const totalPages = Math.max(1, firstAccountResponse.pages || Math.ceil(firstAccountResponse.total / Math.max(firstAccountResponse.page_size, 1)))
-    for (let page = 2; page <= totalPages; page += 1) {
-      const accountResponse = await adminAPI.accounts.list(page, 200, { status: 'active', lite: 'true' })
-      allAccounts.push(...accountResponse.items)
-    }
-    accounts.value = allAccounts
   } catch (error) {
     appStore.showError(extractApiErrorMessage(error, t('admin.pixelCafe.errors.dependencies')))
   } finally {
@@ -521,6 +500,7 @@ async function loadRooms() {
       sort_order: 'asc',
     })
     rooms.value = response.data.items
+    await hydrateRoomAccounts(response.data.items)
     pagination.total = response.data.total
     pagination.pages = response.data.pages
     pagination.page = response.data.page
@@ -530,6 +510,17 @@ async function loadRooms() {
     appStore.showError(loadError.value)
   } finally {
     loading.value = false
+  }
+}
+
+async function hydrateRoomAccounts(currentRooms: CafeRoom[]) {
+  const ids = [...new Set(currentRooms.map((room) => room.account_id).filter((id): id is number => Boolean(id && id > 0)))]
+  if (ids.length === 0) return
+  try {
+    const responses = await Promise.all(Array.from({ length: Math.ceil(ids.length / 50) }, (_, index) => adminAPI.cafeRooms.listAccountOptions({ ids: ids.slice(index * 50, (index + 1) * 50) })))
+    accountOptionsByID.value = { ...accountOptionsByID.value, ...Object.fromEntries(responses.flatMap((response) => response.data.items).map((account) => [account.id, account])) }
+  } catch (error) {
+    appStore.showError(extractApiErrorMessage(error, t('admin.pixelCafe.errors.accounts')))
   }
 }
 
