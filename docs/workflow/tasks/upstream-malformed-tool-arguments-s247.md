@@ -7,7 +7,7 @@
 ## Role
 
 - Planner / Final Evaluator: Codex Controller
-- Developer Worker: `gpt-5.6-terra`
+- Implementation owner after two worker stops: Codex Controller
 - Independent QA Worker: `gpt-5.6-terra`
 
 ## Goal
@@ -23,6 +23,12 @@ touched `openai_gateway_cc_pipeline.go`, but the final merge resolution does
 not. S247 follows the final merge's five-file first-parent scope and adapts it
 to the local, earlier bridge topology; it must not port the superseded source
 layout mechanically.
+
+The upstream service regression owner is `//go:build unit` in this older local
+tree. The repository's unrelated unit-tag suite has existing compile errors,
+so the local adaptation replaces that one test owner with a self-contained,
+default-tag S247 test file. This is a test-topology substitution only; product
+behavior and the other four upstream owners remain unchanged.
 
 Frozen product baseline: local `main@1fe34a329`. The Controller may add only
 workflow contract/phase evidence above that baseline before creating the
@@ -63,7 +69,7 @@ Developer business commit:
 - `backend/internal/pkg/apicompat/chatcompletions_responses_bridge_test.go`
 - `backend/internal/pkg/apicompat/chatcompletions_responses_stream_lifecycle_test.go`
 - `backend/internal/service/openai_gateway_responses_chat_fallback.go`
-- `backend/internal/service/openai_gateway_responses_chat_fallback_test.go`
+- `backend/internal/service/openai_gateway_responses_chat_fallback_s247_test.go`
 
 Developer evidence commit only:
 
@@ -78,6 +84,9 @@ Independent QA evidence commit only:
 - `backend/internal/service/openai_gateway_cc_pipeline.go`; it is absent from
   the final upstream merge scope and must not be reintroduced from an
   intermediate source commit.
+- `backend/internal/service/openai_gateway_responses_chat_fallback_test.go`;
+  this existing owner is unit-tagged locally and must remain unchanged. S247's
+  equivalent service regression belongs in the allowed default-tag test file.
 - All other backend, frontend, schema, migration, dependency, generated,
   deployment, Docker, knowledge, and workflow files except the exact report
   owner assigned to the active worker.
@@ -114,12 +123,12 @@ From `backend/` in the isolated worktree:
 ```powershell
 go test ./internal/pkg/apicompat -list '^(TestResponsesInputToChatMessages_SkipsInvalidHistoricalFunctionCall|TestResponsesInputToChatMessages_SkipsInvalidEmptyCallIDOutput|TestChatCompletionsResponseToResponses_SkipsInvalidFunctionArguments|TestStream_InvalidToolArgumentsAreRejectedBeforeFinalize|TestStream_ValidToolCallAtOutputLimitKeepsIncompleteResponse)$'
 go test ./internal/pkg/apicompat -run '^(TestResponsesInputToChatMessages_SkipsInvalidHistoricalFunctionCall|TestResponsesInputToChatMessages_SkipsInvalidEmptyCallIDOutput|TestChatCompletionsResponseToResponses_SkipsInvalidFunctionArguments|TestStream_InvalidToolArgumentsAreRejectedBeforeFinalize|TestStream_ValidToolCallAtOutputLimitKeepsIncompleteResponse)$' -count=10
-go test ./internal/service -list '^TestForwardResponses_ChatFallbackRejectsInvalidToolArgumentsAtOutputLimit$'
-go test ./internal/service -run '^TestForwardResponses_ChatFallbackRejectsInvalidToolArgumentsAtOutputLimit$' -count=10
+go test ./internal/service -list '^TestStreamChatCompletionsAsResponses_RejectsInvalidToolArgumentsAtOutputLimit$'
+go test ./internal/service -run '^TestStreamChatCompletionsAsResponses_RejectsInvalidToolArgumentsAtOutputLimit$' -count=10
 go test ./internal/pkg/apicompat -count=1
 go test ./internal/service -count=1
 go test ./cmd/server -run '^$' -count=1
-gofmt -l internal/pkg/apicompat/chatcompletions_responses_bridge.go internal/pkg/apicompat/chatcompletions_responses_bridge_test.go internal/pkg/apicompat/chatcompletions_responses_stream_lifecycle_test.go internal/service/openai_gateway_responses_chat_fallback.go internal/service/openai_gateway_responses_chat_fallback_test.go
+gofmt -l internal/pkg/apicompat/chatcompletions_responses_bridge.go internal/pkg/apicompat/chatcompletions_responses_bridge_test.go internal/pkg/apicompat/chatcompletions_responses_stream_lifecycle_test.go internal/service/openai_gateway_responses_chat_fallback.go internal/service/openai_gateway_responses_chat_fallback_s247_test.go
 ```
 
 From the worktree root:
@@ -132,12 +141,13 @@ git merge-base --is-ancestor e2d9ce0ca upstream/main
 git merge-base --is-ancestor fbc9ee626d7298ddc1ba96c95349625f54737543 upstream/main
 git merge-base --is-ancestor fd6cd474d6d7a4c0c44b9346151376b81fa380cd upstream/main
 git log --oneline fd6cd474d6d7a4c0c44b9346151376b81fa380cd..upstream/main -- backend/internal/pkg/apicompat/chatcompletions_responses_bridge.go backend/internal/pkg/apicompat/chatcompletions_responses_bridge_test.go backend/internal/pkg/apicompat/chatcompletions_responses_stream_lifecycle_test.go backend/internal/service/openai_gateway_responses_chat_fallback.go backend/internal/service/openai_gateway_responses_chat_fallback_test.go
-rg -n '^(<<<<<<< .+|=======$|>>>>>>> .+)$' backend/internal/pkg/apicompat/chatcompletions_responses_bridge.go backend/internal/pkg/apicompat/chatcompletions_responses_bridge_test.go backend/internal/pkg/apicompat/chatcompletions_responses_stream_lifecycle_test.go backend/internal/service/openai_gateway_responses_chat_fallback.go backend/internal/service/openai_gateway_responses_chat_fallback_test.go
+rg -n '^(<<<<<<< .+|=======$|>>>>>>> .+)$' backend/internal/pkg/apicompat/chatcompletions_responses_bridge.go backend/internal/pkg/apicompat/chatcompletions_responses_bridge_test.go backend/internal/pkg/apicompat/chatcompletions_responses_stream_lifecycle_test.go backend/internal/service/openai_gateway_responses_chat_fallback.go backend/internal/service/openai_gateway_responses_chat_fallback_s247_test.go
 ```
 
 The Controller must additionally verify the exact business/evidence commit
-allowlists, the final merge's five-file first-parent scope, absence of later
-upstream touches, preservation of S242/S243 custom-tool/replay behavior, empty
+allowlists, the final merge's five-file first-parent scope and the one-for-one
+local service-test owner substitution, absence of later upstream product-owner
+touches, preservation of S242/S243 custom-tool/replay behavior, empty
 index/conflict state, and the primary-worktree protected snapshot.
 
 The protected primary-worktree patch ID is scoped to these twenty-two tracked
@@ -185,10 +195,10 @@ The primary staged and unmerged indexes must remain empty.
 
 ## Output
 
-- Developer produces one business commit containing only the five product/test
-  paths and one separate evidence commit containing only
+- Controller produces one business commit containing only the five local
+  product/test paths and one separate evidence commit containing only
   `docs/workflow/worker-results/upstream-malformed-tool-arguments-s247-result.md`.
-- Developer report first line must be exactly
+- Controller result first line must be exactly
   `### DONE: upstream-malformed-tool-arguments-s247`,
   `### BLOCKED: upstream-malformed-tool-arguments-s247`, or
   `### FAILED: upstream-malformed-tool-arguments-s247`.
@@ -214,11 +224,11 @@ The primary staged and unmerged indexes must remain empty.
 
 ## Budget
 
-- worker_mode: native `gpt-5.6-terra`
+- worker_mode: stopped after two attributed failures; Controller takeover
 - qa_worker_mode: native `gpt-5.6-terra`
 - worker_model: `gpt-5.6-terra`
 - qa_worker_model: `gpt-5.6-terra`
-- developer_max_budget_usd: `0.10`
+- developer_max_budget_usd: exhausted for the stopped worker loop
 - qa_max_budget_usd: `0.10`
 - worktree_root: `E:/codex-worktrees`
 

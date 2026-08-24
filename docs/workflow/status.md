@@ -2,11 +2,11 @@
 phase: build
 current_sprint: upstream-malformed-tool-arguments-s247
 total_sprints: 247
-pending_action: Await and review the isolated S247 gpt-5.6-terra Developer result. No push is authorized.
+pending_action: Controller finalizes and verifies S247 after the stopped Developer loop. No push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-24 09:59 +08:00
+last_verified: 2026-08-24 10:06 +08:00
 ---
 
 # Upstream Malformed Tool Arguments S247
@@ -46,6 +46,17 @@ last_verified: 2026-08-24 09:59 +08:00
   runs after those tests are added; the stop rule applies only if discovery
   still finds fewer than six. The same Terra Developer may continue its cleanly
   scoped drafts and must replace the failed draft report with final evidence.
+- `FAILED / developer-attempt-2 attribution`: after adding all six test drafts,
+  the service selector still found no test because its existing local owner is
+  `//go:build unit`. Controller confirmed `-tags=unit` cannot compile due
+  unrelated stale unit tests across `internal/service`; no S247 implementation
+  defect was evaluated and no commit was created.
+- `contract-amendment / Controller takeover`: the low-cost loop is closed after
+  two attributed stops. The upstream unit-tag service regression owner is
+  replaced by a self-contained default-tag S247 test file, while the existing
+  unit-tag file remains unchanged. Controller will review/finalize the five
+  local owners, produce separate business/evidence commits, and still require
+  independent Terra QA.
 
 # Upstream Chat File Input S246
 
