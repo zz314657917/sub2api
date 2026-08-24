@@ -157,6 +157,8 @@ func responsesInputToChatMessages(instructions string, inputRaw json.RawMessage)
 		return nil, fmt.Errorf("parse responses input: %w", err)
 	}
 	mediaByCallID := make(toolOutputMediaByCallID)
+	invalidFunctionCallIDs := make(map[string]struct{})
+	invalidEmptyFunctionCallOutputs := 0
 
 	for _, raw := range rawItems {
 		raw = bytesTrimSpace(raw)
@@ -183,12 +185,21 @@ func responsesInputToChatMessages(instructions string, inputRaw json.RawMessage)
 			if strings.TrimSpace(arguments) == "" {
 				arguments = "{}"
 			}
+			callID := rawString(item["call_id"])
+			if !json.Valid([]byte(arguments)) {
+				if callID != "" {
+					invalidFunctionCallIDs[callID] = struct{}{}
+				} else {
+					invalidEmptyFunctionCallOutputs++
+				}
+				continue
+			}
 			name := rawString(item["name"])
 			if namespace := rawString(item["namespace"]); namespace != "" {
 				name = flattenNamespaceToolName(namespace, name)
 			}
 			messages = appendAssistantToolCall(messages, ChatToolCall{
-				ID:   rawString(item["call_id"]),
+				ID:   callID,
 				Type: "function",
 				Function: ChatFunctionCall{
 					Name:      name,
@@ -227,6 +238,13 @@ func responsesInputToChatMessages(instructions string, inputRaw json.RawMessage)
 		case "function_call_output", "custom_tool_call_output", "tool_search_output":
 			outputRaw := bytesTrimSpace(item["output"])
 			callID := rawString(item["call_id"])
+			if callID == "" && invalidEmptyFunctionCallOutputs > 0 {
+				invalidEmptyFunctionCallOutputs--
+				continue
+			}
+			if _, skipped := invalidFunctionCallIDs[callID]; skipped {
+				continue
+			}
 			delete(mediaByCallID, callID)
 
 			outputText, media, rewritten := extractToolOutputMedia(outputRaw)
@@ -925,6 +943,9 @@ func chatMessageToResponsesOutput(message ChatMessage, customTools map[string]bo
 			})
 			continue
 		}
+		if !json.Valid([]byte(arguments)) {
+			continue
+		}
 		if ns, ok := namespaceTools[toolCall.Function.Name]; ok {
 			outputs = append(outputs, ResponsesOutput{
 				Type:      "function_call",
@@ -1203,6 +1224,23 @@ func ChatCompletionsChunkToResponsesEvents(
 	}
 
 	return events
+}
+
+// ValidateToolCallArguments rejects truncated ordinary function call arguments before finalization.
+func (state *ChatCompletionsToResponsesStreamState) ValidateToolCallArguments() error {
+	if state == nil {
+		return nil
+	}
+	for idx, toolCall := range state.ToolCalls {
+		if toolCall == nil || state.toolIsCustom[idx] || state.toolIsToolSearch[idx] {
+			continue
+		}
+		arguments := strings.TrimSpace(toolCall.Function.Arguments)
+		if arguments != "" && !json.Valid([]byte(arguments)) {
+			return fmt.Errorf("tool call %q (%s) arguments are invalid JSON", toolCall.ID, toolCall.Function.Name)
+		}
+	}
+	return nil
 }
 
 // FinalizeChatCompletionsResponsesStream emits terminal Responses events.
