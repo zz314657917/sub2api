@@ -1,13 +1,38 @@
 ---
-phase: done
-current_sprint: upstream-malformed-tool-arguments-s247
-total_sprints: 247
-pending_action: Audit the next independent non-overlapping upstream candidate. No push is authorized.
+phase: contract-approved
+current_sprint: upstream-google-one-model-catalog-s248
+total_sprints: 248
+pending_action: Dispatch the S248 gpt-5.6-terra Developer in an isolated worktree. No push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-24 10:26 +08:00
+last_verified: 2026-08-24 10:31 +08:00
 ---
+
+# Upstream Google One Model Catalog S248
+
+- `contract-draft`: behaviorally adapt upstream `f98a056f7` from merge
+  `844b11878` so legacy Gemini Google One OAuth accounts advertise/default-map
+  only 2.0 Flash, 2.5 Flash, and 2.5 Pro, while explicit mappings and other
+  Gemini/Antigravity account types remain unchanged.
+- Scope is limited to three product owners and three tests. The upstream
+  service test owner is locally unit-tagged and is replaced one-for-one by a
+  self-contained default-tag S248 test; the old unit file remains denied.
+- The final six upstream owners have no later touches through
+  `upstream/main@d45135d87`; allowed paths have no overlap with the current
+  twenty-five tracked user paths. Image candidate `d29d7f8cb` remains deferred
+  because it overlaps concurrent user image/usage work.
+- Contract: `docs/workflow/tasks/upstream-google-one-model-catalog-s248.md`.
+- `contract-amendment / protected-primary refresh`: concurrent user work
+  continued inside the same twenty-five tracked paths before approval; their
+  current combined patch ID is `fe0ae1c5...`. The five untracked SHA-256 values
+  and empty staged/unmerged indexes remain unchanged.
+- `PASS / contract-review`: source/merge scope and ancestry, no later owner
+  touches, conservative catalog and explicit-mapping boundaries, local account
+  cache topology, default-tag service-test substitution, four-test focused plus
+  full package/server acceptance, exact allowlists, image overlap exclusion,
+  and refreshed protected-primary gates were reviewed. Isolated Terra Developer
+  dispatch is authorized.
 
 # Upstream Malformed Tool Arguments S247
 
