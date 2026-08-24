@@ -2,7 +2,7 @@
 phase: build
 current_sprint: upstream-cn-anthropic-usage-billing-s251
 total_sprints: 251
-pending_action: Await the isolated S251 Developer result, then perform Controller diff review before independent QA; preserve active S249 worktrees and all primary-worktree user edits. No push is authorized.
+pending_action: Retry the isolated S251 Developer with the same approved model to finish its retained in-scope draft, then perform Controller diff review before independent QA; preserve active S249 worktrees and all primary-worktree user edits. No push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
@@ -17,6 +17,7 @@ last_verified: 2026-08-24 17:36 +08:00
 - Contract requires the local invariant `ClaudeUsage.InputTokens = uncached ordinary input` and `OpenAIUsage.InputTokens = inclusive total`, so `RecordUsage` continues to split billing buckets exactly once. Kimi explicit-zero miss data, GLM nested cache aliases, DeepSeek hit/miss aliases, native Anthropic preservation, and real local pricing calculation are acceptance cases.
 - `PASS / contract-review`: source is an ancestor of `upstream/main`; the sole later upstream DTO touch is an unrelated `ResponsesResponse.ServiceTier` field, so the proposed `AnthropicUsage` extension has no semantic conflict. Direct apply fails only at expected divergent local owners. Review confirms all Chat Completions/Responses native paths consume the shared DTO merge and converter, while the S229 raw Messages parser needs the same normalizer explicitly. Allowed paths, default-tag focused x10, full service/server gates, exact primary-worktree protection, and no-external-state boundary are approved for an isolated `gpt-5.6-terra` Developer.
 - `build / developer-dispatch`: Developer worktree `E:/codex-worktrees/sub2api/upstream-cn-anthropic-usage-billing-s251` begins at approved contract commit `66c2e1343`; only the five product/test owners and Developer report are writable.
+- `BLOCKED / developer-attempt-1 infrastructure`: the required `gpt-5.6-terra` session returned an API `502 Bad Gateway` before creating a Worker report or commits. It left only four allowed product drafts plus the allowed default-tag test; `git diff --check` passes, the worktree has no unmerged index, no task-owned process remains, and the protected primary patch ID is unchanged. The same model may be retried once to finish the retained draft; no QA or integration is permitted yet.
 
 # Upstream Low-Risk Maintenance S250
 
