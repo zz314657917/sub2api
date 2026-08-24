@@ -1,8 +1,8 @@
 ---
-phase: contract-approved
+phase: build
 current_sprint: upstream-cn-anthropic-usage-billing-s251
 total_sprints: 251
-pending_action: Create the approved S251 isolated Developer worktree from the contract commit; preserve active S249 worktrees and all primary-worktree user edits. No push is authorized.
+pending_action: Await the isolated S251 Developer result, then perform Controller diff review before independent QA; preserve active S249 worktrees and all primary-worktree user edits. No push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
@@ -16,6 +16,7 @@ last_verified: 2026-08-24 17:36 +08:00
 - Scope is restricted to the shared Anthropic DTO, generic parser, Responses DTO merge, S229 native parser/converter, and a default-tag focused test. Existing RecordUsage, pricing, endpoint-specific native stream owners, frontend, dependencies, schema/migrations, provider traffic, container/deployment, push, Pixel Cafe/Groups edits, knowledge and outputs are denied.
 - Contract requires the local invariant `ClaudeUsage.InputTokens = uncached ordinary input` and `OpenAIUsage.InputTokens = inclusive total`, so `RecordUsage` continues to split billing buckets exactly once. Kimi explicit-zero miss data, GLM nested cache aliases, DeepSeek hit/miss aliases, native Anthropic preservation, and real local pricing calculation are acceptance cases.
 - `PASS / contract-review`: source is an ancestor of `upstream/main`; the sole later upstream DTO touch is an unrelated `ResponsesResponse.ServiceTier` field, so the proposed `AnthropicUsage` extension has no semantic conflict. Direct apply fails only at expected divergent local owners. Review confirms all Chat Completions/Responses native paths consume the shared DTO merge and converter, while the S229 raw Messages parser needs the same normalizer explicitly. Allowed paths, default-tag focused x10, full service/server gates, exact primary-worktree protection, and no-external-state boundary are approved for an isolated `gpt-5.6-terra` Developer.
+- `build / developer-dispatch`: Developer worktree `E:/codex-worktrees/sub2api/upstream-cn-anthropic-usage-billing-s251` begins at approved contract commit `66c2e1343`; only the five product/test owners and Developer report are writable.
 
 # Upstream Low-Risk Maintenance S250
 
