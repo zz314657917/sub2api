@@ -3,8 +3,10 @@ import { flushPromises, mount } from '@vue/test-utils'
 import type { AdminUser } from '@/types'
 import UserEditModal from '../UserEditModal.vue'
 
-const { updateUser } = vi.hoisted(() => ({
-  updateUser: vi.fn()
+const { updateUser, showError, showSuccess } = vi.hoisted(() => ({
+  updateUser: vi.fn(),
+  showError: vi.fn(),
+  showSuccess: vi.fn()
 }))
 
 vi.mock('@/api/admin', () => ({
@@ -15,7 +17,7 @@ vi.mock('@/api/admin', () => ({
 }))
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({ showError: vi.fn(), showSuccess: vi.fn() })
+  useAppStore: () => ({ showError, showSuccess })
 }))
 
 vi.mock('@/composables/useClipboard', () => ({
@@ -47,6 +49,8 @@ const user: AdminUser = {
 describe('UserEditModal', () => {
   beforeEach(() => {
     updateUser.mockReset()
+    showError.mockReset()
+    showSuccess.mockReset()
     updateUser.mockResolvedValue(user)
   })
 
@@ -72,5 +76,54 @@ describe('UserEditModal', () => {
     expect(updateUser).toHaveBeenCalledWith(42, expect.objectContaining({
       exclude_from_leaderboard: false
     }))
+  })
+
+  it('saves unlimited concurrency (0)', async () => {
+    const unlimitedUser = { ...user, concurrency: 0 }
+    const wrapper = mount(UserEditModal, {
+      props: { show: true, user: unlimitedUser },
+      global: {
+        stubs: {
+          BaseDialog: { template: '<div><slot /><slot name="footer" /></div>' },
+          UserAttributeForm: true,
+          Icon: true
+        }
+      }
+    })
+
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(showError).not.toHaveBeenCalled()
+    expect(updateUser).toHaveBeenCalledWith(42, expect.objectContaining({ concurrency: 0 }))
+  })
+
+  it('rejects negative and fractional concurrency', async () => {
+    const wrapper = mount(UserEditModal, {
+      props: { show: true, user },
+      global: {
+        stubs: {
+          BaseDialog: { template: '<div><slot /><slot name="footer" /></div>' },
+          UserAttributeForm: true,
+          Icon: true
+        }
+      }
+    })
+
+    const input = wrapper.get('[data-test="concurrency-input"]')
+    await input.setValue('-1')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(showError).toHaveBeenCalledWith('admin.users.concurrencyNonNegative')
+    expect(updateUser).not.toHaveBeenCalled()
+
+    showError.mockReset()
+    await input.setValue('1.5')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(showError).toHaveBeenCalledWith('admin.users.concurrencyNonNegative')
+    expect(updateUser).not.toHaveBeenCalled()
   })
 })

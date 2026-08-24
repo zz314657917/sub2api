@@ -39,6 +39,8 @@ export default {
       creating: 'Creating...',
       updating: 'Updating...',
       form: {
+        concurrencyPlaceholder: '0 = unlimited',
+        concurrencyHint: 'Max concurrent requests for this user; 0 = unlimited.',
         rpmLimit: 'Requests Per Minute (RPM)',
         rpmLimitPlaceholder: '0 = unlimited',
         rpmLimitHint: 'Max requests per minute for this user; 0 = unlimited. Acts as a fallback only when the group has no rpm_limit set.',
@@ -107,7 +109,7 @@ export default {
       failedToToggle: 'Failed to update user status',
       failedToLoadApiKeys: 'Failed to load user API keys',
       emailRequired: 'Please enter email',
-      concurrencyMin: 'Concurrency must be at least 1',
+      concurrencyNonNegative: 'Concurrency must be a non-negative integer',
       soraStorageQuota: 'Sora Storage Quota',
       soraStorageQuotaHint: 'In GB, 0 means use group or system default quota',
       amountRequired: 'Please enter a valid amount',
