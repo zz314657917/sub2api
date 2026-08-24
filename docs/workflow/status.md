@@ -1,13 +1,38 @@
 ---
-phase: done
-current_sprint: upstream-chat-file-input-s246
-total_sprints: 246
-pending_action: Audit the next independent upstream candidate. No push is authorized.
+phase: contract-approved
+current_sprint: upstream-malformed-tool-arguments-s247
+total_sprints: 247
+pending_action: Dispatch the S247 gpt-5.6-terra Developer in an isolated worktree. No push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-24 09:47 +08:00
+last_verified: 2026-08-24 09:54 +08:00
 ---
+
+# Upstream Malformed Tool Arguments S247
+
+- `contract-draft`: behaviorally adapt the final first-parent behavior of
+  upstream `fd6cd474d` (`e2d9ce0ca` / `fbc9ee626`) so malformed ordinary
+  function-call JSON cannot poison later Responses-to-Chat requests or be
+  finalized as a successful Responses tool call.
+- Scope is limited to five existing bridge/fallback product-test owners and
+  Developer/QA evidence. The intermediate source-only
+  `openai_gateway_cc_pipeline.go` change, unrelated bridge refactors,
+  scheduler/retry/billing redesign, dependencies, frontend/schema, provider
+  traffic, containers, deployment, push, Pixel Cafe dirty paths, and
+  `outputs/` are denied.
+- The final merge's five owners have no later upstream touches through
+  `upstream/main@d45135d87`; its patch does not apply mechanically because the
+  local tree predates upstream bridge/fallback refactors, so behavior-level
+  adaptation and independent Terra QA are mandatory.
+- Contract:
+  `docs/workflow/tasks/upstream-malformed-tool-arguments-s247.md`.
+- `PASS / contract-review`: final-merge scope and ancestry, absence of later
+  upstream owner changes, local bridge/fallback topology, history/non-stream/
+  stream validation boundaries, usage-preserving error behavior, six-test
+  focused acceptance, full package/server commands, exact allowlists,
+  S242/S243 preservation, and protected-primary gates were reviewed. Isolated
+  Terra Developer dispatch is authorized.
 
 # Upstream Chat File Input S246
 
