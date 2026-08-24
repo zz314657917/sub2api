@@ -16,6 +16,10 @@ last_verified: 2026-08-24 12:00 +08:00
   cgroup memory metrics `cd05772e9`, and user-edit unlimited concurrency
   `5dfad32b8`. They are deliberately separated into three commits.
 - Contract: `docs/workflow/tasks/upstream-low-risk-maintenance-s250.md`.
+- `contract-amendment`: the local locale topology uses
+  `locales/{en,zh}/admin/users.ts`, not the upstream monolithic
+  `admin/overview.ts`; this is a one-for-one local owner substitution with no
+  behavior or scope expansion.
 - The main worktree contains unrelated user-owned Groups/Pixel Cafe/knowledge
   edits and untracked files. All business work must occur in a fresh isolated
   worktree rooted at `E:/codex-worktrees/sub2api`; no push, deployment,

@@ -28,8 +28,8 @@ Codex Controller 在隔离 worktree 中实施并复核。不得扩展到 Pixel C
 - `backend/internal/service/ops_metrics_collector_memory_test.go`
 - `frontend/src/components/admin/user/UserEditModal.vue`
 - `frontend/src/components/admin/user/__tests__/UserEditModal.spec.ts`
-- `frontend/src/i18n/locales/en/admin/overview.ts`
-- `frontend/src/i18n/locales/zh/admin/overview.ts`
+- `frontend/src/i18n/locales/en/admin/users.ts`
+- `frontend/src/i18n/locales/zh/admin/users.ts`
 - `docs/workflow/worker-results/upstream-low-risk-maintenance-s250-result.md`
 - `docs/workflow/qa-reports/upstream-low-risk-maintenance-s250-qa.md`
 
