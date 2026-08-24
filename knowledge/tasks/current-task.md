@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-23 22:41 +08:00
+最后更新：2026-08-24 09:47 +08:00
 
 ## 背景
 
@@ -11,7 +11,7 @@
 
 ## 当前目标
 
-- S226、S228、S229-A-E、S230-A/B、S231、S237-A、S238-A、S239-A、S242、S243、S244 与 S245 已按批准边界集成 `main`；下一步只评估新的上游候选或历史提交。
+- S226、S228、S229-A-E、S230-A/B、S231、S237-A、S238-A、S239-A、S242、S243、S244、S245 与 S246 已按批准边界集成 `main`；下一步只评估新的上游候选或历史提交。
 
 ## 本次已完成
 
@@ -52,6 +52,7 @@
 - S243 已完成 OpenAI WS replay 适配：整理后业务提交为 `4e89f19a4`、workflow 证据为 `9bd550326`；对象/数组 input 覆盖分析、完整工具上下文避免重复 replay、历史孤儿 tool call 清理均通过主线 focused x10、完整 service、server compile 和独立 QA。QA 首轮因遗漏 `openai_tool_continuation_test.go` 的 exact allowlist 判 FAIL，补 contract 后复验 PASS。
 - S244 已完成 token refresh Web Lock 边界修复：业务 `5e0fd6122`、Controller 报告 `c1d1abce3`、QA 初次归因 FAIL `6a4909b4c`、最终 QA PASS `bd3c31773`。未变化 token 不再因两分钟边界抖动被误认成 peer refresh；真实 rotated refresh token 与 failed-access-token 协调语义保留。
 - S245 已完成 Chat sticky system-prefix 稳定性修复：业务 `2cb1cca70`、Developer 证据 `69e5b86a7`、独立 QA `0f12fdb29`。动态插入到会话历史后的 system/developer 消息不再改变账号亲和；仅开头连续前缀与首个 user 消息参与 seed。
+- S246 已完成 Chat Completions file part 到 Responses `input_file` 的兼容适配：业务 `fa4a85a76`、Developer 证据 `f1d1c8128`、独立 QA `35c661a3b`。`filename`、`file_data`、`file_id` 按本地 DTO 拓扑保留，空文件 payload 继续跳过，S239 `omitempty` 语义未回退。
 - 上游 `219368ec6` Composite 视频创建候选经深审暂缓：本地缺少上游 Composite Resolver 与 `GrokVideoGeneration` 链，只改 route 会在本地 OpenAI 异步视频 handler 再次 404，不能形成真实修复。
 - S240-S243 提交已按 Sprint 重整为业务/测试与 workflow 证据边界；整理前完整历史保留在本地备份引用 `backup/pre-reorg-s240-s243-20260823`，未 push。
 
@@ -75,13 +76,14 @@
 - S239-A 业务范围严格为 `backend/internal/pkg/apicompat/types.go` 与一个 focused test；主线 `236542909` 相对 `origin/main@4e59289ec` ahead 10，`upstream/main@67380eafd` 未变；focused x10、完整 apicompat、server compile-only、gofmt、scope/provenance/conflict/index 和保护检查通过，未 push。
 - S244 业务范围严格为 `frontend/src/api/tokenRefresh.ts` 与其 focused test；主线业务 patch-id `103c149ba901659c14be13616449cf2e25ae3d37` 与上游 `3445485eb`/merge `5fc977846` 一致。Terra CLI 404 与 pnpm 元数据副作用均被门禁隔离，最终改用既有本地二进制完成 Controller 和独立 Terra QA。
 - S245 业务范围严格为 `openai_content_session_seed.go` 与其 focused test；本地 direct-`gjson` 拓扑未引入上游 `86800a8cd` 单扫描重构，候选与主线业务 patch-id 均为 `00416a2f...`。
+- S246 业务范围严格为三个 `apicompat` DTO/converter/test owner；候选与主线业务 patch-id 均为 `5455777c...`。主线 fresh discovery、focused x10、完整 `apicompat`、service/server compile 和八路径 Sprint scope 全部通过；22 个用户 tracked 路径 patch-id `941b1edf...` 与五个 untracked SHA-256 未变。
 
 ## 待验证点
 
 - `10c8b7020` 五项 CN 缺陷切片及 S230-A/B 已完成；下一步只评估新的上游候选或历史提交，不再回到已完成切片。
 - `ab0fcd1a0` 的 S231 Gemini skipped-policy 切片已完成；上游相关四文件在该提交后到 `upstream/main@49504adc9` 无后续修改。
 - S237-A 无待修复项；若继续工作，只需从 `upstream/main@67380eafd` 重新审计新的独立候选，并先建立 contract。
-- S245 无待修复项；若继续工作，从 `upstream/main@d45135d87` 审计下一项可独立测试且不触碰 Pixel Cafe 脏路径的候选，并先建立新 contract。`219368ec6` 需完整 Composite/Grok 视频前置，不作为独立小修。
+- S246 无待修复项；若继续工作，从 `upstream/main@d45135d87` 审计下一项可独立测试且不触碰 Pixel Cafe 脏路径的候选，并先建立新 contract。`219368ec6` 需完整 Composite/Grok 视频前置，不作为独立小修。
 - 若授权发布：先复核最终 `git status`、主线测试证据和远端差异，再执行普通 `git push origin main`；当前没有发布授权。
 - S225/S226/S228 均未运行真实 Redis 或上游 provider 集成；合同禁止这些操作，当前证据来自 mock/httptest、包回归、server 编译和前端构建。
 
@@ -101,10 +103,11 @@
 - `PASS / S239-A main integration`：业务、Developer/QA 证据和 contract 已按序进入 `main@236542909`；主线 fresh focused x10、完整 apicompat、server compile-only、gofmt、diff/scope/provenance/conflict/index 均通过，用户产品脏改动、未跟踪文件和 `outputs/` 保留，未 push。
 - `PASS / S244 main integration`：业务和 Controller/QA 证据已按序进入 `main@bd3c31773`；主线 fresh focused x10、typecheck、build、八路径 scope、三方 patch-id、dependency/index/conflict 与 11 路径用户保护检查通过，未 push。
 - `PASS / S245 main integration`：业务 `2cb1cca70`、Developer 证据 `69e5b86a7`、QA 证据 `0f12fdb29` 已按序进入本地 `main`；主线 fresh focused x10、完整 seed/service、server compile、八路径 scope、候选/main patch-id、provenance/conflict/index 与 11 路径用户保护检查通过，未 push。
+- `PASS / S246 main integration`：业务 `fa4a85a76`、Developer 证据 `f1d1c8128`、QA 证据 `35c661a3b` 已按序进入本地 `main@35c661a3b`；主线 fresh discovery/focused x10、完整 `apicompat`、service/server compile、八路径 scope、候选/main patch-id、provenance/conflict/index 与 22 路径加五文件用户保护检查通过，未 push。
 
 ## 下一步
 
-- 继续审计 `upstream/main@d45135d87` 的后续候选；优先检查 `6244090c1` Chat Completions file part 转 Responses `input_file` 是否可独立移植，`219368ec6` 保持缺前置暂缓 -> 验证：先做 ancestry、first-parent patch、路径重叠与现有测试 owner 检查，再建立下一 Sprint contract。
+- 继续审计 `upstream/main@d45135d87` 的其他候选，跳过已完成的 `6244090c1` 与缺前置的 `219368ec6` -> 验证：先刷新 refs，再做 ancestry、first-parent patch、路径重叠与现有测试 owner 检查，只有可独立验收的候选才建立下一 Sprint contract。
 - 保留当前本地提交和用户 dirty 内容，等待明确发布授权。
 - 发布当前本地提交（需用户授权） -> 验证：push 前后比较 `HEAD`、`origin/main` 和远端 `refs/heads/main`，只允许普通 push。
 
@@ -148,3 +151,6 @@
 - S245 Controller：business `b45f9ac38`/evidence `4d373dac6` 精确两业务文件加一报告；focused x10、完整 seed suite、完整 service `64.707s`、server compile、gofmt、scope/provenance/conflict/index 与保护检查 PASS。
 - S245 独立 QA：报告 `558cd74fc` 首行为 `### PASS`；focused x10、完整 seed、完整 service `64.597s`、server compile、格式、精确提交范围、source/merge ancestry、conflict/index 与主工作区保护检查 PASS。
 - S245 主线 fresh verification：focused x10 `5.598s`、完整 seed、完整 service `64.812s`、server compile PASS；`4ddfb0dc5..0f12fdb29` 精确八路径，候选/main patch-id `00416a2f...` 一致，用户 patch-id `370ac77d...` 与 `outputs/` 两文件状态保持不变。
+- S246 Controller：三个目标测试可发现，focused x10、完整 `apicompat`、service/server compile、gofmt、scope/ancestry/conflict/index、S239 `omitempty` 与刷新后的主工作区保护门禁 PASS；候选业务/证据为 `6f22dbae4` / `b340ebb9d`。
+- S246 独立 QA：报告 `ae9b2fe38` 首行为 `### PASS`；focused discovery/x10、完整 `apicompat`、service/server compile、gofmt、精确提交范围、S239 `omitempty`、ancestry、conflict/index 与主工作区保护门禁 PASS。
+- S246 主线 fresh verification：focused x10 `0.714s`、完整 `apicompat` `0.720s`、service/server compile `0.080s`/`0.082s` PASS；`9f7e1666d..35c661a3b` 精确八路径，候选/main patch-id `5455777c...` 一致，用户 patch-id `941b1edf...` 与五个 untracked SHA-256 保持不变。
