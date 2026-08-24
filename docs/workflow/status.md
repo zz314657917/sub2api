@@ -20,6 +20,9 @@ last_verified: 2026-08-24 12:00 +08:00
   `locales/{en,zh}/admin/users.ts`, not the upstream monolithic
   `admin/overview.ts`; this is a one-for-one local owner substitution with no
   behavior or scope expansion.
+- `contract-amendment`: backend Go commands run from `backend/`, the module
+  root. The initial worktree probe correctly stopped at the repository root
+  with `go.mod file not found`; no test or source result was claimed from it.
 - The main worktree contains unrelated user-owned Groups/Pixel Cafe/knowledge
   edits and untracked files. All business work must occur in a fresh isolated
   worktree rooted at `E:/codex-worktrees/sub2api`; no push, deployment,

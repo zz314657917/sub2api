@@ -52,9 +52,11 @@ Codex Controller 在隔离 worktree 中实施并复核。不得扩展到 Pixel C
 ## Acceptance Commands
 ```powershell
 # backend worktree
+Push-Location backend
 go test ./internal/service -run "TestResolveMemoryStats" -count=10
 go test ./internal/service -run "TestOpsMetricsCollector" -count=1
 go test ./cmd/server -run '^$' -count=1
+Pop-Location
 
 # frontend worktree; use existing locked dependencies only
 cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend exec vitest run src/components/admin/user/__tests__/UserEditModal.spec.ts"
