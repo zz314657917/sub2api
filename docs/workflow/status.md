@@ -1,12 +1,12 @@
 ---
-phase: build
+phase: qa
 current_sprint: upstream-malformed-tool-arguments-s247
 total_sprints: 247
-pending_action: Controller finalizes and verifies S247 after the stopped Developer loop. No push is authorized.
+pending_action: Await and review the isolated S247 gpt-5.6-terra QA result. No push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-24 10:06 +08:00
+last_verified: 2026-08-24 10:15 +08:00
 ---
 
 # Upstream Malformed Tool Arguments S247
@@ -57,6 +57,16 @@ last_verified: 2026-08-24 10:06 +08:00
   unit-tag file remains unchanged. Controller will review/finalize the five
   local owners, produce separate business/evidence commits, and still require
   independent Terra QA.
+- `PASS / controller-review`: business `a8ce875c2` and Controller evidence
+  `aab18c3cf` preserve the required two-commit boundary and amended five-owner
+  allowlist. Six-test discovery/x10, complete `apicompat`, complete service,
+  server compile, format/diff, final-merge provenance/no-later-touch,
+  S242/S243 behavior, conflict/index, unchanged unit-tag owner, and protected-
+  primary gates passed.
+- `qa / independent-dispatch`: QA worktree
+  `E:/codex-worktrees/sub2api/upstream-malformed-tool-arguments-s247-qa` starts
+  from reviewed Controller evidence `aab18c3cf`; QA may modify only its report
+  and must independently rerun every amended contract gate.
 
 # Upstream Chat File Input S246
 
