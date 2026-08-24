@@ -7,7 +7,7 @@
 ## Role
 
 - Planner / Final Evaluator: Codex Controller
-- Developer Worker: `gpt-5.6-terra`
+- Implementation owner after repeated non-terminal worker returns: Codex Controller
 - Independent QA Worker: `gpt-5.6-terra`
 
 ## Goal
@@ -170,10 +170,10 @@ Primary staged/unmerged indexes must remain empty.
 
 ## Output
 
-- Developer makes one business commit containing only the six local owners and
+- Controller makes one business commit containing only the six local owners and
   one evidence commit containing only
   `docs/workflow/worker-results/upstream-google-one-model-catalog-s248-result.md`.
-- Developer result first line: exactly
+- Controller result first line: exactly
   `### DONE: upstream-google-one-model-catalog-s248`,
   `### BLOCKED: upstream-google-one-model-catalog-s248`, or
   `### FAILED: upstream-google-one-model-catalog-s248`.
@@ -197,11 +197,11 @@ Primary staged/unmerged indexes must remain empty.
 
 ## Budget
 
-- worker_mode: native `gpt-5.6-terra`
+- worker_mode: stopped after four incomplete non-terminal returns; Controller takeover
 - qa_worker_mode: native `gpt-5.6-terra`
 - worker_model: `gpt-5.6-terra`
 - qa_worker_model: `gpt-5.6-terra`
-- developer_max_budget_usd: `0.10`
+- developer_max_budget_usd: closed with zero worker commits
 - qa_max_budget_usd: `0.10`
 - worktree_root: `E:/codex-worktrees`
 

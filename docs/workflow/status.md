@@ -2,11 +2,11 @@
 phase: build
 current_sprint: upstream-google-one-model-catalog-s248
 total_sprints: 248
-pending_action: Await and review the isolated S248 gpt-5.6-terra Developer result. No push is authorized.
+pending_action: Controller completes and verifies the isolated S248 draft. No push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-24 10:31 +08:00
+last_verified: 2026-08-24 10:36 +08:00
 ---
 
 # Upstream Google One Model Catalog S248
@@ -37,6 +37,15 @@ last_verified: 2026-08-24 10:31 +08:00
   `E:/codex-worktrees/sub2api/upstream-google-one-model-catalog-s248` starts at
   approved contract `96480bd5e`; only the six amended owners and Developer
   report are writable.
+- `STOPPED / developer-loop attribution`: the Terra Developer returned four
+  non-terminal progress summaries without hitting a Stop Rule, completing
+  tests, running acceptance, or creating commits. Five in-scope draft paths
+  exist; handler test is still absent and all drafts remain uncommitted.
+- `contract-amendment / Controller takeover`: repeated re-dispatch made no
+  terminal progress, so the worker loop is closed with zero commits. Controller
+  will retain only behaviorally correct in-scope draft work, replace compressed
+  placeholders with reviewable code/tests, add the missing handler test, run
+  all gates, and still require independent Terra QA.
 
 # Upstream Malformed Tool Arguments S247
 
