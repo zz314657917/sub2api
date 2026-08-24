@@ -56,6 +56,11 @@ last_verified: 2026-08-24 10:37 +08:00
   changed again without touching an S248 owner. The same twenty-eight tracked
   paths now have combined patch ID `4c403041...`; the five untracked hashes and
   empty index remain unchanged.
+- `contract-amendment / protected-primary batch boundary`: the six
+  Image/Billing/Studio Bridge paths were committed separately on local `main`
+  as `d60393079`. S248 now protects the remaining twenty-two tracked Pixel Cafe
+  paths under patch ID `941b1edf...`; the same five untracked hashes and empty
+  index remain unchanged.
 
 # Upstream Malformed Tool Arguments S247
 
