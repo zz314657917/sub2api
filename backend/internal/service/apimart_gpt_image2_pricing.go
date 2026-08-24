@@ -6,12 +6,12 @@ import (
 )
 
 const (
-	apimartGPTImage2Model                     = "gpt-image-2"
-	apimartGPTImage2OfficialModel             = "gpt-image-2-official"
-	apimartOpenAIBaseURLHost                  = "api.apimart.ai"
-	apimartGPTImage2OfficialBalanceMultiplier = 7 * 1.2
-	apimartCreditsPerCost                     = 10
-	apimartGPTImage2OfficialDefaultPrice      = 0.2109
+	apimartGPTImage2Model                = "gpt-image-2"
+	apimartGPTImage2OfficialModel        = "gpt-image-2-official"
+	apimartOpenAIBaseURLHost             = "api.apimart.ai"
+	apimartImageBalanceMultiplier        = 7 * 1.2
+	apimartCreditsPerCost                = 10
+	apimartGPTImage2OfficialDefaultPrice = 0.2109
 )
 
 type apimartImagePriceRow struct {
@@ -246,17 +246,16 @@ func isAPIMartOpenAIAPIKeyAccount(account *Account) bool {
 }
 
 func apimartGPTImage2OfficialBalancePrice(upstreamPrice float64) float64 {
-	return upstreamPrice * apimartGPTImage2OfficialBalanceMultiplier
+	return upstreamPrice * apimartImageBalanceMultiplier
 }
 
-func apimartGPTImage2UsageMultiplierForModels(account *Account, models []string, baseMultiplier float64) float64 {
-	apimartAccount := isAPIMartOpenAIAPIKeyAccount(account)
+func apimartImageUsageMultiplierForModels(account *Account, models []string, baseMultiplier float64) float64 {
+	if isAPIMartOpenAIAPIKeyAccount(account) {
+		return baseMultiplier * apimartImageBalanceMultiplier
+	}
 	for _, model := range models {
 		if isAPIMartGPTImage2OfficialModel(model) {
-			return baseMultiplier * apimartGPTImage2OfficialBalanceMultiplier
-		}
-		if apimartAccount && isAPIMartGPTImage2Model(model) {
-			return baseMultiplier * apimartGPTImage2OfficialBalanceMultiplier
+			return baseMultiplier * apimartImageBalanceMultiplier
 		}
 	}
 	return baseMultiplier

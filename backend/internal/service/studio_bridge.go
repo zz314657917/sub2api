@@ -559,7 +559,7 @@ func (cmd StudioBridgeChargeCommand) RawAmount() float64 {
 
 func NormalizeStudioBridgeChargeAmount(cmd StudioBridgeChargeCommand, rawAmount float64) float64 {
 	if isStudioBridgeAPIMartCostAmount(cmd) {
-		return rawAmount * apimartGPTImage2OfficialBalanceMultiplier
+		return rawAmount * apimartImageBalanceMultiplier
 	}
 	return rawAmount
 }

@@ -1588,7 +1588,7 @@ func TestOpenAIGatewayServiceForwardImages_APIMartEditUploadsAndPollsTask(t *tes
 	upstream := &httpUpstreamRecorder{responses: []*http.Response{
 		newOpenAIImagesJSONResponse(http.StatusOK, `{"url":"https://upload.apimart.ai/input.png"}`),
 		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_123"}]}`),
-		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_123","status":"completed","result":{"images":[{"url":["https://upload.apimart.ai/output.png"]}]}}}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_123","status":"completed","credits_cost":1,"result":{"images":[{"url":["https://upload.apimart.ai/output.png"]}]}}}`),
 	}}
 	svc := &OpenAIGatewayService{
 		cfg:          &config.Config{},
@@ -1658,7 +1658,7 @@ func TestOpenAIGatewayServiceForwardImages_APIMartObjectURLTransportUsesObjectSt
 	store := newFakeOpenAIImageInputObjectStore()
 	upstream := &httpUpstreamRecorder{responses: []*http.Response{
 		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_123"}]}`),
-		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_123","status":"completed","result":{"images":[{"url":["https://upload.apimart.ai/output.png"]}]}}}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_123","status":"completed","credits_cost":1,"result":{"images":[{"url":["https://upload.apimart.ai/output.png"]}]}}}`),
 	}}
 	svc := &OpenAIGatewayService{
 		cfg:          openAIImageInputObjectStoreTestConfig(),
@@ -1839,11 +1839,11 @@ func TestOpenAIGatewayServiceForwardImages_APIMartRegularImageSplitsMultiImageRe
 
 	upstream := &httpUpstreamRecorder{responses: []*http.Response{
 		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_1"}]}`),
-		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_1","status":"completed","result":{"images":[{"url":["https://upload.apimart.ai/output-1.png"]}]}}}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_1","status":"completed","credits_cost":1,"result":{"images":[{"url":["https://upload.apimart.ai/output-1.png"]}]}}}`),
 		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_2"}]}`),
-		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_2","status":"completed","result":{"images":[{"url":["https://upload.apimart.ai/output-2.png"]}]}}}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_2","status":"completed","credits_cost":1,"result":{"images":[{"url":["https://upload.apimart.ai/output-2.png"]}]}}}`),
 		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_3"}]}`),
-		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_3","status":"completed","result":{"images":[{"url":["https://upload.apimart.ai/output-3.png"]}]}}}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_3","status":"completed","credits_cost":1,"result":{"images":[{"url":["https://upload.apimart.ai/output-3.png"]}]}}}`),
 	}}
 	svc := &OpenAIGatewayService{
 		cfg:          &config.Config{},
@@ -1904,7 +1904,7 @@ func TestOpenAIGatewayServiceForwardImages_APIMartGeminiImagePayload(t *testing.
 
 	upstream := &httpUpstreamRecorder{responses: []*http.Response{
 		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_gemini"}]}`),
-		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_gemini","status":"completed","result":{"images":[{"url":["https://upload.example/gemini.png"],"size":"3840x2160"}]}}}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_gemini","status":"completed","credits_cost":1,"result":{"images":[{"url":["https://upload.example/gemini.png"],"size":"3840x2160"}]}}}`),
 	}}
 	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
 	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
@@ -1977,7 +1977,7 @@ func TestOpenAIGatewayServiceForwardImages_APIMartMidjourneyUploadsAndPayload(t 
 	upstream := &httpUpstreamRecorder{responses: []*http.Response{
 		newOpenAIImagesJSONResponse(http.StatusOK, `{"url":"https://upload.example/ref.png"}`),
 		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_mj"}]}`),
-		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_mj","status":"completed","cost":0.036,"result":{"images":[{"url":["https://upload.example/mj.png"],"size":"16:9"}]}}}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_mj","status":"completed","cost":99,"credits_cost":0.36,"result":{"images":[{"url":["https://upload.example/mj.png"],"size":"16:9"}]}}}`),
 	}}
 	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
 	parsed, err := svc.ParseOpenAIImagesRequest(c, body.Bytes())
@@ -2035,7 +2035,7 @@ func TestOpenAIGatewayServiceForwardImages_APIMartMidjourneyDropsUnsupportedStop
 
 	upstream := &httpUpstreamRecorder{responses: []*http.Response{
 		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_mj_v8"}]}`),
-		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_mj_v8","status":"completed","result":{"images":[{"url":["https://upload.example/mj-v8.png"],"size":"1:1"}]}}}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_mj_v8","status":"completed","credits_cost":1,"result":{"images":[{"url":["https://upload.example/mj-v8.png"],"size":"1:1"}]}}}`),
 	}}
 	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
 	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
@@ -2071,7 +2071,7 @@ func TestOpenAIGatewayServiceForwardImages_APIMartGrokImagineGenerationPayload(t
 
 	upstream := &httpUpstreamRecorder{responses: []*http.Response{
 		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_grok"}]}`),
-		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_grok","status":"completed","cost":0.024,"result":{"images":[{"url":["https://upload.example/grok.png"],"size":"16:9"}]}}}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_grok","status":"completed","cost":99,"credits_cost":0.24,"result":{"images":[{"url":["https://upload.example/grok.png"],"size":"16:9"}]}}}`),
 	}}
 	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
 	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
@@ -2131,7 +2131,7 @@ func TestOpenAIGatewayServiceForwardImages_APIMartGrokImagineEditUploadsAndPaylo
 	upstream := &httpUpstreamRecorder{responses: []*http.Response{
 		newOpenAIImagesJSONResponse(http.StatusOK, `{"url":"https://upload.example/grok-ref.png"}`),
 		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_grok_edit"}]}`),
-		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_grok_edit","status":"completed","result":{"images":[{"url":["https://upload.example/grok-edit.png"],"size":"1:1"}]}}}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_grok_edit","status":"completed","credits_cost":1,"result":{"images":[{"url":["https://upload.example/grok-edit.png"],"size":"1:1"}]}}}`),
 	}}
 	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
 	parsed, err := svc.ParseOpenAIImagesRequest(c, body.Bytes())
@@ -2227,7 +2227,7 @@ func TestOpenAIGatewayServiceForwardImages_APIMartOfficialCarriesExactOutputSize
 
 	upstream := &httpUpstreamRecorder{responses: []*http.Response{
 		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_size"}]}`),
-		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_size","status":"completed","cost":0.1126,"result":{"images":[{"url":["https://upload.apimart.ai/output.png"]}]}}}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_size","status":"completed","cost":99,"credits_cost":1.126,"result":{"images":[{"url":["https://upload.apimart.ai/output.png"]}]}}}`),
 	}}
 	svc := &OpenAIGatewayService{
 		cfg:          &config.Config{},
@@ -2259,14 +2259,48 @@ func TestOpenAIGatewayServiceForwardImages_APIMartOfficialCarriesExactOutputSize
 	require.Equal(t, map[string]int{ImageBillingSize4K: 1}, result.ImageSizeBreakdown)
 	require.Equal(t, "medium", result.ImageQuality)
 	require.NotNil(t, result.CostOverride)
-	require.InDelta(t, 1.126, result.CostOverride.TotalCost, 1e-12)
+	require.InDelta(t, 0.1126, result.CostOverride.TotalCost, 1e-12)
 	require.Equal(t, 0.0, result.CostOverride.ActualCost)
 	require.Equal(t, string(BillingModeImage), result.CostOverride.BillingMode)
+	require.InDelta(t, 1.126, gjson.GetBytes(rec.Body.Bytes(), "credits_cost").Float(), 1e-12)
 	require.InDelta(t, 0.1126, gjson.GetBytes(rec.Body.Bytes(), "cost").Float(), 1e-12)
 	require.Equal(t, http.StatusOK, rec.Code)
 }
 
-func TestExtractAPIMartImageResults_UsesTaskCostOnce(t *testing.T) {
+func TestOpenAIGatewayServiceForwardImages_APIMartRejectsMissingCreditsCostForAnyModel(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"midjourney","prompt":"draw poster"}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	upstream := &httpUpstreamRecorder{responses: []*http.Response{
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_missing_credits"}]}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_missing_credits","status":"completed","cost":0.15,"result":{"images":[{"url":["https://upload.apimart.ai/output.png"]}]}}}`),
+	}}
+	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+
+	account := &Account{
+		ID:       160,
+		Name:     "apimart-official-missing-credits",
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"api_key":  "test-api-key",
+			"base_url": "https://api.apimart.ai",
+		},
+	}
+
+	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
+	require.Nil(t, result)
+	require.EqualError(t, err, "apimart image task completed without credits_cost")
+}
+
+func TestExtractAPIMartImageResults_IgnoresTaskCostWithoutCreditsCost(t *testing.T) {
 	body := []byte(`{
 		"code": 200,
 		"data": {
@@ -2289,16 +2323,14 @@ func TestExtractAPIMartImageResults_UsesTaskCostOnce(t *testing.T) {
 	require.NotNil(t, results[0].Cost)
 	require.InDelta(t, 0.1126, *results[0].Cost, 1e-12)
 	require.Nil(t, results[1].Cost)
-	cost := apimartImageResultCostOverride(results)
-	require.NotNil(t, cost)
-	require.InDelta(t, 1.126, cost.TotalCost, 1e-12)
-	require.InDelta(t, 0.1126, *apimartImageResultResponseCost(results), 1e-12)
+	require.Nil(t, apimartImageResultCostOverride(results))
+	require.Nil(t, apimartImageResultResponseCost(results))
 }
 
-func TestExtractAPIMartImageResults_PrefersCreditsCostForBilling(t *testing.T) {
+func TestExtractAPIMartImageResults_UsesOnlyCreditsCostForAPIMartBilling(t *testing.T) {
 	body := []byte(`{
 		"data": {
-			"cost": 0.15,
+			"cost": 99,
 			"credits_cost": 1.5,
 			"result": {
 				"images": [{"url": ["https://upload.apimart.ai/credits.png"]}]
@@ -2309,13 +2341,14 @@ func TestExtractAPIMartImageResults_PrefersCreditsCostForBilling(t *testing.T) {
 	results := extractAPIMartImageResults(body, nil)
 	require.Len(t, results, 1)
 	require.NotNil(t, results[0].Cost)
-	require.InDelta(t, 0.15, *results[0].Cost, 1e-12)
+	require.InDelta(t, 99, *results[0].Cost, 1e-12)
 	require.NotNil(t, results[0].CreditsCost)
 	require.InDelta(t, 1.5, *results[0].CreditsCost, 1e-12)
 
 	cost := apimartImageResultCostOverride(results)
 	require.NotNil(t, cost)
-	require.InDelta(t, 1.5, cost.TotalCost, 1e-12)
+	require.InDelta(t, 0.15, cost.TotalCost, 1e-12)
+	require.InDelta(t, 1.5*0.84, cost.TotalCost*apimartImageBalanceMultiplier, 1e-12)
 	require.InDelta(t, 0.15, *apimartImageResultResponseCost(results), 1e-12)
 }
 
@@ -2331,7 +2364,7 @@ func TestOpenAIGatewayServiceForwardImages_APIMartDefaultsBillingToUpstreamResol
 
 	upstream := &httpUpstreamRecorder{responses: []*http.Response{
 		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_default"}]}`),
-		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_default","status":"completed","result":{"images":[{"url":["https://upload.apimart.ai/output.png"]}]}}}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_default","status":"completed","credits_cost":1,"result":{"images":[{"url":["https://upload.apimart.ai/output.png"]}]}}}`),
 	}}
 	svc := &OpenAIGatewayService{
 		cfg:          &config.Config{},
@@ -2373,11 +2406,11 @@ func TestOpenAIGatewayServiceForwardImages_APIMartOutput1536x864UsesKnown1KTier(
 
 	upstream := &httpUpstreamRecorder{responses: []*http.Response{
 		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_1"}]}`),
-		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_1","status":"completed","result":{"images":[{"url":["https://upload.apimart.ai/output-1.png"],"size":"1536x864"}]}}}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_1","status":"completed","credits_cost":1,"result":{"images":[{"url":["https://upload.apimart.ai/output-1.png"],"size":"1536x864"}]}}}`),
 		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_2"}]}`),
-		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_2","status":"completed","result":{"images":[{"url":["https://upload.apimart.ai/output-2.png"],"size":"1536x864"}]}}}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_2","status":"completed","credits_cost":1,"result":{"images":[{"url":["https://upload.apimart.ai/output-2.png"],"size":"1536x864"}]}}}`),
 		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_3"}]}`),
-		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_3","status":"completed","result":{"images":[{"url":["https://upload.apimart.ai/output-3.png"],"size":"1536x864"}]}}}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_3","status":"completed","credits_cost":1,"result":{"images":[{"url":["https://upload.apimart.ai/output-3.png"],"size":"1536x864"}]}}}`),
 	}}
 	svc := &OpenAIGatewayService{
 		cfg:          &config.Config{},

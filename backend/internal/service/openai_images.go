@@ -2019,6 +2019,11 @@ func (s *OpenAIGatewayService) forwardAPIMartImages(
 			s.recordAPIMartImagesUpstreamError(c, account, err)
 			return nil, err
 		}
+		if _, ok := apimartImageResultsCreditsCost(taskImages); !ok {
+			err = fmt.Errorf("apimart image task completed without credits_cost")
+			s.recordAPIMartImagesUpstreamError(c, account, err)
+			return nil, err
+		}
 		images = append(images, taskImages...)
 	}
 	if len(images) == 0 {
@@ -2028,8 +2033,10 @@ func (s *OpenAIGatewayService) forwardAPIMartImages(
 	imageOutputSizes := apimartImageResultSizes(images)
 	costOverride := apimartImageResultCostOverride(images)
 	responseCost := apimartImageResultResponseCost(images)
+	totalCredits, _ := apimartImageResultsCreditsCost(images)
+	responseCreditsCost := &totalCredits
 	sizeResolution := resolveAPIMartImageBillingSize(parsed, imageOutputSizes)
-	body, err := buildAPIMartOpenAIImagesResponse(apimartImageResultURLs(images), parsed, costOverride, responseCost)
+	body, err := buildAPIMartOpenAIImagesResponse(apimartImageResultURLs(images), parsed, costOverride, responseCost, responseCreditsCost)
 	if err != nil {
 		return nil, err
 	}
@@ -2962,22 +2969,11 @@ func apimartImageResultSizes(results []apimartImageResult) []string {
 }
 
 func apimartImageResultCostOverride(results []apimartImageResult) *CostBreakdown {
-	// APIMart exposes amount (cost) and billing credits (credits_cost). Keep
-	// credits as the local pre-multiplier base; the documented 10x relation is
-	// only a fallback when an older response omits credits_cost.
-	total := 0.0
-	for _, result := range results {
-		if result.CreditsCost != nil && *result.CreditsCost > 0 {
-			total += *result.CreditsCost
-			continue
-		}
-		if result.Cost != nil && *result.Cost > 0 {
-			total += *result.Cost * apimartCreditsPerCost
-		}
-	}
-	if total <= 0 {
+	totalCredits, ok := apimartImageResultsCreditsCost(results)
+	if !ok {
 		return nil
 	}
+	total := totalCredits / apimartCreditsPerCost
 	return &CostBreakdown{
 		TotalCost:   total,
 		ActualCost:  0,
@@ -2985,20 +2981,24 @@ func apimartImageResultCostOverride(results []apimartImageResult) *CostBreakdown
 	}
 }
 
-func apimartImageResultResponseCost(results []apimartImageResult) *float64 {
+func apimartImageResultsCreditsCost(results []apimartImageResult) (float64, bool) {
 	total := 0.0
+	found := false
 	for _, result := range results {
-		if result.Cost != nil && *result.Cost > 0 {
-			total += *result.Cost
-			continue
-		}
 		if result.CreditsCost != nil && *result.CreditsCost > 0 {
-			total += *result.CreditsCost / apimartCreditsPerCost
+			total += *result.CreditsCost
+			found = true
 		}
 	}
-	if total <= 0 {
+	return total, found
+}
+
+func apimartImageResultResponseCost(results []apimartImageResult) *float64 {
+	totalCredits, ok := apimartImageResultsCreditsCost(results)
+	if !ok {
 		return nil
 	}
+	total := totalCredits / apimartCreditsPerCost
 	return &total
 }
 
@@ -3136,12 +3136,11 @@ func apimartExplicitPixelSize(parsed *OpenAIImagesRequest) string {
 	return ""
 }
 
-func buildAPIMartOpenAIImagesResponse(images []string, parsed *OpenAIImagesRequest, costOverride *CostBreakdown, responseCosts ...*float64) ([]byte, error) {
+func buildAPIMartOpenAIImagesResponse(images []string, parsed *OpenAIImagesRequest, costOverride *CostBreakdown, responseCost *float64, responseCreditsCost *float64) ([]byte, error) {
 	out := []byte(`{"created":0,"data":[]}`)
 	out, _ = sjson.SetBytes(out, "created", time.Now().Unix())
-	var responseCost *float64
-	if len(responseCosts) > 0 {
-		responseCost = responseCosts[0]
+	if responseCreditsCost != nil && *responseCreditsCost > 0 {
+		out, _ = sjson.SetBytes(out, "credits_cost", *responseCreditsCost)
 	}
 	if responseCost != nil && *responseCost > 0 {
 		out, _ = sjson.SetBytes(out, "cost", *responseCost)

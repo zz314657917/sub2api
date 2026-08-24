@@ -7138,7 +7138,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	)
 	billingModels = s.filterCNProviderBillingModelCandidates(ctx, account, apiKey, billingModels)
 	if result.ImageCount > 0 {
-		imageMultiplier = apimartGPTImage2UsageMultiplierForModels(account, billingModels, imageMultiplier)
+		imageMultiplier = apimartImageUsageMultiplierForModels(account, billingModels, imageMultiplier)
 	}
 	serviceTier := ""
 	if result.ServiceTier != nil {
@@ -7424,7 +7424,7 @@ func (s *OpenAIGatewayService) EstimateOpenAIImagesCost(ctx context.Context, api
 	}
 	imageMultiplier := resolveImageRateMultiplier(apiKey, multiplier)
 	candidates := usageBillingModelCandidates(billingModel, channelMappedModel, requestModel)
-	imageMultiplier = apimartGPTImage2UsageMultiplierForModels(account, candidates, imageMultiplier)
+	imageMultiplier = apimartImageUsageMultiplierForModels(account, candidates, imageMultiplier)
 
 	upstreamModel := estimateOpenAIImagesUpstreamModel(account, channelMappedModel)
 	sizeResolution := estimateOpenAIImagesBillingSize(parsed, upstreamModel)
