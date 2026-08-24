@@ -117,11 +117,20 @@ The Controller must additionally verify the exact business/evidence commit
 allowlists, source/merge first-parent scope, local S239 `omitempty` preservation,
 empty index/conflict state, and primary-worktree protected snapshot.
 
-The protected primary-worktree patch ID is scoped to these eleven user-owned
-paths only:
+After the Developer completed, the primary worktree gained additional
+user-owned Pixel Cafe changes. Controller workflow paths are excluded from the
+user patch. The refreshed protected primary-worktree patch ID is scoped to
+these twenty-two tracked user-owned paths only:
 
+- `backend/internal/handler/admin/cafe_room_handler.go`
+- `backend/internal/handler/admin/cafe_room_handler_test.go`
+- `backend/internal/repository/cafe_room_repo.go`
+- `backend/internal/server/routes/admin.go`
 - `backend/internal/service/cafe_public.go`
 - `backend/internal/service/cafe_public_test.go`
+- `backend/internal/service/cafe_room_service.go`
+- `backend/internal/service/cafe_room_service_test.go`
+- `frontend/src/api/admin/cafeRooms.ts`
 - `frontend/src/features/pixelCafe/PixelCafePage.vue`
 - `frontend/src/features/pixelCafe/__tests__/PixelCafePage.spec.ts`
 - `frontend/src/features/pixelCafe/components/CafeScene.vue`
@@ -130,12 +139,30 @@ paths only:
 - `frontend/src/features/pixelCafe/renderer/assetManifest.ts`
 - `frontend/src/features/pixelCafe/renderer/createCafeRenderer.ts`
 - `frontend/src/features/pixelCafe/renderer/sceneLayout.ts`
+- `frontend/src/i18n/locales/en/admin/pixelCafe.ts`
+- `frontend/src/i18n/locales/zh/admin/pixelCafe.ts`
 - `frontend/src/types/pixelCafe.ts`
+- `frontend/src/views/admin/pixelCafe/AdminCafeRoomsView.vue`
+- `frontend/src/views/admin/pixelCafe/__tests__/AdminCafeRoomsView.spec.ts`
 
 Their combined stable patch ID must remain
-`370ac77de0e2f530ab652b99fb3eb35e809f4c84`. The primary staged/unmerged index
-must remain empty, and `outputs/` must retain its two pre-existing untracked
-files.
+`941b1edf9df9e465a6100007edfc4a6715e38b5e`. These three additional untracked
+user product files must retain their SHA-256 values:
+
+- `e6cd621c9f2df7b5d4a5521e8904c95731996533761e01add8ba544b014e0952`
+  `backend/internal/repository/cafe_room_account_option_test.go`
+- `1e3830c11e13b586f09c254c1a468878a84f932a8615be58fb479cfd607d66ff`
+  `frontend/src/views/admin/pixelCafe/components/CafeRoomAccountPicker.vue`
+- `49ec0eaadeb4d49f0eb01853629769be601e8896c5eb3ee2d5ae98db83717c32`
+  `frontend/src/views/admin/pixelCafe/components/__tests__/CafeRoomAccountPicker.spec.ts`
+
+The primary staged/unmerged index must remain empty. `outputs/` must retain its
+two pre-existing untracked files and SHA-256 values:
+
+- `f21e77c5d3cc82727a516bc4b2cb901e53c2d7505a448d5dd551b74ddfb3ece0`
+  `outputs/20260725-static-residential-socks5/静态住宅 IP (1)-sub2-socks5.json`
+- `438fdda26586fa3a5857b927d7dbbfac4868bb55a6a1e8bfdac540296a497f4c`
+  `outputs/20260731-static-residential-sub2/静态住宅 IP (3)-sub2api.json`
 
 ## Output
 

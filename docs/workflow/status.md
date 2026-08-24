@@ -1,12 +1,12 @@
 ---
-phase: contract-approved
+phase: build
 current_sprint: upstream-chat-file-input-s246
 total_sprints: 246
-pending_action: Dispatch the S246 gpt-5.6-terra Developer in an isolated worktree. No push is authorized.
+pending_action: Await and review the isolated S246 gpt-5.6-terra Developer result. No push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-23 22:46 +08:00
+last_verified: 2026-08-24 09:22 +08:00
 ---
 
 # Upstream Chat File Input S246
@@ -28,6 +28,16 @@ last_verified: 2026-08-23 22:46 +08:00
   `omitempty` preservation, focused/package/compile commands, exact allowlist,
   and protected-primary gates were reviewed. Isolated Terra Developer dispatch
   is authorized.
+- `build / developer-dispatch`: the Developer worktree is
+  `E:/codex-worktrees/sub2api/upstream-chat-file-input-s246` at contract base
+  `9f7e1666d`; only the three `apicompat` owners and Developer report are
+  writable.
+- `contract-amendment / protected-primary refresh`: while the Developer was
+  isolated, the primary worktree gained additional user-owned Pixel Cafe
+  changes. S246 now protects twenty-two tracked paths as patch ID
+  `941b1edf...`, three untracked product-file SHA-256 values, and the two
+  existing `outputs/` SHA-256 values. Controller workflow paths remain
+  separately owned and excluded from the user patch ID.
 
 # Upstream OpenAI Sticky System Prefix S245
 
