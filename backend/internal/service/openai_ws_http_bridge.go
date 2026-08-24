@@ -252,6 +252,9 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
 		setOpenAIWSHTTPBridgeToolState(c, openAIWSHTTPBridgeToolState{ClientMapping: clientToolMapping, LoweredTools: loweredTools})
 		upstreamReq, err = s.buildUpstreamRequestOpenAIPassthrough(upstreamCtx, c, account, body, token)
 	}
+	if err == nil && account.Platform != PlatformGrok && isOpenAIResponsesLiteWebSocketPayload(payload) {
+		upstreamReq.Header.Set(responsesLiteHeader, "true")
+	}
 	releaseUpstreamCtx()
 	if err != nil {
 		return nil, err

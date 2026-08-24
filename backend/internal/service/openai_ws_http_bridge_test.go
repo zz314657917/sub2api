@@ -62,6 +62,25 @@ func TestOpenAIWSHTTPBridgeClientToolsInheritAcrossFollowup(t *testing.T) {
 	require.Equal(t, "function_call_output", gjson.GetBytes(upstream.bodies[1], "input.0.type").String())
 }
 
+func TestOpenAIWSHTTPBridgeForwardsResponsesLiteMarker(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+		Body:       io.NopCloser(strings.NewReader("data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_lite_bridge\",\"usage\":{}}}\n\n")),
+	}}
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	svc := &OpenAIGatewayService{cfg: &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}}, httpUpstream: upstream}
+	account := &Account{ID: 102, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"access_token": "oauth-token"}}
+	write := func(message []byte) error { return nil }
+
+	_, err := svc.proxyOpenAIWSHTTPBridgeTurn(context.Background(), c, account, "oauth-token", []byte(`{"type":"response.create","model":"gpt-5.6","stream":true,"client_metadata":{"ws_request_header_x_openai_internal_codex_responses_lite":"true"},"input":"run"}`), 1, "gpt-5.6", "", "", "", "", 1, write)
+
+	require.NoError(t, err)
+	require.Equal(t, "true", upstream.lastReq.Header.Get(responsesLiteHeader))
+}
+
 func TestOpenAIWSHTTPBridgeDecisionKeepsSmallFramesOnWS(t *testing.T) {
 	svc := &OpenAIGatewayService{
 		cfg: &config.Config{
