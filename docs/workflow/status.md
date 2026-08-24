@@ -1,12 +1,12 @@
 ---
-phase: qa
+phase: done
 current_sprint: upstream-google-one-model-catalog-s248
 total_sprints: 248
-pending_action: Independent gpt-5.6-terra QA verifies the clean S248 ready branch. No push is authorized.
+pending_action: S248 and the protected Pixel Cafe batch are closed locally. Preserve active S249 worktrees; no push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-24 10:37 +08:00
+last_verified: 2026-08-24 11:44 +08:00
 ---
 
 # Upstream Google One Model Catalog S248
@@ -67,6 +67,23 @@ last_verified: 2026-08-24 10:37 +08:00
   tests were discovered and passed x10; complete geminicli, admin handler,
   service, server compile, format/diff, scope, ancestry/no-later-touch,
   conflict/index, and protected-primary gates passed.
+- `PASS / independent QA`: Terra QA report `fcb59feb5` independently confirmed
+  four focused tests x10, complete geminicli/admin-handler/service, server
+  compile, format, exact scope/provenance, and protected-primary gates.
+- `PASS / main integration`: the reviewed S248 business, Controller report,
+  and QA report were integrated as `b8aaf86ea`, `468adc044`, and `c5d913e35`.
+  Fresh main focused x10, server compile, and gofmt passed.
+- `PASS / protected Pixel Cafe batch`: the twenty-two tracked and three
+  untracked product/test paths were committed exactly as `3043b378f`; the two
+  `outputs/` JSON files were excluded. Backend Cafe focused tests, five frontend
+  files / 28 tests, exact-file ESLint, typecheck, production build, and desktop
+  plus 390x844 browser checks passed. The owned Playwright session/profile was
+  closed with zero owned processes.
+- `PASS / final regression and cleanup`: complete geminicli, admin handler,
+  repository, service, server, and frontend production build passed. Eleven
+  clean S244-S248 worktrees and branches were removed after cherry/patch and
+  supersession checks; active S249/QA, detached `tutorial-nav-20260817`,
+  `backup/pre-reorg-s240-s243-20260823`, and `outputs/` remain preserved.
 
 # Upstream Malformed Tool Arguments S247
 
