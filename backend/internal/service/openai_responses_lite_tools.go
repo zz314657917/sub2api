@@ -102,7 +102,7 @@ func ensureOpenAIResponsesLiteParallelToolCalls(reqBody map[string]any, changed 
 	if !openAIResponsesLiteHasTools(reqBody) {
 		return changed, nil
 	}
-	if parallel, _ := reqBody["parallel_tool_calls"].(bool); parallel == false {
+	if parallel, exists := reqBody["parallel_tool_calls"]; exists && parallel == false {
 		return changed, nil
 	}
 	reqBody["parallel_tool_calls"] = false

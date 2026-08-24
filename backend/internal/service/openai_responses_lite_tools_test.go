@@ -53,6 +53,13 @@ func TestNormalizeOpenAIResponsesLiteTools_ValidatesAndPreservesNoToolRequests(t
 	require.False(t, changed)
 	require.Equal(t, true, noTools["parallel_tool_calls"])
 
+	withTools := map[string]any{"tools": []any{map[string]any{"type": "function", "name": "shell"}}}
+	changed, err = normalizeOpenAIResponsesLiteTools(withTools)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Contains(t, withTools, "parallel_tool_calls")
+	require.Equal(t, false, withTools["parallel_tool_calls"])
+
 	for name, reqBody := range map[string]map[string]any{
 		"parallel":  {"parallel_tool_calls": "false"},
 		"reasoning": {"reasoning": []any{}},
