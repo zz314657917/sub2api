@@ -840,7 +840,7 @@ useIntervalFn(() => { upstreamBillingNow.value = Date.now() }, 60_000)
 const showAccountToolsDropdown = ref(false)
 const accountToolsDropdownRef = ref<HTMLElement | null>(null)
 const hiddenColumns = reactive<Set<string>>(new Set())
-const DEFAULT_HIDDEN_COLUMNS = ['today_stats', 'share', 'proxy', 'notes', 'priority', 'rate_multiplier']
+const DEFAULT_HIDDEN_COLUMNS = ['today_stats', 'share', 'proxy', 'notes', 'rate_multiplier']
 const HIDDEN_COLUMNS_KEY = computed(() => isSharedAccountsPage.value ? 'shared-account-hidden-columns' : 'account-hidden-columns')
 
 // Sorting settings
