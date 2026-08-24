@@ -1,5 +1,5 @@
 ---
-phase: contract-approved
+phase: qa
 current_sprint: upstream-low-risk-maintenance-s250
 total_sprints: 250
 pending_action: Implement the isolated S250 low-risk upstream maintenance slices. Preserve active S249 worktrees; no push is authorized.
@@ -30,6 +30,12 @@ last_verified: 2026-08-24 12:00 +08:00
 - The recently reviewed Pixel Cafe pagination/CSP findings and the Google One
   explicit-model-mapping observation are outside this S250 scope and remain
   separate follow-up work.
+- `build / Controller review`: three isolated commits `ed2002f57`,
+  `94b8370ee`, and `16ea417a3` implement the approved dependency, Ops, and
+  user-edit slices. Frozen lockfile install, DOMPurify resolution inspection,
+  focused/front-end build checks, focused memory x10, complete service,
+  server compile, format, scope, conflict, and index gates pass. Independent
+  QA is the next legal action.
 
 # Upstream Google One Model Catalog S248
 
