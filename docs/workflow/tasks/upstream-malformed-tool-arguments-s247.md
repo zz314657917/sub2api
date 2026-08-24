@@ -92,6 +92,9 @@ Independent QA evidence commit only:
   `chatMessageToResponsesOutput`, `ChatCompletionsToResponsesStreamState`, and
   `streamChatCompletionsAsResponses`; do not import unrelated upstream bridge
   refactors.
+- The six named focused regression tests are required S247 deliverables in the
+  three allowed test owners. Their absence on the frozen baseline is expected;
+  implement the tests before running focused discovery and acceptance.
 - JSON validity enforcement applies only to ordinary function calls. Preserve
   the existing custom-tool input extraction, tool-search fallback semantics,
   namespace restoration, and empty-arguments normalization.
@@ -204,7 +207,8 @@ The primary staged and unmerged indexes must remain empty.
 - Stop if implementation requires `openai_gateway_cc_pipeline.go`, any path
   outside the allowlist, a bridge/scheduler/retry redesign, dependency changes,
   frontend/schema work, external traffic, or shared state.
-- Stop if focused selectors discover fewer than six total tests, a baseline
+- Stop if, after adding the six required S247 regression tests, focused
+  selectors still discover fewer than six total tests; also stop if a baseline
   failure belongs outside this contract, custom/tool-search/namespace behavior
   must change, or any protected-primary fingerprint changes unexpectedly.
 

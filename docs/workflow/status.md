@@ -6,7 +6,7 @@ pending_action: Await and review the isolated S247 gpt-5.6-terra Developer resul
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-24 09:55 +08:00
+last_verified: 2026-08-24 09:59 +08:00
 ---
 
 # Upstream Malformed Tool Arguments S247
@@ -37,6 +37,15 @@ last_verified: 2026-08-24 09:55 +08:00
   `E:/codex-worktrees/sub2api/upstream-malformed-tool-arguments-s247` starts at
   approved contract commit `c805dd74c`; only the five bridge/fallback owners
   and Developer report are writable.
+- `FAILED / developer-attempt-1 attribution`: Developer wrote only two
+  uncommitted product drafts, then treated the expected baseline absence of the
+  new focused tests as a stop condition. No commit or accepted report exists;
+  no implementation defect was evaluated.
+- `contract-amendment / focused-test deliverables`: the six named regressions
+  are explicit S247 deliverables in the three allowed test owners. Discovery
+  runs after those tests are added; the stop rule applies only if discovery
+  still finds fewer than six. The same Terra Developer may continue its cleanly
+  scoped drafts and must replace the failed draft report with final evidence.
 
 # Upstream Chat File Input S246
 
