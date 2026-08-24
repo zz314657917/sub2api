@@ -2102,17 +2102,23 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 	if account.IsGemini() {
 		// Consumer Google One OAuth still uses the legacy Gemini CLI / Code
 		// Assist channel. Do not advertise newer 3.x or image models that the
-		// channel cannot serve.
+		// channel cannot serve unless the administrator explicitly configured
+		// a model mapping for this account.
 		if account.IsOAuth() {
 			if account.IsGeminiGoogleOne() {
-				response.Success(c, geminicli.GoogleOneModels)
+				rawMapping, _ := account.Credentials["model_mapping"].(map[string]any)
+				if len(rawMapping) == 0 {
+					response.Success(c, geminicli.GoogleOneModels)
+					return
+				}
+			} else {
+				response.Success(c, geminicli.DefaultModels)
 				return
 			}
-			response.Success(c, geminicli.DefaultModels)
-			return
 		}
 
-		// For API Key accounts: return models based on model_mapping
+		// API Key accounts and Google One accounts with an explicit mapping
+		// expose the configured request model names.
 		mapping := account.GetModelMapping()
 		if len(mapping) == 0 {
 			response.Success(c, geminicli.DefaultModels)
