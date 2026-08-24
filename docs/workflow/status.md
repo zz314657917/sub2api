@@ -1,8 +1,8 @@
 ---
-phase: contract-approved
+phase: build
 current_sprint: upstream-google-one-model-catalog-s248
 total_sprints: 248
-pending_action: Dispatch the S248 gpt-5.6-terra Developer in an isolated worktree. No push is authorized.
+pending_action: Await and review the isolated S248 gpt-5.6-terra Developer result. No push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
@@ -33,6 +33,10 @@ last_verified: 2026-08-24 10:31 +08:00
   full package/server acceptance, exact allowlists, image overlap exclusion,
   and refreshed protected-primary gates were reviewed. Isolated Terra Developer
   dispatch is authorized.
+- `build / developer-dispatch`: Developer worktree
+  `E:/codex-worktrees/sub2api/upstream-google-one-model-catalog-s248` starts at
+  approved contract `96480bd5e`; only the six amended owners and Developer
+  report are writable.
 
 # Upstream Malformed Tool Arguments S247
 
