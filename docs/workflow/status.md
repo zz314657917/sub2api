@@ -1,12 +1,12 @@
 ---
-phase: qa
+phase: done
 current_sprint: upstream-malformed-tool-arguments-s247
 total_sprints: 247
-pending_action: Await and review the isolated S247 gpt-5.6-terra QA result. No push is authorized.
+pending_action: Audit the next independent non-overlapping upstream candidate. No push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-24 10:15 +08:00
+last_verified: 2026-08-24 10:26 +08:00
 ---
 
 # Upstream Malformed Tool Arguments S247
@@ -67,6 +67,23 @@ last_verified: 2026-08-24 10:15 +08:00
   `E:/codex-worktrees/sub2api/upstream-malformed-tool-arguments-s247-qa` starts
   from reviewed Controller evidence `aab18c3cf`; QA may modify only its report
   and must independently rerun every amended contract gate.
+- `PASS / independent-qa`: QA report `6abe40489` independently passed all six
+  discovery/x10 scenarios, complete `apicompat`, complete service, server
+  compile, format/diff, exact amended scope, unchanged unit-tag/`cc_pipeline`
+  owners, provenance/no-later-touch, S242/S243, conflict/index, and the then-
+  current protected-primary gates.
+- `contract-amendment / protected-primary refresh`: after QA, the primary
+  gained user-owned changes in `openai_gateway_record_usage_test.go`,
+  `openai_images.go`, and `openai_images_test.go`. They do not overlap S247 and
+  are now included with the prior twenty-two paths in combined patch ID
+  `081cdda8...`; the five untracked SHA-256 values remain unchanged.
+- `PASS / main-integration`: business `7663b1e69`, Controller evidence
+  `0d9eebcdb`, and QA evidence `e607ff497` are integrated on local `main`.
+  Fresh main discovery/focused x10, complete `apicompat`, complete service,
+  server compile, exact ten-path Sprint scope, candidate/main patch identity,
+  denied-owner/provenance/no-later-touch, format/diff, conflict/index, and the
+  refreshed twenty-five-path plus five-file protection gates passed. No push
+  or deployment occurred.
 
 # Upstream Chat File Input S246
 

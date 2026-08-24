@@ -150,7 +150,9 @@ local service-test owner substitution, absence of later upstream product-owner
 touches, preservation of S242/S243 custom-tool/replay behavior, empty
 index/conflict state, and the primary-worktree protected snapshot.
 
-The protected primary-worktree patch ID is scoped to these twenty-two tracked
+After independent QA, the primary worktree gained three additional user-owned
+image/usage changes. The refreshed protected primary-worktree patch ID is
+scoped to these twenty-five tracked
 user-owned paths only:
 
 - `backend/internal/handler/admin/cafe_room_handler.go`
@@ -161,6 +163,9 @@ user-owned paths only:
 - `backend/internal/service/cafe_public_test.go`
 - `backend/internal/service/cafe_room_service.go`
 - `backend/internal/service/cafe_room_service_test.go`
+- `backend/internal/service/openai_gateway_record_usage_test.go`
+- `backend/internal/service/openai_images.go`
+- `backend/internal/service/openai_images_test.go`
 - `frontend/src/api/admin/cafeRooms.ts`
 - `frontend/src/features/pixelCafe/PixelCafePage.vue`
 - `frontend/src/features/pixelCafe/__tests__/PixelCafePage.spec.ts`
@@ -177,7 +182,7 @@ user-owned paths only:
 - `frontend/src/views/admin/pixelCafe/__tests__/AdminCafeRoomsView.spec.ts`
 
 Their combined stable patch ID must remain
-`941b1edf9df9e465a6100007edfc4a6715e38b5e`. These untracked files must retain
+`081cdda895bc1cd209fe7a5e3a3be8b780837957`. These untracked files must retain
 their SHA-256 values:
 
 - `e6cd621c9f2df7b5d4a5521e8904c95731996533761e01add8ba544b014e0952`
