@@ -1,12 +1,12 @@
 ---
-phase: qa
+phase: done
 current_sprint: upstream-low-risk-maintenance-s250
 total_sprints: 250
-pending_action: Implement the isolated S250 low-risk upstream maintenance slices. Preserve active S249 worktrees; no push is authorized.
+pending_action: S250 is integrated locally. Preserve active S249 worktrees; no push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-24 12:00 +08:00
+last_verified: 2026-08-24 17:36 +08:00
 ---
 
 # Upstream Low-Risk Maintenance S250
@@ -36,6 +36,17 @@ last_verified: 2026-08-24 12:00 +08:00
   focused/front-end build checks, focused memory x10, complete service,
   server compile, format, scope, conflict, and index gates pass. Independent
   QA is the next legal action.
+- `PASS / independent QA`: `bef59c0ac` independently reran frozen dependency
+  installation, DOMPurify resolution, focused frontend/typecheck/build, focused
+  cgroup x10, complete service, server compile, format, scope, conflict, and
+  index gates without modifying business files.
+- `PASS / main integration`: the three reviewed business slices are now local
+  `main` commits `0f44244c7`, `9666b0ee5`, and `8db06225a`; QA evidence is
+  `22a7f4079`. Fresh main focused memory x10, focused user-modal tests, and
+  server compilation pass. Candidate/main patch IDs match for all three slices.
+  The shared main `frontend/node_modules` was deliberately not reinstalled;
+  its ignored old install must be refreshed with the frozen lockfile before it
+  is used to serve the patched frontend.
 
 # Upstream Google One Model Catalog S248
 
