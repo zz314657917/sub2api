@@ -1,12 +1,12 @@
 ---
-phase: contract-approved
+phase: build
 current_sprint: upstream-malformed-tool-arguments-s247
 total_sprints: 247
-pending_action: Dispatch the S247 gpt-5.6-terra Developer in an isolated worktree. No push is authorized.
+pending_action: Await and review the isolated S247 gpt-5.6-terra Developer result. No push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-24 09:54 +08:00
+last_verified: 2026-08-24 09:55 +08:00
 ---
 
 # Upstream Malformed Tool Arguments S247
@@ -33,6 +33,10 @@ last_verified: 2026-08-24 09:54 +08:00
   focused acceptance, full package/server commands, exact allowlists,
   S242/S243 preservation, and protected-primary gates were reviewed. Isolated
   Terra Developer dispatch is authorized.
+- `build / developer-dispatch`: Developer worktree
+  `E:/codex-worktrees/sub2api/upstream-malformed-tool-arguments-s247` starts at
+  approved contract commit `c805dd74c`; only the five bridge/fallback owners
+  and Developer report are writable.
 
 # Upstream Chat File Input S246
 
