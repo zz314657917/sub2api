@@ -1,8 +1,8 @@
 ---
-phase: build
+phase: qa
 current_sprint: upstream-cn-anthropic-usage-billing-s251
 total_sprints: 251
-pending_action: Retry the isolated S251 Developer with the same approved model to finish its retained in-scope draft, then perform Controller diff review before independent QA; preserve active S249 worktrees and all primary-worktree user edits. No push is authorized.
+pending_action: Await independent S251 QA from its isolated report-only worktree; preserve active S249 worktrees and all primary-worktree user edits. No push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
@@ -18,6 +18,8 @@ last_verified: 2026-08-24 17:36 +08:00
 - `PASS / contract-review`: source is an ancestor of `upstream/main`; the sole later upstream DTO touch is an unrelated `ResponsesResponse.ServiceTier` field, so the proposed `AnthropicUsage` extension has no semantic conflict. Direct apply fails only at expected divergent local owners. Review confirms all Chat Completions/Responses native paths consume the shared DTO merge and converter, while the S229 raw Messages parser needs the same normalizer explicitly. Allowed paths, default-tag focused x10, full service/server gates, exact primary-worktree protection, and no-external-state boundary are approved for an isolated `gpt-5.6-terra` Developer.
 - `build / developer-dispatch`: Developer worktree `E:/codex-worktrees/sub2api/upstream-cn-anthropic-usage-billing-s251` begins at approved contract commit `66c2e1343`; only the five product/test owners and Developer report are writable.
 - `BLOCKED / developer-attempt-1 infrastructure`: the required `gpt-5.6-terra` session returned an API `502 Bad Gateway` before creating a Worker report or commits. It left only four allowed product drafts plus the allowed default-tag test; `git diff --check` passes, the worktree has no unmerged index, no task-owned process remains, and the protected primary patch ID is unchanged. The same model may be retried once to finish the retained draft; no QA or integration is permitted yet.
+- `PASS / controller-review`: retried Developer committed business `46185fcca0` and evidence `e5f6d959c`. The exact five product/test owners plus its report are the complete range; diff/format/index checks pass. Controller independently reran the eight named regressions, which passed. The shared normalizer preserves local native semantics, DTO merge gives all Chat/Responses native paths the same correction, and the inclusive converter matches the existing `RecordUsage` split. Primary patch ID and empty staged/unmerged indexes remain unchanged.
+- `qa / independent-dispatch`: QA worktree `E:/codex-worktrees/sub2api/upstream-cn-anthropic-usage-billing-s251-qa` begins at reviewed evidence `e5f6d959c`; only `docs/workflow/qa-reports/upstream-cn-anthropic-usage-billing-s251-qa.md` is writable.
 
 # Upstream Low-Risk Maintenance S250
 
