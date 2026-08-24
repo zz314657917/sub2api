@@ -1,13 +1,20 @@
 ---
-phase: done
-current_sprint: upstream-low-risk-maintenance-s250
-total_sprints: 250
-pending_action: S250 is integrated locally. Preserve active S249 worktrees; no push is authorized.
+phase: contract-draft
+current_sprint: upstream-cn-anthropic-usage-billing-s251
+total_sprints: 251
+pending_action: Review S251's behavior-level CN Anthropic usage contract before any isolated Developer dispatch; preserve active S249 worktrees and all primary-worktree user edits. No push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
 last_verified: 2026-08-24 17:36 +08:00
 ---
+
+# Upstream CN Anthropic Usage Billing S251
+
+- `contract-draft`: Candidate `695ebede7` from merged upstream PR `b8651947c` is locally reachable but cannot be mechanically applied. The local generic Anthropic parser lives in `gateway_service.go`, while S229 added a separate native CN parser; both currently retain the upstream total or delta value in `ClaudeUsage.InputTokens` even when OpenAI-style cache aliases identify an exclusive uncached bucket.
+- Contract: `docs/workflow/tasks/upstream-cn-anthropic-usage-billing-s251.md`.
+- Scope is restricted to the shared Anthropic DTO, generic parser, Responses DTO merge, S229 native parser/converter, and a default-tag focused test. Existing RecordUsage, pricing, endpoint-specific native stream owners, frontend, dependencies, schema/migrations, provider traffic, container/deployment, push, Pixel Cafe/Groups edits, knowledge and outputs are denied.
+- Contract requires the local invariant `ClaudeUsage.InputTokens = uncached ordinary input` and `OpenAIUsage.InputTokens = inclusive total`, so `RecordUsage` continues to split billing buckets exactly once. Kimi explicit-zero miss data, GLM nested cache aliases, DeepSeek hit/miss aliases, native Anthropic preservation, and real local pricing calculation are acceptance cases.
 
 # Upstream Low-Risk Maintenance S250
 
