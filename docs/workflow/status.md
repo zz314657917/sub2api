@@ -1,12 +1,12 @@
 ---
-phase: build
+phase: qa
 current_sprint: upstream-chat-file-input-s246
 total_sprints: 246
-pending_action: Await and review the isolated S246 gpt-5.6-terra Developer result. No push is authorized.
+pending_action: Await and review the isolated S246 gpt-5.6-terra QA result. No push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-24 09:22 +08:00
+last_verified: 2026-08-24 09:28 +08:00
 ---
 
 # Upstream Chat File Input S246
@@ -38,6 +38,15 @@ last_verified: 2026-08-24 09:22 +08:00
   `941b1edf...`, three untracked product-file SHA-256 values, and the two
   existing `outputs/` SHA-256 values. Controller workflow paths remain
   separately owned and excluded from the user patch ID.
+- `PASS / controller-review`: business `6f22dbae4` and Developer evidence
+  `b340ebb9d` preserve the required two-commit boundary and exact allowlists.
+  Controller independently passed three-test discovery, focused x10, complete
+  `apicompat`, service/server compile, format/diff, source and merge ancestry,
+  S239 `omitempty`, conflict/index, and refreshed protected-primary gates.
+- `qa / independent-dispatch`: QA worktree
+  `E:/codex-worktrees/sub2api/upstream-chat-file-input-s246-qa` contains the
+  reviewed business/evidence plus the latest contract amendment; QA may modify
+  only its report and must independently rerun every contract gate.
 
 # Upstream OpenAI Sticky System Prefix S245
 
