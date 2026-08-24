@@ -155,7 +155,7 @@ The twenty-eight tracked user paths are:
 - `frontend/src/views/admin/pixelCafe/__tests__/AdminCafeRoomsView.spec.ts`
 
 Their stable combined patch ID must remain
-`b6d8364a560663e7a1d44452e9470ee47d950eeb`. The five untracked SHA-256 values
+`4c403041a7e47f4a7e05f2727cc291f1d59f49fc`. The five untracked SHA-256 values
 must remain:
 
 - `e6cd621c9f2df7b5d4a5521e8904c95731996533761e01add8ba544b014e0952`

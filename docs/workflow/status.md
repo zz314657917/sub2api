@@ -51,6 +51,11 @@ last_verified: 2026-08-24 10:37 +08:00
   `studio_bridge.go`. S248 now protects twenty-eight tracked paths under
   combined patch ID `b6d8364a...`; the five untracked hashes and empty index
   remain unchanged. None overlaps the six S248 owners.
+- `contract-amendment / protected-primary refresh`: while Controller acceptance
+  was running, the user-owned `openai_images.go` and `openai_images_test.go`
+  changed again without touching an S248 owner. The same twenty-eight tracked
+  paths now have combined patch ID `4c403041...`; the five untracked hashes and
+  empty index remain unchanged.
 
 # Upstream Malformed Tool Arguments S247
 
