@@ -1,13 +1,28 @@
 ---
-phase: done
-current_sprint: upstream-google-one-model-catalog-s248
-total_sprints: 248
-pending_action: S248 and the protected Pixel Cafe batch are closed locally. Preserve active S249 worktrees; no push is authorized.
+phase: contract-approved
+current_sprint: upstream-low-risk-maintenance-s250
+total_sprints: 250
+pending_action: Implement the isolated S250 low-risk upstream maintenance slices. Preserve active S249 worktrees; no push is authorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-24 11:44 +08:00
+last_verified: 2026-08-24 12:00 +08:00
 ---
+
+# Upstream Low-Risk Maintenance S250
+
+- `contract-draft / contract-review`: three behavior-level upstream slices are
+  approved from the current divergent upstream history: DOMPurify `4a1da2950`,
+  cgroup memory metrics `cd05772e9`, and user-edit unlimited concurrency
+  `5dfad32b8`. They are deliberately separated into three commits.
+- Contract: `docs/workflow/tasks/upstream-low-risk-maintenance-s250.md`.
+- The main worktree contains unrelated user-owned Groups/Pixel Cafe/knowledge
+  edits and untracked files. All business work must occur in a fresh isolated
+  worktree rooted at `E:/codex-worktrees/sub2api`; no push, deployment,
+  container, provider, or shared database action is authorized.
+- The recently reviewed Pixel Cafe pagination/CSP findings and the Google One
+  explicit-model-mapping observation are outside this S250 scope and remain
+  separate follow-up work.
 
 # Upstream Google One Model Catalog S248
 
