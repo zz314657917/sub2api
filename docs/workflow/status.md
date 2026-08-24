@@ -6,7 +6,7 @@ pending_action: Controller completes and verifies the isolated S248 draft. No pu
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-24 10:36 +08:00
+last_verified: 2026-08-24 10:37 +08:00
 ---
 
 # Upstream Google One Model Catalog S248
@@ -46,6 +46,11 @@ last_verified: 2026-08-24 10:36 +08:00
   will retain only behaviorally correct in-scope draft work, replace compressed
   placeholders with reviewable code/tests, add the missing handler test, run
   all gates, and still require independent Terra QA.
+- `contract-amendment / protected-primary refresh`: concurrent user work added
+  `apimart_gpt_image2_pricing.go`, `openai_gateway_service.go`, and
+  `studio_bridge.go`. S248 now protects twenty-eight tracked paths under
+  combined patch ID `b6d8364a...`; the five untracked hashes and empty index
+  remain unchanged. None overlaps the six S248 owners.
 
 # Upstream Malformed Tool Arguments S247
 

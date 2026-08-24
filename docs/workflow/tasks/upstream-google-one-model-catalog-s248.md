@@ -68,7 +68,7 @@ Independent QA evidence commit only:
   existing compile errors. Use the allowed self-contained default-tag test.
 - All other backend, frontend, schema, migration, dependency, generated,
   Docker, deployment, knowledge, and workflow files except the active report.
-- All twenty-five tracked and five untracked user-owned primary-worktree paths.
+- All twenty-eight tracked and five untracked user-owned primary-worktree paths.
 - Provider traffic, shared/production data, containers, browser automation,
   push, force operations, and history rewrites.
 
@@ -123,19 +123,22 @@ local service-test substitution, no later upstream touches, exact commit
 allowlists, account mapping cache preservation, empty index/conflict state, and
 the primary protected snapshot.
 
-The twenty-five tracked user paths are:
+The twenty-eight tracked user paths are:
 
 - `backend/internal/handler/admin/cafe_room_handler.go`
 - `backend/internal/handler/admin/cafe_room_handler_test.go`
 - `backend/internal/repository/cafe_room_repo.go`
 - `backend/internal/server/routes/admin.go`
+- `backend/internal/service/apimart_gpt_image2_pricing.go`
 - `backend/internal/service/cafe_public.go`
 - `backend/internal/service/cafe_public_test.go`
 - `backend/internal/service/cafe_room_service.go`
 - `backend/internal/service/cafe_room_service_test.go`
 - `backend/internal/service/openai_gateway_record_usage_test.go`
+- `backend/internal/service/openai_gateway_service.go`
 - `backend/internal/service/openai_images.go`
 - `backend/internal/service/openai_images_test.go`
+- `backend/internal/service/studio_bridge.go`
 - `frontend/src/api/admin/cafeRooms.ts`
 - `frontend/src/features/pixelCafe/PixelCafePage.vue`
 - `frontend/src/features/pixelCafe/__tests__/PixelCafePage.spec.ts`
@@ -152,7 +155,7 @@ The twenty-five tracked user paths are:
 - `frontend/src/views/admin/pixelCafe/__tests__/AdminCafeRoomsView.spec.ts`
 
 Their stable combined patch ID must remain
-`fe0ae1c56f460a55b84d5de1386a597a64495bc9`. The five untracked SHA-256 values
+`b6d8364a560663e7a1d44452e9470ee47d950eeb`. The five untracked SHA-256 values
 must remain:
 
 - `e6cd621c9f2df7b5d4a5521e8904c95731996533761e01add8ba544b014e0952`

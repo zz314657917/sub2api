@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-24 10:26 +08:00
+最后更新：2026-08-24 10:37 +08:00
 
 ## 背景
 
@@ -11,7 +11,7 @@
 
 ## 当前目标
 
-- S226、S228、S229-A-E、S230-A/B、S231、S237-A、S238-A、S239-A、S242、S243、S244、S245、S246 与 S247 已按批准边界集成 `main`；下一步只评估新的上游候选或历史提交。
+- S226、S228、S229-A-E、S230-A/B、S231、S237-A、S238-A、S239-A、S242、S243、S244、S245、S246 与 S247 已按批准边界集成 `main`；S248 Google One 保守模型目录已批准并由 Controller 接管实现。
 
 ## 本次已完成
 
@@ -55,6 +55,8 @@
 - S246 已完成 Chat Completions file part 到 Responses `input_file` 的兼容适配：业务 `fa4a85a76`、Developer 证据 `f1d1c8128`、独立 QA `35c661a3b`。`filename`、`file_data`、`file_id` 按本地 DTO 拓扑保留，空文件 payload 继续跳过，S239 `omitempty` 语义未回退。
 - S247 已完成 malformed ordinary tool arguments 防护：业务 `7663b1e69`、Controller 证据 `0d9eebcdb`、独立 QA `e607ff497`。历史坏 call/output 会成对跳过，非流式坏调用不再完成，流式坏参数在终态事件和 `[DONE]` 前报错并保留 usage/result；有效 output-limit 调用仍保持 incomplete。
 - S247 Developer 两次停止均归因于 contract 测试拓扑：首次把待新增测试误当成基线门禁，第二次发现旧 service owner 带 `//go:build unit`，而仓库全量 unit-tag 测试有既有编译错误。低成本 loop 已关闭，Controller 改用自包含默认标签服务测试接管并完成验证。
+- S248 contract 已批准：上游 `f98a056f7` / merge `844b11878`，本地范围为 handler、geminicli、account 三个产品 owner 加三个测试 owner；旧 unit-tag `account_wildcard_test.go` 明确禁止，使用自包含默认标签测试。
+- S248 Terra Developer 连续四次只返回非终态进度，留下五个允许路径草稿但没有 handler 测试、验收或提交；worker loop 已停止，Controller 在 `E:/codex-worktrees/sub2api/upstream-google-one-model-catalog-s248` 接管。
 - 上游 `219368ec6` Composite 视频创建候选经深审暂缓：本地缺少上游 Composite Resolver 与 `GrokVideoGeneration` 链，只改 route 会在本地 OpenAI 异步视频 handler 再次 404，不能形成真实修复。
 - S240-S243 提交已按 Sprint 重整为业务/测试与 workflow 证据边界；整理前完整历史保留在本地备份引用 `backup/pre-reorg-s240-s243-20260823`，未 push。
 
@@ -80,6 +82,7 @@
 - S245 业务范围严格为 `openai_content_session_seed.go` 与其 focused test；本地 direct-`gjson` 拓扑未引入上游 `86800a8cd` 单扫描重构，候选与主线业务 patch-id 均为 `00416a2f...`。
 - S246 业务范围严格为三个 `apicompat` DTO/converter/test owner；候选与主线业务 patch-id 均为 `5455777c...`。主线 fresh discovery、focused x10、完整 `apicompat`、service/server compile 和八路径 Sprint scope 全部通过；22 个用户 tracked 路径 patch-id `941b1edf...` 与五个 untracked SHA-256 未变。
 - S247 业务范围严格为三个 `apicompat` owner、fallback service owner 和一个默认标签 S247 service test；候选与主线 patch-id 均为 `86b0b5c4...`，旧 unit-tag owner 与 `cc_pipeline` 无 diff。QA 后新增三项用户 image/usage 改动，当前 25 路径保护 patch-id 为 `081cdda8...`，五个 untracked SHA-256 不变。
+- S248 当前用户保护已扩为 28 个 tracked 路径，combined patch-id `b6d8364a...`；新增 `apimart_gpt_image2_pricing.go`、`openai_gateway_service.go`、`studio_bridge.go`，均不在 S248 allowlist。五个 untracked SHA-256 继续保持原值。
 
 ## 待验证点
 
@@ -88,6 +91,7 @@
 - S237-A 无待修复项；若继续工作，只需从 `upstream/main@67380eafd` 重新审计新的独立候选，并先建立 contract。
 - S246 无待修复项；若继续工作，从 `upstream/main@d45135d87` 审计下一项可独立测试且不触碰 Pixel Cafe 脏路径的候选，并先建立新 contract。`219368ec6` 需完整 Composite/Grok 视频前置，不作为独立小修。
 - S247 无待修复项；继续工作时避开当前用户改动的三个 image/usage owner，因此上游 `d29d7f8cb` OAuth 图片稳定性候选暂不进入下一 Sprint。优先评估 Google One 模型目录、Ollama Cloud 或其他无重叠独立候选。
+- S248 待 Controller 补齐 handler 测试、把压缩草稿改为可审计实现、验证四个 focused 场景及完整三包/server；通过后创建业务/证据提交并派独立 Terra QA。
 - 若授权发布：先复核最终 `git status`、主线测试证据和远端差异，再执行普通 `git push origin main`；当前没有发布授权。
 - S225/S226/S228 均未运行真实 Redis 或上游 provider 集成；合同禁止这些操作，当前证据来自 mock/httptest、包回归、server 编译和前端构建。
 
@@ -112,7 +116,8 @@
 
 ## 下一步
 
-- 继续审计 `upstream/main@d45135d87` 的其他候选，跳过已完成的 `6244090c1`/`fd6cd474d`、缺前置的 `219368ec6`，并因当前用户 image/usage 脏改暂缓 `d29d7f8cb` -> 验证：做 ancestry、first-parent patch、25 路径重叠与测试 owner 检查，只有无重叠且可独立验收的候选才建立下一 Sprint contract。
+- 完成 S248 Controller takeover -> 验证：四项 focused discovery/x10、完整 geminicli/handler/service、server compile、六 owner scope、unit-tag owner无 diff、provenance/no-later-touch、28 路径 patch-id与五文件哈希；再派独立 Terra QA。
+- S248 完成后继续审计 `upstream/main@d45135d87`，跳过已完成 `6244090c1`/`fd6cd474d`、缺前置 `219368ec6` 与当前脏改重叠的 `d29d7f8cb`。
 - 保留当前本地提交和用户 dirty 内容，等待明确发布授权。
 - 发布当前本地提交（需用户授权） -> 验证：push 前后比较 `HEAD`、`origin/main` 和远端 `refs/heads/main`，只允许普通 push。
 
