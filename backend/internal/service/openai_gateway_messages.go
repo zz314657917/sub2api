@@ -427,7 +427,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	}
 
 	// Extract and save Codex usage snapshot from response headers (for OAuth accounts)
-	if handleErr == nil && account.Type == AccountTypeOAuth {
+	if handleErr == nil && account.Type == AccountTypeOAuth && !account.IsShadow() {
 		if account.Platform == PlatformGrok {
 			s.updateGrokUsageSnapshot(ctx, account.ID, xai.ParseQuotaHeaders(resp.Header, resp.StatusCode))
 		} else if snapshot := ParseCodexRateLimitHeaders(resp.Header); snapshot != nil {

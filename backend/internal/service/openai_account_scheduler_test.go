@@ -1160,6 +1160,22 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_SessionSticky(t *testin
 	}
 }
 
+func TestDefaultOpenAIAccountScheduler_StickyShadowParentHealth(t *testing.T) {
+	ctx := context.Background()
+	parentID := int64(31001)
+	shadow := &Account{ID: 31002, Platform: PlatformOpenAI, Type: AccountTypeOAuth, ParentAccountID: &parentID}
+	parent := &Account{ID: parentID, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Credentials: map[string]any{"access_token": "parent-token"}}
+	svc := &OpenAIGatewayService{accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{*parent}}}
+	scheduler := &defaultOpenAIAccountScheduler{service: svc}
+
+	require.True(t, scheduler.parentHealthy(shadow, ctx))
+	tempUntil := time.Now().Add(time.Minute)
+	blockedParent := *parent
+	blockedParent.TempUnschedulableUntil = &tempUntil
+	svc.accountRepo = schedulerTestOpenAIAccountRepo{accounts: []Account{blockedParent}}
+	require.False(t, scheduler.parentHealthy(shadow, ctx))
+}
+
 func TestOpenAIGatewayService_SelectAccountWithScheduler_SessionStickyGroupMismatchFallsBack(t *testing.T) {
 	ctx := context.Background()
 	groupID := int64(10010)

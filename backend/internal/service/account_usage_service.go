@@ -280,6 +280,7 @@ type AccountUsageService struct {
 	geminiQuotaService      *GeminiQuotaService
 	antigravityQuotaFetcher *AntigravityQuotaFetcher
 	grokQuotaFetcher        *GrokQuotaFetcher
+	openAIQuotaService      *OpenAIQuotaService
 	cache                   *UsageCache
 	identityCache           IdentityCache
 	tlsFPProfileService     *TLSFingerprintProfileService
@@ -295,6 +296,7 @@ func NewAccountUsageService(
 	geminiQuotaService *GeminiQuotaService,
 	antigravityQuotaFetcher *AntigravityQuotaFetcher,
 	grokQuotaFetcher *GrokQuotaFetcher,
+	openAIQuotaService *OpenAIQuotaService,
 	cache *UsageCache,
 	identityCache IdentityCache,
 	tlsFPProfileService *TLSFingerprintProfileService,
@@ -306,6 +308,7 @@ func NewAccountUsageService(
 		geminiQuotaService:      geminiQuotaService,
 		antigravityQuotaFetcher: antigravityQuotaFetcher,
 		grokQuotaFetcher:        grokQuotaFetcher,
+		openAIQuotaService:      openAIQuotaService,
 		cache:                   cache,
 		identityCache:           identityCache,
 		tlsFPProfileService:     tlsFPProfileService,
@@ -547,7 +550,22 @@ func (s *AccountUsageService) getOpenAIUsage(ctx context.Context, account *Accou
 	}
 
 	if force || shouldRefreshOpenAICodexSnapshot(account, usage, now) {
-		if updates, err := s.probeOpenAICodexSnapshotOnce(ctx, account, now, force); err == nil && len(updates) > 0 {
+		var (
+			updates  map[string]any
+			probeErr error
+		)
+		if account.IsShadow() {
+			if s.openAIQuotaService == nil {
+				probeErr = fmt.Errorf("openai quota service is unavailable for shadow account")
+			} else if quotaUsage, err := s.openAIQuotaService.QueryUsage(ctx, account.ID); err != nil {
+				probeErr = err
+			} else {
+				updates = buildCodexSparkWindowExtraUpdates(quotaUsage, now)
+			}
+		} else {
+			updates, probeErr = s.probeOpenAICodexSnapshotOnce(ctx, account, now, force)
+		}
+		if probeErr == nil && len(updates) > 0 {
 			mergeAccountExtra(account, updates)
 			if usage.UpdatedAt == nil {
 				usage.UpdatedAt = &now
@@ -558,7 +576,7 @@ func (s *AccountUsageService) getOpenAIUsage(ctx context.Context, account *Accou
 			if progress := buildCodexUsageProgressFromExtra(account.Extra, "7d", now); progress != nil {
 				usage.SevenDay = progress
 			}
-		} else if err != nil {
+		} else if probeErr != nil {
 			if usage.FiveHour != nil || usage.SevenDay != nil {
 				usage.Stale = true
 				usage.Error = "额度探测失败，已显示上次快照"
@@ -626,7 +644,10 @@ func shouldRefreshOpenAICodexSnapshot(account *Account, usage *UsageInfo, now ti
 }
 
 func isOpenAICodexSnapshotStale(account *Account, now time.Time) bool {
-	if account == nil || !account.IsOpenAIOAuth() || !account.IsOpenAIResponsesWebSocketV2Enabled() {
+	if account == nil || !account.IsOpenAIOAuth() {
+		return false
+	}
+	if !account.IsShadow() && !account.IsOpenAIResponsesWebSocketV2Enabled() {
 		return false
 	}
 	if account.Extra == nil {

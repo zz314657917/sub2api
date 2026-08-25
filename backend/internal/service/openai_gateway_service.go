@@ -2723,6 +2723,7 @@ func (s *OpenAIGatewayService) handleFailoverSideEffects(ctx context.Context, re
 func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, account *Account, body []byte) (*OpenAIForwardResult, error) {
 	startTime := time.Now()
 	clearOpenAIResponsesClientToolMapping(c)
+	stageCodexAccountIdentityOriginalPromptCacheKey(c, "")
 	if _, err := s.prepareCodexAccountIdentitySource(ctx, c, account); err != nil {
 		return nil, err
 	}
@@ -3122,6 +3123,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		if current, ok := reqBody["prompt_cache_key"].(string); ok && strings.TrimSpace(current) != "" {
 			clientPromptCacheKey = current
 		}
+		stageCodexAccountIdentityOriginalPromptCacheKey(c, clientPromptCacheKey)
 		if !isCompactRequest && applyCodexAccountIdentityClientMetadataMap(reqBody, codexAccountIdentitySource(c, account), getAPIKeyIDFromContext(c)) {
 			bodyModified = true
 			disablePatch()
@@ -3687,7 +3689,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		s.bindHTTPResponseAccount(ctx, c, account, responseID)
 
 		// Extract and save Codex usage snapshot from response headers (for OAuth accounts)
-		if account.Type == AccountTypeOAuth {
+		if account.Type == AccountTypeOAuth && !account.IsShadow() {
 			if snapshot := ParseCodexRateLimitHeaders(resp.Header); snapshot != nil {
 				s.updateCodexUsageSnapshot(ctx, account.ID, snapshot)
 			}
@@ -3808,6 +3810,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 	reqStream bool,
 	startTime time.Time,
 ) (*OpenAIForwardResult, error) {
+	stageCodexAccountIdentityOriginalPromptCacheKey(c, strings.TrimSpace(gjson.GetBytes(body, "prompt_cache_key").String()))
 	clearOpenAIResponsesClientToolMapping(c)
 	upstreamPassthroughModel := ""
 	var clientToolMapping apicompat.ResponsesClientToolMapping
@@ -4063,8 +4066,10 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 	}
 	s.bindHTTPResponseAccount(ctx, c, account, responseID)
 
-	if snapshot := ParseCodexRateLimitHeaders(resp.Header); snapshot != nil {
-		s.updateCodexUsageSnapshot(ctx, account.ID, snapshot)
+	if !account.IsShadow() {
+		if snapshot := ParseCodexRateLimitHeaders(resp.Header); snapshot != nil {
+			s.updateCodexUsageSnapshot(ctx, account.ID, snapshot)
+		}
 	}
 
 	if usage == nil {
@@ -4196,7 +4201,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthrough(
 
 	// OAuth 透传到 ChatGPT internal API 时补齐必要头。
 	if credentialAccount.Type == AccountTypeOAuth {
-		promptCacheKey := strings.TrimSpace(gjson.GetBytes(body, "prompt_cache_key").String())
+		promptCacheKey := codexAccountIdentityOriginalPromptCacheKey(c, gjson.GetBytes(body, "prompt_cache_key").String())
 		req.Host = "chatgpt.com"
 		if chatgptAccountID := credentialAccount.GetChatGPTAccountID(); chatgptAccountID != "" {
 			req.Header.Set("chatgpt-account-id", chatgptAccountID)

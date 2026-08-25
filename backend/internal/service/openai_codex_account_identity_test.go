@@ -61,6 +61,30 @@ func TestCodexAccountIdentityRawPassthroughBuildsNamespacedOutboundBodyAndHeader
 	require.Equal(t, isolateOpenAIUpstreamSessionID(0, account, "client-session"), req.Header.Get("conversation_id"))
 }
 
+func TestCodexAccountIdentityRawPassthroughUsesOriginalPromptCacheKeyWithoutHeaders(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{
+		"access_token": "test-token", "chatgpt_account_id": "account-a", "chatgpt_user_id": "user-a",
+	}}
+	original := "client-session"
+	body := []byte(`{"prompt_cache_key":"client-session","client_metadata":{"session_id":"client-session"}}`)
+	scoped, changed, err := applyCodexAccountIdentityClientMetadataRaw(body, account, 5)
+	require.NoError(t, err)
+	require.True(t, changed)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
+	stageCodexAccountIdentityOriginalPromptCacheKey(c, original)
+
+	svc := &OpenAIGatewayService{}
+	req, err := svc.buildUpstreamRequestOpenAIPassthrough(context.Background(), c, account, scoped, "test-token")
+	require.NoError(t, err)
+	require.Equal(t, isolateOpenAIUpstreamSessionID(0, account, original), req.Header.Get("session_id"))
+	require.Equal(t, isolateOpenAIUpstreamSessionID(0, account, original), req.Header.Get("conversation_id"))
+	require.NotEqual(t, isolateOpenAIUpstreamSessionID(0, account, scopeCodexAccountIdentityValue(account, 5, "session", original)), req.Header.Get("session_id"))
+}
+
 func TestCodexAccountIdentityShadowHTTPUsesParentNamespaceAndClearsGinSource(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	parent := newSparkShadowOAuthAccount(7001, "test-parent-token", "parent-account")

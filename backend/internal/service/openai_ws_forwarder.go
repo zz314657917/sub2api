@@ -1894,7 +1894,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	payloadStrategy, removedKeys := applyOpenAIWSRetryPayloadStrategy(payload, attempt)
 	previousResponseID := openAIWSPayloadString(payload, "previous_response_id")
 	previousResponseIDKind := ClassifyOpenAIPreviousResponseIDKind(previousResponseID)
-	promptCacheKey := openAIWSPayloadString(payload, "prompt_cache_key")
+	promptCacheKey := codexAccountIdentityOriginalPromptCacheKey(c, openAIWSPayloadString(payload, "prompt_cache_key"))
 	_, hasTools := payload["tools"]
 	debugEnabled := isOpenAIWSModeDebugEnabled()
 	payloadBytes := -1

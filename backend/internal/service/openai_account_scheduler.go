@@ -241,6 +241,22 @@ type defaultOpenAIAccountScheduler struct {
 	stats   *openAIAccountRuntimeStats
 }
 
+func (s *defaultOpenAIAccountScheduler) parentHealthy(account *Account, ctx context.Context) bool {
+	if account == nil || !account.IsShadow() {
+		return account != nil
+	}
+	if s == nil || s.service == nil || s.service.accountRepo == nil {
+		return false
+	}
+	return parentHealthyForShadow(account, func(parentID int64) *Account {
+		parent, err := s.service.accountRepo.GetByID(ctx, parentID)
+		if err != nil {
+			return nil
+		}
+		return parent
+	}, time.Now())
+}
+
 func newDefaultOpenAIAccountScheduler(service *OpenAIGatewayService, stats *openAIAccountRuntimeStats) OpenAIAccountScheduler {
 	if stats == nil {
 		stats = newOpenAIAccountRuntimeStats()
@@ -283,6 +299,12 @@ func (s *defaultOpenAIAccountScheduler) Select(
 				}
 				selection = nil
 			}
+		}
+		if selection != nil && selection.Account != nil && !s.parentHealthy(selection.Account, ctx) {
+			if selection.ReleaseFunc != nil {
+				selection.ReleaseFunc()
+			}
+			selection = nil
 		}
 		if selection != nil && selection.Account != nil {
 			decision.Layer = openAIAccountScheduleLayerPreviousResponse
@@ -359,6 +381,10 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 		return nil, nil
 	}
 	if !s.isAccountRequestCompatible(ctx, account, req) {
+		return nil, nil
+	}
+	if !s.parentHealthy(account, ctx) {
+		_ = s.service.deleteStickySessionAccountID(ctx, req.GroupID, sessionHash)
 		return nil, nil
 	}
 	if !accountAllowedByAPIKeyPoolStrategy(ctx, account, req.Sub2APIUserID) {

@@ -14,6 +14,7 @@ import (
 )
 
 const codexAccountIdentitySourceContextKey = "openai_codex_account_identity_source"
+const codexAccountIdentityOriginalPromptCacheKeyContextKey = "openai_codex_account_identity_original_prompt_cache_key"
 
 func (s *OpenAIGatewayService) prepareCodexAccountIdentitySource(ctx context.Context, c *gin.Context, account *Account) (*Account, error) {
 	source := account
@@ -39,6 +40,25 @@ func codexAccountIdentitySource(c *gin.Context, fallback *Account) *Account {
 		}
 	}
 	return fallback
+}
+
+func stageCodexAccountIdentityOriginalPromptCacheKey(c *gin.Context, value string) {
+	if c != nil {
+		c.Set(codexAccountIdentityOriginalPromptCacheKeyContextKey, strings.TrimSpace(value))
+	}
+}
+
+func codexAccountIdentityOriginalPromptCacheKey(c *gin.Context, fallback string) string {
+	if c != nil {
+		if value, ok := c.Get(codexAccountIdentityOriginalPromptCacheKeyContextKey); ok {
+			if raw, ok := value.(string); ok {
+				if raw = strings.TrimSpace(raw); raw != "" {
+					return raw
+				}
+			}
+		}
+	}
+	return strings.TrimSpace(fallback)
 }
 
 func isOpenAIOAuthLikeAccount(account *Account) bool {
