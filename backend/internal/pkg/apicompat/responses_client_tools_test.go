@@ -30,7 +30,7 @@ func TestAdaptResponsesClientTools_CustomOnly(t *testing.T) {
 	require.Equal(t, "function", req["tool_choice"].(map[string]any)["type"])
 	call := req["input"].([]any)[0].(map[string]any)
 	require.Equal(t, "function_call", call["type"])
-	require.NotContains(t, call, "id")
+	require.Equal(t, "fc_1", call["id"])
 	require.JSONEq(t, `{"input":"pwd"}`, call["arguments"].(string))
 	out := req["input"].([]any)[1].(map[string]any)
 	require.Equal(t, "function_call_output", out["type"])
@@ -70,6 +70,7 @@ func TestRestoreResponsesClientToolPayload_CustomCall(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, changed)
 	require.Equal(t, "custom_tool_call", gjsonGet(restored, "output.0.type"))
+	require.Equal(t, "ctc_1", gjsonGet(restored, "output.0.id"))
 	require.Equal(t, "pwd", gjsonGet(restored, "output.0.input"))
 	require.Equal(t, "function_call", gjsonGet(restored, "output.1.type"))
 }
@@ -80,6 +81,7 @@ func TestResponsesClientToolStreamRestorer(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, changed)
 	require.Equal(t, "custom_tool_call", gjsonGet(added[0], "item.type"))
+	require.Equal(t, "ctc_1", gjsonGet(added[0], "item.id"))
 	_, _, err = restorer.RestoreEvent([]byte(`{"type":"response.function_call_arguments.delta","sequence_number":1,"item_id":"fc_1","delta":"{\"input\":\"pwd\"}"}`))
 	require.NoError(t, err)
 	done, changed, err := restorer.RestoreEvent([]byte(`{"type":"response.function_call_arguments.done","sequence_number":2,"item_id":"fc_1","call_id":"c1","name":"exec","arguments":"{\"input\":\"pwd\"}"}`))
@@ -87,7 +89,25 @@ func TestResponsesClientToolStreamRestorer(t *testing.T) {
 	require.True(t, changed)
 	require.Len(t, done, 2)
 	require.Equal(t, "response.custom_tool_call_input.done", gjsonGet(done[1], "type"))
+	require.Equal(t, "ctc_1", gjsonGet(done[1], "item_id"))
 	require.Equal(t, "pwd", gjsonGet(done[1], "input"))
+}
+
+func TestResponsesClientToolItemIDRetypingIsReversible(t *testing.T) {
+	req := map[string]any{
+		"tools": []any{map[string]any{"type": "custom", "name": "exec"}},
+		"input": []any{map[string]any{"type": "custom_tool_call", "id": "ctc_suffix", "name": "exec", "input": "pwd"}},
+	}
+	mapping, changed, err := AdaptResponsesClientTools(req)
+	require.NoError(t, err)
+	require.True(t, changed)
+	call := req["input"].([]any)[0].(map[string]any)
+	require.Equal(t, "fc_suffix", call["id"])
+
+	restored, changed, err := RestoreResponsesClientToolPayload([]byte(`{"output":[{"type":"function_call","id":"fc_suffix","name":"exec","arguments":"{\"input\":\"pwd\"}"}]}`), mapping)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, "ctc_suffix", gjsonGet(restored, "output.0.id"))
 }
 
 func gjsonGet(payload []byte, path string) string {
