@@ -50,21 +50,51 @@
         <ul v-else class="pixel-cafe-my-rooms-list" data-testid="pixel-cafe-my-rooms-list">
           <li v-for="membership in myRooms" :key="membership.membership_id" class="pixel-cafe-my-room">
             <div class="pixel-cafe-my-room-title">
-              <span class="pixel-cafe-my-room-code">{{ membership.room.code }}</span>
               <strong>{{ membership.room.name }}</strong>
             </div>
-            <span :class="['pixel-cafe-my-room-state', `state-${myRoomStatus(membership)}`]">{{ myRoomStateLabel(myRoomStatus(membership)) }}</span>
-            <span class="pixel-cafe-my-room-meta">我的份额 {{ membership.paid_shares }} 份 · {{ membership.plan.validity_days }} 天</span>
-            <span v-if="membership.round.status === 'active' && membership.account" class="pixel-cafe-my-room-account">
-              绑定账号：{{ membership.account.name }} · {{ membership.account.platform }}<span v-if="membership.account.email_masked"> · {{ membership.account.email_masked }}</span>
-            </span>
-            <span v-else class="pixel-cafe-my-room-account pixel-cafe-my-room-empty">{{ myRoomWaitingCopy(membership) }}</span>
-            <span v-if="membership.round.status === 'active' && membership.managed_api_key" class="pixel-cafe-my-room-key">
-              {{ membership.managed_api_key.name }} · {{ membership.managed_api_key.status }} · 总额度 {{ formatQuota(membership.managed_api_key.quota, membership.managed_api_key.quota_used) }}
-              · 5H {{ formatWindowQuota(membership.managed_api_key.usage_5h, membership.managed_api_key.rate_limit_5h) }}
-              · 7D {{ formatWindowQuota(membership.managed_api_key.usage_7d, membership.managed_api_key.rate_limit_7d) }}
-            </span>
-            <span v-else class="pixel-cafe-my-room-key pixel-cafe-my-room-empty">{{ membership.round.status === 'active' ? '暂无受管 Key' : '成团激活后生成受管 Key' }}</span>
+            <span class="pixel-cafe-my-room-account">绑定账号：{{ myRoomAccountCopy(membership) }}</span>
+            <span class="pixel-cafe-my-room-lifetime" data-testid="pixel-cafe-my-room-lifetime">{{ myRoomValidityCopy(membership) }}</span>
+            <div
+              v-if="membership.managed_api_key && myRoomHasActiveUsage(membership)"
+              class="pixel-cafe-my-room-usage"
+              data-testid="pixel-cafe-my-room-usage"
+            >
+              <section class="pixel-cafe-my-room-window" data-testid="pixel-cafe-account-limit">
+                <div class="pixel-cafe-my-room-window-heading">
+                  <strong>账号 7D 剩余</strong>
+                  <span>{{ formatAccountRemaining(membership.account?.remaining_7d_percent) }}</span>
+                </div>
+                <div
+                  :class="['pixel-cafe-my-room-progress', accountRemainingAvailable(membership.account?.remaining_7d_percent) ? `tone-${accountRemainingTone(membership.account?.remaining_7d_percent)}` : 'tone-unavailable']"
+                  role="progressbar"
+                  aria-label="账号 7D 剩余额度"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  :aria-valuenow="accountRemainingAvailable(membership.account?.remaining_7d_percent) ? membership.account?.remaining_7d_percent : undefined"
+                  :aria-valuetext="formatAccountRemaining(membership.account?.remaining_7d_percent)"
+                >
+                  <span :style="{ width: `${accountRemainingAvailable(membership.account?.remaining_7d_percent) ? membership.account?.remaining_7d_percent : 0}%` }"></span>
+                </div>
+              </section>
+              <section class="pixel-cafe-my-room-window" data-testid="pixel-cafe-my-limit">
+                <div class="pixel-cafe-my-room-window-heading">
+                  <strong>我的限额</strong>
+                  <span>{{ formatWindowQuota(membership.managed_api_key.usage_7d, membership.managed_api_key.rate_limit_7d) }}</span>
+                </div>
+                <div
+                  :class="['pixel-cafe-my-room-progress', `tone-${usageTone(membership.managed_api_key.usage_7d, membership.managed_api_key.rate_limit_7d)}`]"
+                  role="progressbar"
+                  aria-label="我的限额使用进度"
+                  aria-valuemin="0"
+                  :aria-valuemax="membership.managed_api_key.rate_limit_7d > 0 ? membership.managed_api_key.rate_limit_7d : undefined"
+                  :aria-valuenow="membership.managed_api_key.rate_limit_7d > 0 ? Math.min(membership.managed_api_key.usage_7d, membership.managed_api_key.rate_limit_7d) : undefined"
+                  :aria-valuetext="formatWindowQuota(membership.managed_api_key.usage_7d, membership.managed_api_key.rate_limit_7d)"
+                >
+                  <span :style="{ width: `${usagePercent(membership.managed_api_key.usage_7d, membership.managed_api_key.rate_limit_7d)}%` }"></span>
+                </div>
+              </section>
+            </div>
+            <span v-else class="pixel-cafe-my-room-limit-empty">{{ myRoomLimitFallback(membership) }}</span>
           </li>
         </ul>
       </section>
@@ -283,6 +313,8 @@ const selectedRoom = ref<CafePublicRoom | null>(null)
 const roomDialogOpen = ref(false)
 const roomDialogClose = ref<HTMLButtonElement>()
 let roomDialogReturnFocus: HTMLElement | null = null
+const countdownNow = ref(Date.now())
+let countdownTimer: number | undefined
 const loading = ref(false)
 const errorMessage = ref('')
 const selectedShareCount = ref(1)
@@ -432,31 +464,82 @@ function roomMemberAvatarUrl(seed: string): string {
   return roomMemberAvatarUrls[hash % roomMemberAvatarUrls.length]
 }
 
-function formatQuota(quota: number, used: number): string {
-  if (quota <= 0) return `已用 ${used.toFixed(2)} / 不限`
-  return `${used.toFixed(2)} / ${quota.toFixed(2)}`
-}
-
 function formatWindowQuota(used: number, limit: number): string {
   if (limit <= 0) return `${used.toFixed(2)} / 不限`
   return `${used.toFixed(2)} / ${limit.toFixed(2)}`
 }
 
-function myRoomStateLabel(status: string): string {
-  const labels: Record<string, string> = {
-    locked: '待付款',
-    paid: '等待成团',
-    open: '等待成团',
-    awaiting_account: '待配号',
-    active: '使用中',
-    released: '已释放',
-    cancelled: '已取消',
-    refund_pending: '退款处理中',
-    refund_processing: '退款处理中',
-    refunded: '已退款',
-  }
-  return labels[status] || status
+function accountRemainingAvailable(value?: number): value is number {
+  return Number.isFinite(value) && value! >= 0 && value! <= 100
 }
+
+function formatAccountRemaining(value?: number): string {
+  return accountRemainingAvailable(value) ? `${value.toFixed(2)}%` : '暂不可用'
+}
+
+function accountRemainingTone(value?: number): 'normal' | 'warning' | 'danger' {
+  if (!accountRemainingAvailable(value)) return 'normal'
+  if (value <= 10) return 'danger'
+  if (value <= 30) return 'warning'
+  return 'normal'
+}
+
+function usagePercent(used: number, limit: number): number {
+  if (!Number.isFinite(used) || !Number.isFinite(limit) || limit <= 0) return 0
+  return Math.min(100, Math.max(0, (used / limit) * 100))
+}
+
+function usageTone(used: number, limit: number): 'normal' | 'warning' | 'danger' | 'unlimited' {
+  if (limit <= 0) return 'unlimited'
+  const percent = usagePercent(used, limit)
+  if (percent >= 90) return 'danger'
+  if (percent >= 70) return 'warning'
+  return 'normal'
+}
+
+function parseTimestamp(value?: string): number | null {
+  if (!value) return null
+  const timestamp = Date.parse(value)
+  return Number.isFinite(timestamp) ? timestamp : null
+}
+
+function formatRemaining(value: string): string {
+  const timestamp = parseTimestamp(value)
+  if (timestamp === null) return '时间未知'
+  const remainingMinutes = Math.max(0, Math.ceil((timestamp - countdownNow.value) / 60_000))
+  const days = Math.floor(remainingMinutes / (24 * 60))
+  const hours = Math.floor((remainingMinutes % (24 * 60)) / 60)
+  const minutes = remainingMinutes % 60
+  if (days > 0) return `${days}天${hours}小时`
+  if (hours > 0) return `${hours}小时${minutes}分钟`
+  return `${remainingMinutes}分钟`
+}
+
+function myRoomWithinValidity(membership: CafeMyRoom): boolean {
+  const expiresAt = parseTimestamp(membership.expires_at)
+  return expiresAt === null || expiresAt > countdownNow.value
+}
+
+function myRoomHasActiveUsage(membership: CafeMyRoom): boolean {
+  return myRoomStatus(membership) === 'active' && membership.round.status === 'active' && Boolean(membership.account) && Boolean(membership.managed_api_key) && myRoomWithinValidity(membership)
+}
+
+function myRoomValidityCopy(membership: CafeMyRoom): string {
+  if (membership.round.status !== 'active') {
+    const terminalStatuses = new Set(['released', 'cancelled', 'refund_pending', 'refund_processing', 'refunded'])
+    return terminalStatuses.has(myRoomStatus(membership)) ? '剩余时间：已结束' : '剩余时间：开通后开始计算'
+  }
+  if (!membership.expires_at) return '剩余时间：长期有效'
+  if (!myRoomWithinValidity(membership)) return '剩余时间：已到期'
+  return `剩余时间：${formatRemaining(membership.expires_at)}`
+}
+
+function myRoomLimitFallback(membership: CafeMyRoom): string {
+  if (membership.round.status !== 'active') return '我的限额：开通后显示'
+  if (!myRoomWithinValidity(membership)) return '我的限额：已到期'
+  return '我的限额：暂不可用'
+}
+
 function myRoomStatus(membership: CafeMyRoom): string { return membership.status || membership.round.status }
 function myRoomWaitingCopy(membership: CafeMyRoom): string {
   if (membership.round.status === 'awaiting_account') return '已成团，预计 24 小时内开通'
@@ -464,6 +547,10 @@ function myRoomWaitingCopy(membership: CafeMyRoom): string {
   if (membership.round.status === 'refunded') return '已退款'
   if (membership.round.status === 'active') return '账号信息暂不可用'
   return '等待成团'
+}
+function myRoomAccountCopy(membership: CafeMyRoom): string {
+  if (membership.round.status === 'active' && membership.account) return membership.account.name
+  return myRoomWaitingCopy(membership)
 }
 function maxPurchasableShares(room: CafePublicRoom): number {
   const remaining = room.round?.remaining_shares ?? 0
@@ -630,11 +717,13 @@ function restoreHorizontalOverflow(): void {
 
 onMounted(() => {
   containHorizontalOverflow()
+  countdownTimer = window.setInterval(() => { countdownNow.value = Date.now() }, 30_000)
   void loadOverview()
   void loadMyRooms()
 })
 
 onUnmounted(() => {
+  if (countdownTimer !== undefined) window.clearInterval(countdownTimer)
   restoreHorizontalOverflow()
 })
 </script>
@@ -674,7 +763,8 @@ onUnmounted(() => {
 @media (max-width: 900px) { .pixel-cafe-page { padding: .85rem; }.pixel-cafe-header { position: relative; top: auto; left: auto; order: 0; width: auto; margin: 0 0 .8rem; pointer-events: auto; }.pixel-cafe-workbench { width: 100%; }.pixel-cafe-scene { overflow: hidden; }.pixel-cafe-scene-topline { top: .75rem; right: .75rem; }.pixel-cafe-room-list { top: auto; right: .75rem; bottom: .75rem; left: .75rem; width: auto; height: min(10rem, calc(100% - 4.5rem)); max-height: none; padding: .6rem; }.pixel-cafe-room-list-heading { min-height: 1.65rem; }.pixel-cafe-room-list-heading h2 { display: inline; margin: 0; font-size: .9rem; }.pixel-cafe-room-list-heading .pixel-cafe-label { display: none; }.pixel-cafe-room-list-count { font-size: .68rem; }.pixel-cafe-room-cards { display: flex; gap: .55rem; margin-top: .4rem; padding: 0 0 .2rem; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x proximity; touch-action: pan-x; }.pixel-cafe-room-card { width: min(72vw, 17rem); height: 100%; flex: 0 0 min(72vw, 17rem); padding: .6rem; scroll-snap-align: start; }.pixel-cafe-front-desk { top: .75rem; right: auto; bottom: auto; left: .75rem; max-width: 15rem; margin: 0; padding: .45rem .55rem; }.pixel-cafe-front-desk strong { font-size: .68rem; }.pixel-cafe-inspector { width: 100%; }.pixel-cafe-demo-badge { top: 2.85rem; right: .75rem; bottom: auto; margin: 0; }.pixel-cafe-my-rooms { margin-top: 1rem; } }
 .pixel-cafe-single-room-note { border-left-color: #efbd68; color: #c8d5df; background: rgba(65, 46, 26, .66); }
 @media (max-width: 620px) { .pixel-cafe-page { padding: .7rem; }.pixel-cafe-header h1 { font-size: 2rem; }.pixel-cafe-scene-topline { top: .55rem; right: .55rem; }.pixel-cafe-room-list { right: .55rem; bottom: .55rem; left: .55rem; height: min(8.25rem, calc(100% - 3.8rem)); padding: .45rem; }.pixel-cafe-room-list-heading { min-height: 1.35rem; }.pixel-cafe-room-cards { gap: .4rem; margin-top: .25rem; }.pixel-cafe-room-card { width: min(76vw, 16rem); flex-basis: min(76vw, 16rem); gap: .2rem; padding: .42rem .5rem; }.pixel-cafe-room-card strong { font-size: .76rem; }.pixel-cafe-room-card-stats { flex-wrap: nowrap; gap: .35rem; font-size: .61rem; white-space: nowrap; }.pixel-cafe-room-card-code, .pixel-cafe-room-card-state { font-size: .61rem; }.pixel-cafe-room-card-members { min-height: 1.25rem; padding-top: 0; }.pixel-cafe-room-member-avatar { width: 1.2rem; height: 1.2rem; }.pixel-cafe-room-member-more { min-width: 1.2rem; height: 1.2rem; font-size: .55rem; }.pixel-cafe-front-desk { top: .55rem; right: auto; bottom: auto; left: .55rem; max-width: 5rem; padding: .3rem .4rem; }.pixel-cafe-front-desk-lamp, .pixel-cafe-front-desk strong { display: none; }.pixel-cafe-front-desk p { margin: 0; font-size: .61rem; }.pixel-cafe-demo-badge { top: 2.15rem; right: .55rem; padding: .25rem .35rem; font-size: .56rem; }.pixel-cafe-dialog-backdrop { padding: .5rem; }.pixel-cafe-inspector { max-height: calc(100dvh - 1rem); padding: .85rem; }.pixel-cafe-my-rooms-list { grid-template-columns: 1fr; } }
-.pixel-cafe-my-room-account { grid-column: 1 / -1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #aebfcd; font-size: .7rem; }.pixel-cafe-my-room-empty { color: #8799a8; }
+.pixel-cafe-my-room { grid-template-columns: minmax(0, 1fr); gap: .4rem; min-width: 0; }.pixel-cafe-my-room-account, .pixel-cafe-my-room-lifetime, .pixel-cafe-my-room-limit-empty { overflow: hidden; color: #aebfcd; font-size: .7rem; text-overflow: ellipsis; white-space: nowrap; }.pixel-cafe-my-room-lifetime { color: #bfd0dc; }.pixel-cafe-my-room-limit-empty { color: #8799a8; }.pixel-cafe-my-room-usage { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; min-width: 0; margin-top: .1rem; }.pixel-cafe-my-room-window { min-width: 0; padding: .5rem .55rem; border: 1px solid rgba(95, 120, 139, .72); background: rgba(7, 25, 40, .72); }.pixel-cafe-my-room-window-heading { display: flex; justify-content: space-between; gap: .55rem; color: #dce9f2; font-size: .68rem; }.pixel-cafe-my-room-window-heading strong { color: #f3c36d; font-size: .7rem; }.pixel-cafe-my-room-window-heading span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.pixel-cafe-my-room-progress { height: .42rem; margin-top: .45rem; overflow: hidden; border: 1px solid rgba(106, 134, 153, .62); background: #07131f; }.pixel-cafe-my-room-progress > span { display: block; height: 100%; background: #64c991; }.pixel-cafe-my-room-progress.tone-warning > span { background: #e2b25f; }.pixel-cafe-my-room-progress.tone-danger > span { background: #e87970; }.pixel-cafe-my-room-progress.tone-unlimited { background: repeating-linear-gradient(135deg, rgba(100, 201, 145, .28) 0, rgba(100, 201, 145, .28) 4px, rgba(7, 19, 31, .9) 4px, rgba(7, 19, 31, .9) 8px); }.pixel-cafe-my-room-progress.tone-unavailable > span { background: #5f7180; }
 .pixel-cafe-room-card-titleline { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: .5rem; }.pixel-cafe-room-card-titleline strong { min-width: 0; }.pixel-cafe-room-card-badges { display: flex; flex: 0 0 auto; gap: .2rem; }.pixel-cafe-room-card-badge { padding: .16rem .3rem; border: 1px solid #53718a; color: #a9c7dc; background: #172c3f; font: 700 .58rem/1 monospace; letter-spacing: .03em; }.pixel-cafe-room-card-badge.tier { border-color: #806f57; color: #f3c36d; background: #2a261f; }.pixel-cafe-room-card-members { display: flex; min-width: 0; min-height: 1.9rem; align-items: center; padding: .1rem 0 0 .35rem; }.pixel-cafe-room-member-avatar { display: grid; width: 1.75rem; height: 1.75rem; margin-left: -.35rem; overflow: hidden; border: 1px solid #5d768b; background: #172b3d; box-shadow: 1px 1px 0 rgba(0, 0, 0, .35); place-items: center; }.pixel-cafe-room-member-avatar:first-child { margin-left: 0; }.pixel-cafe-room-member-avatar img { display: block; width: 100%; height: 100%; image-rendering: pixelated; object-fit: contain; }.pixel-cafe-room-member-more { display: grid; min-width: 1.75rem; height: 1.75rem; margin-left: -.2rem; padding: 0 .2rem; border: 1px solid #806f57; color: #f3c36d; background: #182535; place-items: center; font: 700 .62rem/1 monospace; }
 @media (max-width: 620px) { .pixel-cafe-room-card-members { min-height: 1.05rem; padding: 0 0 0 .2rem; }.pixel-cafe-room-member-avatar { width: 1rem; height: 1rem; margin-left: -.2rem; }.pixel-cafe-room-member-more { min-width: 1rem; height: 1rem; margin-left: -.12rem; padding: 0 .12rem; font-size: .5rem; } }
+@media (max-width: 620px) { .pixel-cafe-my-room-usage { grid-template-columns: 1fr; } }
 </style>

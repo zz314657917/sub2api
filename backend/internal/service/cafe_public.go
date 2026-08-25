@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -169,6 +170,8 @@ type CafeMyRoom struct {
 	MembershipID  int64                 `json:"membership_id"`
 	Status        string                `json:"status"`
 	PaidShares    int                   `json:"paid_shares"`
+	ActivatedAt   *time.Time            `json:"activated_at,omitempty"`
+	ExpiresAt     *time.Time            `json:"expires_at,omitempty"`
 	Room          CafeMyRoomRoom        `json:"room"`
 	Account       *CafeMyRoomAccount    `json:"account,omitempty"`
 	Plan          CafeMyRoomPlan        `json:"plan"`
@@ -186,9 +189,10 @@ type CafeMyRoomRoom struct {
 }
 
 type CafeMyRoomAccount struct {
-	Name        string `json:"name"`
-	Platform    string `json:"platform"`
-	EmailMasked string `json:"email_masked,omitempty"`
+	Name               string   `json:"name"`
+	Platform           string   `json:"platform"`
+	EmailMasked        string   `json:"email_masked,omitempty"`
+	Remaining7dPercent *float64 `json:"remaining_7d_percent,omitempty"`
 }
 
 type CafeMyRoomPlan struct {
@@ -214,17 +218,19 @@ type CafeMyRoomSeat struct {
 }
 
 type CafeMyRoomManagedKey struct {
-	ID          int64   `json:"id"`
-	Name        string  `json:"name"`
-	Status      string  `json:"status"`
-	Quota       float64 `json:"quota"`
-	QuotaUsed   float64 `json:"quota_used"`
-	RateLimit5h float64 `json:"rate_limit_5h"`
-	RateLimit1d float64 `json:"rate_limit_1d"`
-	RateLimit7d float64 `json:"rate_limit_7d"`
-	Usage5h     float64 `json:"usage_5h"`
-	Usage7d     float64 `json:"usage_7d"`
-	Protected   bool    `json:"protected"`
+	ID          int64      `json:"id"`
+	Name        string     `json:"name"`
+	Status      string     `json:"status"`
+	Quota       float64    `json:"quota"`
+	QuotaUsed   float64    `json:"quota_used"`
+	RateLimit5h float64    `json:"rate_limit_5h"`
+	RateLimit1d float64    `json:"rate_limit_1d"`
+	RateLimit7d float64    `json:"rate_limit_7d"`
+	Usage5h     float64    `json:"usage_5h"`
+	Usage7d     float64    `json:"usage_7d"`
+	ResetAt5h   *time.Time `json:"reset_at_5h,omitempty"`
+	ResetAt7d   *time.Time `json:"reset_at_7d,omitempty"`
+	Protected   bool       `json:"protected"`
 }
 
 func (s *CafePublicService) Overview(ctx context.Context, userID int64, roomLimit int) (*CafePublicOverview, error) {
@@ -390,7 +396,7 @@ func (s *CafePublicService) MyRooms(ctx context.Context, userID int64, params Ca
 		if !cafeMyRoomMembershipMatchesStatuses(membership, statuses, now) {
 			continue
 		}
-		item, ok := cafeMyRoomFromMembership(membership, keysByID)
+		item, ok := cafeMyRoomFromMembership(membership, keysByID, now)
 		if ok {
 			allItems = append(allItems, datedMyRoom{item: item, at: membership.CreatedAt})
 		}
@@ -408,7 +414,7 @@ func (s *CafePublicService) MyRooms(ctx context.Context, userID int64, params Ca
 		if !cafeMyRoomLegacySeatMatchesStatuses(seat, statuses, now) {
 			continue
 		}
-		if item, ok := cafeMyRoomFromSeat(seat); ok {
+		if item, ok := cafeMyRoomFromSeat(seat, now); ok {
 			allItems = append(allItems, datedMyRoom{item: item, at: seat.CreatedAt})
 		}
 	}
@@ -506,7 +512,7 @@ func cafeMyRoomLegacySeatMatchesStatuses(seat *dbent.GroupBuySeat, statuses []st
 	return false
 }
 
-func cafeMyRoomFromMembership(membership *dbent.CafeRoundMembership, keys map[int64]*dbent.APIKey) (CafeMyRoom, bool) {
+func cafeMyRoomFromMembership(membership *dbent.CafeRoundMembership, keys map[int64]*dbent.APIKey, now time.Time) (CafeMyRoom, bool) {
 	if membership == nil || membership.Edges.Round == nil || membership.Edges.Round.Edges.CafeRoom == nil || membership.Edges.Round.Edges.Plan == nil {
 		return CafeMyRoom{}, false
 	}
@@ -517,24 +523,26 @@ func cafeMyRoomFromMembership(membership *dbent.CafeRoundMembership, keys map[in
 		MembershipID: membership.ID,
 		Status:       membership.Status,
 		PaidShares:   membership.PaidShares,
+		ActivatedAt:  membership.ActivatedAt,
+		ExpiresAt:    membership.ExpiresAt,
 		Room:         CafeMyRoomRoom{ID: room.ID, Code: room.Code, Name: room.Name, ZoneKey: room.ZoneKey, ThemeKey: room.ThemeKey},
 		Plan:         CafeMyRoomPlan{ID: plan.ID, Title: plan.Title, SubscriptionTier: cafeRoundSubscriptionTier(round), ValidityDays: cafeRoundValidityDays(round, plan.ValidityDays)},
 		Round:        CafeMyRoomRound{ID: round.ID, Status: round.Status, PaidShares: round.PaidShares, TotalShares: round.TotalShares},
 	}
 	if round.Status == GroupBuyRoundStatusActive && membership.Status == GroupBuySeatStatusActive {
 		if assigned := round.Edges.AssignedAccount; assigned != nil {
-			item.Account = safeCafeMyRoomAccount(assigned)
+			item.Account = safeCafeMyRoomAccount(assigned, now)
 		}
 		if membership.BoundAPIKeyID != nil {
 			if key := keys[*membership.BoundAPIKeyID]; key != nil && key.UserID == membership.UserID && key.ManagedSourceType == APIKeyManagedSourceCafeRoomMembership && key.ManagedSourceID != nil && *key.ManagedSourceID == membership.ID {
-				item.ManagedAPIKey = cafeMyRoomManagedKey(key)
+				item.ManagedAPIKey = cafeMyRoomManagedKey(key, now)
 			}
 		}
 	}
 	return item, true
 }
 
-func cafeMyRoomFromSeat(seat *dbent.GroupBuySeat) (CafeMyRoom, bool) {
+func cafeMyRoomFromSeat(seat *dbent.GroupBuySeat, now time.Time) (CafeMyRoom, bool) {
 	if seat == nil || seat.Edges.Round == nil || seat.Edges.Round.Edges.CafeRoom == nil || seat.Edges.Plan == nil {
 		return CafeMyRoom{}, false
 	}
@@ -544,6 +552,8 @@ func cafeMyRoomFromSeat(seat *dbent.GroupBuySeat) (CafeMyRoom, bool) {
 		MembershipID: seat.ID,
 		Status:       seat.Status,
 		PaidShares:   seat.ShareCount,
+		ActivatedAt:  seat.ActivatedAt,
+		ExpiresAt:    seat.ExpiresAt,
 		Room: CafeMyRoomRoom{
 			ID: room.ID, Code: room.Code, Name: room.Name, ZoneKey: room.ZoneKey, ThemeKey: room.ThemeKey,
 		},
@@ -552,26 +562,63 @@ func cafeMyRoomFromSeat(seat *dbent.GroupBuySeat) (CafeMyRoom, bool) {
 		Seat:  CafeMyRoomSeat{ID: seat.ID, SeatNo: seat.SeatNo, Status: seat.Status, ActivatedAt: seat.ActivatedAt, ExpiresAt: seat.ExpiresAt},
 	}
 	if account := room.Edges.Account; account != nil {
-		item.Account = safeCafeMyRoomAccount(account)
+		item.Account = safeCafeMyRoomAccount(account, now)
 	}
 	if key := seat.Edges.BoundAPIKey; key != nil && key.UserID == seat.UserID && key.ManagedSourceType == APIKeyManagedSourceCafeRoomSeat && key.ManagedSourceID != nil && *key.ManagedSourceID == seat.ID {
-		item.ManagedAPIKey = cafeMyRoomManagedKey(key)
+		item.ManagedAPIKey = cafeMyRoomManagedKey(key, now)
 	}
 	return item, true
 }
 
-func safeCafeMyRoomAccount(account *dbent.Account) *CafeMyRoomAccount {
+func safeCafeMyRoomAccount(account *dbent.Account, now time.Time) *CafeMyRoomAccount {
 	if account == nil {
 		return nil
 	}
-	return &CafeMyRoomAccount{Name: cafeAccountDisplayName(account.Name), Platform: account.Platform, EmailMasked: cafeAccountEmailMasked(account)}
+	return &CafeMyRoomAccount{
+		Name:               cafeAccountDisplayName(account.Name),
+		Platform:           account.Platform,
+		EmailMasked:        cafeAccountEmailMasked(account),
+		Remaining7dPercent: cafeAccountRemaining7dPercent(account, now),
+	}
 }
 
-func cafeMyRoomManagedKey(key *dbent.APIKey) *CafeMyRoomManagedKey {
+func cafeAccountRemaining7dPercent(account *dbent.Account, now time.Time) *float64 {
+	if account == nil || account.Platform != PlatformOpenAI {
+		return nil
+	}
+	progress := buildCodexUsageProgressFromExtra(account.Extra, "7d", now)
+	if progress == nil || math.IsNaN(progress.Utilization) || math.IsInf(progress.Utilization, 0) {
+		return nil
+	}
+	remaining := 100 - math.Min(100, math.Max(0, progress.Utilization))
+	return &remaining
+}
+
+func cafeMyRoomManagedKey(key *dbent.APIKey, now time.Time) *CafeMyRoomManagedKey {
 	if key == nil {
 		return nil
 	}
-	return &CafeMyRoomManagedKey{ID: key.ID, Name: key.Name, Status: key.Status, Quota: key.Quota, QuotaUsed: key.QuotaUsed, RateLimit5h: key.RateLimit5h, RateLimit1d: key.RateLimit1d, RateLimit7d: key.RateLimit7d, Usage5h: key.Usage5h, Usage7d: key.Usage7d, Protected: true}
+	usage5h, resetAt5h := cafeMyRoomWindowProjection(key.Usage5h, key.RateLimit5h, key.Window5hStart, 5*time.Hour, now)
+	usage7d, resetAt7d := cafeMyRoomWindowProjection(key.Usage7d, key.RateLimit7d, key.Window7dStart, 7*24*time.Hour, now)
+	return &CafeMyRoomManagedKey{
+		ID: key.ID, Name: key.Name, Status: key.Status, Quota: key.Quota, QuotaUsed: key.QuotaUsed,
+		RateLimit5h: key.RateLimit5h, RateLimit1d: key.RateLimit1d, RateLimit7d: key.RateLimit7d,
+		Usage5h: usage5h, Usage7d: usage7d, ResetAt5h: resetAt5h, ResetAt7d: resetAt7d, Protected: true,
+	}
+}
+
+func cafeMyRoomWindowProjection(usage, limit float64, windowStart *time.Time, windowSize time.Duration, now time.Time) (float64, *time.Time) {
+	if limit <= 0 {
+		return usage, nil
+	}
+	if windowStart == nil {
+		return 0, nil
+	}
+	resetAt := windowStart.Add(windowSize).UTC()
+	if !resetAt.After(now) {
+		return 0, nil
+	}
+	return usage, &resetAt
 }
 
 func cafeRoundValidityDays(round *dbent.GroupBuyRound, fallback int) int {

@@ -149,13 +149,14 @@ func TestCafePublicServiceListsMyRoomsWithSafeStatusProjection(t *testing.T) {
 	plan := createGroupBuyTestPlan(t, ctx, client, groupID, GroupBuyLaunchModeManual, 5)
 	_, err := client.GroupBuyPlan.UpdateOneID(plan.ID).SetFulfillmentMode(CafeRoomFulfillmentMode).Save(ctx)
 	require.NoError(t, err)
-	account, err := client.Account.Create().SetName("Claude Pro 主账号").SetPlatform(PlatformAnthropic).
-		SetType("api_key").SetStatus(StatusActive).SetCredentials(map[string]interface{}{"email": "owner@example.com", "api_key": "must-not-leak"}).Save(ctx)
-	require.NoError(t, err)
-	room, err := client.CafeRoom.Create().SetCode("CAFE-MY-001").SetName("我的 Claude 包间").SetPlanID(plan.ID).SetAccountID(account.ID).
-		SetZoneKey("claude").SetThemeKey("warm_wood").SetStatus(CafeRoomStatusEnabled).Save(ctx)
-	require.NoError(t, err)
 	now := time.Date(2026, 8, 3, 16, 15, 0, 0, time.UTC)
+	account, err := client.Account.Create().SetName("ChatGPT Pro 主账号").SetPlatform(PlatformOpenAI).
+		SetType("api_key").SetStatus(StatusActive).SetCredentials(map[string]interface{}{"email": "owner@example.com", "api_key": "must-not-leak"}).
+		SetExtra(map[string]interface{}{"codex_7d_used_percent": 37.5, "codex_7d_reset_at": now.Add(4 * 24 * time.Hour).Format(time.RFC3339), "private_note": "must-not-leak-extra"}).Save(ctx)
+	require.NoError(t, err)
+	room, err := client.CafeRoom.Create().SetCode("CAFE-MY-001").SetName("我的 ChatGPT 包间").SetPlanID(plan.ID).SetAccountID(account.ID).
+		SetZoneKey("openai").SetThemeKey("warm_wood").SetStatus(CafeRoomStatusEnabled).Save(ctx)
+	require.NoError(t, err)
 	round, err := client.GroupBuyRound.Create().SetPlanID(plan.ID).SetCafeRoomID(room.ID).SetStatus("active").
 		SetTotalShares(5).SetTotalSeats(5).SetPaidShares(5).SetPaidSeats(5).SetDeadlineAt(now.Add(-time.Hour)).Save(ctx)
 	require.NoError(t, err)
@@ -164,8 +165,9 @@ func TestCafePublicServiceListsMyRoomsWithSafeStatusProjection(t *testing.T) {
 	activeSeat, err := client.GroupBuySeat.Create().SetRoundID(round.ID).SetPlanID(plan.ID).SetUserID(user.ID).SetSeatNo(1).
 		SetStatus(GroupBuySeatStatusActive).SetActivatedAt(now.Add(-time.Hour)).SetExpiresAt(now.Add(time.Hour)).Save(ctx)
 	require.NoError(t, err)
-	managedKey, err := client.APIKey.Create().SetUserID(user.ID).SetKey("sk-cafe-my-rooms-private").SetName("Claude 包间 CAFE-MY-001 / 座位 1").
+	managedKey, err := client.APIKey.Create().SetUserID(user.ID).SetKey("sk-cafe-my-rooms-private").SetName("ChatGPT 包间 CAFE-MY-001 / 座位 1").
 		SetStatus("disabled").SetQuota(100).SetQuotaUsed(12.3).SetRateLimit5h(10).SetRateLimit1d(20).SetRateLimit7d(80).SetUsage5h(2.5).SetUsage7d(18.75).
+		SetWindow5hStart(now.Add(-2 * time.Hour)).SetWindow7dStart(now.Add(-72 * time.Hour)).
 		SetManagedSourceType(APIKeyManagedSourceCafeRoomSeat).SetManagedSourceID(activeSeat.ID).Save(ctx)
 	require.NoError(t, err)
 	_, err = client.GroupBuySeat.UpdateOneID(activeSeat.ID).SetBoundAPIKeyID(managedKey.ID).Save(ctx)
@@ -215,20 +217,28 @@ func TestCafePublicServiceListsMyRoomsWithSafeStatusProjection(t *testing.T) {
 	require.Equal(t, room.ID, activeItem.Room.ID)
 	require.Equal(t, plan.ID, activeItem.Plan.ID)
 	require.NotNil(t, activeItem.Account)
-	require.Equal(t, "Claude Pro 主账号", activeItem.Account.Name)
-	require.Equal(t, PlatformAnthropic, activeItem.Account.Platform)
+	require.Equal(t, "ChatGPT Pro 主账号", activeItem.Account.Name)
+	require.Equal(t, PlatformOpenAI, activeItem.Account.Platform)
 	require.Equal(t, "o***r@example.com", activeItem.Account.EmailMasked)
+	require.NotNil(t, activeItem.Account.Remaining7dPercent)
+	require.Equal(t, 62.5, *activeItem.Account.Remaining7dPercent)
 	require.NotNil(t, activeItem.ManagedAPIKey)
+	require.Equal(t, activeSeat.ActivatedAt, activeItem.ActivatedAt)
+	require.Equal(t, activeSeat.ExpiresAt, activeItem.ExpiresAt)
 	require.Equal(t, managedKey.ID, activeItem.ManagedAPIKey.ID)
 	require.Equal(t, 2.5, activeItem.ManagedAPIKey.Usage5h)
 	require.Equal(t, 18.75, activeItem.ManagedAPIKey.Usage7d)
+	require.NotNil(t, activeItem.ManagedAPIKey.ResetAt5h)
+	require.Equal(t, now.Add(3*time.Hour), *activeItem.ManagedAPIKey.ResetAt5h)
+	require.NotNil(t, activeItem.ManagedAPIKey.ResetAt7d)
+	require.Equal(t, now.Add(4*24*time.Hour), *activeItem.ManagedAPIKey.ResetAt7d)
 	require.True(t, activeItem.ManagedAPIKey.Protected)
 	require.NotNil(t, paidItem)
 	require.Nil(t, paidItem.ManagedAPIKey)
 
 	encoded, err := json.Marshal(items)
 	require.NoError(t, err)
-	for _, prohibited := range []string{"\"key\":", "masked_key", "user_id", "group_id", "managed_source_id", "account_id", "credentials", "must-not-leak", "owner@example.com", "sk-cafe-my-rooms-private", "sk-not-for-client"} {
+	for _, prohibited := range []string{"\"key\":", "masked_key", "user_id", "group_id", "managed_source_id", "account_id", "credentials", "\"extra\":", "codex_7d_used_percent", "window_5h_start", "window_7d_start", "must-not-leak", "owner@example.com", "sk-cafe-my-rooms-private", "sk-not-for-client"} {
 		require.NotContains(t, string(encoded), prohibited)
 	}
 
@@ -246,6 +256,45 @@ func TestCafePublicServiceListsMyRoomsWithSafeStatusProjection(t *testing.T) {
 	require.Equal(t, int64(2), historyPage.Total)
 	require.Len(t, historyItems, 1)
 	require.Equal(t, 2, historyPage.Pages)
+}
+
+func TestCafeMyRoomManagedKeyProjectsOnlyCurrentFiniteWindows(t *testing.T) {
+	now := time.Date(2026, 8, 25, 8, 0, 0, 0, time.UTC)
+	active5hStart := now.Add(-90 * time.Minute)
+	elapsed7dStart := now.Add(-8 * 24 * time.Hour)
+
+	projected := cafeMyRoomManagedKey(&dbent.APIKey{
+		ID: 42, RateLimit5h: 20, RateLimit7d: 80, Usage5h: 5.4, Usage7d: 31.2,
+		Window5hStart: &active5hStart, Window7dStart: &elapsed7dStart,
+	}, now)
+	require.NotNil(t, projected)
+	require.Equal(t, 5.4, projected.Usage5h)
+	require.NotNil(t, projected.ResetAt5h)
+	require.Equal(t, now.Add(210*time.Minute), *projected.ResetAt5h)
+	require.Zero(t, projected.Usage7d)
+	require.Nil(t, projected.ResetAt7d)
+
+	notStarted := cafeMyRoomManagedKey(&dbent.APIKey{RateLimit5h: 20, Usage5h: 9}, now)
+	require.Zero(t, notStarted.Usage5h)
+	require.Nil(t, notStarted.ResetAt5h)
+
+	unlimited := cafeMyRoomManagedKey(&dbent.APIKey{RateLimit5h: 0, Usage5h: 9, Window5hStart: &active5hStart}, now)
+	require.Equal(t, 9.0, unlimited.Usage5h)
+	require.Nil(t, unlimited.ResetAt5h)
+}
+
+func TestCafeAccountRemaining7dPercentUsesOnlyOpenAISnapshot(t *testing.T) {
+	now := time.Date(2026, 8, 25, 8, 0, 0, 0, time.UTC)
+	openAIAccount := &dbent.Account{Platform: PlatformOpenAI, Extra: map[string]interface{}{
+		"codex_7d_used_percent": 37.5,
+		"codex_7d_reset_at":     now.Add(24 * time.Hour).Format(time.RFC3339),
+	}}
+	remaining := cafeAccountRemaining7dPercent(openAIAccount, now)
+	require.NotNil(t, remaining)
+	require.Equal(t, 62.5, *remaining)
+
+	require.Nil(t, cafeAccountRemaining7dPercent(&dbent.Account{Platform: PlatformOpenAI}, now))
+	require.Nil(t, cafeAccountRemaining7dPercent(&dbent.Account{Platform: PlatformAnthropic, Extra: openAIAccount.Extra}, now))
 }
 
 func TestCafeMyRoomStatusParserFailsClosed(t *testing.T) {

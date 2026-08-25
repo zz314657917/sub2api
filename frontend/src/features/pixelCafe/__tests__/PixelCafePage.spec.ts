@@ -43,11 +43,13 @@ const myRoom = {
   membership_id: 892,
   status: 'active',
   paid_shares: 2,
+  activated_at: '2026-08-25T08:00:00Z',
+  expires_at: '2099-09-24T08:00:00Z',
   room: { id: 18, code: 'C-018', name: 'Plus 包间 18', zone_key: 'openai', theme_key: 'warm_wood' },
   plan: { id: 3, title: 'ChatGPT Plus', subscription_tier: 'plus', validity_days: 30 },
   round: { id: 1008, status: 'active', paid_shares: 5, total_shares: 5 },
-  account: { name: 'ChatGPT Plus 主账号', platform: 'openai', email_masked: 'o***r@example.com' },
-  managed_api_key: { id: 3011, name: 'Plus 包间 C-018 / Membership', status: 'disabled', quota: 100, quota_used: 12.3, rate_limit_5h: 10, rate_limit_1d: 20, rate_limit_7d: 80, usage_5h: 2.5, usage_7d: 18.75, protected: true as const },
+  account: { name: 'ChatGPT Plus 主账号', platform: 'openai', email_masked: 'o***r@example.com', remaining_7d_percent: 62.5 },
+  managed_api_key: { id: 3011, name: 'Plus 包间 C-018 / Membership', status: 'disabled', quota: 100, quota_used: 12.3, rate_limit_5h: 10, rate_limit_1d: 20, rate_limit_7d: 80, usage_5h: 2.5, usage_7d: 18.75, reset_at_5h: '2099-08-25T13:00:00Z', reset_at_7d: '2099-09-01T08:00:00Z', protected: true as const },
 }
 
 function overviewPayload(rooms = [room]) {
@@ -265,13 +267,26 @@ describe('PixelCafePage', () => {
     await flushPromises()
 
     expect(listMyRooms).toHaveBeenCalledWith({ page: 1, page_size: 20, status: 'active,waiting' })
-    expect(wrapper.find('[data-testid="pixel-cafe-my-rooms-list"]').text()).toContain('Plus 包间 C-018 / Membership')
+    expect(wrapper.find('[data-testid="pixel-cafe-my-rooms-list"]').text()).toContain('Plus 包间 18')
     expect(wrapper.text()).toContain('绑定账号：ChatGPT Plus 主账号')
-    expect(wrapper.text()).toContain('我的份额 2 份')
-    expect(wrapper.text()).toContain('o***r@example.com')
-    expect(wrapper.text()).toContain('5H 2.50 / 10.00')
-    expect(wrapper.text()).toContain('7D 18.75 / 80.00')
-    expect(wrapper.text()).toContain('使用中')
+    expect(wrapper.find('[data-testid="pixel-cafe-my-room-lifetime"]').text()).toMatch(/^剩余时间：/)
+    expect(wrapper.findAll('[data-testid="pixel-cafe-my-room-usage"]')).toHaveLength(1)
+    expect(wrapper.find('[data-testid="pixel-cafe-account-limit"]').text()).toContain('账号 7D 剩余')
+    expect(wrapper.find('[data-testid="pixel-cafe-account-limit"]').text()).toContain('62.50%')
+    expect(wrapper.find('[data-testid="pixel-cafe-account-limit"] [role="progressbar"]').attributes('aria-valuenow')).toBe('62.5')
+    expect(wrapper.find('[data-testid="pixel-cafe-account-limit"] [role="progressbar"] > span').attributes('style')).toContain('width: 62.5%')
+    expect(wrapper.find('[data-testid="pixel-cafe-my-limit"]').text()).toContain('我的限额')
+    expect(wrapper.find('[data-testid="pixel-cafe-my-limit"]').text()).toContain('18.75 / 80.00')
+    expect(wrapper.find('[data-testid="pixel-cafe-my-limit"] [role="progressbar"]').attributes('aria-valuenow')).toBe('18.75')
+    expect(wrapper.find('[data-testid="pixel-cafe-my-limit"] [role="progressbar"] > span').attributes('style')).toContain('width: 23.4375%')
+    expect(wrapper.find('[data-testid="pixel-cafe-my-rooms-list"]').text()).not.toContain('C-018')
+    expect(wrapper.text()).not.toContain('我的份额')
+    expect(wrapper.text()).not.toContain('o***r@example.com')
+    expect(wrapper.text()).not.toContain('5H 限额')
+    expect(wrapper.text()).not.toContain('7D 限额')
+    expect(wrapper.text()).not.toContain('下次刷新')
+    expect(wrapper.text()).not.toContain('总额度')
+    expect(wrapper.text()).not.toContain('使用中')
     expect(wrapper.text()).not.toContain('sk-cafe-my-rooms-private')
     await wrapper.findAll('.pixel-cafe-my-rooms-tab')[1].trigger('click')
     await flushPromises()
@@ -283,7 +298,7 @@ describe('PixelCafePage', () => {
       data: {
         items: [{
           ...myRoom,
-          account: null,
+          account: myRoom.account,
           managed_api_key: {
             ...myRoom.managed_api_key,
             quota: 0,
@@ -299,15 +314,51 @@ describe('PixelCafePage', () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('账号信息暂不可用')
-    expect(wrapper.text()).toContain('5H 0.00 / 不限')
-    expect(wrapper.text()).toContain('7D 0.00 / 不限')
+    expect(wrapper.text()).toContain('绑定账号：ChatGPT Plus 主账号')
+    expect(wrapper.find('[data-testid="pixel-cafe-my-limit"]').text()).toContain('0.00 / 不限')
+    expect(wrapper.find('[data-testid="pixel-cafe-limit-5h"]').exists()).toBe(false)
 
     listMyRooms.mockResolvedValueOnce({ data: { items: [{ ...myRoom, account: undefined, managed_api_key: null }] } })
     await wrapper.findAll('.pixel-cafe-my-rooms-tab')[1].trigger('click')
     await flushPromises()
-    expect(wrapper.text()).toContain('账号信息暂不可用')
-    expect(wrapper.text()).toContain('暂无受管 Key')
+    expect(wrapper.text()).toContain('绑定账号：账号信息暂不可用')
+    expect(wrapper.text()).toContain('我的限额：暂不可用')
+  })
+
+  it('hides account usage bars until the room is assigned and active', async () => {
+    listMyRooms.mockResolvedValueOnce({
+      data: {
+        items: [{
+          ...myRoom,
+          status: 'paid',
+          account: null,
+          managed_api_key: null,
+          round: { ...myRoom.round, status: 'awaiting_account' },
+        }],
+      },
+    })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="pixel-cafe-my-room-usage"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('绑定账号：已成团，预计 24 小时内开通')
+    expect(wrapper.text()).toContain('剩余时间：开通后开始计算')
+    expect(wrapper.text()).toContain('我的限额：开通后显示')
+  })
+
+  it('clears the page-owned countdown timer on unmount', async () => {
+    const setIntervalSpy = vi.spyOn(window, 'setInterval')
+    const clearIntervalSpy = vi.spyOn(window, 'clearInterval')
+    const wrapper = mountPage()
+    await flushPromises()
+
+    const timerCallIndex = setIntervalSpy.mock.calls.findIndex(([, delay]) => delay === 30_000)
+    expect(timerCallIndex).toBeGreaterThanOrEqual(0)
+    const timerID = setIntervalSpy.mock.results[timerCallIndex]?.value
+    wrapper.unmount()
+    expect(clearIntervalSpy).toHaveBeenCalledWith(timerID)
+    setIntervalSpy.mockRestore()
+    clearIntervalSpy.mockRestore()
   })
 
   it('shows a retryable my-room error without replacing room discovery', async () => {
