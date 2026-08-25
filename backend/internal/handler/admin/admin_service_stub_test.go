@@ -10,24 +10,32 @@ import (
 )
 
 type stubAdminService struct {
-	users                      []service.User
-	apiKeys                    []service.APIKey
-	groups                     []service.Group
-	accounts                   []service.Account
-	proxies                    []service.Proxy
-	proxyCounts                []service.ProxyWithAccountCount
-	redeems                    []service.RedeemCode
-	boundAuthIdentity          *service.AdminBindAuthIdentityInput
-	boundAuthIdentityFor       int64
-	createdAccounts            []*service.CreateAccountInput
-	updatedAccounts            []stubUpdatedAccount
-	lastUpdateAccountInput     *service.UpdateAccountInput
-	extraUpdates               []stubExtraUpdate
-	createdProxies             []*service.CreateProxyInput
-	updatedProxyIDs            []int64
-	updatedProxies             []*service.UpdateProxyInput
-	testedProxyIDs             []int64
-	createAccountErr           error
+	users                  []service.User
+	apiKeys                []service.APIKey
+	groups                 []service.Group
+	accounts               []service.Account
+	proxies                []service.Proxy
+	proxyCounts            []service.ProxyWithAccountCount
+	redeems                []service.RedeemCode
+	boundAuthIdentity      *service.AdminBindAuthIdentityInput
+	boundAuthIdentityFor   int64
+	createdAccounts        []*service.CreateAccountInput
+	updatedAccounts        []stubUpdatedAccount
+	lastUpdateAccountInput *service.UpdateAccountInput
+	extraUpdates           []stubExtraUpdate
+	createdProxies         []*service.CreateProxyInput
+	updatedProxyIDs        []int64
+	updatedProxies         []*service.UpdateProxyInput
+	testedProxyIDs         []int64
+	createAccountErr       error
+	createShadowErr        error
+	createdShadow          struct {
+		parentID    int64
+		name        string
+		priority    int
+		concurrency int
+		groupIDs    []int64
+	}
 	updateAccountErr           error
 	bulkUpdateAccountErr       error
 	lastBulkUpdateAccountInput *service.BulkUpdateAccountsInput
@@ -395,6 +403,18 @@ func (s *stubAdminService) CreateAccount(ctx context.Context, input *service.Cre
 	}
 	account := service.Account{ID: 300, Name: input.Name, Status: service.StatusActive}
 	return &account, nil
+}
+
+func (s *stubAdminService) CreateShadow(_ context.Context, parentID int64, name string, priority, concurrency int, groupIDs []int64) (*service.Account, error) {
+	s.createdShadow.parentID = parentID
+	s.createdShadow.name = name
+	s.createdShadow.priority = priority
+	s.createdShadow.concurrency = concurrency
+	s.createdShadow.groupIDs = append([]int64(nil), groupIDs...)
+	if s.createShadowErr != nil {
+		return nil, s.createShadowErr
+	}
+	return &service.Account{ID: 901, Name: name, Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth, ParentAccountID: &parentID, QuotaDimension: service.QuotaDimensionSpark, Status: service.StatusActive}, nil
 }
 
 func (s *stubAdminService) UpdateAccount(ctx context.Context, id int64, input *service.UpdateAccountInput) (*service.Account, error) {

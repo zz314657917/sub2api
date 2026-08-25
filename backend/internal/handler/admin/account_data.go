@@ -26,11 +26,12 @@ const (
 )
 
 type DataPayload struct {
-	Type       string        `json:"type,omitempty"`
-	Version    int           `json:"version,omitempty"`
-	ExportedAt string        `json:"exported_at"`
-	Proxies    []DataProxy   `json:"proxies"`
-	Accounts   []DataAccount `json:"accounts"`
+	Type                  string        `json:"type,omitempty"`
+	Version               int           `json:"version,omitempty"`
+	ExportedAt            string        `json:"exported_at"`
+	Proxies               []DataProxy   `json:"proxies"`
+	Accounts              []DataAccount `json:"accounts"`
+	SkippedShadowAccounts int           `json:"skipped_shadow_accounts,omitempty"`
 }
 
 type DataProxy struct {
@@ -134,6 +135,16 @@ func (h *AccountHandler) ExportData(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
+	filteredAccounts := accounts[:0]
+	skippedShadowAccounts := 0
+	for _, account := range accounts {
+		if account.IsShadow() {
+			skippedShadowAccounts++
+			continue
+		}
+		filteredAccounts = append(filteredAccounts, account)
+	}
+	accounts = filteredAccounts
 
 	includeProxies, err := parseIncludeProxies(c)
 	if err != nil {
@@ -201,9 +212,10 @@ func (h *AccountHandler) ExportData(c *gin.Context) {
 	}
 
 	payload := DataPayload{
-		ExportedAt: time.Now().UTC().Format(time.RFC3339),
-		Proxies:    dataProxies,
-		Accounts:   dataAccounts,
+		ExportedAt:            time.Now().UTC().Format(time.RFC3339),
+		Proxies:               dataProxies,
+		Accounts:              dataAccounts,
+		SkippedShadowAccounts: skippedShadowAccounts,
 	}
 
 	response.Success(c, payload)

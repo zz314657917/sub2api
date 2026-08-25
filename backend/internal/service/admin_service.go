@@ -3520,6 +3520,14 @@ type accountBillingSettingsAtomicUpdater interface {
 	UpdateWithAccountBillingSettings(context.Context, *Account, *bool, *bool, *float64) error
 }
 
+type accountSparkShadowProxyAtomicUpdater interface {
+	UpdateWithAccountBillingSettingsAndShadowProxy(context.Context, *Account, *bool, *bool, *float64, []int64) error
+}
+
+type sparkShadowLookup interface {
+	ListShadowsByParent(context.Context, int64) ([]*Account, error)
+}
+
 // CreateShadow creates one credential-less Spark account linked to an OAuth parent.
 // The optional repository capability avoids widening AccountRepository and breaking
 // unrelated adapters while still allowing the production Ent repository to enforce
@@ -3585,6 +3593,20 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 		}
 		if input.ProxyID != nil {
 			return nil, infraerrors.BadRequest("SPARK_SHADOW_PROXY_INHERITED", "spark shadow proxy is inherited from the parent")
+		}
+	}
+	var shadowIDs []int64
+	if input.ProxyID != nil && account.IsOpenAIOAuth() && !account.IsShadow() {
+		if shadows, ok := s.accountRepo.(sparkShadowLookup); ok {
+			children, listErr := shadows.ListShadowsByParent(ctx, account.ID)
+			if listErr != nil {
+				return nil, listErr
+			}
+			for _, child := range children {
+				if child != nil && child.IsShadow() {
+					shadowIDs = append(shadowIDs, child.ID)
+				}
+			}
 		}
 	}
 	if input.Extra != nil {
@@ -3760,7 +3782,16 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	}
 
 	billingSettingsAppliedAtomically := false
-	if updater, ok := s.accountRepo.(accountBillingSettingsAtomicUpdater); ok {
+	if len(shadowIDs) > 0 {
+		updater, ok := s.accountRepo.(accountSparkShadowProxyAtomicUpdater)
+		if !ok {
+			return nil, infraerrors.New(http.StatusInternalServerError, "SPARK_SHADOW_PROXY_SYNC_UNSUPPORTED", "account repository cannot atomically synchronize spark shadow proxies")
+		}
+		if err := updater.UpdateWithAccountBillingSettingsAndShadowProxy(ctx, account, requestedProbeEnabledUpdate, requestedRateSyncEnabledUpdate, input.RateMultiplier, shadowIDs); err != nil {
+			return nil, err
+		}
+		billingSettingsAppliedAtomically = true
+	} else if updater, ok := s.accountRepo.(accountBillingSettingsAtomicUpdater); ok {
 		if err := updater.UpdateWithAccountBillingSettings(ctx, account, requestedProbeEnabledUpdate, requestedRateSyncEnabledUpdate, input.RateMultiplier); err != nil {
 			return nil, err
 		}
@@ -3871,7 +3902,9 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 		}
 	}
 	_, hasLongContextBillingUpdate := input.Extra[openAILongContextBillingEnabledKey]
-	needAccountPreload := needMixedChannelCheck || input.ProbeEnabled != nil || input.RateMultiplier != nil || hasAvailabilityUpdate || hasLongContextBillingUpdate
+	_, supportsSparkShadowLookup := s.accountRepo.(sparkShadowLookup)
+	needShadowLifecycleCheck := supportsSparkShadowLookup && (len(input.Credentials) > 0 || input.ProxyID != nil)
+	needAccountPreload := needMixedChannelCheck || input.ProbeEnabled != nil || input.RateMultiplier != nil || hasAvailabilityUpdate || hasLongContextBillingUpdate || needShadowLifecycleCheck
 
 	// 预加载账号平台信息，以便在写入前完成混合渠道和探测资格校验。
 	accountsByID := make(map[int64]*Account, len(input.AccountIDs))
@@ -3927,6 +3960,27 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 			}
 			if err := ValidateOpenAILongContextBillingExtra(account.Platform, input.Extra); err != nil {
 				return nil, err
+			}
+		}
+	}
+	if needShadowLifecycleCheck {
+		for _, accountID := range input.AccountIDs {
+			account, ok := accountsByID[accountID]
+			if !ok {
+				// Bulk updates historically tolerate IDs that disappear between
+				// selection and the write. Keep that behavior for an unknown ID;
+				// a real Spark shadow is present in the preload and is rejected
+				// below before any write.
+				continue
+			}
+			if !account.IsShadow() {
+				continue
+			}
+			if len(input.Credentials) > 0 {
+				return nil, infraerrors.BadRequest("SPARK_SHADOW_NO_CREDENTIALS", "spark shadow credentials are managed by the parent")
+			}
+			if input.ProxyID != nil {
+				return nil, infraerrors.BadRequest("SPARK_SHADOW_PROXY_INHERITED", "spark shadow proxy is inherited from the parent")
 			}
 		}
 	}
@@ -4002,8 +4056,41 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 		repoUpdates.Schedulable = input.Schedulable
 	}
 
-	// Run bulk update for column/jsonb fields first.
-	if _, err := s.accountRepo.BulkUpdate(ctx, input.AccountIDs, repoUpdates); err != nil {
+	bulkTargetIDs := append([]int64(nil), input.AccountIDs...)
+	if input.ProxyID != nil {
+		if shadows, ok := s.accountRepo.(sparkShadowLookup); ok {
+			seen := make(map[int64]struct{}, len(bulkTargetIDs))
+			for _, id := range bulkTargetIDs {
+				seen[id] = struct{}{}
+			}
+			for _, accountID := range input.AccountIDs {
+				account := accountsByID[accountID]
+				// Only a normal OpenAI OAuth parent can own a Spark shadow.
+				// Besides avoiding needless lookups for all other account kinds,
+				// this keeps optional repository adapters compatible with normal
+				// bulk proxy updates.
+				if account == nil || account.IsShadow() || !account.IsOpenAIOAuth() {
+					continue
+				}
+				children, listErr := shadows.ListShadowsByParent(ctx, accountID)
+				if listErr != nil {
+					return nil, listErr
+				}
+				for _, child := range children {
+					if child != nil && child.IsShadow() {
+						if _, exists := seen[child.ID]; !exists {
+							seen[child.ID] = struct{}{}
+							bulkTargetIDs = append(bulkTargetIDs, child.ID)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// One SQL bulk update keeps every selected parent and its linked shadows on
+	// the same proxy value; shadows themselves were rejected before this point.
+	if _, err := s.accountRepo.BulkUpdate(ctx, bulkTargetIDs, repoUpdates); err != nil {
 		return nil, err
 	}
 
@@ -5034,6 +5121,13 @@ func (s *adminServiceImpl) ResetAccountQuota(ctx context.Context, id int64) erro
 }
 
 func (s *adminServiceImpl) RefreshAccountQuota(ctx context.Context, id int64) (*Account, error) {
+	account, err := s.accountRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if account != nil && account.IsShadow() {
+		return nil, infraerrors.BadRequest("SPARK_SHADOW_NO_QUOTA_REFRESH", "refresh quota on the parent account")
+	}
 	if err := s.accountRepo.RefreshQuotaWindows(ctx, id); err != nil {
 		return nil, err
 	}

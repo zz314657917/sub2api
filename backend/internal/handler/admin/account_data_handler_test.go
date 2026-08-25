@@ -18,10 +18,11 @@ type dataResponse struct {
 }
 
 type dataPayload struct {
-	Type     string        `json:"type"`
-	Version  int           `json:"version"`
-	Proxies  []dataProxy   `json:"proxies"`
-	Accounts []dataAccount `json:"accounts"`
+	Type                  string        `json:"type"`
+	Version               int           `json:"version"`
+	Proxies               []dataProxy   `json:"proxies"`
+	Accounts              []dataAccount `json:"accounts"`
+	SkippedShadowAccounts int           `json:"skipped_shadow_accounts"`
 }
 
 type dataProxy struct {
@@ -149,6 +150,27 @@ func TestExportDataIncludesSecrets(t *testing.T) {
 	require.Equal(t, "pass", resp.Data.Proxies[0].Password)
 	require.Len(t, resp.Data.Accounts, 1)
 	require.Equal(t, "secret", resp.Data.Accounts[0].Credentials["token"])
+}
+
+func TestExportDataSkipsSparkShadowAccounts(t *testing.T) {
+	router, adminSvc := setupAccountDataRouter()
+	parentID := int64(21)
+	adminSvc.accounts = []service.Account{
+		{ID: parentID, Name: "parent", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth, Credentials: map[string]any{"access_token": "parent-secret"}, Status: service.StatusActive},
+		{ID: 22, Name: "shadow", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth, ParentAccountID: &parentID, QuotaDimension: service.QuotaDimensionSpark, Credentials: map[string]any{}, Status: service.StatusActive},
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/accounts/data?include_proxies=false", nil)
+	router.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var resp dataResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Equal(t, 0, resp.Code)
+	require.Equal(t, 1, resp.Data.SkippedShadowAccounts)
+	require.Len(t, resp.Data.Accounts, 1)
+	require.Equal(t, "parent", resp.Data.Accounts[0].Name)
 }
 
 func TestExportDataWithoutProxies(t *testing.T) {
