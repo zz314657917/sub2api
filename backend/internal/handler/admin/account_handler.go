@@ -1052,6 +1052,10 @@ func (h *AccountHandler) Refresh(c *gin.Context) {
 		response.NotFound(c, "Account not found")
 		return
 	}
+	if account.IsShadow() {
+		response.BadRequest(c, "Cannot refresh spark shadow account; its credentials are managed by the parent account")
+		return
+	}
 
 	updatedAccount, warning, err := h.refreshSingleAccount(c.Request.Context(), account)
 	if err != nil {

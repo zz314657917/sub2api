@@ -3576,6 +3576,17 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	if err != nil {
 		return nil, err
 	}
+	if account.IsShadow() {
+		if len(input.Credentials) > 0 {
+			return nil, infraerrors.BadRequest("SPARK_SHADOW_NO_CREDENTIALS", "spark shadow credentials are managed by the parent")
+		}
+		if input.Type != "" && input.Type != account.Type {
+			return nil, infraerrors.BadRequest("SPARK_SHADOW_IMMUTABLE_TYPE", "spark shadow type is immutable")
+		}
+		if input.ProxyID != nil {
+			return nil, infraerrors.BadRequest("SPARK_SHADOW_PROXY_INHERITED", "spark shadow proxy is inherited from the parent")
+		}
+	}
 	if input.Extra != nil {
 		input.Extra, err = normalizeOpenAILongContextBillingUpdateExtra(account, input.Extra)
 		if err != nil {
@@ -4100,6 +4111,19 @@ func (s *adminServiceImpl) resolveBulkUpdateTargetIDs(ctx context.Context, filte
 }
 
 func (s *adminServiceImpl) DeleteAccount(ctx context.Context, id int64) error {
+	if shadows, ok := s.accountRepo.(interface {
+		ListShadowsByParent(context.Context, int64) ([]*Account, error)
+	}); ok {
+		children, err := shadows.ListShadowsByParent(ctx, id)
+		if err != nil {
+			return err
+		}
+		for _, child := range children {
+			if err := s.accountRepo.Delete(ctx, child.ID); err != nil {
+				return err
+			}
+		}
+	}
 	if err := s.accountRepo.Delete(ctx, id); err != nil {
 		return err
 	}
@@ -4110,6 +4134,9 @@ func (s *adminServiceImpl) RefreshAccountCredentials(ctx context.Context, id int
 	account, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	if account.IsShadow() {
+		return nil, infraerrors.BadRequest("SPARK_SHADOW_NO_REFRESH", "refresh credentials on the parent account")
 	}
 	// TODO: Implement refresh logic
 	return account, nil
@@ -4996,6 +5023,13 @@ func (e *MixedChannelError) Error() string {
 }
 
 func (s *adminServiceImpl) ResetAccountQuota(ctx context.Context, id int64) error {
+	account, err := s.accountRepo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if account != nil && account.IsShadow() {
+		return infraerrors.BadRequest("SPARK_SHADOW_NO_QUOTA_RESET", "reset quota on the parent account")
+	}
 	return s.accountRepo.ResetQuotaUsed(ctx, id)
 }
 
