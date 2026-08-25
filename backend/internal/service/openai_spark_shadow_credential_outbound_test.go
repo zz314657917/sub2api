@@ -94,7 +94,7 @@ func TestOpenAIGatewayService_SparkShadowOutboundHTTPUsesParentAndDoesNotLeakToN
 		httpUpstream: upstream,
 		accountRepo:  stubOpenAIAccountRepo{accounts: []Account{parent, next}},
 	}
-	body := []byte(`{"model":"gpt-5.1","stream":false,"input":[{"type":"input_text","text":"hello"}]}`)
+	body := []byte(`{"model":"gpt-5.1","stream":false,"prompt_cache_key":"client-session","client_metadata":{"session_id":"client-session"},"input":[{"type":"input_text","text":"hello"}]}`)
 
 	_, err := svc.Forward(context.Background(), newSparkShadowGinContext(), &child, body)
 	require.NoError(t, err)
@@ -144,7 +144,7 @@ func TestOpenAIGatewayService_SparkShadowOutboundWSUsesParentAndFailsClosed(t *t
 		toolCorrector:    NewCodexToolCorrector(),
 		openaiWSPool:     pool,
 	}
-	body := []byte(`{"model":"gpt-5.1","stream":false,"input":[{"type":"input_text","text":"hello"}]}`)
+	body := []byte(`{"model":"gpt-5.1","stream":false,"prompt_cache_key":"client-session","client_metadata":{"session_id":"client-session"},"input":[{"type":"input_text","text":"hello"}]}`)
 
 	result, err := svc.Forward(context.Background(), newSparkShadowGinContext(), &child, body)
 	require.NoError(t, err)
@@ -153,6 +153,7 @@ func TestOpenAIGatewayService_SparkShadowOutboundWSUsesParentAndFailsClosed(t *t
 	require.True(t, firstHeaders.Get("Authorization") == "Bearer test-parent-ws-access")
 	require.Equal(t, "test-parent-ws-chatgpt", firstHeaders.Get("chatgpt-account-id"))
 	require.Equal(t, "response.create", gjson.Get(requestToJSONString(conn.writes[0]), "type").String())
+	require.Equal(t, scopeCodexAccountIdentityValue(&parent, 0, "session", "client-session"), gjson.Get(requestToJSONString(conn.writes[0]), "client_metadata.session_id").String())
 
 	result, err = svc.Forward(context.Background(), newSparkShadowGinContext(), &next, body)
 	require.NoError(t, err)
@@ -161,6 +162,7 @@ func TestOpenAIGatewayService_SparkShadowOutboundWSUsesParentAndFailsClosed(t *t
 	require.Equal(t, "test-next-ws-chatgpt", dialer.lastHeaders.Get("chatgpt-account-id"))
 	require.Len(t, conn.writes, 2)
 	require.Equal(t, "response.create", gjson.Get(requestToJSONString(conn.writes[1]), "type").String())
+	require.Equal(t, scopeCodexAccountIdentityValue(&next, 0, "session", "client-session"), gjson.Get(requestToJSONString(conn.writes[1]), "client_metadata.session_id").String())
 
 	badChild := child
 	badChild.ParentAccountID = sparkShadowAccountID(6299)
@@ -253,9 +255,9 @@ func TestOpenAIGatewayService_SparkShadowOutboundWSV2PassthroughUsesParentForAll
 		require.Equal(t, wantID, gjson.GetBytes(event, "response.id").String())
 	}
 
-	writeFrame([]byte(`{"type":"response.create","model":"gpt-5.1","stream":false}`))
-	writeFrame([]byte(`{"type":"session.update","session":{"model":"gpt-5.1"}}`))
-	writeFrame([]byte(`{"type":"response.create","stream":false,"input":[{"type":"input_text","text":"follow-up"}]}`))
+	writeFrame([]byte(`{"type":"response.create","model":"gpt-5.1","stream":false,"prompt_cache_key":"client-session","client_metadata":{"session_id":"client-session"}}`))
+	writeFrame([]byte(`{"type":"session.update","session":{"model":"gpt-5.1"},"client_metadata":{"session_id":"client-session"}}`))
+	writeFrame([]byte(`{"type":"response.create","stream":false,"prompt_cache_key":"client-session","client_metadata":{"session_id":"client-session"},"input":[{"type":"input_text","text":"follow-up"}]}`))
 	readCompleted("resp_spark_passthrough_1")
 	readCompleted("resp_spark_passthrough_2")
 	_ = clientConn.Close(websocket.StatusNormalClosure, "done")
@@ -276,6 +278,10 @@ func TestOpenAIGatewayService_SparkShadowOutboundWSV2PassthroughUsesParentForAll
 	require.Equal(t, "response.create", gjson.Get(requestToJSONString(upstreamConn.writes[0]), "type").String())
 	require.Equal(t, "session.update", gjson.Get(requestToJSONString(upstreamConn.writes[1]), "type").String())
 	require.Equal(t, "response.create", gjson.Get(requestToJSONString(upstreamConn.writes[2]), "type").String())
+	parentScoped := scopeCodexAccountIdentityValue(&parent, 0, "session", "client-session")
+	require.Equal(t, parentScoped, gjson.Get(requestToJSONString(upstreamConn.writes[0]), "client_metadata.session_id").String())
+	require.Equal(t, parentScoped, gjson.Get(requestToJSONString(upstreamConn.writes[1]), "client_metadata.session_id").String())
+	require.Equal(t, parentScoped, gjson.Get(requestToJSONString(upstreamConn.writes[2]), "client_metadata.session_id").String())
 
 	missingParent := child
 	missingParent.ParentAccountID = sparkShadowAccountID(6399)
