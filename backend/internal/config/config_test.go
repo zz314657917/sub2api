@@ -129,6 +129,18 @@ func TestLoadDefaultSchedulingConfig(t *testing.T) {
 	}
 }
 
+func TestModelsListReadMaxBytesDefaultAndValidation(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.Equal(t, DefaultModelsListReadMaxBytes, cfg.Gateway.ModelsListReadMaxBytes)
+
+	cfg.Gateway.ModelsListReadMaxBytes = 16 << 20
+	require.NoError(t, cfg.Validate())
+	cfg.Gateway.ModelsListReadMaxBytes = 0
+	require.ErrorContains(t, cfg.Validate(), "gateway.models_list_read_max_bytes")
+}
+
 func TestLoadDefaultRegistrationRiskLimitConfig(t *testing.T) {
 	resetViperWithJWTSecret(t)
 

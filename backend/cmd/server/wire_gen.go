@@ -99,7 +99,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	cnProviderBalanceCheckService := service.ProvideCNProviderBalanceCheckService(accountRepository, cnProviderBalanceService, cnProviderQuotaService, configConfig)
 	claudeUsageFetcher := repository.NewClaudeUsageFetcher(httpUpstream)
 	geminiQuotaService := service.NewGeminiQuotaService(configConfig, settingRepository)
-	antigravityQuotaFetcher := service.NewAntigravityQuotaFetcher(proxyRepository)
+	antigravityQuotaFetcher := service.NewAntigravityQuotaFetcher(proxyRepository, configConfig)
 	grokQuotaFetcher := service.NewGrokQuotaFetcher()
 	usageCache := service.NewUsageCache()
 	identityCache := repository.NewIdentityCache(redisClient)

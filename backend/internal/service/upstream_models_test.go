@@ -174,6 +174,31 @@ func TestFetchUpstreamSupportedModelsParsesOpenAIOAuthManifest(t *testing.T) {
 	require.Equal(t, "Bearer openai-oauth-token", upstream.lastReq.Header.Get("Authorization"))
 }
 
+func TestFetchUpstreamSupportedModelsUsesConfiguredBodyLimit(t *testing.T) {
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"data":[{"id":"gpt-5"}]}`)),
+	}}
+	cfg := upstreamModelSyncTestConfig()
+	cfg.Gateway.ModelsListReadMaxBytes = 8
+	svc := &AccountTestService{httpUpstream: upstream, cfg: cfg}
+	_, err := svc.FetchUpstreamSupportedModels(context.Background(), &Account{ID: 7, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "openai-key", "base_url": "https://openai.example.com/v1"}})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "response exceeds 8 bytes")
+}
+
+func TestFetchUpstreamSupportedModelsAcceptsConfiguredLimitAboveLegacyBoundary(t *testing.T) {
+	body := `{"data":[{"id":"gpt-5","description":"` + strings.Repeat("x", (8<<20)+1024) + `"}]}`
+	upstream := &httpUpstreamRecorder{resp: &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(strings.NewReader(body))}}
+	cfg := upstreamModelSyncTestConfig()
+	cfg.Gateway.ModelsListReadMaxBytes = 16 << 20
+	svc := &AccountTestService{httpUpstream: upstream, cfg: cfg}
+	models, err := svc.FetchUpstreamSupportedModels(context.Background(), &Account{ID: 8, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "openai-key", "base_url": "https://openai.example.com/v1"}})
+	require.NoError(t, err)
+	require.Equal(t, []string{"gpt-5"}, models)
+}
+
 func TestBuildUpstreamModelsRequestsForAPIKeyAccounts(t *testing.T) {
 	t.Parallel()
 

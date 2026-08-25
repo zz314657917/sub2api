@@ -61,6 +61,10 @@ const (
 // 可通过 gateway.upstream_response_read_max_bytes 配置项覆盖。
 const DefaultUpstreamResponseReadMaxBytes int64 = 128 * 1024 * 1024
 
+// DefaultModelsListReadMaxBytes is the default bounded response size for
+// upstream model-list endpoints.
+const DefaultModelsListReadMaxBytes int64 = 8 * 1024 * 1024
+
 type Config struct {
 	Server                  ServerConfig                  `mapstructure:"server"`
 	Log                     LogConfig                     `mapstructure:"log"`
@@ -761,6 +765,8 @@ type GatewayConfig struct {
 	MaxBodySize int64 `mapstructure:"max_body_size"`
 	// 非流式上游响应体读取上限（字节），用于防止无界读取导致内存放大
 	UpstreamResponseReadMaxBytes int64 `mapstructure:"upstream_response_read_max_bytes"`
+	// ModelsListReadMaxBytes limits upstream model-list responses.
+	ModelsListReadMaxBytes int64 `mapstructure:"models_list_read_max_bytes"`
 	// 代理探测响应体读取上限（字节）
 	ProxyProbeResponseReadMaxBytes int64 `mapstructure:"proxy_probe_response_read_max_bytes"`
 	// Gemini 上游响应头调试日志开关（默认关闭，避免高频日志开销）
@@ -2098,6 +2104,7 @@ func setDefaults() {
 	viper.SetDefault("gateway.antigravity_extra_retries", 10)
 	viper.SetDefault("gateway.max_body_size", int64(256*1024*1024))
 	viper.SetDefault("gateway.upstream_response_read_max_bytes", DefaultUpstreamResponseReadMaxBytes)
+	viper.SetDefault("gateway.models_list_read_max_bytes", DefaultModelsListReadMaxBytes)
 	viper.SetDefault("gateway.proxy_probe_response_read_max_bytes", int64(1024*1024))
 	viper.SetDefault("gateway.gemini_debug_response_headers", false)
 	viper.SetDefault("gateway.connection_pool_isolation", ConnectionPoolIsolationAccountProxy)
@@ -2745,6 +2752,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Gateway.UpstreamResponseReadMaxBytes <= 0 {
 		return fmt.Errorf("gateway.upstream_response_read_max_bytes must be positive")
+	}
+	if c.Gateway.ModelsListReadMaxBytes <= 0 {
+		return fmt.Errorf("gateway.models_list_read_max_bytes must be positive")
 	}
 	if c.Gateway.ProxyProbeResponseReadMaxBytes <= 0 {
 		return fmt.Errorf("gateway.proxy_probe_response_read_max_bytes must be positive")

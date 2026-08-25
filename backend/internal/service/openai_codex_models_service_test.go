@@ -108,6 +108,26 @@ func TestFetchCodexModelsManifestAPIKeyConvertsOpenAIModelList(t *testing.T) {
 	require.JSONEq(t, `{"models":[{"slug":"gpt-5.6-sol"}]}`, string(manifest.Body))
 }
 
+func TestFetchCodexModelsManifestUsesConfiguredBodyLimit(t *testing.T) {
+	upstream := &codexManifestHTTPStub{body: `{"models":[{"slug":"gpt-5.6"}]}`}
+	service := &OpenAIGatewayService{cfg: &config.Config{Gateway: config.GatewayConfig{ModelsListReadMaxBytes: 8}, Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}}, httpUpstream: upstream}
+	account := &Account{ID: 5, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://provider.example/v1"}}
+	_, err := service.FetchCodexModelsManifest(context.Background(), account, "0.144.0", "")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "response exceeds 8 bytes")
+	require.True(t, IsRetryableCodexModelsManifestError(err))
+}
+
+func TestFetchCodexModelsManifestAcceptsConfiguredLimitAboveLegacyBoundary(t *testing.T) {
+	body := `{"models":[{"slug":"gpt-5.6","display_name":"` + strings.Repeat("x", (8<<20)+1024) + `"}]}`
+	upstream := &codexManifestHTTPStub{body: body}
+	service := &OpenAIGatewayService{cfg: &config.Config{Gateway: config.GatewayConfig{ModelsListReadMaxBytes: 16 << 20}, Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}}, httpUpstream: upstream}
+	account := &Account{ID: 6, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://provider.example/v1"}}
+	manifest, err := service.FetchCodexModelsManifest(context.Background(), account, "0.144.0", "")
+	require.NoError(t, err)
+	require.Equal(t, body, string(manifest.Body))
+}
+
 func TestCodexModelsManifestETagMatchesWeakAndMultipleValues(t *testing.T) {
 	require.True(t, codexModelsManifestETagMatches(`"other", W/"abc"`, `"abc"`))
 	require.True(t, codexModelsManifestETagMatches("*", `"abc"`))
