@@ -1,13 +1,96 @@
 ---
 phase: done
-current_sprint: pixel-cafe-room-list-scene-overlay-s256
-total_sprints: 256
-pending_action: S252-S256 feature source has been published; preserve outputs, S249/S258 worktrees, tutorial navigation and the backup reference before evaluating a new contract.
+current_sprint: pixel-cafe-my-room-usage-s260
+total_sprints: 260
+pending_action: S260 feature code is committed; commit workflow records, push the batch, and verify origin/main.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-25 16:42 +08:00
+last_verified: 2026-08-25 20:35 +08:00
 ---
+
+# Pixel Cafe My-Room Usage Progress S260
+
+- `contract-draft`: active joined-room cards gain 5H/7D progress bars, derived
+  future reset timestamps and live reset/validity countdowns. The contract
+  excludes schema, billing/enforcement, account scheduling, public DTOs,
+  containers, shared data, commit and push.
+- `PASS / contract-review`: existing Key window starts and Membership/legacy
+  Seat timestamps are sufficient; future-only reset projection, elapsed-window
+  suppression, unlimited/not-started fallback, active-account visibility,
+  accessible progress semantics, timer cleanup and responsive QA are
+  decision-complete. Controller implementation is authorized.
+- `PASS / controller implementation`: the private my-room DTO now projects safe
+  activation/expiration timestamps plus future-only 5H/7D reset timestamps;
+  elapsed finite windows return zero effective usage without a stale reset.
+  Active assigned rooms render two accessible progress bars, local refresh
+  time/countdown and room-validity countdown with explicit unlimited and
+  not-started fallbacks.
+- `PASS / final QA`: focused Go and 18 focused Vitest tests, complete service,
+  server compile, typecheck, 1904-module production build, diff/index/privacy
+  gates and Google Chrome 151 desktop/mobile acceptance passed. Desktop bars
+  render as two columns; mobile stacks them at `390x844`, both widths have no
+  document overflow, the countdown advanced by one minute, and renderer is
+  `ready` with one Canvas. S260 Chrome/profile daemon and Vite 5204 processes
+  are zero; task localStorage was cleared. No shared data, commit or push action
+  occurred during implementation and QA.
+- `PASS / local container update`: after explicit user authorization, the
+  Docker update guard protected an application-only replacement. The verified
+  frontend was rebuilt directly with the existing Vite toolchain, embedded by
+  a host Go 1.26.3 Linux build, and packaged through
+  `Dockerfile.goreleaser`. Image
+  `sub2api:codex-20260825-1740-s260-my-room-usage` (`baf6fe06e0eb`) is healthy
+  at `127.0.0.1:62580`, and `sub2api:local` points to the same image. `/health`,
+  `/group-buy`, the admin rooms page, admin login, my-rooms and overview smokes
+  passed. Both admin preview rooms returned activation/expiration plus 5H/7D
+  reset timestamps and expected usage values without credentials, full email or
+  plaintext Key leakage. PostgreSQL and Redis retained their container IDs and
+  were not rebuilt; no migration or data write occurred. Rollback image
+  `sub2api:rollback-before-20260825-1740-s260-my-room-usage` is retained.
+  The Docker update guard was released successfully.
+- `PASS / compact UX follow-up`: after direct user authorization, active
+  my-room cards now show only the custom room name, assigned account name,
+  remaining validity and one accessible `我的限额` progress bar backed by the
+  existing 7D window. Room code, shares/days, status badge, platform, masked
+  email, Key name/status, total quota, exact expiry, 5H window and reset copy
+  are no longer rendered on the compact card. Waiting and unavailable states
+  retain short account/validity/limit fallbacks. Pixel Cafe Vitest passed
+  18/18, typecheck and the 1904-module production build passed, and explicit
+  Chrome 151 desktop/mobile QA proved two compact cards, two progress bars,
+  no hidden technical copy and no horizontal overflow. The S261 task profile,
+  CLI daemon and Vite 5205 processes are zero.
+- `PASS / compact local container update`: after explicit user authorization,
+  the Docker update guard protected an application-only replacement. Image
+  `sub2api:codex-20260825-1818-s260-compact-my-room` (`f41b956414b1`) is
+  healthy at `127.0.0.1:62580`, and `sub2api:local` points to the same image.
+  `/health`, `/group-buy`, the admin rooms page, real admin login, my-rooms and
+  overview smokes passed. The served `GroupBuyView-Du8hRWrf.js` contains
+  `我的限额` and none of the removed 5H/7D/reset/share labels; two private rooms
+  returned only masked account fields with no credentials, full email or
+  plaintext Key leakage. PostgreSQL and Redis retained their container IDs and
+  were not rebuilt; no migration or data write occurred. Rollback image
+  `sub2api:rollback-before-20260825-1818-s260-compact-my-room` is retained, and
+  the Docker update guard was released successfully. No commit or push occurred.
+- `PASS / account and personal quota bars`: active compact cards now render two
+  independent bars. `账号 7D 剩余` is a safe percentage projection from the
+  assigned OpenAI account's cached official snapshot; missing snapshots render
+  `暂不可用`. `我的限额` remains the member managed-Key 7D used/limit bar.
+  Backend and frontend focused tests, typecheck, production build and Chrome
+  151 desktop/mobile QA passed; desktop showed two bars per active card and
+  mobile had no horizontal overflow. The local application container was
+  rebuilt and verified below.
+- `PASS / account and personal quota local container update`: the application
+  container now runs image
+  `sub2api:codex-20260825-1846-s260-account-and-my-limit` (`8427603f7a02`),
+  healthy at `127.0.0.1:62580`, with `sub2api:local` synchronized. PostgreSQL
+  and Redis were not rebuilt; no migration or data write occurred. Rollback
+  image `sub2api:rollback-before-20260825-1846-s260-account-and-my-limit` is
+  retained and the Docker update guard was released.
+- `PASS / source commit preparation`: S260 feature source and focused tests
+  were committed as `a785334e1` (`feat(pixel-cafe): show account and personal
+  quota bars`). The remaining changes are workflow/handoff records only;
+  `outputs/` remains untracked and excluded from the publish batch.
+- Contract: `docs/workflow/tasks/pixel-cafe-my-room-usage-s260.md`.
 
 # Pixel Cafe S252-S256 Publication
 

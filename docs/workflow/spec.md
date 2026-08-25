@@ -1,5 +1,26 @@
 ---
 
+## Pixel Cafe My-Room Usage Progress Addendum (S260)
+
+- Active “我的包间” cards show two accessible progress bars only after an
+  administrator has assigned an account and activation produced a valid
+  managed Key: `账号 7D 剩余` uses a safe remaining percentage derived from the
+  assigned OpenAI account's official cached 7D snapshot, while `我的限额`
+  uses the member Key's existing 7D used/limit window. The 5H projection
+  remains available to the private DTO but is temporarily hidden from this
+  compact card.
+- The private my-room DTO adds safe activation/expiration timestamps and
+  derived future 5H/7D reset timestamps. Raw window starts, credentials, Key
+  material and full account identity remain excluded.
+- The compact card renders only room name, assigned account name, remaining
+  validity, `账号 7D 剩余` and `我的限额`. It omits room code, shares/days, status badge,
+  platform, masked email, Key metadata, total quota, exact expiry and reset
+  copy. Unlimited, unopened, expired and missing-Key states use short safe
+  fallback copy.
+- No schema, migration, billing write, enforcement, scheduler, admin, public
+  lobby, container, shared-data, commit or push behavior changes. Contract:
+  `docs/workflow/tasks/pixel-cafe-my-room-usage-s260.md`.
+
 ## Pixel Cafe Room List Scene Overlay Addendum (S256)
 
 - The public room list is rendered once inside the existing Pixel Cafe lobby
