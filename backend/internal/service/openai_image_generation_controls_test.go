@@ -87,11 +87,13 @@ func TestOpenAIGatewayServiceForward_CodexImageInjectionRespectsGroupCapability(
 		name          string
 		allowImages   bool
 		bridgeEnabled bool
+		responsesLite bool
 		wantInjected  bool
 	}{
 		{name: "disabled group skips injection", allowImages: false, bridgeEnabled: true, wantInjected: false},
 		{name: "enabled group skips injection by default", allowImages: true, bridgeEnabled: false, wantInjected: false},
 		{name: "enabled group injects image tool when bridge enabled", allowImages: true, bridgeEnabled: true, wantInjected: true},
+		{name: "responses lite skips hosted image bridge", allowImages: true, bridgeEnabled: true, responsesLite: true, wantInjected: false},
 	}
 
 	for _, tt := range tests {
@@ -106,6 +108,9 @@ func TestOpenAIGatewayServiceForward_CodexImageInjectionRespectsGroupCapability(
 			svc := newOpenAIImageGenerationControlTestService(upstream)
 			svc.cfg.Gateway.CodexImageGenerationBridgeEnabled = tt.bridgeEnabled
 			c, _ := newOpenAIImageGenerationControlTestContext(tt.allowImages, "codex_cli_rs/0.98.0")
+			if tt.responsesLite {
+				c.Request.Header.Set(responsesLiteHeader, "true")
+			}
 			account := newOpenAIImageGenerationControlTestAccount()
 
 			result, err := svc.Forward(context.Background(), c, account, []byte(`{"model":"gpt-5.4","input":"write code","stream":false}`))
@@ -122,6 +127,11 @@ func TestOpenAIGatewayServiceForward_CodexImageInjectionRespectsGroupCapability(
 			}
 			instructions := gjson.GetBytes(upstream.lastBody, "instructions").String()
 			require.Equal(t, tt.wantInjected, strings.Contains(instructions, "image_generation"))
+			expectedLiteHeader := ""
+			if tt.responsesLite {
+				expectedLiteHeader = "true"
+			}
+			require.Equal(t, expectedLiteHeader, upstream.lastReq.Header.Get(responsesLiteHeader))
 		})
 	}
 }

@@ -46,12 +46,12 @@ func TestNormalizeOpenAIResponsesLiteTools_MovesNamespacesAndKeepsSupportedTools
 	require.Equal(t, "collaboration", additional["tools"].([]any)[0].(map[string]any)["name"])
 }
 
-func TestNormalizeOpenAIResponsesLiteTools_ValidatesAndPreservesNoToolRequests(t *testing.T) {
+func TestNormalizeOpenAIResponsesLiteTools_ValidatesAndPinsNoToolRequests(t *testing.T) {
 	noTools := map[string]any{"reasoning": map[string]any{"context": "all_turns"}, "parallel_tool_calls": true}
 	changed, err := normalizeOpenAIResponsesLiteTools(noTools)
 	require.NoError(t, err)
-	require.False(t, changed)
-	require.Equal(t, true, noTools["parallel_tool_calls"])
+	require.True(t, changed)
+	require.Equal(t, false, noTools["parallel_tool_calls"])
 
 	withTools := map[string]any{"tools": []any{map[string]any{"type": "function", "name": "shell"}}}
 	changed, err = normalizeOpenAIResponsesLiteTools(withTools)
@@ -98,6 +98,29 @@ func TestNormalizeOpenAIResponsesLiteToolsPayload_PreservesResponseCreateShape(t
 	require.Equal(t, "collaboration", gjson.GetBytes(updated, `input.#(type=="additional_tools").tools.0.name`).String())
 	require.Equal(t, "all_turns", gjson.GetBytes(updated, "reasoning.context").String())
 	require.False(t, gjson.GetBytes(updated, "parallel_tool_calls").Bool())
+}
+
+func TestNormalizeOpenAIResponsesLiteToolsPayload_PreservesLargeNumbers(t *testing.T) {
+	body := []byte(`{"type":"response.create","sequence":900719925474099312345,"input":"hello"}`)
+
+	updated, changed, err := normalizeOpenAIResponsesLiteToolsPayload(body)
+
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, "900719925474099312345", gjson.GetBytes(updated, "sequence").Raw)
+	require.Equal(t, false, gjson.GetBytes(updated, "parallel_tool_calls").Bool())
+}
+
+func TestNormalizeOpenAIResponsesLitePayloadForAccount_PinsAPIKeyParallelCalls(t *testing.T) {
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	body := []byte(`{"type":"response.create","parallel_tool_calls":true,"input":"hello"}`)
+
+	updated, changed, err := normalizeOpenAIResponsesLitePayloadForAccount(body, account)
+
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, false, gjson.GetBytes(updated, "parallel_tool_calls").Bool())
+	require.Equal(t, "hello", gjson.GetBytes(updated, "input").String())
 }
 
 func TestApplyCodexOAuthTransform_PreservesLiteNamespaceToolChoice(t *testing.T) {
