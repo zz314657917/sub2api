@@ -386,6 +386,45 @@ func TestOpenAIGatewayService_GenerateSessionHash_ExplicitSignalWinsOverContent(
 	require.NotEqual(t, contentHash, explicitHash, "explicit session_id should override content fallback")
 }
 
+func TestOpenAIGatewayService_CodexSessionIDHeaderHasPriority(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	c.Request.Header.Set("session-id", "codex-session")
+	c.Request.Header.Set("session_id", "legacy-session")
+
+	svc := &OpenAIGatewayService{}
+	body := []byte(`{"model":"gpt-5.6-sol","input":[{"role":"user","content":"hello"}]}`)
+
+	require.Equal(t, "codex-session", svc.ExtractSessionID(c, body))
+	require.Equal(t, "codex-session", explicitOpenAISessionID(c, body))
+	require.Equal(t, svc.GenerateSessionHash(c, body), svc.GenerateSessionHash(c, []byte(`{"model":"gpt-5.6-sol","input":[{"role":"user","content":"another turn"}]}`)))
+}
+
+func TestOpenAIGatewayService_PassthroughUsesCodexSessionIDHeader(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	body := []byte(`{"model":"gpt-5.6-sol","input":[],"stream":true}`)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
+	c.Request.Header.Set("session-id", "codex-session")
+	c.Request.Header.Set("session_id", "legacy-session")
+
+	account := &Account{
+		ID:       25,
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
+		Credentials: map[string]any{
+			"chatgpt_account_id": "account-session-priority",
+		},
+	}
+	svc := &OpenAIGatewayService{}
+	req, err := svc.buildUpstreamRequestOpenAIPassthrough(context.Background(), c, account, body, "token")
+	require.NoError(t, err)
+	require.Equal(t, isolateOpenAIUpstreamSessionID(0, account, "codex-session"), req.Header.Get("session_id"))
+}
+
 func TestOpenAIGatewayService_GenerateSessionHash_EmptyBodyStillEmpty(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()
@@ -928,6 +967,49 @@ func TestOpenAISelectAccountWithLoadAwareness_StickyWaitPlan(t *testing.T) {
 	}
 	if selection.Account == nil || selection.Account.ID != 1 {
 		t.Fatalf("expected account 1")
+	}
+}
+
+func TestOpenAISelectAccountWithLoadAwareness_StickyCapacitySpilloverKeepsBinding(t *testing.T) {
+	sessionHash := "sticky-spillover"
+	groupID := int64(1)
+	repo := stubOpenAIAccountRepo{
+		accounts: []Account{
+			{ID: 1, Platform: PlatformOpenAI, Status: StatusActive, Schedulable: true, Concurrency: 6, Priority: 1, GroupIDs: []int64{groupID}},
+			{ID: 2, Platform: PlatformOpenAI, Status: StatusActive, Schedulable: true, Concurrency: 6, Priority: 1, GroupIDs: []int64{groupID}},
+		},
+	}
+	cache := &stubGatewayCache{
+		sessionBindings: map[string]int64{"openai:" + sessionHash: 1},
+	}
+	concurrencyCache := stubConcurrencyCache{
+		acquireResults: map[int64]bool{1: false, 2: true},
+		waitCounts:     map[int64]int{1: 1},
+		loadMap: map[int64]*AccountLoadInfo{
+			1: {AccountID: 1, LoadRate: 100},
+			2: {AccountID: 2, LoadRate: 10},
+		},
+	}
+	cfg := &config.Config{RunMode: config.RunModeStandard}
+	cfg.Gateway.Scheduling.LoadBatchEnabled = true
+	cfg.Gateway.Scheduling.StickySessionMaxWaiting = 1
+
+	svc := &OpenAIGatewayService{
+		accountRepo:        repo,
+		cache:              cache,
+		cfg:                cfg,
+		concurrencyService: NewConcurrencyService(concurrencyCache),
+	}
+
+	selection, err := svc.SelectAccountWithLoadAwareness(context.Background(), &groupID, sessionHash, "gpt-4", nil)
+	require.NoError(t, err)
+	require.NotNil(t, selection)
+	require.NotNil(t, selection.Account)
+	require.Equal(t, int64(2), selection.Account.ID)
+	require.True(t, selection.Acquired)
+	require.Equal(t, int64(1), cache.sessionBindings["openai:"+sessionHash])
+	if selection.ReleaseFunc != nil {
+		selection.ReleaseFunc()
 	}
 }
 

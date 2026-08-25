@@ -74,6 +74,7 @@ var openaiAllowedHeaders = map[string]bool{
 	"accept-language":       true,
 	"content-type":          true,
 	"conversation_id":       true,
+	"session-id":            true,
 	"user-agent":            true,
 	"originator":            true,
 	"session_id":            true,
@@ -90,6 +91,7 @@ var openaiPassthroughAllowedHeaders = map[string]bool{
 	"accept-language":       true,
 	"content-type":          true,
 	"conversation_id":       true,
+	"session-id":            true,
 	"openai-beta":           true,
 	"user-agent":            true,
 	"originator":            true,
@@ -1386,7 +1388,10 @@ func (s *OpenAIGatewayService) ExtractSessionID(c *gin.Context, body []byte) str
 	if c == nil {
 		return ""
 	}
-	sessionID := strings.TrimSpace(c.GetHeader("session_id"))
+	sessionID := strings.TrimSpace(c.GetHeader("session-id"))
+	if sessionID == "" {
+		sessionID = strings.TrimSpace(c.GetHeader("session_id"))
+	}
 	if sessionID == "" {
 		sessionID = strings.TrimSpace(c.GetHeader("conversation_id"))
 	}
@@ -1401,7 +1406,10 @@ func explicitOpenAISessionID(c *gin.Context, body []byte) string {
 		return ""
 	}
 
-	sessionID := strings.TrimSpace(c.GetHeader("session_id"))
+	sessionID := strings.TrimSpace(c.GetHeader("session-id"))
+	if sessionID == "" {
+		sessionID = strings.TrimSpace(c.GetHeader("session_id"))
+	}
 	if sessionID == "" {
 		sessionID = strings.TrimSpace(c.GetHeader("conversation_id"))
 	}
@@ -1428,7 +1436,7 @@ func (s *OpenAIGatewayService) GenerateExplicitSessionHash(c *gin.Context, body 
 // GenerateSessionHash generates a sticky-session hash for OpenAI requests.
 //
 // Priority:
-//  1. Header: session_id
+//  1. Header: session-id / session_id
 //  2. Header: conversation_id
 //  3. Body:   prompt_cache_key (opencode)
 //  4. Body:   content-based fallback (model + system + tools + first user message)
@@ -2221,6 +2229,7 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 	}
 
 	// ============ Layer 1: Sticky session ============
+	stickySpillover := false
 	if sessionHash != "" {
 		accountID := stickyAccountID
 		if accountID > 0 && !isExcluded(accountID) {
@@ -2257,6 +2266,7 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 								MaxWaiting:     cfg.StickySessionMaxWaiting,
 							})
 						}
+						stickySpillover = true
 					}
 				}
 			}
@@ -2317,7 +2327,7 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 			}
 			result, err := s.tryAcquireAccountSlot(ctx, fresh.ID, fresh.Concurrency)
 			if err == nil && result.Acquired {
-				if sessionHash != "" {
+				if sessionHash != "" && !stickySpillover {
 					_ = s.setStickySessionAccountID(ctx, groupID, sessionHash, fresh.ID, openaiStickySessionTTL)
 				}
 				return s.newSelectionResult(ctx, fresh, true, result.ReleaseFunc, nil)
@@ -2393,7 +2403,7 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 				}
 				result, err := s.tryAcquireAccountSlot(ctx, fresh.ID, fresh.Concurrency)
 				if err == nil && result.Acquired {
-					if sessionHash != "" {
+					if sessionHash != "" && !stickySpillover {
 						_ = s.setStickySessionAccountID(ctx, groupID, sessionHash, fresh.ID, openaiStickySessionTTL)
 					}
 					return s.newSelectionResult(ctx, fresh, true, result.ReleaseFunc, nil)
@@ -4208,7 +4218,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthrough(
 		}
 		apiKeyID := getAPIKeyIDFromContext(c)
 		// 先保存客户端原始值，再做 compact 补充，避免后续统一隔离时读到已处理的值。
-		clientSessionID := strings.TrimSpace(req.Header.Get("session_id"))
+		clientSessionID := extractClientSessionID(req.Header)
 		clientConversationID := strings.TrimSpace(req.Header.Get("conversation_id"))
 		if isOpenAIResponsesCompactPath(c) {
 			req.Header.Set("accept", "application/json")
@@ -5136,6 +5146,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.
 		clientConversationID := strings.TrimSpace(req.Header.Get("conversation_id"))
 		req.Header.Del("conversation_id")
 		req.Header.Del("session_id")
+		req.Header.Del("session-id")
 
 		if compatMessagesBridge {
 			deleteOpenAIHeaderEqualFold(req.Header, "OpenAI-Beta")
@@ -7047,6 +7058,9 @@ func normalizeOpenAICodexCompactReasoningEffort(body []byte, effectiveModel stri
 
 func resolveOpenAICompactSessionID(c *gin.Context) string {
 	if c != nil {
+		if sessionID := strings.TrimSpace(c.GetHeader("session-id")); sessionID != "" {
+			return sessionID
+		}
 		if sessionID := strings.TrimSpace(c.GetHeader("session_id")); sessionID != "" {
 			return sessionID
 		}
