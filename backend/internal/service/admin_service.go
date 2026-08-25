@@ -3567,6 +3567,9 @@ func (s *adminServiceImpl) CreateShadow(ctx context.Context, parentID int64, nam
 	}
 	child := &Account{Name: name, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"model_mapping": defaultSparkShadowModelMapping()}, ParentAccountID: &parentID, QuotaDimension: QuotaDimensionSpark, ProxyID: parent.ProxyID, Priority: priority, Concurrency: concurrency, Status: StatusActive, Schedulable: true}
 	if err := s.accountRepo.Create(ctx, child); err != nil {
+		if isSparkShadowCreateConflict(err) {
+			return nil, infraerrors.Conflict("SPARK_SHADOW_ALREADY_EXISTS", "parent account already has a spark shadow").WithCause(err)
+		}
 		return nil, err
 	}
 	if len(groupIDs) > 0 {
@@ -3577,6 +3580,24 @@ func (s *adminServiceImpl) CreateShadow(ctx context.Context, parentID int64, nam
 		child.GroupIDs = groupIDs
 	}
 	return child, nil
+}
+
+// isSparkShadowCreateConflict keeps the database-enforced one-shadow-per-parent
+// invariant observable as the same admin conflict returned by the preflight
+// lookup. Ent wraps database unique violations in ConstraintError; the message
+// fallback keeps optional repository adapters compatible with the repository
+// error translation used elsewhere in this codebase.
+func isSparkShadowCreateConflict(err error) bool {
+	if err == nil {
+		return false
+	}
+	if dbent.IsConstraintError(err) {
+		return true
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "duplicate key") ||
+		strings.Contains(message, "unique constraint") ||
+		strings.Contains(message, "duplicate entry")
 }
 
 func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *UpdateAccountInput) (*Account, error) {

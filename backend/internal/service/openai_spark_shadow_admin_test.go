@@ -2,28 +2,38 @@ package service
 
 import (
 	"context"
+	"errors"
+	"net/http"
+	"sync"
 	"testing"
 
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
 
 type sparkShadowAdminRepo struct {
 	AccountRepository
+	mu              sync.Mutex
 	accounts        map[int64]*Account
 	shadows         map[int64][]*Account
 	bulkUpdateIDs   []int64
 	shadowLookupIDs []int64
 	atomicShadowIDs []int64
 	updatedIDs      []int64
+	createAttempts  int
 	refreshCalls    int
 	deletedIDs      []int64
 }
 
 func (r *sparkShadowAdminRepo) GetByID(_ context.Context, id int64) (*Account, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	return r.accounts[id], nil
 }
 
 func (r *sparkShadowAdminRepo) GetByIDs(_ context.Context, ids []int64) ([]*Account, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	out := make([]*Account, 0, len(ids))
 	for _, id := range ids {
 		if account := r.accounts[id]; account != nil {
@@ -34,16 +44,33 @@ func (r *sparkShadowAdminRepo) GetByIDs(_ context.Context, ids []int64) ([]*Acco
 }
 
 func (r *sparkShadowAdminRepo) ListShadowsByParent(_ context.Context, parentID int64) ([]*Account, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.shadowLookupIDs = append(r.shadowLookupIDs, parentID)
 	return r.shadows[parentID], nil
 }
 
+func (r *sparkShadowAdminRepo) Create(_ context.Context, account *Account) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.createAttempts++
+	if r.createAttempts > 1 {
+		return errors.New("duplicate key value violates unique constraint account_spark_shadow_parent_uq")
+	}
+	account.ID = 900
+	return nil
+}
+
 func (r *sparkShadowAdminRepo) BulkUpdate(_ context.Context, ids []int64, _ AccountBulkUpdate) (int64, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.bulkUpdateIDs = append([]int64(nil), ids...)
 	return int64(len(ids)), nil
 }
 
 func (r *sparkShadowAdminRepo) Update(_ context.Context, account *Account) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.updatedIDs = append(r.updatedIDs, account.ID)
 	return nil
 }
@@ -56,17 +83,23 @@ func (r *sparkShadowAdminRepo) UpdateWithAccountBillingSettingsAndShadowProxy(
 	_ *float64,
 	shadowIDs []int64,
 ) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.updatedIDs = append(r.updatedIDs, account.ID)
 	r.atomicShadowIDs = append([]int64(nil), shadowIDs...)
 	return nil
 }
 
 func (r *sparkShadowAdminRepo) RefreshQuotaWindows(_ context.Context, _ int64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.refreshCalls++
 	return nil
 }
 
 func (r *sparkShadowAdminRepo) Delete(_ context.Context, id int64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.deletedIDs = append(r.deletedIDs, id)
 	return nil
 }
@@ -93,6 +126,42 @@ func TestSparkShadowBulkProxySyncAndChildCredentialGuard(t *testing.T) {
 	_, err = svc.BulkUpdateAccounts(context.Background(), &BulkUpdateAccountsInput{AccountIDs: []int64{childID}, Credentials: map[string]any{"access_token": "forbidden"}})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "SPARK_SHADOW_NO_CREDENTIALS")
+}
+
+func TestSparkShadowConcurrentCreateReturnsStructuredConflict(t *testing.T) {
+	parentID := int64(8)
+	repo := &sparkShadowAdminRepo{
+		accounts: map[int64]*Account{
+			parentID: {ID: parentID, Name: "parent", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive},
+		},
+	}
+	svc := &adminServiceImpl{accountRepo: repo}
+	start := make(chan struct{})
+	errs := make(chan error, 2)
+	for range 2 {
+		go func() {
+			<-start
+			_, err := svc.CreateShadow(context.Background(), parentID, "", 0, 0, nil)
+			errs <- err
+		}()
+	}
+	close(start)
+
+	successes := 0
+	conflicts := 0
+	for range 2 {
+		err := <-errs
+		if err == nil {
+			successes++
+			continue
+		}
+		require.Equal(t, http.StatusConflict, infraerrors.Code(err))
+		require.Equal(t, "SPARK_SHADOW_ALREADY_EXISTS", infraerrors.Reason(err))
+		conflicts++
+	}
+	require.Equal(t, 1, successes)
+	require.Equal(t, 1, conflicts)
+	require.Equal(t, 2, repo.createAttempts)
 }
 
 func TestSparkShadowBulkProxySkipsNonOAuthParents(t *testing.T) {
