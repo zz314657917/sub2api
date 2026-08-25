@@ -50,3 +50,36 @@ func TestAccountTestServiceGrokOAuthPaymentRequiredTemporarilyUnschedulesAccount
 	require.Contains(t, recorder.Body.String(), `"type":"error"`)
 	require.Contains(t, recorder.Body.String(), "Grok Responses API returned 402")
 }
+
+func TestAccountTestService_GrokOAuthUsesOfficialCLIUserAgent(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	account := &Account{
+		ID:          126,
+		Platform:    PlatformGrok,
+		Type:        AccountTypeOAuth,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"access_token": "grok-access-token",
+			"expires_at":   time.Now().Add(time.Hour).UTC().Format(time.RFC3339),
+		},
+	}
+	repo := &grokS111AccountRepo{}
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+		Body: io.NopCloser(strings.NewReader(
+			"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_grok_test\",\"model\":\"grok-4.3\",\"usage\":{\"input_tokens\":1,\"output_tokens\":1}}}\n\n",
+		)),
+	}}
+	svc := &AccountTestService{
+		accountRepo:       repo,
+		grokTokenProvider: NewGrokTokenProvider(repo, nil),
+		httpUpstream:      upstream,
+	}
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/126/test", nil)
+
+	require.NoError(t, svc.testGrokAccountConnection(c, account, "grok"))
+	require.Equal(t, grokOfficialOAuthUserAgent, upstream.lastReq.Header.Get("User-Agent"))
+}

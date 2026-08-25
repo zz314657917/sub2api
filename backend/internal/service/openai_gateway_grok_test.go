@@ -19,6 +19,15 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+func TestBuildGrokResponsesRequestUsesOfficialCLIUserAgent(t *testing.T) {
+	account := &Account{Platform: PlatformGrok, Type: AccountTypeOAuth}
+
+	req, err := buildGrokResponsesRequest(context.Background(), nil, account, []byte(`{"model":"grok-4.3"}`), "access-token")
+
+	require.NoError(t, err)
+	require.Equal(t, grokOfficialOAuthUserAgent, req.Header.Get("User-Agent"))
+}
+
 func TestPatchGrokResponsesBodySetsMappedModelAndDropsUnsupportedFields(t *testing.T) {
 	t.Parallel()
 

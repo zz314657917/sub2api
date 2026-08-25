@@ -19,6 +19,61 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+func TestForwardAsRawChatCompletions_GrokOAuthUsesOfficialCLIUserAgent(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	body := []byte(`{"model":"grok-4.3","messages":[{"role":"user","content":"hi"}]}`)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(string(body)))
+	c.Request.Header.Set("User-Agent", "caller-client/1.0")
+	account := &Account{
+		ID:       127,
+		Platform: PlatformGrok,
+		Type:     AccountTypeOAuth,
+		Credentials: map[string]any{
+			"access_token": "grok-access-token",
+		},
+	}
+	upstream := grokRawChatCompletionsUserAgentUpstream()
+	svc := &OpenAIGatewayService{httpUpstream: upstream}
+
+	_, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body, "")
+
+	require.NoError(t, err)
+	require.Equal(t, grokOfficialOAuthUserAgent, upstream.lastReq.Header.Get("User-Agent"))
+}
+
+func TestForwardAsRawChatCompletions_GrokAPIKeyDoesNotUseOfficialCLIUserAgent(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	body := []byte(`{"model":"grok-4.3","messages":[{"role":"user","content":"hi"}]}`)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(string(body)))
+	c.Request.Header.Set("User-Agent", "caller-client/1.0")
+	account := &Account{
+		ID:       128,
+		Platform: PlatformGrok,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"api_key": "xai-api-key",
+		},
+	}
+	upstream := grokRawChatCompletionsUserAgentUpstream()
+	svc := &OpenAIGatewayService{httpUpstream: upstream}
+
+	_, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body, "")
+
+	require.NoError(t, err)
+	require.Equal(t, "caller-client/1.0", upstream.lastReq.Header.Get("User-Agent"))
+	require.NotEqual(t, grokOfficialOAuthUserAgent, upstream.lastReq.Header.Get("User-Agent"))
+}
+
+func grokRawChatCompletionsUserAgentUpstream() *httpUpstreamRecorder {
+	return &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"id":"chatcmpl_grok","choices":[],"usage":{"prompt_tokens":1,"completion_tokens":1}}`)),
+	}}
+}
+
 func TestBuildOpenAIChatCompletionsURL(t *testing.T) {
 	t.Parallel()
 

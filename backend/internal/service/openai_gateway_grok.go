@@ -16,6 +16,10 @@ import (
 	"github.com/tidwall/sjson"
 )
 
+// grokOfficialOAuthUserAgent is the xAI-pinned Grok Workspace identity for
+// local OAuth egress. API-key requests must retain their caller/transport UA.
+const grokOfficialOAuthUserAgent = "xai-grok-workspace/0.2.120"
+
 func (s *OpenAIGatewayService) forwardGrokResponses(
 	ctx context.Context,
 	c *gin.Context,
@@ -221,7 +225,9 @@ func buildGrokResponsesRequest(ctx context.Context, c *gin.Context, account *Acc
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json, text/event-stream")
-	req.Header.Set("User-Agent", "sub2api-grok/1.0")
+	if account.IsGrokOAuth() {
+		req.Header.Set("User-Agent", grokOfficialOAuthUserAgent)
+	}
 	if c != nil {
 		if v := c.GetHeader("OpenAI-Beta"); strings.TrimSpace(v) != "" {
 			req.Header.Set("OpenAI-Beta", v)
