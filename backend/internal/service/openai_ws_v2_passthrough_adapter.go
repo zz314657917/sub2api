@@ -402,6 +402,9 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 		gjson.GetBytes(firstClientMessage, "model").String(),
 		gjson.GetBytes(firstClientMessage, "service_tier").String(),
 	)
+	if headers == nil {
+		return errors.New("resolve websocket credential account")
+	}
 	proxyURL := ""
 	if account.ProxyID != nil && account.Proxy != nil {
 		proxyURL = account.Proxy.URL()

@@ -205,6 +205,14 @@ func (Account) Fields() []ent.Field {
 			Optional().
 			Nillable().
 			MaxLen(20),
+		field.Int64("parent_account_id").
+			Optional().
+			Nillable().
+			Comment("Parent account id for a linked Spark shadow; NULL for ordinary accounts."),
+		field.Enum("quota_dimension").
+			Values("global", "spark").
+			Default("global").
+			Comment("Quota dimension: global for ordinary accounts or spark for linked shadows."),
 	}
 }
 
@@ -220,6 +228,11 @@ func (Account) Edges() []ent.Edge {
 		// 使用已有的 proxy_id 外键字段
 		edge.To("proxy", Proxy.Type).
 			Field("proxy_id").
+			Unique(),
+		edge.To("children", Account.Type).
+			Annotations(entsql.OnDelete(entsql.Restrict)).
+			From("parent").
+			Field("parent_account_id").
 			Unique(),
 		// usage_logs: 该账户的使用日志
 		edge.To("usage_logs", UsageLog.Type),
@@ -249,5 +262,6 @@ func (Account) Indexes() []ent.Index {
 		index.Fields("platform", "priority"),
 		index.Fields("priority", "status"),
 		index.Fields("deleted_at"), // 软删除查询优化
+		index.Fields("parent_account_id"),
 	}
 }

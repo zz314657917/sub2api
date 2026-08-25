@@ -10,6 +10,9 @@ func persistAccountCredentials(ctx context.Context, repo AccountRepository, acco
 	if repo == nil || account == nil {
 		return nil
 	}
+	if account.IsCredentialShadow() {
+		return nil
+	}
 
 	account.Credentials = cloneCredentials(credentials)
 	if updater, ok := any(repo).(accountCredentialsUpdater); ok {

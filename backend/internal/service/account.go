@@ -61,6 +61,9 @@ type Account struct {
 	SessionWindowEnd    *time.Time
 	SessionWindowStatus string
 
+	ParentAccountID *int64
+	QuotaDimension  string
+
 	Proxy         *Proxy
 	AccountGroups []AccountGroup
 	GroupIDs      []int64
@@ -73,6 +76,17 @@ type Account struct {
 	modelMappingCacheRawPtr         uintptr
 	modelMappingCacheRawLen         int
 	modelMappingCacheRawSig         uint64
+}
+
+func (a *Account) IsShadow() bool { return a != nil && a.ParentAccountID != nil }
+
+func (a *Account) IsCredentialShadow() bool { return a.IsShadow() }
+
+func (a *Account) QuotaDimensionOrDefault() string {
+	if a == nil || strings.TrimSpace(a.QuotaDimension) == "" {
+		return QuotaDimensionGlobal
+	}
+	return a.QuotaDimension
 }
 
 type OpenAIEndpointCapability string

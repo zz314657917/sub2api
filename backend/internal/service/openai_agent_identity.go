@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,21 +30,6 @@ const (
 	agentIdentityTaskRegistrationTimeout = 30 * time.Second
 )
 
-// IsShadow is kept here because the local branch predates the upstream
-// ParentAccountID field. Reflection lets the compatibility layer work with
-// both account shapes without widening the schema in this sprint.
-func (a *Account) IsShadow() bool {
-	if a == nil {
-		return false
-	}
-	value := reflect.ValueOf(a)
-	if value.Kind() != reflect.Pointer || value.IsNil() {
-		return false
-	}
-	field := value.Elem().FieldByName("ParentAccountID")
-	return field.IsValid() && field.Kind() == reflect.Pointer && !field.IsNil()
-}
-
 func resolveCredentialAccount(ctx context.Context, repo AccountRepository, account *Account) (*Account, error) {
 	if account == nil || !account.IsShadow() {
 		return account, nil
@@ -53,11 +37,10 @@ func resolveCredentialAccount(ctx context.Context, repo AccountRepository, accou
 	if repo == nil {
 		return nil, errors.New("account repository is unavailable")
 	}
-	value := reflect.ValueOf(account).Elem().FieldByName("ParentAccountID")
-	if !value.IsValid() || value.IsNil() || value.Elem().Kind() != reflect.Int64 {
+	if account.ParentAccountID == nil {
 		return nil, errors.New("shadow account parent id is unavailable")
 	}
-	parentID := value.Elem().Int()
+	parentID := *account.ParentAccountID
 	if parentID <= 0 {
 		return nil, errors.New("shadow account parent id is invalid")
 	}
@@ -67,6 +50,9 @@ func resolveCredentialAccount(ctx context.Context, repo AccountRepository, accou
 	}
 	if parent == nil {
 		return nil, errors.New("shadow account parent is unavailable")
+	}
+	if parent.IsShadow() || parent.Platform != PlatformOpenAI || parent.Type != AccountTypeOAuth {
+		return nil, errors.New("shadow account parent is not an eligible OpenAI OAuth account")
 	}
 	return parent, nil
 }
