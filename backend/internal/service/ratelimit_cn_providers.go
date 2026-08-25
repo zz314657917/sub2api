@@ -22,6 +22,29 @@ import (
 // 「确属余额不足」与「尚未探测」。
 const cnBalanceExtraSuffixLow = "balance_low"
 
+const kimiConcurrentRequestLimitMessage = "You've reached your concurrent request limit. Please wait for your ongoing requests to finish and try again."
+
+const cnConcurrencyLimitReasonPrefix = "cn_concurrency_limit"
+
+func isCNProviderConcurrencyLimit403(account *Account, upstreamMsg string) bool {
+	return account != nil && account.Platform == PlatformKimi &&
+		strings.TrimSpace(upstreamMsg) == kimiConcurrentRequestLimitMessage
+}
+
+func (s *RateLimitService) handleCNProviderConcurrencyLimit403(ctx context.Context, account *Account) {
+	until := time.Now().Add(time.Duration(openAI403CooldownMinutesDefault) * time.Minute)
+	reason := cnConcurrencyLimitReasonPrefix + ": " + kimiConcurrentRequestLimitMessage
+	if err := s.accountRepo.SetTempUnschedulable(ctx, account.ID, until, reason); err != nil {
+		slog.Warn("cn_concurrency_limit_set_temp_unschedulable_failed", "account_id", account.ID, "error", err)
+		return
+	}
+	slog.Info("cn_provider_concurrency_limited",
+		"account_id", account.ID,
+		"platform", account.Platform,
+		"until", until.UTC(),
+	)
+}
+
 // cnProviderResponseIndicatesInsufficientBalance 通过响应体文案识别余额不足
 // （智谱 payg 无独立余额端点，仅能靠响应文案识别）。
 func cnProviderResponseIndicatesInsufficientBalance(body []byte) bool {

@@ -42,3 +42,36 @@ func TestHandleUpstreamError_CNProviderStructured403ThresholdDisables(t *testing
 	require.Zero(t, repo.tempCalls)
 	require.Equal(t, 1, repo.setErrorCalls)
 }
+
+func TestHandleUpstreamError_KimiConcurrency403UsesTemporaryCooldown(t *testing.T) {
+	svc, repo, counter := newHTML403Service(openAI403DisableThreshold)
+	account := &Account{ID: 604, Platform: PlatformKimi, Type: AccountTypeAPIKey}
+
+	require.True(t, svc.HandleUpstreamError(context.Background(), account,
+		http.StatusForbidden, http.Header{}, []byte(`{"error":{"message":"You've reached your concurrent request limit. Please wait for your ongoing requests to finish and try again."}}`)))
+	require.Zero(t, counter.increments)
+	require.Equal(t, 1, repo.tempCalls)
+	require.Zero(t, repo.setErrorCalls)
+}
+
+func TestHandleUpstreamError_KimiConcurrency403NearMatchKeepsNormalPolicy(t *testing.T) {
+	svc, repo, counter := newHTML403Service(openAI403DisableThreshold)
+	account := &Account{ID: 605, Platform: PlatformKimi, Type: AccountTypeAPIKey}
+
+	require.True(t, svc.HandleUpstreamError(context.Background(), account,
+		http.StatusForbidden, http.Header{}, []byte(`{"error":{"message":"You've reached your concurrent request limit. Please contact support."}}`)))
+	require.Equal(t, 1, counter.increments)
+	require.Zero(t, repo.tempCalls)
+	require.Equal(t, 1, repo.setErrorCalls)
+}
+
+func TestHandleUpstreamError_OtherCNProviderWithKimiConcurrencyMessageKeepsNormalPolicy(t *testing.T) {
+	svc, repo, counter := newHTML403Service(openAI403DisableThreshold)
+	account := &Account{ID: 606, Platform: PlatformZhipu, Type: AccountTypeAPIKey}
+
+	require.True(t, svc.HandleUpstreamError(context.Background(), account,
+		http.StatusForbidden, http.Header{}, []byte(`{"error":{"message":"You've reached your concurrent request limit. Please wait for your ongoing requests to finish and try again."}}`)))
+	require.Equal(t, 1, counter.increments)
+	require.Zero(t, repo.tempCalls)
+	require.Equal(t, 1, repo.setErrorCalls)
+}
