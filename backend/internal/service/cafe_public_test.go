@@ -220,6 +220,8 @@ func TestCafePublicServiceListsMyRoomsWithSafeStatusProjection(t *testing.T) {
 	require.Equal(t, "ChatGPT Pro 主账号", activeItem.Account.Name)
 	require.Equal(t, PlatformOpenAI, activeItem.Account.Platform)
 	require.Equal(t, "o***r@example.com", activeItem.Account.EmailMasked)
+	require.Len(t, activeItem.MemberAvatars, 4)
+	require.NotEmpty(t, activeItem.MemberAvatars[0].AvatarSeed)
 	require.NotNil(t, activeItem.Account.Remaining7dPercent)
 	require.Equal(t, 62.5, *activeItem.Account.Remaining7dPercent)
 	require.NotNil(t, activeItem.ManagedAPIKey)
@@ -238,7 +240,7 @@ func TestCafePublicServiceListsMyRoomsWithSafeStatusProjection(t *testing.T) {
 
 	encoded, err := json.Marshal(items)
 	require.NoError(t, err)
-	for _, prohibited := range []string{"\"key\":", "masked_key", "user_id", "group_id", "managed_source_id", "account_id", "credentials", "\"extra\":", "codex_7d_used_percent", "window_5h_start", "window_7d_start", "must-not-leak", "owner@example.com", "sk-cafe-my-rooms-private", "sk-not-for-client"} {
+	for _, prohibited := range []string{"\"key\":", "masked_key", "user_id", "group_id", "managed_source_id", "account_id", "credentials", "\"extra\":", "codex_7d_used_percent", "window_5h_start", "window_7d_start", "must-not-leak", "owner@example.com", "sk-cafe-my-rooms-private", "sk-not-for-client", "cafe-my-rooms@example.com", "cafe-my-rooms-other@example.com"} {
 		require.NotContains(t, string(encoded), prohibited)
 	}
 

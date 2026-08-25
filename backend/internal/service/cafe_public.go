@@ -167,17 +167,18 @@ type CafeMyRoomsListParams struct {
 }
 
 type CafeMyRoom struct {
-	MembershipID  int64                 `json:"membership_id"`
-	Status        string                `json:"status"`
-	PaidShares    int                   `json:"paid_shares"`
-	ActivatedAt   *time.Time            `json:"activated_at,omitempty"`
-	ExpiresAt     *time.Time            `json:"expires_at,omitempty"`
-	Room          CafeMyRoomRoom        `json:"room"`
-	Account       *CafeMyRoomAccount    `json:"account,omitempty"`
-	Plan          CafeMyRoomPlan        `json:"plan"`
-	Round         CafeMyRoomRound       `json:"round"`
-	ManagedAPIKey *CafeMyRoomManagedKey `json:"managed_api_key"`
-	Seat          CafeMyRoomSeat        `json:"-"`
+	MembershipID  int64                    `json:"membership_id"`
+	Status        string                   `json:"status"`
+	PaidShares    int                      `json:"paid_shares"`
+	ActivatedAt   *time.Time               `json:"activated_at,omitempty"`
+	ExpiresAt     *time.Time               `json:"expires_at,omitempty"`
+	Room          CafeMyRoomRoom           `json:"room"`
+	MemberAvatars []CafePublicMemberAvatar `json:"member_avatars"`
+	Account       *CafeMyRoomAccount       `json:"account,omitempty"`
+	Plan          CafeMyRoomPlan           `json:"plan"`
+	Round         CafeMyRoomRound          `json:"round"`
+	ManagedAPIKey *CafeMyRoomManagedKey    `json:"managed_api_key"`
+	Seat          CafeMyRoomSeat           `json:"-"`
 }
 
 type CafeMyRoomRoom struct {
@@ -371,7 +372,7 @@ func (s *CafePublicService) MyRooms(ctx context.Context, userID int64, params Ca
 		caferoundmembership.UserIDEQ(userID),
 		caferoundmembership.HasRoundWith(groupbuyround.CafeFulfillmentVersionEQ("membership_share"), groupbuyround.CafeRoomIDNotNil(), groupbuyround.HasCafeRoom()),
 	).WithRound(func(roundQuery *dbent.GroupBuyRoundQuery) {
-		roundQuery.WithCafeRoom().WithAssignedAccount().WithPlan()
+		roundQuery.WithCafeRoom().WithAssignedAccount().WithPlan().WithCafeMemberships().WithSeats()
 	}).All(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("list cafe memberships: %w", err)
@@ -405,7 +406,7 @@ func (s *CafePublicService) MyRooms(ctx context.Context, userID int64, params Ca
 		groupbuyseat.UserIDEQ(userID),
 		groupbuyseat.HasRoundWith(groupbuyround.CafeFulfillmentVersionEQ("legacy_seat"), groupbuyround.CafeRoomIDNotNil(), groupbuyround.HasCafeRoom()),
 	).WithRound(func(roundQuery *dbent.GroupBuyRoundQuery) {
-		roundQuery.WithCafeRoom(func(roomQuery *dbent.CafeRoomQuery) { roomQuery.WithAccount() })
+		roundQuery.WithCafeRoom(func(roomQuery *dbent.CafeRoomQuery) { roomQuery.WithAccount() }).WithSeats().WithCafeMemberships()
 	}).WithPlan().WithBoundAPIKey().All(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("list legacy cafe rooms: %w", err)
@@ -520,14 +521,15 @@ func cafeMyRoomFromMembership(membership *dbent.CafeRoundMembership, keys map[in
 	room := round.Edges.CafeRoom
 	plan := round.Edges.Plan
 	item := CafeMyRoom{
-		MembershipID: membership.ID,
-		Status:       membership.Status,
-		PaidShares:   membership.PaidShares,
-		ActivatedAt:  membership.ActivatedAt,
-		ExpiresAt:    membership.ExpiresAt,
-		Room:         CafeMyRoomRoom{ID: room.ID, Code: room.Code, Name: room.Name, ZoneKey: room.ZoneKey, ThemeKey: room.ThemeKey},
-		Plan:         CafeMyRoomPlan{ID: plan.ID, Title: plan.Title, SubscriptionTier: cafeRoundSubscriptionTier(round), ValidityDays: cafeRoundValidityDays(round, plan.ValidityDays)},
-		Round:        CafeMyRoomRound{ID: round.ID, Status: round.Status, PaidShares: round.PaidShares, TotalShares: round.TotalShares},
+		MembershipID:  membership.ID,
+		Status:        membership.Status,
+		PaidShares:    membership.PaidShares,
+		ActivatedAt:   membership.ActivatedAt,
+		ExpiresAt:     membership.ExpiresAt,
+		Room:          CafeMyRoomRoom{ID: room.ID, Code: room.Code, Name: room.Name, ZoneKey: room.ZoneKey, ThemeKey: room.ThemeKey},
+		MemberAvatars: publicCafeMemberAvatars(round),
+		Plan:          CafeMyRoomPlan{ID: plan.ID, Title: plan.Title, SubscriptionTier: cafeRoundSubscriptionTier(round), ValidityDays: cafeRoundValidityDays(round, plan.ValidityDays)},
+		Round:         CafeMyRoomRound{ID: round.ID, Status: round.Status, PaidShares: round.PaidShares, TotalShares: round.TotalShares},
 	}
 	if round.Status == GroupBuyRoundStatusActive && membership.Status == GroupBuySeatStatusActive {
 		if assigned := round.Edges.AssignedAccount; assigned != nil {
@@ -549,11 +551,12 @@ func cafeMyRoomFromSeat(seat *dbent.GroupBuySeat, now time.Time) (CafeMyRoom, bo
 	round := seat.Edges.Round
 	room := round.Edges.CafeRoom
 	item := CafeMyRoom{
-		MembershipID: seat.ID,
-		Status:       seat.Status,
-		PaidShares:   seat.ShareCount,
-		ActivatedAt:  seat.ActivatedAt,
-		ExpiresAt:    seat.ExpiresAt,
+		MembershipID:  seat.ID,
+		Status:        seat.Status,
+		PaidShares:    seat.ShareCount,
+		ActivatedAt:   seat.ActivatedAt,
+		ExpiresAt:     seat.ExpiresAt,
+		MemberAvatars: publicCafeMemberAvatars(round),
 		Room: CafeMyRoomRoom{
 			ID: room.ID, Code: room.Code, Name: room.Name, ZoneKey: room.ZoneKey, ThemeKey: room.ThemeKey,
 		},

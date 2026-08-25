@@ -46,6 +46,7 @@ const myRoom = {
   activated_at: '2026-08-25T08:00:00Z',
   expires_at: '2099-09-24T08:00:00Z',
   room: { id: 18, code: 'C-018', name: 'Plus 包间 18', zone_key: 'openai', theme_key: 'warm_wood' },
+  member_avatars: [{ avatar_seed: 'my-room-member-one' }, { avatar_seed: 'my-room-member-two' }],
   plan: { id: 3, title: 'ChatGPT Plus', subscription_tier: 'plus', validity_days: 30 },
   round: { id: 1008, status: 'active', paid_shares: 5, total_shares: 5 },
   account: { name: 'ChatGPT Plus 主账号', platform: 'openai', email_masked: 'o***r@example.com', remaining_7d_percent: 62.5 },
@@ -128,6 +129,8 @@ describe('PixelCafePage', () => {
     expect(wrapper.find('.pixel-cafe-room-card-action').exists()).toBe(false)
     expect(wrapper.find('[data-testid="pixel-cafe-room-card-members"]').attributes('aria-label')).toBe('1 人已加入')
     expect(wrapper.findAll('[data-testid="pixel-cafe-room-member-avatar"]')).toHaveLength(1)
+    expect(wrapper.find('[data-testid="pixel-cafe-my-room-members"]').attributes('aria-label')).toBe('2 人已加入')
+    expect(wrapper.findAll('[data-testid="pixel-cafe-my-room-member-avatar"]')).toHaveLength(2)
     expect(wrapper.find('[data-testid="pixel-cafe-room-dialog"]').exists()).toBe(false)
     expect(wrapper.find('.pixel-cafe-scene .pixel-cafe-inspector').exists()).toBe(false)
     await wrapper.find('.pixel-cafe-room-card').trigger('click')
