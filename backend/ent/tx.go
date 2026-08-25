@@ -32,6 +32,8 @@ type Tx struct {
 	AuthIdentityChannel *AuthIdentityChannelClient
 	// CafeRoom is the client for interacting with the CafeRoom builders.
 	CafeRoom *CafeRoomClient
+	// CafeRoundMembership is the client for interacting with the CafeRoundMembership builders.
+	CafeRoundMembership *CafeRoundMembershipClient
 	// ChannelMonitor is the client for interacting with the ChannelMonitor builders.
 	ChannelMonitor *ChannelMonitorClient
 	// ChannelMonitorDailyRollup is the client for interacting with the ChannelMonitorDailyRollup builders.
@@ -244,6 +246,7 @@ func (tx *Tx) init() {
 	tx.AuthIdentity = NewAuthIdentityClient(tx.config)
 	tx.AuthIdentityChannel = NewAuthIdentityChannelClient(tx.config)
 	tx.CafeRoom = NewCafeRoomClient(tx.config)
+	tx.CafeRoundMembership = NewCafeRoundMembershipClient(tx.config)
 	tx.ChannelMonitor = NewChannelMonitorClient(tx.config)
 	tx.ChannelMonitorDailyRollup = NewChannelMonitorDailyRollupClient(tx.config)
 	tx.ChannelMonitorHistory = NewChannelMonitorHistoryClient(tx.config)

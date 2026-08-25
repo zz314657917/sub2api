@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
+	"github.com/Wei-Shaw/sub2api/ent/caferoundmembership"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyrefund"
@@ -60,6 +61,20 @@ func (_c *GroupBuySeatCreate) SetOrderID(v int64) *GroupBuySeatCreate {
 func (_c *GroupBuySeatCreate) SetNillableOrderID(v *int64) *GroupBuySeatCreate {
 	if v != nil {
 		_c.SetOrderID(*v)
+	}
+	return _c
+}
+
+// SetMembershipID sets the "membership_id" field.
+func (_c *GroupBuySeatCreate) SetMembershipID(v int64) *GroupBuySeatCreate {
+	_c.mutation.SetMembershipID(v)
+	return _c
+}
+
+// SetNillableMembershipID sets the "membership_id" field if the given value is not nil.
+func (_c *GroupBuySeatCreate) SetNillableMembershipID(v *int64) *GroupBuySeatCreate {
+	if v != nil {
+		_c.SetMembershipID(*v)
 	}
 	return _c
 }
@@ -292,6 +307,11 @@ func (_c *GroupBuySeatCreate) SetUser(v *User) *GroupBuySeatCreate {
 // SetOrder sets the "order" edge to the PaymentOrder entity.
 func (_c *GroupBuySeatCreate) SetOrder(v *PaymentOrder) *GroupBuySeatCreate {
 	return _c.SetOrderID(v.ID)
+}
+
+// SetMembership sets the "membership" edge to the CafeRoundMembership entity.
+func (_c *GroupBuySeatCreate) SetMembership(v *CafeRoundMembership) *GroupBuySeatCreate {
+	return _c.SetMembershipID(v.ID)
 }
 
 // SetSubscription sets the "subscription" edge to the UserSubscription entity.
@@ -586,6 +606,23 @@ func (_c *GroupBuySeatCreate) createSpec() (*GroupBuySeat, *sqlgraph.CreateSpec)
 		_node.OrderID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
+	if nodes := _c.mutation.MembershipIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   groupbuyseat.MembershipTable,
+			Columns: []string{groupbuyseat.MembershipColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoundmembership.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.MembershipID = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
 	if nodes := _c.mutation.SubscriptionIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -771,6 +808,24 @@ func (u *GroupBuySeatUpsert) UpdateOrderID() *GroupBuySeatUpsert {
 // ClearOrderID clears the value of the "order_id" field.
 func (u *GroupBuySeatUpsert) ClearOrderID() *GroupBuySeatUpsert {
 	u.SetNull(groupbuyseat.FieldOrderID)
+	return u
+}
+
+// SetMembershipID sets the "membership_id" field.
+func (u *GroupBuySeatUpsert) SetMembershipID(v int64) *GroupBuySeatUpsert {
+	u.Set(groupbuyseat.FieldMembershipID, v)
+	return u
+}
+
+// UpdateMembershipID sets the "membership_id" field to the value that was provided on create.
+func (u *GroupBuySeatUpsert) UpdateMembershipID() *GroupBuySeatUpsert {
+	u.SetExcluded(groupbuyseat.FieldMembershipID)
+	return u
+}
+
+// ClearMembershipID clears the value of the "membership_id" field.
+func (u *GroupBuySeatUpsert) ClearMembershipID() *GroupBuySeatUpsert {
+	u.SetNull(groupbuyseat.FieldMembershipID)
 	return u
 }
 
@@ -1125,6 +1180,27 @@ func (u *GroupBuySeatUpsertOne) UpdateOrderID() *GroupBuySeatUpsertOne {
 func (u *GroupBuySeatUpsertOne) ClearOrderID() *GroupBuySeatUpsertOne {
 	return u.Update(func(s *GroupBuySeatUpsert) {
 		s.ClearOrderID()
+	})
+}
+
+// SetMembershipID sets the "membership_id" field.
+func (u *GroupBuySeatUpsertOne) SetMembershipID(v int64) *GroupBuySeatUpsertOne {
+	return u.Update(func(s *GroupBuySeatUpsert) {
+		s.SetMembershipID(v)
+	})
+}
+
+// UpdateMembershipID sets the "membership_id" field to the value that was provided on create.
+func (u *GroupBuySeatUpsertOne) UpdateMembershipID() *GroupBuySeatUpsertOne {
+	return u.Update(func(s *GroupBuySeatUpsert) {
+		s.UpdateMembershipID()
+	})
+}
+
+// ClearMembershipID clears the value of the "membership_id" field.
+func (u *GroupBuySeatUpsertOne) ClearMembershipID() *GroupBuySeatUpsertOne {
+	return u.Update(func(s *GroupBuySeatUpsert) {
+		s.ClearMembershipID()
 	})
 }
 
@@ -1686,6 +1762,27 @@ func (u *GroupBuySeatUpsertBulk) UpdateOrderID() *GroupBuySeatUpsertBulk {
 func (u *GroupBuySeatUpsertBulk) ClearOrderID() *GroupBuySeatUpsertBulk {
 	return u.Update(func(s *GroupBuySeatUpsert) {
 		s.ClearOrderID()
+	})
+}
+
+// SetMembershipID sets the "membership_id" field.
+func (u *GroupBuySeatUpsertBulk) SetMembershipID(v int64) *GroupBuySeatUpsertBulk {
+	return u.Update(func(s *GroupBuySeatUpsert) {
+		s.SetMembershipID(v)
+	})
+}
+
+// UpdateMembershipID sets the "membership_id" field to the value that was provided on create.
+func (u *GroupBuySeatUpsertBulk) UpdateMembershipID() *GroupBuySeatUpsertBulk {
+	return u.Update(func(s *GroupBuySeatUpsert) {
+		s.UpdateMembershipID()
+	})
+}
+
+// ClearMembershipID clears the value of the "membership_id" field.
+func (u *GroupBuySeatUpsertBulk) ClearMembershipID() *GroupBuySeatUpsertBulk {
+	return u.Update(func(s *GroupBuySeatUpsert) {
+		s.ClearMembershipID()
 	})
 }
 

@@ -24,6 +24,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
 	"github.com/Wei-Shaw/sub2api/ent/caferoom"
+	"github.com/Wei-Shaw/sub2api/ent/caferoundmembership"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitor"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
@@ -87,6 +88,8 @@ type Client struct {
 	AuthIdentityChannel *AuthIdentityChannelClient
 	// CafeRoom is the client for interacting with the CafeRoom builders.
 	CafeRoom *CafeRoomClient
+	// CafeRoundMembership is the client for interacting with the CafeRoundMembership builders.
+	CafeRoundMembership *CafeRoundMembershipClient
 	// ChannelMonitor is the client for interacting with the ChannelMonitor builders.
 	ChannelMonitor *ChannelMonitorClient
 	// ChannelMonitorDailyRollup is the client for interacting with the ChannelMonitorDailyRollup builders.
@@ -179,6 +182,7 @@ func (c *Client) init() {
 	c.AuthIdentity = NewAuthIdentityClient(c.config)
 	c.AuthIdentityChannel = NewAuthIdentityChannelClient(c.config)
 	c.CafeRoom = NewCafeRoomClient(c.config)
+	c.CafeRoundMembership = NewCafeRoundMembershipClient(c.config)
 	c.ChannelMonitor = NewChannelMonitorClient(c.config)
 	c.ChannelMonitorDailyRollup = NewChannelMonitorDailyRollupClient(c.config)
 	c.ChannelMonitorHistory = NewChannelMonitorHistoryClient(c.config)
@@ -316,6 +320,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		AuthIdentity:                  NewAuthIdentityClient(cfg),
 		AuthIdentityChannel:           NewAuthIdentityChannelClient(cfg),
 		CafeRoom:                      NewCafeRoomClient(cfg),
+		CafeRoundMembership:           NewCafeRoundMembershipClient(cfg),
 		ChannelMonitor:                NewChannelMonitorClient(cfg),
 		ChannelMonitorDailyRollup:     NewChannelMonitorDailyRollupClient(cfg),
 		ChannelMonitorHistory:         NewChannelMonitorHistoryClient(cfg),
@@ -380,6 +385,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		AuthIdentity:                  NewAuthIdentityClient(cfg),
 		AuthIdentityChannel:           NewAuthIdentityChannelClient(cfg),
 		CafeRoom:                      NewCafeRoomClient(cfg),
+		CafeRoundMembership:           NewCafeRoundMembershipClient(cfg),
 		ChannelMonitor:                NewChannelMonitorClient(cfg),
 		ChannelMonitorDailyRollup:     NewChannelMonitorDailyRollupClient(cfg),
 		ChannelMonitorHistory:         NewChannelMonitorHistoryClient(cfg),
@@ -447,17 +453,17 @@ func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.APIKey, c.APIKeyAccountBinding, c.Account, c.AccountGroup, c.Announcement,
 		c.AnnouncementRead, c.AuthIdentity, c.AuthIdentityChannel, c.CafeRoom,
-		c.ChannelMonitor, c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
-		c.ChannelMonitorRequestTemplate, c.ErrorPassthroughRule, c.Group,
-		c.GroupBuyEntitlement, c.GroupBuyEvent, c.GroupBuyPlan, c.GroupBuyRefund,
-		c.GroupBuyRound, c.GroupBuySeat, c.IdempotencyRecord,
-		c.IdentityAdoptionDecision, c.InvoiceRequest, c.PaymentAuditLog,
-		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
-		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
-		c.SubscriptionPlan, c.SupportTicket, c.SupportTicketMessage,
-		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
-		c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
-		c.UserSubscription,
+		c.CafeRoundMembership, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
+		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate,
+		c.ErrorPassthroughRule, c.Group, c.GroupBuyEntitlement, c.GroupBuyEvent,
+		c.GroupBuyPlan, c.GroupBuyRefund, c.GroupBuyRound, c.GroupBuySeat,
+		c.IdempotencyRecord, c.IdentityAdoptionDecision, c.InvoiceRequest,
+		c.PaymentAuditLog, c.PaymentOrder, c.PaymentProviderInstance,
+		c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage, c.Proxy, c.RedeemCode,
+		c.SecuritySecret, c.Setting, c.SubscriptionPlan, c.SupportTicket,
+		c.SupportTicketMessage, c.TLSFingerprintProfile, c.UsageCleanupTask,
+		c.UsageLog, c.User, c.UserAllowedGroup, c.UserAttributeDefinition,
+		c.UserAttributeValue, c.UserSubscription,
 	} {
 		n.Use(hooks...)
 	}
@@ -469,17 +475,17 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.APIKey, c.APIKeyAccountBinding, c.Account, c.AccountGroup, c.Announcement,
 		c.AnnouncementRead, c.AuthIdentity, c.AuthIdentityChannel, c.CafeRoom,
-		c.ChannelMonitor, c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
-		c.ChannelMonitorRequestTemplate, c.ErrorPassthroughRule, c.Group,
-		c.GroupBuyEntitlement, c.GroupBuyEvent, c.GroupBuyPlan, c.GroupBuyRefund,
-		c.GroupBuyRound, c.GroupBuySeat, c.IdempotencyRecord,
-		c.IdentityAdoptionDecision, c.InvoiceRequest, c.PaymentAuditLog,
-		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
-		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
-		c.SubscriptionPlan, c.SupportTicket, c.SupportTicketMessage,
-		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
-		c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
-		c.UserSubscription,
+		c.CafeRoundMembership, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
+		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate,
+		c.ErrorPassthroughRule, c.Group, c.GroupBuyEntitlement, c.GroupBuyEvent,
+		c.GroupBuyPlan, c.GroupBuyRefund, c.GroupBuyRound, c.GroupBuySeat,
+		c.IdempotencyRecord, c.IdentityAdoptionDecision, c.InvoiceRequest,
+		c.PaymentAuditLog, c.PaymentOrder, c.PaymentProviderInstance,
+		c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage, c.Proxy, c.RedeemCode,
+		c.SecuritySecret, c.Setting, c.SubscriptionPlan, c.SupportTicket,
+		c.SupportTicketMessage, c.TLSFingerprintProfile, c.UsageCleanupTask,
+		c.UsageLog, c.User, c.UserAllowedGroup, c.UserAttributeDefinition,
+		c.UserAttributeValue, c.UserSubscription,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -506,6 +512,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.AuthIdentityChannel.mutate(ctx, m)
 	case *CafeRoomMutation:
 		return c.CafeRoom.mutate(ctx, m)
+	case *CafeRoundMembershipMutation:
+		return c.CafeRoundMembership.mutate(ctx, m)
 	case *ChannelMonitorMutation:
 		return c.ChannelMonitor.mutate(ctx, m)
 	case *ChannelMonitorDailyRollupMutation:
@@ -1027,6 +1035,22 @@ func (c *APIKeyAccountBindingClient) QuerySeat(_m *APIKeyAccountBinding) *GroupB
 			sqlgraph.From(apikeyaccountbinding.Table, apikeyaccountbinding.FieldID, id),
 			sqlgraph.To(groupbuyseat.Table, groupbuyseat.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, apikeyaccountbinding.SeatTable, apikeyaccountbinding.SeatColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryMembership queries the membership edge of a APIKeyAccountBinding.
+func (c *APIKeyAccountBindingClient) QueryMembership(_m *APIKeyAccountBinding) *CafeRoundMembershipQuery {
+	query := (&CafeRoundMembershipClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(apikeyaccountbinding.Table, apikeyaccountbinding.FieldID, id),
+			sqlgraph.To(caferoundmembership.Table, caferoundmembership.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, apikeyaccountbinding.MembershipTable, apikeyaccountbinding.MembershipColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -2294,6 +2318,187 @@ func (c *CafeRoomClient) mutate(ctx context.Context, m *CafeRoomMutation) (Value
 		return (&CafeRoomDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown CafeRoom mutation op: %q", m.Op())
+	}
+}
+
+// CafeRoundMembershipClient is a client for the CafeRoundMembership schema.
+type CafeRoundMembershipClient struct {
+	config
+}
+
+// NewCafeRoundMembershipClient returns a client for the CafeRoundMembership from the given config.
+func NewCafeRoundMembershipClient(c config) *CafeRoundMembershipClient {
+	return &CafeRoundMembershipClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `caferoundmembership.Hooks(f(g(h())))`.
+func (c *CafeRoundMembershipClient) Use(hooks ...Hook) {
+	c.hooks.CafeRoundMembership = append(c.hooks.CafeRoundMembership, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `caferoundmembership.Intercept(f(g(h())))`.
+func (c *CafeRoundMembershipClient) Intercept(interceptors ...Interceptor) {
+	c.inters.CafeRoundMembership = append(c.inters.CafeRoundMembership, interceptors...)
+}
+
+// Create returns a builder for creating a CafeRoundMembership entity.
+func (c *CafeRoundMembershipClient) Create() *CafeRoundMembershipCreate {
+	mutation := newCafeRoundMembershipMutation(c.config, OpCreate)
+	return &CafeRoundMembershipCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of CafeRoundMembership entities.
+func (c *CafeRoundMembershipClient) CreateBulk(builders ...*CafeRoundMembershipCreate) *CafeRoundMembershipCreateBulk {
+	return &CafeRoundMembershipCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *CafeRoundMembershipClient) MapCreateBulk(slice any, setFunc func(*CafeRoundMembershipCreate, int)) *CafeRoundMembershipCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &CafeRoundMembershipCreateBulk{err: fmt.Errorf("calling to CafeRoundMembershipClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*CafeRoundMembershipCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &CafeRoundMembershipCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for CafeRoundMembership.
+func (c *CafeRoundMembershipClient) Update() *CafeRoundMembershipUpdate {
+	mutation := newCafeRoundMembershipMutation(c.config, OpUpdate)
+	return &CafeRoundMembershipUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *CafeRoundMembershipClient) UpdateOne(_m *CafeRoundMembership) *CafeRoundMembershipUpdateOne {
+	mutation := newCafeRoundMembershipMutation(c.config, OpUpdateOne, withCafeRoundMembership(_m))
+	return &CafeRoundMembershipUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *CafeRoundMembershipClient) UpdateOneID(id int64) *CafeRoundMembershipUpdateOne {
+	mutation := newCafeRoundMembershipMutation(c.config, OpUpdateOne, withCafeRoundMembershipID(id))
+	return &CafeRoundMembershipUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for CafeRoundMembership.
+func (c *CafeRoundMembershipClient) Delete() *CafeRoundMembershipDelete {
+	mutation := newCafeRoundMembershipMutation(c.config, OpDelete)
+	return &CafeRoundMembershipDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *CafeRoundMembershipClient) DeleteOne(_m *CafeRoundMembership) *CafeRoundMembershipDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *CafeRoundMembershipClient) DeleteOneID(id int64) *CafeRoundMembershipDeleteOne {
+	builder := c.Delete().Where(caferoundmembership.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &CafeRoundMembershipDeleteOne{builder}
+}
+
+// Query returns a query builder for CafeRoundMembership.
+func (c *CafeRoundMembershipClient) Query() *CafeRoundMembershipQuery {
+	return &CafeRoundMembershipQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeCafeRoundMembership},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a CafeRoundMembership entity by its id.
+func (c *CafeRoundMembershipClient) Get(ctx context.Context, id int64) (*CafeRoundMembership, error) {
+	return c.Query().Where(caferoundmembership.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *CafeRoundMembershipClient) GetX(ctx context.Context, id int64) *CafeRoundMembership {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryRound queries the round edge of a CafeRoundMembership.
+func (c *CafeRoundMembershipClient) QueryRound(_m *CafeRoundMembership) *GroupBuyRoundQuery {
+	query := (&GroupBuyRoundClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(caferoundmembership.Table, caferoundmembership.FieldID, id),
+			sqlgraph.To(groupbuyround.Table, groupbuyround.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, caferoundmembership.RoundTable, caferoundmembership.RoundColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryPaymentBatches queries the payment_batches edge of a CafeRoundMembership.
+func (c *CafeRoundMembershipClient) QueryPaymentBatches(_m *CafeRoundMembership) *GroupBuySeatQuery {
+	query := (&GroupBuySeatClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(caferoundmembership.Table, caferoundmembership.FieldID, id),
+			sqlgraph.To(groupbuyseat.Table, groupbuyseat.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, caferoundmembership.PaymentBatchesTable, caferoundmembership.PaymentBatchesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAccountBindings queries the account_bindings edge of a CafeRoundMembership.
+func (c *CafeRoundMembershipClient) QueryAccountBindings(_m *CafeRoundMembership) *APIKeyAccountBindingQuery {
+	query := (&APIKeyAccountBindingClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(caferoundmembership.Table, caferoundmembership.FieldID, id),
+			sqlgraph.To(apikeyaccountbinding.Table, apikeyaccountbinding.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, caferoundmembership.AccountBindingsTable, caferoundmembership.AccountBindingsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *CafeRoundMembershipClient) Hooks() []Hook {
+	return c.hooks.CafeRoundMembership
+}
+
+// Interceptors returns the client interceptors.
+func (c *CafeRoundMembershipClient) Interceptors() []Interceptor {
+	return c.inters.CafeRoundMembership
+}
+
+func (c *CafeRoundMembershipClient) mutate(ctx context.Context, m *CafeRoundMembershipMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&CafeRoundMembershipCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&CafeRoundMembershipUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&CafeRoundMembershipUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&CafeRoundMembershipDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown CafeRoundMembership mutation op: %q", m.Op())
 	}
 }
 
@@ -4393,6 +4598,22 @@ func (c *GroupBuyRoundClient) QueryAccountBindings(_m *GroupBuyRound) *APIKeyAcc
 	return query
 }
 
+// QueryCafeMemberships queries the cafe_memberships edge of a GroupBuyRound.
+func (c *GroupBuyRoundClient) QueryCafeMemberships(_m *GroupBuyRound) *CafeRoundMembershipQuery {
+	query := (&CafeRoundMembershipClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyround.Table, groupbuyround.FieldID, id),
+			sqlgraph.To(caferoundmembership.Table, caferoundmembership.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, groupbuyround.CafeMembershipsTable, groupbuyround.CafeMembershipsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *GroupBuyRoundClient) Hooks() []Hook {
 	return c.hooks.GroupBuyRound
@@ -4583,6 +4804,22 @@ func (c *GroupBuySeatClient) QueryOrder(_m *GroupBuySeat) *PaymentOrderQuery {
 			sqlgraph.From(groupbuyseat.Table, groupbuyseat.FieldID, id),
 			sqlgraph.To(paymentorder.Table, paymentorder.FieldID),
 			sqlgraph.Edge(sqlgraph.O2O, true, groupbuyseat.OrderTable, groupbuyseat.OrderColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryMembership queries the membership edge of a GroupBuySeat.
+func (c *GroupBuySeatClient) QueryMembership(_m *GroupBuySeat) *CafeRoundMembershipQuery {
+	query := (&CafeRoundMembershipClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyseat.Table, groupbuyseat.FieldID, id),
+			sqlgraph.To(caferoundmembership.Table, caferoundmembership.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyseat.MembershipTable, groupbuyseat.MembershipColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -8714,10 +8951,10 @@ func (c *UserSubscriptionClient) mutate(ctx context.Context, m *UserSubscription
 type (
 	hooks struct {
 		APIKey, APIKeyAccountBinding, Account, AccountGroup, Announcement,
-		AnnouncementRead, AuthIdentity, AuthIdentityChannel, CafeRoom, ChannelMonitor,
-		ChannelMonitorDailyRollup, ChannelMonitorHistory,
-		ChannelMonitorRequestTemplate, ErrorPassthroughRule, Group,
-		GroupBuyEntitlement, GroupBuyEvent, GroupBuyPlan, GroupBuyRefund,
+		AnnouncementRead, AuthIdentity, AuthIdentityChannel, CafeRoom,
+		CafeRoundMembership, ChannelMonitor, ChannelMonitorDailyRollup,
+		ChannelMonitorHistory, ChannelMonitorRequestTemplate, ErrorPassthroughRule,
+		Group, GroupBuyEntitlement, GroupBuyEvent, GroupBuyPlan, GroupBuyRefund,
 		GroupBuyRound, GroupBuySeat, IdempotencyRecord, IdentityAdoptionDecision,
 		InvoiceRequest, PaymentAuditLog, PaymentOrder, PaymentProviderInstance,
 		PendingAuthSession, PromoCode, PromoCodeUsage, Proxy, RedeemCode,
@@ -8727,10 +8964,10 @@ type (
 	}
 	inters struct {
 		APIKey, APIKeyAccountBinding, Account, AccountGroup, Announcement,
-		AnnouncementRead, AuthIdentity, AuthIdentityChannel, CafeRoom, ChannelMonitor,
-		ChannelMonitorDailyRollup, ChannelMonitorHistory,
-		ChannelMonitorRequestTemplate, ErrorPassthroughRule, Group,
-		GroupBuyEntitlement, GroupBuyEvent, GroupBuyPlan, GroupBuyRefund,
+		AnnouncementRead, AuthIdentity, AuthIdentityChannel, CafeRoom,
+		CafeRoundMembership, ChannelMonitor, ChannelMonitorDailyRollup,
+		ChannelMonitorHistory, ChannelMonitorRequestTemplate, ErrorPassthroughRule,
+		Group, GroupBuyEntitlement, GroupBuyEvent, GroupBuyPlan, GroupBuyRefund,
 		GroupBuyRound, GroupBuySeat, IdempotencyRecord, IdentityAdoptionDecision,
 		InvoiceRequest, PaymentAuditLog, PaymentOrder, PaymentProviderInstance,
 		PendingAuthSession, PromoCode, PromoCodeUsage, Proxy, RedeemCode,

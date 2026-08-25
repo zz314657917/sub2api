@@ -14,6 +14,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
 	"github.com/Wei-Shaw/sub2api/ent/caferoom"
+	"github.com/Wei-Shaw/sub2api/ent/caferoundmembership"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
@@ -58,6 +59,188 @@ func (_c *GroupBuyRoundCreate) SetAssignedAccountID(v int64) *GroupBuyRoundCreat
 func (_c *GroupBuyRoundCreate) SetNillableAssignedAccountID(v *int64) *GroupBuyRoundCreate {
 	if v != nil {
 		_c.SetAssignedAccountID(*v)
+	}
+	return _c
+}
+
+// SetCafeFulfillmentVersion sets the "cafe_fulfillment_version" field.
+func (_c *GroupBuyRoundCreate) SetCafeFulfillmentVersion(v string) *GroupBuyRoundCreate {
+	_c.mutation.SetCafeFulfillmentVersion(v)
+	return _c
+}
+
+// SetNillableCafeFulfillmentVersion sets the "cafe_fulfillment_version" field if the given value is not nil.
+func (_c *GroupBuyRoundCreate) SetNillableCafeFulfillmentVersion(v *string) *GroupBuyRoundCreate {
+	if v != nil {
+		_c.SetCafeFulfillmentVersion(*v)
+	}
+	return _c
+}
+
+// SetSubscriptionTier sets the "subscription_tier" field.
+func (_c *GroupBuyRoundCreate) SetSubscriptionTier(v string) *GroupBuyRoundCreate {
+	_c.mutation.SetSubscriptionTier(v)
+	return _c
+}
+
+// SetNillableSubscriptionTier sets the "subscription_tier" field if the given value is not nil.
+func (_c *GroupBuyRoundCreate) SetNillableSubscriptionTier(v *string) *GroupBuyRoundCreate {
+	if v != nil {
+		_c.SetSubscriptionTier(*v)
+	}
+	return _c
+}
+
+// SetMaxBuyers sets the "max_buyers" field.
+func (_c *GroupBuyRoundCreate) SetMaxBuyers(v int) *GroupBuyRoundCreate {
+	_c.mutation.SetMaxBuyers(v)
+	return _c
+}
+
+// SetNillableMaxBuyers sets the "max_buyers" field if the given value is not nil.
+func (_c *GroupBuyRoundCreate) SetNillableMaxBuyers(v *int) *GroupBuyRoundCreate {
+	if v != nil {
+		_c.SetMaxBuyers(*v)
+	}
+	return _c
+}
+
+// SetMaxSharesPerUser sets the "max_shares_per_user" field.
+func (_c *GroupBuyRoundCreate) SetMaxSharesPerUser(v int) *GroupBuyRoundCreate {
+	_c.mutation.SetMaxSharesPerUser(v)
+	return _c
+}
+
+// SetNillableMaxSharesPerUser sets the "max_shares_per_user" field if the given value is not nil.
+func (_c *GroupBuyRoundCreate) SetNillableMaxSharesPerUser(v *int) *GroupBuyRoundCreate {
+	if v != nil {
+		_c.SetMaxSharesPerUser(*v)
+	}
+	return _c
+}
+
+// SetFulfillmentTimeoutMinutes sets the "fulfillment_timeout_minutes" field.
+func (_c *GroupBuyRoundCreate) SetFulfillmentTimeoutMinutes(v int) *GroupBuyRoundCreate {
+	_c.mutation.SetFulfillmentTimeoutMinutes(v)
+	return _c
+}
+
+// SetNillableFulfillmentTimeoutMinutes sets the "fulfillment_timeout_minutes" field if the given value is not nil.
+func (_c *GroupBuyRoundCreate) SetNillableFulfillmentTimeoutMinutes(v *int) *GroupBuyRoundCreate {
+	if v != nil {
+		_c.SetFulfillmentTimeoutMinutes(*v)
+	}
+	return _c
+}
+
+// SetValidityDaysSnapshot sets the "validity_days_snapshot" field.
+func (_c *GroupBuyRoundCreate) SetValidityDaysSnapshot(v int) *GroupBuyRoundCreate {
+	_c.mutation.SetValidityDaysSnapshot(v)
+	return _c
+}
+
+// SetNillableValidityDaysSnapshot sets the "validity_days_snapshot" field if the given value is not nil.
+func (_c *GroupBuyRoundCreate) SetNillableValidityDaysSnapshot(v *int) *GroupBuyRoundCreate {
+	if v != nil {
+		_c.SetValidityDaysSnapshot(*v)
+	}
+	return _c
+}
+
+// SetTargetGroupIDSnapshot sets the "target_group_id_snapshot" field.
+func (_c *GroupBuyRoundCreate) SetTargetGroupIDSnapshot(v int64) *GroupBuyRoundCreate {
+	_c.mutation.SetTargetGroupIDSnapshot(v)
+	return _c
+}
+
+// SetNillableTargetGroupIDSnapshot sets the "target_group_id_snapshot" field if the given value is not nil.
+func (_c *GroupBuyRoundCreate) SetNillableTargetGroupIDSnapshot(v *int64) *GroupBuyRoundCreate {
+	if v != nil {
+		_c.SetTargetGroupIDSnapshot(*v)
+	}
+	return _c
+}
+
+// SetPlatformSnapshot sets the "platform_snapshot" field.
+func (_c *GroupBuyRoundCreate) SetPlatformSnapshot(v string) *GroupBuyRoundCreate {
+	_c.mutation.SetPlatformSnapshot(v)
+	return _c
+}
+
+// SetNillablePlatformSnapshot sets the "platform_snapshot" field if the given value is not nil.
+func (_c *GroupBuyRoundCreate) SetNillablePlatformSnapshot(v *string) *GroupBuyRoundCreate {
+	if v != nil {
+		_c.SetPlatformSnapshot(*v)
+	}
+	return _c
+}
+
+// SetQuotaPerShareSnapshot sets the "quota_per_share_snapshot" field.
+func (_c *GroupBuyRoundCreate) SetQuotaPerShareSnapshot(v float64) *GroupBuyRoundCreate {
+	_c.mutation.SetQuotaPerShareSnapshot(v)
+	return _c
+}
+
+// SetNillableQuotaPerShareSnapshot sets the "quota_per_share_snapshot" field if the given value is not nil.
+func (_c *GroupBuyRoundCreate) SetNillableQuotaPerShareSnapshot(v *float64) *GroupBuyRoundCreate {
+	if v != nil {
+		_c.SetQuotaPerShareSnapshot(*v)
+	}
+	return _c
+}
+
+// SetRateLimit5hPerShareSnapshot sets the "rate_limit_5h_per_share_snapshot" field.
+func (_c *GroupBuyRoundCreate) SetRateLimit5hPerShareSnapshot(v float64) *GroupBuyRoundCreate {
+	_c.mutation.SetRateLimit5hPerShareSnapshot(v)
+	return _c
+}
+
+// SetNillableRateLimit5hPerShareSnapshot sets the "rate_limit_5h_per_share_snapshot" field if the given value is not nil.
+func (_c *GroupBuyRoundCreate) SetNillableRateLimit5hPerShareSnapshot(v *float64) *GroupBuyRoundCreate {
+	if v != nil {
+		_c.SetRateLimit5hPerShareSnapshot(*v)
+	}
+	return _c
+}
+
+// SetRateLimit1dPerShareSnapshot sets the "rate_limit_1d_per_share_snapshot" field.
+func (_c *GroupBuyRoundCreate) SetRateLimit1dPerShareSnapshot(v float64) *GroupBuyRoundCreate {
+	_c.mutation.SetRateLimit1dPerShareSnapshot(v)
+	return _c
+}
+
+// SetNillableRateLimit1dPerShareSnapshot sets the "rate_limit_1d_per_share_snapshot" field if the given value is not nil.
+func (_c *GroupBuyRoundCreate) SetNillableRateLimit1dPerShareSnapshot(v *float64) *GroupBuyRoundCreate {
+	if v != nil {
+		_c.SetRateLimit1dPerShareSnapshot(*v)
+	}
+	return _c
+}
+
+// SetRateLimit7dPerShareSnapshot sets the "rate_limit_7d_per_share_snapshot" field.
+func (_c *GroupBuyRoundCreate) SetRateLimit7dPerShareSnapshot(v float64) *GroupBuyRoundCreate {
+	_c.mutation.SetRateLimit7dPerShareSnapshot(v)
+	return _c
+}
+
+// SetNillableRateLimit7dPerShareSnapshot sets the "rate_limit_7d_per_share_snapshot" field if the given value is not nil.
+func (_c *GroupBuyRoundCreate) SetNillableRateLimit7dPerShareSnapshot(v *float64) *GroupBuyRoundCreate {
+	if v != nil {
+		_c.SetRateLimit7dPerShareSnapshot(*v)
+	}
+	return _c
+}
+
+// SetFulfillmentDeadlineAt sets the "fulfillment_deadline_at" field.
+func (_c *GroupBuyRoundCreate) SetFulfillmentDeadlineAt(v time.Time) *GroupBuyRoundCreate {
+	_c.mutation.SetFulfillmentDeadlineAt(v)
+	return _c
+}
+
+// SetNillableFulfillmentDeadlineAt sets the "fulfillment_deadline_at" field if the given value is not nil.
+func (_c *GroupBuyRoundCreate) SetNillableFulfillmentDeadlineAt(v *time.Time) *GroupBuyRoundCreate {
+	if v != nil {
+		_c.SetFulfillmentDeadlineAt(*v)
 	}
 	return _c
 }
@@ -364,6 +547,21 @@ func (_c *GroupBuyRoundCreate) AddAccountBindings(v ...*APIKeyAccountBinding) *G
 	return _c.AddAccountBindingIDs(ids...)
 }
 
+// AddCafeMembershipIDs adds the "cafe_memberships" edge to the CafeRoundMembership entity by IDs.
+func (_c *GroupBuyRoundCreate) AddCafeMembershipIDs(ids ...int64) *GroupBuyRoundCreate {
+	_c.mutation.AddCafeMembershipIDs(ids...)
+	return _c
+}
+
+// AddCafeMemberships adds the "cafe_memberships" edges to the CafeRoundMembership entity.
+func (_c *GroupBuyRoundCreate) AddCafeMemberships(v ...*CafeRoundMembership) *GroupBuyRoundCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddCafeMembershipIDs(ids...)
+}
+
 // Mutation returns the GroupBuyRoundMutation object of the builder.
 func (_c *GroupBuyRoundCreate) Mutation() *GroupBuyRoundMutation {
 	return _c.mutation
@@ -399,6 +597,10 @@ func (_c *GroupBuyRoundCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *GroupBuyRoundCreate) defaults() {
+	if _, ok := _c.mutation.CafeFulfillmentVersion(); !ok {
+		v := groupbuyround.DefaultCafeFulfillmentVersion
+		_c.mutation.SetCafeFulfillmentVersion(v)
+	}
 	if _, ok := _c.mutation.Status(); !ok {
 		v := groupbuyround.DefaultStatus
 		_c.mutation.SetStatus(v)
@@ -433,6 +635,24 @@ func (_c *GroupBuyRoundCreate) defaults() {
 func (_c *GroupBuyRoundCreate) check() error {
 	if _, ok := _c.mutation.PlanID(); !ok {
 		return &ValidationError{Name: "plan_id", err: errors.New(`ent: missing required field "GroupBuyRound.plan_id"`)}
+	}
+	if _, ok := _c.mutation.CafeFulfillmentVersion(); !ok {
+		return &ValidationError{Name: "cafe_fulfillment_version", err: errors.New(`ent: missing required field "GroupBuyRound.cafe_fulfillment_version"`)}
+	}
+	if v, ok := _c.mutation.CafeFulfillmentVersion(); ok {
+		if err := groupbuyround.CafeFulfillmentVersionValidator(v); err != nil {
+			return &ValidationError{Name: "cafe_fulfillment_version", err: fmt.Errorf(`ent: validator failed for field "GroupBuyRound.cafe_fulfillment_version": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.SubscriptionTier(); ok {
+		if err := groupbuyround.SubscriptionTierValidator(v); err != nil {
+			return &ValidationError{Name: "subscription_tier", err: fmt.Errorf(`ent: validator failed for field "GroupBuyRound.subscription_tier": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.PlatformSnapshot(); ok {
+		if err := groupbuyround.PlatformSnapshotValidator(v); err != nil {
+			return &ValidationError{Name: "platform_snapshot", err: fmt.Errorf(`ent: validator failed for field "GroupBuyRound.platform_snapshot": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.Status(); !ok {
 		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "GroupBuyRound.status"`)}
@@ -509,6 +729,58 @@ func (_c *GroupBuyRoundCreate) createSpec() (*GroupBuyRound, *sqlgraph.CreateSpe
 		_spec = sqlgraph.NewCreateSpec(groupbuyround.Table, sqlgraph.NewFieldSpec(groupbuyround.FieldID, field.TypeInt64))
 	)
 	_spec.OnConflict = _c.conflict
+	if value, ok := _c.mutation.CafeFulfillmentVersion(); ok {
+		_spec.SetField(groupbuyround.FieldCafeFulfillmentVersion, field.TypeString, value)
+		_node.CafeFulfillmentVersion = value
+	}
+	if value, ok := _c.mutation.SubscriptionTier(); ok {
+		_spec.SetField(groupbuyround.FieldSubscriptionTier, field.TypeString, value)
+		_node.SubscriptionTier = &value
+	}
+	if value, ok := _c.mutation.MaxBuyers(); ok {
+		_spec.SetField(groupbuyround.FieldMaxBuyers, field.TypeInt, value)
+		_node.MaxBuyers = &value
+	}
+	if value, ok := _c.mutation.MaxSharesPerUser(); ok {
+		_spec.SetField(groupbuyround.FieldMaxSharesPerUser, field.TypeInt, value)
+		_node.MaxSharesPerUser = &value
+	}
+	if value, ok := _c.mutation.FulfillmentTimeoutMinutes(); ok {
+		_spec.SetField(groupbuyround.FieldFulfillmentTimeoutMinutes, field.TypeInt, value)
+		_node.FulfillmentTimeoutMinutes = &value
+	}
+	if value, ok := _c.mutation.ValidityDaysSnapshot(); ok {
+		_spec.SetField(groupbuyround.FieldValidityDaysSnapshot, field.TypeInt, value)
+		_node.ValidityDaysSnapshot = &value
+	}
+	if value, ok := _c.mutation.TargetGroupIDSnapshot(); ok {
+		_spec.SetField(groupbuyround.FieldTargetGroupIDSnapshot, field.TypeInt64, value)
+		_node.TargetGroupIDSnapshot = &value
+	}
+	if value, ok := _c.mutation.PlatformSnapshot(); ok {
+		_spec.SetField(groupbuyround.FieldPlatformSnapshot, field.TypeString, value)
+		_node.PlatformSnapshot = &value
+	}
+	if value, ok := _c.mutation.QuotaPerShareSnapshot(); ok {
+		_spec.SetField(groupbuyround.FieldQuotaPerShareSnapshot, field.TypeFloat64, value)
+		_node.QuotaPerShareSnapshot = &value
+	}
+	if value, ok := _c.mutation.RateLimit5hPerShareSnapshot(); ok {
+		_spec.SetField(groupbuyround.FieldRateLimit5hPerShareSnapshot, field.TypeFloat64, value)
+		_node.RateLimit5hPerShareSnapshot = &value
+	}
+	if value, ok := _c.mutation.RateLimit1dPerShareSnapshot(); ok {
+		_spec.SetField(groupbuyround.FieldRateLimit1dPerShareSnapshot, field.TypeFloat64, value)
+		_node.RateLimit1dPerShareSnapshot = &value
+	}
+	if value, ok := _c.mutation.RateLimit7dPerShareSnapshot(); ok {
+		_spec.SetField(groupbuyround.FieldRateLimit7dPerShareSnapshot, field.TypeFloat64, value)
+		_node.RateLimit7dPerShareSnapshot = &value
+	}
+	if value, ok := _c.mutation.FulfillmentDeadlineAt(); ok {
+		_spec.SetField(groupbuyround.FieldFulfillmentDeadlineAt, field.TypeTime, value)
+		_node.FulfillmentDeadlineAt = &value
+	}
 	if value, ok := _c.mutation.RoomCodeSnapshot(); ok {
 		_spec.SetField(groupbuyround.FieldRoomCodeSnapshot, field.TypeString, value)
 		_node.RoomCodeSnapshot = &value
@@ -684,6 +956,22 @@ func (_c *GroupBuyRoundCreate) createSpec() (*GroupBuyRound, *sqlgraph.CreateSpe
 		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
+	if nodes := _c.mutation.CafeMembershipsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyround.CafeMembershipsTable,
+			Columns: []string{groupbuyround.CafeMembershipsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoundmembership.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
 	return _node, _spec
 }
 
@@ -781,6 +1069,288 @@ func (u *GroupBuyRoundUpsert) UpdateAssignedAccountID() *GroupBuyRoundUpsert {
 // ClearAssignedAccountID clears the value of the "assigned_account_id" field.
 func (u *GroupBuyRoundUpsert) ClearAssignedAccountID() *GroupBuyRoundUpsert {
 	u.SetNull(groupbuyround.FieldAssignedAccountID)
+	return u
+}
+
+// SetCafeFulfillmentVersion sets the "cafe_fulfillment_version" field.
+func (u *GroupBuyRoundUpsert) SetCafeFulfillmentVersion(v string) *GroupBuyRoundUpsert {
+	u.Set(groupbuyround.FieldCafeFulfillmentVersion, v)
+	return u
+}
+
+// UpdateCafeFulfillmentVersion sets the "cafe_fulfillment_version" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsert) UpdateCafeFulfillmentVersion() *GroupBuyRoundUpsert {
+	u.SetExcluded(groupbuyround.FieldCafeFulfillmentVersion)
+	return u
+}
+
+// SetSubscriptionTier sets the "subscription_tier" field.
+func (u *GroupBuyRoundUpsert) SetSubscriptionTier(v string) *GroupBuyRoundUpsert {
+	u.Set(groupbuyround.FieldSubscriptionTier, v)
+	return u
+}
+
+// UpdateSubscriptionTier sets the "subscription_tier" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsert) UpdateSubscriptionTier() *GroupBuyRoundUpsert {
+	u.SetExcluded(groupbuyround.FieldSubscriptionTier)
+	return u
+}
+
+// ClearSubscriptionTier clears the value of the "subscription_tier" field.
+func (u *GroupBuyRoundUpsert) ClearSubscriptionTier() *GroupBuyRoundUpsert {
+	u.SetNull(groupbuyround.FieldSubscriptionTier)
+	return u
+}
+
+// SetMaxBuyers sets the "max_buyers" field.
+func (u *GroupBuyRoundUpsert) SetMaxBuyers(v int) *GroupBuyRoundUpsert {
+	u.Set(groupbuyround.FieldMaxBuyers, v)
+	return u
+}
+
+// UpdateMaxBuyers sets the "max_buyers" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsert) UpdateMaxBuyers() *GroupBuyRoundUpsert {
+	u.SetExcluded(groupbuyround.FieldMaxBuyers)
+	return u
+}
+
+// AddMaxBuyers adds v to the "max_buyers" field.
+func (u *GroupBuyRoundUpsert) AddMaxBuyers(v int) *GroupBuyRoundUpsert {
+	u.Add(groupbuyround.FieldMaxBuyers, v)
+	return u
+}
+
+// ClearMaxBuyers clears the value of the "max_buyers" field.
+func (u *GroupBuyRoundUpsert) ClearMaxBuyers() *GroupBuyRoundUpsert {
+	u.SetNull(groupbuyround.FieldMaxBuyers)
+	return u
+}
+
+// SetMaxSharesPerUser sets the "max_shares_per_user" field.
+func (u *GroupBuyRoundUpsert) SetMaxSharesPerUser(v int) *GroupBuyRoundUpsert {
+	u.Set(groupbuyround.FieldMaxSharesPerUser, v)
+	return u
+}
+
+// UpdateMaxSharesPerUser sets the "max_shares_per_user" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsert) UpdateMaxSharesPerUser() *GroupBuyRoundUpsert {
+	u.SetExcluded(groupbuyround.FieldMaxSharesPerUser)
+	return u
+}
+
+// AddMaxSharesPerUser adds v to the "max_shares_per_user" field.
+func (u *GroupBuyRoundUpsert) AddMaxSharesPerUser(v int) *GroupBuyRoundUpsert {
+	u.Add(groupbuyround.FieldMaxSharesPerUser, v)
+	return u
+}
+
+// ClearMaxSharesPerUser clears the value of the "max_shares_per_user" field.
+func (u *GroupBuyRoundUpsert) ClearMaxSharesPerUser() *GroupBuyRoundUpsert {
+	u.SetNull(groupbuyround.FieldMaxSharesPerUser)
+	return u
+}
+
+// SetFulfillmentTimeoutMinutes sets the "fulfillment_timeout_minutes" field.
+func (u *GroupBuyRoundUpsert) SetFulfillmentTimeoutMinutes(v int) *GroupBuyRoundUpsert {
+	u.Set(groupbuyround.FieldFulfillmentTimeoutMinutes, v)
+	return u
+}
+
+// UpdateFulfillmentTimeoutMinutes sets the "fulfillment_timeout_minutes" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsert) UpdateFulfillmentTimeoutMinutes() *GroupBuyRoundUpsert {
+	u.SetExcluded(groupbuyround.FieldFulfillmentTimeoutMinutes)
+	return u
+}
+
+// AddFulfillmentTimeoutMinutes adds v to the "fulfillment_timeout_minutes" field.
+func (u *GroupBuyRoundUpsert) AddFulfillmentTimeoutMinutes(v int) *GroupBuyRoundUpsert {
+	u.Add(groupbuyround.FieldFulfillmentTimeoutMinutes, v)
+	return u
+}
+
+// ClearFulfillmentTimeoutMinutes clears the value of the "fulfillment_timeout_minutes" field.
+func (u *GroupBuyRoundUpsert) ClearFulfillmentTimeoutMinutes() *GroupBuyRoundUpsert {
+	u.SetNull(groupbuyround.FieldFulfillmentTimeoutMinutes)
+	return u
+}
+
+// SetValidityDaysSnapshot sets the "validity_days_snapshot" field.
+func (u *GroupBuyRoundUpsert) SetValidityDaysSnapshot(v int) *GroupBuyRoundUpsert {
+	u.Set(groupbuyround.FieldValidityDaysSnapshot, v)
+	return u
+}
+
+// UpdateValidityDaysSnapshot sets the "validity_days_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsert) UpdateValidityDaysSnapshot() *GroupBuyRoundUpsert {
+	u.SetExcluded(groupbuyround.FieldValidityDaysSnapshot)
+	return u
+}
+
+// AddValidityDaysSnapshot adds v to the "validity_days_snapshot" field.
+func (u *GroupBuyRoundUpsert) AddValidityDaysSnapshot(v int) *GroupBuyRoundUpsert {
+	u.Add(groupbuyround.FieldValidityDaysSnapshot, v)
+	return u
+}
+
+// ClearValidityDaysSnapshot clears the value of the "validity_days_snapshot" field.
+func (u *GroupBuyRoundUpsert) ClearValidityDaysSnapshot() *GroupBuyRoundUpsert {
+	u.SetNull(groupbuyround.FieldValidityDaysSnapshot)
+	return u
+}
+
+// SetTargetGroupIDSnapshot sets the "target_group_id_snapshot" field.
+func (u *GroupBuyRoundUpsert) SetTargetGroupIDSnapshot(v int64) *GroupBuyRoundUpsert {
+	u.Set(groupbuyround.FieldTargetGroupIDSnapshot, v)
+	return u
+}
+
+// UpdateTargetGroupIDSnapshot sets the "target_group_id_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsert) UpdateTargetGroupIDSnapshot() *GroupBuyRoundUpsert {
+	u.SetExcluded(groupbuyround.FieldTargetGroupIDSnapshot)
+	return u
+}
+
+// AddTargetGroupIDSnapshot adds v to the "target_group_id_snapshot" field.
+func (u *GroupBuyRoundUpsert) AddTargetGroupIDSnapshot(v int64) *GroupBuyRoundUpsert {
+	u.Add(groupbuyround.FieldTargetGroupIDSnapshot, v)
+	return u
+}
+
+// ClearTargetGroupIDSnapshot clears the value of the "target_group_id_snapshot" field.
+func (u *GroupBuyRoundUpsert) ClearTargetGroupIDSnapshot() *GroupBuyRoundUpsert {
+	u.SetNull(groupbuyround.FieldTargetGroupIDSnapshot)
+	return u
+}
+
+// SetPlatformSnapshot sets the "platform_snapshot" field.
+func (u *GroupBuyRoundUpsert) SetPlatformSnapshot(v string) *GroupBuyRoundUpsert {
+	u.Set(groupbuyround.FieldPlatformSnapshot, v)
+	return u
+}
+
+// UpdatePlatformSnapshot sets the "platform_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsert) UpdatePlatformSnapshot() *GroupBuyRoundUpsert {
+	u.SetExcluded(groupbuyround.FieldPlatformSnapshot)
+	return u
+}
+
+// ClearPlatformSnapshot clears the value of the "platform_snapshot" field.
+func (u *GroupBuyRoundUpsert) ClearPlatformSnapshot() *GroupBuyRoundUpsert {
+	u.SetNull(groupbuyround.FieldPlatformSnapshot)
+	return u
+}
+
+// SetQuotaPerShareSnapshot sets the "quota_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsert) SetQuotaPerShareSnapshot(v float64) *GroupBuyRoundUpsert {
+	u.Set(groupbuyround.FieldQuotaPerShareSnapshot, v)
+	return u
+}
+
+// UpdateQuotaPerShareSnapshot sets the "quota_per_share_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsert) UpdateQuotaPerShareSnapshot() *GroupBuyRoundUpsert {
+	u.SetExcluded(groupbuyround.FieldQuotaPerShareSnapshot)
+	return u
+}
+
+// AddQuotaPerShareSnapshot adds v to the "quota_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsert) AddQuotaPerShareSnapshot(v float64) *GroupBuyRoundUpsert {
+	u.Add(groupbuyround.FieldQuotaPerShareSnapshot, v)
+	return u
+}
+
+// ClearQuotaPerShareSnapshot clears the value of the "quota_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsert) ClearQuotaPerShareSnapshot() *GroupBuyRoundUpsert {
+	u.SetNull(groupbuyround.FieldQuotaPerShareSnapshot)
+	return u
+}
+
+// SetRateLimit5hPerShareSnapshot sets the "rate_limit_5h_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsert) SetRateLimit5hPerShareSnapshot(v float64) *GroupBuyRoundUpsert {
+	u.Set(groupbuyround.FieldRateLimit5hPerShareSnapshot, v)
+	return u
+}
+
+// UpdateRateLimit5hPerShareSnapshot sets the "rate_limit_5h_per_share_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsert) UpdateRateLimit5hPerShareSnapshot() *GroupBuyRoundUpsert {
+	u.SetExcluded(groupbuyround.FieldRateLimit5hPerShareSnapshot)
+	return u
+}
+
+// AddRateLimit5hPerShareSnapshot adds v to the "rate_limit_5h_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsert) AddRateLimit5hPerShareSnapshot(v float64) *GroupBuyRoundUpsert {
+	u.Add(groupbuyround.FieldRateLimit5hPerShareSnapshot, v)
+	return u
+}
+
+// ClearRateLimit5hPerShareSnapshot clears the value of the "rate_limit_5h_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsert) ClearRateLimit5hPerShareSnapshot() *GroupBuyRoundUpsert {
+	u.SetNull(groupbuyround.FieldRateLimit5hPerShareSnapshot)
+	return u
+}
+
+// SetRateLimit1dPerShareSnapshot sets the "rate_limit_1d_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsert) SetRateLimit1dPerShareSnapshot(v float64) *GroupBuyRoundUpsert {
+	u.Set(groupbuyround.FieldRateLimit1dPerShareSnapshot, v)
+	return u
+}
+
+// UpdateRateLimit1dPerShareSnapshot sets the "rate_limit_1d_per_share_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsert) UpdateRateLimit1dPerShareSnapshot() *GroupBuyRoundUpsert {
+	u.SetExcluded(groupbuyround.FieldRateLimit1dPerShareSnapshot)
+	return u
+}
+
+// AddRateLimit1dPerShareSnapshot adds v to the "rate_limit_1d_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsert) AddRateLimit1dPerShareSnapshot(v float64) *GroupBuyRoundUpsert {
+	u.Add(groupbuyround.FieldRateLimit1dPerShareSnapshot, v)
+	return u
+}
+
+// ClearRateLimit1dPerShareSnapshot clears the value of the "rate_limit_1d_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsert) ClearRateLimit1dPerShareSnapshot() *GroupBuyRoundUpsert {
+	u.SetNull(groupbuyround.FieldRateLimit1dPerShareSnapshot)
+	return u
+}
+
+// SetRateLimit7dPerShareSnapshot sets the "rate_limit_7d_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsert) SetRateLimit7dPerShareSnapshot(v float64) *GroupBuyRoundUpsert {
+	u.Set(groupbuyround.FieldRateLimit7dPerShareSnapshot, v)
+	return u
+}
+
+// UpdateRateLimit7dPerShareSnapshot sets the "rate_limit_7d_per_share_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsert) UpdateRateLimit7dPerShareSnapshot() *GroupBuyRoundUpsert {
+	u.SetExcluded(groupbuyround.FieldRateLimit7dPerShareSnapshot)
+	return u
+}
+
+// AddRateLimit7dPerShareSnapshot adds v to the "rate_limit_7d_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsert) AddRateLimit7dPerShareSnapshot(v float64) *GroupBuyRoundUpsert {
+	u.Add(groupbuyround.FieldRateLimit7dPerShareSnapshot, v)
+	return u
+}
+
+// ClearRateLimit7dPerShareSnapshot clears the value of the "rate_limit_7d_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsert) ClearRateLimit7dPerShareSnapshot() *GroupBuyRoundUpsert {
+	u.SetNull(groupbuyround.FieldRateLimit7dPerShareSnapshot)
+	return u
+}
+
+// SetFulfillmentDeadlineAt sets the "fulfillment_deadline_at" field.
+func (u *GroupBuyRoundUpsert) SetFulfillmentDeadlineAt(v time.Time) *GroupBuyRoundUpsert {
+	u.Set(groupbuyround.FieldFulfillmentDeadlineAt, v)
+	return u
+}
+
+// UpdateFulfillmentDeadlineAt sets the "fulfillment_deadline_at" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsert) UpdateFulfillmentDeadlineAt() *GroupBuyRoundUpsert {
+	u.SetExcluded(groupbuyround.FieldFulfillmentDeadlineAt)
+	return u
+}
+
+// ClearFulfillmentDeadlineAt clears the value of the "fulfillment_deadline_at" field.
+func (u *GroupBuyRoundUpsert) ClearFulfillmentDeadlineAt() *GroupBuyRoundUpsert {
+	u.SetNull(groupbuyround.FieldFulfillmentDeadlineAt)
 	return u
 }
 
@@ -1188,6 +1758,335 @@ func (u *GroupBuyRoundUpsertOne) UpdateAssignedAccountID() *GroupBuyRoundUpsertO
 func (u *GroupBuyRoundUpsertOne) ClearAssignedAccountID() *GroupBuyRoundUpsertOne {
 	return u.Update(func(s *GroupBuyRoundUpsert) {
 		s.ClearAssignedAccountID()
+	})
+}
+
+// SetCafeFulfillmentVersion sets the "cafe_fulfillment_version" field.
+func (u *GroupBuyRoundUpsertOne) SetCafeFulfillmentVersion(v string) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetCafeFulfillmentVersion(v)
+	})
+}
+
+// UpdateCafeFulfillmentVersion sets the "cafe_fulfillment_version" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertOne) UpdateCafeFulfillmentVersion() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateCafeFulfillmentVersion()
+	})
+}
+
+// SetSubscriptionTier sets the "subscription_tier" field.
+func (u *GroupBuyRoundUpsertOne) SetSubscriptionTier(v string) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetSubscriptionTier(v)
+	})
+}
+
+// UpdateSubscriptionTier sets the "subscription_tier" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertOne) UpdateSubscriptionTier() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateSubscriptionTier()
+	})
+}
+
+// ClearSubscriptionTier clears the value of the "subscription_tier" field.
+func (u *GroupBuyRoundUpsertOne) ClearSubscriptionTier() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearSubscriptionTier()
+	})
+}
+
+// SetMaxBuyers sets the "max_buyers" field.
+func (u *GroupBuyRoundUpsertOne) SetMaxBuyers(v int) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetMaxBuyers(v)
+	})
+}
+
+// AddMaxBuyers adds v to the "max_buyers" field.
+func (u *GroupBuyRoundUpsertOne) AddMaxBuyers(v int) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.AddMaxBuyers(v)
+	})
+}
+
+// UpdateMaxBuyers sets the "max_buyers" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertOne) UpdateMaxBuyers() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateMaxBuyers()
+	})
+}
+
+// ClearMaxBuyers clears the value of the "max_buyers" field.
+func (u *GroupBuyRoundUpsertOne) ClearMaxBuyers() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearMaxBuyers()
+	})
+}
+
+// SetMaxSharesPerUser sets the "max_shares_per_user" field.
+func (u *GroupBuyRoundUpsertOne) SetMaxSharesPerUser(v int) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetMaxSharesPerUser(v)
+	})
+}
+
+// AddMaxSharesPerUser adds v to the "max_shares_per_user" field.
+func (u *GroupBuyRoundUpsertOne) AddMaxSharesPerUser(v int) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.AddMaxSharesPerUser(v)
+	})
+}
+
+// UpdateMaxSharesPerUser sets the "max_shares_per_user" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertOne) UpdateMaxSharesPerUser() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateMaxSharesPerUser()
+	})
+}
+
+// ClearMaxSharesPerUser clears the value of the "max_shares_per_user" field.
+func (u *GroupBuyRoundUpsertOne) ClearMaxSharesPerUser() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearMaxSharesPerUser()
+	})
+}
+
+// SetFulfillmentTimeoutMinutes sets the "fulfillment_timeout_minutes" field.
+func (u *GroupBuyRoundUpsertOne) SetFulfillmentTimeoutMinutes(v int) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetFulfillmentTimeoutMinutes(v)
+	})
+}
+
+// AddFulfillmentTimeoutMinutes adds v to the "fulfillment_timeout_minutes" field.
+func (u *GroupBuyRoundUpsertOne) AddFulfillmentTimeoutMinutes(v int) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.AddFulfillmentTimeoutMinutes(v)
+	})
+}
+
+// UpdateFulfillmentTimeoutMinutes sets the "fulfillment_timeout_minutes" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertOne) UpdateFulfillmentTimeoutMinutes() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateFulfillmentTimeoutMinutes()
+	})
+}
+
+// ClearFulfillmentTimeoutMinutes clears the value of the "fulfillment_timeout_minutes" field.
+func (u *GroupBuyRoundUpsertOne) ClearFulfillmentTimeoutMinutes() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearFulfillmentTimeoutMinutes()
+	})
+}
+
+// SetValidityDaysSnapshot sets the "validity_days_snapshot" field.
+func (u *GroupBuyRoundUpsertOne) SetValidityDaysSnapshot(v int) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetValidityDaysSnapshot(v)
+	})
+}
+
+// AddValidityDaysSnapshot adds v to the "validity_days_snapshot" field.
+func (u *GroupBuyRoundUpsertOne) AddValidityDaysSnapshot(v int) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.AddValidityDaysSnapshot(v)
+	})
+}
+
+// UpdateValidityDaysSnapshot sets the "validity_days_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertOne) UpdateValidityDaysSnapshot() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateValidityDaysSnapshot()
+	})
+}
+
+// ClearValidityDaysSnapshot clears the value of the "validity_days_snapshot" field.
+func (u *GroupBuyRoundUpsertOne) ClearValidityDaysSnapshot() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearValidityDaysSnapshot()
+	})
+}
+
+// SetTargetGroupIDSnapshot sets the "target_group_id_snapshot" field.
+func (u *GroupBuyRoundUpsertOne) SetTargetGroupIDSnapshot(v int64) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetTargetGroupIDSnapshot(v)
+	})
+}
+
+// AddTargetGroupIDSnapshot adds v to the "target_group_id_snapshot" field.
+func (u *GroupBuyRoundUpsertOne) AddTargetGroupIDSnapshot(v int64) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.AddTargetGroupIDSnapshot(v)
+	})
+}
+
+// UpdateTargetGroupIDSnapshot sets the "target_group_id_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertOne) UpdateTargetGroupIDSnapshot() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateTargetGroupIDSnapshot()
+	})
+}
+
+// ClearTargetGroupIDSnapshot clears the value of the "target_group_id_snapshot" field.
+func (u *GroupBuyRoundUpsertOne) ClearTargetGroupIDSnapshot() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearTargetGroupIDSnapshot()
+	})
+}
+
+// SetPlatformSnapshot sets the "platform_snapshot" field.
+func (u *GroupBuyRoundUpsertOne) SetPlatformSnapshot(v string) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetPlatformSnapshot(v)
+	})
+}
+
+// UpdatePlatformSnapshot sets the "platform_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertOne) UpdatePlatformSnapshot() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdatePlatformSnapshot()
+	})
+}
+
+// ClearPlatformSnapshot clears the value of the "platform_snapshot" field.
+func (u *GroupBuyRoundUpsertOne) ClearPlatformSnapshot() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearPlatformSnapshot()
+	})
+}
+
+// SetQuotaPerShareSnapshot sets the "quota_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsertOne) SetQuotaPerShareSnapshot(v float64) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetQuotaPerShareSnapshot(v)
+	})
+}
+
+// AddQuotaPerShareSnapshot adds v to the "quota_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsertOne) AddQuotaPerShareSnapshot(v float64) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.AddQuotaPerShareSnapshot(v)
+	})
+}
+
+// UpdateQuotaPerShareSnapshot sets the "quota_per_share_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertOne) UpdateQuotaPerShareSnapshot() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateQuotaPerShareSnapshot()
+	})
+}
+
+// ClearQuotaPerShareSnapshot clears the value of the "quota_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsertOne) ClearQuotaPerShareSnapshot() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearQuotaPerShareSnapshot()
+	})
+}
+
+// SetRateLimit5hPerShareSnapshot sets the "rate_limit_5h_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsertOne) SetRateLimit5hPerShareSnapshot(v float64) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetRateLimit5hPerShareSnapshot(v)
+	})
+}
+
+// AddRateLimit5hPerShareSnapshot adds v to the "rate_limit_5h_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsertOne) AddRateLimit5hPerShareSnapshot(v float64) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.AddRateLimit5hPerShareSnapshot(v)
+	})
+}
+
+// UpdateRateLimit5hPerShareSnapshot sets the "rate_limit_5h_per_share_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertOne) UpdateRateLimit5hPerShareSnapshot() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateRateLimit5hPerShareSnapshot()
+	})
+}
+
+// ClearRateLimit5hPerShareSnapshot clears the value of the "rate_limit_5h_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsertOne) ClearRateLimit5hPerShareSnapshot() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearRateLimit5hPerShareSnapshot()
+	})
+}
+
+// SetRateLimit1dPerShareSnapshot sets the "rate_limit_1d_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsertOne) SetRateLimit1dPerShareSnapshot(v float64) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetRateLimit1dPerShareSnapshot(v)
+	})
+}
+
+// AddRateLimit1dPerShareSnapshot adds v to the "rate_limit_1d_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsertOne) AddRateLimit1dPerShareSnapshot(v float64) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.AddRateLimit1dPerShareSnapshot(v)
+	})
+}
+
+// UpdateRateLimit1dPerShareSnapshot sets the "rate_limit_1d_per_share_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertOne) UpdateRateLimit1dPerShareSnapshot() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateRateLimit1dPerShareSnapshot()
+	})
+}
+
+// ClearRateLimit1dPerShareSnapshot clears the value of the "rate_limit_1d_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsertOne) ClearRateLimit1dPerShareSnapshot() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearRateLimit1dPerShareSnapshot()
+	})
+}
+
+// SetRateLimit7dPerShareSnapshot sets the "rate_limit_7d_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsertOne) SetRateLimit7dPerShareSnapshot(v float64) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetRateLimit7dPerShareSnapshot(v)
+	})
+}
+
+// AddRateLimit7dPerShareSnapshot adds v to the "rate_limit_7d_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsertOne) AddRateLimit7dPerShareSnapshot(v float64) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.AddRateLimit7dPerShareSnapshot(v)
+	})
+}
+
+// UpdateRateLimit7dPerShareSnapshot sets the "rate_limit_7d_per_share_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertOne) UpdateRateLimit7dPerShareSnapshot() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateRateLimit7dPerShareSnapshot()
+	})
+}
+
+// ClearRateLimit7dPerShareSnapshot clears the value of the "rate_limit_7d_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsertOne) ClearRateLimit7dPerShareSnapshot() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearRateLimit7dPerShareSnapshot()
+	})
+}
+
+// SetFulfillmentDeadlineAt sets the "fulfillment_deadline_at" field.
+func (u *GroupBuyRoundUpsertOne) SetFulfillmentDeadlineAt(v time.Time) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetFulfillmentDeadlineAt(v)
+	})
+}
+
+// UpdateFulfillmentDeadlineAt sets the "fulfillment_deadline_at" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertOne) UpdateFulfillmentDeadlineAt() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateFulfillmentDeadlineAt()
+	})
+}
+
+// ClearFulfillmentDeadlineAt clears the value of the "fulfillment_deadline_at" field.
+func (u *GroupBuyRoundUpsertOne) ClearFulfillmentDeadlineAt() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearFulfillmentDeadlineAt()
 	})
 }
 
@@ -1812,6 +2711,335 @@ func (u *GroupBuyRoundUpsertBulk) UpdateAssignedAccountID() *GroupBuyRoundUpsert
 func (u *GroupBuyRoundUpsertBulk) ClearAssignedAccountID() *GroupBuyRoundUpsertBulk {
 	return u.Update(func(s *GroupBuyRoundUpsert) {
 		s.ClearAssignedAccountID()
+	})
+}
+
+// SetCafeFulfillmentVersion sets the "cafe_fulfillment_version" field.
+func (u *GroupBuyRoundUpsertBulk) SetCafeFulfillmentVersion(v string) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetCafeFulfillmentVersion(v)
+	})
+}
+
+// UpdateCafeFulfillmentVersion sets the "cafe_fulfillment_version" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertBulk) UpdateCafeFulfillmentVersion() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateCafeFulfillmentVersion()
+	})
+}
+
+// SetSubscriptionTier sets the "subscription_tier" field.
+func (u *GroupBuyRoundUpsertBulk) SetSubscriptionTier(v string) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetSubscriptionTier(v)
+	})
+}
+
+// UpdateSubscriptionTier sets the "subscription_tier" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertBulk) UpdateSubscriptionTier() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateSubscriptionTier()
+	})
+}
+
+// ClearSubscriptionTier clears the value of the "subscription_tier" field.
+func (u *GroupBuyRoundUpsertBulk) ClearSubscriptionTier() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearSubscriptionTier()
+	})
+}
+
+// SetMaxBuyers sets the "max_buyers" field.
+func (u *GroupBuyRoundUpsertBulk) SetMaxBuyers(v int) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetMaxBuyers(v)
+	})
+}
+
+// AddMaxBuyers adds v to the "max_buyers" field.
+func (u *GroupBuyRoundUpsertBulk) AddMaxBuyers(v int) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.AddMaxBuyers(v)
+	})
+}
+
+// UpdateMaxBuyers sets the "max_buyers" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertBulk) UpdateMaxBuyers() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateMaxBuyers()
+	})
+}
+
+// ClearMaxBuyers clears the value of the "max_buyers" field.
+func (u *GroupBuyRoundUpsertBulk) ClearMaxBuyers() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearMaxBuyers()
+	})
+}
+
+// SetMaxSharesPerUser sets the "max_shares_per_user" field.
+func (u *GroupBuyRoundUpsertBulk) SetMaxSharesPerUser(v int) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetMaxSharesPerUser(v)
+	})
+}
+
+// AddMaxSharesPerUser adds v to the "max_shares_per_user" field.
+func (u *GroupBuyRoundUpsertBulk) AddMaxSharesPerUser(v int) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.AddMaxSharesPerUser(v)
+	})
+}
+
+// UpdateMaxSharesPerUser sets the "max_shares_per_user" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertBulk) UpdateMaxSharesPerUser() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateMaxSharesPerUser()
+	})
+}
+
+// ClearMaxSharesPerUser clears the value of the "max_shares_per_user" field.
+func (u *GroupBuyRoundUpsertBulk) ClearMaxSharesPerUser() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearMaxSharesPerUser()
+	})
+}
+
+// SetFulfillmentTimeoutMinutes sets the "fulfillment_timeout_minutes" field.
+func (u *GroupBuyRoundUpsertBulk) SetFulfillmentTimeoutMinutes(v int) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetFulfillmentTimeoutMinutes(v)
+	})
+}
+
+// AddFulfillmentTimeoutMinutes adds v to the "fulfillment_timeout_minutes" field.
+func (u *GroupBuyRoundUpsertBulk) AddFulfillmentTimeoutMinutes(v int) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.AddFulfillmentTimeoutMinutes(v)
+	})
+}
+
+// UpdateFulfillmentTimeoutMinutes sets the "fulfillment_timeout_minutes" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertBulk) UpdateFulfillmentTimeoutMinutes() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateFulfillmentTimeoutMinutes()
+	})
+}
+
+// ClearFulfillmentTimeoutMinutes clears the value of the "fulfillment_timeout_minutes" field.
+func (u *GroupBuyRoundUpsertBulk) ClearFulfillmentTimeoutMinutes() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearFulfillmentTimeoutMinutes()
+	})
+}
+
+// SetValidityDaysSnapshot sets the "validity_days_snapshot" field.
+func (u *GroupBuyRoundUpsertBulk) SetValidityDaysSnapshot(v int) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetValidityDaysSnapshot(v)
+	})
+}
+
+// AddValidityDaysSnapshot adds v to the "validity_days_snapshot" field.
+func (u *GroupBuyRoundUpsertBulk) AddValidityDaysSnapshot(v int) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.AddValidityDaysSnapshot(v)
+	})
+}
+
+// UpdateValidityDaysSnapshot sets the "validity_days_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertBulk) UpdateValidityDaysSnapshot() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateValidityDaysSnapshot()
+	})
+}
+
+// ClearValidityDaysSnapshot clears the value of the "validity_days_snapshot" field.
+func (u *GroupBuyRoundUpsertBulk) ClearValidityDaysSnapshot() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearValidityDaysSnapshot()
+	})
+}
+
+// SetTargetGroupIDSnapshot sets the "target_group_id_snapshot" field.
+func (u *GroupBuyRoundUpsertBulk) SetTargetGroupIDSnapshot(v int64) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetTargetGroupIDSnapshot(v)
+	})
+}
+
+// AddTargetGroupIDSnapshot adds v to the "target_group_id_snapshot" field.
+func (u *GroupBuyRoundUpsertBulk) AddTargetGroupIDSnapshot(v int64) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.AddTargetGroupIDSnapshot(v)
+	})
+}
+
+// UpdateTargetGroupIDSnapshot sets the "target_group_id_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertBulk) UpdateTargetGroupIDSnapshot() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateTargetGroupIDSnapshot()
+	})
+}
+
+// ClearTargetGroupIDSnapshot clears the value of the "target_group_id_snapshot" field.
+func (u *GroupBuyRoundUpsertBulk) ClearTargetGroupIDSnapshot() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearTargetGroupIDSnapshot()
+	})
+}
+
+// SetPlatformSnapshot sets the "platform_snapshot" field.
+func (u *GroupBuyRoundUpsertBulk) SetPlatformSnapshot(v string) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetPlatformSnapshot(v)
+	})
+}
+
+// UpdatePlatformSnapshot sets the "platform_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertBulk) UpdatePlatformSnapshot() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdatePlatformSnapshot()
+	})
+}
+
+// ClearPlatformSnapshot clears the value of the "platform_snapshot" field.
+func (u *GroupBuyRoundUpsertBulk) ClearPlatformSnapshot() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearPlatformSnapshot()
+	})
+}
+
+// SetQuotaPerShareSnapshot sets the "quota_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsertBulk) SetQuotaPerShareSnapshot(v float64) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetQuotaPerShareSnapshot(v)
+	})
+}
+
+// AddQuotaPerShareSnapshot adds v to the "quota_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsertBulk) AddQuotaPerShareSnapshot(v float64) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.AddQuotaPerShareSnapshot(v)
+	})
+}
+
+// UpdateQuotaPerShareSnapshot sets the "quota_per_share_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertBulk) UpdateQuotaPerShareSnapshot() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateQuotaPerShareSnapshot()
+	})
+}
+
+// ClearQuotaPerShareSnapshot clears the value of the "quota_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsertBulk) ClearQuotaPerShareSnapshot() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearQuotaPerShareSnapshot()
+	})
+}
+
+// SetRateLimit5hPerShareSnapshot sets the "rate_limit_5h_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsertBulk) SetRateLimit5hPerShareSnapshot(v float64) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetRateLimit5hPerShareSnapshot(v)
+	})
+}
+
+// AddRateLimit5hPerShareSnapshot adds v to the "rate_limit_5h_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsertBulk) AddRateLimit5hPerShareSnapshot(v float64) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.AddRateLimit5hPerShareSnapshot(v)
+	})
+}
+
+// UpdateRateLimit5hPerShareSnapshot sets the "rate_limit_5h_per_share_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertBulk) UpdateRateLimit5hPerShareSnapshot() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateRateLimit5hPerShareSnapshot()
+	})
+}
+
+// ClearRateLimit5hPerShareSnapshot clears the value of the "rate_limit_5h_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsertBulk) ClearRateLimit5hPerShareSnapshot() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearRateLimit5hPerShareSnapshot()
+	})
+}
+
+// SetRateLimit1dPerShareSnapshot sets the "rate_limit_1d_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsertBulk) SetRateLimit1dPerShareSnapshot(v float64) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetRateLimit1dPerShareSnapshot(v)
+	})
+}
+
+// AddRateLimit1dPerShareSnapshot adds v to the "rate_limit_1d_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsertBulk) AddRateLimit1dPerShareSnapshot(v float64) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.AddRateLimit1dPerShareSnapshot(v)
+	})
+}
+
+// UpdateRateLimit1dPerShareSnapshot sets the "rate_limit_1d_per_share_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertBulk) UpdateRateLimit1dPerShareSnapshot() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateRateLimit1dPerShareSnapshot()
+	})
+}
+
+// ClearRateLimit1dPerShareSnapshot clears the value of the "rate_limit_1d_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsertBulk) ClearRateLimit1dPerShareSnapshot() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearRateLimit1dPerShareSnapshot()
+	})
+}
+
+// SetRateLimit7dPerShareSnapshot sets the "rate_limit_7d_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsertBulk) SetRateLimit7dPerShareSnapshot(v float64) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetRateLimit7dPerShareSnapshot(v)
+	})
+}
+
+// AddRateLimit7dPerShareSnapshot adds v to the "rate_limit_7d_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsertBulk) AddRateLimit7dPerShareSnapshot(v float64) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.AddRateLimit7dPerShareSnapshot(v)
+	})
+}
+
+// UpdateRateLimit7dPerShareSnapshot sets the "rate_limit_7d_per_share_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertBulk) UpdateRateLimit7dPerShareSnapshot() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateRateLimit7dPerShareSnapshot()
+	})
+}
+
+// ClearRateLimit7dPerShareSnapshot clears the value of the "rate_limit_7d_per_share_snapshot" field.
+func (u *GroupBuyRoundUpsertBulk) ClearRateLimit7dPerShareSnapshot() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearRateLimit7dPerShareSnapshot()
+	})
+}
+
+// SetFulfillmentDeadlineAt sets the "fulfillment_deadline_at" field.
+func (u *GroupBuyRoundUpsertBulk) SetFulfillmentDeadlineAt(v time.Time) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetFulfillmentDeadlineAt(v)
+	})
+}
+
+// UpdateFulfillmentDeadlineAt sets the "fulfillment_deadline_at" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertBulk) UpdateFulfillmentDeadlineAt() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateFulfillmentDeadlineAt()
+	})
+}
+
+// ClearFulfillmentDeadlineAt clears the value of the "fulfillment_deadline_at" field.
+func (u *GroupBuyRoundUpsertBulk) ClearFulfillmentDeadlineAt() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearFulfillmentDeadlineAt()
 	})
 }
 

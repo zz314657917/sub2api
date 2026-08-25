@@ -45,6 +45,15 @@ func (GroupBuyPlan) Fields() []ent.Field {
 		field.Int("total_shares").
 			Default(10).
 			Positive(),
+		// subscription_tier is deliberately constrained by the Cafe service and
+		// migration. Generic group-buy plans keep their existing product_key
+		// semantics and are not interpreted as Cafe subscriptions.
+		field.String("subscription_tier").
+			MaxLen(16).
+			Default("plus"),
+		field.Int("max_buyers").
+			Default(4).
+			Positive(),
 		field.Int("seat_count").
 			Comment("Legacy alias of total_shares for v1 API compatibility").
 			Default(10).
@@ -66,6 +75,9 @@ func (GroupBuyPlan) Fields() []ent.Field {
 			Default(""),
 		field.Int("max_shares_per_user").
 			Default(10),
+		field.Int("fulfillment_timeout_minutes").
+			Default(1440).
+			Positive(),
 		field.Int64("target_group_id"),
 		field.JSON("tier_group_ids", map[string]int64{}).
 			Optional().

@@ -22,6 +22,8 @@ const (
 	FieldUserID = "user_id"
 	// FieldOrderID holds the string denoting the order_id field in the database.
 	FieldOrderID = "order_id"
+	// FieldMembershipID holds the string denoting the membership_id field in the database.
+	FieldMembershipID = "membership_id"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
 	// FieldShareCount holds the string denoting the share_count field in the database.
@@ -60,6 +62,8 @@ const (
 	EdgeUser = "user"
 	// EdgeOrder holds the string denoting the order edge name in mutations.
 	EdgeOrder = "order"
+	// EdgeMembership holds the string denoting the membership edge name in mutations.
+	EdgeMembership = "membership"
 	// EdgeSubscription holds the string denoting the subscription edge name in mutations.
 	EdgeSubscription = "subscription"
 	// EdgeBoundAPIKey holds the string denoting the bound_api_key edge name in mutations.
@@ -100,6 +104,13 @@ const (
 	OrderInverseTable = "payment_orders"
 	// OrderColumn is the table column denoting the order relation/edge.
 	OrderColumn = "order_id"
+	// MembershipTable is the table that holds the membership relation/edge.
+	MembershipTable = "group_buy_seats"
+	// MembershipInverseTable is the table name for the CafeRoundMembership entity.
+	// It exists in this package in order to avoid circular dependency with the "caferoundmembership" package.
+	MembershipInverseTable = "cafe_round_memberships"
+	// MembershipColumn is the table column denoting the membership relation/edge.
+	MembershipColumn = "membership_id"
 	// SubscriptionTable is the table that holds the subscription relation/edge.
 	SubscriptionTable = "group_buy_seats"
 	// SubscriptionInverseTable is the table name for the UserSubscription entity.
@@ -144,6 +155,7 @@ var Columns = []string{
 	FieldPlanID,
 	FieldUserID,
 	FieldOrderID,
+	FieldMembershipID,
 	FieldStatus,
 	FieldShareCount,
 	FieldSeatNo,
@@ -212,6 +224,11 @@ func ByUserID(opts ...sql.OrderTermOption) OrderOption {
 // ByOrderID orders the results by the order_id field.
 func ByOrderID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldOrderID, opts...).ToFunc()
+}
+
+// ByMembershipID orders the results by the membership_id field.
+func ByMembershipID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldMembershipID, opts...).ToFunc()
 }
 
 // ByStatus orders the results by the status field.
@@ -312,6 +329,13 @@ func ByOrderField(field string, opts ...sql.OrderTermOption) OrderOption {
 	}
 }
 
+// ByMembershipField orders the results by membership field.
+func ByMembershipField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newMembershipStep(), sql.OrderByField(field, opts...))
+	}
+}
+
 // BySubscriptionField orders the results by subscription field.
 func BySubscriptionField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -393,6 +417,13 @@ func newOrderStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(OrderInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2O, true, OrderTable, OrderColumn),
+	)
+}
+func newMembershipStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(MembershipInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, MembershipTable, MembershipColumn),
 	)
 }
 func newSubscriptionStep() *sqlgraph.Step {

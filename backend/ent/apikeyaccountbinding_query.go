@@ -16,6 +16,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
 	"github.com/Wei-Shaw/sub2api/ent/caferoom"
+	"github.com/Wei-Shaw/sub2api/ent/caferoundmembership"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
@@ -26,18 +27,19 @@ import (
 // APIKeyAccountBindingQuery is the builder for querying APIKeyAccountBinding entities.
 type APIKeyAccountBindingQuery struct {
 	config
-	ctx          *QueryContext
-	order        []apikeyaccountbinding.OrderOption
-	inters       []Interceptor
-	predicates   []predicate.APIKeyAccountBinding
-	withAPIKey   *APIKeyQuery
-	withUser     *UserQuery
-	withGroup    *GroupQuery
-	withAccount  *AccountQuery
-	withCafeRoom *CafeRoomQuery
-	withRound    *GroupBuyRoundQuery
-	withSeat     *GroupBuySeatQuery
-	modifiers    []func(*sql.Selector)
+	ctx            *QueryContext
+	order          []apikeyaccountbinding.OrderOption
+	inters         []Interceptor
+	predicates     []predicate.APIKeyAccountBinding
+	withAPIKey     *APIKeyQuery
+	withUser       *UserQuery
+	withGroup      *GroupQuery
+	withAccount    *AccountQuery
+	withCafeRoom   *CafeRoomQuery
+	withRound      *GroupBuyRoundQuery
+	withSeat       *GroupBuySeatQuery
+	withMembership *CafeRoundMembershipQuery
+	modifiers      []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -221,6 +223,28 @@ func (_q *APIKeyAccountBindingQuery) QuerySeat() *GroupBuySeatQuery {
 			sqlgraph.From(apikeyaccountbinding.Table, apikeyaccountbinding.FieldID, selector),
 			sqlgraph.To(groupbuyseat.Table, groupbuyseat.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, apikeyaccountbinding.SeatTable, apikeyaccountbinding.SeatColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryMembership chains the current query on the "membership" edge.
+func (_q *APIKeyAccountBindingQuery) QueryMembership() *CafeRoundMembershipQuery {
+	query := (&CafeRoundMembershipClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(apikeyaccountbinding.Table, apikeyaccountbinding.FieldID, selector),
+			sqlgraph.To(caferoundmembership.Table, caferoundmembership.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, apikeyaccountbinding.MembershipTable, apikeyaccountbinding.MembershipColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -415,18 +439,19 @@ func (_q *APIKeyAccountBindingQuery) Clone() *APIKeyAccountBindingQuery {
 		return nil
 	}
 	return &APIKeyAccountBindingQuery{
-		config:       _q.config,
-		ctx:          _q.ctx.Clone(),
-		order:        append([]apikeyaccountbinding.OrderOption{}, _q.order...),
-		inters:       append([]Interceptor{}, _q.inters...),
-		predicates:   append([]predicate.APIKeyAccountBinding{}, _q.predicates...),
-		withAPIKey:   _q.withAPIKey.Clone(),
-		withUser:     _q.withUser.Clone(),
-		withGroup:    _q.withGroup.Clone(),
-		withAccount:  _q.withAccount.Clone(),
-		withCafeRoom: _q.withCafeRoom.Clone(),
-		withRound:    _q.withRound.Clone(),
-		withSeat:     _q.withSeat.Clone(),
+		config:         _q.config,
+		ctx:            _q.ctx.Clone(),
+		order:          append([]apikeyaccountbinding.OrderOption{}, _q.order...),
+		inters:         append([]Interceptor{}, _q.inters...),
+		predicates:     append([]predicate.APIKeyAccountBinding{}, _q.predicates...),
+		withAPIKey:     _q.withAPIKey.Clone(),
+		withUser:       _q.withUser.Clone(),
+		withGroup:      _q.withGroup.Clone(),
+		withAccount:    _q.withAccount.Clone(),
+		withCafeRoom:   _q.withCafeRoom.Clone(),
+		withRound:      _q.withRound.Clone(),
+		withSeat:       _q.withSeat.Clone(),
+		withMembership: _q.withMembership.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -510,6 +535,17 @@ func (_q *APIKeyAccountBindingQuery) WithSeat(opts ...func(*GroupBuySeatQuery)) 
 	return _q
 }
 
+// WithMembership tells the query-builder to eager-load the nodes that are connected to
+// the "membership" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *APIKeyAccountBindingQuery) WithMembership(opts ...func(*CafeRoundMembershipQuery)) *APIKeyAccountBindingQuery {
+	query := (&CafeRoundMembershipClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withMembership = query
+	return _q
+}
+
 // GroupBy is used to group vertices by one or more fields/columns.
 // It is often used with aggregate functions, like: count, max, mean, min, sum.
 //
@@ -588,7 +624,7 @@ func (_q *APIKeyAccountBindingQuery) sqlAll(ctx context.Context, hooks ...queryH
 	var (
 		nodes       = []*APIKeyAccountBinding{}
 		_spec       = _q.querySpec()
-		loadedTypes = [7]bool{
+		loadedTypes = [8]bool{
 			_q.withAPIKey != nil,
 			_q.withUser != nil,
 			_q.withGroup != nil,
@@ -596,6 +632,7 @@ func (_q *APIKeyAccountBindingQuery) sqlAll(ctx context.Context, hooks ...queryH
 			_q.withCafeRoom != nil,
 			_q.withRound != nil,
 			_q.withSeat != nil,
+			_q.withMembership != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -658,6 +695,12 @@ func (_q *APIKeyAccountBindingQuery) sqlAll(ctx context.Context, hooks ...queryH
 	if query := _q.withSeat; query != nil {
 		if err := _q.loadSeat(ctx, query, nodes, nil,
 			func(n *APIKeyAccountBinding, e *GroupBuySeat) { n.Edges.Seat = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withMembership; query != nil {
+		if err := _q.loadMembership(ctx, query, nodes, nil,
+			func(n *APIKeyAccountBinding, e *CafeRoundMembership) { n.Edges.Membership = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -842,7 +885,10 @@ func (_q *APIKeyAccountBindingQuery) loadSeat(ctx context.Context, query *GroupB
 	ids := make([]int64, 0, len(nodes))
 	nodeids := make(map[int64][]*APIKeyAccountBinding)
 	for i := range nodes {
-		fk := nodes[i].SeatID
+		if nodes[i].SeatID == nil {
+			continue
+		}
+		fk := *nodes[i].SeatID
 		if _, ok := nodeids[fk]; !ok {
 			ids = append(ids, fk)
 		}
@@ -860,6 +906,38 @@ func (_q *APIKeyAccountBindingQuery) loadSeat(ctx context.Context, query *GroupB
 		nodes, ok := nodeids[n.ID]
 		if !ok {
 			return fmt.Errorf(`unexpected foreign-key "seat_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
+func (_q *APIKeyAccountBindingQuery) loadMembership(ctx context.Context, query *CafeRoundMembershipQuery, nodes []*APIKeyAccountBinding, init func(*APIKeyAccountBinding), assign func(*APIKeyAccountBinding, *CafeRoundMembership)) error {
+	ids := make([]int64, 0, len(nodes))
+	nodeids := make(map[int64][]*APIKeyAccountBinding)
+	for i := range nodes {
+		if nodes[i].MembershipID == nil {
+			continue
+		}
+		fk := *nodes[i].MembershipID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(caferoundmembership.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "membership_id" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)
@@ -916,6 +994,9 @@ func (_q *APIKeyAccountBindingQuery) querySpec() *sqlgraph.QuerySpec {
 		}
 		if _q.withSeat != nil {
 			_spec.Node.AddColumnOnce(apikeyaccountbinding.FieldSeatID)
+		}
+		if _q.withMembership != nil {
+			_spec.Node.AddColumnOnce(apikeyaccountbinding.FieldMembershipID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

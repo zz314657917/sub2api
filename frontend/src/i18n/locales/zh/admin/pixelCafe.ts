@@ -10,7 +10,28 @@ export default {
   noRooms: '暂无房间',
   noRoomPlans: '暂无 room_subscription 计划，请先准备兼容计划。',
   noAccounts: '暂无可用账号。',
+  accountDeferred: '成团后配号',
   loadingDependencies: '正在加载 Room 计划…',
+  layout: {
+    open: '大厅布局',
+    title: '编辑大厅电脑位置',
+    hint: '直接拖动编号电脑到背景图中的目标位置；选中后也可用方向键微调。',
+    snap: '吸附网格',
+    count: '电脑工位数量',
+    countRange: '可设置 {min}–{max} 个；增减后保存才会对所有用户生效。',
+    decreaseCount: '减少一个电脑工位',
+    increaseCount: '增加一个电脑工位',
+    desktopOnly: '精细布局编辑请使用桌面端浏览器。',
+    workstation: '电脑工位 {id}',
+    selected: '已选工位 {id}',
+    keyboardHint: '方向键移动 4px，Shift + 方向键移动 10px。',
+    loading: '正在加载已保存布局…',
+    reset: '重置默认位置',
+    save: '保存布局',
+    saving: '保存中…',
+    loadError: '加载大厅布局失败，已显示默认位置',
+    saveError: '保存大厅布局失败',
+  },
   columns: {
     room: '房间',
     zone: '区域',
@@ -52,6 +73,7 @@ export default {
   bulk: {
     title: '批量创建房间',
     accounts: '运营账号',
+    quantity: '创建数量',
     codePrefix: '编号前缀',
     startNumber: '起始编号',
     createOpenRound: '创建后立即开团',
@@ -72,6 +94,9 @@ export default {
     more: '加载更多',
     error: '加载账号失败',
   },
+  pending: {
+    title: '待配号轮次', description: '成团后在此搜索并绑定符合套餐的 OpenAI 账号。', search: '搜索房间或编号', loading: '正在加载…', empty: '暂无待配号轮次。', assign: '绑定账号并开通', assignTitle: '为成团轮次配号', accountSearch: '搜索账号名称或邮箱', noAccount: '没有符合 Plus/Pro 套餐条件的账号。', assigning: '正在开通…',
+  },
   actions: {
     edit: '编辑',
     openRound: '开团',
@@ -86,6 +111,8 @@ export default {
     deleted: '房间已删除',
     roundOpened: 'open Round 已创建',
     bulkCreated: '批量创建完成：成功 {created}，失败 {failed}',
+    accountAssigned: '账号已绑定，正在开通',
+    layoutSaved: '大厅电脑布局已保存',
   },
   errors: {
     load: '加载房间失败',
@@ -95,5 +122,6 @@ export default {
     openRound: '创建 open Round 失败',
     bulk: '批量创建失败',
     accounts: '加载房间账号失败',
+    pending: '加载待配号轮次失败', assign: '绑定账号失败',
   },
 }

@@ -3,9 +3,13 @@ package service
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqljson"
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
@@ -17,6 +21,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 )
 
 const apiKeyAccountBindingStatusActive = "active"
@@ -25,6 +30,42 @@ var (
 	ErrCafeActivationPending = infraerrors.Conflict("CAFE_ACTIVATION_PENDING", "cafe room round is not ready for activation")
 	ErrCafeActivationFailed  = infraerrors.Conflict("CAFE_ACTIVATION_FAILED", "cafe room activation could not be completed safely")
 )
+
+type CafePendingRound struct {
+	ID                    int64      `json:"id"`
+	Status                string     `json:"status"`
+	RoomID                int64      `json:"room_id"`
+	RoomCode              string     `json:"room_code"`
+	RoomName              string     `json:"room_name"`
+	SubscriptionTier      string     `json:"subscription_tier"`
+	PaidShares            int        `json:"paid_shares"`
+	TotalShares           int        `json:"total_shares"`
+	JoinedBuyers          int        `json:"joined_buyers"`
+	MaxBuyers             int        `json:"max_buyers"`
+	PaidFullAt            *time.Time `json:"paid_full_at,omitempty"`
+	FulfillmentDeadlineAt *time.Time `json:"fulfillment_deadline_at,omitempty"`
+}
+
+type CafePendingRoundParams struct {
+	Page     int
+	PageSize int
+	Search   string
+}
+
+type CafeRoundAccountOption struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	Platform    string `json:"platform"`
+	Status      string `json:"status"`
+	PlanType    string `json:"plan_type"`
+	EmailMasked string `json:"email_masked,omitempty"`
+}
+
+type CafeRoundAccountOptionParams struct {
+	Page     int
+	PageSize int
+	Search   string
+}
 
 // CafeRoundActivation is the small post-payment boundary used by GroupBuyService.
 // It deliberately owns only Cafe Round state and never invokes aggregate fulfillment.
@@ -49,6 +90,436 @@ func NewCafeRoomActivationService(entClient *dbent.Client, apiKeySvc *APIKeyServ
 		apiKeyRepo: apiKeyRepo,
 		now:        time.Now,
 	}
+}
+
+func (s *CafeRoomActivationService) ListPendingRounds(ctx context.Context, params CafePendingRoundParams) ([]CafePendingRound, *pagination.PaginationResult, error) {
+	if s == nil || s.entClient == nil {
+		return nil, nil, ErrCafeActivationFailed
+	}
+	page, pageSize := normalizeCafeFulfillmentPagination(params.Page, params.PageSize)
+	q := s.entClient.GroupBuyRound.Query().Where(
+		groupbuyround.CafeRoomIDNotNil(),
+		groupbuyround.CafeFulfillmentVersionEQ("membership_share"),
+		groupbuyround.StatusEQ(GroupBuyRoundStatusAwaitingAccount),
+	)
+	if search := strings.TrimSpace(params.Search); search != "" {
+		q = q.Where(groupbuyround.HasCafeRoomWith(caferoom.Or(caferoom.CodeContainsFold(search), caferoom.NameContainsFold(search))))
+	}
+	total, err := q.Clone().Count(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("count pending cafe rounds: %w", err)
+	}
+	rounds, err := q.WithCafeRoom().WithCafeMemberships().
+		Order(dbent.Asc(groupbuyround.FieldFulfillmentDeadlineAt), dbent.Asc(groupbuyround.FieldID)).
+		Offset((page - 1) * pageSize).Limit(pageSize).All(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list pending cafe rounds: %w", err)
+	}
+	items := make([]CafePendingRound, 0, len(rounds))
+	for _, round := range rounds {
+		items = append(items, cafePendingRoundFromEntity(round))
+	}
+	return items, cafeFulfillmentPagination(page, pageSize, total), nil
+}
+
+func (s *CafeRoomActivationService) ListRoundAccountOptions(ctx context.Context, roundID int64, params CafeRoundAccountOptionParams) ([]CafeRoundAccountOption, *pagination.PaginationResult, error) {
+	if s == nil || s.entClient == nil || roundID <= 0 {
+		return nil, nil, ErrCafeRoundNotAwaitingAccount
+	}
+	round, err := s.entClient.GroupBuyRound.Query().Where(groupbuyround.IDEQ(roundID)).Only(ctx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, nil, ErrGroupBuyRoundNotFound
+		}
+		return nil, nil, fmt.Errorf("load pending cafe round: %w", err)
+	}
+	if err := validateCafeRoundAwaitingAccount(round, s.now()); err != nil {
+		return nil, nil, err
+	}
+	if round.TargetGroupIDSnapshot == nil || *round.TargetGroupIDSnapshot <= 0 || round.PlatformSnapshot == nil {
+		return nil, nil, ErrCafeActivationFailed
+	}
+	q := s.entClient.Account.Query().Where(
+		account.DeletedAtIsNil(),
+		account.StatusEQ(StatusActive),
+		account.PlatformEQ(*round.PlatformSnapshot),
+		account.HasGroupsWith(dbgroup.IDEQ(*round.TargetGroupIDSnapshot), dbgroup.DeletedAtIsNil()),
+	).WithGroups()
+	if search := strings.TrimSpace(params.Search); search != "" {
+		q = q.Where(account.Or(
+			account.NameContainsFold(search),
+			account.PlatformContainsFold(search),
+			func(selector *sql.Selector) {
+				selector.Where(sqljson.StringContains(account.FieldCredentials, search, sqljson.Path("email")))
+			},
+		))
+	}
+	accounts, err := q.All(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list cafe account options: %w", err)
+	}
+	inUse, err := s.liveCafeAccountIDs(ctx, round.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+	filtered := make([]CafeRoundAccountOption, 0, len(accounts))
+	search := strings.ToLower(strings.TrimSpace(params.Search))
+	for _, item := range accounts {
+		if _, used := inUse[item.ID]; used {
+			continue
+		}
+		planType := normalizeCafeAccountPlanType(cafeAccountCredentialString(item, "plan_type"))
+		if !cafeAccountTierMatches(cafeRoundSubscriptionTier(round), planType) {
+			continue
+		}
+		email := cafeAccountCredentialString(item, "email")
+		if search != "" && !strings.Contains(strings.ToLower(item.Name), search) && !strings.Contains(strings.ToLower(item.Platform), search) && !strings.Contains(strings.ToLower(email), search) {
+			continue
+		}
+		filtered = append(filtered, CafeRoundAccountOption{ID: item.ID, Name: item.Name, Platform: item.Platform, Status: item.Status, PlanType: planType, EmailMasked: MaskEmail(email)})
+	}
+	sort.Slice(filtered, func(i, j int) bool { return filtered[i].ID < filtered[j].ID })
+	page, pageSize := normalizeCafeFulfillmentPagination(params.Page, params.PageSize)
+	total := len(filtered)
+	start := (page - 1) * pageSize
+	if start > total {
+		start = total
+	}
+	end := start + pageSize
+	if end > total {
+		end = total
+	}
+	return filtered[start:end], cafeFulfillmentPagination(page, pageSize, total), nil
+}
+
+func (s *CafeRoomActivationService) AssignAccountAndActivateRound(ctx context.Context, roundID, accountID int64) (*CafePendingRound, error) {
+	if s == nil || s.entClient == nil || s.apiKeySvc == nil || s.apiKeyRepo == nil || roundID <= 0 || accountID <= 0 {
+		return nil, ErrCafeActivationFailed
+	}
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin cafe account assignment: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	txCtx := dbent.NewTxContext(ctx, tx)
+	now := s.now()
+	round, err := s.cafeRoundForUpdate(tx.GroupBuyRound.Query().Where(groupbuyround.IDEQ(roundID))).WithCafeRoom().WithCafeMemberships().Only(txCtx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, ErrGroupBuyRoundNotFound
+		}
+		return nil, fmt.Errorf("lock pending cafe round: %w", err)
+	}
+	if round.Status == GroupBuyRoundStatusActive && round.AssignedAccountID != nil && *round.AssignedAccountID == accountID {
+		item := cafePendingRoundFromEntity(round)
+		if err := tx.Commit(); err != nil {
+			return nil, err
+		}
+		return &item, nil
+	}
+	if err := validateCafeRoundAwaitingAccount(round, now); err != nil {
+		return nil, err
+	}
+	if round.Edges.CafeRoom == nil || round.TargetGroupIDSnapshot == nil || round.PlatformSnapshot == nil || round.ValidityDaysSnapshot == nil || *round.ValidityDaysSnapshot <= 0 {
+		return nil, ErrCafeActivationFailed
+	}
+	accountQuery := tx.Account.Query().Where(account.IDEQ(accountID), account.DeletedAtIsNil()).WithGroups()
+	if s.entClient.Driver().Dialect() != dialect.SQLite {
+		accountQuery = accountQuery.ForUpdate()
+	}
+	assigned, err := accountQuery.Only(txCtx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, ErrCafeAccountIncompatible
+		}
+		return nil, fmt.Errorf("lock cafe assigned account: %w", err)
+	}
+	if assigned.Status != StatusActive || assigned.Platform != *round.PlatformSnapshot || assigned.Platform != PlatformOpenAI || !cafeAccountBelongsToGroup(assigned, *round.TargetGroupIDSnapshot) {
+		return nil, ErrCafeAccountIncompatible
+	}
+	planType := normalizeCafeAccountPlanType(cafeAccountCredentialString(assigned, "plan_type"))
+	if !cafeAccountTierMatches(cafeRoundSubscriptionTier(round), planType) {
+		return nil, ErrCafeAccountTierMismatch
+	}
+	used, err := tx.GroupBuyRound.Query().Where(
+		groupbuyround.IDNEQ(round.ID),
+		groupbuyround.AssignedAccountIDEQ(accountID),
+		groupbuyround.StatusIn(GroupBuyRoundStatusActivating, GroupBuyRoundStatusActive),
+	).Exist(txCtx)
+	if err != nil {
+		return nil, fmt.Errorf("check cafe account assignment: %w", err)
+	}
+	if used {
+		return nil, ErrCafeAccountAlreadyInUse
+	}
+	memberships := round.Edges.CafeMemberships
+	paidShares := 0
+	for _, membership := range memberships {
+		if membership.PaidShares > 0 {
+			paidShares += membership.PaidShares
+		}
+	}
+	if paidShares != round.TotalShares || len(memberships) == 0 {
+		return nil, ErrCafeActivationPending
+	}
+	projection := cafePendingRoundFromEntity(round)
+	room := round.Edges.CafeRoom
+	token, err := s.newKeyValue()
+	if err != nil {
+		return nil, fmt.Errorf("generate cafe activation token: %w", err)
+	}
+	expiresAt := now.AddDate(0, 0, *round.ValidityDaysSnapshot)
+	round, err = tx.GroupBuyRound.UpdateOneID(round.ID).
+		SetStatus(GroupBuyRoundStatusActivating).
+		SetAssignedAccountID(accountID).
+		SetActivationToken(token).
+		ClearActivatedAt().
+		ClearEntitlementExpiresAt().
+		SetUpdatedAt(now).
+		Save(txCtx)
+	if err != nil {
+		translated := translateCafeAccountAssignmentError(err)
+		if infraerrors.Reason(translated) == "CAFE_ACCOUNT_ALREADY_IN_USE" {
+			return nil, translated
+		}
+		return nil, ErrCafeActivationFailed.WithCause(translated)
+	}
+	managedKeys := make([]string, 0, len(memberships))
+	for _, membership := range memberships {
+		if membership.PaidShares <= 0 {
+			continue
+		}
+		key, err := s.createMembershipManagedKey(txCtx, tx, round, room, membership, *round.TargetGroupIDSnapshot, expiresAt)
+		if err != nil {
+			return nil, ErrCafeActivationFailed.WithCause(err)
+		}
+		managedKeys = append(managedKeys, key.Key)
+		if _, err := tx.APIKeyAccountBinding.Create().
+			SetAPIKeyID(key.ID).
+			SetUserID(membership.UserID).
+			SetGroupID(*round.TargetGroupIDSnapshot).
+			SetAccountID(accountID).
+			SetCafeRoomID(*round.CafeRoomID).
+			SetRoundID(round.ID).
+			SetMembershipID(membership.ID).
+			SetStatus(apiKeyAccountBindingStatusActive).
+			SetStrictMode(true).
+			SetStartsAt(now).
+			SetExpiresAt(expiresAt).
+			Save(txCtx); err != nil {
+			return nil, ErrCafeActivationFailed.WithCause(fmt.Errorf("create cafe membership binding: %w", err))
+		}
+		if _, err := tx.CafeRoundMembership.UpdateOneID(membership.ID).
+			SetStatus(GroupBuySeatStatusActive).
+			SetBoundAPIKeyID(key.ID).
+			SetActivatedAt(now).
+			SetExpiresAt(expiresAt).
+			SetUpdatedAt(now).
+			Save(txCtx); err != nil {
+			return nil, ErrCafeActivationFailed.WithCause(fmt.Errorf("activate cafe membership %d: %w", membership.ID, err))
+		}
+		if _, err := tx.GroupBuySeat.Update().Where(
+			groupbuyseat.MembershipIDEQ(membership.ID),
+			groupbuyseat.StatusEQ(GroupBuySeatStatusPaid),
+		).SetStatus(GroupBuySeatStatusActive).SetBoundAPIKeyID(key.ID).SetBoundAt(now).SetActivatedAt(now).SetExpiresAt(expiresAt).SetUpdatedAt(now).Save(txCtx); err != nil {
+			return nil, ErrCafeActivationFailed.WithCause(fmt.Errorf("activate cafe membership payment batches: %w", err))
+		}
+	}
+	round, err = tx.GroupBuyRound.UpdateOneID(round.ID).
+		SetStatus(GroupBuyRoundStatusActive).
+		SetActivatedAt(now).
+		SetEntitlementExpiresAt(expiresAt).
+		SetClosedAt(now).
+		SetUpdatedAt(now).
+		Save(txCtx)
+	if err != nil {
+		return nil, ErrCafeActivationFailed.WithCause(fmt.Errorf("activate cafe membership round: %w", err))
+	}
+	if err := tx.GroupBuyEvent.Create().SetRoundID(round.ID).SetPlanID(round.PlanID).SetEventType(groupBuyEventRoundActivated).SetMessage("像素网吧份额轮次配号激活").SetMetadata(map[string]any{"membership_count": len(managedKeys), "cafe_room_id": *round.CafeRoomID}).Exec(txCtx); err != nil {
+		return nil, ErrCafeActivationFailed.WithCause(fmt.Errorf("record cafe membership activation: %w", err))
+	}
+	if err := tx.Commit(); err != nil {
+		translated := translateCafeAccountAssignmentError(err)
+		if infraerrors.Reason(translated) == "CAFE_ACCOUNT_ALREADY_IN_USE" {
+			return nil, translated
+		}
+		return nil, ErrCafeActivationFailed.WithCause(translated)
+	}
+	for _, key := range managedKeys {
+		s.apiKeySvc.InvalidateAuthCacheByKey(ctx, key)
+	}
+	projection.Status = GroupBuyRoundStatusActive
+	return &projection, nil
+}
+
+func (s *CafeRoomActivationService) createMembershipManagedKey(ctx context.Context, tx *dbent.Tx, round *dbent.GroupBuyRound, room *dbent.CafeRoom, membership *dbent.CafeRoundMembership, groupID int64, expiresAt time.Time) (*dbent.APIKey, error) {
+	if membership == nil || membership.PaidShares <= 0 {
+		return nil, ErrCafeActivationFailed
+	}
+	rawKey, err := s.newKeyValue()
+	if err != nil {
+		return nil, fmt.Errorf("generate cafe membership key: %w", err)
+	}
+	sourceID := membership.ID
+	created := &APIKey{
+		UserID:              membership.UserID,
+		Key:                 rawKey,
+		Name:                cafeMembershipManagedKeyName(room),
+		GroupID:             &groupID,
+		AccountPoolStrategy: AccountPoolStrategySharedOnly,
+		Status:              StatusAPIKeyActive,
+		Quota:               cafeSnapshotLimit(round.QuotaPerShareSnapshot, membership.PaidShares),
+		ExpiresAt:           &expiresAt,
+		RateLimit5h:         cafeSnapshotLimit(round.RateLimit5hPerShareSnapshot, membership.PaidShares),
+		RateLimit1d:         cafeSnapshotLimit(round.RateLimit1dPerShareSnapshot, membership.PaidShares),
+		RateLimit7d:         cafeSnapshotLimit(round.RateLimit7dPerShareSnapshot, membership.PaidShares),
+		ManagedSourceType:   APIKeyManagedSourceCafeRoomMembership,
+		ManagedSourceID:     &sourceID,
+	}
+	if err := s.apiKeyRepo.Create(ctx, created); err != nil {
+		return nil, fmt.Errorf("create cafe membership key: %w", err)
+	}
+	key, err := tx.APIKey.Query().Where(apikey.IDEQ(created.ID), apikey.DeletedAtIsNil()).Only(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("reload cafe membership key: %w", err)
+	}
+	return key, nil
+}
+
+func (s *CafeRoomActivationService) liveCafeAccountIDs(ctx context.Context, excludeRoundID int64) (map[int64]struct{}, error) {
+	rounds, err := s.entClient.GroupBuyRound.Query().Where(
+		groupbuyround.IDNEQ(excludeRoundID),
+		groupbuyround.AssignedAccountIDNotNil(),
+		groupbuyround.StatusIn(GroupBuyRoundStatusActivating, GroupBuyRoundStatusActive),
+	).Select(groupbuyround.FieldAssignedAccountID).All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list active cafe account assignments: %w", err)
+	}
+	result := make(map[int64]struct{}, len(rounds))
+	for _, round := range rounds {
+		if round.AssignedAccountID != nil {
+			result[*round.AssignedAccountID] = struct{}{}
+		}
+	}
+	return result, nil
+}
+
+func normalizeCafeFulfillmentPagination(page, pageSize int) (int, int) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	if pageSize > 50 {
+		pageSize = 50
+	}
+	return page, pageSize
+}
+
+func cafeFulfillmentPagination(page, pageSize, total int) *pagination.PaginationResult {
+	pages := 0
+	if total > 0 {
+		pages = (total + pageSize - 1) / pageSize
+	}
+	return &pagination.PaginationResult{Page: page, PageSize: pageSize, Total: int64(total), Pages: pages}
+}
+
+func cafePendingRoundFromEntity(round *dbent.GroupBuyRound) CafePendingRound {
+	item := CafePendingRound{ID: round.ID, Status: round.Status, SubscriptionTier: cafeRoundSubscriptionTier(round), PaidShares: round.PaidShares, TotalShares: round.TotalShares, MaxBuyers: round.TotalShares, FulfillmentDeadlineAt: round.FulfillmentDeadlineAt}
+	if round.MaxBuyers != nil {
+		item.MaxBuyers = *round.MaxBuyers
+	}
+	if round.FulfillmentDeadlineAt != nil && round.FulfillmentTimeoutMinutes != nil {
+		paidFullAt := round.FulfillmentDeadlineAt.Add(-time.Duration(*round.FulfillmentTimeoutMinutes) * time.Minute)
+		item.PaidFullAt = &paidFullAt
+	}
+	if room := round.Edges.CafeRoom; room != nil {
+		item.RoomID, item.RoomCode, item.RoomName = room.ID, room.Code, room.Name
+	} else if round.CafeRoomID != nil {
+		item.RoomID = *round.CafeRoomID
+		if round.RoomCodeSnapshot != nil {
+			item.RoomCode = *round.RoomCodeSnapshot
+		}
+		if round.RoomNameSnapshot != nil {
+			item.RoomName = *round.RoomNameSnapshot
+		}
+	}
+	for _, membership := range round.Edges.CafeMemberships {
+		if membership.PaidShares > 0 {
+			item.JoinedBuyers++
+		}
+	}
+	return item
+}
+
+func validateCafeRoundAwaitingAccount(round *dbent.GroupBuyRound, now time.Time) error {
+	if round == nil || round.CafeRoomID == nil || round.CafeFulfillmentVersion != "membership_share" || round.Status != GroupBuyRoundStatusAwaitingAccount {
+		return ErrCafeRoundNotAwaitingAccount
+	}
+	if round.FulfillmentDeadlineAt == nil || !now.Before(*round.FulfillmentDeadlineAt) {
+		return ErrCafeFulfillmentDeadlineExpired
+	}
+	return nil
+}
+
+func cafeRoundSubscriptionTier(round *dbent.GroupBuyRound) string {
+	if round == nil || round.SubscriptionTier == nil {
+		return ""
+	}
+	return strings.ToLower(strings.TrimSpace(*round.SubscriptionTier))
+}
+
+func normalizeCafeAccountPlanType(value string) string {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	switch strings.ReplaceAll(strings.ReplaceAll(normalized, "_", ""), "-", "") {
+	case "plus", "chatgptplus":
+		return "plus"
+	case "pro", "chatgptpro":
+		return "pro"
+	default:
+		return ""
+	}
+}
+
+func cafeAccountTierMatches(tier, planType string) bool {
+	return (tier == "plus" && planType == "plus") || (tier == "pro" && planType == "pro")
+}
+
+func cafeAccountCredentialString(item *dbent.Account, key string) string {
+	if item == nil || item.Credentials == nil {
+		return ""
+	}
+	value, ok := item.Credentials[key].(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(value)
+}
+
+func cafeSnapshotLimit(perShare *float64, shares int) float64 {
+	if perShare == nil || *perShare <= 0 || shares <= 0 {
+		return 0
+	}
+	return *perShare * float64(shares)
+}
+
+func cafeMembershipManagedKeyName(room *dbent.CafeRoom) string {
+	if room == nil || strings.TrimSpace(room.Name) == "" {
+		return "Pixel Cafe Membership"
+	}
+	return strings.TrimSpace(room.Name) + " / Membership"
+}
+
+func translateCafeAccountAssignmentError(err error) error {
+	if err == nil {
+		return nil
+	}
+	message := strings.ToLower(err.Error())
+	if strings.Contains(message, "idx_group_buy_rounds_assigned_account_live") || strings.Contains(message, "unique constraint") && strings.Contains(message, "assigned_account") {
+		return ErrCafeAccountAlreadyInUse.WithCause(err)
+	}
+	return fmt.Errorf("assign cafe account: %w", err)
 }
 
 // ActivateRound is safe to call after every Cafe payment callback. The first

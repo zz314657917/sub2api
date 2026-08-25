@@ -33,6 +33,9 @@ type AuthIdentityChannel func(*sql.Selector)
 // CafeRoom is the predicate function for caferoom builders.
 type CafeRoom func(*sql.Selector)
 
+// CafeRoundMembership is the predicate function for caferoundmembership builders.
+type CafeRoundMembership func(*sql.Selector)
+
 // ChannelMonitor is the predicate function for channelmonitor builders.
 type ChannelMonitor func(*sql.Selector)
 

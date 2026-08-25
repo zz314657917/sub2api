@@ -75,6 +75,11 @@ func OrderID(v int64) predicate.GroupBuySeat {
 	return predicate.GroupBuySeat(sql.FieldEQ(FieldOrderID, v))
 }
 
+// MembershipID applies equality check predicate on the "membership_id" field. It's identical to MembershipIDEQ.
+func MembershipID(v int64) predicate.GroupBuySeat {
+	return predicate.GroupBuySeat(sql.FieldEQ(FieldMembershipID, v))
+}
+
 // Status applies equality check predicate on the "status" field. It's identical to StatusEQ.
 func Status(v string) predicate.GroupBuySeat {
 	return predicate.GroupBuySeat(sql.FieldEQ(FieldStatus, v))
@@ -233,6 +238,36 @@ func OrderIDIsNil() predicate.GroupBuySeat {
 // OrderIDNotNil applies the NotNil predicate on the "order_id" field.
 func OrderIDNotNil() predicate.GroupBuySeat {
 	return predicate.GroupBuySeat(sql.FieldNotNull(FieldOrderID))
+}
+
+// MembershipIDEQ applies the EQ predicate on the "membership_id" field.
+func MembershipIDEQ(v int64) predicate.GroupBuySeat {
+	return predicate.GroupBuySeat(sql.FieldEQ(FieldMembershipID, v))
+}
+
+// MembershipIDNEQ applies the NEQ predicate on the "membership_id" field.
+func MembershipIDNEQ(v int64) predicate.GroupBuySeat {
+	return predicate.GroupBuySeat(sql.FieldNEQ(FieldMembershipID, v))
+}
+
+// MembershipIDIn applies the In predicate on the "membership_id" field.
+func MembershipIDIn(vs ...int64) predicate.GroupBuySeat {
+	return predicate.GroupBuySeat(sql.FieldIn(FieldMembershipID, vs...))
+}
+
+// MembershipIDNotIn applies the NotIn predicate on the "membership_id" field.
+func MembershipIDNotIn(vs ...int64) predicate.GroupBuySeat {
+	return predicate.GroupBuySeat(sql.FieldNotIn(FieldMembershipID, vs...))
+}
+
+// MembershipIDIsNil applies the IsNil predicate on the "membership_id" field.
+func MembershipIDIsNil() predicate.GroupBuySeat {
+	return predicate.GroupBuySeat(sql.FieldIsNull(FieldMembershipID))
+}
+
+// MembershipIDNotNil applies the NotNil predicate on the "membership_id" field.
+func MembershipIDNotNil() predicate.GroupBuySeat {
+	return predicate.GroupBuySeat(sql.FieldNotNull(FieldMembershipID))
 }
 
 // StatusEQ applies the EQ predicate on the "status" field.
@@ -999,6 +1034,29 @@ func HasOrder() predicate.GroupBuySeat {
 func HasOrderWith(preds ...predicate.PaymentOrder) predicate.GroupBuySeat {
 	return predicate.GroupBuySeat(func(s *sql.Selector) {
 		step := newOrderStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasMembership applies the HasEdge predicate on the "membership" edge.
+func HasMembership() predicate.GroupBuySeat {
+	return predicate.GroupBuySeat(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, MembershipTable, MembershipColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasMembershipWith applies the HasEdge predicate on the "membership" edge with a given conditions (other predicates).
+func HasMembershipWith(preds ...predicate.CafeRoundMembership) predicate.GroupBuySeat {
+	return predicate.GroupBuySeat(func(s *sql.Selector) {
+		step := newMembershipStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

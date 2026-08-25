@@ -13,6 +13,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
 	"github.com/Wei-Shaw/sub2api/ent/caferoom"
+	"github.com/Wei-Shaw/sub2api/ent/caferoundmembership"
 	dbgroup "github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
@@ -27,6 +28,7 @@ const (
 	cafeMigrationIssueRoomAccountMismatch       = "room_account_mismatch"
 	cafeMigrationIssueRoundAccountMismatch      = "round_account_mismatch"
 	cafeMigrationIssueSeatBindingMismatch       = "seat_binding_mismatch"
+	cafeMigrationIssueMembershipBindingMismatch = "membership_binding_mismatch"
 	cafeMigrationIssueManagedKeyMismatch        = "managed_key_mismatch"
 	cafeMigrationIssueAccountMultipleLiveRounds = "account_multiple_live_rounds"
 	cafeMigrationActionRetryActivation          = "retry_activation"
@@ -124,12 +126,18 @@ func (s *CafeRoomMigrationService) MigrateActiveRound(ctx context.Context, round
 	if err != nil {
 		return nil, err
 	}
-	seats, facts, err := s.loadActiveMigrationFacts(txCtx, tx, round, plan.TargetGroupID, room.ID)
+	var facts []cafeMigrationFact
+	if round.CafeFulfillmentVersion == "membership_share" {
+		facts, err = s.loadActiveMembershipMigrationFacts(txCtx, tx, round, cafeRoundTargetGroupID(round, plan), room.ID)
+	} else {
+		var seats []*dbent.GroupBuySeat
+		seats, facts, err = s.loadActiveMigrationFacts(txCtx, tx, round, plan.TargetGroupID, room.ID)
+		if err == nil && len(seats) != cafeRoundSeatCount(round) {
+			err = cafeMigrationInconsistent(round.ID, room.ID, 0, 0, 0, "active seat count does not match cafe round")
+		}
+	}
 	if err != nil {
 		return nil, err
-	}
-	if len(seats) != cafeRoundSeatCount(round) {
-		return nil, cafeMigrationInconsistent(round.ID, room.ID, 0, 0, 0, "active seat count does not match cafe round")
 	}
 
 	result := &CafeRoomMigrationResult{
@@ -156,21 +164,27 @@ func (s *CafeRoomMigrationService) MigrateActiveRound(ctx context.Context, round
 			Save(txCtx); err != nil {
 			return nil, fmt.Errorf("mark cafe binding %d migrated: %w", old.ID, err)
 		}
-		created, err := tx.APIKeyAccountBinding.Create().
+		builder := tx.APIKeyAccountBinding.Create().
 			SetAPIKeyID(old.APIKeyID).
 			SetUserID(old.UserID).
 			SetGroupID(old.GroupID).
 			SetAccountID(targetAccount.ID).
 			SetCafeRoomID(old.CafeRoomID).
 			SetRoundID(old.RoundID).
-			SetSeatID(old.SeatID).
 			SetStatus(apiKeyAccountBindingStatusActive).
 			SetStrictMode(old.StrictMode).
 			SetStartsAt(old.StartsAt).
-			SetExpiresAt(old.ExpiresAt).
-			Save(txCtx)
+			SetExpiresAt(old.ExpiresAt)
+		if fact.membership != nil {
+			builder.SetMembershipID(fact.membership.ID)
+		} else if fact.seat != nil {
+			builder.SetSeatID(fact.seat.ID)
+		} else {
+			return nil, cafeMigrationInconsistent(round.ID, room.ID, 0, old.APIKeyID, old.ID, "migration binding has no owner")
+		}
+		created, err := builder.Save(txCtx)
 		if err != nil {
-			return nil, fmt.Errorf("create replacement cafe binding for seat %d: %w", old.SeatID, err)
+			return nil, fmt.Errorf("create replacement cafe binding: %w", err)
 		}
 		if _, err := tx.APIKeyAccountBinding.UpdateOneID(old.ID).
 			SetReplacedByBindingID(created.ID).
@@ -187,11 +201,13 @@ func (s *CafeRoomMigrationService) MigrateActiveRound(ctx context.Context, round
 		Save(txCtx); err != nil {
 		return nil, fmt.Errorf("update cafe round %d account: %w", round.ID, err)
 	}
-	if _, err := tx.CafeRoom.UpdateOneID(room.ID).
-		SetAccountID(targetAccount.ID).
-		SetUpdatedAt(now).
-		Save(txCtx); err != nil {
-		return nil, fmt.Errorf("update cafe room %d account: %w", room.ID, err)
+	if round.CafeFulfillmentVersion != "membership_share" {
+		if _, err := tx.CafeRoom.UpdateOneID(room.ID).
+			SetAccountID(targetAccount.ID).
+			SetUpdatedAt(now).
+			Save(txCtx); err != nil {
+			return nil, fmt.Errorf("update cafe room %d account: %w", room.ID, err)
+		}
 	}
 	message := strings.TrimSpace(reason)
 	if message == "" {
@@ -210,9 +226,10 @@ func (s *CafeRoomMigrationService) MigrateActiveRound(ctx context.Context, round
 }
 
 type cafeMigrationFact struct {
-	seat    *dbent.GroupBuySeat
-	binding *dbent.APIKeyAccountBinding
-	key     *dbent.APIKey
+	seat       *dbent.GroupBuySeat
+	membership *dbent.CafeRoundMembership
+	binding    *dbent.APIKeyAccountBinding
+	key        *dbent.APIKey
 }
 
 func (s *CafeRoomMigrationService) loadMigrationFacts(ctx context.Context, tx *dbent.Tx, round *dbent.GroupBuyRound, newAccountID int64) (*dbent.CafeRoom, *dbent.GroupBuyPlan, *dbent.Group, *dbent.Account, error) {
@@ -221,7 +238,10 @@ func (s *CafeRoomMigrationService) loadMigrationFacts(ctx context.Context, tx *d
 	if err != nil {
 		return nil, nil, nil, nil, cafeMigrationInconsistent(round.ID, *round.CafeRoomID, 0, 0, 0, "cafe room is missing")
 	}
-	if room.AccountID == nil || *room.AccountID != *round.AssignedAccountID || (room.Status != CafeRoomStatusEnabled && room.Status != CafeRoomStatusMaintenance) {
+	if room.Status != CafeRoomStatusEnabled && room.Status != CafeRoomStatusMaintenance {
+		return nil, nil, nil, nil, cafeMigrationInconsistent(round.ID, room.ID, 0, 0, 0, "room status is inconsistent")
+	}
+	if round.CafeFulfillmentVersion != "membership_share" && (room.AccountID == nil || *room.AccountID != *round.AssignedAccountID) {
 		return nil, nil, nil, nil, cafeMigrationInconsistent(round.ID, room.ID, 0, 0, 0, "room account or status is inconsistent")
 	}
 	planQuery := tx.GroupBuyPlan.Query().Where(groupbuyplan.IDEQ(round.PlanID), groupbuyplan.DeletedAtIsNil())
@@ -229,10 +249,11 @@ func (s *CafeRoomMigrationService) loadMigrationFacts(ctx context.Context, tx *d
 	if err != nil {
 		return nil, nil, nil, nil, cafeMigrationInconsistent(round.ID, room.ID, 0, 0, 0, "cafe plan is missing")
 	}
-	if plan.FulfillmentMode != CafeRoomFulfillmentMode || plan.TargetGroupID <= 0 || plan.ID != room.PlanID || round.AssignedAccountID == nil {
+	if plan.FulfillmentMode != CafeRoomFulfillmentMode || plan.ID != room.PlanID || round.AssignedAccountID == nil || cafeRoundTargetGroupID(round, plan) <= 0 {
 		return nil, nil, nil, nil, cafeMigrationInconsistent(round.ID, room.ID, 0, 0, 0, "round, room and plan are inconsistent")
 	}
-	groupQuery := tx.Group.Query().Where(dbgroup.IDEQ(plan.TargetGroupID))
+	targetGroupID := cafeRoundTargetGroupID(round, plan)
+	groupQuery := tx.Group.Query().Where(dbgroup.IDEQ(targetGroupID))
 	if s.entClient.Driver().Dialect() != dialect.SQLite {
 		groupQuery = groupQuery.ForUpdate()
 	}
@@ -258,23 +279,51 @@ func (s *CafeRoomMigrationService) loadMigrationFacts(ctx context.Context, tx *d
 	if !belongs {
 		return nil, nil, nil, nil, ErrCafeMigrationAccountInvalid
 	}
-	occupiedQuery := tx.CafeRoom.Query().Where(
-		caferoom.AccountIDEQ(newAccountID),
-		caferoom.StatusIn(CafeRoomStatusEnabled, CafeRoomStatusMaintenance),
-		caferoom.IDNEQ(room.ID),
-		caferoom.DeletedAtIsNil(),
-	)
-	if s.entClient.Driver().Dialect() != dialect.SQLite {
-		occupiedQuery = occupiedQuery.ForUpdate()
+	if round.CafeFulfillmentVersion == "membership_share" {
+		if round.PlatformSnapshot == nil || targetAccount.Platform != *round.PlatformSnapshot || targetAccount.Platform != PlatformOpenAI ||
+			!cafeAccountTierMatches(cafeRoundSubscriptionTier(round), normalizeCafeAccountPlanType(cafeAccountCredentialString(targetAccount, "plan_type"))) {
+			return nil, nil, nil, nil, ErrCafeMigrationAccountInvalid
+		}
+	} else {
+		occupiedQuery := tx.CafeRoom.Query().Where(
+			caferoom.AccountIDEQ(newAccountID),
+			caferoom.StatusIn(CafeRoomStatusEnabled, CafeRoomStatusMaintenance),
+			caferoom.IDNEQ(room.ID),
+			caferoom.DeletedAtIsNil(),
+		)
+		if s.entClient.Driver().Dialect() != dialect.SQLite {
+			occupiedQuery = occupiedQuery.ForUpdate()
+		}
+		occupied, err := occupiedQuery.Exist(ctx)
+		if err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("check target cafe account assignment: %w", err)
+		}
+		if occupied {
+			return nil, nil, nil, nil, ErrCafeMigrationAccountInvalid
+		}
 	}
-	occupied, err := occupiedQuery.Exist(ctx)
+	occupied, err := tx.GroupBuyRound.Query().Where(
+		groupbuyround.IDNEQ(round.ID),
+		groupbuyround.AssignedAccountIDEQ(newAccountID),
+		groupbuyround.StatusIn(GroupBuyRoundStatusActivating, GroupBuyRoundStatusActive),
+	).Exist(ctx)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("check target cafe account assignment: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("check target cafe round account assignment: %w", err)
 	}
 	if occupied {
 		return nil, nil, nil, nil, ErrCafeMigrationAccountInvalid
 	}
 	return room, plan, targetGroup, targetAccount, nil
+}
+
+func cafeRoundTargetGroupID(round *dbent.GroupBuyRound, plan *dbent.GroupBuyPlan) int64 {
+	if round != nil && round.CafeFulfillmentVersion == "membership_share" && round.TargetGroupIDSnapshot != nil {
+		return *round.TargetGroupIDSnapshot
+	}
+	if plan == nil {
+		return 0
+	}
+	return plan.TargetGroupID
 }
 
 func (s *CafeRoomMigrationService) loadActiveMigrationFacts(ctx context.Context, tx *dbent.Tx, round *dbent.GroupBuyRound, expectedGroupID, roomID int64) ([]*dbent.GroupBuySeat, []cafeMigrationFact, error) {
@@ -298,12 +347,50 @@ func (s *CafeRoomMigrationService) loadActiveMigrationFacts(ctx context.Context,
 		if err != nil {
 			return nil, nil, cafeMigrationInconsistent(round.ID, roomID, seat.ID, 0, binding.ID, "managed key is missing")
 		}
-		if binding.APIKeyID != key.ID || binding.UserID != seat.UserID || binding.GroupID != expectedGroupID || binding.AccountID != *round.AssignedAccountID || binding.CafeRoomID != roomID || binding.RoundID != round.ID || binding.SeatID != seat.ID || !binding.StrictMode || !binding.StartsAt.Equal(*round.ActivatedAt) || !binding.ExpiresAt.After(s.now()) || !binding.ExpiresAt.Equal(*round.EntitlementExpiresAt) || key.UserID != seat.UserID || key.GroupID == nil || *key.GroupID != expectedGroupID || key.ManagedSourceType != APIKeyManagedSourceCafeRoomSeat || key.ManagedSourceID == nil || *key.ManagedSourceID != seat.ID || key.ExpiresAt == nil || !key.ExpiresAt.Equal(*round.EntitlementExpiresAt) {
+		if binding.APIKeyID != key.ID || binding.UserID != seat.UserID || binding.GroupID != expectedGroupID || binding.AccountID != *round.AssignedAccountID || binding.CafeRoomID != roomID || binding.RoundID != round.ID || binding.SeatID == nil || *binding.SeatID != seat.ID || !binding.StrictMode || !binding.StartsAt.Equal(*round.ActivatedAt) || !binding.ExpiresAt.After(s.now()) || !binding.ExpiresAt.Equal(*round.EntitlementExpiresAt) || key.UserID != seat.UserID || key.GroupID == nil || *key.GroupID != expectedGroupID || key.ManagedSourceType != APIKeyManagedSourceCafeRoomSeat || key.ManagedSourceID == nil || *key.ManagedSourceID != seat.ID || key.ExpiresAt == nil || !key.ExpiresAt.Equal(*round.EntitlementExpiresAt) {
 			return nil, nil, cafeMigrationInconsistent(round.ID, roomID, seat.ID, key.ID, binding.ID, "binding or managed key does not match active round")
 		}
 		facts = append(facts, cafeMigrationFact{seat: seat, binding: binding, key: key})
 	}
 	return seats, facts, nil
+}
+
+func (s *CafeRoomMigrationService) loadActiveMembershipMigrationFacts(ctx context.Context, tx *dbent.Tx, round *dbent.GroupBuyRound, expectedGroupID, roomID int64) ([]cafeMigrationFact, error) {
+	membershipQuery := tx.CafeRoundMembership.Query().Where(caferoundmembership.RoundIDEQ(round.ID), caferoundmembership.StatusEQ(GroupBuySeatStatusActive)).Order(dbent.Asc(caferoundmembership.FieldID))
+	if s.entClient.Driver().Dialect() != dialect.SQLite {
+		membershipQuery = membershipQuery.ForUpdate()
+	}
+	memberships, err := membershipQuery.All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("load active cafe migration memberships: %w", err)
+	}
+	if len(memberships) == 0 || round.ActivatedAt == nil || round.EntitlementExpiresAt == nil || expectedGroupID <= 0 {
+		return nil, cafeMigrationInconsistent(round.ID, roomID, 0, 0, 0, "active membership entitlement is incomplete")
+	}
+	facts := make([]cafeMigrationFact, 0, len(memberships))
+	paidShares := 0
+	for _, membership := range memberships {
+		paidShares += membership.PaidShares
+		if membership.PaidShares <= 0 || membership.ReservedShares != 0 || membership.BoundAPIKeyID == nil || membership.ActivatedAt == nil || membership.ExpiresAt == nil || !membership.ActivatedAt.Equal(*round.ActivatedAt) || !membership.ExpiresAt.Equal(*round.EntitlementExpiresAt) {
+			return nil, cafeMigrationInconsistent(round.ID, roomID, 0, 0, 0, "active membership entitlement is inconsistent")
+		}
+		binding, err := s.bindingForUpdate(tx.APIKeyAccountBinding.Query().Where(apikeyaccountbinding.MembershipIDEQ(membership.ID), apikeyaccountbinding.StatusEQ(apiKeyAccountBindingStatusActive))).Only(ctx)
+		if err != nil {
+			return nil, cafeMigrationInconsistent(round.ID, roomID, 0, 0, 0, "active membership binding is missing or duplicated")
+		}
+		key, err := s.keyForUpdate(tx.APIKey.Query().Where(apikey.IDEQ(*membership.BoundAPIKeyID), apikey.DeletedAtIsNil())).Only(ctx)
+		if err != nil {
+			return nil, cafeMigrationInconsistent(round.ID, roomID, 0, 0, binding.ID, "membership managed key is missing")
+		}
+		if binding.APIKeyID != key.ID || binding.UserID != membership.UserID || binding.GroupID != expectedGroupID || binding.AccountID != *round.AssignedAccountID || binding.CafeRoomID != roomID || binding.RoundID != round.ID || binding.SeatID != nil || binding.MembershipID == nil || *binding.MembershipID != membership.ID || !binding.StrictMode || !binding.StartsAt.Equal(*round.ActivatedAt) || !binding.ExpiresAt.After(s.now()) || !binding.ExpiresAt.Equal(*round.EntitlementExpiresAt) || key.UserID != membership.UserID || key.GroupID == nil || *key.GroupID != expectedGroupID || key.ManagedSourceType != APIKeyManagedSourceCafeRoomMembership || key.ManagedSourceID == nil || *key.ManagedSourceID != membership.ID || key.ExpiresAt == nil || !key.ExpiresAt.Equal(*round.EntitlementExpiresAt) {
+			return nil, cafeMigrationInconsistent(round.ID, roomID, 0, key.ID, binding.ID, "membership binding or managed key does not match active round")
+		}
+		facts = append(facts, cafeMigrationFact{membership: membership, binding: binding, key: key})
+	}
+	if paidShares != round.PaidShares || paidShares != round.TotalShares {
+		return nil, cafeMigrationInconsistent(round.ID, roomID, 0, 0, 0, "active membership shares do not match cafe round")
+	}
+	return facts, nil
 }
 
 func (s *CafeRoomMigrationService) createMigrationEvent(ctx context.Context, tx *dbent.Tx, round *dbent.GroupBuyRound, roomID, oldAccountID, newAccountID int64, bindingCount int, reason string) error {
@@ -331,6 +418,22 @@ func (s *CafeRoomMigrationService) CheckConsistency(ctx context.Context) (*CafeC
 			accountRounds[*round.AssignedAccountID] = append(accountRounds[*round.AssignedAccountID], round.ID)
 		}
 		room, roomErr := s.entClient.CafeRoom.Query().Where(caferoom.IDEQ(*round.CafeRoomID), caferoom.DeletedAtIsNil()).Only(ctx)
+		if round.CafeFulfillmentVersion == "membership_share" {
+			if roomErr != nil {
+				report.Issues = append(report.Issues, CafeConsistencyIssue{Code: cafeMigrationIssueRoomAccountMismatch, RoundID: round.ID, RoomID: *round.CafeRoomID, Detail: "cafe room is missing"})
+				continue
+			}
+			if round.Status == GroupBuyRoundStatusActive {
+				if round.AssignedAccountID == nil || round.TargetGroupIDSnapshot == nil || *round.TargetGroupIDSnapshot <= 0 || round.ActivatedAt == nil || round.EntitlementExpiresAt == nil {
+					report.Issues = append(report.Issues, CafeConsistencyIssue{Code: cafeMigrationIssueRoundAccountMismatch, RoundID: round.ID, RoomID: room.ID, Detail: "membership round activation snapshot is incomplete"})
+					continue
+				}
+				if err := s.appendMembershipConsistencyIssues(ctx, report, round); err != nil {
+					return nil, err
+				}
+			}
+			continue
+		}
 		if roomErr != nil || room.AccountID == nil || round.AssignedAccountID == nil || *room.AccountID != *round.AssignedAccountID {
 			report.Issues = append(report.Issues, CafeConsistencyIssue{Code: cafeMigrationIssueRoomAccountMismatch, RoundID: round.ID, RoomID: *round.CafeRoomID, Detail: "room account does not match round assignment"})
 		}
@@ -359,7 +462,7 @@ func (s *CafeRoomMigrationService) CheckConsistency(ctx context.Context) (*CafeC
 				continue
 			}
 			binding := bindings[0]
-			if seat.BoundAPIKeyID == nil || binding.APIKeyID != *seat.BoundAPIKeyID || binding.UserID != seat.UserID || binding.RoundID != round.ID || binding.CafeRoomID != *round.CafeRoomID || binding.SeatID != seat.ID || round.AssignedAccountID == nil || binding.AccountID != *round.AssignedAccountID || binding.GroupID != plan.TargetGroupID || !binding.StrictMode || round.ActivatedAt == nil || !binding.StartsAt.Equal(*round.ActivatedAt) || round.EntitlementExpiresAt == nil || !binding.ExpiresAt.Equal(*round.EntitlementExpiresAt) {
+			if seat.BoundAPIKeyID == nil || binding.APIKeyID != *seat.BoundAPIKeyID || binding.UserID != seat.UserID || binding.RoundID != round.ID || binding.CafeRoomID != *round.CafeRoomID || binding.SeatID == nil || *binding.SeatID != seat.ID || round.AssignedAccountID == nil || binding.AccountID != *round.AssignedAccountID || binding.GroupID != plan.TargetGroupID || !binding.StrictMode || round.ActivatedAt == nil || !binding.StartsAt.Equal(*round.ActivatedAt) || round.EntitlementExpiresAt == nil || !binding.ExpiresAt.Equal(*round.EntitlementExpiresAt) {
 				report.Issues = append(report.Issues, CafeConsistencyIssue{Code: cafeMigrationIssueSeatBindingMismatch, RoundID: round.ID, RoomID: *round.CafeRoomID, SeatID: seat.ID, BindingID: binding.ID, Detail: "active binding does not match seat, room or round"})
 				continue
 			}
@@ -376,6 +479,39 @@ func (s *CafeRoomMigrationService) CheckConsistency(ctx context.Context) (*CafeC
 		}
 	}
 	return report, nil
+}
+
+func (s *CafeRoomMigrationService) appendMembershipConsistencyIssues(ctx context.Context, report *CafeConsistencyReport, round *dbent.GroupBuyRound) error {
+	memberships, err := s.entClient.CafeRoundMembership.Query().Where(caferoundmembership.RoundIDEQ(round.ID), caferoundmembership.StatusEQ(GroupBuySeatStatusActive)).Order(dbent.Asc(caferoundmembership.FieldID)).All(ctx)
+	if err != nil {
+		return fmt.Errorf("list cafe consistency memberships for round %d: %w", round.ID, err)
+	}
+	paidShares := 0
+	for _, membership := range memberships {
+		paidShares += membership.PaidShares
+		bindings, bindingErr := s.entClient.APIKeyAccountBinding.Query().Where(apikeyaccountbinding.MembershipIDEQ(membership.ID), apikeyaccountbinding.StatusEQ(apiKeyAccountBindingStatusActive)).All(ctx)
+		if bindingErr != nil {
+			return fmt.Errorf("list cafe consistency bindings for membership %d: %w", membership.ID, bindingErr)
+		}
+		if len(bindings) != 1 {
+			report.Issues = append(report.Issues, CafeConsistencyIssue{Code: cafeMigrationIssueMembershipBindingMismatch, RoundID: round.ID, RoomID: *round.CafeRoomID, Detail: fmt.Sprintf("active membership %d does not have exactly one active binding", membership.ID)})
+			continue
+		}
+		binding := bindings[0]
+		if membership.PaidShares <= 0 || membership.ReservedShares != 0 || membership.BoundAPIKeyID == nil || membership.ActivatedAt == nil || !membership.ActivatedAt.Equal(*round.ActivatedAt) || membership.ExpiresAt == nil || !membership.ExpiresAt.Equal(*round.EntitlementExpiresAt) ||
+			binding.APIKeyID != *membership.BoundAPIKeyID || binding.UserID != membership.UserID || binding.RoundID != round.ID || binding.CafeRoomID != *round.CafeRoomID || binding.SeatID != nil || binding.MembershipID == nil || *binding.MembershipID != membership.ID || binding.AccountID != *round.AssignedAccountID || binding.GroupID != *round.TargetGroupIDSnapshot || !binding.StrictMode || !binding.StartsAt.Equal(*round.ActivatedAt) || !binding.ExpiresAt.Equal(*round.EntitlementExpiresAt) {
+			report.Issues = append(report.Issues, CafeConsistencyIssue{Code: cafeMigrationIssueMembershipBindingMismatch, RoundID: round.ID, RoomID: *round.CafeRoomID, BindingID: binding.ID, Detail: fmt.Sprintf("active binding does not match membership %d or round", membership.ID)})
+			continue
+		}
+		key, keyErr := s.entClient.APIKey.Query().Where(apikey.IDEQ(binding.APIKeyID), apikey.DeletedAtIsNil()).Only(ctx)
+		if keyErr != nil || key.ManagedSourceType != APIKeyManagedSourceCafeRoomMembership || key.ManagedSourceID == nil || *key.ManagedSourceID != membership.ID || key.UserID != membership.UserID || key.GroupID == nil || *key.GroupID != *round.TargetGroupIDSnapshot || key.ExpiresAt == nil || !key.ExpiresAt.Equal(*round.EntitlementExpiresAt) {
+			report.Issues = append(report.Issues, CafeConsistencyIssue{Code: cafeMigrationIssueManagedKeyMismatch, RoundID: round.ID, RoomID: *round.CafeRoomID, KeyID: binding.APIKeyID, BindingID: binding.ID, Detail: fmt.Sprintf("managed key does not match cafe membership %d", membership.ID)})
+		}
+	}
+	if len(memberships) == 0 || paidShares != round.PaidShares || paidShares != round.TotalShares {
+		report.Issues = append(report.Issues, CafeConsistencyIssue{Code: cafeMigrationIssueMembershipBindingMismatch, RoundID: round.ID, RoomID: *round.CafeRoomID, Detail: "active membership shares do not match cafe round"})
+	}
+	return nil
 }
 
 func (s *CafeRoomMigrationService) PlanDryRunRepair(ctx context.Context) (*CafeDryRunRepairPlan, error) {

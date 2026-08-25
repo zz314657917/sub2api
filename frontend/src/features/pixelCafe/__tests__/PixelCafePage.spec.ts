@@ -28,28 +28,26 @@ vi.mock('@/utils/apiError', () => ({ extractApiErrorMessage: (error: { message?:
 const room = {
   id: 18,
   code: 'C-018',
-  name: 'Claude 包间 18',
-  zone_key: 'claude',
+  name: 'Plus 包间 18',
+  zone_key: 'openai',
   theme_key: 'warm_wood',
   scene_slot_key: 'claude-18',
   featured: true,
-  plan: { id: 3, title: 'Claude Max', description: '', price_per_seat: 99, price_label: '99 CNY', validity_days: 30, total_seats: 5 },
-  round: { id: 1008, status: 'open', paid_seats: 4, reserved_seats: 0, remaining_seats: 1, deadline_at: '2026-08-03T12:00:00Z' },
-  seat_visuals: [
-    { seat_no: 1, state: 'empty', is_mine: false },
-    { seat_no: 2, state: 'paid', is_mine: false },
-  ],
+  plan: { id: 3, title: 'ChatGPT Plus', description: '', price_per_share: 99, price_label: '99 CNY', validity_days: 30, subscription_tier: 'plus', total_shares: 5, max_buyers: 4, max_shares_per_user: 4 },
+  round: { id: 1008, status: 'open', paid_shares: 2, reserved_shares: 0, remaining_shares: 3, max_buyers: 4, joined_buyers: 1, remaining_buyer_slots: 3, deadline_at: '2026-08-03T12:00:00Z' },
+  member_avatars: [{ avatar_seed: 'member-one' }],
   purchase_state: 'available',
 }
 
 const myRoom = {
   membership_id: 892,
-  room: { id: 18, code: 'C-018', name: 'Claude 包间 18', zone_key: 'claude', theme_key: 'warm_wood' },
-  plan: { id: 3, title: 'Claude Max', validity_days: 30 },
-  round: { id: 1008, status: 'active', paid_seats: 5, total_seats: 5 },
-  seat: { id: 892, seat_no: 2, status: 'active', activated_at: '2026-08-03T01:00:00Z', expires_at: '2026-09-02T01:00:00Z' },
-  account: { name: 'Claude Pro 主账号', platform: 'anthropic', email_masked: 'o***r@example.com' },
-  managed_api_key: { id: 3011, name: 'Claude 包间 C-018 / 座位 2', status: 'disabled', quota: 100, quota_used: 12.3, rate_limit_5h: 10, rate_limit_1d: 20, rate_limit_7d: 80, usage_5h: 2.5, usage_7d: 18.75, protected: true as const },
+  status: 'active',
+  paid_shares: 2,
+  room: { id: 18, code: 'C-018', name: 'Plus 包间 18', zone_key: 'openai', theme_key: 'warm_wood' },
+  plan: { id: 3, title: 'ChatGPT Plus', subscription_tier: 'plus', validity_days: 30 },
+  round: { id: 1008, status: 'active', paid_shares: 5, total_shares: 5 },
+  account: { name: 'ChatGPT Plus 主账号', platform: 'openai', email_masked: 'o***r@example.com' },
+  managed_api_key: { id: 3011, name: 'Plus 包间 C-018 / Membership', status: 'disabled', quota: 100, quota_used: 12.3, rate_limit_5h: 10, rate_limit_1d: 20, rate_limit_7d: 80, usage_5h: 2.5, usage_7d: 18.75, protected: true as const },
 }
 
 function overviewPayload(rooms = [room]) {
@@ -58,8 +56,8 @@ function overviewPayload(rooms = [room]) {
       api_version: 'cafe.v1',
       server_time: '2026-08-03T12:00:00Z',
       zones: [
-        { key: 'featured', name: '精选大厅', room_count: 1, open_seat_count: 1 },
-        { key: 'claude', name: 'Claude 区', room_count: 1, open_seat_count: 1 },
+        { key: 'featured', name: '精选大厅', room_count: 1, open_share_count: 1 },
+        { key: 'openai', name: 'OpenAI 区', room_count: 1, open_share_count: 1 },
       ],
       rooms,
       lobby: {
@@ -81,6 +79,7 @@ function mountPage() {
     global: {
       stubs: {
         RouterLink: { template: '<a><slot /></a>' },
+        teleport: true,
       },
     },
   })
@@ -107,7 +106,7 @@ describe('PixelCafePage', () => {
         expires_at: '2026-08-03T14:00:00Z',
         room_id: room.id,
         round_id: room.round.id,
-        seat_no: 1,
+        share_count: 1,
       },
     })
   })
@@ -116,28 +115,74 @@ describe('PixelCafePage', () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    expect(overview).toHaveBeenCalledWith({ room_limit: 8 })
-    expect(wrapper.find('[data-testid="pixel-cafe-room-list"]').text()).toContain('Claude 包间 18')
-    expect(wrapper.text()).toContain('1/5 空位')
+    expect(overview).toHaveBeenCalledWith({ room_limit: 24 })
+    const roomLists = wrapper.findAll('[data-testid="pixel-cafe-room-list"]')
+    expect(roomLists).toHaveLength(1)
+    expect(wrapper.find('.pixel-cafe-scene > [data-testid="pixel-cafe-room-list"]').exists()).toBe(true)
+    expect(roomLists[0].text()).toContain('Plus 包间 18')
+    expect(wrapper.text()).toContain('已售 2/5 份')
+    expect(wrapper.find('.pixel-cafe-room-card-badges').text()).toContain('GPTPLUS')
+    expect(wrapper.find('.pixel-cafe-room-card').text()).not.toContain('ChatGPT Plus · 5 人共享')
+    expect(wrapper.find('.pixel-cafe-room-card-action').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="pixel-cafe-room-card-members"]').attributes('aria-label')).toBe('1 人已加入')
+    expect(wrapper.findAll('[data-testid="pixel-cafe-room-member-avatar"]')).toHaveLength(1)
+    expect(wrapper.find('[data-testid="pixel-cafe-room-dialog"]').exists()).toBe(false)
+    expect(wrapper.find('.pixel-cafe-scene .pixel-cafe-inspector').exists()).toBe(false)
     await wrapper.find('.pixel-cafe-room-card').trigger('click')
+    expect(wrapper.find('[data-testid="pixel-cafe-room-dialog"]').exists()).toBe(true)
+    expect(wrapper.find('.pixel-cafe-inspector').attributes('aria-modal')).toBe('true')
     expect(wrapper.text()).toContain('周期')
     expect(wrapper.text()).toContain('30 天')
     expect(wrapper.find('[data-testid="pixel-cafe-lobby-activity"]').exists()).toBe(false)
     expect(lobbyActivity).not.toHaveBeenCalled()
     expect(wrapper.text()).not.toContain('abcdef1234567890')
+    await wrapper.find('.pixel-cafe-dialog-close').trigger('click')
+    expect(wrapper.find('[data-testid="pixel-cafe-room-dialog"]').exists()).toBe(false)
+    await wrapper.find('.pixel-cafe-room-card').trigger('click')
+    await wrapper.find('.pixel-cafe-dialog-close').trigger('keydown', { key: 'Escape' })
+    expect(wrapper.find('[data-testid="pixel-cafe-room-dialog"]').exists()).toBe(false)
   })
 
-  it('shows five local-only demo rooms with waiting groups without calling the room API', async () => {
+  it('shows up to five anonymous member avatars and hides the row for empty rooms', async () => {
+    const crowdedRoom = {
+      ...room,
+      id: 19,
+      code: 'C-019',
+      name: '拥挤包间',
+      plan: { ...room.plan, total_shares: 8, max_buyers: 8 },
+      round: { ...room.round, paid_shares: 7, remaining_shares: 1, max_buyers: 8, joined_buyers: 7, remaining_buyer_slots: 1 },
+      member_avatars: Array.from({ length: 7 }, (_, index) => ({ avatar_seed: `member-${index + 1}` })),
+    }
+    const emptyRoom = {
+      ...room,
+      id: 20,
+      code: 'C-020',
+      name: '空包间',
+      round: { ...room.round, paid_shares: 0, remaining_shares: 5, joined_buyers: 0 },
+      member_avatars: [],
+    }
+    overview.mockResolvedValueOnce(overviewPayload([crowdedRoom, emptyRoom]))
+    const wrapper = mountPage()
+    await flushPromises()
+
+    const cards = wrapper.findAll('.pixel-cafe-room-card')
+    expect(cards[0].findAll('[data-testid="pixel-cafe-room-member-avatar"]')).toHaveLength(5)
+    expect(cards[0].find('[data-testid="pixel-cafe-room-card-members"]').text()).toContain('+2')
+    expect(cards[1].find('[data-testid="pixel-cafe-room-card-members"]').exists()).toBe(false)
+  })
+
+  it('shows ten local-only demo rooms and fifty ambient users without calling the room API', async () => {
     routeQuery.demo = '1'
     const wrapper = mountPage()
     await flushPromises()
 
     expect(overview).not.toHaveBeenCalled()
     expect(wrapper.find('[data-testid="pixel-cafe-demo-badge"]').text()).toContain('本地演示数据')
-    expect(wrapper.find('[data-testid="pixel-cafe-room-list"]').findAll('.pixel-cafe-room-card')).toHaveLength(5)
+    expect(wrapper.find('[data-testid="pixel-cafe-room-list"]').findAll('.pixel-cafe-room-card')).toHaveLength(10)
     expect(wrapper.findAll('[data-testid="pixel-cafe-lobby-avatar"]')).toHaveLength(0)
-    expect(wrapper.text()).toContain('Claude 深夜包间')
-    expect(wrapper.text()).toContain('可加入')
+    expect(wrapper.findAll('[data-testid="pixel-cafe-fallback-avatar"]')).toHaveLength(16)
+    expect(wrapper.text()).toContain('深夜 Pro 包间')
+    expect(wrapper.text()).toContain('可购买')
     expect(wrapper.find('.pixel-cafe-scene-art').exists()).toBe(true)
     expect(wrapper.find('.pixel-cafe-front-desk').text()).toContain('共享房间')
     expect(wrapper.find('.pixel-cafe-workbench').exists()).toBe(true)
@@ -145,6 +190,16 @@ describe('PixelCafePage', () => {
     await wrapper.find('.pixel-cafe-room-card').trigger('click')
     expect(wrapper.text()).toContain('本地演示不创建订单')
     expect((wrapper.find('.pixel-cafe-primary').element as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('ignores temporary zone categories and renders one neutral room-list title', async () => {
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(wrapper.find('.pixel-cafe-zones').exists()).toBe(false)
+    expect(wrapper.find('.pixel-cafe-room-list-heading h2').text()).toBe('全部包间')
+    expect(wrapper.text()).not.toContain('精选大厅')
+    expect(listRooms).not.toHaveBeenCalled()
   })
 
   it('uses occupied room seats as anonymous ambient avatars when lobby activity is unavailable', async () => {
@@ -166,7 +221,12 @@ describe('PixelCafePage', () => {
     await flushPromises()
 
     expect(wrapper.find('h1').text()).toBe('模型包间')
-    expect(wrapper.find('.pixel-cafe-subtitle').text()).toBe('按模型选择独立房间。')
+    expect(wrapper.find('[data-testid="pixel-cafe-description"]').text()).toBe('按模型选择独立房间。')
+    expect(wrapper.find('.pixel-cafe-subtitle').exists()).toBe(false)
+    const descriptionPosition = wrapper.find('[data-testid="pixel-cafe-description"]').element.compareDocumentPosition(
+      wrapper.find('[data-testid="pixel-cafe-room-list"]').element,
+    )
+    expect(descriptionPosition & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     wrapper.unmount()
 
     cachedPublicSettings.pixel_cafe_header_visible = false
@@ -174,6 +234,7 @@ describe('PixelCafePage', () => {
     await flushPromises()
     expect(hiddenWrapper.find('.pixel-cafe-header > div').exists()).toBe(false)
     expect(hiddenWrapper.find('h1').exists()).toBe(false)
+    expect(hiddenWrapper.find('[data-testid="pixel-cafe-description"]').exists()).toBe(false)
     hiddenWrapper.unmount()
   })
 
@@ -204,8 +265,9 @@ describe('PixelCafePage', () => {
     await flushPromises()
 
     expect(listMyRooms).toHaveBeenCalledWith({ page: 1, page_size: 20, status: 'active,waiting' })
-    expect(wrapper.find('[data-testid="pixel-cafe-my-rooms-list"]').text()).toContain('Claude 包间 C-018 / 座位 2')
-    expect(wrapper.text()).toContain('绑定账号：Claude Pro 主账号')
+    expect(wrapper.find('[data-testid="pixel-cafe-my-rooms-list"]').text()).toContain('Plus 包间 C-018 / Membership')
+    expect(wrapper.text()).toContain('绑定账号：ChatGPT Plus 主账号')
+    expect(wrapper.text()).toContain('我的份额 2 份')
     expect(wrapper.text()).toContain('o***r@example.com')
     expect(wrapper.text()).toContain('5H 2.50 / 10.00')
     expect(wrapper.text()).toContain('7D 18.75 / 80.00')
@@ -237,14 +299,14 @@ describe('PixelCafePage', () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('未绑定账号')
+    expect(wrapper.text()).toContain('账号信息暂不可用')
     expect(wrapper.text()).toContain('5H 0.00 / 不限')
     expect(wrapper.text()).toContain('7D 0.00 / 不限')
 
-    listMyRooms.mockResolvedValueOnce({ data: { items: [{ ...myRoom, account: undefined, managed_api_key: undefined }] } })
+    listMyRooms.mockResolvedValueOnce({ data: { items: [{ ...myRoom, account: undefined, managed_api_key: null }] } })
     await wrapper.findAll('.pixel-cafe-my-rooms-tab')[1].trigger('click')
     await flushPromises()
-    expect(wrapper.text()).toContain('未绑定账号')
+    expect(wrapper.text()).toContain('账号信息暂不可用')
     expect(wrapper.text()).toContain('暂无受管 Key')
   })
 
@@ -260,15 +322,6 @@ describe('PixelCafePage', () => {
     expect(listMyRooms).toHaveBeenCalledTimes(2)
   })
 
-  it('loads a selected zone from the room API', async () => {
-    const wrapper = mountPage()
-    await flushPromises()
-    await wrapper.findAll('.pixel-cafe-zone')[1].trigger('click')
-    await flushPromises()
-
-    expect(listRooms).toHaveBeenCalledWith({ page: 1, page_size: 24, zone: 'claude' })
-  })
-
   it('renders an error and retries overview loading', async () => {
     overview.mockRejectedValueOnce(new Error('Cafe unavailable'))
     const wrapper = mountPage()
@@ -280,62 +333,61 @@ describe('PixelCafePage', () => {
     expect(overview).toHaveBeenCalledTimes(2)
   })
 
-  it('renders an empty state when the selected zone has no rooms', async () => {
-    listRooms.mockResolvedValueOnce({ data: { items: [], total: 0, page: 1, page_size: 24, pages: 0 } })
+  it('renders an empty state when the overview has no rooms', async () => {
+    overview.mockResolvedValueOnce(overviewPayload([]))
     const wrapper = mountPage()
-    await flushPromises()
-    await wrapper.findAll('.pixel-cafe-zone')[1].trigger('click')
     await flushPromises()
 
     expect(wrapper.find('[data-testid="pixel-cafe-empty"]').exists()).toBe(true)
     expect(wrapper.find('.pixel-cafe-scene-art').exists()).toBe(true)
   })
 
-  it('submits only a selected empty seat with agreement and opens payment waiting state', async () => {
+  it('submits a multi-share purchase with agreement and opens payment waiting state', async () => {
     const wrapper = mountPage()
     await flushPromises()
     await wrapper.find('.pixel-cafe-room-card').trigger('click')
 
     const submit = wrapper.find('.pixel-cafe-primary')
     expect(submit.attributes('disabled')).toBeDefined()
-    await wrapper.find('.pixel-cafe-seat-button').trigger('click')
+    await wrapper.findAll('.pixel-cafe-seat-button')[1].trigger('click')
+    expect(wrapper.find('[data-testid="pixel-cafe-share-count"]').text()).toContain('2 份')
     await wrapper.find('.pixel-cafe-agreement input').setValue(true)
     await wrapper.vm.$nextTick()
     await wrapper.find('.pixel-cafe-primary').trigger('click')
     await flushPromises()
 
     expect(createOrder).toHaveBeenCalledWith(room.id, expect.objectContaining({
-      seat_no: 1,
+      share_count: 2,
       payment_type: 'alipay',
       agreement_accepted: true,
     }), expect.any(String))
     expect(wrapper.find('[data-testid="payment-status-panel"]').exists()).toBe(true)
   })
 
-  it('treats a one-seat room as an exclusive room without rendering a seat picker', async () => {
+  it('supports a one-share room through the same share purchase contract', async () => {
     const singleRoom = {
       ...room,
       id: 19,
       code: 'C-019',
-      name: 'Claude 独享包间 19',
-      plan: { ...room.plan, total_seats: 1 },
-      round: { ...room.round, id: 1009, paid_seats: 0, remaining_seats: 1, total_seats: 1 },
-      seat_visuals: [{ seat_no: 1, state: 'empty', is_mine: false }],
+      name: 'Plus 单份包间 19',
+      plan: { ...room.plan, total_shares: 1, max_buyers: 1, max_shares_per_user: 1 },
+      round: { ...room.round, id: 1009, paid_shares: 0, remaining_shares: 1, max_buyers: 1, joined_buyers: 0, remaining_buyer_slots: 1 },
+      member_avatars: [],
     }
     overview.mockResolvedValueOnce(overviewPayload([singleRoom]))
     const wrapper = mountPage()
     await flushPromises()
     await wrapper.find('.pixel-cafe-room-card').trigger('click')
 
-    expect(wrapper.text()).toContain('独享房间')
-    expect(wrapper.find('.pixel-cafe-seat-button').exists()).toBe(false)
-    expect(wrapper.find('.pixel-cafe-single-room-note').text()).toContain('独享房间')
-    expect(wrapper.find('.pixel-cafe-primary').text()).toContain('预订独享房间')
+    expect(wrapper.text()).toContain('已售 0/1 份')
+    expect(wrapper.findAll('.pixel-cafe-seat-button')).toHaveLength(2)
+    expect(wrapper.findAll('.pixel-cafe-seat-button').every(button => (button.element as HTMLButtonElement).disabled)).toBe(true)
+    expect(wrapper.find('.pixel-cafe-single-room-note').text()).toContain('每份 99 CNY')
 
     await wrapper.find('.pixel-cafe-agreement input').setValue(true)
     await wrapper.find('.pixel-cafe-primary').trigger('click')
     await flushPromises()
-    expect(createOrder).toHaveBeenCalledWith(singleRoom.id, expect.objectContaining({ seat_no: 1 }), expect.any(String))
+    expect(createOrder).toHaveBeenCalledWith(singleRoom.id, expect.objectContaining({ share_count: 1 }), expect.any(String))
   })
 
   it('keeps the selector open and shows the order failure', async () => {

@@ -7,17 +7,18 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/caferoundmembership"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
 
-func TestCafeRoomOrderLocksSeatRejectsDuplicateUserAndReusesExpiredSeat(t *testing.T) {
+func TestCafeRoomOrderAggregatesTopUpsAndReleasesExpiredShares(t *testing.T) {
 	ctx := context.Background()
 	client := newGroupBuyTestClient(t, "cafe_room_order_lock_reuse")
 	now := time.Date(2026, 8, 3, 13, 0, 0, 0, time.UTC)
-	fixture := newCafeRoomOrderFixture(t, ctx, client, now, 2)
+	fixture := newCafeRoomOrderFixture(t, ctx, client, now, 3)
 	orderSvc := fixture.orderService
 	cfg := &PaymentConfig{MaxPendingOrders: 3, OrderTimeoutMin: 30}
 
@@ -27,10 +28,14 @@ func TestCafeRoomOrderLocksSeatRejectsDuplicateUserAndReusesExpiredSeat(t *testi
 	seat, err := client.GroupBuySeat.Query().Where(groupbuyseat.OrderIDEQ(first.ID)).Only(ctx)
 	require.NoError(t, err)
 	require.Equal(t, GroupBuySeatStatusLocked, seat.Status)
-	require.Equal(t, 1, *seat.SeatNo)
+	require.Nil(t, seat.SeatNo)
+	require.NotNil(t, seat.MembershipID)
 
-	_, _, err = orderSvc.lockSeatAndCreateOrder(ctx, CreateOrderRequest{UserID: fixture.user.ID, PaymentType: payment.TypeAlipay, ClientIP: "127.0.0.1", SrcHost: "api.example.com"}, fixture.room.ID, 2, cfg, 0, fixture.plan.PricePerShare, nil)
-	require.ErrorIs(t, err, ErrCafeSeatHeld)
+	topUp, _, err := orderSvc.lockSeatAndCreateOrder(ctx, CreateOrderRequest{UserID: fixture.user.ID, PaymentType: payment.TypeAlipay, ClientIP: "127.0.0.1", SrcHost: "api.example.com"}, fixture.room.ID, 1, cfg, 0, fixture.plan.PricePerShare, nil)
+	require.NoError(t, err)
+	topUpSeat, err := client.GroupBuySeat.Query().Where(groupbuyseat.OrderIDEQ(topUp.ID)).Only(ctx)
+	require.NoError(t, err)
+	require.Equal(t, seat.MembershipID, topUpSeat.MembershipID)
 
 	first, err = client.PaymentOrder.UpdateOneID(first.ID).SetStatus(OrderStatusPending).Save(ctx)
 	require.NoError(t, err)
@@ -42,10 +47,41 @@ func TestCafeRoomOrderLocksSeatRejectsDuplicateUserAndReusesExpiredSeat(t *testi
 	require.NoError(t, err)
 	reused, err := client.GroupBuySeat.Query().Where(groupbuyseat.OrderIDEQ(second.ID)).Only(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, *reused.SeatNo)
+	require.Nil(t, reused.SeatNo)
+	require.NotEqual(t, seat.MembershipID, reused.MembershipID)
 	released, err := client.GroupBuySeat.Get(ctx, seat.ID)
 	require.NoError(t, err)
 	require.Equal(t, GroupBuySeatStatusReleased, released.Status)
+}
+
+func TestCafeRoomOrderAllowsExistingBuyerTopUpAtBuyerCap(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "cafe_room_order_buyer_cap")
+	now := time.Date(2026, 8, 3, 13, 30, 0, 0, time.UTC)
+	fixture := newCafeRoomOrderFixture(t, ctx, client, now, 10)
+	cfg := &PaymentConfig{MaxPendingOrders: 3, OrderTimeoutMin: 30}
+	users := []*User{fixture.user}
+	for index := 1; index < 4; index++ {
+		users = append(users, createGroupBuyTestUser(t, ctx, client, fmt.Sprintf("cafe-buyer-cap-%d@example.com", index)))
+	}
+	for _, buyer := range users {
+		_, _, err := fixture.orderService.lockSeatAndCreateOrder(ctx, CreateOrderRequest{UserID: buyer.ID, PaymentType: payment.TypeAlipay}, fixture.room.ID, 1, cfg, 0, fixture.plan.PricePerShare, nil)
+		require.NoError(t, err)
+	}
+
+	fifthBuyer := createGroupBuyTestUser(t, ctx, client, "cafe-buyer-cap-5@example.com")
+	_, _, err := fixture.orderService.lockSeatAndCreateOrder(ctx, CreateOrderRequest{UserID: fifthBuyer.ID, PaymentType: payment.TypeAlipay}, fixture.room.ID, 1, cfg, 0, fixture.plan.PricePerShare, nil)
+	require.ErrorIs(t, err, ErrCafeBuyerLimit)
+
+	_, _, err = fixture.orderService.lockSeatAndCreateOrder(ctx, CreateOrderRequest{UserID: fixture.user.ID, PaymentType: payment.TypeAlipay}, fixture.room.ID, 6, cfg, 0, fixture.plan.PricePerShare*6, nil)
+	require.NoError(t, err)
+
+	memberships, err := client.CafeRoundMembership.Query().Where(caferoundmembership.RoundIDEQ(fixture.round.ID)).All(ctx)
+	require.NoError(t, err)
+	require.Len(t, memberships, 4)
+	round, err := client.GroupBuyRound.Get(ctx, fixture.round.ID)
+	require.NoError(t, err)
+	require.Equal(t, 10, round.ReservedShares)
 }
 
 func TestCafeRoomOrderCapsDistinctLiveRooms(t *testing.T) {
@@ -76,6 +112,12 @@ func TestGroupBuyPaymentForCafeRoomStopsAtPaid(t *testing.T) {
 	client := newGroupBuyTestClient(t, "cafe_room_paid_only")
 	now := time.Date(2026, 8, 3, 13, 0, 0, 0, time.UTC)
 	fixture := newCafeRoomOrderFixture(t, ctx, client, now, 1)
+	legacyRound, err := client.GroupBuyRound.UpdateOneID(fixture.round.ID).
+		SetCafeFulfillmentVersion("legacy_seat").
+		SetAssignedAccountID(fixture.accountID).
+		Save(ctx)
+	require.NoError(t, err)
+	fixture.round = legacyRound
 	order, err := client.PaymentOrder.Create().
 		SetUserID(fixture.user.ID).
 		SetUserEmail(fixture.user.Email).
@@ -172,7 +214,13 @@ func newCafeRoomOrderFixture(t *testing.T, ctx context.Context, client *dbent.Cl
 	_, err := client.Group.UpdateOneID(groupID).SetAccessMode(CafeRoomGroupAccessMode).Save(ctx)
 	require.NoError(t, err)
 	plan := createGroupBuyTestPlan(t, ctx, client, groupID, GroupBuyLaunchModeManual, totalSeats)
-	plan, err = client.GroupBuyPlan.UpdateOneID(plan.ID).SetFulfillmentMode(CafeRoomFulfillmentMode).Save(ctx)
+	plan, err = client.GroupBuyPlan.UpdateOneID(plan.ID).
+		SetFulfillmentMode(CafeRoomFulfillmentMode).
+		SetSubscriptionTier("plus").
+		SetMaxBuyers(min(totalSeats, 4)).
+		SetMaxSharesPerUser(totalSeats).
+		SetFulfillmentTimeoutMinutes(1440).
+		Save(ctx)
 	require.NoError(t, err)
 	account, err := client.Account.Create().
 		SetName("cafe-order-account").
@@ -183,6 +231,22 @@ func newCafeRoomOrderFixture(t *testing.T, ctx context.Context, client *dbent.Cl
 		Save(ctx)
 	require.NoError(t, err)
 	room, round := createCafeRoomOrderRoom(t, ctx, client, plan.ID, account.ID, now, totalSeats, 1)
+	round, err = client.GroupBuyRound.UpdateOneID(round.ID).
+		SetCafeFulfillmentVersion("membership_share").
+		ClearAssignedAccountID().
+		SetSubscriptionTier("plus").
+		SetMaxBuyers(min(totalSeats, 4)).
+		SetMaxSharesPerUser(totalSeats).
+		SetFulfillmentTimeoutMinutes(1440).
+		SetValidityDaysSnapshot(plan.ValidityDays).
+		SetTargetGroupIDSnapshot(groupID).
+		SetPlatformSnapshot(PlatformOpenAI).
+		SetQuotaPerShareSnapshot(plan.RoomKeyQuotaUsd).
+		SetRateLimit5hPerShareSnapshot(plan.RoomKeyRateLimit5h).
+		SetRateLimit1dPerShareSnapshot(plan.RoomKeyRateLimit1d).
+		SetRateLimit7dPerShareSnapshot(plan.RoomKeyRateLimit7d).
+		Save(ctx)
+	require.NoError(t, err)
 	paymentSvc := &PaymentService{entClient: client, now: func() time.Time { return now }}
 	groupBuySvc := newGroupBuyTestService(client, newGroupBuyGroupRepoStubWithGroup(groupID), nil)
 	groupBuySvc.paymentSvc = paymentSvc

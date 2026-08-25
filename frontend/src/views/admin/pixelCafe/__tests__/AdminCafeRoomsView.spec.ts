@@ -12,6 +12,11 @@ const {
   bulkCreate,
   openRound,
   listAccountOptions,
+  listPendingRounds,
+  listRoundAccountOptions,
+  assignRoundAccount,
+  getWorkstationLayout,
+  updateWorkstationLayout,
   listPlans,
   showError,
   showSuccess,
@@ -23,6 +28,11 @@ const {
   bulkCreate: vi.fn(),
   openRound: vi.fn(),
   listAccountOptions: vi.fn(),
+  listPendingRounds: vi.fn(),
+  listRoundAccountOptions: vi.fn(),
+  assignRoundAccount: vi.fn(),
+  getWorkstationLayout: vi.fn(),
+  updateWorkstationLayout: vi.fn(),
   listPlans: vi.fn(),
   showError: vi.fn(),
   showSuccess: vi.fn(),
@@ -33,6 +43,11 @@ vi.mock('@/api/admin', () => ({
     cafeRooms: {
       list: listRooms,
       listAccountOptions,
+      listPendingRounds,
+      listRoundAccountOptions,
+      assignRoundAccount,
+      getWorkstationLayout,
+      updateWorkstationLayout,
       create: createRoom,
       update: updateRoom,
       remove: removeRoom,
@@ -54,6 +69,20 @@ vi.mock('@/utils/apiError', () => ({
 const labels: Record<string, string> = {
   'admin.pixelCafe.refresh': '刷新',
   'admin.pixelCafe.bulkCreate': '批量创建',
+  'admin.pixelCafe.layout.open': '大厅布局',
+  'admin.pixelCafe.layout.title': '编辑大厅电脑位置',
+  'admin.pixelCafe.layout.save': '保存布局',
+  'admin.pixelCafe.layout.saving': '保存中',
+  'admin.pixelCafe.layout.reset': '重置默认位置',
+  'admin.pixelCafe.layout.hint': '拖动电脑',
+  'admin.pixelCafe.layout.snap': '吸附网格',
+  'admin.pixelCafe.layout.count': '电脑工位数量',
+  'admin.pixelCafe.layout.countRange': '可设置 {min}–{max} 个',
+  'admin.pixelCafe.layout.decreaseCount': '减少一个电脑工位',
+  'admin.pixelCafe.layout.increaseCount': '增加一个电脑工位',
+  'admin.pixelCafe.layout.desktopOnly': '请使用桌面端',
+  'admin.pixelCafe.layout.keyboardHint': '方向键微调',
+  'admin.pixelCafe.success.layoutSaved': '大厅电脑布局已保存',
   'admin.pixelCafe.createRoom': '新建房间',
   'admin.pixelCafe.noRooms': '暂无房间',
   'admin.pixelCafe.noRoomPlans': '暂无 Room 计划',
@@ -66,6 +95,12 @@ const labels: Record<string, string> = {
   'admin.pixelCafe.form.save': '保存房间',
   'admin.pixelCafe.bulk.title': '批量创建房间',
   'admin.pixelCafe.bulk.submit': '开始创建',
+  'admin.pixelCafe.accountDeferred': '成团后配号',
+  'admin.pixelCafe.pending.title': '待配号轮次',
+  'admin.pixelCafe.pending.description': '份额售罄后在这里绑定账号',
+  'admin.pixelCafe.pending.assign': '选择账号',
+  'admin.pixelCafe.pending.assignTitle': '绑定并开通',
+  'admin.pixelCafe.pending.accountSearch': '搜索账号',
   'admin.pixelCafe.success.created': '房间已创建',
   'admin.pixelCafe.success.updated': '房间已更新',
   'admin.pixelCafe.success.deleted': '房间已删除',
@@ -117,19 +152,13 @@ const ConfirmDialogStub = defineComponent({
   template: '<div v-if="show" class="confirm-dialog"><button type="button" @click="$emit(\'confirm\')">confirm-delete</button></div>',
 })
 
-const CafeRoomAccountPickerStub = defineComponent({
-  props: { modelValue: [Number, Array], multiple: Boolean },
-  emits: ['update:modelValue'],
-  template: '<button type="button" data-testid="cafe-room-account-picker" @click="$emit(\'update:modelValue\', multiple ? [41, 42] : 41)">pick-account</button>',
-})
-
 function room(status: 'enabled' | 'maintenance' = 'enabled') {
   return {
     id: 7,
     code: 'ROOM-007',
     name: 'OpenAI 七号房',
     plan_id: 21,
-    account_id: 41,
+    account_id: null,
     zone_key: 'openai',
     theme_key: 'warm_wood',
     scene_slot_key: 'openai-7',
@@ -138,11 +167,13 @@ function room(status: 'enabled' | 'maintenance' = 'enabled') {
     sort_order: 7,
     plan: {
       id: 21,
-      title: 'OpenAI Room 5 seats',
+      title: 'ChatGPT Plus',
       target_group_id: 5,
       fulfillment_mode: 'room_subscription',
       total_shares: 5,
-      seat_count: 5,
+      subscription_tier: 'plus',
+      max_buyers: 4,
+      max_shares_per_user: 4,
       timeout_minutes: 60,
       validity_days: 30,
       group_platform: 'openai',
@@ -165,7 +196,6 @@ function mountView() {
         EmptyState: { props: ['title'], template: '<div>{{ title }}</div>' },
         BaseDialog: BaseDialogStub,
         ConfirmDialog: ConfirmDialogStub,
-        CafeRoomAccountPicker: CafeRoomAccountPickerStub,
         Icon: true,
         AdminGroupBuyView: {
           props: { embedded: Boolean },
@@ -181,19 +211,29 @@ describe('AdminCafeRoomsView', () => {
     listRooms.mockReset().mockResolvedValue({ data: { items: [room()], total: 1, page: 1, page_size: 20, pages: 1 } })
     listPlans.mockReset().mockResolvedValue({ data: [
       { id: 20, title: 'Legacy plan', target_group_id: 4, fulfillment_mode: 'aggregate_tier' },
-      { id: 21, title: 'OpenAI Room 5 seats', target_group_id: 5, fulfillment_mode: 'room_subscription' },
+      { id: 21, title: 'ChatGPT Plus', target_group_id: 5, fulfillment_mode: 'room_subscription', subscription_tier: 'plus' },
     ] })
     listAccountOptions.mockReset().mockResolvedValue({ data: { items: [
       { id: 41, name: 'OpenAI account', platform: 'openai', status: 'active', email_masked: 'o***i@example.com' },
       { id: 42, name: 'Second account', platform: 'openai', status: 'active', email_masked: 's***d@example.com' },
     ], total: 2, page: 1, page_size: 20, pages: 1 } })
+    listPendingRounds.mockReset().mockResolvedValue({ data: { items: [{
+      id: 81, status: 'awaiting_account', room_id: 7, room_code: 'ROOM-007', room_name: 'OpenAI 七号房', subscription_tier: 'plus', paid_shares: 10, total_shares: 10, joined_buyers: 4, max_buyers: 4,
+    }], total: 1, page: 1, page_size: 20, pages: 1 } })
+    listRoundAccountOptions.mockReset().mockResolvedValue({ data: { items: [
+      { id: 41, name: 'Plus account', platform: 'openai', status: 'active', plan_type: 'plus', email_masked: 'o***i@example.com' },
+    ], total: 1, page: 1, page_size: 30, pages: 1 } })
+    assignRoundAccount.mockReset().mockResolvedValue({ data: { id: 81, status: 'active' } })
+    const layout = Array.from({ length: 10 }, (_, index) => ({ id: index + 1, x: 300 + index * 20, y: 200 + index * 10 }))
+    getWorkstationLayout.mockReset().mockResolvedValue({ data: layout })
+    updateWorkstationLayout.mockReset().mockImplementation(async draft => ({ data: draft }))
     createRoom.mockReset().mockResolvedValue({ data: room() })
     updateRoom.mockReset().mockResolvedValue({ data: room() })
     removeRoom.mockReset().mockResolvedValue({ data: { message: 'ok' } })
     openRound.mockReset().mockResolvedValue({ data: { id: 81, status: 'open' } })
     bulkCreate.mockReset().mockResolvedValue({ data: {
-      created: [{ account_id: 41, room: room() }],
-      failed: [{ account_id: 42, error_code: 'CAFE_ACCOUNT_ALREADY_ASSIGNED', message: 'assigned' }],
+      created: [{ room: room() }],
+      failed: [{ index: 2, error_code: 'CAFE_ROOM_CREATE_FAILED', message: 'failed' }],
     } })
     showError.mockReset()
     showSuccess.mockReset()
@@ -204,12 +244,13 @@ describe('AdminCafeRoomsView', () => {
     await flushPromises()
 
     expect(listRooms).toHaveBeenCalledWith(expect.objectContaining({ page: 1, page_size: 20, sort_by: 'sort_order' }))
-    expect(listAccountOptions).toHaveBeenCalledWith({ ids: [41] })
+    expect(listAccountOptions).not.toHaveBeenCalled()
     expect(wrapper.text()).toContain('OpenAI 七号房')
+    expect(wrapper.text()).toContain('成团后配号')
 
     const createButton = wrapper.findAll('button').find((button) => button.text().includes('新建房间'))
     await createButton?.trigger('click')
-    expect(wrapper.text()).toContain('OpenAI Room 5 seats')
+    expect(wrapper.text()).toContain('ChatGPT Plus')
     expect(wrapper.text()).not.toContain('Legacy plan')
   })
 
@@ -219,6 +260,31 @@ describe('AdminCafeRoomsView', () => {
 
     expect(wrapper.text()).toContain('OpenAI 七号房')
     expect(wrapper.find('[data-testid="embedded-group-buy"]').attributes('data-embedded')).toBe('true')
+  })
+
+  it('loads, resizes, resets, edits, and saves one shared lobby workstation layout', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.findAll('button').find(button => button.text().includes('大厅布局'))?.trigger('click')
+    await flushPromises()
+    expect(getWorkstationLayout).toHaveBeenCalledTimes(1)
+    expect(wrapper.findAll('[data-testid="cafe-layout-workstation"]')).toHaveLength(10)
+
+    await wrapper.get('[data-testid="cafe-layout-count-input"]').setValue(12)
+    expect(wrapper.findAll('[data-testid="cafe-layout-workstation"]')).toHaveLength(12)
+    await wrapper.findAll('button').find(button => button.text().includes('重置默认位置'))?.trigger('click')
+    expect(wrapper.findAll('[data-testid="cafe-layout-workstation"]')).toHaveLength(12)
+
+    await wrapper.findAll('[data-testid="cafe-layout-workstation"]')[0].trigger('keydown', { key: 'ArrowRight' })
+    await wrapper.findAll('button').find(button => button.text().includes('保存布局'))?.trigger('click')
+    await flushPromises()
+
+    const savedLayout = updateWorkstationLayout.mock.calls[0][0]
+    expect(savedLayout).toHaveLength(12)
+    expect(savedLayout.map((slot: { id: number }) => slot.id)).toEqual(Array.from({ length: 12 }, (_, index) => index + 1))
+    expect(savedLayout[0]).toEqual(expect.objectContaining({ id: 1, x: 344 }))
+    expect(showSuccess).toHaveBeenCalledWith('大厅电脑布局已保存')
   })
 
   it('submits create input without client-owned price or group fields and opens a round', async () => {
@@ -232,7 +298,6 @@ describe('AdminCafeRoomsView', () => {
     await inputs[1].setValue('八号房')
     const selects = form.findAll('select')
     await selects[0].setValue('21')
-    await wrapper.find('[data-testid="cafe-room-account-picker"]').trigger('click')
     await form.trigger('submit')
     await flushPromises()
 
@@ -240,11 +305,11 @@ describe('AdminCafeRoomsView', () => {
       code: 'ROOM-008',
       name: '八号房',
       plan_id: 21,
-      account_id: 41,
     }))
     const payload = createRoom.mock.calls[0][0]
     expect(payload).not.toHaveProperty('price')
     expect(payload).not.toHaveProperty('group_id')
+    expect(payload).not.toHaveProperty('account_id')
 
     await wrapper.findAll('button').find((button) => button.text().trim() === '开团')?.trigger('click')
     await flushPromises()
@@ -269,7 +334,7 @@ describe('AdminCafeRoomsView', () => {
     expect(removeRoom).toHaveBeenCalledWith(7)
   })
 
-  it('sends selected account IDs and renders per-item bulk failures', async () => {
+  it('bulk creates by quantity and renders per-item failures', async () => {
     const wrapper = mountView()
     await flushPromises()
 
@@ -277,37 +342,46 @@ describe('AdminCafeRoomsView', () => {
     const form = wrapper.find('#cafe-room-bulk-form')
     const selects = form.findAll('select')
     await selects[0].setValue('21')
-    await wrapper.find('[data-testid="cafe-room-account-picker"]').trigger('click')
+    await form.find('input[type="number"]').setValue(3)
     await form.trigger('submit')
     await flushPromises()
 
-    expect(bulkCreate).toHaveBeenCalledWith(expect.objectContaining({ plan_id: 21, account_ids: [41, 42] }))
-    expect(wrapper.text()).toContain('CAFE_ACCOUNT_ALREADY_ASSIGNED')
+    expect(bulkCreate).toHaveBeenCalledWith(expect.objectContaining({ plan_id: 21, quantity: 3 }))
+    expect(bulkCreate.mock.calls[0][0]).not.toHaveProperty('account_ids')
+    expect(wrapper.text()).toContain('CAFE_ROOM_CREATE_FAILED')
     expect(showSuccess).toHaveBeenCalled()
   })
 
-  it('hydrates table summaries by ids without downloading generic accounts', async () => {
+  it('searches and assigns accounts only from the pending-round workspace', async () => {
     const wrapper = mountView()
     await flushPromises()
-    expect(listAccountOptions).toHaveBeenCalledWith({ ids: [41] })
-    expect(listPlans).toHaveBeenCalledTimes(1)
-
-    expect(wrapper.text()).toContain('OpenAI account')
+    expect(listPendingRounds).toHaveBeenCalledWith({ page: 1, page_size: 20, search: undefined })
+    expect(wrapper.find('[data-testid="cafe-pending-fulfillment"]').text()).toContain('10/10 份')
+    await wrapper.findAll('button').filter(button => button.text() === '选择账号').at(-1)?.trigger('click')
+    await flushPromises()
+    expect(listRoundAccountOptions).toHaveBeenCalledWith(81, { page: 1, page_size: 30, search: undefined })
+    expect(wrapper.text()).toContain('o***i@example.com')
+    await wrapper.find('input[type="radio"]').setValue(41)
+    await wrapper.findAll('button').filter(button => button.text() === '选择账号').at(-1)?.trigger('click')
+    await flushPromises()
+    expect(assignRoundAccount).toHaveBeenCalledWith(81, 41)
+    expect(showSuccess).toHaveBeenCalled()
   })
 
-  it('hydrates every current-page account summary in 50-ID chunks', async () => {
-    const rooms = Array.from({ length: 51 }, (_, index) => ({ ...room(), id: index + 1, account_id: index + 1, name: `Room ${index + 1}` }))
-    listRooms.mockResolvedValue({ data: { items: rooms, total: 51, page: 1, page_size: 100, pages: 1 } })
-    listAccountOptions.mockImplementation(({ ids }: { ids: number[] }) => Promise.resolve({ data: {
-      items: ids.map((id) => ({ id, name: `Hydrated ${id}`, platform: 'openai', status: 'active' })), total: ids.length, page: 1, page_size: ids.length, pages: 1,
-    } }))
-
+  it('filters pending rounds and account candidates server-side', async () => {
     const wrapper = mountView()
     await flushPromises()
-
-    expect(listAccountOptions).toHaveBeenCalledTimes(2)
-    expect(listAccountOptions).toHaveBeenNthCalledWith(1, { ids: Array.from({ length: 50 }, (_, index) => index + 1) })
-    expect(listAccountOptions).toHaveBeenNthCalledWith(2, { ids: [51] })
-    expect(wrapper.text()).toContain('Hydrated 51')
+    const pendingSearch = wrapper.find('[data-testid="cafe-pending-fulfillment"] input[type="search"]')
+    await pendingSearch.setValue('七号')
+    await pendingSearch.trigger('change')
+    await flushPromises()
+    expect(listPendingRounds).toHaveBeenLastCalledWith({ page: 1, page_size: 20, search: '七号' })
+    await wrapper.findAll('button').find(button => button.text() === '选择账号')?.trigger('click')
+    await flushPromises()
+    const accountSearch = wrapper.find('.dialog input[type="search"]')
+    await accountSearch.setValue('owner')
+    await accountSearch.trigger('change')
+    await flushPromises()
+    expect(listRoundAccountOptions).toHaveBeenLastCalledWith(81, { page: 1, page_size: 30, search: 'owner' })
   })
 })

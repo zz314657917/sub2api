@@ -10,7 +10,28 @@ export default {
   noRooms: 'No rooms',
   noRoomPlans: 'No room_subscription plan is available.',
   noAccounts: 'No active account is available.',
+  accountDeferred: 'Assigned after full',
   loadingDependencies: 'Loading Room plans...',
+  layout: {
+    open: 'Lobby layout',
+    title: 'Edit lobby workstation positions',
+    hint: 'Drag each numbered workstation onto the lobby image, or use the arrow keys for precise adjustments.',
+    snap: 'Snap to grid',
+    count: 'Workstation count',
+    countRange: 'Choose {min}–{max}; changes become shared only after saving.',
+    decreaseCount: 'Remove one workstation',
+    increaseCount: 'Add one workstation',
+    desktopOnly: 'Use a desktop browser for precise lobby layout editing.',
+    workstation: 'Workstation {id}',
+    selected: 'Selected workstation {id}',
+    keyboardHint: 'Arrow keys move 4px; Shift + arrow moves 10px.',
+    loading: 'Loading the saved layout...',
+    reset: 'Reset defaults',
+    save: 'Save layout',
+    saving: 'Saving...',
+    loadError: 'Failed to load the lobby layout; showing defaults',
+    saveError: 'Failed to save the lobby layout',
+  },
   columns: {
     room: 'Room',
     zone: 'Zone',
@@ -52,6 +73,7 @@ export default {
   bulk: {
     title: 'Bulk create rooms',
     accounts: 'Operating accounts',
+    quantity: 'Quantity',
     codePrefix: 'Code prefix',
     startNumber: 'Start number',
     createOpenRound: 'Open rounds after creation',
@@ -72,6 +94,9 @@ export default {
     more: 'Load more',
     error: 'Failed to load accounts',
   },
+  pending: {
+    title: 'Pending fulfillment', description: 'Search and assign a tier-compatible OpenAI account after a round is full.', search: 'Search room or code', loading: 'Loading...', empty: 'No pending rounds.', assign: 'Assign and activate', assignTitle: 'Assign account', accountSearch: 'Search account name or email', noAccount: 'No compatible Plus/Pro account.', assigning: 'Activating...',
+  },
   actions: {
     edit: 'Edit',
     openRound: 'Open round',
@@ -86,6 +111,8 @@ export default {
     deleted: 'Room deleted',
     roundOpened: 'Open round created',
     bulkCreated: 'Bulk create completed: {created} created, {failed} failed',
+    accountAssigned: 'Account assigned and activation started',
+    layoutSaved: 'Lobby workstation layout saved',
   },
   errors: {
     load: 'Failed to load rooms',
@@ -95,5 +122,6 @@ export default {
     openRound: 'Failed to create an open round',
     bulk: 'Failed to bulk create rooms',
     accounts: 'Failed to load room accounts',
+    pending: 'Failed to load pending rounds', assign: 'Failed to assign account',
   },
 }

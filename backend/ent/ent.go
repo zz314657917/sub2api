@@ -21,6 +21,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
 	"github.com/Wei-Shaw/sub2api/ent/caferoom"
+	"github.com/Wei-Shaw/sub2api/ent/caferoundmembership"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitor"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
@@ -126,6 +127,7 @@ func checkColumn(t, c string) error {
 			authidentity.Table:                  authidentity.ValidColumn,
 			authidentitychannel.Table:           authidentitychannel.ValidColumn,
 			caferoom.Table:                      caferoom.ValidColumn,
+			caferoundmembership.Table:           caferoundmembership.ValidColumn,
 			channelmonitor.Table:                channelmonitor.ValidColumn,
 			channelmonitordailyrollup.Table:     channelmonitordailyrollup.ValidColumn,
 			channelmonitorhistory.Table:         channelmonitorhistory.ValidColumn,

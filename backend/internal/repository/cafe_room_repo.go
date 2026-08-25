@@ -214,7 +214,7 @@ func (r *cafeRoomRepository) HasLiveRound(ctx context.Context, roomID int64) (bo
 }
 
 func (r *cafeRoomRepository) Create(ctx context.Context, room *service.CafeRoom) (*service.CafeRoom, error) {
-	if room == nil || room.AccountID == nil || *room.AccountID <= 0 {
+	if room == nil {
 		return nil, service.ErrCafeRoomInvalid
 	}
 	tx, err := r.client.Tx(ctx)
@@ -224,11 +224,7 @@ func (r *cafeRoomRepository) Create(ctx context.Context, room *service.CafeRoom)
 	txClient := tx.Client()
 	defer func() { _ = tx.Rollback() }()
 
-	plan, err := lockCafeRoomPlan(ctx, txClient, room.PlanID)
-	if err != nil {
-		return nil, err
-	}
-	if err := lockCafeRoomAccount(ctx, txClient, *room.AccountID, 0, plan); err != nil {
+	if _, err := lockCafeRoomPlan(ctx, txClient, room.PlanID); err != nil {
 		return nil, err
 	}
 	metadata := room.Metadata
@@ -259,7 +255,7 @@ func (r *cafeRoomRepository) Create(ctx context.Context, room *service.CafeRoom)
 }
 
 func (r *cafeRoomRepository) Update(ctx context.Context, room *service.CafeRoom) (*service.CafeRoom, error) {
-	if room == nil || room.ID <= 0 || room.AccountID == nil || *room.AccountID <= 0 {
+	if room == nil || room.ID <= 0 {
 		return nil, service.ErrCafeRoomInvalid
 	}
 	tx, err := r.client.Tx(ctx)
@@ -281,19 +277,15 @@ func (r *cafeRoomRepository) Update(ctx context.Context, room *service.CafeRoom)
 	}
 	live, err := txClient.GroupBuyRound.Query().Where(
 		groupbuyround.CafeRoomIDEQ(room.ID),
-		groupbuyround.StatusIn(service.CafeRoundStatusOpen, "activating", "active"),
+		groupbuyround.StatusIn(service.CafeRoundStatusOpen, service.CafeRoundStatusAwaitingAccount, "activating", "active"),
 	).Exist(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if live && (currentRoom.PlanID != room.PlanID || currentRoom.AccountID == nil || *currentRoom.AccountID != *room.AccountID || room.Status != service.CafeRoomStatusEnabled) {
+	if live && (currentRoom.PlanID != room.PlanID || room.Status != service.CafeRoomStatusEnabled) {
 		return nil, service.ErrCafeRoomLive
 	}
-	plan, err := lockCafeRoomPlan(ctx, txClient, room.PlanID)
-	if err != nil {
-		return nil, err
-	}
-	if err := lockCafeRoomAccount(ctx, txClient, *room.AccountID, room.ID, plan); err != nil {
+	if _, err := lockCafeRoomPlan(ctx, txClient, room.PlanID); err != nil {
 		return nil, err
 	}
 	metadata := room.Metadata
@@ -304,7 +296,7 @@ func (r *cafeRoomRepository) Update(ctx context.Context, room *service.CafeRoom)
 		SetCode(room.Code).
 		SetName(room.Name).
 		SetPlanID(room.PlanID).
-		SetAccountID(*room.AccountID).
+		SetNillableAccountID(room.AccountID).
 		SetZoneKey(room.ZoneKey).
 		SetThemeKey(room.ThemeKey).
 		SetSceneSlotKey(room.SceneSlotKey).
@@ -360,19 +352,16 @@ func (r *cafeRoomRepository) CreateOpenRound(ctx context.Context, roomID int64, 
 	if room.Status != service.CafeRoomStatusEnabled {
 		return nil, service.ErrCafeRoomDisabled
 	}
-	if room.AccountID == nil || *room.AccountID <= 0 || room.Edges.Plan == nil {
+	if room.Edges.Plan == nil {
 		return nil, service.ErrCafeRoomInvalid
 	}
 	plan, err := lockCafeRoomPlan(ctx, txClient, room.PlanID)
 	if err != nil {
 		return nil, err
 	}
-	if err := lockCafeRoomAccount(ctx, txClient, *room.AccountID, roomID, plan); err != nil {
-		return nil, err
-	}
 	exists, err := txClient.GroupBuyRound.Query().Where(
 		groupbuyround.CafeRoomIDEQ(roomID),
-		groupbuyround.StatusIn(service.CafeRoundStatusOpen, "activating", "active"),
+		groupbuyround.StatusIn(service.CafeRoundStatusOpen, service.CafeRoundStatusAwaitingAccount, "activating", "active"),
 	).Exist(ctx)
 	if err != nil {
 		return nil, err
@@ -391,10 +380,13 @@ func (r *cafeRoomRepository) CreateOpenRound(ctx context.Context, roomID int64, 
 	if timeoutMinutes <= 0 {
 		timeoutMinutes = 1440
 	}
+	_, tier, maxBuyers, maxSharesPerUser, fulfillmentTimeout := normalizedCafePlanEntityPolicy(plan)
+	if plan.Edges.TargetGroup == nil {
+		return nil, service.ErrCafeGroupInvalid
+	}
 	created, err := txClient.GroupBuyRound.Create().
 		SetPlanID(plan.ID).
 		SetCafeRoomID(room.ID).
-		SetAssignedAccountID(*room.AccountID).
 		SetRoomCodeSnapshot(room.Code).
 		SetRoomNameSnapshot(room.Name).
 		SetStatus(service.CafeRoundStatusOpen).
@@ -402,6 +394,18 @@ func (r *cafeRoomRepository) CreateOpenRound(ctx context.Context, roomID int64, 
 		SetTotalSeats(totalShares).
 		SetStartedAt(now).
 		SetDeadlineAt(now.Add(time.Duration(timeoutMinutes) * time.Minute)).
+		SetCafeFulfillmentVersion("membership_share").
+		SetSubscriptionTier(tier).
+		SetMaxBuyers(maxBuyers).
+		SetMaxSharesPerUser(maxSharesPerUser).
+		SetFulfillmentTimeoutMinutes(fulfillmentTimeout).
+		SetValidityDaysSnapshot(plan.ValidityDays).
+		SetTargetGroupIDSnapshot(plan.TargetGroupID).
+		SetPlatformSnapshot(plan.Edges.TargetGroup.Platform).
+		SetQuotaPerShareSnapshot(plan.RoomKeyQuotaUsd).
+		SetRateLimit5hPerShareSnapshot(plan.RoomKeyRateLimit5h).
+		SetRateLimit1dPerShareSnapshot(plan.RoomKeyRateLimit1d).
+		SetRateLimit7dPerShareSnapshot(plan.RoomKeyRateLimit7d).
 		Save(ctx)
 	if err != nil {
 		return nil, err
@@ -475,10 +479,46 @@ func validateCafePlanEntity(plan *dbent.GroupBuyPlan) error {
 }
 
 func validateCafePlanFields(plan *dbent.GroupBuyPlan) error {
-	if plan == nil || plan.Status != service.GroupBuyPlanStatusActive || plan.FulfillmentMode != service.CafeRoomFulfillmentMode || !plan.AutoCreateRoomKey || plan.ValidityDays <= 0 {
+	if plan == nil {
+		return service.ErrCafePlanInvalid
+	}
+	totalShares, tier, maxBuyers, maxSharesPerUser, fulfillmentTimeout := normalizedCafePlanEntityPolicy(plan)
+	if plan.Status != service.GroupBuyPlanStatusActive || plan.FulfillmentMode != service.CafeRoomFulfillmentMode || !plan.AutoCreateRoomKey || plan.ValidityDays <= 0 ||
+		(tier != "plus" && tier != "pro") || totalShares < 1 || totalShares > 10 ||
+		maxBuyers < 1 || maxBuyers > totalShares || maxSharesPerUser < 1 || maxSharesPerUser > totalShares || fulfillmentTimeout <= 0 {
 		return service.ErrCafePlanInvalid
 	}
 	return nil
+}
+
+func normalizedCafePlanEntityPolicy(plan *dbent.GroupBuyPlan) (int, string, int, int, int) {
+	if plan == nil {
+		return 0, "", 0, 0, 0
+	}
+	totalShares := plan.TotalShares
+	if totalShares <= 0 {
+		totalShares = plan.SeatCount
+	}
+	tier := strings.ToLower(strings.TrimSpace(plan.SubscriptionTier))
+	if tier == "" {
+		tier = "plus"
+	}
+	maxBuyers := plan.MaxBuyers
+	if maxBuyers <= 0 && totalShares > 0 {
+		maxBuyers = totalShares
+		if maxBuyers > 4 {
+			maxBuyers = 4
+		}
+	}
+	maxSharesPerUser := plan.MaxSharesPerUser
+	if maxSharesPerUser <= 0 {
+		maxSharesPerUser = totalShares
+	}
+	fulfillmentTimeout := plan.FulfillmentTimeoutMinutes
+	if fulfillmentTimeout <= 0 {
+		fulfillmentTimeout = 1440
+	}
+	return totalShares, tier, maxBuyers, maxSharesPerUser, fulfillmentTimeout
 }
 
 func accountBelongsToGroup(item *dbent.Account, groupID int64) bool {
@@ -568,17 +608,22 @@ func cafeRoomToService(room *dbent.CafeRoom) service.CafeRoom {
 }
 
 func cafePlanToService(plan *dbent.GroupBuyPlan) service.CafeRoomPlan {
+	totalShares, tier, maxBuyers, maxSharesPerUser, fulfillmentTimeout := normalizedCafePlanEntityPolicy(plan)
 	converted := service.CafeRoomPlan{
-		ID:                plan.ID,
-		Title:             plan.Title,
-		Status:            plan.Status,
-		TargetGroupID:     plan.TargetGroupID,
-		FulfillmentMode:   plan.FulfillmentMode,
-		AutoCreateRoomKey: plan.AutoCreateRoomKey,
-		TotalShares:       plan.TotalShares,
-		SeatCount:         plan.SeatCount,
-		TimeoutMinutes:    plan.TimeoutMinutes,
-		ValidityDays:      plan.ValidityDays,
+		ID:                        plan.ID,
+		Title:                     plan.Title,
+		Status:                    plan.Status,
+		TargetGroupID:             plan.TargetGroupID,
+		FulfillmentMode:           plan.FulfillmentMode,
+		AutoCreateRoomKey:         plan.AutoCreateRoomKey,
+		TotalShares:               totalShares,
+		SubscriptionTier:          tier,
+		MaxBuyers:                 maxBuyers,
+		MaxSharesPerUser:          maxSharesPerUser,
+		FulfillmentTimeoutMinutes: fulfillmentTimeout,
+		SeatCount:                 plan.SeatCount,
+		TimeoutMinutes:            plan.TimeoutMinutes,
+		ValidityDays:              plan.ValidityDays,
 	}
 	if plan.Edges.TargetGroup != nil {
 		converted.GroupPlatform = plan.Edges.TargetGroup.Platform

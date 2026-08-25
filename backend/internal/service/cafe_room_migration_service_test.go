@@ -66,6 +66,64 @@ func TestCafeRoomMigrationReplacesBindingsAndInvalidatesCache(t *testing.T) {
 	require.Len(t, invalidator.keys, 2)
 }
 
+func TestCafeRoomMigrationReplacesMembershipBindingsWithoutRebindingRoom(t *testing.T) {
+	ctx := context.Background()
+	fixture := newCafeMembershipFixture(t, "cafe_membership_migration")
+	_, err := fixture.service.AssignAccountAndActivateRound(ctx, fixture.round.ID, fixture.account.ID)
+	require.NoError(t, err)
+	newAccount, err := fixture.client.Account.Create().
+		SetName("Cafe Plus Replacement").
+		SetPlatform(PlatformOpenAI).
+		SetType("oauth").
+		SetStatus(StatusActive).
+		SetCredentials(map[string]any{"plan_type": "plus", "email": "replacement@example.com"}).
+		AddGroupIDs(fixture.plan.TargetGroupID).
+		Save(ctx)
+	require.NoError(t, err)
+	invalidator := &cafeExpiryCacheInvalidatorStub{}
+	svc := NewCafeRoomMigrationService(fixture.client, invalidator)
+	svc.now = func() time.Time { return fixture.now.Add(time.Minute) }
+
+	result, err := svc.MigrateActiveRound(ctx, fixture.round.ID, newAccount.ID, "membership account rotation")
+	require.NoError(t, err)
+	require.Equal(t, 2, result.MigratedBindings)
+	require.Len(t, invalidator.keys, 2)
+	round, err := fixture.client.GroupBuyRound.Get(ctx, fixture.round.ID)
+	require.NoError(t, err)
+	require.Equal(t, newAccount.ID, *round.AssignedAccountID)
+	room, err := fixture.client.CafeRoom.Get(ctx, fixture.room.ID)
+	require.NoError(t, err)
+	require.Nil(t, room.AccountID, "membership rounds keep the account assignment on the round")
+	activeBindings, err := fixture.client.APIKeyAccountBinding.Query().Where(apikeyaccountbinding.RoundIDEQ(fixture.round.ID), apikeyaccountbinding.StatusEQ(apiKeyAccountBindingStatusActive)).All(ctx)
+	require.NoError(t, err)
+	require.Len(t, activeBindings, 2)
+	for _, binding := range activeBindings {
+		require.Equal(t, newAccount.ID, binding.AccountID)
+		require.Nil(t, binding.SeatID)
+		require.NotNil(t, binding.MembershipID)
+	}
+	report, err := svc.CheckConsistency(ctx)
+	require.NoError(t, err)
+	require.Empty(t, report.Issues)
+}
+
+func TestCafeRoomMigrationRejectsMembershipAccountWithWrongTier(t *testing.T) {
+	ctx := context.Background()
+	fixture := newCafeMembershipFixture(t, "cafe_membership_migration_tier")
+	_, err := fixture.service.AssignAccountAndActivateRound(ctx, fixture.round.ID, fixture.account.ID)
+	require.NoError(t, err)
+	wrongTier, err := fixture.client.Account.Create().SetName("Cafe Pro Replacement").SetPlatform(PlatformOpenAI).SetType("oauth").SetStatus(StatusActive).SetCredentials(map[string]any{"plan_type": "pro"}).AddGroupIDs(fixture.plan.TargetGroupID).Save(ctx)
+	require.NoError(t, err)
+	svc := NewCafeRoomMigrationService(fixture.client, &cafeExpiryCacheInvalidatorStub{})
+	svc.now = func() time.Time { return fixture.now.Add(time.Minute) }
+
+	_, err = svc.MigrateActiveRound(ctx, fixture.round.ID, wrongTier.ID, "wrong tier")
+	require.ErrorIs(t, err, ErrCafeMigrationAccountInvalid)
+	round, loadErr := fixture.client.GroupBuyRound.Get(ctx, fixture.round.ID)
+	require.NoError(t, loadErr)
+	require.Equal(t, fixture.account.ID, *round.AssignedAccountID)
+}
+
 func TestCafeRoomMigrationRejectsIncompatibleTargetWithoutMutation(t *testing.T) {
 	ctx := context.Background()
 	client := newGroupBuyTestClient(t, "cafe_room_migration_invalid_target")

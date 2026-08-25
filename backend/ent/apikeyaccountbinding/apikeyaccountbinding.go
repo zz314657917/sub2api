@@ -32,6 +32,8 @@ const (
 	FieldRoundID = "round_id"
 	// FieldSeatID holds the string denoting the seat_id field in the database.
 	FieldSeatID = "seat_id"
+	// FieldMembershipID holds the string denoting the membership_id field in the database.
+	FieldMembershipID = "membership_id"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
 	// FieldStrictMode holds the string denoting the strict_mode field in the database.
@@ -58,6 +60,8 @@ const (
 	EdgeRound = "round"
 	// EdgeSeat holds the string denoting the seat edge name in mutations.
 	EdgeSeat = "seat"
+	// EdgeMembership holds the string denoting the membership edge name in mutations.
+	EdgeMembership = "membership"
 	// Table holds the table name of the apikeyaccountbinding in the database.
 	Table = "api_key_account_bindings"
 	// APIKeyTable is the table that holds the api_key relation/edge.
@@ -109,6 +113,13 @@ const (
 	SeatInverseTable = "group_buy_seats"
 	// SeatColumn is the table column denoting the seat relation/edge.
 	SeatColumn = "seat_id"
+	// MembershipTable is the table that holds the membership relation/edge.
+	MembershipTable = "api_key_account_bindings"
+	// MembershipInverseTable is the table name for the CafeRoundMembership entity.
+	// It exists in this package in order to avoid circular dependency with the "caferoundmembership" package.
+	MembershipInverseTable = "cafe_round_memberships"
+	// MembershipColumn is the table column denoting the membership relation/edge.
+	MembershipColumn = "membership_id"
 )
 
 // Columns holds all SQL columns for apikeyaccountbinding fields.
@@ -123,6 +134,7 @@ var Columns = []string{
 	FieldCafeRoomID,
 	FieldRoundID,
 	FieldSeatID,
+	FieldMembershipID,
 	FieldStatus,
 	FieldStrictMode,
 	FieldStartsAt,
@@ -209,6 +221,11 @@ func BySeatID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSeatID, opts...).ToFunc()
 }
 
+// ByMembershipID orders the results by the membership_id field.
+func ByMembershipID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldMembershipID, opts...).ToFunc()
+}
+
 // ByStatus orders the results by the status field.
 func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
@@ -287,6 +304,13 @@ func BySeatField(field string, opts ...sql.OrderTermOption) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newSeatStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// ByMembershipField orders the results by membership field.
+func ByMembershipField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newMembershipStep(), sql.OrderByField(field, opts...))
+	}
+}
 func newAPIKeyStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -334,5 +358,12 @@ func newSeatStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(SeatInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, SeatTable, SeatColumn),
+	)
+}
+func newMembershipStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(MembershipInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, MembershipTable, MembershipColumn),
 	)
 }

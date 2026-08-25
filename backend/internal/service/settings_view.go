@@ -344,16 +344,17 @@ type PublicSettings struct {
 	ChannelMonitorDefaultIntervalSeconds int  `json:"channel_monitor_default_interval_seconds"`
 
 	// Available Channels feature (user-facing aggregate view)
-	AvailableChannelsEnabled bool   `json:"available_channels_enabled"`
-	ModelPlazaEnabled        bool   `json:"model_plaza_enabled"`
-	ModelPlazaRequireAuth    bool   `json:"model_plaza_require_auth"`
-	GroupBuyEnabled          bool   `json:"group_buy_enabled"`
-	GroupBuyProductName      string `json:"group_buy_product_name"`
-	GroupBuyDescription      string `json:"group_buy_description"`
-	PixelCafeEnabled         bool   `json:"pixel_cafe_enabled"`
-	PixelCafeTitle           string `json:"pixel_cafe_title"`
-	PixelCafeDescription     string `json:"pixel_cafe_description"`
-	PixelCafeHeaderVisible   bool   `json:"pixel_cafe_header_visible"`
+	AvailableChannelsEnabled   bool                       `json:"available_channels_enabled"`
+	ModelPlazaEnabled          bool                       `json:"model_plaza_enabled"`
+	ModelPlazaRequireAuth      bool                       `json:"model_plaza_require_auth"`
+	GroupBuyEnabled            bool                       `json:"group_buy_enabled"`
+	GroupBuyProductName        string                     `json:"group_buy_product_name"`
+	GroupBuyDescription        string                     `json:"group_buy_description"`
+	PixelCafeEnabled           bool                       `json:"pixel_cafe_enabled"`
+	PixelCafeTitle             string                     `json:"pixel_cafe_title"`
+	PixelCafeDescription       string                     `json:"pixel_cafe_description"`
+	PixelCafeHeaderVisible     bool                       `json:"pixel_cafe_header_visible"`
+	PixelCafeWorkstationLayout PixelCafeWorkstationLayout `json:"pixel_cafe_workstation_layout"`
 
 	// Affiliate (邀请返利) feature toggle
 	AffiliateEnabled bool `json:"affiliate_enabled"`

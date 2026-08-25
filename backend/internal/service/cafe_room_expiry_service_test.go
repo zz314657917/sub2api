@@ -77,6 +77,56 @@ func TestCafeRoomExpiryReclaimsManagedFactsAndCompletesRound(t *testing.T) {
 	require.Len(t, invalidator.keys, 2)
 }
 
+func TestCafeRoomExpiryReclaimsMembershipOnceAndExpiresAllPaymentBatches(t *testing.T) {
+	ctx := context.Background()
+	fixture := newCafeMembershipFixture(t, "cafe_membership_expiry")
+	_, err := fixture.service.AssignAccountAndActivateRound(ctx, fixture.round.ID, fixture.account.ID)
+	require.NoError(t, err)
+	expiresAt := fixture.now.AddDate(0, 0, 30)
+	invalidator := &cafeExpiryCacheInvalidatorStub{}
+	svc := NewCafeRoomExpiryService(fixture.client, invalidator)
+	svc.now = func() time.Time { return expiresAt }
+
+	count, err := svc.ExpireCafeRounds(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+	require.Len(t, invalidator.keys, 2)
+	round, err := fixture.client.GroupBuyRound.Get(ctx, fixture.round.ID)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuyRoundStatusCompleted, round.Status)
+	memberships, err := fixture.client.CafeRoundMembership.Query().All(ctx)
+	require.NoError(t, err)
+	require.Len(t, memberships, 2)
+	for _, membership := range memberships {
+		require.Equal(t, GroupBuySeatStatusExpired, membership.Status)
+	}
+	batches, err := fixture.client.GroupBuySeat.Query().Where(groupbuyseat.RoundIDEQ(fixture.round.ID)).All(ctx)
+	require.NoError(t, err)
+	require.Len(t, batches, 3)
+	for _, batch := range batches {
+		require.Equal(t, GroupBuySeatStatusExpired, batch.Status)
+	}
+	bindings, err := fixture.client.APIKeyAccountBinding.Query().Where(apikeyaccountbinding.RoundIDEQ(fixture.round.ID)).All(ctx)
+	require.NoError(t, err)
+	require.Len(t, bindings, 2)
+	for _, binding := range bindings {
+		require.Equal(t, apiKeyAccountBindingStatusExpired, binding.Status)
+		require.Nil(t, binding.SeatID)
+		require.NotNil(t, binding.MembershipID)
+	}
+	keys, err := fixture.client.APIKey.Query().Where(apikey.ManagedSourceTypeEQ(APIKeyManagedSourceCafeRoomMembership)).All(ctx)
+	require.NoError(t, err)
+	require.Len(t, keys, 2)
+	for _, key := range keys {
+		require.Equal(t, StatusAPIKeyExpired, key.Status)
+	}
+
+	count, err = svc.ExpireCafeRounds(ctx)
+	require.NoError(t, err)
+	require.Zero(t, count)
+	require.Len(t, invalidator.keys, 2)
+}
+
 func TestCafeRoomExpiryRollsBackInconsistentRoundWithoutCacheInvalidation(t *testing.T) {
 	ctx := context.Background()
 	client := newGroupBuyTestClient(t, "cafe_room_expiry_inconsistent")

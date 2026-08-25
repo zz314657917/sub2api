@@ -32,6 +32,52 @@ func (GroupBuyRound) Fields() []ent.Field {
 		field.Int64("assigned_account_id").
 			Optional().
 			Nillable(),
+		field.String("cafe_fulfillment_version").
+			MaxLen(32).
+			Default("legacy_seat"),
+		field.String("subscription_tier").
+			MaxLen(16).
+			Optional().
+			Nillable(),
+		field.Int("max_buyers").
+			Optional().
+			Nillable(),
+		field.Int("max_shares_per_user").
+			Optional().
+			Nillable(),
+		field.Int("fulfillment_timeout_minutes").
+			Optional().
+			Nillable(),
+		field.Int("validity_days_snapshot").
+			Optional().
+			Nillable(),
+		field.Int64("target_group_id_snapshot").
+			Optional().
+			Nillable(),
+		field.String("platform_snapshot").
+			MaxLen(64).
+			Optional().
+			Nillable(),
+		field.Float("quota_per_share_snapshot").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
+		field.Float("rate_limit_5h_per_share_snapshot").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
+		field.Float("rate_limit_1d_per_share_snapshot").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
+		field.Float("rate_limit_7d_per_share_snapshot").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
+		field.Time("fulfillment_deadline_at").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
 		field.String("room_code_snapshot").
 			Optional().
 			Nillable(),
@@ -114,6 +160,7 @@ func (GroupBuyRound) Edges() []ent.Edge {
 			Field("assigned_account_id").
 			Unique(),
 		edge.To("account_bindings", APIKeyAccountBinding.Type),
+		edge.To("cafe_memberships", CafeRoundMembership.Type),
 	}
 }
 
@@ -122,6 +169,7 @@ func (GroupBuyRound) Indexes() []ent.Index {
 		index.Fields("plan_id"),
 		index.Fields("cafe_room_id"),
 		index.Fields("assigned_account_id"),
+		index.Fields("fulfillment_deadline_at"),
 		index.Fields("activation_token").
 			Unique().
 			Annotations(entsql.IndexWhere("activation_token IS NOT NULL")),

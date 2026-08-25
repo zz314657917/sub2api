@@ -25,7 +25,7 @@ func NewCafeHandler(cafeService *service.CafePublicService, orderService *servic
 }
 
 type createCafeRoomOrderRequest struct {
-	SeatNo            int    `json:"seat_no" binding:"required"`
+	ShareCount        int    `json:"share_count" binding:"required"`
 	PaymentType       string `json:"payment_type" binding:"required"`
 	OpenID            string `json:"openid"`
 	ReturnURL         string `json:"return_url"`
@@ -172,8 +172,8 @@ func (h *CafeHandler) CreateOrder(c *gin.Context) {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
-	if req.SeatNo <= 0 || strings.TrimSpace(req.PaymentType) == "" {
-		response.BadRequest(c, "Invalid request: seat_no and payment_type are required")
+	if req.ShareCount <= 0 || strings.TrimSpace(req.PaymentType) == "" {
+		response.BadRequest(c, "Invalid request: share_count and payment_type are required")
 		return
 	}
 	mobile := isMobile(c)
@@ -188,7 +188,7 @@ func (h *CafeHandler) CreateOrder(c *gin.Context) {
 		return h.orderService.CreateOrder(ctx, service.CafeRoomOrderInput{
 			UserID:            subject.UserID,
 			RoomID:            roomID,
-			SeatNo:            req.SeatNo,
+			ShareCount:        req.ShareCount,
 			PaymentType:       req.PaymentType,
 			OpenID:            req.OpenID,
 			ClientIP:          c.ClientIP(),

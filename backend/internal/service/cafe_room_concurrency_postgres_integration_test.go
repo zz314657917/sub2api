@@ -33,7 +33,7 @@ type cafeRoomPostgresOrderResult struct {
 func TestCafeRoomPostgresConcurrencyIntegration(t *testing.T) {
 	client := newCafeRoomOrderPostgresIntegrationClient(t)
 
-	t.Run("one final seat winner across one hundred distinct requests", func(t *testing.T) {
+	t.Run("one final share winner across one hundred distinct requests", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 150*time.Second)
 		defer cancel()
 
@@ -59,7 +59,7 @@ func TestCafeRoomPostgresConcurrencyIntegration(t *testing.T) {
 				winnerOrderID = result.orderID
 				continue
 			}
-			require.ErrorIs(t, result.err, ErrCafeSeatUnavailable)
+			require.ErrorIs(t, result.err, ErrCafeShareUnavailable)
 			require.Zero(t, result.orderID)
 		}
 		require.Len(t, results, cafeRoomPostgresConcurrencyCalls)
@@ -76,8 +76,9 @@ func TestCafeRoomPostgresConcurrencyIntegration(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, seats, 1)
 		require.Equal(t, GroupBuySeatStatusLocked, seats[0].Status)
-		require.NotNil(t, seats[0].SeatNo)
-		require.Equal(t, 1, *seats[0].SeatNo)
+		require.Nil(t, seats[0].SeatNo)
+		require.NotNil(t, seats[0].MembershipID)
+		require.Equal(t, 1, seats[0].ShareCount)
 		require.NotNil(t, seats[0].OrderID)
 		require.Equal(t, winnerOrderID, *seats[0].OrderID)
 
@@ -172,7 +173,9 @@ func TestCafeRoomPostgresConcurrencyIntegration(t *testing.T) {
 		require.Len(t, bindings, cafeRoomPostgresActivationSeats)
 		seenBindingSeats := make(map[int64]struct{}, len(bindings))
 		for _, binding := range bindings {
-			seat, ok := seatsByID[binding.SeatID]
+			require.NotNil(t, binding.SeatID)
+			seatID := *binding.SeatID
+			seat, ok := seatsByID[seatID]
 			require.True(t, ok)
 			require.Equal(t, keyIDsBySeat[seat.ID], binding.APIKeyID)
 			require.Equal(t, seat.UserID, binding.UserID)
@@ -183,9 +186,9 @@ func TestCafeRoomPostgresConcurrencyIntegration(t *testing.T) {
 			require.True(t, binding.StrictMode)
 			require.Equal(t, *round.ActivatedAt, binding.StartsAt)
 			require.Equal(t, *round.EntitlementExpiresAt, binding.ExpiresAt)
-			_, duplicate := seenBindingSeats[binding.SeatID]
+			_, duplicate := seenBindingSeats[seatID]
 			require.False(t, duplicate)
-			seenBindingSeats[binding.SeatID] = struct{}{}
+			seenBindingSeats[seatID] = struct{}{}
 		}
 
 		activationEvents, err := client.GroupBuyEvent.Query().Where(

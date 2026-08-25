@@ -7,6 +7,7 @@ import type {
   CafeRoomInput,
   CafeRoomUpdateInput,
   CafeRound,
+  CafeWorkstationPosition,
 } from '@/types/pixelCafe'
 
 export interface CafeRoomListParams {
@@ -25,6 +26,22 @@ export interface CafeRoomAccountOption {
   platform: string
   status: string
   email_masked?: string
+  plan_type?: string
+}
+
+export interface CafePendingRound {
+  id: number
+  status: string
+  room_id: number
+  room_code: string
+  room_name: string
+  subscription_tier: 'plus' | 'pro'
+  paid_shares: number
+  total_shares: number
+  joined_buyers: number
+  max_buyers: number
+  paid_full_at?: string | null
+  fulfillment_deadline_at?: string | null
 }
 
 export interface CafeRoomAccountOptionParams {
@@ -37,6 +54,14 @@ export interface CafeRoomAccountOptionParams {
 }
 
 const cafeRoomsAPI = {
+  getWorkstationLayout() {
+    return apiClient.get<CafeWorkstationPosition[]>('/admin/cafe/layout')
+  },
+
+  updateWorkstationLayout(layout: CafeWorkstationPosition[]) {
+    return apiClient.put<CafeWorkstationPosition[]>('/admin/cafe/layout', layout)
+  },
+
   list(params?: CafeRoomListParams) {
     return apiClient.get<PaginatedResponse<CafeRoom>>('/admin/cafe/rooms', { params })
   },
@@ -69,6 +94,18 @@ const cafeRoomsAPI = {
 
   openRound(id: number) {
     return apiClient.post<CafeRound>(`/admin/cafe/rooms/${id}/open-round`)
+  },
+
+  listPendingRounds(params?: { page?: number; page_size?: number; search?: string }) {
+    return apiClient.get<PaginatedResponse<CafePendingRound>>('/admin/cafe/rounds/pending', { params })
+  },
+
+  listRoundAccountOptions(roundID: number, params?: { page?: number; page_size?: number; search?: string }) {
+    return apiClient.get<PaginatedResponse<CafeRoomAccountOption>>(`/admin/cafe/rounds/${roundID}/account-options`, { params })
+  },
+
+  assignRoundAccount(roundID: number, accountID: number) {
+    return apiClient.post<CafePendingRound>(`/admin/cafe/rounds/${roundID}/assign-account`, { account_id: accountID })
   },
 }
 

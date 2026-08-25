@@ -13,6 +13,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
 	"github.com/Wei-Shaw/sub2api/ent/caferoom"
+	"github.com/Wei-Shaw/sub2api/ent/caferoundmembership"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
@@ -41,7 +42,9 @@ type APIKeyAccountBinding struct {
 	// RoundID holds the value of the "round_id" field.
 	RoundID int64 `json:"round_id,omitempty"`
 	// SeatID holds the value of the "seat_id" field.
-	SeatID int64 `json:"seat_id,omitempty"`
+	SeatID *int64 `json:"seat_id,omitempty"`
+	// MembershipID holds the value of the "membership_id" field.
+	MembershipID *int64 `json:"membership_id,omitempty"`
 	// Status holds the value of the "status" field.
 	Status string `json:"status,omitempty"`
 	// StrictMode holds the value of the "strict_mode" field.
@@ -76,9 +79,11 @@ type APIKeyAccountBindingEdges struct {
 	Round *GroupBuyRound `json:"round,omitempty"`
 	// Seat holds the value of the seat edge.
 	Seat *GroupBuySeat `json:"seat,omitempty"`
+	// Membership holds the value of the membership edge.
+	Membership *CafeRoundMembership `json:"membership,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [7]bool
+	loadedTypes [8]bool
 }
 
 // APIKeyOrErr returns the APIKey value or an error if the edge
@@ -158,6 +163,17 @@ func (e APIKeyAccountBindingEdges) SeatOrErr() (*GroupBuySeat, error) {
 	return nil, &NotLoadedError{edge: "seat"}
 }
 
+// MembershipOrErr returns the Membership value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e APIKeyAccountBindingEdges) MembershipOrErr() (*CafeRoundMembership, error) {
+	if e.Membership != nil {
+		return e.Membership, nil
+	} else if e.loadedTypes[7] {
+		return nil, &NotFoundError{label: caferoundmembership.Label}
+	}
+	return nil, &NotLoadedError{edge: "membership"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*APIKeyAccountBinding) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -165,7 +181,7 @@ func (*APIKeyAccountBinding) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case apikeyaccountbinding.FieldStrictMode:
 			values[i] = new(sql.NullBool)
-		case apikeyaccountbinding.FieldID, apikeyaccountbinding.FieldAPIKeyID, apikeyaccountbinding.FieldUserID, apikeyaccountbinding.FieldGroupID, apikeyaccountbinding.FieldAccountID, apikeyaccountbinding.FieldCafeRoomID, apikeyaccountbinding.FieldRoundID, apikeyaccountbinding.FieldSeatID, apikeyaccountbinding.FieldReplacedByBindingID:
+		case apikeyaccountbinding.FieldID, apikeyaccountbinding.FieldAPIKeyID, apikeyaccountbinding.FieldUserID, apikeyaccountbinding.FieldGroupID, apikeyaccountbinding.FieldAccountID, apikeyaccountbinding.FieldCafeRoomID, apikeyaccountbinding.FieldRoundID, apikeyaccountbinding.FieldSeatID, apikeyaccountbinding.FieldMembershipID, apikeyaccountbinding.FieldReplacedByBindingID:
 			values[i] = new(sql.NullInt64)
 		case apikeyaccountbinding.FieldStatus:
 			values[i] = new(sql.NullString)
@@ -244,7 +260,15 @@ func (_m *APIKeyAccountBinding) assignValues(columns []string, values []any) err
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for field seat_id", values[i])
 			} else if value.Valid {
-				_m.SeatID = value.Int64
+				_m.SeatID = new(int64)
+				*_m.SeatID = value.Int64
+			}
+		case apikeyaccountbinding.FieldMembershipID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field membership_id", values[i])
+			} else if value.Valid {
+				_m.MembershipID = new(int64)
+				*_m.MembershipID = value.Int64
 			}
 		case apikeyaccountbinding.FieldStatus:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -332,6 +356,11 @@ func (_m *APIKeyAccountBinding) QuerySeat() *GroupBuySeatQuery {
 	return NewAPIKeyAccountBindingClient(_m.config).QuerySeat(_m)
 }
 
+// QueryMembership queries the "membership" edge of the APIKeyAccountBinding entity.
+func (_m *APIKeyAccountBinding) QueryMembership() *CafeRoundMembershipQuery {
+	return NewAPIKeyAccountBindingClient(_m.config).QueryMembership(_m)
+}
+
 // Update returns a builder for updating this APIKeyAccountBinding.
 // Note that you need to call APIKeyAccountBinding.Unwrap() before calling this method if this APIKeyAccountBinding
 // was returned from a transaction, and the transaction was committed or rolled back.
@@ -379,8 +408,15 @@ func (_m *APIKeyAccountBinding) String() string {
 	builder.WriteString("round_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.RoundID))
 	builder.WriteString(", ")
-	builder.WriteString("seat_id=")
-	builder.WriteString(fmt.Sprintf("%v", _m.SeatID))
+	if v := _m.SeatID; v != nil {
+		builder.WriteString("seat_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.MembershipID; v != nil {
+		builder.WriteString("membership_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(_m.Status)

@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
+	"github.com/Wei-Shaw/sub2api/ent/caferoundmembership"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyrefund"
@@ -97,6 +98,26 @@ func (_u *GroupBuySeatUpdate) SetNillableOrderID(v *int64) *GroupBuySeatUpdate {
 // ClearOrderID clears the value of the "order_id" field.
 func (_u *GroupBuySeatUpdate) ClearOrderID() *GroupBuySeatUpdate {
 	_u.mutation.ClearOrderID()
+	return _u
+}
+
+// SetMembershipID sets the "membership_id" field.
+func (_u *GroupBuySeatUpdate) SetMembershipID(v int64) *GroupBuySeatUpdate {
+	_u.mutation.SetMembershipID(v)
+	return _u
+}
+
+// SetNillableMembershipID sets the "membership_id" field if the given value is not nil.
+func (_u *GroupBuySeatUpdate) SetNillableMembershipID(v *int64) *GroupBuySeatUpdate {
+	if v != nil {
+		_u.SetMembershipID(*v)
+	}
+	return _u
+}
+
+// ClearMembershipID clears the value of the "membership_id" field.
+func (_u *GroupBuySeatUpdate) ClearMembershipID() *GroupBuySeatUpdate {
+	_u.mutation.ClearMembershipID()
 	return _u
 }
 
@@ -388,6 +409,11 @@ func (_u *GroupBuySeatUpdate) SetOrder(v *PaymentOrder) *GroupBuySeatUpdate {
 	return _u.SetOrderID(v.ID)
 }
 
+// SetMembership sets the "membership" edge to the CafeRoundMembership entity.
+func (_u *GroupBuySeatUpdate) SetMembership(v *CafeRoundMembership) *GroupBuySeatUpdate {
+	return _u.SetMembershipID(v.ID)
+}
+
 // SetSubscription sets the "subscription" edge to the UserSubscription entity.
 func (_u *GroupBuySeatUpdate) SetSubscription(v *UserSubscription) *GroupBuySeatUpdate {
 	return _u.SetSubscriptionID(v.ID)
@@ -469,6 +495,12 @@ func (_u *GroupBuySeatUpdate) ClearUser() *GroupBuySeatUpdate {
 // ClearOrder clears the "order" edge to the PaymentOrder entity.
 func (_u *GroupBuySeatUpdate) ClearOrder() *GroupBuySeatUpdate {
 	_u.mutation.ClearOrder()
+	return _u
+}
+
+// ClearMembership clears the "membership" edge to the CafeRoundMembership entity.
+func (_u *GroupBuySeatUpdate) ClearMembership() *GroupBuySeatUpdate {
+	_u.mutation.ClearMembership()
 	return _u
 }
 
@@ -799,6 +831,35 @@ func (_u *GroupBuySeatUpdate) sqlSave(ctx context.Context) (_node int, err error
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.MembershipCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   groupbuyseat.MembershipTable,
+			Columns: []string{groupbuyseat.MembershipColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoundmembership.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.MembershipIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   groupbuyseat.MembershipTable,
+			Columns: []string{groupbuyseat.MembershipColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoundmembership.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.SubscriptionCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -1071,6 +1132,26 @@ func (_u *GroupBuySeatUpdateOne) SetNillableOrderID(v *int64) *GroupBuySeatUpdat
 // ClearOrderID clears the value of the "order_id" field.
 func (_u *GroupBuySeatUpdateOne) ClearOrderID() *GroupBuySeatUpdateOne {
 	_u.mutation.ClearOrderID()
+	return _u
+}
+
+// SetMembershipID sets the "membership_id" field.
+func (_u *GroupBuySeatUpdateOne) SetMembershipID(v int64) *GroupBuySeatUpdateOne {
+	_u.mutation.SetMembershipID(v)
+	return _u
+}
+
+// SetNillableMembershipID sets the "membership_id" field if the given value is not nil.
+func (_u *GroupBuySeatUpdateOne) SetNillableMembershipID(v *int64) *GroupBuySeatUpdateOne {
+	if v != nil {
+		_u.SetMembershipID(*v)
+	}
+	return _u
+}
+
+// ClearMembershipID clears the value of the "membership_id" field.
+func (_u *GroupBuySeatUpdateOne) ClearMembershipID() *GroupBuySeatUpdateOne {
+	_u.mutation.ClearMembershipID()
 	return _u
 }
 
@@ -1362,6 +1443,11 @@ func (_u *GroupBuySeatUpdateOne) SetOrder(v *PaymentOrder) *GroupBuySeatUpdateOn
 	return _u.SetOrderID(v.ID)
 }
 
+// SetMembership sets the "membership" edge to the CafeRoundMembership entity.
+func (_u *GroupBuySeatUpdateOne) SetMembership(v *CafeRoundMembership) *GroupBuySeatUpdateOne {
+	return _u.SetMembershipID(v.ID)
+}
+
 // SetSubscription sets the "subscription" edge to the UserSubscription entity.
 func (_u *GroupBuySeatUpdateOne) SetSubscription(v *UserSubscription) *GroupBuySeatUpdateOne {
 	return _u.SetSubscriptionID(v.ID)
@@ -1443,6 +1529,12 @@ func (_u *GroupBuySeatUpdateOne) ClearUser() *GroupBuySeatUpdateOne {
 // ClearOrder clears the "order" edge to the PaymentOrder entity.
 func (_u *GroupBuySeatUpdateOne) ClearOrder() *GroupBuySeatUpdateOne {
 	_u.mutation.ClearOrder()
+	return _u
+}
+
+// ClearMembership clears the "membership" edge to the CafeRoundMembership entity.
+func (_u *GroupBuySeatUpdateOne) ClearMembership() *GroupBuySeatUpdateOne {
+	_u.mutation.ClearMembership()
 	return _u
 }
 
@@ -1796,6 +1888,35 @@ func (_u *GroupBuySeatUpdateOne) sqlSave(ctx context.Context) (_node *GroupBuySe
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(paymentorder.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.MembershipCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   groupbuyseat.MembershipTable,
+			Columns: []string{groupbuyseat.MembershipColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoundmembership.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.MembershipIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   groupbuyseat.MembershipTable,
+			Columns: []string{groupbuyseat.MembershipColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoundmembership.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

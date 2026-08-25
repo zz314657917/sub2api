@@ -187,6 +187,11 @@ func registerGroupBuyRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 }
 
 func registerCafeRoomRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	layout := admin.Group("/cafe/layout")
+	{
+		layout.GET("", h.Admin.CafeRoom.GetWorkstationLayout)
+		layout.PUT("", h.Admin.CafeRoom.UpdateWorkstationLayout)
+	}
 	rooms := admin.Group("/cafe/rooms")
 	{
 		rooms.GET("", h.Admin.CafeRoom.List)
@@ -197,6 +202,12 @@ func registerCafeRoomRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		rooms.PATCH("/:id", h.Admin.CafeRoom.Update)
 		rooms.DELETE("/:id", h.Admin.CafeRoom.Delete)
 		rooms.POST("/:id/open-round", h.Admin.CafeRoom.OpenRound)
+	}
+	rounds := admin.Group("/cafe/rounds")
+	{
+		rounds.GET("/pending", h.Admin.CafeRoom.ListPendingRounds)
+		rounds.GET("/:id/account-options", h.Admin.CafeRoom.ListRoundAccountOptions)
+		rounds.POST("/:id/assign-account", h.Admin.CafeRoom.AssignRoundAccount)
 	}
 }
 

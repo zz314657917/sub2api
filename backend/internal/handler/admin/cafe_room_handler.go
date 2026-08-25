@@ -1,6 +1,8 @@
 package admin
 
 import (
+	"context"
+	"net/http"
 	"strconv"
 	"strings"
 
@@ -12,11 +14,52 @@ import (
 )
 
 type CafeRoomHandler struct {
-	service *service.CafeRoomService
+	service    *service.CafeRoomService
+	activation cafeRoundFulfillmentService
+	settings   cafeWorkstationLayoutService
+}
+
+type cafeWorkstationLayoutService interface {
+	GetPixelCafeWorkstationLayout(context.Context) (service.PixelCafeWorkstationLayout, error)
+	SetPixelCafeWorkstationLayout(context.Context, service.PixelCafeWorkstationLayout) (service.PixelCafeWorkstationLayout, error)
+}
+
+type cafeRoundFulfillmentService interface {
+	ListPendingRounds(context.Context, service.CafePendingRoundParams) ([]service.CafePendingRound, *pagination.PaginationResult, error)
+	ListRoundAccountOptions(context.Context, int64, service.CafeRoundAccountOptionParams) ([]service.CafeRoundAccountOption, *pagination.PaginationResult, error)
+	AssignAccountAndActivateRound(context.Context, int64, int64) (*service.CafePendingRound, error)
 }
 
 func NewCafeRoomHandler(cafeRoomService *service.CafeRoomService) *CafeRoomHandler {
 	return &CafeRoomHandler{service: cafeRoomService}
+}
+
+func NewCafeRoomHandlerWithActivation(cafeRoomService *service.CafeRoomService, activation *service.CafeRoomActivationService, settings *service.SettingService) *CafeRoomHandler {
+	return &CafeRoomHandler{service: cafeRoomService, activation: activation, settings: settings}
+}
+
+func (h *CafeRoomHandler) GetWorkstationLayout(c *gin.Context) {
+	layout, err := h.settings.GetPixelCafeWorkstationLayout(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, layout)
+}
+
+func (h *CafeRoomHandler) UpdateWorkstationLayout(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 4*1024)
+	var layout service.PixelCafeWorkstationLayout
+	if err := c.ShouldBindJSON(&layout); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	updated, err := h.settings.SetPixelCafeWorkstationLayout(c.Request.Context(), layout)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, updated)
 }
 
 func (h *CafeRoomHandler) List(c *gin.Context) {
@@ -138,6 +181,52 @@ func (h *CafeRoomHandler) OpenRound(c *gin.Context) {
 		return
 	}
 	response.Created(c, round)
+}
+
+func (h *CafeRoomHandler) ListPendingRounds(c *gin.Context) {
+	page, pageSize := response.ParsePagination(c)
+	items, result, err := h.activation.ListPendingRounds(c.Request.Context(), service.CafePendingRoundParams{Page: page, PageSize: pageSize, Search: strings.TrimSpace(c.Query("search"))})
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.PaginatedWithResult(c, items, &response.PaginationResult{Total: result.Total, Page: result.Page, PageSize: result.PageSize, Pages: result.Pages})
+}
+
+func (h *CafeRoomHandler) ListRoundAccountOptions(c *gin.Context) {
+	id, err := parseCafeRoomPositiveInt64Param(c, "id")
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	page, pageSize := response.ParsePagination(c)
+	items, result, err := h.activation.ListRoundAccountOptions(c.Request.Context(), id, service.CafeRoundAccountOptionParams{Page: page, PageSize: pageSize, Search: strings.TrimSpace(c.Query("search"))})
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.PaginatedWithResult(c, items, &response.PaginationResult{Total: result.Total, Page: result.Page, PageSize: result.PageSize, Pages: result.Pages})
+}
+
+func (h *CafeRoomHandler) AssignRoundAccount(c *gin.Context) {
+	id, err := parseCafeRoomPositiveInt64Param(c, "id")
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	var req struct {
+		AccountID int64 `json:"account_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.AccountID <= 0 {
+		response.ErrorFrom(c, infraerrors.BadRequest("INVALID_ID", "account_id is invalid"))
+		return
+	}
+	item, err := h.activation.AssignAccountAndActivateRound(c.Request.Context(), id, req.AccountID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, item)
 }
 
 func parseCafeRoomPositiveInt64Param(c *gin.Context, name string) (int64, error) {

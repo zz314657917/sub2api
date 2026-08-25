@@ -70,6 +70,71 @@ func AssignedAccountID(v int64) predicate.GroupBuyRound {
 	return predicate.GroupBuyRound(sql.FieldEQ(FieldAssignedAccountID, v))
 }
 
+// CafeFulfillmentVersion applies equality check predicate on the "cafe_fulfillment_version" field. It's identical to CafeFulfillmentVersionEQ.
+func CafeFulfillmentVersion(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldCafeFulfillmentVersion, v))
+}
+
+// SubscriptionTier applies equality check predicate on the "subscription_tier" field. It's identical to SubscriptionTierEQ.
+func SubscriptionTier(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldSubscriptionTier, v))
+}
+
+// MaxBuyers applies equality check predicate on the "max_buyers" field. It's identical to MaxBuyersEQ.
+func MaxBuyers(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldMaxBuyers, v))
+}
+
+// MaxSharesPerUser applies equality check predicate on the "max_shares_per_user" field. It's identical to MaxSharesPerUserEQ.
+func MaxSharesPerUser(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldMaxSharesPerUser, v))
+}
+
+// FulfillmentTimeoutMinutes applies equality check predicate on the "fulfillment_timeout_minutes" field. It's identical to FulfillmentTimeoutMinutesEQ.
+func FulfillmentTimeoutMinutes(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldFulfillmentTimeoutMinutes, v))
+}
+
+// ValidityDaysSnapshot applies equality check predicate on the "validity_days_snapshot" field. It's identical to ValidityDaysSnapshotEQ.
+func ValidityDaysSnapshot(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldValidityDaysSnapshot, v))
+}
+
+// TargetGroupIDSnapshot applies equality check predicate on the "target_group_id_snapshot" field. It's identical to TargetGroupIDSnapshotEQ.
+func TargetGroupIDSnapshot(v int64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldTargetGroupIDSnapshot, v))
+}
+
+// PlatformSnapshot applies equality check predicate on the "platform_snapshot" field. It's identical to PlatformSnapshotEQ.
+func PlatformSnapshot(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldPlatformSnapshot, v))
+}
+
+// QuotaPerShareSnapshot applies equality check predicate on the "quota_per_share_snapshot" field. It's identical to QuotaPerShareSnapshotEQ.
+func QuotaPerShareSnapshot(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldQuotaPerShareSnapshot, v))
+}
+
+// RateLimit5hPerShareSnapshot applies equality check predicate on the "rate_limit_5h_per_share_snapshot" field. It's identical to RateLimit5hPerShareSnapshotEQ.
+func RateLimit5hPerShareSnapshot(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldRateLimit5hPerShareSnapshot, v))
+}
+
+// RateLimit1dPerShareSnapshot applies equality check predicate on the "rate_limit_1d_per_share_snapshot" field. It's identical to RateLimit1dPerShareSnapshotEQ.
+func RateLimit1dPerShareSnapshot(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldRateLimit1dPerShareSnapshot, v))
+}
+
+// RateLimit7dPerShareSnapshot applies equality check predicate on the "rate_limit_7d_per_share_snapshot" field. It's identical to RateLimit7dPerShareSnapshotEQ.
+func RateLimit7dPerShareSnapshot(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldRateLimit7dPerShareSnapshot, v))
+}
+
+// FulfillmentDeadlineAt applies equality check predicate on the "fulfillment_deadline_at" field. It's identical to FulfillmentDeadlineAtEQ.
+func FulfillmentDeadlineAt(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldFulfillmentDeadlineAt, v))
+}
+
 // RoomCodeSnapshot applies equality check predicate on the "room_code_snapshot" field. It's identical to RoomCodeSnapshotEQ.
 func RoomCodeSnapshot(v string) predicate.GroupBuyRound {
 	return predicate.GroupBuyRound(sql.FieldEQ(FieldRoomCodeSnapshot, v))
@@ -243,6 +308,721 @@ func AssignedAccountIDIsNil() predicate.GroupBuyRound {
 // AssignedAccountIDNotNil applies the NotNil predicate on the "assigned_account_id" field.
 func AssignedAccountIDNotNil() predicate.GroupBuyRound {
 	return predicate.GroupBuyRound(sql.FieldNotNull(FieldAssignedAccountID))
+}
+
+// CafeFulfillmentVersionEQ applies the EQ predicate on the "cafe_fulfillment_version" field.
+func CafeFulfillmentVersionEQ(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldCafeFulfillmentVersion, v))
+}
+
+// CafeFulfillmentVersionNEQ applies the NEQ predicate on the "cafe_fulfillment_version" field.
+func CafeFulfillmentVersionNEQ(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNEQ(FieldCafeFulfillmentVersion, v))
+}
+
+// CafeFulfillmentVersionIn applies the In predicate on the "cafe_fulfillment_version" field.
+func CafeFulfillmentVersionIn(vs ...string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIn(FieldCafeFulfillmentVersion, vs...))
+}
+
+// CafeFulfillmentVersionNotIn applies the NotIn predicate on the "cafe_fulfillment_version" field.
+func CafeFulfillmentVersionNotIn(vs ...string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotIn(FieldCafeFulfillmentVersion, vs...))
+}
+
+// CafeFulfillmentVersionGT applies the GT predicate on the "cafe_fulfillment_version" field.
+func CafeFulfillmentVersionGT(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGT(FieldCafeFulfillmentVersion, v))
+}
+
+// CafeFulfillmentVersionGTE applies the GTE predicate on the "cafe_fulfillment_version" field.
+func CafeFulfillmentVersionGTE(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGTE(FieldCafeFulfillmentVersion, v))
+}
+
+// CafeFulfillmentVersionLT applies the LT predicate on the "cafe_fulfillment_version" field.
+func CafeFulfillmentVersionLT(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLT(FieldCafeFulfillmentVersion, v))
+}
+
+// CafeFulfillmentVersionLTE applies the LTE predicate on the "cafe_fulfillment_version" field.
+func CafeFulfillmentVersionLTE(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLTE(FieldCafeFulfillmentVersion, v))
+}
+
+// CafeFulfillmentVersionContains applies the Contains predicate on the "cafe_fulfillment_version" field.
+func CafeFulfillmentVersionContains(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldContains(FieldCafeFulfillmentVersion, v))
+}
+
+// CafeFulfillmentVersionHasPrefix applies the HasPrefix predicate on the "cafe_fulfillment_version" field.
+func CafeFulfillmentVersionHasPrefix(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldHasPrefix(FieldCafeFulfillmentVersion, v))
+}
+
+// CafeFulfillmentVersionHasSuffix applies the HasSuffix predicate on the "cafe_fulfillment_version" field.
+func CafeFulfillmentVersionHasSuffix(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldHasSuffix(FieldCafeFulfillmentVersion, v))
+}
+
+// CafeFulfillmentVersionEqualFold applies the EqualFold predicate on the "cafe_fulfillment_version" field.
+func CafeFulfillmentVersionEqualFold(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEqualFold(FieldCafeFulfillmentVersion, v))
+}
+
+// CafeFulfillmentVersionContainsFold applies the ContainsFold predicate on the "cafe_fulfillment_version" field.
+func CafeFulfillmentVersionContainsFold(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldContainsFold(FieldCafeFulfillmentVersion, v))
+}
+
+// SubscriptionTierEQ applies the EQ predicate on the "subscription_tier" field.
+func SubscriptionTierEQ(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldSubscriptionTier, v))
+}
+
+// SubscriptionTierNEQ applies the NEQ predicate on the "subscription_tier" field.
+func SubscriptionTierNEQ(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNEQ(FieldSubscriptionTier, v))
+}
+
+// SubscriptionTierIn applies the In predicate on the "subscription_tier" field.
+func SubscriptionTierIn(vs ...string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIn(FieldSubscriptionTier, vs...))
+}
+
+// SubscriptionTierNotIn applies the NotIn predicate on the "subscription_tier" field.
+func SubscriptionTierNotIn(vs ...string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotIn(FieldSubscriptionTier, vs...))
+}
+
+// SubscriptionTierGT applies the GT predicate on the "subscription_tier" field.
+func SubscriptionTierGT(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGT(FieldSubscriptionTier, v))
+}
+
+// SubscriptionTierGTE applies the GTE predicate on the "subscription_tier" field.
+func SubscriptionTierGTE(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGTE(FieldSubscriptionTier, v))
+}
+
+// SubscriptionTierLT applies the LT predicate on the "subscription_tier" field.
+func SubscriptionTierLT(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLT(FieldSubscriptionTier, v))
+}
+
+// SubscriptionTierLTE applies the LTE predicate on the "subscription_tier" field.
+func SubscriptionTierLTE(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLTE(FieldSubscriptionTier, v))
+}
+
+// SubscriptionTierContains applies the Contains predicate on the "subscription_tier" field.
+func SubscriptionTierContains(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldContains(FieldSubscriptionTier, v))
+}
+
+// SubscriptionTierHasPrefix applies the HasPrefix predicate on the "subscription_tier" field.
+func SubscriptionTierHasPrefix(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldHasPrefix(FieldSubscriptionTier, v))
+}
+
+// SubscriptionTierHasSuffix applies the HasSuffix predicate on the "subscription_tier" field.
+func SubscriptionTierHasSuffix(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldHasSuffix(FieldSubscriptionTier, v))
+}
+
+// SubscriptionTierIsNil applies the IsNil predicate on the "subscription_tier" field.
+func SubscriptionTierIsNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIsNull(FieldSubscriptionTier))
+}
+
+// SubscriptionTierNotNil applies the NotNil predicate on the "subscription_tier" field.
+func SubscriptionTierNotNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotNull(FieldSubscriptionTier))
+}
+
+// SubscriptionTierEqualFold applies the EqualFold predicate on the "subscription_tier" field.
+func SubscriptionTierEqualFold(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEqualFold(FieldSubscriptionTier, v))
+}
+
+// SubscriptionTierContainsFold applies the ContainsFold predicate on the "subscription_tier" field.
+func SubscriptionTierContainsFold(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldContainsFold(FieldSubscriptionTier, v))
+}
+
+// MaxBuyersEQ applies the EQ predicate on the "max_buyers" field.
+func MaxBuyersEQ(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldMaxBuyers, v))
+}
+
+// MaxBuyersNEQ applies the NEQ predicate on the "max_buyers" field.
+func MaxBuyersNEQ(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNEQ(FieldMaxBuyers, v))
+}
+
+// MaxBuyersIn applies the In predicate on the "max_buyers" field.
+func MaxBuyersIn(vs ...int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIn(FieldMaxBuyers, vs...))
+}
+
+// MaxBuyersNotIn applies the NotIn predicate on the "max_buyers" field.
+func MaxBuyersNotIn(vs ...int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotIn(FieldMaxBuyers, vs...))
+}
+
+// MaxBuyersGT applies the GT predicate on the "max_buyers" field.
+func MaxBuyersGT(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGT(FieldMaxBuyers, v))
+}
+
+// MaxBuyersGTE applies the GTE predicate on the "max_buyers" field.
+func MaxBuyersGTE(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGTE(FieldMaxBuyers, v))
+}
+
+// MaxBuyersLT applies the LT predicate on the "max_buyers" field.
+func MaxBuyersLT(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLT(FieldMaxBuyers, v))
+}
+
+// MaxBuyersLTE applies the LTE predicate on the "max_buyers" field.
+func MaxBuyersLTE(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLTE(FieldMaxBuyers, v))
+}
+
+// MaxBuyersIsNil applies the IsNil predicate on the "max_buyers" field.
+func MaxBuyersIsNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIsNull(FieldMaxBuyers))
+}
+
+// MaxBuyersNotNil applies the NotNil predicate on the "max_buyers" field.
+func MaxBuyersNotNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotNull(FieldMaxBuyers))
+}
+
+// MaxSharesPerUserEQ applies the EQ predicate on the "max_shares_per_user" field.
+func MaxSharesPerUserEQ(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldMaxSharesPerUser, v))
+}
+
+// MaxSharesPerUserNEQ applies the NEQ predicate on the "max_shares_per_user" field.
+func MaxSharesPerUserNEQ(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNEQ(FieldMaxSharesPerUser, v))
+}
+
+// MaxSharesPerUserIn applies the In predicate on the "max_shares_per_user" field.
+func MaxSharesPerUserIn(vs ...int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIn(FieldMaxSharesPerUser, vs...))
+}
+
+// MaxSharesPerUserNotIn applies the NotIn predicate on the "max_shares_per_user" field.
+func MaxSharesPerUserNotIn(vs ...int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotIn(FieldMaxSharesPerUser, vs...))
+}
+
+// MaxSharesPerUserGT applies the GT predicate on the "max_shares_per_user" field.
+func MaxSharesPerUserGT(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGT(FieldMaxSharesPerUser, v))
+}
+
+// MaxSharesPerUserGTE applies the GTE predicate on the "max_shares_per_user" field.
+func MaxSharesPerUserGTE(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGTE(FieldMaxSharesPerUser, v))
+}
+
+// MaxSharesPerUserLT applies the LT predicate on the "max_shares_per_user" field.
+func MaxSharesPerUserLT(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLT(FieldMaxSharesPerUser, v))
+}
+
+// MaxSharesPerUserLTE applies the LTE predicate on the "max_shares_per_user" field.
+func MaxSharesPerUserLTE(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLTE(FieldMaxSharesPerUser, v))
+}
+
+// MaxSharesPerUserIsNil applies the IsNil predicate on the "max_shares_per_user" field.
+func MaxSharesPerUserIsNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIsNull(FieldMaxSharesPerUser))
+}
+
+// MaxSharesPerUserNotNil applies the NotNil predicate on the "max_shares_per_user" field.
+func MaxSharesPerUserNotNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotNull(FieldMaxSharesPerUser))
+}
+
+// FulfillmentTimeoutMinutesEQ applies the EQ predicate on the "fulfillment_timeout_minutes" field.
+func FulfillmentTimeoutMinutesEQ(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldFulfillmentTimeoutMinutes, v))
+}
+
+// FulfillmentTimeoutMinutesNEQ applies the NEQ predicate on the "fulfillment_timeout_minutes" field.
+func FulfillmentTimeoutMinutesNEQ(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNEQ(FieldFulfillmentTimeoutMinutes, v))
+}
+
+// FulfillmentTimeoutMinutesIn applies the In predicate on the "fulfillment_timeout_minutes" field.
+func FulfillmentTimeoutMinutesIn(vs ...int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIn(FieldFulfillmentTimeoutMinutes, vs...))
+}
+
+// FulfillmentTimeoutMinutesNotIn applies the NotIn predicate on the "fulfillment_timeout_minutes" field.
+func FulfillmentTimeoutMinutesNotIn(vs ...int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotIn(FieldFulfillmentTimeoutMinutes, vs...))
+}
+
+// FulfillmentTimeoutMinutesGT applies the GT predicate on the "fulfillment_timeout_minutes" field.
+func FulfillmentTimeoutMinutesGT(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGT(FieldFulfillmentTimeoutMinutes, v))
+}
+
+// FulfillmentTimeoutMinutesGTE applies the GTE predicate on the "fulfillment_timeout_minutes" field.
+func FulfillmentTimeoutMinutesGTE(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGTE(FieldFulfillmentTimeoutMinutes, v))
+}
+
+// FulfillmentTimeoutMinutesLT applies the LT predicate on the "fulfillment_timeout_minutes" field.
+func FulfillmentTimeoutMinutesLT(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLT(FieldFulfillmentTimeoutMinutes, v))
+}
+
+// FulfillmentTimeoutMinutesLTE applies the LTE predicate on the "fulfillment_timeout_minutes" field.
+func FulfillmentTimeoutMinutesLTE(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLTE(FieldFulfillmentTimeoutMinutes, v))
+}
+
+// FulfillmentTimeoutMinutesIsNil applies the IsNil predicate on the "fulfillment_timeout_minutes" field.
+func FulfillmentTimeoutMinutesIsNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIsNull(FieldFulfillmentTimeoutMinutes))
+}
+
+// FulfillmentTimeoutMinutesNotNil applies the NotNil predicate on the "fulfillment_timeout_minutes" field.
+func FulfillmentTimeoutMinutesNotNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotNull(FieldFulfillmentTimeoutMinutes))
+}
+
+// ValidityDaysSnapshotEQ applies the EQ predicate on the "validity_days_snapshot" field.
+func ValidityDaysSnapshotEQ(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldValidityDaysSnapshot, v))
+}
+
+// ValidityDaysSnapshotNEQ applies the NEQ predicate on the "validity_days_snapshot" field.
+func ValidityDaysSnapshotNEQ(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNEQ(FieldValidityDaysSnapshot, v))
+}
+
+// ValidityDaysSnapshotIn applies the In predicate on the "validity_days_snapshot" field.
+func ValidityDaysSnapshotIn(vs ...int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIn(FieldValidityDaysSnapshot, vs...))
+}
+
+// ValidityDaysSnapshotNotIn applies the NotIn predicate on the "validity_days_snapshot" field.
+func ValidityDaysSnapshotNotIn(vs ...int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotIn(FieldValidityDaysSnapshot, vs...))
+}
+
+// ValidityDaysSnapshotGT applies the GT predicate on the "validity_days_snapshot" field.
+func ValidityDaysSnapshotGT(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGT(FieldValidityDaysSnapshot, v))
+}
+
+// ValidityDaysSnapshotGTE applies the GTE predicate on the "validity_days_snapshot" field.
+func ValidityDaysSnapshotGTE(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGTE(FieldValidityDaysSnapshot, v))
+}
+
+// ValidityDaysSnapshotLT applies the LT predicate on the "validity_days_snapshot" field.
+func ValidityDaysSnapshotLT(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLT(FieldValidityDaysSnapshot, v))
+}
+
+// ValidityDaysSnapshotLTE applies the LTE predicate on the "validity_days_snapshot" field.
+func ValidityDaysSnapshotLTE(v int) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLTE(FieldValidityDaysSnapshot, v))
+}
+
+// ValidityDaysSnapshotIsNil applies the IsNil predicate on the "validity_days_snapshot" field.
+func ValidityDaysSnapshotIsNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIsNull(FieldValidityDaysSnapshot))
+}
+
+// ValidityDaysSnapshotNotNil applies the NotNil predicate on the "validity_days_snapshot" field.
+func ValidityDaysSnapshotNotNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotNull(FieldValidityDaysSnapshot))
+}
+
+// TargetGroupIDSnapshotEQ applies the EQ predicate on the "target_group_id_snapshot" field.
+func TargetGroupIDSnapshotEQ(v int64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldTargetGroupIDSnapshot, v))
+}
+
+// TargetGroupIDSnapshotNEQ applies the NEQ predicate on the "target_group_id_snapshot" field.
+func TargetGroupIDSnapshotNEQ(v int64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNEQ(FieldTargetGroupIDSnapshot, v))
+}
+
+// TargetGroupIDSnapshotIn applies the In predicate on the "target_group_id_snapshot" field.
+func TargetGroupIDSnapshotIn(vs ...int64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIn(FieldTargetGroupIDSnapshot, vs...))
+}
+
+// TargetGroupIDSnapshotNotIn applies the NotIn predicate on the "target_group_id_snapshot" field.
+func TargetGroupIDSnapshotNotIn(vs ...int64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotIn(FieldTargetGroupIDSnapshot, vs...))
+}
+
+// TargetGroupIDSnapshotGT applies the GT predicate on the "target_group_id_snapshot" field.
+func TargetGroupIDSnapshotGT(v int64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGT(FieldTargetGroupIDSnapshot, v))
+}
+
+// TargetGroupIDSnapshotGTE applies the GTE predicate on the "target_group_id_snapshot" field.
+func TargetGroupIDSnapshotGTE(v int64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGTE(FieldTargetGroupIDSnapshot, v))
+}
+
+// TargetGroupIDSnapshotLT applies the LT predicate on the "target_group_id_snapshot" field.
+func TargetGroupIDSnapshotLT(v int64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLT(FieldTargetGroupIDSnapshot, v))
+}
+
+// TargetGroupIDSnapshotLTE applies the LTE predicate on the "target_group_id_snapshot" field.
+func TargetGroupIDSnapshotLTE(v int64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLTE(FieldTargetGroupIDSnapshot, v))
+}
+
+// TargetGroupIDSnapshotIsNil applies the IsNil predicate on the "target_group_id_snapshot" field.
+func TargetGroupIDSnapshotIsNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIsNull(FieldTargetGroupIDSnapshot))
+}
+
+// TargetGroupIDSnapshotNotNil applies the NotNil predicate on the "target_group_id_snapshot" field.
+func TargetGroupIDSnapshotNotNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotNull(FieldTargetGroupIDSnapshot))
+}
+
+// PlatformSnapshotEQ applies the EQ predicate on the "platform_snapshot" field.
+func PlatformSnapshotEQ(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldPlatformSnapshot, v))
+}
+
+// PlatformSnapshotNEQ applies the NEQ predicate on the "platform_snapshot" field.
+func PlatformSnapshotNEQ(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNEQ(FieldPlatformSnapshot, v))
+}
+
+// PlatformSnapshotIn applies the In predicate on the "platform_snapshot" field.
+func PlatformSnapshotIn(vs ...string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIn(FieldPlatformSnapshot, vs...))
+}
+
+// PlatformSnapshotNotIn applies the NotIn predicate on the "platform_snapshot" field.
+func PlatformSnapshotNotIn(vs ...string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotIn(FieldPlatformSnapshot, vs...))
+}
+
+// PlatformSnapshotGT applies the GT predicate on the "platform_snapshot" field.
+func PlatformSnapshotGT(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGT(FieldPlatformSnapshot, v))
+}
+
+// PlatformSnapshotGTE applies the GTE predicate on the "platform_snapshot" field.
+func PlatformSnapshotGTE(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGTE(FieldPlatformSnapshot, v))
+}
+
+// PlatformSnapshotLT applies the LT predicate on the "platform_snapshot" field.
+func PlatformSnapshotLT(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLT(FieldPlatformSnapshot, v))
+}
+
+// PlatformSnapshotLTE applies the LTE predicate on the "platform_snapshot" field.
+func PlatformSnapshotLTE(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLTE(FieldPlatformSnapshot, v))
+}
+
+// PlatformSnapshotContains applies the Contains predicate on the "platform_snapshot" field.
+func PlatformSnapshotContains(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldContains(FieldPlatformSnapshot, v))
+}
+
+// PlatformSnapshotHasPrefix applies the HasPrefix predicate on the "platform_snapshot" field.
+func PlatformSnapshotHasPrefix(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldHasPrefix(FieldPlatformSnapshot, v))
+}
+
+// PlatformSnapshotHasSuffix applies the HasSuffix predicate on the "platform_snapshot" field.
+func PlatformSnapshotHasSuffix(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldHasSuffix(FieldPlatformSnapshot, v))
+}
+
+// PlatformSnapshotIsNil applies the IsNil predicate on the "platform_snapshot" field.
+func PlatformSnapshotIsNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIsNull(FieldPlatformSnapshot))
+}
+
+// PlatformSnapshotNotNil applies the NotNil predicate on the "platform_snapshot" field.
+func PlatformSnapshotNotNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotNull(FieldPlatformSnapshot))
+}
+
+// PlatformSnapshotEqualFold applies the EqualFold predicate on the "platform_snapshot" field.
+func PlatformSnapshotEqualFold(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEqualFold(FieldPlatformSnapshot, v))
+}
+
+// PlatformSnapshotContainsFold applies the ContainsFold predicate on the "platform_snapshot" field.
+func PlatformSnapshotContainsFold(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldContainsFold(FieldPlatformSnapshot, v))
+}
+
+// QuotaPerShareSnapshotEQ applies the EQ predicate on the "quota_per_share_snapshot" field.
+func QuotaPerShareSnapshotEQ(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldQuotaPerShareSnapshot, v))
+}
+
+// QuotaPerShareSnapshotNEQ applies the NEQ predicate on the "quota_per_share_snapshot" field.
+func QuotaPerShareSnapshotNEQ(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNEQ(FieldQuotaPerShareSnapshot, v))
+}
+
+// QuotaPerShareSnapshotIn applies the In predicate on the "quota_per_share_snapshot" field.
+func QuotaPerShareSnapshotIn(vs ...float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIn(FieldQuotaPerShareSnapshot, vs...))
+}
+
+// QuotaPerShareSnapshotNotIn applies the NotIn predicate on the "quota_per_share_snapshot" field.
+func QuotaPerShareSnapshotNotIn(vs ...float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotIn(FieldQuotaPerShareSnapshot, vs...))
+}
+
+// QuotaPerShareSnapshotGT applies the GT predicate on the "quota_per_share_snapshot" field.
+func QuotaPerShareSnapshotGT(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGT(FieldQuotaPerShareSnapshot, v))
+}
+
+// QuotaPerShareSnapshotGTE applies the GTE predicate on the "quota_per_share_snapshot" field.
+func QuotaPerShareSnapshotGTE(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGTE(FieldQuotaPerShareSnapshot, v))
+}
+
+// QuotaPerShareSnapshotLT applies the LT predicate on the "quota_per_share_snapshot" field.
+func QuotaPerShareSnapshotLT(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLT(FieldQuotaPerShareSnapshot, v))
+}
+
+// QuotaPerShareSnapshotLTE applies the LTE predicate on the "quota_per_share_snapshot" field.
+func QuotaPerShareSnapshotLTE(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLTE(FieldQuotaPerShareSnapshot, v))
+}
+
+// QuotaPerShareSnapshotIsNil applies the IsNil predicate on the "quota_per_share_snapshot" field.
+func QuotaPerShareSnapshotIsNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIsNull(FieldQuotaPerShareSnapshot))
+}
+
+// QuotaPerShareSnapshotNotNil applies the NotNil predicate on the "quota_per_share_snapshot" field.
+func QuotaPerShareSnapshotNotNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotNull(FieldQuotaPerShareSnapshot))
+}
+
+// RateLimit5hPerShareSnapshotEQ applies the EQ predicate on the "rate_limit_5h_per_share_snapshot" field.
+func RateLimit5hPerShareSnapshotEQ(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldRateLimit5hPerShareSnapshot, v))
+}
+
+// RateLimit5hPerShareSnapshotNEQ applies the NEQ predicate on the "rate_limit_5h_per_share_snapshot" field.
+func RateLimit5hPerShareSnapshotNEQ(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNEQ(FieldRateLimit5hPerShareSnapshot, v))
+}
+
+// RateLimit5hPerShareSnapshotIn applies the In predicate on the "rate_limit_5h_per_share_snapshot" field.
+func RateLimit5hPerShareSnapshotIn(vs ...float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIn(FieldRateLimit5hPerShareSnapshot, vs...))
+}
+
+// RateLimit5hPerShareSnapshotNotIn applies the NotIn predicate on the "rate_limit_5h_per_share_snapshot" field.
+func RateLimit5hPerShareSnapshotNotIn(vs ...float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotIn(FieldRateLimit5hPerShareSnapshot, vs...))
+}
+
+// RateLimit5hPerShareSnapshotGT applies the GT predicate on the "rate_limit_5h_per_share_snapshot" field.
+func RateLimit5hPerShareSnapshotGT(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGT(FieldRateLimit5hPerShareSnapshot, v))
+}
+
+// RateLimit5hPerShareSnapshotGTE applies the GTE predicate on the "rate_limit_5h_per_share_snapshot" field.
+func RateLimit5hPerShareSnapshotGTE(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGTE(FieldRateLimit5hPerShareSnapshot, v))
+}
+
+// RateLimit5hPerShareSnapshotLT applies the LT predicate on the "rate_limit_5h_per_share_snapshot" field.
+func RateLimit5hPerShareSnapshotLT(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLT(FieldRateLimit5hPerShareSnapshot, v))
+}
+
+// RateLimit5hPerShareSnapshotLTE applies the LTE predicate on the "rate_limit_5h_per_share_snapshot" field.
+func RateLimit5hPerShareSnapshotLTE(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLTE(FieldRateLimit5hPerShareSnapshot, v))
+}
+
+// RateLimit5hPerShareSnapshotIsNil applies the IsNil predicate on the "rate_limit_5h_per_share_snapshot" field.
+func RateLimit5hPerShareSnapshotIsNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIsNull(FieldRateLimit5hPerShareSnapshot))
+}
+
+// RateLimit5hPerShareSnapshotNotNil applies the NotNil predicate on the "rate_limit_5h_per_share_snapshot" field.
+func RateLimit5hPerShareSnapshotNotNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotNull(FieldRateLimit5hPerShareSnapshot))
+}
+
+// RateLimit1dPerShareSnapshotEQ applies the EQ predicate on the "rate_limit_1d_per_share_snapshot" field.
+func RateLimit1dPerShareSnapshotEQ(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldRateLimit1dPerShareSnapshot, v))
+}
+
+// RateLimit1dPerShareSnapshotNEQ applies the NEQ predicate on the "rate_limit_1d_per_share_snapshot" field.
+func RateLimit1dPerShareSnapshotNEQ(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNEQ(FieldRateLimit1dPerShareSnapshot, v))
+}
+
+// RateLimit1dPerShareSnapshotIn applies the In predicate on the "rate_limit_1d_per_share_snapshot" field.
+func RateLimit1dPerShareSnapshotIn(vs ...float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIn(FieldRateLimit1dPerShareSnapshot, vs...))
+}
+
+// RateLimit1dPerShareSnapshotNotIn applies the NotIn predicate on the "rate_limit_1d_per_share_snapshot" field.
+func RateLimit1dPerShareSnapshotNotIn(vs ...float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotIn(FieldRateLimit1dPerShareSnapshot, vs...))
+}
+
+// RateLimit1dPerShareSnapshotGT applies the GT predicate on the "rate_limit_1d_per_share_snapshot" field.
+func RateLimit1dPerShareSnapshotGT(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGT(FieldRateLimit1dPerShareSnapshot, v))
+}
+
+// RateLimit1dPerShareSnapshotGTE applies the GTE predicate on the "rate_limit_1d_per_share_snapshot" field.
+func RateLimit1dPerShareSnapshotGTE(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGTE(FieldRateLimit1dPerShareSnapshot, v))
+}
+
+// RateLimit1dPerShareSnapshotLT applies the LT predicate on the "rate_limit_1d_per_share_snapshot" field.
+func RateLimit1dPerShareSnapshotLT(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLT(FieldRateLimit1dPerShareSnapshot, v))
+}
+
+// RateLimit1dPerShareSnapshotLTE applies the LTE predicate on the "rate_limit_1d_per_share_snapshot" field.
+func RateLimit1dPerShareSnapshotLTE(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLTE(FieldRateLimit1dPerShareSnapshot, v))
+}
+
+// RateLimit1dPerShareSnapshotIsNil applies the IsNil predicate on the "rate_limit_1d_per_share_snapshot" field.
+func RateLimit1dPerShareSnapshotIsNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIsNull(FieldRateLimit1dPerShareSnapshot))
+}
+
+// RateLimit1dPerShareSnapshotNotNil applies the NotNil predicate on the "rate_limit_1d_per_share_snapshot" field.
+func RateLimit1dPerShareSnapshotNotNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotNull(FieldRateLimit1dPerShareSnapshot))
+}
+
+// RateLimit7dPerShareSnapshotEQ applies the EQ predicate on the "rate_limit_7d_per_share_snapshot" field.
+func RateLimit7dPerShareSnapshotEQ(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldRateLimit7dPerShareSnapshot, v))
+}
+
+// RateLimit7dPerShareSnapshotNEQ applies the NEQ predicate on the "rate_limit_7d_per_share_snapshot" field.
+func RateLimit7dPerShareSnapshotNEQ(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNEQ(FieldRateLimit7dPerShareSnapshot, v))
+}
+
+// RateLimit7dPerShareSnapshotIn applies the In predicate on the "rate_limit_7d_per_share_snapshot" field.
+func RateLimit7dPerShareSnapshotIn(vs ...float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIn(FieldRateLimit7dPerShareSnapshot, vs...))
+}
+
+// RateLimit7dPerShareSnapshotNotIn applies the NotIn predicate on the "rate_limit_7d_per_share_snapshot" field.
+func RateLimit7dPerShareSnapshotNotIn(vs ...float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotIn(FieldRateLimit7dPerShareSnapshot, vs...))
+}
+
+// RateLimit7dPerShareSnapshotGT applies the GT predicate on the "rate_limit_7d_per_share_snapshot" field.
+func RateLimit7dPerShareSnapshotGT(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGT(FieldRateLimit7dPerShareSnapshot, v))
+}
+
+// RateLimit7dPerShareSnapshotGTE applies the GTE predicate on the "rate_limit_7d_per_share_snapshot" field.
+func RateLimit7dPerShareSnapshotGTE(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGTE(FieldRateLimit7dPerShareSnapshot, v))
+}
+
+// RateLimit7dPerShareSnapshotLT applies the LT predicate on the "rate_limit_7d_per_share_snapshot" field.
+func RateLimit7dPerShareSnapshotLT(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLT(FieldRateLimit7dPerShareSnapshot, v))
+}
+
+// RateLimit7dPerShareSnapshotLTE applies the LTE predicate on the "rate_limit_7d_per_share_snapshot" field.
+func RateLimit7dPerShareSnapshotLTE(v float64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLTE(FieldRateLimit7dPerShareSnapshot, v))
+}
+
+// RateLimit7dPerShareSnapshotIsNil applies the IsNil predicate on the "rate_limit_7d_per_share_snapshot" field.
+func RateLimit7dPerShareSnapshotIsNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIsNull(FieldRateLimit7dPerShareSnapshot))
+}
+
+// RateLimit7dPerShareSnapshotNotNil applies the NotNil predicate on the "rate_limit_7d_per_share_snapshot" field.
+func RateLimit7dPerShareSnapshotNotNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotNull(FieldRateLimit7dPerShareSnapshot))
+}
+
+// FulfillmentDeadlineAtEQ applies the EQ predicate on the "fulfillment_deadline_at" field.
+func FulfillmentDeadlineAtEQ(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldFulfillmentDeadlineAt, v))
+}
+
+// FulfillmentDeadlineAtNEQ applies the NEQ predicate on the "fulfillment_deadline_at" field.
+func FulfillmentDeadlineAtNEQ(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNEQ(FieldFulfillmentDeadlineAt, v))
+}
+
+// FulfillmentDeadlineAtIn applies the In predicate on the "fulfillment_deadline_at" field.
+func FulfillmentDeadlineAtIn(vs ...time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIn(FieldFulfillmentDeadlineAt, vs...))
+}
+
+// FulfillmentDeadlineAtNotIn applies the NotIn predicate on the "fulfillment_deadline_at" field.
+func FulfillmentDeadlineAtNotIn(vs ...time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotIn(FieldFulfillmentDeadlineAt, vs...))
+}
+
+// FulfillmentDeadlineAtGT applies the GT predicate on the "fulfillment_deadline_at" field.
+func FulfillmentDeadlineAtGT(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGT(FieldFulfillmentDeadlineAt, v))
+}
+
+// FulfillmentDeadlineAtGTE applies the GTE predicate on the "fulfillment_deadline_at" field.
+func FulfillmentDeadlineAtGTE(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGTE(FieldFulfillmentDeadlineAt, v))
+}
+
+// FulfillmentDeadlineAtLT applies the LT predicate on the "fulfillment_deadline_at" field.
+func FulfillmentDeadlineAtLT(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLT(FieldFulfillmentDeadlineAt, v))
+}
+
+// FulfillmentDeadlineAtLTE applies the LTE predicate on the "fulfillment_deadline_at" field.
+func FulfillmentDeadlineAtLTE(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLTE(FieldFulfillmentDeadlineAt, v))
+}
+
+// FulfillmentDeadlineAtIsNil applies the IsNil predicate on the "fulfillment_deadline_at" field.
+func FulfillmentDeadlineAtIsNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIsNull(FieldFulfillmentDeadlineAt))
+}
+
+// FulfillmentDeadlineAtNotNil applies the NotNil predicate on the "fulfillment_deadline_at" field.
+func FulfillmentDeadlineAtNotNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotNull(FieldFulfillmentDeadlineAt))
 }
 
 // RoomCodeSnapshotEQ applies the EQ predicate on the "room_code_snapshot" field.
@@ -1350,6 +2130,29 @@ func HasAccountBindings() predicate.GroupBuyRound {
 func HasAccountBindingsWith(preds ...predicate.APIKeyAccountBinding) predicate.GroupBuyRound {
 	return predicate.GroupBuyRound(func(s *sql.Selector) {
 		step := newAccountBindingsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasCafeMemberships applies the HasEdge predicate on the "cafe_memberships" edge.
+func HasCafeMemberships() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, CafeMembershipsTable, CafeMembershipsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCafeMembershipsWith applies the HasEdge predicate on the "cafe_memberships" edge with a given conditions (other predicates).
+func HasCafeMembershipsWith(preds ...predicate.CafeRoundMembership) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(func(s *sql.Selector) {
+		step := newCafeMembershipsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

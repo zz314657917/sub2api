@@ -145,6 +145,8 @@ export default {
         subscription: 'Subscription (Quota)',
         roomManaged: 'Pixel Cafe managed group',
         roomManagedHint: 'For Pixel Cafe Room plans only. Activating a room creates managed API keys.',
+        limitsManagedByRoomPlan: 'Limits are managed by the Room plan',
+        limitsManagedByRoomPlanHint: 'Managed groups do not use daily, weekly, or monthly limits. Configure total, 5H, 1D, 7D, and validity limits on the Room plan.',
         dailyLimit: 'Daily Credit Limit',
         weeklyLimit: 'Weekly Credit Limit',
         monthlyLimit: 'Monthly Credit Limit',

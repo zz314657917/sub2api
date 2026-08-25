@@ -81,10 +81,13 @@ type APIKey struct {
 	ManagedBindingExpiresAt *time.Time
 }
 
-const APIKeyManagedSourceCafeRoomSeat = "cafe_room_seat"
+const (
+	APIKeyManagedSourceCafeRoomSeat       = "cafe_room_seat"
+	APIKeyManagedSourceCafeRoomMembership = "cafe_room_membership"
+)
 
 func (k *APIKey) IsCafeRoomManaged() bool {
-	return k != nil && k.ManagedSourceType == APIKeyManagedSourceCafeRoomSeat && k.ManagedSourceID != nil
+	return k != nil && (k.ManagedSourceType == APIKeyManagedSourceCafeRoomSeat || k.ManagedSourceType == APIKeyManagedSourceCafeRoomMembership) && k.ManagedSourceID != nil
 }
 
 func (k *APIKey) WithUnavailableRouteGroups(groupIDs map[int64]struct{}) *APIKey {

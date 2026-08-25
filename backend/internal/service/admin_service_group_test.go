@@ -247,6 +247,31 @@ func TestAdminService_CreateGroup_TreatsNonPositiveSubscriptionLimitAsUnlimited(
 	require.InDelta(t, weekly, *repo.created.WeeklyLimitUSD, 0.0001)
 }
 
+func TestAdminService_CreateGroup_RoomManagedAlwaysClearsGroupLimits(t *testing.T) {
+	repo := &groupRepoStubForAdmin{}
+	svc := &adminServiceImpl{groupRepo: repo}
+	daily, weekly, monthly := 25.0, 100.0, 400.0
+
+	group, err := svc.CreateGroup(context.Background(), &CreateGroupInput{
+		Name:               "cafe-managed-group",
+		Platform:           PlatformOpenAI,
+		RateMultiplier:     1.0,
+		ModelMatchPatterns: []string{"*"},
+		SubscriptionType:   SubscriptionTypeSubscription,
+		AccessMode:         GroupAccessModeRoomManaged,
+		DailyLimitUSD:      &daily,
+		WeeklyLimitUSD:     &weekly,
+		MonthlyLimitUSD:    &monthly,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, group)
+	require.Equal(t, GroupAccessModeRoomManaged, repo.created.AccessMode)
+	require.Nil(t, repo.created.DailyLimitUSD)
+	require.Nil(t, repo.created.WeeklyLimitUSD)
+	require.Nil(t, repo.created.MonthlyLimitUSD)
+}
+
 func TestAdminService_UpdateGroup_TreatsNonPositiveSubscriptionLimitAsUnlimited(t *testing.T) {
 	daily := 25.0
 	monthly := 700.0
@@ -279,6 +304,37 @@ func TestAdminService_UpdateGroup_TreatsNonPositiveSubscriptionLimitAsUnlimited(
 	require.Nil(t, repo.updated.MonthlyLimitUSD)
 	require.NotNil(t, repo.updated.WeeklyLimitUSD)
 	require.InDelta(t, weekly, *repo.updated.WeeklyLimitUSD, 0.0001)
+}
+
+func TestAdminService_UpdateGroup_RoomManagedAlwaysClearsGroupLimits(t *testing.T) {
+	daily, weekly, monthly := 25.0, 100.0, 400.0
+	existingGroup := &Group{
+		ID:               1,
+		Name:             "cafe-managed-group",
+		Platform:         PlatformOpenAI,
+		Status:           StatusActive,
+		RateMultiplier:   1.0,
+		SubscriptionType: SubscriptionTypeSubscription,
+		AccessMode:       GroupAccessModeRoomManaged,
+		DailyLimitUSD:    &daily,
+		WeeklyLimitUSD:   &weekly,
+		MonthlyLimitUSD:  &monthly,
+	}
+	repo := &groupRepoStubForAdmin{getByID: existingGroup}
+	svc := &adminServiceImpl{groupRepo: repo}
+
+	group, err := svc.UpdateGroup(context.Background(), 1, &UpdateGroupInput{
+		DailyLimitUSD:   &daily,
+		WeeklyLimitUSD:  &weekly,
+		MonthlyLimitUSD: &monthly,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, group)
+	require.Equal(t, GroupAccessModeRoomManaged, repo.updated.AccessMode)
+	require.Nil(t, repo.updated.DailyLimitUSD)
+	require.Nil(t, repo.updated.WeeklyLimitUSD)
+	require.Nil(t, repo.updated.MonthlyLimitUSD)
 }
 
 // TestAdminService_UpdateGroup_WithImagePricing 测试更新分组时 ImagePrice 字段正确更新

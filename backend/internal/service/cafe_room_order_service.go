@@ -8,8 +8,8 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/caferoom"
+	"github.com/Wei-Shaw/sub2api/ent/caferoundmembership"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
@@ -26,6 +26,9 @@ var (
 	ErrCafeOrderUnavailable = infraerrors.Conflict("CAFE_ORDER_UNAVAILABLE", "cafe room is not available for orders")
 	ErrCafeSeatUnavailable  = infraerrors.Conflict("CAFE_SEAT_UNAVAILABLE", "selected cafe seat is no longer available")
 	ErrCafeSeatHeld         = infraerrors.Conflict("CAFE_USER_SEAT_EXISTS", "user already has a seat in this cafe round")
+	ErrCafeShareUnavailable = infraerrors.Conflict("CAFE_SHARE_UNAVAILABLE", "requested cafe shares are no longer available")
+	ErrCafeBuyerLimit       = infraerrors.Conflict("CAFE_BUYER_LIMIT_REACHED", "cafe room participant limit has been reached")
+	ErrCafeUserShareLimit   = infraerrors.Conflict("CAFE_USER_SHARE_LIMIT_REACHED", "user share limit would be exceeded")
 	ErrCafeRoomCapExceeded  = infraerrors.Conflict("CAFE_ROOM_LIMIT_EXCEEDED", "concurrent cafe room seat limit reached")
 	ErrCafeAgreementNeeded  = infraerrors.BadRequest("CAFE_AGREEMENT_REQUIRED", "cafe purchase agreement must be accepted")
 )
@@ -34,7 +37,7 @@ var (
 type CafeRoomOrderInput struct {
 	UserID            int64
 	RoomID            int64
-	SeatNo            int
+	ShareCount        int
 	PaymentType       string
 	OpenID            string
 	ClientIP          string
@@ -49,9 +52,9 @@ type CafeRoomOrderInput struct {
 
 type CafeRoomOrderResponse struct {
 	CreateOrderResponse
-	RoomID  int64 `json:"room_id"`
-	RoundID int64 `json:"round_id"`
-	SeatNo  int   `json:"seat_no"`
+	RoomID     int64 `json:"room_id"`
+	RoundID    int64 `json:"round_id"`
+	ShareCount int   `json:"share_count"`
 }
 
 // CafeRoomOrderService owns the Room-specific order and seat-lock transaction.
@@ -81,8 +84,8 @@ func (s *CafeRoomOrderService) CreateOrder(ctx context.Context, input CafeRoomOr
 	if input.UserID <= 0 {
 		return nil, infraerrors.Unauthorized("UNAUTHORIZED", "user not authenticated")
 	}
-	if input.RoomID <= 0 || input.SeatNo <= 0 || strings.TrimSpace(input.PaymentType) == "" {
-		return nil, infraerrors.BadRequest("CAFE_INVALID_ORDER", "room, seat and payment type are required")
+	if input.RoomID <= 0 || input.ShareCount <= 0 || strings.TrimSpace(input.PaymentType) == "" {
+		return nil, infraerrors.BadRequest("CAFE_INVALID_ORDER", "room, share count and payment type are required")
 	}
 	if !input.AgreementAccepted {
 		return nil, ErrCafeAgreementNeeded
@@ -126,7 +129,7 @@ func (s *CafeRoomOrderService) CreateOrder(ctx context.Context, input CafeRoomOr
 		return nil, fmt.Errorf("get user: %w", err)
 	}
 
-	orderAmount := plan.PricePerShare
+	orderAmount := plan.PricePerShare * float64(input.ShareCount)
 	req.Amount = orderAmount
 	methodCurrency, err := s.paymentSvc.configService.ValidateMethodCurrencyConsistency(ctx, req.PaymentType)
 	if err != nil {
@@ -162,7 +165,7 @@ func (s *CafeRoomOrderService) CreateOrder(ctx context.Context, input CafeRoomOr
 		return &CafeRoomOrderResponse{CreateOrderResponse: *oauthResp, RoomID: room.ID}, nil
 	}
 
-	order, round, err := s.lockSeatAndCreateOrder(ctx, req, room.ID, input.SeatNo, cfg, cfg.RechargeFeeRate, payAmount, sel)
+	order, round, err := s.lockSeatAndCreateOrder(ctx, req, room.ID, input.ShareCount, cfg, cfg.RechargeFeeRate, payAmount, sel)
 	if err != nil {
 		return nil, err
 	}
@@ -174,10 +177,10 @@ func (s *CafeRoomOrderService) CreateOrder(ctx context.Context, input CafeRoomOr
 		}
 		return nil, err
 	}
-	return &CafeRoomOrderResponse{CreateOrderResponse: *result, RoomID: room.ID, RoundID: round.ID, SeatNo: input.SeatNo}, nil
+	return &CafeRoomOrderResponse{CreateOrderResponse: *result, RoomID: room.ID, RoundID: round.ID, ShareCount: input.ShareCount}, nil
 }
 
-func (s *CafeRoomOrderService) lockSeatAndCreateOrder(ctx context.Context, req CreateOrderRequest, roomID int64, seatNo int, cfg *PaymentConfig, feeRate, payAmount float64, sel *payment.InstanceSelection) (*dbent.PaymentOrder, *dbent.GroupBuyRound, error) {
+func (s *CafeRoomOrderService) lockSeatAndCreateOrder(ctx context.Context, req CreateOrderRequest, roomID int64, shareCount int, cfg *PaymentConfig, feeRate, payAmount float64, sel *payment.InstanceSelection) (*dbent.PaymentOrder, *dbent.GroupBuyRound, error) {
 	tx, err := s.entClient.Tx(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("begin cafe room order transaction: %w", err)
@@ -193,7 +196,7 @@ func (s *CafeRoomOrderService) lockSeatAndCreateOrder(ctx context.Context, req C
 		}
 		return nil, nil, fmt.Errorf("lock cafe room: %w", err)
 	}
-	if lockedRoom.Status != CafeRoomStatusEnabled || lockedRoom.AccountID == nil {
+	if lockedRoom.Status != CafeRoomStatusEnabled {
 		return nil, nil, ErrCafeOrderUnavailable
 	}
 	planQuery := tx.GroupBuyPlan.Query().Where(groupbuyplan.IDEQ(lockedRoom.PlanID), groupbuyplan.DeletedAtIsNil()).WithTargetGroup()
@@ -210,7 +213,7 @@ func (s *CafeRoomOrderService) lockSeatAndCreateOrder(ctx context.Context, req C
 	if err := s.paymentSvc.checkPendingLimit(txCtx, tx, req.UserID, cfg.MaxPendingOrders); err != nil {
 		return nil, nil, err
 	}
-	if err := s.paymentSvc.checkDailyLimit(txCtx, tx, req.UserID, lockedPlan.PricePerShare, cfg.DailyLimit); err != nil {
+	if err := s.paymentSvc.checkDailyLimit(txCtx, tx, req.UserID, lockedPlan.PricePerShare*float64(shareCount), cfg.DailyLimit); err != nil {
 		return nil, nil, err
 	}
 	activeUser, err := s.cafeUserForUpdate(tx.User.Query().Where(user.IDEQ(req.UserID), user.StatusEQ(StatusActive))).Only(txCtx)
@@ -232,24 +235,7 @@ func (s *CafeRoomOrderService) lockSeatAndCreateOrder(ctx context.Context, req C
 		}
 		return nil, nil, fmt.Errorf("lock cafe room round: %w", err)
 	}
-	if round.PlanID != lockedPlan.ID || round.AssignedAccountID == nil {
-		return nil, nil, ErrCafeOrderUnavailable
-	}
-	if *round.AssignedAccountID != *lockedRoom.AccountID {
-		return nil, nil, ErrCafeOrderUnavailable
-	}
-	accountQuery := tx.Account.Query().Where(account.IDEQ(*round.AssignedAccountID), account.StatusEQ(StatusActive)).WithGroups()
-	if s.entClient.Driver().Dialect() != dialect.SQLite {
-		accountQuery = accountQuery.ForUpdate()
-	}
-	assignedAccount, err := accountQuery.Only(txCtx)
-	if err != nil {
-		if dbent.IsNotFound(err) {
-			return nil, nil, ErrCafeOrderUnavailable
-		}
-		return nil, nil, fmt.Errorf("check cafe room account: %w", err)
-	}
-	if lockedPlan.Edges.TargetGroup == nil || assignedAccount.Platform != lockedPlan.Edges.TargetGroup.Platform || !cafeAccountBelongsToGroup(assignedAccount, lockedPlan.TargetGroupID) {
+	if round.PlanID != lockedPlan.ID || round.CafeFulfillmentVersion != "membership_share" {
 		return nil, nil, ErrCafeOrderUnavailable
 	}
 	if _, err := s.groupBuySvc.releaseExpiredLockedSeatsForRoundTx(txCtx, tx, round.ID); err != nil {
@@ -259,29 +245,42 @@ func (s *CafeRoomOrderService) lockSeatAndCreateOrder(ctx context.Context, req C
 	if err != nil {
 		return nil, nil, fmt.Errorf("reload cafe room round: %w", err)
 	}
-	if seatNo > cafeRoundSeatCount(round) || round.PaidSeats+round.ReservedSeats >= cafeRoundSeatCount(round) {
-		return nil, nil, ErrCafeSeatUnavailable
+	if shareCount <= 0 || shareCount > round.TotalShares || round.PaidShares+round.ReservedShares+shareCount > round.TotalShares {
+		return nil, nil, ErrCafeShareUnavailable
 	}
 	if err := s.checkConcurrentRoomCapTx(txCtx, tx, req.UserID, lockedRoom.ID); err != nil {
 		return nil, nil, err
 	}
-	if held, err := tx.GroupBuySeat.Query().Where(
-		groupbuyseat.RoundIDEQ(round.ID),
-		groupbuyseat.UserIDEQ(req.UserID),
-		groupbuyseat.StatusIn(GroupBuySeatStatusLocked, GroupBuySeatStatusPaid, GroupBuySeatStatusActive, GroupBuySeatStatusRefundPending, GroupBuySeatStatusRefundProcessing),
-	).Exist(txCtx); err != nil {
-		return nil, nil, fmt.Errorf("check existing cafe room seat: %w", err)
-	} else if held {
-		return nil, nil, ErrCafeSeatHeld
+	membershipQuery := tx.CafeRoundMembership.Query().Where(caferoundmembership.RoundIDEQ(round.ID), caferoundmembership.UserIDEQ(req.UserID))
+	if s.entClient.Driver().Dialect() != dialect.SQLite {
+		membershipQuery = membershipQuery.ForUpdate()
 	}
-	if occupied, err := tx.GroupBuySeat.Query().Where(
-		groupbuyseat.RoundIDEQ(round.ID),
-		groupbuyseat.SeatNoEQ(seatNo),
-		groupbuyseat.StatusIn(GroupBuySeatStatusLocked, GroupBuySeatStatusPaid, GroupBuySeatStatusActive, GroupBuySeatStatusRefundPending, GroupBuySeatStatusRefundProcessing),
-	).Exist(txCtx); err != nil {
-		return nil, nil, fmt.Errorf("check cafe room seat availability: %w", err)
-	} else if occupied {
-		return nil, nil, ErrCafeSeatUnavailable
+	membership, membershipErr := membershipQuery.Only(txCtx)
+	if membershipErr != nil && !dbent.IsNotFound(membershipErr) {
+		return nil, nil, fmt.Errorf("lock cafe membership: %w", membershipErr)
+	}
+	needsBuyerSlot := dbent.IsNotFound(membershipErr) || membership.PaidShares == 0 && membership.ReservedShares == 0
+	if needsBuyerSlot {
+		buyers, err := tx.CafeRoundMembership.Query().Where(caferoundmembership.RoundIDEQ(round.ID), caferoundmembership.Or(caferoundmembership.PaidSharesGT(0), caferoundmembership.ReservedSharesGT(0))).Count(txCtx)
+		if err != nil {
+			return nil, nil, fmt.Errorf("count cafe buyers: %w", err)
+		}
+		if round.MaxBuyers == nil || buyers >= *round.MaxBuyers {
+			return nil, nil, ErrCafeBuyerLimit
+		}
+	}
+	if dbent.IsNotFound(membershipErr) {
+		membership, err = tx.CafeRoundMembership.Create().SetRoundID(round.ID).SetUserID(req.UserID).SetStatus(GroupBuySeatStatusLocked).Save(txCtx)
+		if err != nil {
+			return nil, nil, fmt.Errorf("create cafe membership: %w", err)
+		}
+	}
+	maxPerUser := round.TotalShares
+	if round.MaxSharesPerUser != nil {
+		maxPerUser = *round.MaxSharesPerUser
+	}
+	if membership.PaidShares+membership.ReservedShares+shareCount > maxPerUser {
+		return nil, nil, ErrCafeUserShareLimit
 	}
 
 	outTradeNo, err := s.paymentSvc.allocateOutTradeNo(txCtx, tx)
@@ -299,7 +298,7 @@ func (s *CafeRoomOrderService) lockSeatAndCreateOrder(ctx context.Context, req C
 		SetUserEmail(activeUser.Email).
 		SetUserName(activeUser.Username).
 		SetNillableUserNotes(psNilIfEmpty(activeUser.Notes)).
-		SetAmount(lockedPlan.PricePerShare).
+		SetAmount(lockedPlan.PricePerShare * float64(shareCount)).
 		SetPayAmount(payAmount).
 		SetFeeRate(feeRate).
 		SetRechargeCode("").
@@ -341,8 +340,8 @@ func (s *CafeRoomOrderService) lockSeatAndCreateOrder(ctx context.Context, req C
 		SetUserID(req.UserID).
 		SetOrderID(order.ID).
 		SetStatus(GroupBuySeatStatusLocked).
-		SetShareCount(1).
-		SetSeatNo(seatNo).
+		SetMembershipID(membership.ID).
+		SetShareCount(shareCount).
 		SetPolicySnapshot(buildGroupBuyPolicySnapshot(lockedPlan, s.now())).
 		SetLockedUntil(expiresAt).
 		Save(txCtx)
@@ -350,8 +349,8 @@ func (s *CafeRoomOrderService) lockSeatAndCreateOrder(ctx context.Context, req C
 		return nil, nil, translateCafeSeatCreateError(err)
 	}
 	round, err = tx.GroupBuyRound.UpdateOneID(round.ID).
-		AddReservedShares(1).
-		AddReservedSeats(1).
+		AddReservedShares(shareCount).
+		AddReservedSeats(shareCount).
 		SetUpdatedAt(s.now()).
 		Save(txCtx)
 	if err != nil {
@@ -364,8 +363,11 @@ func (s *CafeRoomOrderService) lockSeatAndCreateOrder(ctx context.Context, req C
 		UserID:    &req.UserID,
 		EventType: groupBuyEventSharesLocked,
 		Message:   "用户锁定像素网吧席位",
-		Metadata:  map[string]any{"order_id": order.ID, "seat_no": seatNo, "amount": order.Amount},
+		Metadata:  map[string]any{"order_id": order.ID, "share_count": shareCount, "amount": order.Amount},
 	})
+	if _, err := tx.CafeRoundMembership.UpdateOneID(membership.ID).AddReservedShares(shareCount).SetUpdatedAt(s.now()).Save(txCtx); err != nil {
+		return nil, nil, fmt.Errorf("reserve cafe membership shares: %w", err)
+	}
 	if err := tx.Commit(); err != nil {
 		return nil, nil, fmt.Errorf("commit cafe room order transaction: %w", err)
 	}
@@ -411,17 +413,7 @@ func (s *CafeRoomOrderService) loadAvailableRoom(ctx context.Context, roomID int
 		}
 		return nil, nil, fmt.Errorf("load cafe room: %w", err)
 	}
-	if room.Status != CafeRoomStatusEnabled || room.AccountID == nil || room.Edges.Plan == nil || !isCafeOperationalPlanEntity(room.Edges.Plan) || room.Edges.Plan.Edges.TargetGroup == nil {
-		return nil, nil, ErrCafeOrderUnavailable
-	}
-	account, err := s.entClient.Account.Query().Where(account.IDEQ(*room.AccountID), account.StatusEQ(StatusActive)).WithGroups().Only(ctx)
-	if err != nil {
-		if dbent.IsNotFound(err) {
-			return nil, nil, ErrCafeOrderUnavailable
-		}
-		return nil, nil, fmt.Errorf("load cafe room account: %w", err)
-	}
-	if account.Platform != room.Edges.Plan.Edges.TargetGroup.Platform || !cafeAccountBelongsToGroup(account, room.Edges.Plan.TargetGroupID) {
+	if room.Status != CafeRoomStatusEnabled || room.Edges.Plan == nil || !isCafeOperationalPlanEntity(room.Edges.Plan) || room.Edges.Plan.Edges.TargetGroup == nil {
 		return nil, nil, ErrCafeOrderUnavailable
 	}
 	return room, room.Edges.Plan, nil

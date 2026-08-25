@@ -2069,10 +2069,14 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		return nil, err
 	}
 
-	// 限额字段：nil/0/负数 表示"无限制"，正数表示具体限额
-	dailyLimit := normalizeLimit(input.DailyLimitUSD)
-	weeklyLimit := normalizeLimit(input.WeeklyLimitUSD)
-	monthlyLimit := normalizeLimit(input.MonthlyLimitUSD)
+	// 房间托管分组的额度策略由 Room 计划下发到受管 Key；分组级日/周/月
+	// 限额必须保持无限，避免两套策略叠加后意外拒绝已付款用户。
+	dailyLimit, weeklyLimit, monthlyLimit := normalizeGroupLimits(
+		accessMode,
+		input.DailyLimitUSD,
+		input.WeeklyLimitUSD,
+		input.MonthlyLimitUSD,
+	)
 
 	// 图片价格：负数表示清除（使用默认价格），0 保留（表示免费）
 	imagePrice1K := normalizePrice(input.ImagePrice1K)
@@ -2244,6 +2248,13 @@ func normalizeLimit(limit *float64) *float64 {
 	return limit
 }
 
+func normalizeGroupLimits(accessMode string, daily, weekly, monthly *float64) (*float64, *float64, *float64) {
+	if accessMode == GroupAccessModeRoomManaged {
+		return nil, nil, nil
+	}
+	return normalizeLimit(daily), normalizeLimit(weekly), normalizeLimit(monthly)
+}
+
 func normalizeGroupAccessMode(mode, subscriptionType string) (string, error) {
 	switch strings.TrimSpace(mode) {
 	case "", GroupAccessModeNormal:
@@ -2393,11 +2404,14 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	if group.AccessMode == GroupAccessModeRoomManaged && group.SubscriptionType != SubscriptionTypeSubscription {
 		return nil, errors.New("room_managed access mode requires a subscription group")
 	}
-	// 限额字段：nil/0/负数 表示"无限制"，正数表示具体限额
-	// 前端始终发送这三个字段，无需 nil 守卫
-	group.DailyLimitUSD = normalizeLimit(input.DailyLimitUSD)
-	group.WeeklyLimitUSD = normalizeLimit(input.WeeklyLimitUSD)
-	group.MonthlyLimitUSD = normalizeLimit(input.MonthlyLimitUSD)
+	// 前端始终发送这三个字段；room_managed 必须在服务端再次强制清空，
+	// 防止旧客户端或直接调用 API 绕过界面约束。
+	group.DailyLimitUSD, group.WeeklyLimitUSD, group.MonthlyLimitUSD = normalizeGroupLimits(
+		group.AccessMode,
+		input.DailyLimitUSD,
+		input.WeeklyLimitUSD,
+		input.MonthlyLimitUSD,
+	)
 	// 图片生成计费配置：负数表示清除（使用默认价格）
 	if input.AllowImageGeneration != nil {
 		group.AllowImageGeneration = *input.AllowImageGeneration

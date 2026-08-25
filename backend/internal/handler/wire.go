@@ -319,7 +319,7 @@ var ProviderSet = wire.NewSet(
 	admin.NewPaymentHandler,
 	admin.NewAffiliateHandler,
 	admin.NewGroupBuyHandler,
-	admin.NewCafeRoomHandler,
+	admin.NewCafeRoomHandlerWithActivation,
 	admin.NewImageCreatorStorageGovernanceHandler,
 	admin.NewTicketHandler,
 	admin.NewAuditLogHandler,

@@ -164,8 +164,12 @@
                 v-if="row.subscription_type === 'subscription'"
                 class="text-xs text-gray-500 dark:text-gray-400"
               >
+                <span
+                  v-if="row.access_mode === 'room_managed'"
+                  class="text-primary-600 dark:text-primary-400"
+                >{{ t("admin.groups.subscription.limitsManagedByRoomPlan") }}</span>
                 <template
-                  v-if="hasAnySubscriptionLimit(row)"
+                  v-else-if="hasAnySubscriptionLimit(row)"
                 >
                   <span v-if="displaySubscriptionLimit(row.daily_limit_usd) != null"
                     >{{ formatSubscriptionLimit(row.daily_limit_usd) }}/{{
@@ -693,12 +697,20 @@
                 <small class="mt-1 block text-gray-500 dark:text-gray-400">{{ t('admin.groups.subscription.roomManagedHint') }}</small>
               </span>
             </label>
-            <div>
+            <p
+              v-if="createForm.access_mode === 'room_managed'"
+              data-testid="create-room-managed-limits-hint"
+              class="rounded-md bg-primary-50 p-3 text-sm text-primary-700 dark:bg-primary-950/40 dark:text-primary-300"
+            >
+              {{ t("admin.groups.subscription.limitsManagedByRoomPlanHint") }}
+            </p>
+            <div v-if="createForm.access_mode !== 'room_managed'">
               <label class="input-label">{{
                 t("admin.groups.subscription.dailyLimit")
               }}</label>
               <input
                 v-model.number="createForm.daily_limit_usd"
+                data-testid="create-daily-limit"
                 type="number"
                 step="0.01"
                 min="0"
@@ -706,12 +718,13 @@
                 :placeholder="t('admin.groups.subscription.noLimit')"
               />
             </div>
-            <div>
+            <div v-if="createForm.access_mode !== 'room_managed'">
               <label class="input-label">{{
                 t("admin.groups.subscription.weeklyLimit")
               }}</label>
               <input
                 v-model.number="createForm.weekly_limit_usd"
+                data-testid="create-weekly-limit"
                 type="number"
                 step="0.01"
                 min="0"
@@ -719,12 +732,13 @@
                 :placeholder="t('admin.groups.subscription.noLimit')"
               />
             </div>
-            <div>
+            <div v-if="createForm.access_mode !== 'room_managed'">
               <label class="input-label">{{
                 t("admin.groups.subscription.monthlyLimit")
               }}</label>
               <input
                 v-model.number="createForm.monthly_limit_usd"
+                data-testid="create-monthly-limit"
                 type="number"
                 step="0.01"
                 min="0"
@@ -2231,12 +2245,20 @@
                 <small class="mt-1 block text-gray-500 dark:text-gray-400">{{ t('admin.groups.subscription.roomManagedHint') }}</small>
               </span>
             </label>
-            <div>
+            <p
+              v-if="editForm.access_mode === 'room_managed'"
+              data-testid="edit-room-managed-limits-hint"
+              class="rounded-md bg-primary-50 p-3 text-sm text-primary-700 dark:bg-primary-950/40 dark:text-primary-300"
+            >
+              {{ t("admin.groups.subscription.limitsManagedByRoomPlanHint") }}
+            </p>
+            <div v-if="editForm.access_mode !== 'room_managed'">
               <label class="input-label">{{
                 t("admin.groups.subscription.dailyLimit")
               }}</label>
               <input
                 v-model.number="editForm.daily_limit_usd"
+                data-testid="edit-daily-limit"
                 type="number"
                 step="0.01"
                 min="0"
@@ -2244,12 +2266,13 @@
                 :placeholder="t('admin.groups.subscription.noLimit')"
               />
             </div>
-            <div>
+            <div v-if="editForm.access_mode !== 'room_managed'">
               <label class="input-label">{{
                 t("admin.groups.subscription.weeklyLimit")
               }}</label>
               <input
                 v-model.number="editForm.weekly_limit_usd"
+                data-testid="edit-weekly-limit"
                 type="number"
                 step="0.01"
                 min="0"
@@ -2257,12 +2280,13 @@
                 :placeholder="t('admin.groups.subscription.noLimit')"
               />
             </div>
-            <div>
+            <div v-if="editForm.access_mode !== 'room_managed'">
               <label class="input-label">{{
                 t("admin.groups.subscription.monthlyLimit")
               }}</label>
               <input
                 v-model.number="editForm.monthly_limit_usd"
+                data-testid="edit-monthly-limit"
                 type="number"
                 step="0.01"
                 min="0"
@@ -5108,6 +5132,12 @@ const normalizeOptionalLimit = (
   return Number.isFinite(value) && value > 0 ? value : null;
 };
 
+const normalizeGroupLimit = (
+  accessMode: GroupAccessMode,
+  value: number | string | null | undefined,
+): number | null =>
+  accessMode === "room_managed" ? null : normalizeOptionalLimit(value);
+
 const formatSubscriptionLimit = (value: number | null | undefined): string =>
   formatCreditAmount(displaySubscriptionLimit(value) ?? 0);
 
@@ -5188,13 +5218,16 @@ const handleCreateGroup = async () => {
     const requestData = {
       ...createForm,
       model_pricing: groupPricingToAPI(createForm.model_pricing, createForm.platform),
-      daily_limit_usd: normalizeOptionalLimit(
+      daily_limit_usd: normalizeGroupLimit(
+        createForm.access_mode,
         createForm.daily_limit_usd as number | string | null,
       ),
-      weekly_limit_usd: normalizeOptionalLimit(
+      weekly_limit_usd: normalizeGroupLimit(
+        createForm.access_mode,
         createForm.weekly_limit_usd as number | string | null,
       ),
-      monthly_limit_usd: normalizeOptionalLimit(
+      monthly_limit_usd: normalizeGroupLimit(
+        createForm.access_mode,
         createForm.monthly_limit_usd as number | string | null,
       ),
       model_routing: convertRoutingRulesToApiFormat(
@@ -5364,13 +5397,16 @@ const handleUpdateGroup = async () => {
     const payload = {
       ...editForm,
       model_pricing: groupPricingToAPI(editForm.model_pricing, editForm.platform),
-      daily_limit_usd: normalizeOptionalLimit(
+      daily_limit_usd: normalizeGroupLimit(
+        editForm.access_mode,
         editForm.daily_limit_usd as number | string | null,
       ),
-      weekly_limit_usd: normalizeOptionalLimit(
+      weekly_limit_usd: normalizeGroupLimit(
+        editForm.access_mode,
         editForm.weekly_limit_usd as number | string | null,
       ),
-      monthly_limit_usd: normalizeOptionalLimit(
+      monthly_limit_usd: normalizeGroupLimit(
+        editForm.access_mode,
         editForm.monthly_limit_usd as number | string | null,
       ),
       fallback_group_id:

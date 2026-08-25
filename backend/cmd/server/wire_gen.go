@@ -298,7 +298,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	groupBuyHandler := admin.NewGroupBuyHandler(groupBuyService)
 	cafeRoomRepository := repository.NewCafeRoomRepository(client)
 	cafeRoomService := service.NewCafeRoomService(cafeRoomRepository)
-	cafeRoomHandler := admin.NewCafeRoomHandler(cafeRoomService)
+	cafeRoomHandler := admin.NewCafeRoomHandlerWithActivation(cafeRoomService, cafeRoomActivationService, settingService)
 	imageCreatorStorageGovernanceRepository := repository.NewImageCreatorStorageGovernanceRepository(db)
 	imageCreatorStorageGovernanceService := service.NewImageCreatorStorageGovernanceService(imageCreatorStorageGovernanceRepository, imageCreatorService, configConfig)
 	imageCreatorStorageGovernanceHandler := admin.NewImageCreatorStorageGovernanceHandler(imageCreatorStorageGovernanceService)

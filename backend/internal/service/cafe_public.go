@@ -10,7 +10,9 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/caferoom"
+	"github.com/Wei-Shaw/sub2api/ent/caferoundmembership"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
@@ -60,52 +62,67 @@ func newCafePublicService(entClient *dbent.Client, settings CafePublicSettings, 
 }
 
 type CafePublicPlan struct {
-	ID           int64   `json:"id"`
-	Title        string  `json:"title"`
-	Description  string  `json:"description"`
-	PricePerSeat float64 `json:"price_per_seat"`
-	PriceLabel   string  `json:"price_label"`
-	ValidityDays int     `json:"validity_days"`
-	TotalSeats   int     `json:"total_seats"`
+	ID               int64   `json:"id"`
+	Title            string  `json:"title"`
+	Description      string  `json:"description"`
+	PricePerShare    float64 `json:"price_per_share"`
+	PriceLabel       string  `json:"price_label"`
+	ValidityDays     int     `json:"validity_days"`
+	SubscriptionTier string  `json:"subscription_tier"`
+	TotalShares      int     `json:"total_shares"`
+	MaxBuyers        int     `json:"max_buyers"`
+	MaxSharesPerUser int     `json:"max_shares_per_user"`
 }
 
 type CafePublicRound struct {
-	ID             int64      `json:"id"`
-	Status         string     `json:"status"`
-	PaidSeats      int        `json:"paid_seats"`
-	ReservedSeats  int        `json:"reserved_seats"`
-	RemainingSeats int        `json:"remaining_seats"`
-	DeadlineAt     time.Time  `json:"deadline_at"`
-	ActivatedAt    *time.Time `json:"activated_at,omitempty"`
-	ExpiresAt      *time.Time `json:"expires_at,omitempty"`
+	ID                    int64      `json:"id"`
+	Status                string     `json:"status"`
+	PaidShares            int        `json:"paid_shares"`
+	ReservedShares        int        `json:"reserved_shares"`
+	RemainingShares       int        `json:"remaining_shares"`
+	MaxBuyers             int        `json:"max_buyers"`
+	JoinedBuyers          int        `json:"joined_buyers"`
+	RemainingBuyerSlots   int        `json:"remaining_buyer_slots"`
+	DeadlineAt            time.Time  `json:"deadline_at"`
+	FulfillmentDeadlineAt *time.Time `json:"fulfillment_deadline_at,omitempty"`
+	ActivatedAt           *time.Time `json:"activated_at,omitempty"`
+	ExpiresAt             *time.Time `json:"expires_at,omitempty"`
 }
 
+type CafePublicMemberAvatar struct {
+	AvatarSeed string `json:"avatar_seed"`
+}
+
+// CafePublicSeatVisual is retained only for in-process legacy compatibility.
+// It is deliberately excluded from JSON; new public clients use member_avatars.
 type CafePublicSeatVisual struct {
-	SeatNo     int    `json:"seat_no"`
-	State      string `json:"state"`
-	AvatarSeed string `json:"avatar_seed,omitempty"`
-	IsMine     bool   `json:"is_mine"`
+	SeatNo     int
+	State      string
+	AvatarSeed string
+	IsMine     bool
 }
 
 type CafePublicRoom struct {
-	ID            int64                  `json:"id"`
-	Code          string                 `json:"code"`
-	Name          string                 `json:"name"`
-	ZoneKey       string                 `json:"zone_key"`
-	ThemeKey      string                 `json:"theme_key"`
-	SceneSlotKey  string                 `json:"scene_slot_key"`
-	Featured      bool                   `json:"featured"`
-	Plan          CafePublicPlan         `json:"plan"`
-	Round         *CafePublicRound       `json:"round,omitempty"`
-	SeatVisuals   []CafePublicSeatVisual `json:"seat_visuals"`
-	PurchaseState string                 `json:"purchase_state"`
+	ID            int64                    `json:"id"`
+	Code          string                   `json:"code"`
+	Name          string                   `json:"name"`
+	ZoneKey       string                   `json:"zone_key"`
+	ThemeKey      string                   `json:"theme_key"`
+	SceneSlotKey  string                   `json:"scene_slot_key"`
+	Featured      bool                     `json:"featured"`
+	Plan          CafePublicPlan           `json:"plan"`
+	Round         *CafePublicRound         `json:"round,omitempty"`
+	MemberAvatars []CafePublicMemberAvatar `json:"member_avatars"`
+	PurchaseState string                   `json:"purchase_state"`
+	MyPaidShares  int                      `json:"my_paid_shares,omitempty"`
+	SeatVisuals   []CafePublicSeatVisual   `json:"-"`
 }
 
 type CafePublicZone struct {
-	Key           string `json:"key"`
-	Name          string `json:"name"`
-	RoomCount     int    `json:"room_count"`
-	OpenSeatCount int    `json:"open_seat_count"`
+	Key            string `json:"key"`
+	Name           string `json:"name"`
+	RoomCount      int    `json:"room_count"`
+	OpenShareCount int    `json:"open_share_count"`
 }
 
 type CafePublicOverview struct {
@@ -124,9 +141,9 @@ type CafePublicRoomDetail struct {
 }
 
 type CafePublicRules struct {
-	Activation     string `json:"activation"`
-	Refund         string `json:"refund"`
-	OneSeatPerUser bool   `json:"one_seat_per_user"`
+	Activation      string `json:"activation"`
+	Refund          string `json:"refund"`
+	OneKeyPerMember bool   `json:"one_key_per_member"`
 }
 
 type CafePublicListParams struct {
@@ -150,12 +167,14 @@ type CafeMyRoomsListParams struct {
 
 type CafeMyRoom struct {
 	MembershipID  int64                 `json:"membership_id"`
+	Status        string                `json:"status"`
+	PaidShares    int                   `json:"paid_shares"`
 	Room          CafeMyRoomRoom        `json:"room"`
 	Account       *CafeMyRoomAccount    `json:"account,omitempty"`
 	Plan          CafeMyRoomPlan        `json:"plan"`
 	Round         CafeMyRoomRound       `json:"round"`
-	Seat          CafeMyRoomSeat        `json:"seat"`
 	ManagedAPIKey *CafeMyRoomManagedKey `json:"managed_api_key"`
+	Seat          CafeMyRoomSeat        `json:"-"`
 }
 
 type CafeMyRoomRoom struct {
@@ -173,24 +192,25 @@ type CafeMyRoomAccount struct {
 }
 
 type CafeMyRoomPlan struct {
-	ID           int64  `json:"id"`
-	Title        string `json:"title"`
-	ValidityDays int    `json:"validity_days"`
+	ID               int64  `json:"id"`
+	Title            string `json:"title"`
+	SubscriptionTier string `json:"subscription_tier,omitempty"`
+	ValidityDays     int    `json:"validity_days"`
 }
 
 type CafeMyRoomRound struct {
-	ID         int64  `json:"id"`
-	Status     string `json:"status"`
-	PaidSeats  int    `json:"paid_seats"`
-	TotalSeats int    `json:"total_seats"`
+	ID          int64  `json:"id"`
+	Status      string `json:"status"`
+	PaidShares  int    `json:"paid_shares"`
+	TotalShares int    `json:"total_shares"`
 }
 
 type CafeMyRoomSeat struct {
-	ID          int64      `json:"id"`
-	SeatNo      *int       `json:"seat_no"`
-	Status      string     `json:"status"`
-	ActivatedAt *time.Time `json:"activated_at"`
-	ExpiresAt   *time.Time `json:"expires_at"`
+	ID          int64
+	SeatNo      *int
+	Status      string
+	ActivatedAt *time.Time
+	ExpiresAt   *time.Time
 }
 
 type CafeMyRoomManagedKey struct {
@@ -296,9 +316,9 @@ func (s *CafePublicService) Get(ctx context.Context, userID, roomID int64) (*Caf
 		APIVersion: "cafe.v1",
 		Room:       publicRoom,
 		Rules: CafePublicRules{
-			Activation:     "full_only",
-			Refund:         "automatic",
-			OneSeatPerUser: true,
+			Activation:      "full_then_assign_account",
+			Refund:          "automatic_after_fulfillment_timeout",
+			OneKeyPerMember: true,
 		},
 		ServerTime: s.now().UTC(),
 	}, nil
@@ -336,31 +356,80 @@ func (s *CafePublicService) MyRooms(ctx context.Context, userID int64, params Ca
 		pageSize = cafePublicMaxPageSize
 	}
 	now := s.now()
-	count, err := s.myRoomSeatQuery(userID, statuses, now).Count(ctx)
-	if err != nil {
-		return nil, nil, fmt.Errorf("count cafe my rooms: %w", err)
+	type datedMyRoom struct {
+		item CafeMyRoom
+		at   time.Time
 	}
-	seats, err := s.myRoomSeatQuery(userID, statuses, now).
-		Order(dbent.Desc(groupbuyseat.FieldCreatedAt), dbent.Desc(groupbuyseat.FieldID)).
-		Offset((page - 1) * pageSize).
-		Limit(pageSize).
-		WithRound(func(roundQuery *dbent.GroupBuyRoundQuery) {
-			roundQuery.WithCafeRoom(func(roomQuery *dbent.CafeRoomQuery) {
-				roomQuery.WithAccount()
-			})
-		}).
-		WithPlan().
-		WithBoundAPIKey().
-		All(ctx)
+	allItems := make([]datedMyRoom, 0)
+	memberships, err := s.entClient.CafeRoundMembership.Query().Where(
+		caferoundmembership.UserIDEQ(userID),
+		caferoundmembership.HasRoundWith(groupbuyround.CafeFulfillmentVersionEQ("membership_share"), groupbuyround.CafeRoomIDNotNil(), groupbuyround.HasCafeRoom()),
+	).WithRound(func(roundQuery *dbent.GroupBuyRoundQuery) {
+		roundQuery.WithCafeRoom().WithAssignedAccount().WithPlan()
+	}).All(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("list cafe my rooms: %w", err)
+		return nil, nil, fmt.Errorf("list cafe memberships: %w", err)
 	}
-	items := make([]CafeMyRoom, 0, len(seats))
-	for _, seat := range seats {
-		item, ok := cafeMyRoomFromSeat(seat)
-		if ok {
-			items = append(items, item)
+	keyIDs := make([]int64, 0, len(memberships))
+	for _, membership := range memberships {
+		if membership.BoundAPIKeyID != nil {
+			keyIDs = append(keyIDs, *membership.BoundAPIKeyID)
 		}
+	}
+	keysByID := make(map[int64]*dbent.APIKey, len(keyIDs))
+	if len(keyIDs) > 0 {
+		keys, err := s.entClient.APIKey.Query().Where(apikey.IDIn(keyIDs...), apikey.DeletedAtIsNil()).All(ctx)
+		if err != nil {
+			return nil, nil, fmt.Errorf("load cafe membership keys: %w", err)
+		}
+		for _, key := range keys {
+			keysByID[key.ID] = key
+		}
+	}
+	for _, membership := range memberships {
+		if !cafeMyRoomMembershipMatchesStatuses(membership, statuses, now) {
+			continue
+		}
+		item, ok := cafeMyRoomFromMembership(membership, keysByID)
+		if ok {
+			allItems = append(allItems, datedMyRoom{item: item, at: membership.CreatedAt})
+		}
+	}
+	legacySeats, err := s.entClient.GroupBuySeat.Query().Where(
+		groupbuyseat.UserIDEQ(userID),
+		groupbuyseat.HasRoundWith(groupbuyround.CafeFulfillmentVersionEQ("legacy_seat"), groupbuyround.CafeRoomIDNotNil(), groupbuyround.HasCafeRoom()),
+	).WithRound(func(roundQuery *dbent.GroupBuyRoundQuery) {
+		roundQuery.WithCafeRoom(func(roomQuery *dbent.CafeRoomQuery) { roomQuery.WithAccount() })
+	}).WithPlan().WithBoundAPIKey().All(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list legacy cafe rooms: %w", err)
+	}
+	for _, seat := range legacySeats {
+		if !cafeMyRoomLegacySeatMatchesStatuses(seat, statuses, now) {
+			continue
+		}
+		if item, ok := cafeMyRoomFromSeat(seat); ok {
+			allItems = append(allItems, datedMyRoom{item: item, at: seat.CreatedAt})
+		}
+	}
+	sort.SliceStable(allItems, func(i, j int) bool {
+		if allItems[i].at.Equal(allItems[j].at) {
+			return allItems[i].item.MembershipID > allItems[j].item.MembershipID
+		}
+		return allItems[i].at.After(allItems[j].at)
+	})
+	count := len(allItems)
+	start := (page - 1) * pageSize
+	if start > count {
+		start = count
+	}
+	end := start + pageSize
+	if end > count {
+		end = count
+	}
+	items := make([]CafeMyRoom, 0, end-start)
+	for _, entry := range allItems[start:end] {
+		items = append(items, entry.item)
 	}
 	return items, &pagination.PaginationResult{
 		Page:     page,
@@ -368,31 +437,6 @@ func (s *CafePublicService) MyRooms(ctx context.Context, userID int64, params Ca
 		Total:    int64(count),
 		Pages:    int((count + pageSize - 1) / pageSize),
 	}, nil
-}
-
-func (s *CafePublicService) myRoomSeatQuery(userID int64, statuses []string, now time.Time) *dbent.GroupBuySeatQuery {
-	query := s.entClient.GroupBuySeat.Query().Where(
-		groupbuyseat.UserIDEQ(userID),
-		groupbuyseat.HasRoundWith(groupbuyround.CafeRoomIDNotNil(), groupbuyround.HasCafeRoom()),
-	)
-	if len(statuses) == 0 {
-		return query
-	}
-	predicates := make([]predicate.GroupBuySeat, 0, len(statuses))
-	for _, status := range statuses {
-		switch status {
-		case CafeMyRoomStatusActive:
-			predicates = append(predicates, cafeMyRoomActivePredicate(now))
-		case CafeMyRoomStatusWaiting:
-			predicates = append(predicates, cafeMyRoomWaitingPredicate(now))
-		case CafeMyRoomStatusHistory:
-			predicates = append(predicates, groupbuyseat.Not(groupbuyseat.Or(
-				cafeMyRoomActivePredicate(now),
-				cafeMyRoomWaitingPredicate(now),
-			)))
-		}
-	}
-	return query.Where(groupbuyseat.Or(predicates...))
 }
 
 func normalizeCafeMyRoomStatuses(statuses []string) ([]string, error) {
@@ -433,6 +477,63 @@ func cafeMyRoomWaitingPredicate(now time.Time) predicate.GroupBuySeat {
 	)
 }
 
+func cafeMyRoomMembershipMatchesStatuses(membership *dbent.CafeRoundMembership, statuses []string, now time.Time) bool {
+	if len(statuses) == 0 {
+		return true
+	}
+	active := membership != nil && membership.Status == GroupBuySeatStatusActive && (membership.ExpiresAt == nil || membership.ExpiresAt.After(now))
+	waiting := membership != nil && membership.Edges.Round != nil && (membership.Status == GroupBuySeatStatusPaid || membership.Status == GroupBuySeatStatusLocked) &&
+		(membership.Edges.Round.Status == GroupBuyRoundStatusOpen || membership.Edges.Round.Status == GroupBuyRoundStatusAwaitingAccount || membership.Edges.Round.Status == GroupBuyRoundStatusActivating)
+	for _, status := range statuses {
+		if status == CafeMyRoomStatusActive && active || status == CafeMyRoomStatusWaiting && waiting || status == CafeMyRoomStatusHistory && !active && !waiting {
+			return true
+		}
+	}
+	return false
+}
+
+func cafeMyRoomLegacySeatMatchesStatuses(seat *dbent.GroupBuySeat, statuses []string, now time.Time) bool {
+	if len(statuses) == 0 {
+		return true
+	}
+	active := seat != nil && seat.Status == GroupBuySeatStatusActive && (seat.ExpiresAt == nil || seat.ExpiresAt.After(now))
+	waiting := seat != nil && (seat.Status == GroupBuySeatStatusPaid || seat.Status == GroupBuySeatStatusLocked && seat.LockedUntil != nil && seat.LockedUntil.After(now))
+	for _, status := range statuses {
+		if status == CafeMyRoomStatusActive && active || status == CafeMyRoomStatusWaiting && waiting || status == CafeMyRoomStatusHistory && !active && !waiting {
+			return true
+		}
+	}
+	return false
+}
+
+func cafeMyRoomFromMembership(membership *dbent.CafeRoundMembership, keys map[int64]*dbent.APIKey) (CafeMyRoom, bool) {
+	if membership == nil || membership.Edges.Round == nil || membership.Edges.Round.Edges.CafeRoom == nil || membership.Edges.Round.Edges.Plan == nil {
+		return CafeMyRoom{}, false
+	}
+	round := membership.Edges.Round
+	room := round.Edges.CafeRoom
+	plan := round.Edges.Plan
+	item := CafeMyRoom{
+		MembershipID: membership.ID,
+		Status:       membership.Status,
+		PaidShares:   membership.PaidShares,
+		Room:         CafeMyRoomRoom{ID: room.ID, Code: room.Code, Name: room.Name, ZoneKey: room.ZoneKey, ThemeKey: room.ThemeKey},
+		Plan:         CafeMyRoomPlan{ID: plan.ID, Title: plan.Title, SubscriptionTier: cafeRoundSubscriptionTier(round), ValidityDays: cafeRoundValidityDays(round, plan.ValidityDays)},
+		Round:        CafeMyRoomRound{ID: round.ID, Status: round.Status, PaidShares: round.PaidShares, TotalShares: round.TotalShares},
+	}
+	if round.Status == GroupBuyRoundStatusActive && membership.Status == GroupBuySeatStatusActive {
+		if assigned := round.Edges.AssignedAccount; assigned != nil {
+			item.Account = safeCafeMyRoomAccount(assigned)
+		}
+		if membership.BoundAPIKeyID != nil {
+			if key := keys[*membership.BoundAPIKeyID]; key != nil && key.UserID == membership.UserID && key.ManagedSourceType == APIKeyManagedSourceCafeRoomMembership && key.ManagedSourceID != nil && *key.ManagedSourceID == membership.ID {
+				item.ManagedAPIKey = cafeMyRoomManagedKey(key)
+			}
+		}
+	}
+	return item, true
+}
+
 func cafeMyRoomFromSeat(seat *dbent.GroupBuySeat) (CafeMyRoom, bool) {
 	if seat == nil || seat.Edges.Round == nil || seat.Edges.Round.Edges.CafeRoom == nil || seat.Edges.Plan == nil {
 		return CafeMyRoom{}, false
@@ -441,28 +542,43 @@ func cafeMyRoomFromSeat(seat *dbent.GroupBuySeat) (CafeMyRoom, bool) {
 	room := round.Edges.CafeRoom
 	item := CafeMyRoom{
 		MembershipID: seat.ID,
+		Status:       seat.Status,
+		PaidShares:   seat.ShareCount,
 		Room: CafeMyRoomRoom{
 			ID: room.ID, Code: room.Code, Name: room.Name, ZoneKey: room.ZoneKey, ThemeKey: room.ThemeKey,
 		},
-		Plan:  CafeMyRoomPlan{ID: seat.Edges.Plan.ID, Title: seat.Edges.Plan.Title, ValidityDays: seat.Edges.Plan.ValidityDays},
-		Round: CafeMyRoomRound{ID: round.ID, Status: round.Status, PaidSeats: round.PaidSeats, TotalSeats: round.TotalSeats},
+		Plan:  CafeMyRoomPlan{ID: seat.Edges.Plan.ID, Title: seat.Edges.Plan.Title, SubscriptionTier: "plus", ValidityDays: seat.Edges.Plan.ValidityDays},
+		Round: CafeMyRoomRound{ID: round.ID, Status: round.Status, PaidShares: round.PaidShares, TotalShares: round.TotalShares},
 		Seat:  CafeMyRoomSeat{ID: seat.ID, SeatNo: seat.SeatNo, Status: seat.Status, ActivatedAt: seat.ActivatedAt, ExpiresAt: seat.ExpiresAt},
 	}
 	if account := room.Edges.Account; account != nil {
-		item.Account = &CafeMyRoomAccount{
-			Name:        cafeAccountDisplayName(account.Name),
-			Platform:    account.Platform,
-			EmailMasked: cafeAccountEmailMasked(account),
-		}
+		item.Account = safeCafeMyRoomAccount(account)
 	}
 	if key := seat.Edges.BoundAPIKey; key != nil && key.UserID == seat.UserID && key.ManagedSourceType == APIKeyManagedSourceCafeRoomSeat && key.ManagedSourceID != nil && *key.ManagedSourceID == seat.ID {
-		item.ManagedAPIKey = &CafeMyRoomManagedKey{
-			ID: key.ID, Name: key.Name, Status: key.Status, Quota: key.Quota, QuotaUsed: key.QuotaUsed,
-			RateLimit5h: key.RateLimit5h, RateLimit1d: key.RateLimit1d, RateLimit7d: key.RateLimit7d,
-			Usage5h: key.Usage5h, Usage7d: key.Usage7d, Protected: true,
-		}
+		item.ManagedAPIKey = cafeMyRoomManagedKey(key)
 	}
 	return item, true
+}
+
+func safeCafeMyRoomAccount(account *dbent.Account) *CafeMyRoomAccount {
+	if account == nil {
+		return nil
+	}
+	return &CafeMyRoomAccount{Name: cafeAccountDisplayName(account.Name), Platform: account.Platform, EmailMasked: cafeAccountEmailMasked(account)}
+}
+
+func cafeMyRoomManagedKey(key *dbent.APIKey) *CafeMyRoomManagedKey {
+	if key == nil {
+		return nil
+	}
+	return &CafeMyRoomManagedKey{ID: key.ID, Name: key.Name, Status: key.Status, Quota: key.Quota, QuotaUsed: key.QuotaUsed, RateLimit5h: key.RateLimit5h, RateLimit1d: key.RateLimit1d, RateLimit7d: key.RateLimit7d, Usage5h: key.Usage5h, Usage7d: key.Usage7d, Protected: true}
+}
+
+func cafeRoundValidityDays(round *dbent.GroupBuyRound, fallback int) int {
+	if round != nil && round.ValidityDaysSnapshot != nil && *round.ValidityDaysSnapshot > 0 {
+		return *round.ValidityDaysSnapshot
+	}
+	return fallback
 }
 
 func cafeAccountEmailMasked(account *dbent.Account) string {
@@ -576,9 +692,9 @@ func (s *CafePublicService) listZones(ctx context.Context, userID int64) ([]Cafe
 		zone.RoomCount++
 		if len(room.Edges.Rounds) > 0 {
 			round := room.Edges.Rounds[0]
-			remaining := round.TotalSeats - round.PaidSeats - round.ReservedSeats
+			remaining := round.TotalShares - round.PaidShares - round.ReservedShares
 			if remaining > 0 {
-				zone.OpenSeatCount += remaining
+				zone.OpenShareCount += remaining
 			}
 		}
 	}
@@ -621,27 +737,30 @@ func (s *CafePublicService) requireEnabled(ctx context.Context) error {
 }
 
 func currentCafeRoundQuery(query *dbent.GroupBuyRoundQuery) {
-	query.Where(groupbuyround.StatusIn(CafeRoundStatusOpen, "activating", "active")).
-		Order(dbent.Asc(groupbuyround.FieldDeadlineAt)).
+	query.Where(groupbuyround.StatusIn(CafeRoundStatusOpen, GroupBuyRoundStatusAwaitingAccount, GroupBuyRoundStatusActivating, GroupBuyRoundStatusActive, GroupBuyRoundStatusRefunding, GroupBuyRoundStatusRefunded)).
+		Order(dbent.Desc(groupbuyround.FieldCreatedAt), dbent.Desc(groupbuyround.FieldID)).
 		Limit(1).
-		WithSeats(func(seatQuery *dbent.GroupBuySeatQuery) {
-			seatQuery.Order(dbent.Asc(groupbuyseat.FieldSeatNo), dbent.Asc(groupbuyseat.FieldID))
-		})
+		WithSeats().
+		WithCafeMemberships()
 }
 
 func publicCafeRoom(room *dbent.CafeRoom, userID int64, now time.Time) CafePublicRoom {
 	if room == nil || room.Edges.Plan == nil {
-		return CafePublicRoom{SeatVisuals: []CafePublicSeatVisual{}, PurchaseState: "unavailable"}
+		return CafePublicRoom{MemberAvatars: []CafePublicMemberAvatar{}, PurchaseState: "unavailable"}
 	}
 	plan := room.Edges.Plan
+	totalShares, tier, maxBuyers, maxSharesPerUser := publicCafePlanPolicy(plan)
 	publicPlan := CafePublicPlan{
-		ID:           plan.ID,
-		Title:        plan.Title,
-		Description:  cafeString(plan.Description),
-		PricePerSeat: plan.PricePerShare,
-		PriceLabel:   plan.PriceLabel,
-		ValidityDays: plan.ValidityDays,
-		TotalSeats:   publicCafeSeatCount(plan.TotalShares, plan.SeatCount),
+		ID:               plan.ID,
+		Title:            plan.Title,
+		Description:      cafeString(plan.Description),
+		PricePerShare:    plan.PricePerShare,
+		PriceLabel:       plan.PriceLabel,
+		ValidityDays:     plan.ValidityDays,
+		SubscriptionTier: tier,
+		TotalShares:      totalShares,
+		MaxBuyers:        maxBuyers,
+		MaxSharesPerUser: maxSharesPerUser,
 	}
 	result := CafePublicRoom{
 		ID:            room.ID,
@@ -652,40 +771,94 @@ func publicCafeRoom(room *dbent.CafeRoom, userID int64, now time.Time) CafePubli
 		SceneSlotKey:  room.SceneSlotKey,
 		Featured:      room.Featured,
 		Plan:          publicPlan,
-		SeatVisuals:   []CafePublicSeatVisual{},
+		MemberAvatars: []CafePublicMemberAvatar{},
 		PurchaseState: "unavailable",
 	}
 	if len(room.Edges.Rounds) == 0 {
 		return result
 	}
 	round := room.Edges.Rounds[0]
-	remaining := round.TotalSeats - round.PaidSeats - round.ReservedSeats
+	remaining := round.TotalShares - round.PaidShares - round.ReservedShares
 	if remaining < 0 {
 		remaining = 0
 	}
-	result.Round = &CafePublicRound{
-		ID:             round.ID,
-		Status:         round.Status,
-		PaidSeats:      round.PaidSeats,
-		ReservedSeats:  round.ReservedSeats,
-		RemainingSeats: remaining,
-		DeadlineAt:     round.DeadlineAt,
-		ActivatedAt:    round.ActivatedAt,
-		ExpiresAt:      round.EntitlementExpiresAt,
+	joinedBuyers, myPaidShares, isParticipant := publicCafeMembershipCounts(round, userID, now)
+	roundMaxBuyers := maxBuyers
+	if round.MaxBuyers != nil {
+		roundMaxBuyers = *round.MaxBuyers
 	}
+	remainingBuyerSlots := roundMaxBuyers - joinedBuyers
+	if remainingBuyerSlots < 0 {
+		remainingBuyerSlots = 0
+	}
+	result.Round = &CafePublicRound{ID: round.ID, Status: round.Status, PaidShares: round.PaidShares, ReservedShares: round.ReservedShares, RemainingShares: remaining, MaxBuyers: roundMaxBuyers, JoinedBuyers: joinedBuyers, RemainingBuyerSlots: remainingBuyerSlots, DeadlineAt: round.DeadlineAt, FulfillmentDeadlineAt: round.FulfillmentDeadlineAt, ActivatedAt: round.ActivatedAt, ExpiresAt: round.EntitlementExpiresAt}
+	result.MemberAvatars = publicCafeMemberAvatars(round)
 	result.SeatVisuals = publicCafeSeatVisuals(round, userID, now)
-	result.PurchaseState = publicCafePurchaseState(round, remaining)
+	result.MyPaidShares = myPaidShares
+	result.PurchaseState = publicCafePurchaseState(round, remaining, remainingBuyerSlots, isParticipant)
 	return result
 }
 
-func publicCafeSeatVisuals(round *dbent.GroupBuyRound, userID int64, now time.Time) []CafePublicSeatVisual {
+func publicCafeMembershipCounts(round *dbent.GroupBuyRound, userID int64, now time.Time) (joinedBuyers, myPaidShares int, isParticipant bool) {
 	if round == nil {
+		return 0, 0, false
+	}
+	if round.CafeFulfillmentVersion == "membership_share" {
+		for _, membership := range round.Edges.CafeMemberships {
+			if membership.PaidShares > 0 || membership.ReservedShares > 0 {
+				joinedBuyers++
+			}
+			if userID > 0 && membership.UserID == userID {
+				myPaidShares = membership.PaidShares
+				isParticipant = membership.PaidShares > 0 || membership.ReservedShares > 0
+			}
+		}
+		return joinedBuyers, myPaidShares, isParticipant
+	}
+	for _, seat := range round.Edges.Seats {
+		if publicCafeLegacySeatVisible(seat, now) {
+			joinedBuyers++
+			if userID > 0 && seat.UserID == userID {
+				myPaidShares += seat.ShareCount
+				isParticipant = true
+			}
+		}
+	}
+	return joinedBuyers, myPaidShares, isParticipant
+}
+
+func publicCafeMemberAvatars(round *dbent.GroupBuyRound) []CafePublicMemberAvatar {
+	if round == nil {
+		return []CafePublicMemberAvatar{}
+	}
+	avatars := make([]CafePublicMemberAvatar, 0)
+	if round.CafeFulfillmentVersion == "membership_share" {
+		memberships := append([]*dbent.CafeRoundMembership(nil), round.Edges.CafeMemberships...)
+		sort.Slice(memberships, func(i, j int) bool { return memberships[i].ID < memberships[j].ID })
+		for _, membership := range memberships {
+			if membership.PaidShares > 0 {
+				avatars = append(avatars, CafePublicMemberAvatar{AvatarSeed: publicCafeAvatarSeed(round.ID, int(membership.ID))})
+			}
+		}
+		return avatars
+	}
+	for _, seat := range round.Edges.Seats {
+		if seat.Status == GroupBuySeatStatusPaid || seat.Status == GroupBuySeatStatusActive || seat.Status == GroupBuySeatStatusRefundPending || seat.Status == GroupBuySeatStatusRefundProcessing {
+			avatars = append(avatars, CafePublicMemberAvatar{AvatarSeed: publicCafeAvatarSeed(round.ID, int(seat.ID))})
+		}
+	}
+	return avatars
+}
+
+func publicCafeLegacySeatVisible(seat *dbent.GroupBuySeat, now time.Time) bool {
+	return seat != nil && (seat.Status == GroupBuySeatStatusPaid || seat.Status == GroupBuySeatStatusActive || seat.Status == GroupBuySeatStatusLocked && seat.LockedUntil != nil && seat.LockedUntil.After(now))
+}
+
+func publicCafeSeatVisuals(round *dbent.GroupBuyRound, userID int64, now time.Time) []CafePublicSeatVisual {
+	if round == nil || round.CafeFulfillmentVersion == "membership_share" {
 		return []CafePublicSeatVisual{}
 	}
-	totalSeats := round.TotalSeats
-	if totalSeats <= 0 {
-		totalSeats = round.TotalShares
-	}
+	totalSeats := publicCafeSeatCount(round.TotalShares, round.TotalSeats)
 	if totalSeats <= 0 {
 		return []CafePublicSeatVisual{}
 	}
@@ -694,63 +867,73 @@ func publicCafeSeatVisuals(round *dbent.GroupBuyRound, userID int64, now time.Ti
 		visuals[index] = CafePublicSeatVisual{SeatNo: index + 1, State: "empty"}
 	}
 	for _, seat := range round.Edges.Seats {
-		if seat.SeatNo == nil || *seat.SeatNo < 1 || *seat.SeatNo > totalSeats {
+		if seat.SeatNo == nil || *seat.SeatNo < 1 || *seat.SeatNo > totalSeats || !publicCafeLegacySeatVisible(seat, now) {
 			continue
 		}
-		state := publicCafeSeatState(seat, now)
-		if state == "empty" {
-			continue
-		}
+		state := seat.Status
 		seatNo := *seat.SeatNo
-		visuals[seatNo-1] = CafePublicSeatVisual{
-			SeatNo:     seatNo,
-			State:      state,
-			AvatarSeed: publicCafeAvatarSeed(round.ID, seatNo),
-			IsMine:     userID > 0 && seat.UserID == userID,
-		}
+		visuals[seatNo-1] = CafePublicSeatVisual{SeatNo: seatNo, State: state, AvatarSeed: publicCafeAvatarSeed(round.ID, seatNo), IsMine: userID > 0 && seat.UserID == userID}
 	}
 	return visuals
 }
 
-func publicCafeSeatState(seat *dbent.GroupBuySeat, now time.Time) string {
-	if seat == nil {
-		return "empty"
-	}
-	switch seat.Status {
-	case GroupBuySeatStatusActive:
-		return "active"
-	case GroupBuySeatStatusPaid:
-		return "paid"
-	case GroupBuySeatStatusLocked:
-		if seat.LockedUntil != nil && seat.LockedUntil.After(now) {
-			return "locked"
-		}
-	}
-	return "empty"
-}
-
-func publicCafePurchaseState(round *dbent.GroupBuyRound, remaining int) string {
+func publicCafePurchaseState(round *dbent.GroupBuyRound, remaining, remainingBuyerSlots int, isParticipant bool) string {
 	if round == nil {
 		return "unavailable"
 	}
 	switch round.Status {
 	case CafeRoundStatusOpen:
-		if remaining > 0 {
+		if remaining > 0 && (remainingBuyerSlots > 0 || isParticipant) {
 			return "available"
 		}
-		return "full"
-	case "activating":
+		if remaining > 0 {
+			return "buyers_full"
+		}
+		return "awaiting_account"
+	case GroupBuyRoundStatusAwaitingAccount:
+		return "awaiting_account"
+	case GroupBuyRoundStatusActivating:
 		return "activating"
-	case "active":
+	case GroupBuyRoundStatusActive:
 		return "active"
+	case GroupBuyRoundStatusRefunding:
+		return "refunding"
+	case GroupBuyRoundStatusRefunded:
+		return "refunded"
 	default:
 		return "unavailable"
 	}
 }
 
-func publicCafeAvatarSeed(roundID int64, seatNo int) string {
-	digest := sha256.Sum256([]byte(fmt.Sprintf("cafe-seat:%d:%d", roundID, seatNo)))
+func publicCafeAvatarSeed(roundID int64, membershipID int) string {
+	digest := sha256.Sum256([]byte(fmt.Sprintf("cafe-member:%d:%d", roundID, membershipID)))
 	return hex.EncodeToString(digest[:8])
+}
+
+func publicCafePlanPolicy(plan *dbent.GroupBuyPlan) (int, string, int, int) {
+	if plan == nil {
+		return 0, "", 0, 0
+	}
+	totalShares := plan.TotalShares
+	if totalShares <= 0 {
+		totalShares = plan.SeatCount
+	}
+	tier := strings.ToLower(strings.TrimSpace(plan.SubscriptionTier))
+	if tier == "" {
+		tier = "plus"
+	}
+	maxBuyers := plan.MaxBuyers
+	if maxBuyers <= 0 {
+		maxBuyers = totalShares
+		if maxBuyers > 4 {
+			maxBuyers = 4
+		}
+	}
+	maxSharesPerUser := plan.MaxSharesPerUser
+	if maxSharesPerUser <= 0 {
+		maxSharesPerUser = totalShares
+	}
+	return totalShares, tier, maxBuyers, maxSharesPerUser
 }
 
 func publicCafeSeatCount(totalShares, seatCount int) int {

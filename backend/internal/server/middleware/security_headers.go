@@ -34,6 +34,9 @@ var requiredCSPDirectiveValues = []struct {
 	directive string
 	value     string
 }{
+	// Pixi decodes scene assets in a blob worker. Keep this permission isolated
+	// to worker-src instead of widening script-src with blob:.
+	{"worker-src", "blob:"},
 	{"script-src", CloudflareInsightsDomain},
 	{"script-src", StripeDomain},
 	{"frame-src", StripeDomain},
@@ -189,8 +192,8 @@ func isAPIRoutePath(c *gin.Context) bool {
 		strings.HasPrefix(path, "/images")
 }
 
-// enhanceCSPPolicy 确保 CSP 策略包含 nonce 支持和支付 SDK 必需域名。
-// 这样旧配置文件没有及时补域名时，前端支付组件仍能正常加载。
+// enhanceCSPPolicy 确保 CSP 策略包含 nonce、前端 Worker 和支付 SDK 必需域名。
+// 这样旧配置文件没有及时补配置时，前端场景和支付组件仍能正常加载。
 func enhanceCSPPolicy(policy string) string {
 	// Add nonce placeholder to script-src if not present
 	if !strings.Contains(policy, NonceTemplate) && !strings.Contains(policy, "'nonce-") {

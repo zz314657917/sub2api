@@ -26,6 +26,32 @@ type GroupBuyRound struct {
 	CafeRoomID *int64 `json:"cafe_room_id,omitempty"`
 	// AssignedAccountID holds the value of the "assigned_account_id" field.
 	AssignedAccountID *int64 `json:"assigned_account_id,omitempty"`
+	// CafeFulfillmentVersion holds the value of the "cafe_fulfillment_version" field.
+	CafeFulfillmentVersion string `json:"cafe_fulfillment_version,omitempty"`
+	// SubscriptionTier holds the value of the "subscription_tier" field.
+	SubscriptionTier *string `json:"subscription_tier,omitempty"`
+	// MaxBuyers holds the value of the "max_buyers" field.
+	MaxBuyers *int `json:"max_buyers,omitempty"`
+	// MaxSharesPerUser holds the value of the "max_shares_per_user" field.
+	MaxSharesPerUser *int `json:"max_shares_per_user,omitempty"`
+	// FulfillmentTimeoutMinutes holds the value of the "fulfillment_timeout_minutes" field.
+	FulfillmentTimeoutMinutes *int `json:"fulfillment_timeout_minutes,omitempty"`
+	// ValidityDaysSnapshot holds the value of the "validity_days_snapshot" field.
+	ValidityDaysSnapshot *int `json:"validity_days_snapshot,omitempty"`
+	// TargetGroupIDSnapshot holds the value of the "target_group_id_snapshot" field.
+	TargetGroupIDSnapshot *int64 `json:"target_group_id_snapshot,omitempty"`
+	// PlatformSnapshot holds the value of the "platform_snapshot" field.
+	PlatformSnapshot *string `json:"platform_snapshot,omitempty"`
+	// QuotaPerShareSnapshot holds the value of the "quota_per_share_snapshot" field.
+	QuotaPerShareSnapshot *float64 `json:"quota_per_share_snapshot,omitempty"`
+	// RateLimit5hPerShareSnapshot holds the value of the "rate_limit_5h_per_share_snapshot" field.
+	RateLimit5hPerShareSnapshot *float64 `json:"rate_limit_5h_per_share_snapshot,omitempty"`
+	// RateLimit1dPerShareSnapshot holds the value of the "rate_limit_1d_per_share_snapshot" field.
+	RateLimit1dPerShareSnapshot *float64 `json:"rate_limit_1d_per_share_snapshot,omitempty"`
+	// RateLimit7dPerShareSnapshot holds the value of the "rate_limit_7d_per_share_snapshot" field.
+	RateLimit7dPerShareSnapshot *float64 `json:"rate_limit_7d_per_share_snapshot,omitempty"`
+	// FulfillmentDeadlineAt holds the value of the "fulfillment_deadline_at" field.
+	FulfillmentDeadlineAt *time.Time `json:"fulfillment_deadline_at,omitempty"`
 	// RoomCodeSnapshot holds the value of the "room_code_snapshot" field.
 	RoomCodeSnapshot *string `json:"room_code_snapshot,omitempty"`
 	// RoomNameSnapshot holds the value of the "room_name_snapshot" field.
@@ -84,9 +110,11 @@ type GroupBuyRoundEdges struct {
 	AssignedAccount *Account `json:"assigned_account,omitempty"`
 	// AccountBindings holds the value of the account_bindings edge.
 	AccountBindings []*APIKeyAccountBinding `json:"account_bindings,omitempty"`
+	// CafeMemberships holds the value of the cafe_memberships edge.
+	CafeMemberships []*CafeRoundMembership `json:"cafe_memberships,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [6]bool
+	loadedTypes [7]bool
 }
 
 // PlanOrErr returns the Plan value or an error if the edge
@@ -149,16 +177,27 @@ func (e GroupBuyRoundEdges) AccountBindingsOrErr() ([]*APIKeyAccountBinding, err
 	return nil, &NotLoadedError{edge: "account_bindings"}
 }
 
+// CafeMembershipsOrErr returns the CafeMemberships value or an error if the edge
+// was not loaded in eager-loading.
+func (e GroupBuyRoundEdges) CafeMembershipsOrErr() ([]*CafeRoundMembership, error) {
+	if e.loadedTypes[6] {
+		return e.CafeMemberships, nil
+	}
+	return nil, &NotLoadedError{edge: "cafe_memberships"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*GroupBuyRound) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case groupbuyround.FieldID, groupbuyround.FieldPlanID, groupbuyround.FieldCafeRoomID, groupbuyround.FieldAssignedAccountID, groupbuyround.FieldTotalShares, groupbuyround.FieldPaidShares, groupbuyround.FieldReservedShares, groupbuyround.FieldTotalSeats, groupbuyround.FieldPaidSeats, groupbuyround.FieldReservedSeats:
+		case groupbuyround.FieldQuotaPerShareSnapshot, groupbuyround.FieldRateLimit5hPerShareSnapshot, groupbuyround.FieldRateLimit1dPerShareSnapshot, groupbuyround.FieldRateLimit7dPerShareSnapshot:
+			values[i] = new(sql.NullFloat64)
+		case groupbuyround.FieldID, groupbuyround.FieldPlanID, groupbuyround.FieldCafeRoomID, groupbuyround.FieldAssignedAccountID, groupbuyround.FieldMaxBuyers, groupbuyround.FieldMaxSharesPerUser, groupbuyround.FieldFulfillmentTimeoutMinutes, groupbuyround.FieldValidityDaysSnapshot, groupbuyround.FieldTargetGroupIDSnapshot, groupbuyround.FieldTotalShares, groupbuyround.FieldPaidShares, groupbuyround.FieldReservedShares, groupbuyround.FieldTotalSeats, groupbuyround.FieldPaidSeats, groupbuyround.FieldReservedSeats:
 			values[i] = new(sql.NullInt64)
-		case groupbuyround.FieldRoomCodeSnapshot, groupbuyround.FieldRoomNameSnapshot, groupbuyround.FieldStatus, groupbuyround.FieldActivationToken, groupbuyround.FieldCloseReason:
+		case groupbuyround.FieldCafeFulfillmentVersion, groupbuyround.FieldSubscriptionTier, groupbuyround.FieldPlatformSnapshot, groupbuyround.FieldRoomCodeSnapshot, groupbuyround.FieldRoomNameSnapshot, groupbuyround.FieldStatus, groupbuyround.FieldActivationToken, groupbuyround.FieldCloseReason:
 			values[i] = new(sql.NullString)
-		case groupbuyround.FieldDeadlineAt, groupbuyround.FieldStartedAt, groupbuyround.FieldClosedAt, groupbuyround.FieldActivatedAt, groupbuyround.FieldEntitlementExpiresAt, groupbuyround.FieldCompletedAt, groupbuyround.FieldCreatedAt, groupbuyround.FieldUpdatedAt:
+		case groupbuyround.FieldFulfillmentDeadlineAt, groupbuyround.FieldDeadlineAt, groupbuyround.FieldStartedAt, groupbuyround.FieldClosedAt, groupbuyround.FieldActivatedAt, groupbuyround.FieldEntitlementExpiresAt, groupbuyround.FieldCompletedAt, groupbuyround.FieldCreatedAt, groupbuyround.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -200,6 +239,96 @@ func (_m *GroupBuyRound) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.AssignedAccountID = new(int64)
 				*_m.AssignedAccountID = value.Int64
+			}
+		case groupbuyround.FieldCafeFulfillmentVersion:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field cafe_fulfillment_version", values[i])
+			} else if value.Valid {
+				_m.CafeFulfillmentVersion = value.String
+			}
+		case groupbuyround.FieldSubscriptionTier:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field subscription_tier", values[i])
+			} else if value.Valid {
+				_m.SubscriptionTier = new(string)
+				*_m.SubscriptionTier = value.String
+			}
+		case groupbuyround.FieldMaxBuyers:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field max_buyers", values[i])
+			} else if value.Valid {
+				_m.MaxBuyers = new(int)
+				*_m.MaxBuyers = int(value.Int64)
+			}
+		case groupbuyround.FieldMaxSharesPerUser:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field max_shares_per_user", values[i])
+			} else if value.Valid {
+				_m.MaxSharesPerUser = new(int)
+				*_m.MaxSharesPerUser = int(value.Int64)
+			}
+		case groupbuyround.FieldFulfillmentTimeoutMinutes:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field fulfillment_timeout_minutes", values[i])
+			} else if value.Valid {
+				_m.FulfillmentTimeoutMinutes = new(int)
+				*_m.FulfillmentTimeoutMinutes = int(value.Int64)
+			}
+		case groupbuyround.FieldValidityDaysSnapshot:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field validity_days_snapshot", values[i])
+			} else if value.Valid {
+				_m.ValidityDaysSnapshot = new(int)
+				*_m.ValidityDaysSnapshot = int(value.Int64)
+			}
+		case groupbuyround.FieldTargetGroupIDSnapshot:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field target_group_id_snapshot", values[i])
+			} else if value.Valid {
+				_m.TargetGroupIDSnapshot = new(int64)
+				*_m.TargetGroupIDSnapshot = value.Int64
+			}
+		case groupbuyround.FieldPlatformSnapshot:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field platform_snapshot", values[i])
+			} else if value.Valid {
+				_m.PlatformSnapshot = new(string)
+				*_m.PlatformSnapshot = value.String
+			}
+		case groupbuyround.FieldQuotaPerShareSnapshot:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field quota_per_share_snapshot", values[i])
+			} else if value.Valid {
+				_m.QuotaPerShareSnapshot = new(float64)
+				*_m.QuotaPerShareSnapshot = value.Float64
+			}
+		case groupbuyround.FieldRateLimit5hPerShareSnapshot:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field rate_limit_5h_per_share_snapshot", values[i])
+			} else if value.Valid {
+				_m.RateLimit5hPerShareSnapshot = new(float64)
+				*_m.RateLimit5hPerShareSnapshot = value.Float64
+			}
+		case groupbuyround.FieldRateLimit1dPerShareSnapshot:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field rate_limit_1d_per_share_snapshot", values[i])
+			} else if value.Valid {
+				_m.RateLimit1dPerShareSnapshot = new(float64)
+				*_m.RateLimit1dPerShareSnapshot = value.Float64
+			}
+		case groupbuyround.FieldRateLimit7dPerShareSnapshot:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field rate_limit_7d_per_share_snapshot", values[i])
+			} else if value.Valid {
+				_m.RateLimit7dPerShareSnapshot = new(float64)
+				*_m.RateLimit7dPerShareSnapshot = value.Float64
+			}
+		case groupbuyround.FieldFulfillmentDeadlineAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field fulfillment_deadline_at", values[i])
+			} else if value.Valid {
+				_m.FulfillmentDeadlineAt = new(time.Time)
+				*_m.FulfillmentDeadlineAt = value.Time
 			}
 		case groupbuyround.FieldRoomCodeSnapshot:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -367,6 +496,11 @@ func (_m *GroupBuyRound) QueryAccountBindings() *APIKeyAccountBindingQuery {
 	return NewGroupBuyRoundClient(_m.config).QueryAccountBindings(_m)
 }
 
+// QueryCafeMemberships queries the "cafe_memberships" edge of the GroupBuyRound entity.
+func (_m *GroupBuyRound) QueryCafeMemberships() *CafeRoundMembershipQuery {
+	return NewGroupBuyRoundClient(_m.config).QueryCafeMemberships(_m)
+}
+
 // Update returns a builder for updating this GroupBuyRound.
 // Note that you need to call GroupBuyRound.Unwrap() before calling this method if this GroupBuyRound
 // was returned from a transaction, and the transaction was committed or rolled back.
@@ -401,6 +535,69 @@ func (_m *GroupBuyRound) String() string {
 	if v := _m.AssignedAccountID; v != nil {
 		builder.WriteString("assigned_account_id=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("cafe_fulfillment_version=")
+	builder.WriteString(_m.CafeFulfillmentVersion)
+	builder.WriteString(", ")
+	if v := _m.SubscriptionTier; v != nil {
+		builder.WriteString("subscription_tier=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.MaxBuyers; v != nil {
+		builder.WriteString("max_buyers=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.MaxSharesPerUser; v != nil {
+		builder.WriteString("max_shares_per_user=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.FulfillmentTimeoutMinutes; v != nil {
+		builder.WriteString("fulfillment_timeout_minutes=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.ValidityDaysSnapshot; v != nil {
+		builder.WriteString("validity_days_snapshot=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.TargetGroupIDSnapshot; v != nil {
+		builder.WriteString("target_group_id_snapshot=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.PlatformSnapshot; v != nil {
+		builder.WriteString("platform_snapshot=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.QuotaPerShareSnapshot; v != nil {
+		builder.WriteString("quota_per_share_snapshot=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.RateLimit5hPerShareSnapshot; v != nil {
+		builder.WriteString("rate_limit_5h_per_share_snapshot=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.RateLimit1dPerShareSnapshot; v != nil {
+		builder.WriteString("rate_limit_1d_per_share_snapshot=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.RateLimit7dPerShareSnapshot; v != nil {
+		builder.WriteString("rate_limit_7d_per_share_snapshot=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.FulfillmentDeadlineAt; v != nil {
+		builder.WriteString("fulfillment_deadline_at=")
+		builder.WriteString(v.Format(time.ANSIC))
 	}
 	builder.WriteString(", ")
 	if v := _m.RoomCodeSnapshot; v != nil {

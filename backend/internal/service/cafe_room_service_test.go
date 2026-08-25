@@ -182,19 +182,20 @@ func TestCafeRoomServiceCreateValidatesStatusAndCompatibility(t *testing.T) {
 		require.ErrorIs(t, err, ErrCafeGroupInvalid)
 	})
 
-	t.Run("account must be active and assigned to target group", func(t *testing.T) {
+	t.Run("new room does not pre-validate or reserve an account", func(t *testing.T) {
 		repo := newCafeRoomRepositoryStub()
 		repo.accounts[1] = cafeAccountStub{status: "disabled", platform: "openai", groupIDs: []int64{20}}
-		_, err := NewCafeRoomService(repo).Create(context.Background(), input)
-		require.ErrorIs(t, err, ErrCafeAccountIncompatible)
+		room, err := NewCafeRoomService(repo).Create(context.Background(), input)
+		require.NoError(t, err)
+		require.Equal(t, accountID, *room.AccountID)
 	})
 
-	t.Run("operational account is unique", func(t *testing.T) {
+	t.Run("legacy account field is not the new round account source", func(t *testing.T) {
 		repo := newCafeRoomRepositoryStub()
 		repo.assigned[1] = true
 		repo.rooms[99] = &CafeRoom{ID: 99, AccountID: &accountID, Status: CafeRoomStatusEnabled}
 		_, err := NewCafeRoomService(repo).Create(context.Background(), input)
-		require.ErrorIs(t, err, ErrCafeAccountAssigned)
+		require.NoError(t, err)
 	})
 }
 
@@ -240,27 +241,23 @@ func TestCafeRoomServiceUpdateAndDeleteRespectLiveState(t *testing.T) {
 	require.ErrorIs(t, err, ErrCafeRoomLive)
 }
 
-func TestCafeRoomServiceBulkCreateReturnsPerAccountResults(t *testing.T) {
+func TestCafeRoomServiceBulkCreateUsesQuantityWithoutAccounts(t *testing.T) {
 	repo := newCafeRoomRepositoryStub()
-	repo.accounts[2] = cafeAccountStub{status: "disabled", platform: "openai", groupIDs: []int64{20}}
-	repo.accounts[3] = cafeAccountStub{status: StatusActive, platform: "openai", groupIDs: []int64{20}}
 	repo.openRoundError[2] = errors.New("round create failed")
 
 	result := NewCafeRoomService(repo).BulkCreate(context.Background(), CafeRoomBulkInput{
 		PlanID:          10,
-		AccountIDs:      []int64{1, 2, 3},
+		Quantity:        3,
 		CodePrefix:      "CAFE-",
 		StartNumber:     8,
 		CreateOpenRound: true,
 	})
 
-	require.Len(t, result.Created, 1)
-	require.Equal(t, int64(1), result.Created[0].AccountID)
+	require.Len(t, result.Created, 2)
 	require.Equal(t, "CAFE-008", result.Created[0].Room.Code)
 	require.NotNil(t, result.Created[0].Round)
-	require.Len(t, result.Failed, 2)
-	require.Equal(t, int64(2), result.Failed[0].AccountID)
-	require.Equal(t, "CAFE_ACCOUNT_INCOMPATIBLE", result.Failed[0].Code)
-	require.Equal(t, int64(3), result.Failed[1].AccountID)
+	require.Equal(t, "CAFE-010", result.Created[1].Room.Code)
+	require.Len(t, result.Failed, 1)
+	require.Equal(t, 1, result.Failed[0].Index)
 	require.Equal(t, []int64{2}, repo.deleted)
 }

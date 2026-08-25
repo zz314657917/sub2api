@@ -7,6 +7,7 @@ import (
 
 	"entgo.io/ent/dialect"
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/caferoundmembership"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyrefund"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
@@ -68,16 +69,84 @@ func (s *CafeRoomLifecycleService) RunCafeLifecycle(ctx context.Context) (int, e
 	record(count, err)
 	count, err = s.expireUnfilledCafeRounds(ctx, s.now())
 	record(count, err)
+	count, err = s.expireAwaitingAccountCafeRounds(ctx, s.now())
+	record(count, err)
 	count, err = s.processCafeRefunds(ctx)
 	record(count, err)
 	count, err = s.releaseFailedCafeOrderSeats(ctx)
 	record(count, err)
 	count, err = s.reconcileCafePendingProviderRefunds(ctx)
 	record(count, err)
+	count, err = s.finalizeCafeRefundedRounds(ctx, s.now())
+	record(count, err)
 	count, err = s.compensateCafeActivation(ctx, s.now())
 	record(count, err)
 
 	return updated, firstErr
+}
+
+func (s *CafeRoomLifecycleService) expireAwaitingAccountCafeRounds(ctx context.Context, now time.Time) (int, error) {
+	rounds, err := s.entClient.GroupBuyRound.Query().Where(
+		groupbuyround.CafeRoomIDNotNil(),
+		groupbuyround.CafeFulfillmentVersionEQ("membership_share"),
+		groupbuyround.StatusEQ(GroupBuyRoundStatusAwaitingAccount),
+		groupbuyround.FulfillmentDeadlineAtNotNil(),
+		groupbuyround.FulfillmentDeadlineAtLTE(now),
+	).Order(dbent.Asc(groupbuyround.FieldFulfillmentDeadlineAt), dbent.Asc(groupbuyround.FieldID)).Limit(cafeRoomLifecycleBatchSize).All(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("list expired cafe fulfillment rounds: %w", err)
+	}
+	updated := 0
+	var firstErr error
+	for _, round := range rounds {
+		changed, expireErr := s.expireAwaitingAccountCafeRound(ctx, round.ID, now)
+		if changed {
+			updated++
+		}
+		if expireErr != nil && firstErr == nil {
+			firstErr = expireErr
+		}
+	}
+	return updated, firstErr
+}
+
+func (s *CafeRoomLifecycleService) expireAwaitingAccountCafeRound(ctx context.Context, roundID int64, now time.Time) (bool, error) {
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return false, fmt.Errorf("begin cafe fulfillment timeout: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	txCtx := dbent.NewTxContext(ctx, tx)
+	round, err := s.roundForUpdate(tx.GroupBuyRound.Query().Where(groupbuyround.IDEQ(roundID))).Only(txCtx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("lock cafe fulfillment timeout round %d: %w", roundID, err)
+	}
+	if round.CafeFulfillmentVersion != "membership_share" || round.Status != GroupBuyRoundStatusAwaitingAccount || round.FulfillmentDeadlineAt == nil || now.Before(*round.FulfillmentDeadlineAt) {
+		if err := tx.Commit(); err != nil {
+			return false, err
+		}
+		return false, nil
+	}
+	reason := "cafe account fulfillment deadline expired"
+	if _, err := tx.GroupBuyRound.UpdateOneID(round.ID).SetStatus(GroupBuyRoundStatusRefunding).SetClosedAt(now).SetCloseReason(reason).SetUpdatedAt(now).Save(txCtx); err != nil {
+		return false, fmt.Errorf("mark cafe round refunding: %w", err)
+	}
+	if _, err := tx.GroupBuySeat.Update().Where(groupbuyseat.RoundIDEQ(round.ID), groupbuyseat.StatusEQ(GroupBuySeatStatusPaid)).SetStatus(GroupBuySeatStatusRefundPending).SetRefundNote(reason).SetUpdatedAt(now).Save(txCtx); err != nil {
+		return false, fmt.Errorf("queue cafe fulfillment refunds: %w", err)
+	}
+	if _, err := tx.CafeRoundMembership.Update().Where(caferoundmembership.RoundIDEQ(round.ID), caferoundmembership.PaidSharesGT(0)).SetStatus(GroupBuyRoundStatusRefunding).SetUpdatedAt(now).Save(txCtx); err != nil {
+		return false, fmt.Errorf("mark cafe memberships refunding: %w", err)
+	}
+	if err := s.groupBuy.createEventTxStrict(txCtx, tx.Client(), &groupBuyEventInput{RoundID: &round.ID, PlanID: &round.PlanID, EventType: groupBuyEventRefundQueued, Message: "像素网吧成团后未在时限内配号，已进入全额退款", Metadata: map[string]any{"cafe_room_id": *round.CafeRoomID, "reason": reason}}); err != nil {
+		return false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return false, fmt.Errorf("commit cafe fulfillment timeout: %w", err)
+	}
+	return true, nil
 }
 
 func (s *CafeRoomLifecycleService) expireUnfilledCafeRounds(ctx context.Context, now time.Time) (int, error) {
@@ -185,7 +254,7 @@ func (s *CafeRoomLifecycleService) processCafeRefunds(ctx context.Context) (int,
 			groupbuyseat.StatusIn(GroupBuySeatStatusRefundPending, GroupBuySeatStatusRefundProcessing),
 			groupbuyseat.HasRoundWith(
 				groupbuyround.CafeRoomIDNotNil(),
-				groupbuyround.StatusEQ(GroupBuyRoundStatusFailed),
+				groupbuyround.StatusIn(GroupBuyRoundStatusFailed, GroupBuyRoundStatusRefunding),
 			),
 		).
 		WithPlan().
@@ -261,7 +330,7 @@ func (s *CafeRoomLifecycleService) reconcileCafePendingProviderRefunds(ctx conte
 			groupbuyrefund.StatusEQ(GroupBuyRefundStatusPendingProvider),
 			groupbuyrefund.HasSeatWith(groupbuyseat.HasRoundWith(
 				groupbuyround.CafeRoomIDNotNil(),
-				groupbuyround.StatusEQ(GroupBuyRoundStatusFailed),
+				groupbuyround.StatusIn(GroupBuyRoundStatusFailed, GroupBuyRoundStatusRefunding),
 			)),
 		).
 		WithOrder().
@@ -287,6 +356,73 @@ func (s *CafeRoomLifecycleService) reconcileCafePendingProviderRefunds(ctx conte
 	return finalized, firstErr
 }
 
+func (s *CafeRoomLifecycleService) finalizeCafeRefundedRounds(ctx context.Context, now time.Time) (int, error) {
+	rounds, err := s.entClient.GroupBuyRound.Query().Where(
+		groupbuyround.CafeRoomIDNotNil(),
+		groupbuyround.CafeFulfillmentVersionEQ("membership_share"),
+		groupbuyround.StatusEQ(GroupBuyRoundStatusRefunding),
+	).Order(dbent.Asc(groupbuyround.FieldUpdatedAt), dbent.Asc(groupbuyround.FieldID)).Limit(cafeRoomLifecycleBatchSize).All(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("list refunding cafe rounds: %w", err)
+	}
+	finalized := 0
+	var firstErr error
+	for _, round := range rounds {
+		changed, finalizeErr := s.finalizeCafeRefundedRound(ctx, round.ID, now)
+		if changed {
+			finalized++
+		}
+		if finalizeErr != nil && firstErr == nil {
+			firstErr = finalizeErr
+		}
+	}
+	return finalized, firstErr
+}
+
+func (s *CafeRoomLifecycleService) finalizeCafeRefundedRound(ctx context.Context, roundID int64, now time.Time) (bool, error) {
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return false, fmt.Errorf("begin cafe refund finalization: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	txCtx := dbent.NewTxContext(ctx, tx)
+	round, err := s.roundForUpdate(tx.GroupBuyRound.Query().Where(groupbuyround.IDEQ(roundID))).Only(txCtx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("lock refunding cafe round: %w", err)
+	}
+	if round.Status != GroupBuyRoundStatusRefunding || round.CafeFulfillmentVersion != "membership_share" {
+		return false, tx.Commit()
+	}
+	seats, err := s.seatForUpdate(tx.GroupBuySeat.Query().Where(groupbuyseat.RoundIDEQ(round.ID), groupbuyseat.StatusIn(GroupBuySeatStatusRefundPending, GroupBuySeatStatusRefundProcessing, GroupBuySeatStatusRefunded)).WithRefunds()).All(txCtx)
+	if err != nil {
+		return false, fmt.Errorf("lock cafe refund batches: %w", err)
+	}
+	if len(seats) == 0 {
+		return false, tx.Commit()
+	}
+	for _, seat := range seats {
+		if seat.Status != GroupBuySeatStatusRefunded || len(seat.Edges.Refunds) != 1 || seat.Edges.Refunds[0].Status != GroupBuyRefundStatusSucceeded {
+			return false, tx.Commit()
+		}
+	}
+	if _, err := tx.CafeRoundMembership.Update().Where(caferoundmembership.RoundIDEQ(round.ID), caferoundmembership.PaidSharesGT(0)).SetStatus(GroupBuyRoundStatusRefunded).SetUpdatedAt(now).Save(txCtx); err != nil {
+		return false, fmt.Errorf("mark cafe memberships refunded: %w", err)
+	}
+	if _, err := tx.GroupBuyRound.UpdateOneID(round.ID).SetStatus(GroupBuyRoundStatusRefunded).SetUpdatedAt(now).Save(txCtx); err != nil {
+		return false, fmt.Errorf("mark cafe round refunded: %w", err)
+	}
+	if err := s.groupBuy.createEventTxStrict(txCtx, tx.Client(), &groupBuyEventInput{RoundID: &round.ID, PlanID: &round.PlanID, EventType: groupBuyEventRefundProcessed, Message: "像素网吧轮次已完成全额退款"}); err != nil {
+		return false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return false, fmt.Errorf("commit cafe refund finalization: %w", err)
+	}
+	return true, nil
+}
+
 func (s *CafeRoomLifecycleService) compensateCafeActivation(ctx context.Context, now time.Time) (int, error) {
 	rounds, err := s.entClient.GroupBuyRound.Query().
 		Where(
@@ -303,6 +439,18 @@ func (s *CafeRoomLifecycleService) compensateCafeActivation(ctx context.Context,
 	retried := 0
 	var firstErr error
 	for _, round := range rounds {
+		if round.CafeFulfillmentVersion == "membership_share" {
+			if round.Status == GroupBuyRoundStatusOpen && isCafeRoundPaidFull(round) {
+				if err := s.groupBuy.markCafeRoundAwaitingAccount(ctx, round.ID); err != nil {
+					if firstErr == nil {
+						firstErr = fmt.Errorf("recover cafe awaiting-account transition for round %d: %w", round.ID, err)
+					}
+					continue
+				}
+				retried++
+			}
+			continue
+		}
 		if round.Status == GroupBuyRoundStatusOpen {
 			if !isCafeRoundPaidFull(round) {
 				continue

@@ -209,6 +209,43 @@ func TestAPIKeyRepository_GetByKeyForAuth_LoadsActiveCafeBindingPin(t *testing.T
 	require.Zero(t, authKey.PinnedAccountID, "an expired binding must not pin the Key")
 }
 
+func TestAPIKeyRepository_GetByKeyForAuth_LoadsStrictMembershipBindingPin(t *testing.T) {
+	repo, client := newAPIKeyRepoSQLite(t)
+	ctx := context.Background()
+	user := mustCreateAPIKeyRepoUser(t, ctx, client, "managed-membership-pin@test.com")
+	group := mustCreateAPIKeyRepoGroup(t, ctx, client, "managed-membership-pin-group")
+	account, err := client.Account.Create().SetName("membership-account").SetPlatform(service.PlatformOpenAI).SetType("oauth").SetStatus(service.StatusActive).AddGroupIDs(group.ID).Save(ctx)
+	require.NoError(t, err)
+	plan, err := client.GroupBuyPlan.Create().SetTitle("membership-plan").SetTargetGroupID(group.ID).SetPricePerShare(1).SetPricePerSeat(1).Save(ctx)
+	require.NoError(t, err)
+	room, err := client.CafeRoom.Create().SetCode("MEMBER-PIN-1").SetName("membership-room").SetPlanID(plan.ID).SetStatus(service.CafeRoomStatusEnabled).Save(ctx)
+	require.NoError(t, err)
+	now := time.Now().UTC().Truncate(time.Second)
+	expiresAt := now.AddDate(0, 0, 30)
+	round, err := client.GroupBuyRound.Create().SetPlanID(plan.ID).SetCafeRoomID(room.ID).SetAssignedAccountID(account.ID).SetCafeFulfillmentVersion("membership_share").SetStatus(service.GroupBuyRoundStatusActive).SetTotalShares(1).SetTotalSeats(1).SetDeadlineAt(now.Add(time.Hour)).SetEntitlementExpiresAt(expiresAt).Save(ctx)
+	require.NoError(t, err)
+	membership, err := client.CafeRoundMembership.Create().SetRoundID(round.ID).SetUserID(user.ID).SetStatus(service.GroupBuySeatStatusActive).SetPaidShares(1).SetExpiresAt(expiresAt).Save(ctx)
+	require.NoError(t, err)
+	sourceID := membership.ID
+	key := &service.APIKey{UserID: user.ID, Key: "sk-managed-membership-pin", Name: "Managed membership pin", GroupID: &group.ID, Status: service.StatusAPIKeyActive, ExpiresAt: &expiresAt, ManagedSourceType: service.APIKeyManagedSourceCafeRoomMembership, ManagedSourceID: &sourceID}
+	require.NoError(t, repo.Create(ctx, key))
+	_, err = client.CafeRoundMembership.UpdateOneID(membership.ID).SetBoundAPIKeyID(key.ID).Save(ctx)
+	require.NoError(t, err)
+	binding, err := client.APIKeyAccountBinding.Create().SetAPIKeyID(key.ID).SetUserID(user.ID).SetGroupID(group.ID).SetAccountID(account.ID).SetCafeRoomID(room.ID).SetRoundID(round.ID).SetMembershipID(membership.ID).SetStatus("active").SetStrictMode(true).SetStartsAt(now).SetExpiresAt(expiresAt).Save(ctx)
+	require.NoError(t, err)
+
+	authKey, err := repo.GetByKeyForAuth(ctx, key.Key)
+	require.NoError(t, err)
+	require.Equal(t, account.ID, authKey.PinnedAccountID)
+	require.Equal(t, binding.ID, authKey.ManagedBindingID)
+
+	_, err = client.CafeRoundMembership.UpdateOneID(membership.ID).SetStatus("refunded").Save(ctx)
+	require.NoError(t, err)
+	authKey, err = repo.GetByKeyForAuth(ctx, key.Key)
+	require.NoError(t, err)
+	require.Zero(t, authKey.PinnedAccountID, "a refunded membership must not pin the account")
+}
+
 func TestAPIKeyRepository_UpdateLastUsed(t *testing.T) {
 	repo, client := newAPIKeyRepoSQLite(t)
 	ctx := context.Background()

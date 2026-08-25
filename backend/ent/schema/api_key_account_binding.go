@@ -35,7 +35,12 @@ func (APIKeyAccountBinding) Fields() []ent.Field {
 		field.Int64("account_id"),
 		field.Int64("cafe_room_id"),
 		field.Int64("round_id"),
-		field.Int64("seat_id"),
+		field.Int64("seat_id").
+			Optional().
+			Nillable(),
+		field.Int64("membership_id").
+			Optional().
+			Nillable(),
 		field.String("status").
 			MaxLen(20).
 			Default("active"),
@@ -90,8 +95,11 @@ func (APIKeyAccountBinding) Edges() []ent.Edge {
 		edge.From("seat", GroupBuySeat.Type).
 			Ref("account_bindings").
 			Field("seat_id").
-			Unique().
-			Required(),
+			Unique(),
+		edge.From("membership", CafeRoundMembership.Type).
+			Ref("account_bindings").
+			Field("membership_id").
+			Unique(),
 	}
 }
 
@@ -104,7 +112,11 @@ func (APIKeyAccountBinding) Indexes() []ent.Index {
 		index.Fields("seat_id").
 			Unique().
 			StorageKey("idx_api_key_account_bindings_active_seat").
-			Annotations(entsql.IndexWhere("status = 'active'")),
+			Annotations(entsql.IndexWhere("status = 'active' AND seat_id IS NOT NULL")),
+		index.Fields("membership_id").
+			Unique().
+			StorageKey("idx_api_key_account_bindings_active_membership").
+			Annotations(entsql.IndexWhere("status = 'active' AND membership_id IS NOT NULL")),
 		index.Fields("user_id", "group_id", "status"),
 		index.Fields("account_id", "status"),
 		index.Fields("cafe_room_id", "status"),

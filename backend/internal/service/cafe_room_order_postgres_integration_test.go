@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/caferoundmembership"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	_ "github.com/lib/pq"
@@ -22,15 +23,27 @@ import (
 
 const cafeRoomOrderPostgresContenders = 16
 
-func TestCafeRoomOrderLastSeatPostgresIntegration(t *testing.T) {
+func TestCafeRoomOrderLastSharePostgresIntegration(t *testing.T) {
 	ctx := context.Background()
 	client := newCafeRoomOrderPostgresIntegrationClient(t)
 	now := time.Date(2026, 8, 3, 20, 0, 0, 0, time.UTC)
-	fixture := newCafeRoomOrderFixture(t, ctx, client, now, 1)
+	fixture := newCafeRoomOrderFixture(t, ctx, client, now, 10)
+	cfg := &PaymentConfig{MaxPendingOrders: 3, OrderTimeoutMin: 30}
+	firstOrder, _, err := fixture.orderService.lockSeatAndCreateOrder(
+		ctx,
+		CreateOrderRequest{UserID: fixture.user.ID, PaymentType: "integration"},
+		fixture.room.ID,
+		9,
+		cfg,
+		0,
+		fixture.plan.PricePerShare*9,
+		nil,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, firstOrder)
 
 	users := make([]*User, 0, cafeRoomOrderPostgresContenders)
-	users = append(users, fixture.user)
-	for index := 1; index < cafeRoomOrderPostgresContenders; index++ {
+	for index := 0; index < cafeRoomOrderPostgresContenders; index++ {
 		users = append(users, createGroupBuyTestUser(t, ctx, client, fmt.Sprintf("cafe-order-postgres-%d@example.com", index)))
 	}
 
@@ -78,22 +91,39 @@ func TestCafeRoomOrderLastSeatPostgresIntegration(t *testing.T) {
 			winnerOrderID = result.orderID
 			continue
 		}
-		require.ErrorIs(t, result.err, ErrCafeSeatUnavailable)
+		require.ErrorIs(t, result.err, ErrCafeShareUnavailable)
 	}
 	require.Equal(t, 1, successes)
 	require.NotZero(t, winnerOrderID)
 
 	seats, err := client.GroupBuySeat.Query().Where(groupbuyseat.RoundIDEQ(fixture.round.ID)).All(ctx)
 	require.NoError(t, err)
-	require.Len(t, seats, 1)
-	seat := seats[0]
-	require.Equal(t, GroupBuySeatStatusLocked, seat.Status)
-	require.Equal(t, fixture.round.ID, seat.RoundID)
-	require.Equal(t, fixture.plan.ID, seat.PlanID)
-	require.NotNil(t, seat.SeatNo)
-	require.Equal(t, 1, *seat.SeatNo)
-	require.NotNil(t, seat.OrderID)
-	require.Equal(t, winnerOrderID, *seat.OrderID)
+	require.Len(t, seats, 2)
+	sharesByOrder := make(map[int64]int, len(seats))
+	var winnerUserID int64
+	for _, seat := range seats {
+		require.Equal(t, GroupBuySeatStatusLocked, seat.Status)
+		require.Equal(t, fixture.round.ID, seat.RoundID)
+		require.Equal(t, fixture.plan.ID, seat.PlanID)
+		require.Nil(t, seat.SeatNo)
+		require.NotNil(t, seat.MembershipID)
+		require.NotNil(t, seat.OrderID)
+		sharesByOrder[*seat.OrderID] = seat.ShareCount
+		if *seat.OrderID == winnerOrderID {
+			winnerUserID = seat.UserID
+		}
+	}
+	require.Equal(t, 9, sharesByOrder[firstOrder.ID])
+	require.Equal(t, 1, sharesByOrder[winnerOrderID])
+
+	memberships, err := client.CafeRoundMembership.Query().Where(caferoundmembership.RoundIDEQ(fixture.round.ID)).All(ctx)
+	require.NoError(t, err)
+	require.Len(t, memberships, 2)
+	reservedShares := 0
+	for _, membership := range memberships {
+		reservedShares += membership.ReservedShares
+	}
+	require.Equal(t, 10, reservedShares)
 
 	orders, err := client.PaymentOrder.Query().Where(paymentorder.IDEQ(winnerOrderID)).All(ctx)
 	require.NoError(t, err)
@@ -102,13 +132,13 @@ func TestCafeRoomOrderLastSeatPostgresIntegration(t *testing.T) {
 	require.Equal(t, OrderStatusPending, order.Status)
 	require.NotNil(t, order.PlanID)
 	require.Equal(t, fixture.plan.ID, *order.PlanID)
-	require.Equal(t, seat.UserID, order.UserID)
+	require.Equal(t, winnerUserID, order.UserID)
 
 	round, err := client.GroupBuyRound.Get(ctx, fixture.round.ID)
 	require.NoError(t, err)
 	require.Equal(t, CafeRoundStatusOpen, round.Status)
-	require.Equal(t, 1, round.ReservedSeats)
-	require.Equal(t, 1, round.ReservedShares)
+	require.Equal(t, 10, round.ReservedSeats)
+	require.Equal(t, 10, round.ReservedShares)
 	require.Zero(t, round.PaidSeats)
 	require.Zero(t, round.PaidShares)
 }

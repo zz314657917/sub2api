@@ -15,6 +15,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
 	"github.com/Wei-Shaw/sub2api/ent/caferoom"
+	"github.com/Wei-Shaw/sub2api/ent/caferoundmembership"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
@@ -136,6 +137,32 @@ func (_u *APIKeyAccountBindingUpdate) SetNillableSeatID(v *int64) *APIKeyAccount
 	if v != nil {
 		_u.SetSeatID(*v)
 	}
+	return _u
+}
+
+// ClearSeatID clears the value of the "seat_id" field.
+func (_u *APIKeyAccountBindingUpdate) ClearSeatID() *APIKeyAccountBindingUpdate {
+	_u.mutation.ClearSeatID()
+	return _u
+}
+
+// SetMembershipID sets the "membership_id" field.
+func (_u *APIKeyAccountBindingUpdate) SetMembershipID(v int64) *APIKeyAccountBindingUpdate {
+	_u.mutation.SetMembershipID(v)
+	return _u
+}
+
+// SetNillableMembershipID sets the "membership_id" field if the given value is not nil.
+func (_u *APIKeyAccountBindingUpdate) SetNillableMembershipID(v *int64) *APIKeyAccountBindingUpdate {
+	if v != nil {
+		_u.SetMembershipID(*v)
+	}
+	return _u
+}
+
+// ClearMembershipID clears the value of the "membership_id" field.
+func (_u *APIKeyAccountBindingUpdate) ClearMembershipID() *APIKeyAccountBindingUpdate {
+	_u.mutation.ClearMembershipID()
 	return _u
 }
 
@@ -277,6 +304,11 @@ func (_u *APIKeyAccountBindingUpdate) SetSeat(v *GroupBuySeat) *APIKeyAccountBin
 	return _u.SetSeatID(v.ID)
 }
 
+// SetMembership sets the "membership" edge to the CafeRoundMembership entity.
+func (_u *APIKeyAccountBindingUpdate) SetMembership(v *CafeRoundMembership) *APIKeyAccountBindingUpdate {
+	return _u.SetMembershipID(v.ID)
+}
+
 // Mutation returns the APIKeyAccountBindingMutation object of the builder.
 func (_u *APIKeyAccountBindingUpdate) Mutation() *APIKeyAccountBindingMutation {
 	return _u.mutation
@@ -321,6 +353,12 @@ func (_u *APIKeyAccountBindingUpdate) ClearRound() *APIKeyAccountBindingUpdate {
 // ClearSeat clears the "seat" edge to the GroupBuySeat entity.
 func (_u *APIKeyAccountBindingUpdate) ClearSeat() *APIKeyAccountBindingUpdate {
 	_u.mutation.ClearSeat()
+	return _u
+}
+
+// ClearMembership clears the "membership" edge to the CafeRoundMembership entity.
+func (_u *APIKeyAccountBindingUpdate) ClearMembership() *APIKeyAccountBindingUpdate {
+	_u.mutation.ClearMembership()
 	return _u
 }
 
@@ -384,9 +422,6 @@ func (_u *APIKeyAccountBindingUpdate) check() error {
 	}
 	if _u.mutation.RoundCleared() && len(_u.mutation.RoundIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "APIKeyAccountBinding.round"`)
-	}
-	if _u.mutation.SeatCleared() && len(_u.mutation.SeatIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "APIKeyAccountBinding.seat"`)
 	}
 	return nil
 }
@@ -636,6 +671,35 @@ func (_u *APIKeyAccountBindingUpdate) sqlSave(ctx context.Context) (_node int, e
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.MembershipCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   apikeyaccountbinding.MembershipTable,
+			Columns: []string{apikeyaccountbinding.MembershipColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoundmembership.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.MembershipIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   apikeyaccountbinding.MembershipTable,
+			Columns: []string{apikeyaccountbinding.MembershipColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoundmembership.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{apikeyaccountbinding.Label}
@@ -757,6 +821,32 @@ func (_u *APIKeyAccountBindingUpdateOne) SetNillableSeatID(v *int64) *APIKeyAcco
 	if v != nil {
 		_u.SetSeatID(*v)
 	}
+	return _u
+}
+
+// ClearSeatID clears the value of the "seat_id" field.
+func (_u *APIKeyAccountBindingUpdateOne) ClearSeatID() *APIKeyAccountBindingUpdateOne {
+	_u.mutation.ClearSeatID()
+	return _u
+}
+
+// SetMembershipID sets the "membership_id" field.
+func (_u *APIKeyAccountBindingUpdateOne) SetMembershipID(v int64) *APIKeyAccountBindingUpdateOne {
+	_u.mutation.SetMembershipID(v)
+	return _u
+}
+
+// SetNillableMembershipID sets the "membership_id" field if the given value is not nil.
+func (_u *APIKeyAccountBindingUpdateOne) SetNillableMembershipID(v *int64) *APIKeyAccountBindingUpdateOne {
+	if v != nil {
+		_u.SetMembershipID(*v)
+	}
+	return _u
+}
+
+// ClearMembershipID clears the value of the "membership_id" field.
+func (_u *APIKeyAccountBindingUpdateOne) ClearMembershipID() *APIKeyAccountBindingUpdateOne {
+	_u.mutation.ClearMembershipID()
 	return _u
 }
 
@@ -898,6 +988,11 @@ func (_u *APIKeyAccountBindingUpdateOne) SetSeat(v *GroupBuySeat) *APIKeyAccount
 	return _u.SetSeatID(v.ID)
 }
 
+// SetMembership sets the "membership" edge to the CafeRoundMembership entity.
+func (_u *APIKeyAccountBindingUpdateOne) SetMembership(v *CafeRoundMembership) *APIKeyAccountBindingUpdateOne {
+	return _u.SetMembershipID(v.ID)
+}
+
 // Mutation returns the APIKeyAccountBindingMutation object of the builder.
 func (_u *APIKeyAccountBindingUpdateOne) Mutation() *APIKeyAccountBindingMutation {
 	return _u.mutation
@@ -942,6 +1037,12 @@ func (_u *APIKeyAccountBindingUpdateOne) ClearRound() *APIKeyAccountBindingUpdat
 // ClearSeat clears the "seat" edge to the GroupBuySeat entity.
 func (_u *APIKeyAccountBindingUpdateOne) ClearSeat() *APIKeyAccountBindingUpdateOne {
 	_u.mutation.ClearSeat()
+	return _u
+}
+
+// ClearMembership clears the "membership" edge to the CafeRoundMembership entity.
+func (_u *APIKeyAccountBindingUpdateOne) ClearMembership() *APIKeyAccountBindingUpdateOne {
+	_u.mutation.ClearMembership()
 	return _u
 }
 
@@ -1018,9 +1119,6 @@ func (_u *APIKeyAccountBindingUpdateOne) check() error {
 	}
 	if _u.mutation.RoundCleared() && len(_u.mutation.RoundIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "APIKeyAccountBinding.round"`)
-	}
-	if _u.mutation.SeatCleared() && len(_u.mutation.SeatIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "APIKeyAccountBinding.seat"`)
 	}
 	return nil
 }
@@ -1280,6 +1378,35 @@ func (_u *APIKeyAccountBindingUpdateOne) sqlSave(ctx context.Context) (_node *AP
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(groupbuyseat.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.MembershipCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   apikeyaccountbinding.MembershipTable,
+			Columns: []string{apikeyaccountbinding.MembershipColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoundmembership.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.MembershipIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   apikeyaccountbinding.MembershipTable,
+			Columns: []string{apikeyaccountbinding.MembershipColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoundmembership.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

@@ -129,6 +129,8 @@ func TestSecurityHeaders(t *testing.T) {
 		assert.Contains(t, csp, "default-src 'self'")
 		assert.Contains(t, csp, "'nonce-")
 		assert.Contains(t, csp, CloudflareInsightsDomain)
+		assert.Contains(t, csp, "worker-src 'self' blob:")
+		assert.Equal(t, 0, countDirectiveValue(csp, "script-src", "blob:"))
 	})
 
 	t.Run("api_route_skips_csp_nonce_generation", func(t *testing.T) {
@@ -317,6 +319,23 @@ func TestEnhanceCSPPolicy(t *testing.T) {
 
 		assert.Contains(t, enhanced, NonceTemplate)
 		assert.Contains(t, enhanced, CloudflareInsightsDomain)
+	})
+
+	t.Run("allows_blob_workers_without_widening_script_sources", func(t *testing.T) {
+		policy := "default-src 'self'; script-src 'self' __CSP_NONCE__"
+		enhanced := enhanceCSPPolicy(policy)
+
+		assert.Equal(t, 1, countDirectiveValue(enhanced, "worker-src", "'self'"))
+		assert.Equal(t, 1, countDirectiveValue(enhanced, "worker-src", "blob:"))
+		assert.Equal(t, 0, countDirectiveValue(enhanced, "script-src", "blob:"))
+	})
+
+	t.Run("preserves_custom_worker_sources_and_does_not_duplicate_blob", func(t *testing.T) {
+		policy := "default-src 'self'; worker-src https://workers.example blob:; script-src 'self' __CSP_NONCE__"
+		enhanced := enhanceCSPPolicy(policy)
+
+		assert.Equal(t, 1, countDirectiveValue(enhanced, "worker-src", "https://workers.example"))
+		assert.Equal(t, 1, countDirectiveValue(enhanced, "worker-src", "blob:"))
 	})
 
 	t.Run("does_not_duplicate_nonce_placeholder", func(t *testing.T) {

@@ -15,6 +15,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
+	"github.com/Wei-Shaw/sub2api/ent/caferoundmembership"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyrefund"
@@ -37,6 +38,7 @@ type GroupBuySeatQuery struct {
 	withPlan            *GroupBuyPlanQuery
 	withUser            *UserQuery
 	withOrder           *PaymentOrderQuery
+	withMembership      *CafeRoundMembershipQuery
 	withSubscription    *UserSubscriptionQuery
 	withBoundAPIKey     *APIKeyQuery
 	withRefunds         *GroupBuyRefundQuery
@@ -160,6 +162,28 @@ func (_q *GroupBuySeatQuery) QueryOrder() *PaymentOrderQuery {
 			sqlgraph.From(groupbuyseat.Table, groupbuyseat.FieldID, selector),
 			sqlgraph.To(paymentorder.Table, paymentorder.FieldID),
 			sqlgraph.Edge(sqlgraph.O2O, true, groupbuyseat.OrderTable, groupbuyseat.OrderColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryMembership chains the current query on the "membership" edge.
+func (_q *GroupBuySeatQuery) QueryMembership() *CafeRoundMembershipQuery {
+	query := (&CafeRoundMembershipClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyseat.Table, groupbuyseat.FieldID, selector),
+			sqlgraph.To(caferoundmembership.Table, caferoundmembership.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyseat.MembershipTable, groupbuyseat.MembershipColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -473,6 +497,7 @@ func (_q *GroupBuySeatQuery) Clone() *GroupBuySeatQuery {
 		withPlan:            _q.withPlan.Clone(),
 		withUser:            _q.withUser.Clone(),
 		withOrder:           _q.withOrder.Clone(),
+		withMembership:      _q.withMembership.Clone(),
 		withSubscription:    _q.withSubscription.Clone(),
 		withBoundAPIKey:     _q.withBoundAPIKey.Clone(),
 		withRefunds:         _q.withRefunds.Clone(),
@@ -525,6 +550,17 @@ func (_q *GroupBuySeatQuery) WithOrder(opts ...func(*PaymentOrderQuery)) *GroupB
 		opt(query)
 	}
 	_q.withOrder = query
+	return _q
+}
+
+// WithMembership tells the query-builder to eager-load the nodes that are connected to
+// the "membership" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *GroupBuySeatQuery) WithMembership(opts ...func(*CafeRoundMembershipQuery)) *GroupBuySeatQuery {
+	query := (&CafeRoundMembershipClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withMembership = query
 	return _q
 }
 
@@ -661,11 +697,12 @@ func (_q *GroupBuySeatQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 	var (
 		nodes       = []*GroupBuySeat{}
 		_spec       = _q.querySpec()
-		loadedTypes = [9]bool{
+		loadedTypes = [10]bool{
 			_q.withRound != nil,
 			_q.withPlan != nil,
 			_q.withUser != nil,
 			_q.withOrder != nil,
+			_q.withMembership != nil,
 			_q.withSubscription != nil,
 			_q.withBoundAPIKey != nil,
 			_q.withRefunds != nil,
@@ -715,6 +752,12 @@ func (_q *GroupBuySeatQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 	if query := _q.withOrder; query != nil {
 		if err := _q.loadOrder(ctx, query, nodes, nil,
 			func(n *GroupBuySeat, e *PaymentOrder) { n.Edges.Order = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withMembership; query != nil {
+		if err := _q.loadMembership(ctx, query, nodes, nil,
+			func(n *GroupBuySeat, e *CafeRoundMembership) { n.Edges.Membership = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -875,6 +918,38 @@ func (_q *GroupBuySeatQuery) loadOrder(ctx context.Context, query *PaymentOrderQ
 	}
 	return nil
 }
+func (_q *GroupBuySeatQuery) loadMembership(ctx context.Context, query *CafeRoundMembershipQuery, nodes []*GroupBuySeat, init func(*GroupBuySeat), assign func(*GroupBuySeat, *CafeRoundMembership)) error {
+	ids := make([]int64, 0, len(nodes))
+	nodeids := make(map[int64][]*GroupBuySeat)
+	for i := range nodes {
+		if nodes[i].MembershipID == nil {
+			continue
+		}
+		fk := *nodes[i].MembershipID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(caferoundmembership.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "membership_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
 func (_q *GroupBuySeatQuery) loadSubscription(ctx context.Context, query *UserSubscriptionQuery, nodes []*GroupBuySeat, init func(*GroupBuySeat), assign func(*GroupBuySeat, *UserSubscription)) error {
 	ids := make([]int64, 0, len(nodes))
 	nodeids := make(map[int64][]*GroupBuySeat)
@@ -1024,9 +1099,12 @@ func (_q *GroupBuySeatQuery) loadAccountBindings(ctx context.Context, query *API
 	}
 	for _, n := range neighbors {
 		fk := n.SeatID
-		node, ok := nodeids[fk]
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "seat_id" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
 		if !ok {
-			return fmt.Errorf(`unexpected referenced foreign-key "seat_id" returned %v for node %v`, fk, n.ID)
+			return fmt.Errorf(`unexpected referenced foreign-key "seat_id" returned %v for node %v`, *fk, n.ID)
 		}
 		assign(node, n)
 	}
@@ -1072,6 +1150,9 @@ func (_q *GroupBuySeatQuery) querySpec() *sqlgraph.QuerySpec {
 		}
 		if _q.withOrder != nil {
 			_spec.Node.AddColumnOnce(groupbuyseat.FieldOrderID)
+		}
+		if _q.withMembership != nil {
+			_spec.Node.AddColumnOnce(groupbuyseat.FieldMembershipID)
 		}
 		if _q.withSubscription != nil {
 			_spec.Node.AddColumnOnce(groupbuyseat.FieldSubscriptionID)

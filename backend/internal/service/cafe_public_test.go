@@ -121,8 +121,9 @@ func TestCafePublicServiceListsOnlyEnabledRoomPlansAndRedactsOperations(t *testi
 	detail, err := svc.Get(ctx, user.ID, room.ID)
 	require.NoError(t, err)
 	require.Equal(t, "cafe.v1", detail.APIVersion)
-	require.Equal(t, "full_only", detail.Rules.Activation)
-	require.Equal(t, "automatic", detail.Rules.Refund)
+	require.Equal(t, "full_then_assign_account", detail.Rules.Activation)
+	require.Equal(t, "automatic_after_fulfillment_timeout", detail.Rules.Refund)
+	require.True(t, detail.Rules.OneKeyPerMember)
 
 	overview, err := svc.Overview(ctx, user.ID, 1)
 	require.NoError(t, err)

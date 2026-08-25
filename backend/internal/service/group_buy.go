@@ -36,12 +36,15 @@ const (
 	GroupBuyLaunchModeAuto   = "auto"
 	GroupBuyLaunchModeManual = "manual"
 
-	GroupBuyRoundStatusOpen       = "open"
-	GroupBuyRoundStatusActivating = "activating"
-	GroupBuyRoundStatusActive     = "active"
-	GroupBuyRoundStatusCompleted  = "completed"
-	GroupBuyRoundStatusFailed     = "failed"
-	GroupBuyRoundStatusCancelled  = "cancelled"
+	GroupBuyRoundStatusOpen            = "open"
+	GroupBuyRoundStatusActivating      = "activating"
+	GroupBuyRoundStatusActive          = "active"
+	GroupBuyRoundStatusCompleted       = "completed"
+	GroupBuyRoundStatusAwaitingAccount = "awaiting_account"
+	GroupBuyRoundStatusRefunding       = "refunding"
+	GroupBuyRoundStatusRefunded        = "refunded"
+	GroupBuyRoundStatusFailed          = "failed"
+	GroupBuyRoundStatusCancelled       = "cancelled"
 
 	GroupBuySeatStatusLocked           = "locked"
 	GroupBuySeatStatusReleased         = "released"
@@ -892,6 +895,14 @@ func (s *GroupBuyService) releaseExpiredLockedSeatsForRoundTx(ctx context.Contex
 			Exec(ctx); err != nil {
 			return releasedShares, fmt.Errorf("release expired group buy shares: %w", err)
 		}
+		if seat.MembershipID != nil {
+			if _, err := tx.CafeRoundMembership.UpdateOneID(*seat.MembershipID).
+				AddReservedShares(-seat.ShareCount).
+				SetUpdatedAt(now).
+				Save(ctx); err != nil {
+				return releasedShares, fmt.Errorf("release cafe membership shares: %w", err)
+			}
+		}
 		releasedShares += seat.ShareCount
 		s.createEventTx(ctx, tx.Client(), &groupBuyEventInput{
 			PlanID:    &seat.PlanID,
@@ -994,6 +1005,16 @@ func (s *GroupBuyService) HandleGroupBuyOrderPaid(ctx context.Context, orderID i
 	if err != nil {
 		return fmt.Errorf("update group buy round paid shares: %w", err)
 	}
+	if seat.MembershipID != nil {
+		if _, err := tx.CafeRoundMembership.UpdateOneID(*seat.MembershipID).
+			AddPaidShares(seat.ShareCount).
+			AddReservedShares(-seat.ShareCount).
+			SetStatus(GroupBuySeatStatusPaid).
+			SetUpdatedAt(now).
+			Save(txCtx); err != nil {
+			return fmt.Errorf("mark cafe membership paid: %w", err)
+		}
+	}
 	s.createEventTx(txCtx, tx.Client(), &groupBuyEventInput{
 		PlanID:    &seat.PlanID,
 		RoundID:   &seat.RoundID,
@@ -1020,10 +1041,40 @@ func (s *GroupBuyService) activateCafeRoundIfPaidFull(ctx context.Context, round
 	if round == nil || round.CafeRoomID == nil || round.PaidSeats < cafeRoundSeatCount(round) || round.PaidShares < round.TotalShares {
 		return nil
 	}
+	if round.CafeFulfillmentVersion == "membership_share" {
+		return s.markCafeRoundAwaitingAccount(ctx, round.ID)
+	}
 	if s.cafeActivation == nil {
 		return ErrCafeRoundLifecycleDeferred
 	}
 	return s.cafeActivation.ActivateRound(ctx, round.ID)
+}
+
+// markCafeRoundAwaitingAccount is intentionally separate from payment handling:
+// payment has committed before an administrator can safely select an account.
+func (s *GroupBuyService) markCafeRoundAwaitingAccount(ctx context.Context, roundID int64) error {
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return fmt.Errorf("begin cafe fulfillment state transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	txCtx := dbent.NewTxContext(ctx, tx)
+	round, err := s.groupBuyRoundForUpdate(tx.GroupBuyRound.Query().Where(groupbuyround.IDEQ(roundID))).Only(txCtx)
+	if err != nil {
+		return fmt.Errorf("lock cafe round for fulfillment: %w", err)
+	}
+	if round.CafeFulfillmentVersion != "membership_share" || round.CafeRoomID == nil || round.Status != GroupBuyRoundStatusOpen || round.PaidShares < round.TotalShares {
+		return tx.Commit()
+	}
+	timeout := 1440
+	if round.FulfillmentTimeoutMinutes != nil && *round.FulfillmentTimeoutMinutes > 0 {
+		timeout = *round.FulfillmentTimeoutMinutes
+	}
+	now := s.now()
+	if _, err := tx.GroupBuyRound.UpdateOneID(round.ID).SetStatus(GroupBuyRoundStatusAwaitingAccount).SetFulfillmentDeadlineAt(now.Add(time.Duration(timeout) * time.Minute)).SetUpdatedAt(now).Save(txCtx); err != nil {
+		return fmt.Errorf("mark cafe round awaiting account: %w", err)
+	}
+	return tx.Commit()
 }
 
 func (s *GroupBuyService) TryActivateRound(ctx context.Context, roundID int64) error {
@@ -1253,6 +1304,14 @@ func (s *GroupBuyService) ReleaseGroupBuySeatForOrder(ctx context.Context, order
 		SetUpdatedAt(now).
 		Save(txCtx); err != nil {
 		return fmt.Errorf("update group buy round release count: %w", err)
+	}
+	if seat.MembershipID != nil {
+		if _, err := tx.CafeRoundMembership.UpdateOneID(*seat.MembershipID).
+			AddReservedShares(-seat.ShareCount).
+			SetUpdatedAt(now).
+			Save(txCtx); err != nil {
+			return fmt.Errorf("release cafe membership shares: %w", err)
+		}
 	}
 	s.createEventTx(txCtx, tx.Client(), &groupBuyEventInput{
 		PlanID:    &seat.PlanID,

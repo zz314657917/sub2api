@@ -15,6 +15,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
 	"github.com/Wei-Shaw/sub2api/ent/caferoom"
+	"github.com/Wei-Shaw/sub2api/ent/caferoundmembership"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
@@ -96,6 +97,28 @@ func (_c *APIKeyAccountBindingCreate) SetRoundID(v int64) *APIKeyAccountBindingC
 // SetSeatID sets the "seat_id" field.
 func (_c *APIKeyAccountBindingCreate) SetSeatID(v int64) *APIKeyAccountBindingCreate {
 	_c.mutation.SetSeatID(v)
+	return _c
+}
+
+// SetNillableSeatID sets the "seat_id" field if the given value is not nil.
+func (_c *APIKeyAccountBindingCreate) SetNillableSeatID(v *int64) *APIKeyAccountBindingCreate {
+	if v != nil {
+		_c.SetSeatID(*v)
+	}
+	return _c
+}
+
+// SetMembershipID sets the "membership_id" field.
+func (_c *APIKeyAccountBindingCreate) SetMembershipID(v int64) *APIKeyAccountBindingCreate {
+	_c.mutation.SetMembershipID(v)
+	return _c
+}
+
+// SetNillableMembershipID sets the "membership_id" field if the given value is not nil.
+func (_c *APIKeyAccountBindingCreate) SetNillableMembershipID(v *int64) *APIKeyAccountBindingCreate {
+	if v != nil {
+		_c.SetMembershipID(*v)
+	}
 	return _c
 }
 
@@ -202,6 +225,11 @@ func (_c *APIKeyAccountBindingCreate) SetSeat(v *GroupBuySeat) *APIKeyAccountBin
 	return _c.SetSeatID(v.ID)
 }
 
+// SetMembership sets the "membership" edge to the CafeRoundMembership entity.
+func (_c *APIKeyAccountBindingCreate) SetMembership(v *CafeRoundMembership) *APIKeyAccountBindingCreate {
+	return _c.SetMembershipID(v.ID)
+}
+
 // Mutation returns the APIKeyAccountBindingMutation object of the builder.
 func (_c *APIKeyAccountBindingCreate) Mutation() *APIKeyAccountBindingMutation {
 	return _c.mutation
@@ -281,9 +309,6 @@ func (_c *APIKeyAccountBindingCreate) check() error {
 	if _, ok := _c.mutation.RoundID(); !ok {
 		return &ValidationError{Name: "round_id", err: errors.New(`ent: missing required field "APIKeyAccountBinding.round_id"`)}
 	}
-	if _, ok := _c.mutation.SeatID(); !ok {
-		return &ValidationError{Name: "seat_id", err: errors.New(`ent: missing required field "APIKeyAccountBinding.seat_id"`)}
-	}
 	if _, ok := _c.mutation.Status(); !ok {
 		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "APIKeyAccountBinding.status"`)}
 	}
@@ -318,9 +343,6 @@ func (_c *APIKeyAccountBindingCreate) check() error {
 	}
 	if len(_c.mutation.RoundIDs()) == 0 {
 		return &ValidationError{Name: "round", err: errors.New(`ent: missing required edge "APIKeyAccountBinding.round"`)}
-	}
-	if len(_c.mutation.SeatIDs()) == 0 {
-		return &ValidationError{Name: "seat", err: errors.New(`ent: missing required edge "APIKeyAccountBinding.seat"`)}
 	}
 	return nil
 }
@@ -497,7 +519,24 @@ func (_c *APIKeyAccountBindingCreate) createSpec() (*APIKeyAccountBinding, *sqlg
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_node.SeatID = nodes[0]
+		_node.SeatID = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.MembershipIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   apikeyaccountbinding.MembershipTable,
+			Columns: []string{apikeyaccountbinding.MembershipColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoundmembership.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.MembershipID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
@@ -645,6 +684,30 @@ func (u *APIKeyAccountBindingUpsert) SetSeatID(v int64) *APIKeyAccountBindingUps
 // UpdateSeatID sets the "seat_id" field to the value that was provided on create.
 func (u *APIKeyAccountBindingUpsert) UpdateSeatID() *APIKeyAccountBindingUpsert {
 	u.SetExcluded(apikeyaccountbinding.FieldSeatID)
+	return u
+}
+
+// ClearSeatID clears the value of the "seat_id" field.
+func (u *APIKeyAccountBindingUpsert) ClearSeatID() *APIKeyAccountBindingUpsert {
+	u.SetNull(apikeyaccountbinding.FieldSeatID)
+	return u
+}
+
+// SetMembershipID sets the "membership_id" field.
+func (u *APIKeyAccountBindingUpsert) SetMembershipID(v int64) *APIKeyAccountBindingUpsert {
+	u.Set(apikeyaccountbinding.FieldMembershipID, v)
+	return u
+}
+
+// UpdateMembershipID sets the "membership_id" field to the value that was provided on create.
+func (u *APIKeyAccountBindingUpsert) UpdateMembershipID() *APIKeyAccountBindingUpsert {
+	u.SetExcluded(apikeyaccountbinding.FieldMembershipID)
+	return u
+}
+
+// ClearMembershipID clears the value of the "membership_id" field.
+func (u *APIKeyAccountBindingUpsert) ClearMembershipID() *APIKeyAccountBindingUpsert {
+	u.SetNull(apikeyaccountbinding.FieldMembershipID)
 	return u
 }
 
@@ -892,6 +955,34 @@ func (u *APIKeyAccountBindingUpsertOne) SetSeatID(v int64) *APIKeyAccountBinding
 func (u *APIKeyAccountBindingUpsertOne) UpdateSeatID() *APIKeyAccountBindingUpsertOne {
 	return u.Update(func(s *APIKeyAccountBindingUpsert) {
 		s.UpdateSeatID()
+	})
+}
+
+// ClearSeatID clears the value of the "seat_id" field.
+func (u *APIKeyAccountBindingUpsertOne) ClearSeatID() *APIKeyAccountBindingUpsertOne {
+	return u.Update(func(s *APIKeyAccountBindingUpsert) {
+		s.ClearSeatID()
+	})
+}
+
+// SetMembershipID sets the "membership_id" field.
+func (u *APIKeyAccountBindingUpsertOne) SetMembershipID(v int64) *APIKeyAccountBindingUpsertOne {
+	return u.Update(func(s *APIKeyAccountBindingUpsert) {
+		s.SetMembershipID(v)
+	})
+}
+
+// UpdateMembershipID sets the "membership_id" field to the value that was provided on create.
+func (u *APIKeyAccountBindingUpsertOne) UpdateMembershipID() *APIKeyAccountBindingUpsertOne {
+	return u.Update(func(s *APIKeyAccountBindingUpsert) {
+		s.UpdateMembershipID()
+	})
+}
+
+// ClearMembershipID clears the value of the "membership_id" field.
+func (u *APIKeyAccountBindingUpsertOne) ClearMembershipID() *APIKeyAccountBindingUpsertOne {
+	return u.Update(func(s *APIKeyAccountBindingUpsert) {
+		s.ClearMembershipID()
 	})
 }
 
@@ -1320,6 +1411,34 @@ func (u *APIKeyAccountBindingUpsertBulk) SetSeatID(v int64) *APIKeyAccountBindin
 func (u *APIKeyAccountBindingUpsertBulk) UpdateSeatID() *APIKeyAccountBindingUpsertBulk {
 	return u.Update(func(s *APIKeyAccountBindingUpsert) {
 		s.UpdateSeatID()
+	})
+}
+
+// ClearSeatID clears the value of the "seat_id" field.
+func (u *APIKeyAccountBindingUpsertBulk) ClearSeatID() *APIKeyAccountBindingUpsertBulk {
+	return u.Update(func(s *APIKeyAccountBindingUpsert) {
+		s.ClearSeatID()
+	})
+}
+
+// SetMembershipID sets the "membership_id" field.
+func (u *APIKeyAccountBindingUpsertBulk) SetMembershipID(v int64) *APIKeyAccountBindingUpsertBulk {
+	return u.Update(func(s *APIKeyAccountBindingUpsert) {
+		s.SetMembershipID(v)
+	})
+}
+
+// UpdateMembershipID sets the "membership_id" field to the value that was provided on create.
+func (u *APIKeyAccountBindingUpsertBulk) UpdateMembershipID() *APIKeyAccountBindingUpsertBulk {
+	return u.Update(func(s *APIKeyAccountBindingUpsert) {
+		s.UpdateMembershipID()
+	})
+}
+
+// ClearMembershipID clears the value of the "membership_id" field.
+func (u *APIKeyAccountBindingUpsertBulk) ClearMembershipID() *APIKeyAccountBindingUpsertBulk {
+	return u.Update(func(s *APIKeyAccountBindingUpsert) {
+		s.ClearMembershipID()
 	})
 }
 

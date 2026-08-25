@@ -110,6 +110,41 @@ func (_u *GroupBuyPlanUpdate) AddTotalShares(v int) *GroupBuyPlanUpdate {
 	return _u
 }
 
+// SetSubscriptionTier sets the "subscription_tier" field.
+func (_u *GroupBuyPlanUpdate) SetSubscriptionTier(v string) *GroupBuyPlanUpdate {
+	_u.mutation.SetSubscriptionTier(v)
+	return _u
+}
+
+// SetNillableSubscriptionTier sets the "subscription_tier" field if the given value is not nil.
+func (_u *GroupBuyPlanUpdate) SetNillableSubscriptionTier(v *string) *GroupBuyPlanUpdate {
+	if v != nil {
+		_u.SetSubscriptionTier(*v)
+	}
+	return _u
+}
+
+// SetMaxBuyers sets the "max_buyers" field.
+func (_u *GroupBuyPlanUpdate) SetMaxBuyers(v int) *GroupBuyPlanUpdate {
+	_u.mutation.ResetMaxBuyers()
+	_u.mutation.SetMaxBuyers(v)
+	return _u
+}
+
+// SetNillableMaxBuyers sets the "max_buyers" field if the given value is not nil.
+func (_u *GroupBuyPlanUpdate) SetNillableMaxBuyers(v *int) *GroupBuyPlanUpdate {
+	if v != nil {
+		_u.SetMaxBuyers(*v)
+	}
+	return _u
+}
+
+// AddMaxBuyers adds value to the "max_buyers" field.
+func (_u *GroupBuyPlanUpdate) AddMaxBuyers(v int) *GroupBuyPlanUpdate {
+	_u.mutation.AddMaxBuyers(v)
+	return _u
+}
+
 // SetSeatCount sets the "seat_count" field.
 func (_u *GroupBuyPlanUpdate) SetSeatCount(v int) *GroupBuyPlanUpdate {
 	_u.mutation.ResetSeatCount()
@@ -233,6 +268,27 @@ func (_u *GroupBuyPlanUpdate) SetNillableMaxSharesPerUser(v *int) *GroupBuyPlanU
 // AddMaxSharesPerUser adds value to the "max_shares_per_user" field.
 func (_u *GroupBuyPlanUpdate) AddMaxSharesPerUser(v int) *GroupBuyPlanUpdate {
 	_u.mutation.AddMaxSharesPerUser(v)
+	return _u
+}
+
+// SetFulfillmentTimeoutMinutes sets the "fulfillment_timeout_minutes" field.
+func (_u *GroupBuyPlanUpdate) SetFulfillmentTimeoutMinutes(v int) *GroupBuyPlanUpdate {
+	_u.mutation.ResetFulfillmentTimeoutMinutes()
+	_u.mutation.SetFulfillmentTimeoutMinutes(v)
+	return _u
+}
+
+// SetNillableFulfillmentTimeoutMinutes sets the "fulfillment_timeout_minutes" field if the given value is not nil.
+func (_u *GroupBuyPlanUpdate) SetNillableFulfillmentTimeoutMinutes(v *int) *GroupBuyPlanUpdate {
+	if v != nil {
+		_u.SetFulfillmentTimeoutMinutes(*v)
+	}
+	return _u
+}
+
+// AddFulfillmentTimeoutMinutes adds value to the "fulfillment_timeout_minutes" field.
+func (_u *GroupBuyPlanUpdate) AddFulfillmentTimeoutMinutes(v int) *GroupBuyPlanUpdate {
+	_u.mutation.AddFulfillmentTimeoutMinutes(v)
 	return _u
 }
 
@@ -770,6 +826,16 @@ func (_u *GroupBuyPlanUpdate) check() error {
 			return &ValidationError{Name: "total_shares", err: fmt.Errorf(`ent: validator failed for field "GroupBuyPlan.total_shares": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.SubscriptionTier(); ok {
+		if err := groupbuyplan.SubscriptionTierValidator(v); err != nil {
+			return &ValidationError{Name: "subscription_tier", err: fmt.Errorf(`ent: validator failed for field "GroupBuyPlan.subscription_tier": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.MaxBuyers(); ok {
+		if err := groupbuyplan.MaxBuyersValidator(v); err != nil {
+			return &ValidationError{Name: "max_buyers", err: fmt.Errorf(`ent: validator failed for field "GroupBuyPlan.max_buyers": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.SeatCount(); ok {
 		if err := groupbuyplan.SeatCountValidator(v); err != nil {
 			return &ValidationError{Name: "seat_count", err: fmt.Errorf(`ent: validator failed for field "GroupBuyPlan.seat_count": %w`, err)}
@@ -788,6 +854,11 @@ func (_u *GroupBuyPlanUpdate) check() error {
 	if v, ok := _u.mutation.QuotaLabel(); ok {
 		if err := groupbuyplan.QuotaLabelValidator(v); err != nil {
 			return &ValidationError{Name: "quota_label", err: fmt.Errorf(`ent: validator failed for field "GroupBuyPlan.quota_label": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.FulfillmentTimeoutMinutes(); ok {
+		if err := groupbuyplan.FulfillmentTimeoutMinutesValidator(v); err != nil {
+			return &ValidationError{Name: "fulfillment_timeout_minutes", err: fmt.Errorf(`ent: validator failed for field "GroupBuyPlan.fulfillment_timeout_minutes": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.LaunchMode(); ok {
@@ -849,6 +920,15 @@ func (_u *GroupBuyPlanUpdate) sqlSave(ctx context.Context) (_node int, err error
 	if value, ok := _u.mutation.AddedTotalShares(); ok {
 		_spec.AddField(groupbuyplan.FieldTotalShares, field.TypeInt, value)
 	}
+	if value, ok := _u.mutation.SubscriptionTier(); ok {
+		_spec.SetField(groupbuyplan.FieldSubscriptionTier, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.MaxBuyers(); ok {
+		_spec.SetField(groupbuyplan.FieldMaxBuyers, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedMaxBuyers(); ok {
+		_spec.AddField(groupbuyplan.FieldMaxBuyers, field.TypeInt, value)
+	}
 	if value, ok := _u.mutation.SeatCount(); ok {
 		_spec.SetField(groupbuyplan.FieldSeatCount, field.TypeInt, value)
 	}
@@ -881,6 +961,12 @@ func (_u *GroupBuyPlanUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if value, ok := _u.mutation.AddedMaxSharesPerUser(); ok {
 		_spec.AddField(groupbuyplan.FieldMaxSharesPerUser, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.FulfillmentTimeoutMinutes(); ok {
+		_spec.SetField(groupbuyplan.FieldFulfillmentTimeoutMinutes, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedFulfillmentTimeoutMinutes(); ok {
+		_spec.AddField(groupbuyplan.FieldFulfillmentTimeoutMinutes, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.TierGroupIds(); ok {
 		_spec.SetField(groupbuyplan.FieldTierGroupIds, field.TypeJSON, value)
@@ -1278,6 +1364,41 @@ func (_u *GroupBuyPlanUpdateOne) AddTotalShares(v int) *GroupBuyPlanUpdateOne {
 	return _u
 }
 
+// SetSubscriptionTier sets the "subscription_tier" field.
+func (_u *GroupBuyPlanUpdateOne) SetSubscriptionTier(v string) *GroupBuyPlanUpdateOne {
+	_u.mutation.SetSubscriptionTier(v)
+	return _u
+}
+
+// SetNillableSubscriptionTier sets the "subscription_tier" field if the given value is not nil.
+func (_u *GroupBuyPlanUpdateOne) SetNillableSubscriptionTier(v *string) *GroupBuyPlanUpdateOne {
+	if v != nil {
+		_u.SetSubscriptionTier(*v)
+	}
+	return _u
+}
+
+// SetMaxBuyers sets the "max_buyers" field.
+func (_u *GroupBuyPlanUpdateOne) SetMaxBuyers(v int) *GroupBuyPlanUpdateOne {
+	_u.mutation.ResetMaxBuyers()
+	_u.mutation.SetMaxBuyers(v)
+	return _u
+}
+
+// SetNillableMaxBuyers sets the "max_buyers" field if the given value is not nil.
+func (_u *GroupBuyPlanUpdateOne) SetNillableMaxBuyers(v *int) *GroupBuyPlanUpdateOne {
+	if v != nil {
+		_u.SetMaxBuyers(*v)
+	}
+	return _u
+}
+
+// AddMaxBuyers adds value to the "max_buyers" field.
+func (_u *GroupBuyPlanUpdateOne) AddMaxBuyers(v int) *GroupBuyPlanUpdateOne {
+	_u.mutation.AddMaxBuyers(v)
+	return _u
+}
+
 // SetSeatCount sets the "seat_count" field.
 func (_u *GroupBuyPlanUpdateOne) SetSeatCount(v int) *GroupBuyPlanUpdateOne {
 	_u.mutation.ResetSeatCount()
@@ -1401,6 +1522,27 @@ func (_u *GroupBuyPlanUpdateOne) SetNillableMaxSharesPerUser(v *int) *GroupBuyPl
 // AddMaxSharesPerUser adds value to the "max_shares_per_user" field.
 func (_u *GroupBuyPlanUpdateOne) AddMaxSharesPerUser(v int) *GroupBuyPlanUpdateOne {
 	_u.mutation.AddMaxSharesPerUser(v)
+	return _u
+}
+
+// SetFulfillmentTimeoutMinutes sets the "fulfillment_timeout_minutes" field.
+func (_u *GroupBuyPlanUpdateOne) SetFulfillmentTimeoutMinutes(v int) *GroupBuyPlanUpdateOne {
+	_u.mutation.ResetFulfillmentTimeoutMinutes()
+	_u.mutation.SetFulfillmentTimeoutMinutes(v)
+	return _u
+}
+
+// SetNillableFulfillmentTimeoutMinutes sets the "fulfillment_timeout_minutes" field if the given value is not nil.
+func (_u *GroupBuyPlanUpdateOne) SetNillableFulfillmentTimeoutMinutes(v *int) *GroupBuyPlanUpdateOne {
+	if v != nil {
+		_u.SetFulfillmentTimeoutMinutes(*v)
+	}
+	return _u
+}
+
+// AddFulfillmentTimeoutMinutes adds value to the "fulfillment_timeout_minutes" field.
+func (_u *GroupBuyPlanUpdateOne) AddFulfillmentTimeoutMinutes(v int) *GroupBuyPlanUpdateOne {
+	_u.mutation.AddFulfillmentTimeoutMinutes(v)
 	return _u
 }
 
@@ -1951,6 +2093,16 @@ func (_u *GroupBuyPlanUpdateOne) check() error {
 			return &ValidationError{Name: "total_shares", err: fmt.Errorf(`ent: validator failed for field "GroupBuyPlan.total_shares": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.SubscriptionTier(); ok {
+		if err := groupbuyplan.SubscriptionTierValidator(v); err != nil {
+			return &ValidationError{Name: "subscription_tier", err: fmt.Errorf(`ent: validator failed for field "GroupBuyPlan.subscription_tier": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.MaxBuyers(); ok {
+		if err := groupbuyplan.MaxBuyersValidator(v); err != nil {
+			return &ValidationError{Name: "max_buyers", err: fmt.Errorf(`ent: validator failed for field "GroupBuyPlan.max_buyers": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.SeatCount(); ok {
 		if err := groupbuyplan.SeatCountValidator(v); err != nil {
 			return &ValidationError{Name: "seat_count", err: fmt.Errorf(`ent: validator failed for field "GroupBuyPlan.seat_count": %w`, err)}
@@ -1969,6 +2121,11 @@ func (_u *GroupBuyPlanUpdateOne) check() error {
 	if v, ok := _u.mutation.QuotaLabel(); ok {
 		if err := groupbuyplan.QuotaLabelValidator(v); err != nil {
 			return &ValidationError{Name: "quota_label", err: fmt.Errorf(`ent: validator failed for field "GroupBuyPlan.quota_label": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.FulfillmentTimeoutMinutes(); ok {
+		if err := groupbuyplan.FulfillmentTimeoutMinutesValidator(v); err != nil {
+			return &ValidationError{Name: "fulfillment_timeout_minutes", err: fmt.Errorf(`ent: validator failed for field "GroupBuyPlan.fulfillment_timeout_minutes": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.LaunchMode(); ok {
@@ -2047,6 +2204,15 @@ func (_u *GroupBuyPlanUpdateOne) sqlSave(ctx context.Context) (_node *GroupBuyPl
 	if value, ok := _u.mutation.AddedTotalShares(); ok {
 		_spec.AddField(groupbuyplan.FieldTotalShares, field.TypeInt, value)
 	}
+	if value, ok := _u.mutation.SubscriptionTier(); ok {
+		_spec.SetField(groupbuyplan.FieldSubscriptionTier, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.MaxBuyers(); ok {
+		_spec.SetField(groupbuyplan.FieldMaxBuyers, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedMaxBuyers(); ok {
+		_spec.AddField(groupbuyplan.FieldMaxBuyers, field.TypeInt, value)
+	}
 	if value, ok := _u.mutation.SeatCount(); ok {
 		_spec.SetField(groupbuyplan.FieldSeatCount, field.TypeInt, value)
 	}
@@ -2079,6 +2245,12 @@ func (_u *GroupBuyPlanUpdateOne) sqlSave(ctx context.Context) (_node *GroupBuyPl
 	}
 	if value, ok := _u.mutation.AddedMaxSharesPerUser(); ok {
 		_spec.AddField(groupbuyplan.FieldMaxSharesPerUser, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.FulfillmentTimeoutMinutes(); ok {
+		_spec.SetField(groupbuyplan.FieldFulfillmentTimeoutMinutes, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedFulfillmentTimeoutMinutes(); ok {
+		_spec.AddField(groupbuyplan.FieldFulfillmentTimeoutMinutes, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.TierGroupIds(); ok {
 		_spec.SetField(groupbuyplan.FieldTierGroupIds, field.TypeJSON, value)

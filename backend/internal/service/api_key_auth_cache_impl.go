@@ -141,7 +141,7 @@ func authCacheEntryExpired(entry *APIKeyAuthCacheEntry, now time.Time) bool {
 		return false
 	}
 	snapshot := entry.Snapshot
-	if snapshot.ManagedSourceType == APIKeyManagedSourceCafeRoomSeat && snapshot.PinnedAccountID > 0 &&
+	if (snapshot.ManagedSourceType == APIKeyManagedSourceCafeRoomSeat || snapshot.ManagedSourceType == APIKeyManagedSourceCafeRoomMembership) && snapshot.PinnedAccountID > 0 &&
 		(snapshot.ManagedBindingID <= 0 || snapshot.ManagedBindingExpiresAt == nil) {
 		return true
 	}

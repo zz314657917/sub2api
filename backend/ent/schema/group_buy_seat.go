@@ -33,6 +33,11 @@ func (GroupBuySeat) Fields() []ent.Field {
 		field.Int64("order_id").
 			Optional().
 			Nillable(),
+		// A Cafe membership aggregates several seat/order batches. It stays
+		// nullable so every pre-S252 generic and Cafe row remains readable.
+		field.Int64("membership_id").
+			Optional().
+			Nillable(),
 		field.String("status").
 			MaxLen(24).
 			Default("locked"),
@@ -110,6 +115,10 @@ func (GroupBuySeat) Edges() []ent.Edge {
 			Ref("group_buy_seat").
 			Field("order_id").
 			Unique(),
+		edge.From("membership", CafeRoundMembership.Type).
+			Ref("payment_batches").
+			Field("membership_id").
+			Unique(),
 		edge.From("subscription", UserSubscription.Type).
 			Ref("group_buy_seats").
 			Field("subscription_id").
@@ -133,6 +142,7 @@ func (GroupBuySeat) Indexes() []ent.Index {
 			Unique().
 			Annotations(entsql.IndexWhere("order_id IS NOT NULL")),
 		index.Fields("status"),
+		index.Fields("membership_id"),
 		index.Fields("locked_until"),
 		index.Fields("expires_at"),
 		index.Fields("round_id", "user_id"),

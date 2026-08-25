@@ -183,6 +183,7 @@ const (
 	SettingKeyPixelCafeTitle                   = "pixel_cafe_title"
 	SettingKeyPixelCafeDescription             = "pixel_cafe_description"
 	SettingKeyPixelCafeHeaderVisible           = "pixel_cafe_header_visible"
+	SettingKeyPixelCafeWorkstationLayout       = "pixel_cafe_workstation_layout"
 	SettingKeyAccountShareOwnerRate            = "account_share_owner_rate"
 	SettingKeyAccountShareFreezeHours          = "account_share_freeze_hours"
 	SettingKeyAccountShareAutoReview           = "account_share_auto_review"

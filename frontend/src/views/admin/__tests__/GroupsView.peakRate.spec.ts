@@ -257,7 +257,17 @@ describe('GroupsView standard group time-window billing', () => {
     const wrapper = mountView()
     await openCreateForm(wrapper)
     await wrapper.get('[data-testid="create-subscription-type"]').setValue('subscription')
+    await wrapper.get('[data-testid="create-daily-limit"]').setValue('25')
+    await wrapper.get('[data-testid="create-weekly-limit"]').setValue('100')
+    await wrapper.get('[data-testid="create-monthly-limit"]').setValue('400')
     await wrapper.get('[data-testid="create-room-managed"]').setValue(true)
+
+    expect(wrapper.find('[data-testid="create-daily-limit"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="create-weekly-limit"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="create-monthly-limit"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="create-room-managed-limits-hint"]').text()).toContain(
+      'admin.groups.subscription.limitsManagedByRoomPlanHint'
+    )
 
     createGroup.mockRejectedValueOnce(new Error('stop after payload capture'))
     await wrapper.get('#create-group-form').trigger('submit')
@@ -266,6 +276,9 @@ describe('GroupsView standard group time-window billing', () => {
     expect(createGroup).toHaveBeenCalledWith(expect.objectContaining({
       subscription_type: 'subscription',
       access_mode: 'room_managed',
+      daily_limit_usd: null,
+      weekly_limit_usd: null,
+      monthly_limit_usd: null,
     }))
     wrapper.unmount()
   })

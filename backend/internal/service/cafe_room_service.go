@@ -11,29 +11,34 @@ import (
 )
 
 const (
-	CafeRoomStatusDraft         = "draft"
-	CafeRoomStatusEnabled       = "enabled"
-	CafeRoomStatusMaintenance   = "maintenance"
-	CafeRoomStatusDisabled      = "disabled"
-	CafeRoomFulfillmentMode     = "room_subscription"
-	CafeRoomGroupAccessMode     = "room_managed"
-	CafeRoundStatusOpen         = "open"
-	cafeRoomAccountOptionMaxIDs = 50
+	CafeRoomStatusDraft            = "draft"
+	CafeRoomStatusEnabled          = "enabled"
+	CafeRoomStatusMaintenance      = "maintenance"
+	CafeRoomStatusDisabled         = "disabled"
+	CafeRoomFulfillmentMode        = "room_subscription"
+	CafeRoomGroupAccessMode        = "room_managed"
+	CafeRoundStatusOpen            = "open"
+	CafeRoundStatusAwaitingAccount = "awaiting_account"
+	cafeRoomAccountOptionMaxIDs    = 50
 )
 
 var (
-	ErrCafeRoomNotFound        = errors.NotFound("CAFE_ROOM_NOT_FOUND", "cafe room not found")
-	ErrCafeRoomInvalid         = errors.BadRequest("CAFE_ROOM_INVALID", "cafe room input is invalid")
-	ErrCafePlanNotFound        = errors.NotFound("CAFE_PLAN_NOT_FOUND", "cafe room plan not found")
-	ErrCafePlanInvalid         = errors.BadRequest("CAFE_PLAN_INVALID", "plan is not configured for room subscriptions")
-	ErrCafeGroupInvalid        = errors.BadRequest("CAFE_GROUP_INVALID", "plan group is not configured for room management")
-	ErrCafeAccountNotFound     = errors.NotFound("CAFE_ACCOUNT_NOT_FOUND", "cafe room account not found")
-	ErrCafeAccountIncompatible = errors.BadRequest("CAFE_ACCOUNT_INCOMPATIBLE", "account is not compatible with the room group")
-	ErrCafeAccountAssigned     = errors.Conflict("CAFE_ACCOUNT_ALREADY_ASSIGNED", "account is already assigned to another cafe room")
-	ErrCafeRoomLive            = errors.Conflict("CAFE_ROOM_LIVE_ROUND", "room has a live round")
-	ErrCafeRoundExists         = errors.Conflict("CAFE_ROOM_OPEN_ROUND_EXISTS", "room already has a live round")
-	ErrCafeRoomDisabled        = errors.Conflict("CAFE_ROOM_DISABLED", "disabled rooms cannot open a round")
-	ErrCafeRoomEnabled         = errors.Conflict("CAFE_ROOM_ENABLED", "enabled rooms cannot be deleted")
+	ErrCafeRoomNotFound               = errors.NotFound("CAFE_ROOM_NOT_FOUND", "cafe room not found")
+	ErrCafeRoomInvalid                = errors.BadRequest("CAFE_ROOM_INVALID", "cafe room input is invalid")
+	ErrCafePlanNotFound               = errors.NotFound("CAFE_PLAN_NOT_FOUND", "cafe room plan not found")
+	ErrCafePlanInvalid                = errors.BadRequest("CAFE_PLAN_INVALID", "plan is not configured for room subscriptions")
+	ErrCafeGroupInvalid               = errors.BadRequest("CAFE_GROUP_INVALID", "plan group is not configured for room management")
+	ErrCafeAccountNotFound            = errors.NotFound("CAFE_ACCOUNT_NOT_FOUND", "cafe room account not found")
+	ErrCafeAccountIncompatible        = errors.BadRequest("CAFE_ACCOUNT_INCOMPATIBLE", "account is not compatible with the room group")
+	ErrCafeAccountAssigned            = errors.Conflict("CAFE_ACCOUNT_ALREADY_ASSIGNED", "account is already assigned to another cafe room")
+	ErrCafeRoomLive                   = errors.Conflict("CAFE_ROOM_LIVE_ROUND", "room has a live round")
+	ErrCafeRoundExists                = errors.Conflict("CAFE_ROOM_OPEN_ROUND_EXISTS", "room already has a live round")
+	ErrCafeRoomDisabled               = errors.Conflict("CAFE_ROOM_DISABLED", "disabled rooms cannot open a round")
+	ErrCafeRoomEnabled                = errors.Conflict("CAFE_ROOM_ENABLED", "enabled rooms cannot be deleted")
+	ErrCafeRoundNotAwaitingAccount    = errors.Conflict("CAFE_ROUND_NOT_AWAITING_ACCOUNT", "cafe round is not awaiting an account")
+	ErrCafeAccountTierMismatch        = errors.BadRequest("CAFE_ACCOUNT_TIER_MISMATCH", "account subscription tier does not match the cafe round")
+	ErrCafeAccountAlreadyInUse        = errors.Conflict("CAFE_ACCOUNT_ALREADY_IN_USE", "account is already assigned to an active cafe round")
+	ErrCafeFulfillmentDeadlineExpired = errors.Conflict("CAFE_FULFILLMENT_DEADLINE_EXPIRED", "cafe fulfillment deadline has expired")
 )
 
 type CafeRoom struct {
@@ -55,19 +60,23 @@ type CafeRoom struct {
 }
 
 type CafeRoomPlan struct {
-	ID                int64  `json:"id"`
-	Title             string `json:"title"`
-	Status            string `json:"status"`
-	TargetGroupID     int64  `json:"target_group_id"`
-	FulfillmentMode   string `json:"fulfillment_mode"`
-	AutoCreateRoomKey bool   `json:"auto_create_room_key"`
-	TotalShares       int    `json:"total_shares"`
-	SeatCount         int    `json:"seat_count"`
-	TimeoutMinutes    int    `json:"timeout_minutes"`
-	ValidityDays      int    `json:"validity_days"`
-	GroupPlatform     string `json:"group_platform"`
-	GroupAccessMode   string `json:"group_access_mode"`
-	TargetGroupStatus string `json:"target_group_status"`
+	ID                        int64  `json:"id"`
+	Title                     string `json:"title"`
+	Status                    string `json:"status"`
+	TargetGroupID             int64  `json:"target_group_id"`
+	FulfillmentMode           string `json:"fulfillment_mode"`
+	AutoCreateRoomKey         bool   `json:"auto_create_room_key"`
+	TotalShares               int    `json:"total_shares"`
+	SubscriptionTier          string `json:"subscription_tier"`
+	MaxBuyers                 int    `json:"max_buyers"`
+	MaxSharesPerUser          int    `json:"max_shares_per_user"`
+	FulfillmentTimeoutMinutes int    `json:"fulfillment_timeout_minutes"`
+	SeatCount                 int    `json:"seat_count"`
+	TimeoutMinutes            int    `json:"timeout_minutes"`
+	ValidityDays              int    `json:"validity_days"`
+	GroupPlatform             string `json:"group_platform"`
+	GroupAccessMode           string `json:"group_access_mode"`
+	TargetGroupStatus         string `json:"target_group_status"`
 }
 
 type CafeRound struct {
@@ -116,7 +125,9 @@ type CafeRoomUpdateInput struct {
 
 type CafeRoomBulkInput struct {
 	PlanID          int64   `json:"plan_id"`
-	AccountIDs      []int64 `json:"account_ids"`
+	Quantity        int     `json:"quantity"`
+	Count           int     `json:"-"`
+	AccountIDs      []int64 `json:"-"`
 	CodePrefix      string  `json:"code_prefix"`
 	StartNumber     int     `json:"start_number"`
 	ZoneKey         string  `json:"zone_key"`
@@ -130,15 +141,14 @@ type CafeRoomBulkResult struct {
 }
 
 type CafeRoomBulkCreated struct {
-	AccountID int64      `json:"account_id"`
-	Room      *CafeRoom  `json:"room"`
-	Round     *CafeRound `json:"round,omitempty"`
+	Room  *CafeRoom  `json:"room"`
+	Round *CafeRound `json:"round,omitempty"`
 }
 
 type CafeRoomBulkFailure struct {
-	AccountID int64  `json:"account_id"`
-	Code      string `json:"error_code"`
-	Message   string `json:"message"`
+	Index   int    `json:"index"`
+	Code    string `json:"error_code"`
+	Message string `json:"message"`
 }
 
 // CafeRoomAccountOption is deliberately narrower than the administrator Account DTO.
@@ -236,10 +246,10 @@ func (s *CafeRoomService) Create(ctx context.Context, input CafeRoomInput) (*Caf
 	if err != nil {
 		return nil, err
 	}
-	if input.Code == "" || input.Name == "" || input.PlanID <= 0 || input.AccountID == nil || *input.AccountID <= 0 {
+	if input.Code == "" || input.Name == "" || input.PlanID <= 0 {
 		return nil, ErrCafeRoomInvalid
 	}
-	if err := s.validatePlanAccount(ctx, input.PlanID, *input.AccountID, 0, input.Status); err != nil {
+	if err := s.validatePlan(ctx, input.PlanID); err != nil {
 		return nil, err
 	}
 	room := &CafeRoom{Code: input.Code, Name: input.Name, PlanID: input.PlanID, AccountID: input.AccountID, ZoneKey: strings.TrimSpace(input.ZoneKey), ThemeKey: strings.TrimSpace(input.ThemeKey), SceneSlotKey: strings.TrimSpace(input.SceneSlotKey), Status: input.Status, Featured: input.Featured, SortOrder: input.SortOrder, Metadata: input.Metadata}
@@ -300,10 +310,10 @@ func (s *CafeRoomService) Update(ctx context.Context, id int64, input CafeRoomUp
 	if input.Metadata != nil {
 		room.Metadata = *input.Metadata
 	}
-	if room.Code == "" || room.Name == "" || room.AccountID == nil || *room.AccountID <= 0 {
+	if room.Code == "" || room.Name == "" {
 		return nil, ErrCafeRoomInvalid
 	}
-	if err := s.validatePlanAccount(ctx, room.PlanID, *room.AccountID, id, room.Status); err != nil {
+	if err := s.validatePlan(ctx, room.PlanID); err != nil {
 		return nil, err
 	}
 	return s.repo.Update(ctx, room)
@@ -343,7 +353,11 @@ func (s *CafeRoomService) OpenRound(ctx context.Context, id int64) (*CafeRound, 
 
 func (s *CafeRoomService) BulkCreate(ctx context.Context, input CafeRoomBulkInput) CafeRoomBulkResult {
 	result := CafeRoomBulkResult{Created: []CafeRoomBulkCreated{}, Failed: []CafeRoomBulkFailure{}}
-	if input.PlanID <= 0 || len(input.AccountIDs) == 0 {
+	quantity := input.Quantity
+	if quantity <= 0 {
+		quantity = input.Count
+	}
+	if input.PlanID <= 0 || quantity <= 0 || quantity > 100 {
 		result.Failed = append(result.Failed, CafeRoomBulkFailure{Code: errors.Reason(ErrCafeRoomInvalid), Message: errors.Message(ErrCafeRoomInvalid)})
 		return result
 	}
@@ -354,11 +368,11 @@ func (s *CafeRoomService) BulkCreate(ctx context.Context, input CafeRoomBulkInpu
 	if input.StartNumber < 1 {
 		input.StartNumber = 1
 	}
-	for i, accountID := range input.AccountIDs {
+	for i := 0; i < quantity; i++ {
 		code := prefix + formatCafeRoomNumber(input.StartNumber+i)
-		room, err := s.Create(ctx, CafeRoomInput{Code: code, Name: code, PlanID: input.PlanID, AccountID: &accountID, ZoneKey: input.ZoneKey, ThemeKey: input.ThemeKey, Status: CafeRoomStatusEnabled})
+		room, err := s.Create(ctx, CafeRoomInput{Code: code, Name: code, PlanID: input.PlanID, ZoneKey: input.ZoneKey, ThemeKey: input.ThemeKey, Status: CafeRoomStatusEnabled})
 		if err != nil {
-			result.Failed = append(result.Failed, CafeRoomBulkFailure{AccountID: accountID, Code: errors.Reason(err), Message: errors.Message(err)})
+			result.Failed = append(result.Failed, CafeRoomBulkFailure{Index: i, Code: errors.Reason(err), Message: errors.Message(err)})
 			continue
 		}
 		var round *CafeRound
@@ -366,13 +380,21 @@ func (s *CafeRoomService) BulkCreate(ctx context.Context, input CafeRoomBulkInpu
 			round, err = s.OpenRound(ctx, room.ID)
 			if err != nil {
 				_ = s.repo.Delete(ctx, room.ID)
-				result.Failed = append(result.Failed, CafeRoomBulkFailure{AccountID: accountID, Code: errors.Reason(err), Message: errors.Message(err)})
+				result.Failed = append(result.Failed, CafeRoomBulkFailure{Index: i, Code: errors.Reason(err), Message: errors.Message(err)})
 				continue
 			}
 		}
-		result.Created = append(result.Created, CafeRoomBulkCreated{AccountID: accountID, Room: room, Round: round})
+		result.Created = append(result.Created, CafeRoomBulkCreated{Room: room, Round: round})
 	}
 	return result
+}
+
+func (s *CafeRoomService) validatePlan(ctx context.Context, planID int64) error {
+	plan, err := s.repo.GetPlan(ctx, planID)
+	if err != nil {
+		return err
+	}
+	return validateCafeOperationalPlan(plan)
 }
 
 func (s *CafeRoomService) validatePlanAccount(ctx context.Context, planID, accountID, excludeRoomID int64, status string) error {
@@ -409,15 +431,46 @@ func (s *CafeRoomService) validatePlanAccount(ctx context.Context, planID, accou
 }
 
 func validateCafeOperationalPlan(plan *CafeRoomPlan) error {
+	if plan != nil {
+		plan.TotalShares, plan.SubscriptionTier, plan.MaxBuyers, plan.MaxSharesPerUser, plan.FulfillmentTimeoutMinutes = normalizedCafePlanPolicy(
+			plan.TotalShares, plan.SeatCount, plan.SubscriptionTier, plan.MaxBuyers, plan.MaxSharesPerUser, plan.FulfillmentTimeoutMinutes,
+		)
+	}
 	if plan == nil || plan.Status != GroupBuyPlanStatusActive ||
 		plan.FulfillmentMode != CafeRoomFulfillmentMode ||
-		!plan.AutoCreateRoomKey || plan.ValidityDays <= 0 {
+		!plan.AutoCreateRoomKey || plan.ValidityDays <= 0 ||
+		(plan.SubscriptionTier != "plus" && plan.SubscriptionTier != "pro") ||
+		plan.TotalShares < 1 || plan.TotalShares > 10 || plan.MaxBuyers < 1 || plan.MaxBuyers > plan.TotalShares ||
+		plan.MaxSharesPerUser < 1 || plan.MaxSharesPerUser > plan.TotalShares || plan.FulfillmentTimeoutMinutes <= 0 {
 		return ErrCafePlanInvalid
 	}
 	if plan.TargetGroupID <= 0 || plan.GroupAccessMode != CafeRoomGroupAccessMode || plan.TargetGroupStatus != StatusActive {
 		return ErrCafeGroupInvalid
 	}
 	return nil
+}
+
+func normalizedCafePlanPolicy(totalShares, seatCount int, tier string, maxBuyers, maxSharesPerUser, fulfillmentTimeoutMinutes int) (int, string, int, int, int) {
+	if totalShares <= 0 {
+		totalShares = seatCount
+	}
+	tier = strings.ToLower(strings.TrimSpace(tier))
+	if tier == "" {
+		tier = "plus"
+	}
+	if maxBuyers <= 0 && totalShares > 0 {
+		maxBuyers = totalShares
+		if maxBuyers > 4 {
+			maxBuyers = 4
+		}
+	}
+	if maxSharesPerUser <= 0 {
+		maxSharesPerUser = totalShares
+	}
+	if fulfillmentTimeoutMinutes <= 0 {
+		fulfillmentTimeoutMinutes = 1440
+	}
+	return totalShares, tier, maxBuyers, maxSharesPerUser, fulfillmentTimeoutMinutes
 }
 
 func normalizeCafeRoomStatus(status string) (string, error) {

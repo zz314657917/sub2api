@@ -48,16 +48,19 @@ func (s *pixelCafePresentationSettingsRepoStub) Delete(context.Context, string) 
 
 func TestPixelCafePresentationSettingsPublicProjection(t *testing.T) {
 	custom, err := NewSettingService(&pixelCafePresentationSettingsRepoStub{values: map[string]string{
-		SettingKeyPixelCafeEnabled:       "true",
-		SettingKeyPixelCafeTitle:         " 模型包间 ",
-		SettingKeyPixelCafeDescription:   " 按模型选择独立房间。 ",
-		SettingKeyPixelCafeHeaderVisible: "false",
+		SettingKeyPixelCafeEnabled:           "true",
+		SettingKeyPixelCafeTitle:             " 模型包间 ",
+		SettingKeyPixelCafeDescription:       " 按模型选择独立房间。 ",
+		SettingKeyPixelCafeHeaderVisible:     "false",
+		SettingKeyPixelCafeWorkstationLayout: `[{"id":1,"x":300,"y":200},{"id":2,"x":400,"y":200},{"id":3,"x":500,"y":200},{"id":4,"x":600,"y":200},{"id":5,"x":700,"y":200},{"id":6,"x":320,"y":340},{"id":7,"x":420,"y":340},{"id":8,"x":520,"y":340},{"id":9,"x":620,"y":340},{"id":10,"x":720,"y":340}]`,
 	}}, &config.Config{}).GetPublicSettings(context.Background())
 	require.NoError(t, err)
 	require.True(t, custom.PixelCafeEnabled)
 	require.Equal(t, "模型包间", custom.PixelCafeTitle)
 	require.Equal(t, "按模型选择独立房间。", custom.PixelCafeDescription)
 	require.False(t, custom.PixelCafeHeaderVisible)
+	require.Len(t, custom.PixelCafeWorkstationLayout, 10)
+	require.Equal(t, float64(300), custom.PixelCafeWorkstationLayout[0].X)
 
 	defaults, err := NewSettingService(&pixelCafePresentationSettingsRepoStub{values: map[string]string{}}, &config.Config{}).
 		GetPublicSettings(context.Background())
@@ -65,4 +68,5 @@ func TestPixelCafePresentationSettingsPublicProjection(t *testing.T) {
 	require.Equal(t, "像素网吧", defaults.PixelCafeTitle)
 	require.Equal(t, "把每个模型分组变成一间可订阅的数字包间。", defaults.PixelCafeDescription)
 	require.True(t, defaults.PixelCafeHeaderVisible)
+	require.Equal(t, DefaultPixelCafeWorkstationLayout(), defaults.PixelCafeWorkstationLayout)
 }

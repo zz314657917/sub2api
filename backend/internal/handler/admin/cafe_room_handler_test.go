@@ -24,6 +24,44 @@ type cafeRoomHandlerRepositoryStub struct {
 	optionParams service.CafeRoomAccountOptionParams
 }
 
+type cafeRoundFulfillmentHandlerStub struct {
+	pendingParams service.CafePendingRoundParams
+	optionRoundID int64
+	optionParams  service.CafeRoundAccountOptionParams
+	assignRoundID int64
+	assignAccount int64
+}
+
+type cafeWorkstationLayoutHandlerStub struct {
+	layout service.PixelCafeWorkstationLayout
+	writes int
+}
+
+func (s *cafeWorkstationLayoutHandlerStub) GetPixelCafeWorkstationLayout(context.Context) (service.PixelCafeWorkstationLayout, error) {
+	return s.layout, nil
+}
+
+func (s *cafeWorkstationLayoutHandlerStub) SetPixelCafeWorkstationLayout(_ context.Context, layout service.PixelCafeWorkstationLayout) (service.PixelCafeWorkstationLayout, error) {
+	s.layout = layout
+	s.writes++
+	return layout, nil
+}
+
+func (s *cafeRoundFulfillmentHandlerStub) ListPendingRounds(_ context.Context, params service.CafePendingRoundParams) ([]service.CafePendingRound, *pagination.PaginationResult, error) {
+	s.pendingParams = params
+	return []service.CafePendingRound{{ID: 88, Status: service.GroupBuyRoundStatusAwaitingAccount, RoomID: 1, RoomCode: "ROOM-001", RoomName: "Room 1", SubscriptionTier: "plus", PaidShares: 10, TotalShares: 10, JoinedBuyers: 3, MaxBuyers: 4}}, &pagination.PaginationResult{Page: params.Page, PageSize: params.PageSize, Total: 1, Pages: 1}, nil
+}
+
+func (s *cafeRoundFulfillmentHandlerStub) ListRoundAccountOptions(_ context.Context, roundID int64, params service.CafeRoundAccountOptionParams) ([]service.CafeRoundAccountOption, *pagination.PaginationResult, error) {
+	s.optionRoundID, s.optionParams = roundID, params
+	return []service.CafeRoundAccountOption{{ID: 30, Name: "Cafe Plus", Platform: "openai", Status: service.StatusActive, PlanType: "plus", EmailMasked: "o***r@example.com"}}, &pagination.PaginationResult{Page: params.Page, PageSize: params.PageSize, Total: 1, Pages: 1}, nil
+}
+
+func (s *cafeRoundFulfillmentHandlerStub) AssignAccountAndActivateRound(_ context.Context, roundID, accountID int64) (*service.CafePendingRound, error) {
+	s.assignRoundID, s.assignAccount = roundID, accountID
+	return &service.CafePendingRound{ID: roundID, Status: service.GroupBuyRoundStatusActive, RoomID: 1, SubscriptionTier: "plus", PaidShares: 10, TotalShares: 10}, nil
+}
+
 func newCafeRoomHandlerRepositoryStub() *cafeRoomHandlerRepositoryStub {
 	accountID := int64(30)
 	return &cafeRoomHandlerRepositoryStub{room: &service.CafeRoom{
@@ -135,6 +173,15 @@ func newCafeRoomHandlerTestRouter(repo *cafeRoomHandlerRepositoryStub) *gin.Engi
 	return router
 }
 
+func newCafeRoundFulfillmentHandlerTestRouter(activation cafeRoundFulfillmentService) *gin.Engine {
+	handler := &CafeRoomHandler{activation: activation}
+	router := gin.New()
+	router.GET("/rounds/pending", handler.ListPendingRounds)
+	router.GET("/rounds/:id/account-options", handler.ListRoundAccountOptions)
+	router.POST("/rounds/:id/assign-account", handler.AssignRoundAccount)
+	return router
+}
+
 func TestCafeRoomHandlerAccountOptionsAreBoundedAndRedacted(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	repo := newCafeRoomHandlerRepositoryStub()
@@ -169,6 +216,51 @@ func TestCafeRoomHandlerAccountOptionsAreBoundedAndRedacted(t *testing.T) {
 	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/rooms/account-options?ids=30,31", nil))
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.Equal(t, []int64{30, 31}, repo.optionParams.IDs)
+}
+
+func TestCafeRoomHandlerReadsAndUpdatesWorkstationLayout(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	stub := &cafeWorkstationLayoutHandlerStub{layout: service.DefaultPixelCafeWorkstationLayout()}
+	handler := &CafeRoomHandler{settings: stub}
+	router := gin.New()
+	router.GET("/layout", handler.GetWorkstationLayout)
+	router.PUT("/layout", handler.UpdateWorkstationLayout)
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/layout", nil))
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Contains(t, recorder.Body.String(), `"id":10`)
+
+	draft := make(service.PixelCafeWorkstationLayout, 0, 50)
+	for id := 1; id <= 50; id++ {
+		draft = append(draft, service.PixelCafeWorkstationPosition{ID: id, X: 340, Y: 250})
+	}
+	draft[0].X = 410
+	body, err := json.Marshal(draft)
+	require.NoError(t, err)
+	recorder = httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPut, "/layout", strings.NewReader(string(body)))
+	request.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(recorder, request)
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, 1, stub.writes)
+	require.Len(t, stub.layout, 50)
+	require.Equal(t, float64(410), stub.layout[0].X)
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodPut, "/layout", strings.NewReader(`{"workstations":[]}`))
+	request.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(recorder, request)
+	require.Equal(t, http.StatusBadRequest, recorder.Code)
+	require.Equal(t, 1, stub.writes)
+
+	recorder = httptest.NewRecorder()
+	oversized := `[{"id":1,"x":340,"y":250,"padding":"` + strings.Repeat("x", 5*1024) + `"}]`
+	request = httptest.NewRequest(http.MethodPut, "/layout", strings.NewReader(oversized))
+	request.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(recorder, request)
+	require.Equal(t, http.StatusBadRequest, recorder.Code)
+	require.Equal(t, 1, stub.writes)
 }
 
 func TestCafeRoomHandlerListUsesPaginatedEnvelopeAndFilters(t *testing.T) {
@@ -243,4 +335,59 @@ func TestCafeRoomHandlerRejectsInvalidIDsAndStatuses(t *testing.T) {
 	router.ServeHTTP(recorder, req)
 	require.Equal(t, http.StatusBadRequest, recorder.Code)
 	require.Contains(t, recorder.Body.String(), "CAFE_ROOM_INVALID_STATUS")
+}
+
+func TestCafeRoomHandlerPendingFulfillmentEndpointsArePaginatedAndRedacted(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	activation := &cafeRoundFulfillmentHandlerStub{}
+	router := newCafeRoundFulfillmentHandlerTestRouter(activation)
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/rounds/pending?page=2&page_size=15&search=%20ROOM%20", nil))
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, 2, activation.pendingParams.Page)
+	require.Equal(t, 15, activation.pendingParams.PageSize)
+	require.Equal(t, "ROOM", activation.pendingParams.Search)
+	require.Contains(t, recorder.Body.String(), `"subscription_tier":"plus"`)
+	require.Contains(t, recorder.Body.String(), `"paid_shares":10`)
+
+	recorder = httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/rounds/88/account-options?page=1&page_size=10&search=owner", nil))
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, int64(88), activation.optionRoundID)
+	require.Equal(t, "owner", activation.optionParams.Search)
+	require.Contains(t, recorder.Body.String(), `"email_masked":"o***r@example.com"`)
+	for _, prohibited := range []string{"credentials", "access_token", "refresh_token", "api_key"} {
+		require.NotContains(t, recorder.Body.String(), prohibited)
+	}
+
+	recorder = httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/rounds/88/assign-account", strings.NewReader(`{"account_id":30}`))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(recorder, req)
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, int64(88), activation.assignRoundID)
+	require.Equal(t, int64(30), activation.assignAccount)
+	require.Contains(t, recorder.Body.String(), `"status":"active"`)
+}
+
+func TestCafeRoomHandlerPendingFulfillmentRejectsInvalidIDs(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := newCafeRoundFulfillmentHandlerTestRouter(&cafeRoundFulfillmentHandlerStub{})
+	for _, request := range []struct {
+		method string
+		path   string
+		body   string
+	}{
+		{method: http.MethodGet, path: "/rounds/nope/account-options"},
+		{method: http.MethodPost, path: "/rounds/0/assign-account", body: `{"account_id":30}`},
+		{method: http.MethodPost, path: "/rounds/88/assign-account", body: `{"account_id":0}`},
+	} {
+		recorder := httptest.NewRecorder()
+		req := httptest.NewRequest(request.method, request.path, strings.NewReader(request.body))
+		req.Header.Set("Content-Type", "application/json")
+		router.ServeHTTP(recorder, req)
+		require.Equal(t, http.StatusBadRequest, recorder.Code, request.path)
+		require.Contains(t, recorder.Body.String(), "INVALID_ID", request.path)
+	}
 }

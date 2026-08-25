@@ -210,15 +210,15 @@ func matchModelPatternAny(pattern, model string) bool {
 }
 
 func (g *Group) HasDailyLimit() bool {
-	return g.DailyLimitUSD != nil && *g.DailyLimitUSD > 0
+	return g != nil && g.AccessMode != GroupAccessModeRoomManaged && g.DailyLimitUSD != nil && *g.DailyLimitUSD > 0
 }
 
 func (g *Group) HasWeeklyLimit() bool {
-	return g.WeeklyLimitUSD != nil && *g.WeeklyLimitUSD > 0
+	return g != nil && g.AccessMode != GroupAccessModeRoomManaged && g.WeeklyLimitUSD != nil && *g.WeeklyLimitUSD > 0
 }
 
 func (g *Group) HasMonthlyLimit() bool {
-	return g.MonthlyLimitUSD != nil && *g.MonthlyLimitUSD > 0
+	return g != nil && g.AccessMode != GroupAccessModeRoomManaged && g.MonthlyLimitUSD != nil && *g.MonthlyLimitUSD > 0
 }
 
 // GetImagePrice 根据 image_size 返回对应的图片生成价格

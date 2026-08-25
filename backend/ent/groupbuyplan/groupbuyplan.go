@@ -26,6 +26,10 @@ const (
 	FieldProductKey = "product_key"
 	// FieldTotalShares holds the string denoting the total_shares field in the database.
 	FieldTotalShares = "total_shares"
+	// FieldSubscriptionTier holds the string denoting the subscription_tier field in the database.
+	FieldSubscriptionTier = "subscription_tier"
+	// FieldMaxBuyers holds the string denoting the max_buyers field in the database.
+	FieldMaxBuyers = "max_buyers"
 	// FieldSeatCount holds the string denoting the seat_count field in the database.
 	FieldSeatCount = "seat_count"
 	// FieldPricePerShare holds the string denoting the price_per_share field in the database.
@@ -40,6 +44,8 @@ const (
 	FieldQuotaLabel = "quota_label"
 	// FieldMaxSharesPerUser holds the string denoting the max_shares_per_user field in the database.
 	FieldMaxSharesPerUser = "max_shares_per_user"
+	// FieldFulfillmentTimeoutMinutes holds the string denoting the fulfillment_timeout_minutes field in the database.
+	FieldFulfillmentTimeoutMinutes = "fulfillment_timeout_minutes"
 	// FieldTargetGroupID holds the string denoting the target_group_id field in the database.
 	FieldTargetGroupID = "target_group_id"
 	// FieldTierGroupIds holds the string denoting the tier_group_ids field in the database.
@@ -134,6 +140,8 @@ var Columns = []string{
 	FieldDescription,
 	FieldProductKey,
 	FieldTotalShares,
+	FieldSubscriptionTier,
+	FieldMaxBuyers,
 	FieldSeatCount,
 	FieldPricePerShare,
 	FieldPricePerSeat,
@@ -141,6 +149,7 @@ var Columns = []string{
 	FieldQuotaPerShareLabel,
 	FieldQuotaLabel,
 	FieldMaxSharesPerUser,
+	FieldFulfillmentTimeoutMinutes,
 	FieldTargetGroupID,
 	FieldTierGroupIds,
 	FieldTierRules,
@@ -188,6 +197,14 @@ var (
 	DefaultTotalShares int
 	// TotalSharesValidator is a validator for the "total_shares" field. It is called by the builders before save.
 	TotalSharesValidator func(int) error
+	// DefaultSubscriptionTier holds the default value on creation for the "subscription_tier" field.
+	DefaultSubscriptionTier string
+	// SubscriptionTierValidator is a validator for the "subscription_tier" field. It is called by the builders before save.
+	SubscriptionTierValidator func(string) error
+	// DefaultMaxBuyers holds the default value on creation for the "max_buyers" field.
+	DefaultMaxBuyers int
+	// MaxBuyersValidator is a validator for the "max_buyers" field. It is called by the builders before save.
+	MaxBuyersValidator func(int) error
 	// DefaultSeatCount holds the default value on creation for the "seat_count" field.
 	DefaultSeatCount int
 	// SeatCountValidator is a validator for the "seat_count" field. It is called by the builders before save.
@@ -206,6 +223,10 @@ var (
 	QuotaLabelValidator func(string) error
 	// DefaultMaxSharesPerUser holds the default value on creation for the "max_shares_per_user" field.
 	DefaultMaxSharesPerUser int
+	// DefaultFulfillmentTimeoutMinutes holds the default value on creation for the "fulfillment_timeout_minutes" field.
+	DefaultFulfillmentTimeoutMinutes int
+	// FulfillmentTimeoutMinutesValidator is a validator for the "fulfillment_timeout_minutes" field. It is called by the builders before save.
+	FulfillmentTimeoutMinutesValidator func(int) error
 	// DefaultValidityDays holds the default value on creation for the "validity_days" field.
 	DefaultValidityDays int
 	// DefaultTimeoutMinutes holds the default value on creation for the "timeout_minutes" field.
@@ -278,6 +299,16 @@ func ByTotalShares(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldTotalShares, opts...).ToFunc()
 }
 
+// BySubscriptionTier orders the results by the subscription_tier field.
+func BySubscriptionTier(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSubscriptionTier, opts...).ToFunc()
+}
+
+// ByMaxBuyers orders the results by the max_buyers field.
+func ByMaxBuyers(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldMaxBuyers, opts...).ToFunc()
+}
+
 // BySeatCount orders the results by the seat_count field.
 func BySeatCount(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSeatCount, opts...).ToFunc()
@@ -311,6 +342,11 @@ func ByQuotaLabel(opts ...sql.OrderTermOption) OrderOption {
 // ByMaxSharesPerUser orders the results by the max_shares_per_user field.
 func ByMaxSharesPerUser(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldMaxSharesPerUser, opts...).ToFunc()
+}
+
+// ByFulfillmentTimeoutMinutes orders the results by the fulfillment_timeout_minutes field.
+func ByFulfillmentTimeoutMinutes(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFulfillmentTimeoutMinutes, opts...).ToFunc()
 }
 
 // ByTargetGroupID orders the results by the target_group_id field.

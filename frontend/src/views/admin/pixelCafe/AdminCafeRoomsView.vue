@@ -36,6 +36,10 @@
               <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
               <span class="sr-only">{{ t('admin.pixelCafe.refresh') }}</span>
             </button>
+            <button type="button" class="btn btn-secondary" @click="openLayoutDialog">
+              <Icon name="edit" size="md" class="mr-1" />
+              {{ t('admin.pixelCafe.layout.open') }}
+            </button>
             <button type="button" class="btn btn-secondary" @click="openBulkDialog">
               <Icon name="copy" size="md" class="mr-1" />
               {{ t('admin.pixelCafe.bulkCreate') }}
@@ -75,16 +79,8 @@
               </div>
             </div>
           </template>
-          <template #cell-account="{ row }">
-            <div v-if="accountFor(row.account_id)" class="min-w-40">
-              <div class="font-medium text-gray-800 dark:text-gray-200">{{ accountFor(row.account_id)?.name }}</div>
-              <div class="text-xs text-gray-500 dark:text-dark-400">
-                #{{ row.account_id }} · {{ accountPlatform(row.account_id) }}
-              </div>
-            </div>
-            <span v-else class="text-sm text-gray-500 dark:text-dark-400">
-              {{ row.account_id ? t('admin.pixelCafe.unknownAccount', { id: row.account_id }) : '-' }}
-            </span>
+          <template #cell-account>
+            <span class="text-sm text-gray-500 dark:text-dark-400">{{ t('admin.pixelCafe.accountDeferred') }}</span>
           </template>
           <template #cell-status="{ row }">
             <span class="status-badge" :class="statusClass(row.status)">
@@ -145,8 +141,43 @@
       </template>
       </TablePageLayout>
 
+      <section class="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/20" data-testid="cafe-pending-fulfillment">
+        <div class="mb-3 flex flex-wrap items-center gap-3"><div><h2 class="font-semibold">{{ t('admin.pixelCafe.pending.title') }}</h2><p class="text-sm text-gray-600 dark:text-dark-300">{{ t('admin.pixelCafe.pending.description') }}</p></div><input v-model="pendingSearch" class="input ml-auto max-w-xs" type="search" :placeholder="t('admin.pixelCafe.pending.search')" @change="loadPendingRounds" /></div>
+        <p v-if="pendingLoading" class="text-sm">{{ t('admin.pixelCafe.pending.loading') }}</p>
+        <p v-else-if="pendingRounds.length === 0" class="text-sm text-gray-600 dark:text-dark-300">{{ t('admin.pixelCafe.pending.empty') }}</p>
+        <div v-else class="space-y-2"><div v-for="round in pendingRounds" :key="round.id" class="flex flex-wrap items-center gap-3 rounded border border-amber-200 bg-white p-3 dark:border-amber-900 dark:bg-dark-900"><span class="font-medium">{{ round.room_code }} · {{ round.room_name }}</span><span>ChatGPT {{ round.subscription_tier === 'pro' ? 'Pro' : 'Plus' }}</span><span>{{ round.paid_shares }}/{{ round.total_shares }} 份 · {{ round.joined_buyers }}/{{ round.max_buyers }} 人</span><button type="button" class="btn btn-secondary btn-sm ml-auto" @click="openAssignDialog(round)">{{ t('admin.pixelCafe.pending.assign') }}</button></div></div>
+      </section>
+
       <AdminGroupBuyView embedded />
     </div>
+
+    <BaseDialog
+      :show="layoutDialogOpen"
+      :title="t('admin.pixelCafe.layout.title')"
+      width="wide"
+      @close="closeLayoutDialog"
+    >
+      <div v-if="layoutLoading" class="py-10 text-center text-sm text-gray-500 dark:text-dark-400">
+        {{ t('admin.pixelCafe.layout.loading') }}
+      </div>
+      <CafeWorkstationLayoutEditor v-else v-model="workstationLayoutDraft" />
+      <template #footer>
+        <div class="flex w-full flex-wrap items-center justify-between gap-3">
+          <button type="button" class="btn btn-ghost" :disabled="layoutLoading || layoutSaving" @click="resetWorkstationLayout">
+            {{ t('admin.pixelCafe.layout.reset') }}
+          </button>
+          <div class="flex gap-3">
+            <button type="button" class="btn btn-secondary" :disabled="layoutSaving" @click="closeLayoutDialog">
+              {{ t('common.cancel') }}
+            </button>
+            <button type="button" class="btn btn-primary" :disabled="layoutLoading || layoutSaving" @click="saveWorkstationLayout">
+              <Icon v-if="layoutSaving" name="refresh" size="sm" class="mr-1 animate-spin" />
+              {{ layoutSaving ? t('admin.pixelCafe.layout.saving') : t('admin.pixelCafe.layout.save') }}
+            </button>
+          </div>
+        </div>
+      </template>
+    </BaseDialog>
 
     <BaseDialog
       :show="roomDialogOpen"
@@ -155,8 +186,7 @@
       @close="closeRoomDialog"
     >
       <form id="cafe-room-form" class="space-y-4" @submit.prevent="saveRoom">
-        <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.9fr)]">
-          <div class="grid gap-4 sm:grid-cols-2">
+        <div class="grid gap-4 sm:grid-cols-2">
           <label class="field">
             <span class="input-label">{{ t('admin.pixelCafe.form.code') }}</span>
             <input v-model.trim="roomForm.code" class="input" required maxlength="64" />
@@ -201,16 +231,6 @@
             <span class="input-label">{{ t('admin.pixelCafe.form.sortOrder') }}</span>
             <input v-model.number="roomForm.sort_order" class="input" type="number" min="0" />
           </label>
-          </div>
-          <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-700">
-            <span class="input-label mb-2 block">{{ t('admin.pixelCafe.form.account') }}</span>
-            <CafeRoomAccountPicker
-              v-model="roomForm.account_id"
-              :plan-id="roomForm.plan_id"
-              :exclude-room-id="editingRoom?.id || 0"
-              :active="roomDialogOpen"
-            />
-          </div>
         </div>
         <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
           <input v-model="roomForm.featured" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600" />
@@ -223,12 +243,17 @@
       <template #footer>
         <div class="flex justify-end gap-3">
           <button type="button" class="btn btn-secondary" @click="closeRoomDialog">{{ t('common.cancel') }}</button>
-          <button type="submit" form="cafe-room-form" class="btn btn-primary" :disabled="saving || !roomForm.plan_id || !roomForm.account_id">
+          <button type="submit" form="cafe-room-form" class="btn btn-primary" :disabled="saving || !roomForm.plan_id">
             <Icon v-if="saving" name="refresh" size="sm" class="mr-1 animate-spin" />
             {{ saving ? t('admin.pixelCafe.form.saving') : t('admin.pixelCafe.form.save') }}
           </button>
         </div>
       </template>
+    </BaseDialog>
+
+    <BaseDialog :show="Boolean(assigningRound)" :title="t('admin.pixelCafe.pending.assignTitle')" @close="assigningRound = null">
+      <div class="space-y-3"><input v-model="accountSearch" class="input" type="search" :placeholder="t('admin.pixelCafe.pending.accountSearch')" @change="loadRoundAccountOptions" /><p v-if="accountLoading" class="text-sm">{{ t('admin.pixelCafe.pending.loading') }}</p><label v-for="account in roundAccountOptions" :key="account.id" class="flex cursor-pointer items-center gap-3 rounded border p-2"><input v-model="selectedAccountID" type="radio" :value="account.id" /><span>{{ account.name }} · {{ account.platform }} · {{ account.plan_type || '-' }}<small v-if="account.email_masked"> · {{ account.email_masked }}</small></span></label><p v-if="!accountLoading && roundAccountOptions.length === 0" class="text-sm">{{ t('admin.pixelCafe.pending.noAccount') }}</p></div>
+      <template #footer><div class="flex justify-end gap-3"><button type="button" class="btn btn-secondary" @click="assigningRound = null">{{ t('common.cancel') }}</button><button type="button" class="btn btn-primary" :disabled="!selectedAccountID || assigning" @click="assignAccount">{{ assigning ? t('admin.pixelCafe.pending.assigning') : t('admin.pixelCafe.pending.assign') }}</button></div></template>
     </BaseDialog>
 
     <BaseDialog
@@ -239,6 +264,10 @@
     >
       <form id="cafe-room-bulk-form" class="space-y-4" @submit.prevent="submitBulkCreate">
         <div class="grid gap-4 sm:grid-cols-2">
+          <label class="field">
+            <span class="input-label">{{ t('admin.pixelCafe.bulk.quantity') }}</span>
+            <input v-model.number="bulkForm.quantity" class="input" type="number" min="1" max="100" />
+          </label>
           <label class="field">
             <span class="input-label">{{ t('admin.pixelCafe.form.plan') }}</span>
             <select v-model.number="bulkForm.plan_id" class="input" required>
@@ -263,10 +292,6 @@
             <input v-model.trim="bulkForm.theme_key" class="input" maxlength="64" />
           </label>
         </div>
-        <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-700">
-          <span class="input-label mb-2 block">{{ t('admin.pixelCafe.bulk.accounts') }}</span>
-          <CafeRoomAccountPicker v-model="bulkForm.account_ids" multiple :plan-id="bulkForm.plan_id" :active="bulkDialogOpen" />
-        </div>
         <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
           <input v-model="bulkForm.create_open_round" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600" />
           {{ t('admin.pixelCafe.bulk.createOpenRound') }}
@@ -277,8 +302,8 @@
             <span class="text-red-700 dark:text-red-300">{{ t('admin.pixelCafe.bulk.failed', { count: bulkResult.failed.length }) }}</span>
           </div>
           <ul v-if="bulkResult.failed.length" class="space-y-1 text-sm text-red-700 dark:text-red-300">
-            <li v-for="failure in bulkResult.failed" :key="`${failure.account_id}-${failure.error_code}`">
-              #{{ failure.account_id }} · {{ failure.error_code }} · {{ failure.message }}
+            <li v-for="failure in bulkResult.failed" :key="`${failure.index}-${failure.error_code}`">
+              #{{ failure.index ?? '-' }} · {{ failure.error_code }} · {{ failure.message }}
             </li>
           </ul>
         </div>
@@ -286,7 +311,7 @@
       <template #footer>
         <div class="flex justify-end gap-3">
           <button type="button" class="btn btn-secondary" @click="closeBulkDialog">{{ t('common.close') }}</button>
-          <button type="submit" form="cafe-room-bulk-form" class="btn btn-primary" :disabled="bulkSaving || !bulkForm.plan_id || bulkForm.account_ids.length === 0">
+          <button type="submit" form="cafe-room-bulk-form" class="btn btn-primary" :disabled="bulkSaving || !bulkForm.plan_id || bulkForm.quantity < 1">
             <Icon v-if="bulkSaving" name="refresh" size="sm" class="mr-1 animate-spin" />
             {{ bulkSaving ? t('admin.pixelCafe.bulk.submitting') : t('admin.pixelCafe.bulk.submit') }}
           </button>
@@ -313,7 +338,8 @@ import { useAppStore } from '@/stores/app'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import type { GroupBuyPlan } from '@/types/groupBuy'
 import type { Column } from '@/components/common/types'
-import type { CafeRoom, CafeRoomBulkResult, CafeRoomInput, CafeRoomStatus } from '@/types/pixelCafe'
+import type { CafeRoom, CafeRoomBulkResult, CafeRoomInput, CafeRoomStatus, CafeWorkstationPosition } from '@/types/pixelCafe'
+import { createCafeWorkstationLayout, resolveCafeWorkstationLayout } from '@/features/pixelCafe/renderer/sceneLayout'
 
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
@@ -325,15 +351,23 @@ import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import AdminGroupBuyView from '@/views/admin/group-buy/AdminGroupBuyView.vue'
-import CafeRoomAccountPicker from './components/CafeRoomAccountPicker.vue'
-import type { CafeRoomAccountOption } from '@/api/admin/cafeRooms'
+import CafeWorkstationLayoutEditor from './components/CafeWorkstationLayoutEditor.vue'
+import type { CafePendingRound, CafeRoomAccountOption } from '@/api/admin/cafeRooms'
 
 const { t } = useI18n()
 const appStore = useAppStore()
 
 const rooms = ref<CafeRoom[]>([])
 const plans = ref<GroupBuyPlan[]>([])
-const accountOptionsByID = ref<Record<number, CafeRoomAccountOption>>({})
+const pendingRounds = ref<CafePendingRound[]>([])
+const pendingSearch = ref('')
+const pendingLoading = ref(false)
+const assigningRound = ref<CafePendingRound | null>(null)
+const roundAccountOptions = ref<CafeRoomAccountOption[]>([])
+const accountSearch = ref('')
+const selectedAccountID = ref(0)
+const accountLoading = ref(false)
+const assigning = ref(false)
 const loading = ref(false)
 const dependencyLoading = ref(false)
 const loadError = ref('')
@@ -350,12 +384,15 @@ const openingRoundId = ref<number | null>(null)
 const deletingId = ref<number | null>(null)
 const roomToDelete = ref<CafeRoom | null>(null)
 const bulkResult = ref<CafeRoomBulkResult | null>(null)
+const layoutDialogOpen = ref(false)
+const layoutLoading = ref(false)
+const layoutSaving = ref(false)
+const workstationLayoutDraft = ref<CafeWorkstationPosition[]>(resolveCafeWorkstationLayout())
 
 const roomForm = reactive<CafeRoomInput>({
   code: '',
   name: '',
   plan_id: 0,
-  account_id: 0,
   zone_key: 'featured',
   theme_key: 'warm_wood',
   scene_slot_key: '',
@@ -366,7 +403,7 @@ const roomForm = reactive<CafeRoomInput>({
 
 const bulkForm = reactive({
   plan_id: 0,
-  account_ids: [] as number[],
+  quantity: 1,
   code_prefix: 'ROOM-',
   start_number: 1,
   zone_key: 'featured',
@@ -400,7 +437,7 @@ const zoneOptions = computed(() => [
 const roomPlans = computed(() => plans.value.filter((plan) => plan.fulfillment_mode === 'room_subscription'))
 function resetRoomForm() {
   Object.assign(roomForm, {
-    code: '', name: '', plan_id: roomPlans.value[0]?.id ?? 0, account_id: 0,
+    code: '', name: '', plan_id: roomPlans.value[0]?.id ?? 0,
     zone_key: 'featured', theme_key: 'warm_wood', scene_slot_key: '', status: 'draft', featured: false, sort_order: 0,
   })
 }
@@ -414,7 +451,7 @@ function openCreateDialog() {
 function openEditDialog(room: CafeRoom) {
   editingRoom.value = room
   Object.assign(roomForm, {
-    code: room.code, name: room.name, plan_id: room.plan_id, account_id: room.account_id ?? 0,
+    code: room.code, name: room.name, plan_id: room.plan_id,
     zone_key: room.zone_key, theme_key: room.theme_key, scene_slot_key: room.scene_slot_key,
     status: room.status, featured: room.featured, sort_order: room.sort_order,
   })
@@ -429,13 +466,50 @@ function closeRoomDialog() {
 function openBulkDialog() {
   bulkResult.value = null
   bulkForm.plan_id = roomPlans.value[0]?.id ?? 0
-  bulkForm.account_ids = []
+  bulkForm.quantity = 1
   bulkDialogOpen.value = true
 }
 
 function closeBulkDialog() {
   if (bulkSaving.value) return
   bulkDialogOpen.value = false
+}
+
+async function openLayoutDialog() {
+  layoutDialogOpen.value = true
+  layoutLoading.value = true
+  try {
+    const response = await adminAPI.cafeRooms.getWorkstationLayout()
+    workstationLayoutDraft.value = resolveCafeWorkstationLayout(response.data)
+  } catch (error) {
+    workstationLayoutDraft.value = resolveCafeWorkstationLayout()
+    appStore.showError(extractApiErrorMessage(error, t('admin.pixelCafe.layout.loadError')))
+  } finally {
+    layoutLoading.value = false
+  }
+}
+
+function closeLayoutDialog() {
+  if (layoutSaving.value) return
+  layoutDialogOpen.value = false
+}
+
+function resetWorkstationLayout() {
+  workstationLayoutDraft.value = createCafeWorkstationLayout(workstationLayoutDraft.value.length)
+}
+
+async function saveWorkstationLayout() {
+  layoutSaving.value = true
+  try {
+    const response = await adminAPI.cafeRooms.updateWorkstationLayout(workstationLayoutDraft.value)
+    workstationLayoutDraft.value = resolveCafeWorkstationLayout(response.data)
+    layoutDialogOpen.value = false
+    appStore.showSuccess(t('admin.pixelCafe.success.layoutSaved'))
+  } catch (error) {
+    appStore.showError(extractApiErrorMessage(error, t('admin.pixelCafe.layout.saveError')))
+  } finally {
+    layoutSaving.value = false
+  }
 }
 
 function statusClass(status: string) {
@@ -453,14 +527,6 @@ function planTitle(room: CafeRoom) {
 
 function planMode(room: CafeRoom) {
   return room.plan?.fulfillment_mode || plans.value.find((plan) => plan.id === room.plan_id)?.fulfillment_mode || 'aggregate_tier'
-}
-
-function accountFor(id: number | null | undefined) {
-  return id ? accountOptionsByID.value[id] : undefined
-}
-
-function accountPlatform(id: number | null | undefined) {
-  return id ? accountFor(id)?.platform || '-' : '-'
 }
 
 async function loadDependencies() {
@@ -500,7 +566,6 @@ async function loadRooms() {
       sort_order: 'asc',
     })
     rooms.value = response.data.items
-    await hydrateRoomAccounts(response.data.items)
     pagination.total = response.data.total
     pagination.pages = response.data.pages
     pagination.page = response.data.page
@@ -510,17 +575,6 @@ async function loadRooms() {
     appStore.showError(loadError.value)
   } finally {
     loading.value = false
-  }
-}
-
-async function hydrateRoomAccounts(currentRooms: CafeRoom[]) {
-  const ids = [...new Set(currentRooms.map((room) => room.account_id).filter((id): id is number => Boolean(id && id > 0)))]
-  if (ids.length === 0) return
-  try {
-    const responses = await Promise.all(Array.from({ length: Math.ceil(ids.length / 50) }, (_, index) => adminAPI.cafeRooms.listAccountOptions({ ids: ids.slice(index * 50, (index + 1) * 50) })))
-    accountOptionsByID.value = { ...accountOptionsByID.value, ...Object.fromEntries(responses.flatMap((response) => response.data.items).map((account) => [account.id, account])) }
-  } catch (error) {
-    appStore.showError(extractApiErrorMessage(error, t('admin.pixelCafe.errors.accounts')))
   }
 }
 
@@ -536,7 +590,7 @@ function changePageSize(pageSize: number) {
 }
 
 async function saveRoom() {
-  if (!roomForm.plan_id || !roomForm.account_id) return
+  if (!roomForm.plan_id) return
   saving.value = true
   try {
     if (editingRoom.value) {
@@ -590,7 +644,7 @@ async function openRound(room: CafeRoom) {
 }
 
 async function submitBulkCreate() {
-  if (!bulkForm.plan_id || bulkForm.account_ids.length === 0) {
+  if (!bulkForm.plan_id || bulkForm.quantity < 1) {
     appStore.showError(t('admin.pixelCafe.bulk.noneSelected'))
     return
   }
@@ -612,8 +666,13 @@ async function submitBulkCreate() {
 }
 
 onMounted(() => {
-  void Promise.all([loadDependencies(), loadRooms()])
+  void Promise.all([loadDependencies(), loadRooms(), loadPendingRounds()])
 })
+
+async function loadPendingRounds() { pendingLoading.value = true; try { const response = await adminAPI.cafeRooms.listPendingRounds({ page: 1, page_size: 20, search: pendingSearch.value.trim() || undefined }); pendingRounds.value = response.data.items } catch (error) { appStore.showError(extractApiErrorMessage(error, t('admin.pixelCafe.errors.pending'))) } finally { pendingLoading.value = false } }
+function openAssignDialog(round: CafePendingRound) { assigningRound.value = round; selectedAccountID.value = 0; accountSearch.value = ''; roundAccountOptions.value = []; void loadRoundAccountOptions() }
+async function loadRoundAccountOptions() { if (!assigningRound.value) return; accountLoading.value = true; try { const response = await adminAPI.cafeRooms.listRoundAccountOptions(assigningRound.value.id, { page: 1, page_size: 30, search: accountSearch.value.trim() || undefined }); roundAccountOptions.value = response.data.items } catch (error) { appStore.showError(extractApiErrorMessage(error, t('admin.pixelCafe.errors.accounts'))) } finally { accountLoading.value = false } }
+async function assignAccount() { if (!assigningRound.value || !selectedAccountID.value) return; assigning.value = true; try { await adminAPI.cafeRooms.assignRoundAccount(assigningRound.value.id, selectedAccountID.value); assigningRound.value = null; appStore.showSuccess(t('admin.pixelCafe.success.accountAssigned')); await Promise.all([loadPendingRounds(), loadRooms()]) } catch (error) { appStore.showError(extractApiErrorMessage(error, t('admin.pixelCafe.errors.assign'))) } finally { assigning.value = false } }
 
 onUnmounted(() => {
   if (searchTimer) window.clearTimeout(searchTimer)

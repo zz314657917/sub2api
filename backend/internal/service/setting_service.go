@@ -1048,6 +1048,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyPixelCafeTitle,
 		SettingKeyPixelCafeDescription,
 		SettingKeyPixelCafeHeaderVisible,
+		SettingKeyPixelCafeWorkstationLayout,
 		SettingKeyAffiliateEnabled,
 		SettingKeyAccountShareEnabled,
 		SettingKeyAccountShareChannelStatusVisible,
@@ -1112,6 +1113,13 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		balanceLowNotifyThreshold = v
 	}
 
+	pixelCafeWorkstationLayout := DefaultPixelCafeWorkstationLayout()
+	if raw := strings.TrimSpace(settings[SettingKeyPixelCafeWorkstationLayout]); raw != "" {
+		if parsed, parseErr := ParsePixelCafeWorkstationLayout(raw); parseErr == nil {
+			pixelCafeWorkstationLayout = parsed
+		}
+	}
+
 	return &PublicSettings{
 		RegistrationEnabled:              settings[SettingKeyRegistrationEnabled] == "true",
 		EmailVerifyEnabled:               emailVerifyEnabled,
@@ -1170,16 +1178,17 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		ChannelMonitorEnabled:                !isFalseSettingValue(settings[SettingKeyChannelMonitorEnabled]),
 		ChannelMonitorDefaultIntervalSeconds: parseChannelMonitorInterval(settings[SettingKeyChannelMonitorDefaultIntervalSeconds]),
 
-		AvailableChannelsEnabled: settings[SettingKeyAvailableChannelsEnabled] == "true",
-		ModelPlazaEnabled:        settings[SettingKeyModelPlazaEnabled] == "true",
-		ModelPlazaRequireAuth:    settings[SettingKeyModelPlazaRequireAuth] == "true",
-		GroupBuyEnabled:          !isFalseSettingValue(settings[SettingKeyGroupBuyEnabled]),
-		GroupBuyProductName:      normalizeGroupBuyProductName(settings[SettingKeyGroupBuyProductName]),
-		GroupBuyDescription:      strings.TrimSpace(settings[SettingKeyGroupBuyDescription]),
-		PixelCafeEnabled:         settings[SettingKeyPixelCafeEnabled] == "true",
-		PixelCafeTitle:           normalizePixelCafeTitle(settings[SettingKeyPixelCafeTitle]),
-		PixelCafeDescription:     pixelCafeDescriptionFromSettings(settings),
-		PixelCafeHeaderVisible:   !isFalseSettingValue(settings[SettingKeyPixelCafeHeaderVisible]),
+		AvailableChannelsEnabled:   settings[SettingKeyAvailableChannelsEnabled] == "true",
+		ModelPlazaEnabled:          settings[SettingKeyModelPlazaEnabled] == "true",
+		ModelPlazaRequireAuth:      settings[SettingKeyModelPlazaRequireAuth] == "true",
+		GroupBuyEnabled:            !isFalseSettingValue(settings[SettingKeyGroupBuyEnabled]),
+		GroupBuyProductName:        normalizeGroupBuyProductName(settings[SettingKeyGroupBuyProductName]),
+		GroupBuyDescription:        strings.TrimSpace(settings[SettingKeyGroupBuyDescription]),
+		PixelCafeEnabled:           settings[SettingKeyPixelCafeEnabled] == "true",
+		PixelCafeTitle:             normalizePixelCafeTitle(settings[SettingKeyPixelCafeTitle]),
+		PixelCafeDescription:       pixelCafeDescriptionFromSettings(settings),
+		PixelCafeHeaderVisible:     !isFalseSettingValue(settings[SettingKeyPixelCafeHeaderVisible]),
+		PixelCafeWorkstationLayout: pixelCafeWorkstationLayout,
 
 		AffiliateEnabled:                 settings[SettingKeyAffiliateEnabled] == "true",
 		AccountShareEnabled:              settings[SettingKeyAccountShareEnabled] != "false",
@@ -1454,30 +1463,31 @@ type PublicSettingsInjectionPayload struct {
 	// Feature flags — MUST match the opt-in/opt-out registry in
 	// frontend/src/utils/featureFlags.ts. Missing a field here is the bug
 	// that hid the "可用渠道" menu on page refresh.
-	ChannelMonitorEnabled                bool   `json:"channel_monitor_enabled"`
-	ChannelMonitorDefaultIntervalSeconds int    `json:"channel_monitor_default_interval_seconds"`
-	AvailableChannelsEnabled             bool   `json:"available_channels_enabled"`
-	ModelPlazaEnabled                    bool   `json:"model_plaza_enabled"`
-	ModelPlazaRequireAuth                bool   `json:"model_plaza_require_auth"`
-	GroupBuyEnabled                      bool   `json:"group_buy_enabled"`
-	GroupBuyProductName                  string `json:"group_buy_product_name"`
-	GroupBuyDescription                  string `json:"group_buy_description"`
-	PixelCafeEnabled                     bool   `json:"pixel_cafe_enabled"`
-	PixelCafeTitle                       string `json:"pixel_cafe_title"`
-	PixelCafeDescription                 string `json:"pixel_cafe_description"`
-	PixelCafeHeaderVisible               bool   `json:"pixel_cafe_header_visible"`
-	AffiliateEnabled                     bool   `json:"affiliate_enabled"`
-	AccountShareEnabled                  bool   `json:"account_share_enabled"`
-	AccountShareChannelStatusVisible     bool   `json:"account_share_channel_status_visible"`
-	ExternalCapacityReferenceEnabled     bool   `json:"external_capacity_reference_enabled"`
-	RiskControlEnabled                   bool   `json:"risk_control_enabled"`
-	AllowUserViewErrorRequests           bool   `json:"allow_user_view_error_requests"`
-	WelfareEnabled                       bool   `json:"welfare_enabled"`
-	WelfareDailyCheckinEnabled           bool   `json:"welfare_daily_checkin_enabled"`
-	WelfareRechargeEnabled               bool   `json:"welfare_recharge_enabled"`
-	WelfareVIPEnabled                    bool   `json:"welfare_vip_enabled"`
-	WelfareNewUserTrialEnabled           bool   `json:"welfare_new_user_trial_enabled"`
-	LeaderboardMinAccountAgeDays         int    `json:"leaderboard_min_account_age_days"`
+	ChannelMonitorEnabled                bool                       `json:"channel_monitor_enabled"`
+	ChannelMonitorDefaultIntervalSeconds int                        `json:"channel_monitor_default_interval_seconds"`
+	AvailableChannelsEnabled             bool                       `json:"available_channels_enabled"`
+	ModelPlazaEnabled                    bool                       `json:"model_plaza_enabled"`
+	ModelPlazaRequireAuth                bool                       `json:"model_plaza_require_auth"`
+	GroupBuyEnabled                      bool                       `json:"group_buy_enabled"`
+	GroupBuyProductName                  string                     `json:"group_buy_product_name"`
+	GroupBuyDescription                  string                     `json:"group_buy_description"`
+	PixelCafeEnabled                     bool                       `json:"pixel_cafe_enabled"`
+	PixelCafeTitle                       string                     `json:"pixel_cafe_title"`
+	PixelCafeDescription                 string                     `json:"pixel_cafe_description"`
+	PixelCafeHeaderVisible               bool                       `json:"pixel_cafe_header_visible"`
+	PixelCafeWorkstationLayout           PixelCafeWorkstationLayout `json:"pixel_cafe_workstation_layout"`
+	AffiliateEnabled                     bool                       `json:"affiliate_enabled"`
+	AccountShareEnabled                  bool                       `json:"account_share_enabled"`
+	AccountShareChannelStatusVisible     bool                       `json:"account_share_channel_status_visible"`
+	ExternalCapacityReferenceEnabled     bool                       `json:"external_capacity_reference_enabled"`
+	RiskControlEnabled                   bool                       `json:"risk_control_enabled"`
+	AllowUserViewErrorRequests           bool                       `json:"allow_user_view_error_requests"`
+	WelfareEnabled                       bool                       `json:"welfare_enabled"`
+	WelfareDailyCheckinEnabled           bool                       `json:"welfare_daily_checkin_enabled"`
+	WelfareRechargeEnabled               bool                       `json:"welfare_recharge_enabled"`
+	WelfareVIPEnabled                    bool                       `json:"welfare_vip_enabled"`
+	WelfareNewUserTrialEnabled           bool                       `json:"welfare_new_user_trial_enabled"`
+	LeaderboardMinAccountAgeDays         int                        `json:"leaderboard_min_account_age_days"`
 }
 
 // GetPublicSettingsForInjection returns public settings in a format suitable for HTML injection.
@@ -1557,6 +1567,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		PixelCafeTitle:                       settings.PixelCafeTitle,
 		PixelCafeDescription:                 settings.PixelCafeDescription,
 		PixelCafeHeaderVisible:               settings.PixelCafeHeaderVisible,
+		PixelCafeWorkstationLayout:           settings.PixelCafeWorkstationLayout,
 		AffiliateEnabled:                     settings.AffiliateEnabled,
 		AccountShareEnabled:                  settings.AccountShareEnabled,
 		AccountShareChannelStatusVisible:     settings.AccountShareChannelStatusVisible,

@@ -20,6 +20,32 @@ const (
 	FieldCafeRoomID = "cafe_room_id"
 	// FieldAssignedAccountID holds the string denoting the assigned_account_id field in the database.
 	FieldAssignedAccountID = "assigned_account_id"
+	// FieldCafeFulfillmentVersion holds the string denoting the cafe_fulfillment_version field in the database.
+	FieldCafeFulfillmentVersion = "cafe_fulfillment_version"
+	// FieldSubscriptionTier holds the string denoting the subscription_tier field in the database.
+	FieldSubscriptionTier = "subscription_tier"
+	// FieldMaxBuyers holds the string denoting the max_buyers field in the database.
+	FieldMaxBuyers = "max_buyers"
+	// FieldMaxSharesPerUser holds the string denoting the max_shares_per_user field in the database.
+	FieldMaxSharesPerUser = "max_shares_per_user"
+	// FieldFulfillmentTimeoutMinutes holds the string denoting the fulfillment_timeout_minutes field in the database.
+	FieldFulfillmentTimeoutMinutes = "fulfillment_timeout_minutes"
+	// FieldValidityDaysSnapshot holds the string denoting the validity_days_snapshot field in the database.
+	FieldValidityDaysSnapshot = "validity_days_snapshot"
+	// FieldTargetGroupIDSnapshot holds the string denoting the target_group_id_snapshot field in the database.
+	FieldTargetGroupIDSnapshot = "target_group_id_snapshot"
+	// FieldPlatformSnapshot holds the string denoting the platform_snapshot field in the database.
+	FieldPlatformSnapshot = "platform_snapshot"
+	// FieldQuotaPerShareSnapshot holds the string denoting the quota_per_share_snapshot field in the database.
+	FieldQuotaPerShareSnapshot = "quota_per_share_snapshot"
+	// FieldRateLimit5hPerShareSnapshot holds the string denoting the rate_limit_5h_per_share_snapshot field in the database.
+	FieldRateLimit5hPerShareSnapshot = "rate_limit_5h_per_share_snapshot"
+	// FieldRateLimit1dPerShareSnapshot holds the string denoting the rate_limit_1d_per_share_snapshot field in the database.
+	FieldRateLimit1dPerShareSnapshot = "rate_limit_1d_per_share_snapshot"
+	// FieldRateLimit7dPerShareSnapshot holds the string denoting the rate_limit_7d_per_share_snapshot field in the database.
+	FieldRateLimit7dPerShareSnapshot = "rate_limit_7d_per_share_snapshot"
+	// FieldFulfillmentDeadlineAt holds the string denoting the fulfillment_deadline_at field in the database.
+	FieldFulfillmentDeadlineAt = "fulfillment_deadline_at"
 	// FieldRoomCodeSnapshot holds the string denoting the room_code_snapshot field in the database.
 	FieldRoomCodeSnapshot = "room_code_snapshot"
 	// FieldRoomNameSnapshot holds the string denoting the room_name_snapshot field in the database.
@@ -70,6 +96,8 @@ const (
 	EdgeAssignedAccount = "assigned_account"
 	// EdgeAccountBindings holds the string denoting the account_bindings edge name in mutations.
 	EdgeAccountBindings = "account_bindings"
+	// EdgeCafeMemberships holds the string denoting the cafe_memberships edge name in mutations.
+	EdgeCafeMemberships = "cafe_memberships"
 	// Table holds the table name of the groupbuyround in the database.
 	Table = "group_buy_rounds"
 	// PlanTable is the table that holds the plan relation/edge.
@@ -114,6 +142,13 @@ const (
 	AccountBindingsInverseTable = "api_key_account_bindings"
 	// AccountBindingsColumn is the table column denoting the account_bindings relation/edge.
 	AccountBindingsColumn = "round_id"
+	// CafeMembershipsTable is the table that holds the cafe_memberships relation/edge.
+	CafeMembershipsTable = "cafe_round_memberships"
+	// CafeMembershipsInverseTable is the table name for the CafeRoundMembership entity.
+	// It exists in this package in order to avoid circular dependency with the "caferoundmembership" package.
+	CafeMembershipsInverseTable = "cafe_round_memberships"
+	// CafeMembershipsColumn is the table column denoting the cafe_memberships relation/edge.
+	CafeMembershipsColumn = "round_id"
 )
 
 // Columns holds all SQL columns for groupbuyround fields.
@@ -122,6 +157,19 @@ var Columns = []string{
 	FieldPlanID,
 	FieldCafeRoomID,
 	FieldAssignedAccountID,
+	FieldCafeFulfillmentVersion,
+	FieldSubscriptionTier,
+	FieldMaxBuyers,
+	FieldMaxSharesPerUser,
+	FieldFulfillmentTimeoutMinutes,
+	FieldValidityDaysSnapshot,
+	FieldTargetGroupIDSnapshot,
+	FieldPlatformSnapshot,
+	FieldQuotaPerShareSnapshot,
+	FieldRateLimit5hPerShareSnapshot,
+	FieldRateLimit1dPerShareSnapshot,
+	FieldRateLimit7dPerShareSnapshot,
+	FieldFulfillmentDeadlineAt,
 	FieldRoomCodeSnapshot,
 	FieldRoomNameSnapshot,
 	FieldStatus,
@@ -154,6 +202,14 @@ func ValidColumn(column string) bool {
 }
 
 var (
+	// DefaultCafeFulfillmentVersion holds the default value on creation for the "cafe_fulfillment_version" field.
+	DefaultCafeFulfillmentVersion string
+	// CafeFulfillmentVersionValidator is a validator for the "cafe_fulfillment_version" field. It is called by the builders before save.
+	CafeFulfillmentVersionValidator func(string) error
+	// SubscriptionTierValidator is a validator for the "subscription_tier" field. It is called by the builders before save.
+	SubscriptionTierValidator func(string) error
+	// PlatformSnapshotValidator is a validator for the "platform_snapshot" field. It is called by the builders before save.
+	PlatformSnapshotValidator func(string) error
 	// DefaultStatus holds the default value on creation for the "status" field.
 	DefaultStatus string
 	// StatusValidator is a validator for the "status" field. It is called by the builders before save.
@@ -199,6 +255,71 @@ func ByCafeRoomID(opts ...sql.OrderTermOption) OrderOption {
 // ByAssignedAccountID orders the results by the assigned_account_id field.
 func ByAssignedAccountID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAssignedAccountID, opts...).ToFunc()
+}
+
+// ByCafeFulfillmentVersion orders the results by the cafe_fulfillment_version field.
+func ByCafeFulfillmentVersion(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCafeFulfillmentVersion, opts...).ToFunc()
+}
+
+// BySubscriptionTier orders the results by the subscription_tier field.
+func BySubscriptionTier(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSubscriptionTier, opts...).ToFunc()
+}
+
+// ByMaxBuyers orders the results by the max_buyers field.
+func ByMaxBuyers(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldMaxBuyers, opts...).ToFunc()
+}
+
+// ByMaxSharesPerUser orders the results by the max_shares_per_user field.
+func ByMaxSharesPerUser(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldMaxSharesPerUser, opts...).ToFunc()
+}
+
+// ByFulfillmentTimeoutMinutes orders the results by the fulfillment_timeout_minutes field.
+func ByFulfillmentTimeoutMinutes(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFulfillmentTimeoutMinutes, opts...).ToFunc()
+}
+
+// ByValidityDaysSnapshot orders the results by the validity_days_snapshot field.
+func ByValidityDaysSnapshot(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldValidityDaysSnapshot, opts...).ToFunc()
+}
+
+// ByTargetGroupIDSnapshot orders the results by the target_group_id_snapshot field.
+func ByTargetGroupIDSnapshot(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTargetGroupIDSnapshot, opts...).ToFunc()
+}
+
+// ByPlatformSnapshot orders the results by the platform_snapshot field.
+func ByPlatformSnapshot(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPlatformSnapshot, opts...).ToFunc()
+}
+
+// ByQuotaPerShareSnapshot orders the results by the quota_per_share_snapshot field.
+func ByQuotaPerShareSnapshot(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldQuotaPerShareSnapshot, opts...).ToFunc()
+}
+
+// ByRateLimit5hPerShareSnapshot orders the results by the rate_limit_5h_per_share_snapshot field.
+func ByRateLimit5hPerShareSnapshot(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRateLimit5hPerShareSnapshot, opts...).ToFunc()
+}
+
+// ByRateLimit1dPerShareSnapshot orders the results by the rate_limit_1d_per_share_snapshot field.
+func ByRateLimit1dPerShareSnapshot(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRateLimit1dPerShareSnapshot, opts...).ToFunc()
+}
+
+// ByRateLimit7dPerShareSnapshot orders the results by the rate_limit_7d_per_share_snapshot field.
+func ByRateLimit7dPerShareSnapshot(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRateLimit7dPerShareSnapshot, opts...).ToFunc()
+}
+
+// ByFulfillmentDeadlineAt orders the results by the fulfillment_deadline_at field.
+func ByFulfillmentDeadlineAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFulfillmentDeadlineAt, opts...).ToFunc()
 }
 
 // ByRoomCodeSnapshot orders the results by the room_code_snapshot field.
@@ -358,6 +479,20 @@ func ByAccountBindings(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newAccountBindingsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByCafeMembershipsCount orders the results by cafe_memberships count.
+func ByCafeMembershipsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newCafeMembershipsStep(), opts...)
+	}
+}
+
+// ByCafeMemberships orders the results by cafe_memberships terms.
+func ByCafeMemberships(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCafeMembershipsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newPlanStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -398,5 +533,12 @@ func newAccountBindingsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(AccountBindingsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, AccountBindingsTable, AccountBindingsColumn),
+	)
+}
+func newCafeMembershipsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CafeMembershipsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, CafeMembershipsTable, CafeMembershipsColumn),
 	)
 }

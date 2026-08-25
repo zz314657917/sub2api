@@ -17,6 +17,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
 	"github.com/Wei-Shaw/sub2api/ent/caferoom"
+	"github.com/Wei-Shaw/sub2api/ent/caferoundmembership"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitor"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
@@ -353,6 +354,33 @@ func (f TraverseCafeRoom) Traverse(ctx context.Context, q ent.Query) error {
 		return f(ctx, q)
 	}
 	return fmt.Errorf("unexpected query type %T. expect *ent.CafeRoomQuery", q)
+}
+
+// The CafeRoundMembershipFunc type is an adapter to allow the use of ordinary function as a Querier.
+type CafeRoundMembershipFunc func(context.Context, *ent.CafeRoundMembershipQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f CafeRoundMembershipFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.CafeRoundMembershipQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.CafeRoundMembershipQuery", q)
+}
+
+// The TraverseCafeRoundMembership type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseCafeRoundMembership func(context.Context, *ent.CafeRoundMembershipQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseCafeRoundMembership) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseCafeRoundMembership) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.CafeRoundMembershipQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.CafeRoundMembershipQuery", q)
 }
 
 // The ChannelMonitorFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -1348,6 +1376,8 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.AuthIdentityChannelQuery, predicate.AuthIdentityChannel, authidentitychannel.OrderOption]{typ: ent.TypeAuthIdentityChannel, tq: q}, nil
 	case *ent.CafeRoomQuery:
 		return &query[*ent.CafeRoomQuery, predicate.CafeRoom, caferoom.OrderOption]{typ: ent.TypeCafeRoom, tq: q}, nil
+	case *ent.CafeRoundMembershipQuery:
+		return &query[*ent.CafeRoundMembershipQuery, predicate.CafeRoundMembership, caferoundmembership.OrderOption]{typ: ent.TypeCafeRoundMembership, tq: q}, nil
 	case *ent.ChannelMonitorQuery:
 		return &query[*ent.ChannelMonitorQuery, predicate.ChannelMonitor, channelmonitor.OrderOption]{typ: ent.TypeChannelMonitor, tq: q}, nil
 	case *ent.ChannelMonitorDailyRollupQuery:

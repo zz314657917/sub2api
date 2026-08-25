@@ -175,6 +175,8 @@ export default {
         subscription: '订阅（配额）',
         roomManaged: '网吧房间托管分组',
         roomManagedHint: '仅供像素网吧 Room 计划使用；房间激活时系统会创建受管 API Key。',
+        limitsManagedByRoomPlan: '额度由 Room 计划管理',
+        limitsManagedByRoomPlanHint: '托管分组不设置日、周、月额度；受管 Key 的总额度、5H、1D、7D 限额和有效期统一在 Room 计划中配置。',
         dailyLimit: '每日积分限额',
         weeklyLimit: '每周积分限额',
         monthlyLimit: '每月积分限额',

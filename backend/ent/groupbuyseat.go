@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/caferoundmembership"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
@@ -33,6 +34,8 @@ type GroupBuySeat struct {
 	UserID int64 `json:"user_id,omitempty"`
 	// OrderID holds the value of the "order_id" field.
 	OrderID *int64 `json:"order_id,omitempty"`
+	// MembershipID holds the value of the "membership_id" field.
+	MembershipID *int64 `json:"membership_id,omitempty"`
 	// Status holds the value of the "status" field.
 	Status string `json:"status,omitempty"`
 	// ShareCount holds the value of the "share_count" field.
@@ -79,6 +82,8 @@ type GroupBuySeatEdges struct {
 	User *User `json:"user,omitempty"`
 	// Order holds the value of the order edge.
 	Order *PaymentOrder `json:"order,omitempty"`
+	// Membership holds the value of the membership edge.
+	Membership *CafeRoundMembership `json:"membership,omitempty"`
 	// Subscription holds the value of the subscription edge.
 	Subscription *UserSubscription `json:"subscription,omitempty"`
 	// BoundAPIKey holds the value of the bound_api_key edge.
@@ -91,7 +96,7 @@ type GroupBuySeatEdges struct {
 	AccountBindings []*APIKeyAccountBinding `json:"account_bindings,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [9]bool
+	loadedTypes [10]bool
 }
 
 // RoundOrErr returns the Round value or an error if the edge
@@ -138,12 +143,23 @@ func (e GroupBuySeatEdges) OrderOrErr() (*PaymentOrder, error) {
 	return nil, &NotLoadedError{edge: "order"}
 }
 
+// MembershipOrErr returns the Membership value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e GroupBuySeatEdges) MembershipOrErr() (*CafeRoundMembership, error) {
+	if e.Membership != nil {
+		return e.Membership, nil
+	} else if e.loadedTypes[4] {
+		return nil, &NotFoundError{label: caferoundmembership.Label}
+	}
+	return nil, &NotLoadedError{edge: "membership"}
+}
+
 // SubscriptionOrErr returns the Subscription value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e GroupBuySeatEdges) SubscriptionOrErr() (*UserSubscription, error) {
 	if e.Subscription != nil {
 		return e.Subscription, nil
-	} else if e.loadedTypes[4] {
+	} else if e.loadedTypes[5] {
 		return nil, &NotFoundError{label: usersubscription.Label}
 	}
 	return nil, &NotLoadedError{edge: "subscription"}
@@ -154,7 +170,7 @@ func (e GroupBuySeatEdges) SubscriptionOrErr() (*UserSubscription, error) {
 func (e GroupBuySeatEdges) BoundAPIKeyOrErr() (*APIKey, error) {
 	if e.BoundAPIKey != nil {
 		return e.BoundAPIKey, nil
-	} else if e.loadedTypes[5] {
+	} else if e.loadedTypes[6] {
 		return nil, &NotFoundError{label: apikey.Label}
 	}
 	return nil, &NotLoadedError{edge: "bound_api_key"}
@@ -163,7 +179,7 @@ func (e GroupBuySeatEdges) BoundAPIKeyOrErr() (*APIKey, error) {
 // RefundsOrErr returns the Refunds value or an error if the edge
 // was not loaded in eager-loading.
 func (e GroupBuySeatEdges) RefundsOrErr() ([]*GroupBuyRefund, error) {
-	if e.loadedTypes[6] {
+	if e.loadedTypes[7] {
 		return e.Refunds, nil
 	}
 	return nil, &NotLoadedError{edge: "refunds"}
@@ -172,7 +188,7 @@ func (e GroupBuySeatEdges) RefundsOrErr() ([]*GroupBuyRefund, error) {
 // EventsOrErr returns the Events value or an error if the edge
 // was not loaded in eager-loading.
 func (e GroupBuySeatEdges) EventsOrErr() ([]*GroupBuyEvent, error) {
-	if e.loadedTypes[7] {
+	if e.loadedTypes[8] {
 		return e.Events, nil
 	}
 	return nil, &NotLoadedError{edge: "events"}
@@ -181,7 +197,7 @@ func (e GroupBuySeatEdges) EventsOrErr() ([]*GroupBuyEvent, error) {
 // AccountBindingsOrErr returns the AccountBindings value or an error if the edge
 // was not loaded in eager-loading.
 func (e GroupBuySeatEdges) AccountBindingsOrErr() ([]*APIKeyAccountBinding, error) {
-	if e.loadedTypes[8] {
+	if e.loadedTypes[9] {
 		return e.AccountBindings, nil
 	}
 	return nil, &NotLoadedError{edge: "account_bindings"}
@@ -194,7 +210,7 @@ func (*GroupBuySeat) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case groupbuyseat.FieldPolicySnapshot:
 			values[i] = new([]byte)
-		case groupbuyseat.FieldID, groupbuyseat.FieldRoundID, groupbuyseat.FieldPlanID, groupbuyseat.FieldUserID, groupbuyseat.FieldOrderID, groupbuyseat.FieldShareCount, groupbuyseat.FieldSeatNo, groupbuyseat.FieldSubscriptionID, groupbuyseat.FieldBoundAPIKeyID:
+		case groupbuyseat.FieldID, groupbuyseat.FieldRoundID, groupbuyseat.FieldPlanID, groupbuyseat.FieldUserID, groupbuyseat.FieldOrderID, groupbuyseat.FieldMembershipID, groupbuyseat.FieldShareCount, groupbuyseat.FieldSeatNo, groupbuyseat.FieldSubscriptionID, groupbuyseat.FieldBoundAPIKeyID:
 			values[i] = new(sql.NullInt64)
 		case groupbuyseat.FieldStatus, groupbuyseat.FieldRefundNote:
 			values[i] = new(sql.NullString)
@@ -245,6 +261,13 @@ func (_m *GroupBuySeat) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.OrderID = new(int64)
 				*_m.OrderID = value.Int64
+			}
+		case groupbuyseat.FieldMembershipID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field membership_id", values[i])
+			} else if value.Valid {
+				_m.MembershipID = new(int64)
+				*_m.MembershipID = value.Int64
 			}
 		case groupbuyseat.FieldStatus:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -381,6 +404,11 @@ func (_m *GroupBuySeat) QueryOrder() *PaymentOrderQuery {
 	return NewGroupBuySeatClient(_m.config).QueryOrder(_m)
 }
 
+// QueryMembership queries the "membership" edge of the GroupBuySeat entity.
+func (_m *GroupBuySeat) QueryMembership() *CafeRoundMembershipQuery {
+	return NewGroupBuySeatClient(_m.config).QueryMembership(_m)
+}
+
 // QuerySubscription queries the "subscription" edge of the GroupBuySeat entity.
 func (_m *GroupBuySeat) QuerySubscription() *UserSubscriptionQuery {
 	return NewGroupBuySeatClient(_m.config).QuerySubscription(_m)
@@ -440,6 +468,11 @@ func (_m *GroupBuySeat) String() string {
 	builder.WriteString(", ")
 	if v := _m.OrderID; v != nil {
 		builder.WriteString("order_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.MembershipID; v != nil {
+		builder.WriteString("membership_id=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")

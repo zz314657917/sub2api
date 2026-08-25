@@ -32,6 +32,10 @@ type GroupBuyPlan struct {
 	ProductKey string `json:"product_key,omitempty"`
 	// TotalShares holds the value of the "total_shares" field.
 	TotalShares int `json:"total_shares,omitempty"`
+	// SubscriptionTier holds the value of the "subscription_tier" field.
+	SubscriptionTier string `json:"subscription_tier,omitempty"`
+	// MaxBuyers holds the value of the "max_buyers" field.
+	MaxBuyers int `json:"max_buyers,omitempty"`
 	// Legacy alias of total_shares for v1 API compatibility
 	SeatCount int `json:"seat_count,omitempty"`
 	// PricePerShare holds the value of the "price_per_share" field.
@@ -46,6 +50,8 @@ type GroupBuyPlan struct {
 	QuotaLabel string `json:"quota_label,omitempty"`
 	// MaxSharesPerUser holds the value of the "max_shares_per_user" field.
 	MaxSharesPerUser int `json:"max_shares_per_user,omitempty"`
+	// FulfillmentTimeoutMinutes holds the value of the "fulfillment_timeout_minutes" field.
+	FulfillmentTimeoutMinutes int `json:"fulfillment_timeout_minutes,omitempty"`
 	// TargetGroupID holds the value of the "target_group_id" field.
 	TargetGroupID int64 `json:"target_group_id,omitempty"`
 	// TierGroupIds holds the value of the "tier_group_ids" field.
@@ -163,9 +169,9 @@ func (*GroupBuyPlan) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullBool)
 		case groupbuyplan.FieldPricePerShare, groupbuyplan.FieldPricePerSeat, groupbuyplan.FieldRoomKeyQuotaUsd, groupbuyplan.FieldRoomKeyRateLimit5h, groupbuyplan.FieldRoomKeyRateLimit1d, groupbuyplan.FieldRoomKeyRateLimit7d:
 			values[i] = new(sql.NullFloat64)
-		case groupbuyplan.FieldID, groupbuyplan.FieldTotalShares, groupbuyplan.FieldSeatCount, groupbuyplan.FieldMaxSharesPerUser, groupbuyplan.FieldTargetGroupID, groupbuyplan.FieldValidityDays, groupbuyplan.FieldTimeoutMinutes, groupbuyplan.FieldSortOrder:
+		case groupbuyplan.FieldID, groupbuyplan.FieldTotalShares, groupbuyplan.FieldMaxBuyers, groupbuyplan.FieldSeatCount, groupbuyplan.FieldMaxSharesPerUser, groupbuyplan.FieldFulfillmentTimeoutMinutes, groupbuyplan.FieldTargetGroupID, groupbuyplan.FieldValidityDays, groupbuyplan.FieldTimeoutMinutes, groupbuyplan.FieldSortOrder:
 			values[i] = new(sql.NullInt64)
-		case groupbuyplan.FieldTitle, groupbuyplan.FieldDescription, groupbuyplan.FieldProductKey, groupbuyplan.FieldPriceLabel, groupbuyplan.FieldQuotaPerShareLabel, groupbuyplan.FieldQuotaLabel, groupbuyplan.FieldLaunchMode, groupbuyplan.FieldFulfillmentMode, groupbuyplan.FieldRefundMode, groupbuyplan.FieldAgreementText, groupbuyplan.FieldStatus:
+		case groupbuyplan.FieldTitle, groupbuyplan.FieldDescription, groupbuyplan.FieldProductKey, groupbuyplan.FieldSubscriptionTier, groupbuyplan.FieldPriceLabel, groupbuyplan.FieldQuotaPerShareLabel, groupbuyplan.FieldQuotaLabel, groupbuyplan.FieldLaunchMode, groupbuyplan.FieldFulfillmentMode, groupbuyplan.FieldRefundMode, groupbuyplan.FieldAgreementText, groupbuyplan.FieldStatus:
 			values[i] = new(sql.NullString)
 		case groupbuyplan.FieldCreatedAt, groupbuyplan.FieldUpdatedAt, groupbuyplan.FieldLastRoundCreatedAt, groupbuyplan.FieldDeletedAt:
 			values[i] = new(sql.NullTime)
@@ -227,6 +233,18 @@ func (_m *GroupBuyPlan) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.TotalShares = int(value.Int64)
 			}
+		case groupbuyplan.FieldSubscriptionTier:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field subscription_tier", values[i])
+			} else if value.Valid {
+				_m.SubscriptionTier = value.String
+			}
+		case groupbuyplan.FieldMaxBuyers:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field max_buyers", values[i])
+			} else if value.Valid {
+				_m.MaxBuyers = int(value.Int64)
+			}
 		case groupbuyplan.FieldSeatCount:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for field seat_count", values[i])
@@ -268,6 +286,12 @@ func (_m *GroupBuyPlan) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field max_shares_per_user", values[i])
 			} else if value.Valid {
 				_m.MaxSharesPerUser = int(value.Int64)
+			}
+		case groupbuyplan.FieldFulfillmentTimeoutMinutes:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field fulfillment_timeout_minutes", values[i])
+			} else if value.Valid {
+				_m.FulfillmentTimeoutMinutes = int(value.Int64)
 			}
 		case groupbuyplan.FieldTargetGroupID:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -465,6 +489,12 @@ func (_m *GroupBuyPlan) String() string {
 	builder.WriteString("total_shares=")
 	builder.WriteString(fmt.Sprintf("%v", _m.TotalShares))
 	builder.WriteString(", ")
+	builder.WriteString("subscription_tier=")
+	builder.WriteString(_m.SubscriptionTier)
+	builder.WriteString(", ")
+	builder.WriteString("max_buyers=")
+	builder.WriteString(fmt.Sprintf("%v", _m.MaxBuyers))
+	builder.WriteString(", ")
 	builder.WriteString("seat_count=")
 	builder.WriteString(fmt.Sprintf("%v", _m.SeatCount))
 	builder.WriteString(", ")
@@ -485,6 +515,9 @@ func (_m *GroupBuyPlan) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("max_shares_per_user=")
 	builder.WriteString(fmt.Sprintf("%v", _m.MaxSharesPerUser))
+	builder.WriteString(", ")
+	builder.WriteString("fulfillment_timeout_minutes=")
+	builder.WriteString(fmt.Sprintf("%v", _m.FulfillmentTimeoutMinutes))
 	builder.WriteString(", ")
 	builder.WriteString("target_group_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.TargetGroupID))

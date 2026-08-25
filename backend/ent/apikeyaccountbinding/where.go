@@ -100,6 +100,11 @@ func SeatID(v int64) predicate.APIKeyAccountBinding {
 	return predicate.APIKeyAccountBinding(sql.FieldEQ(FieldSeatID, v))
 }
 
+// MembershipID applies equality check predicate on the "membership_id" field. It's identical to MembershipIDEQ.
+func MembershipID(v int64) predicate.APIKeyAccountBinding {
+	return predicate.APIKeyAccountBinding(sql.FieldEQ(FieldMembershipID, v))
+}
+
 // Status applies equality check predicate on the "status" field. It's identical to StatusEQ.
 func Status(v string) predicate.APIKeyAccountBinding {
 	return predicate.APIKeyAccountBinding(sql.FieldEQ(FieldStatus, v))
@@ -348,6 +353,46 @@ func SeatIDIn(vs ...int64) predicate.APIKeyAccountBinding {
 // SeatIDNotIn applies the NotIn predicate on the "seat_id" field.
 func SeatIDNotIn(vs ...int64) predicate.APIKeyAccountBinding {
 	return predicate.APIKeyAccountBinding(sql.FieldNotIn(FieldSeatID, vs...))
+}
+
+// SeatIDIsNil applies the IsNil predicate on the "seat_id" field.
+func SeatIDIsNil() predicate.APIKeyAccountBinding {
+	return predicate.APIKeyAccountBinding(sql.FieldIsNull(FieldSeatID))
+}
+
+// SeatIDNotNil applies the NotNil predicate on the "seat_id" field.
+func SeatIDNotNil() predicate.APIKeyAccountBinding {
+	return predicate.APIKeyAccountBinding(sql.FieldNotNull(FieldSeatID))
+}
+
+// MembershipIDEQ applies the EQ predicate on the "membership_id" field.
+func MembershipIDEQ(v int64) predicate.APIKeyAccountBinding {
+	return predicate.APIKeyAccountBinding(sql.FieldEQ(FieldMembershipID, v))
+}
+
+// MembershipIDNEQ applies the NEQ predicate on the "membership_id" field.
+func MembershipIDNEQ(v int64) predicate.APIKeyAccountBinding {
+	return predicate.APIKeyAccountBinding(sql.FieldNEQ(FieldMembershipID, v))
+}
+
+// MembershipIDIn applies the In predicate on the "membership_id" field.
+func MembershipIDIn(vs ...int64) predicate.APIKeyAccountBinding {
+	return predicate.APIKeyAccountBinding(sql.FieldIn(FieldMembershipID, vs...))
+}
+
+// MembershipIDNotIn applies the NotIn predicate on the "membership_id" field.
+func MembershipIDNotIn(vs ...int64) predicate.APIKeyAccountBinding {
+	return predicate.APIKeyAccountBinding(sql.FieldNotIn(FieldMembershipID, vs...))
+}
+
+// MembershipIDIsNil applies the IsNil predicate on the "membership_id" field.
+func MembershipIDIsNil() predicate.APIKeyAccountBinding {
+	return predicate.APIKeyAccountBinding(sql.FieldIsNull(FieldMembershipID))
+}
+
+// MembershipIDNotNil applies the NotNil predicate on the "membership_id" field.
+func MembershipIDNotNil() predicate.APIKeyAccountBinding {
+	return predicate.APIKeyAccountBinding(sql.FieldNotNull(FieldMembershipID))
 }
 
 // StatusEQ applies the EQ predicate on the "status" field.
@@ -758,6 +803,29 @@ func HasSeat() predicate.APIKeyAccountBinding {
 func HasSeatWith(preds ...predicate.GroupBuySeat) predicate.APIKeyAccountBinding {
 	return predicate.APIKeyAccountBinding(func(s *sql.Selector) {
 		step := newSeatStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasMembership applies the HasEdge predicate on the "membership" edge.
+func HasMembership() predicate.APIKeyAccountBinding {
+	return predicate.APIKeyAccountBinding(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, MembershipTable, MembershipColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasMembershipWith applies the HasEdge predicate on the "membership" edge with a given conditions (other predicates).
+func HasMembershipWith(preds ...predicate.CafeRoundMembership) predicate.APIKeyAccountBinding {
+	return predicate.APIKeyAccountBinding(func(s *sql.Selector) {
+		step := newMembershipStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

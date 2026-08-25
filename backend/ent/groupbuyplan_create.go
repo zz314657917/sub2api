@@ -104,6 +104,34 @@ func (_c *GroupBuyPlanCreate) SetNillableTotalShares(v *int) *GroupBuyPlanCreate
 	return _c
 }
 
+// SetSubscriptionTier sets the "subscription_tier" field.
+func (_c *GroupBuyPlanCreate) SetSubscriptionTier(v string) *GroupBuyPlanCreate {
+	_c.mutation.SetSubscriptionTier(v)
+	return _c
+}
+
+// SetNillableSubscriptionTier sets the "subscription_tier" field if the given value is not nil.
+func (_c *GroupBuyPlanCreate) SetNillableSubscriptionTier(v *string) *GroupBuyPlanCreate {
+	if v != nil {
+		_c.SetSubscriptionTier(*v)
+	}
+	return _c
+}
+
+// SetMaxBuyers sets the "max_buyers" field.
+func (_c *GroupBuyPlanCreate) SetMaxBuyers(v int) *GroupBuyPlanCreate {
+	_c.mutation.SetMaxBuyers(v)
+	return _c
+}
+
+// SetNillableMaxBuyers sets the "max_buyers" field if the given value is not nil.
+func (_c *GroupBuyPlanCreate) SetNillableMaxBuyers(v *int) *GroupBuyPlanCreate {
+	if v != nil {
+		_c.SetMaxBuyers(*v)
+	}
+	return _c
+}
+
 // SetSeatCount sets the "seat_count" field.
 func (_c *GroupBuyPlanCreate) SetSeatCount(v int) *GroupBuyPlanCreate {
 	_c.mutation.SetSeatCount(v)
@@ -182,6 +210,20 @@ func (_c *GroupBuyPlanCreate) SetMaxSharesPerUser(v int) *GroupBuyPlanCreate {
 func (_c *GroupBuyPlanCreate) SetNillableMaxSharesPerUser(v *int) *GroupBuyPlanCreate {
 	if v != nil {
 		_c.SetMaxSharesPerUser(*v)
+	}
+	return _c
+}
+
+// SetFulfillmentTimeoutMinutes sets the "fulfillment_timeout_minutes" field.
+func (_c *GroupBuyPlanCreate) SetFulfillmentTimeoutMinutes(v int) *GroupBuyPlanCreate {
+	_c.mutation.SetFulfillmentTimeoutMinutes(v)
+	return _c
+}
+
+// SetNillableFulfillmentTimeoutMinutes sets the "fulfillment_timeout_minutes" field if the given value is not nil.
+func (_c *GroupBuyPlanCreate) SetNillableFulfillmentTimeoutMinutes(v *int) *GroupBuyPlanCreate {
+	if v != nil {
+		_c.SetFulfillmentTimeoutMinutes(*v)
 	}
 	return _c
 }
@@ -530,6 +572,14 @@ func (_c *GroupBuyPlanCreate) defaults() {
 		v := groupbuyplan.DefaultTotalShares
 		_c.mutation.SetTotalShares(v)
 	}
+	if _, ok := _c.mutation.SubscriptionTier(); !ok {
+		v := groupbuyplan.DefaultSubscriptionTier
+		_c.mutation.SetSubscriptionTier(v)
+	}
+	if _, ok := _c.mutation.MaxBuyers(); !ok {
+		v := groupbuyplan.DefaultMaxBuyers
+		_c.mutation.SetMaxBuyers(v)
+	}
 	if _, ok := _c.mutation.SeatCount(); !ok {
 		v := groupbuyplan.DefaultSeatCount
 		_c.mutation.SetSeatCount(v)
@@ -549,6 +599,10 @@ func (_c *GroupBuyPlanCreate) defaults() {
 	if _, ok := _c.mutation.MaxSharesPerUser(); !ok {
 		v := groupbuyplan.DefaultMaxSharesPerUser
 		_c.mutation.SetMaxSharesPerUser(v)
+	}
+	if _, ok := _c.mutation.FulfillmentTimeoutMinutes(); !ok {
+		v := groupbuyplan.DefaultFulfillmentTimeoutMinutes
+		_c.mutation.SetFulfillmentTimeoutMinutes(v)
 	}
 	if _, ok := _c.mutation.ValidityDays(); !ok {
 		v := groupbuyplan.DefaultValidityDays
@@ -632,6 +686,22 @@ func (_c *GroupBuyPlanCreate) check() error {
 			return &ValidationError{Name: "total_shares", err: fmt.Errorf(`ent: validator failed for field "GroupBuyPlan.total_shares": %w`, err)}
 		}
 	}
+	if _, ok := _c.mutation.SubscriptionTier(); !ok {
+		return &ValidationError{Name: "subscription_tier", err: errors.New(`ent: missing required field "GroupBuyPlan.subscription_tier"`)}
+	}
+	if v, ok := _c.mutation.SubscriptionTier(); ok {
+		if err := groupbuyplan.SubscriptionTierValidator(v); err != nil {
+			return &ValidationError{Name: "subscription_tier", err: fmt.Errorf(`ent: validator failed for field "GroupBuyPlan.subscription_tier": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.MaxBuyers(); !ok {
+		return &ValidationError{Name: "max_buyers", err: errors.New(`ent: missing required field "GroupBuyPlan.max_buyers"`)}
+	}
+	if v, ok := _c.mutation.MaxBuyers(); ok {
+		if err := groupbuyplan.MaxBuyersValidator(v); err != nil {
+			return &ValidationError{Name: "max_buyers", err: fmt.Errorf(`ent: validator failed for field "GroupBuyPlan.max_buyers": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.SeatCount(); !ok {
 		return &ValidationError{Name: "seat_count", err: errors.New(`ent: missing required field "GroupBuyPlan.seat_count"`)}
 	}
@@ -672,6 +742,14 @@ func (_c *GroupBuyPlanCreate) check() error {
 	}
 	if _, ok := _c.mutation.MaxSharesPerUser(); !ok {
 		return &ValidationError{Name: "max_shares_per_user", err: errors.New(`ent: missing required field "GroupBuyPlan.max_shares_per_user"`)}
+	}
+	if _, ok := _c.mutation.FulfillmentTimeoutMinutes(); !ok {
+		return &ValidationError{Name: "fulfillment_timeout_minutes", err: errors.New(`ent: missing required field "GroupBuyPlan.fulfillment_timeout_minutes"`)}
+	}
+	if v, ok := _c.mutation.FulfillmentTimeoutMinutes(); ok {
+		if err := groupbuyplan.FulfillmentTimeoutMinutesValidator(v); err != nil {
+			return &ValidationError{Name: "fulfillment_timeout_minutes", err: fmt.Errorf(`ent: validator failed for field "GroupBuyPlan.fulfillment_timeout_minutes": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.TargetGroupID(); !ok {
 		return &ValidationError{Name: "target_group_id", err: errors.New(`ent: missing required field "GroupBuyPlan.target_group_id"`)}
@@ -786,6 +864,14 @@ func (_c *GroupBuyPlanCreate) createSpec() (*GroupBuyPlan, *sqlgraph.CreateSpec)
 		_spec.SetField(groupbuyplan.FieldTotalShares, field.TypeInt, value)
 		_node.TotalShares = value
 	}
+	if value, ok := _c.mutation.SubscriptionTier(); ok {
+		_spec.SetField(groupbuyplan.FieldSubscriptionTier, field.TypeString, value)
+		_node.SubscriptionTier = value
+	}
+	if value, ok := _c.mutation.MaxBuyers(); ok {
+		_spec.SetField(groupbuyplan.FieldMaxBuyers, field.TypeInt, value)
+		_node.MaxBuyers = value
+	}
 	if value, ok := _c.mutation.SeatCount(); ok {
 		_spec.SetField(groupbuyplan.FieldSeatCount, field.TypeInt, value)
 		_node.SeatCount = value
@@ -813,6 +899,10 @@ func (_c *GroupBuyPlanCreate) createSpec() (*GroupBuyPlan, *sqlgraph.CreateSpec)
 	if value, ok := _c.mutation.MaxSharesPerUser(); ok {
 		_spec.SetField(groupbuyplan.FieldMaxSharesPerUser, field.TypeInt, value)
 		_node.MaxSharesPerUser = value
+	}
+	if value, ok := _c.mutation.FulfillmentTimeoutMinutes(); ok {
+		_spec.SetField(groupbuyplan.FieldFulfillmentTimeoutMinutes, field.TypeInt, value)
+		_node.FulfillmentTimeoutMinutes = value
 	}
 	if value, ok := _c.mutation.TierGroupIds(); ok {
 		_spec.SetField(groupbuyplan.FieldTierGroupIds, field.TypeJSON, value)
@@ -1087,6 +1177,36 @@ func (u *GroupBuyPlanUpsert) AddTotalShares(v int) *GroupBuyPlanUpsert {
 	return u
 }
 
+// SetSubscriptionTier sets the "subscription_tier" field.
+func (u *GroupBuyPlanUpsert) SetSubscriptionTier(v string) *GroupBuyPlanUpsert {
+	u.Set(groupbuyplan.FieldSubscriptionTier, v)
+	return u
+}
+
+// UpdateSubscriptionTier sets the "subscription_tier" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsert) UpdateSubscriptionTier() *GroupBuyPlanUpsert {
+	u.SetExcluded(groupbuyplan.FieldSubscriptionTier)
+	return u
+}
+
+// SetMaxBuyers sets the "max_buyers" field.
+func (u *GroupBuyPlanUpsert) SetMaxBuyers(v int) *GroupBuyPlanUpsert {
+	u.Set(groupbuyplan.FieldMaxBuyers, v)
+	return u
+}
+
+// UpdateMaxBuyers sets the "max_buyers" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsert) UpdateMaxBuyers() *GroupBuyPlanUpsert {
+	u.SetExcluded(groupbuyplan.FieldMaxBuyers)
+	return u
+}
+
+// AddMaxBuyers adds v to the "max_buyers" field.
+func (u *GroupBuyPlanUpsert) AddMaxBuyers(v int) *GroupBuyPlanUpsert {
+	u.Add(groupbuyplan.FieldMaxBuyers, v)
+	return u
+}
+
 // SetSeatCount sets the "seat_count" field.
 func (u *GroupBuyPlanUpsert) SetSeatCount(v int) *GroupBuyPlanUpsert {
 	u.Set(groupbuyplan.FieldSeatCount, v)
@@ -1192,6 +1312,24 @@ func (u *GroupBuyPlanUpsert) UpdateMaxSharesPerUser() *GroupBuyPlanUpsert {
 // AddMaxSharesPerUser adds v to the "max_shares_per_user" field.
 func (u *GroupBuyPlanUpsert) AddMaxSharesPerUser(v int) *GroupBuyPlanUpsert {
 	u.Add(groupbuyplan.FieldMaxSharesPerUser, v)
+	return u
+}
+
+// SetFulfillmentTimeoutMinutes sets the "fulfillment_timeout_minutes" field.
+func (u *GroupBuyPlanUpsert) SetFulfillmentTimeoutMinutes(v int) *GroupBuyPlanUpsert {
+	u.Set(groupbuyplan.FieldFulfillmentTimeoutMinutes, v)
+	return u
+}
+
+// UpdateFulfillmentTimeoutMinutes sets the "fulfillment_timeout_minutes" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsert) UpdateFulfillmentTimeoutMinutes() *GroupBuyPlanUpsert {
+	u.SetExcluded(groupbuyplan.FieldFulfillmentTimeoutMinutes)
+	return u
+}
+
+// AddFulfillmentTimeoutMinutes adds v to the "fulfillment_timeout_minutes" field.
+func (u *GroupBuyPlanUpsert) AddFulfillmentTimeoutMinutes(v int) *GroupBuyPlanUpsert {
+	u.Add(groupbuyplan.FieldFulfillmentTimeoutMinutes, v)
 	return u
 }
 
@@ -1612,6 +1750,41 @@ func (u *GroupBuyPlanUpsertOne) UpdateTotalShares() *GroupBuyPlanUpsertOne {
 	})
 }
 
+// SetSubscriptionTier sets the "subscription_tier" field.
+func (u *GroupBuyPlanUpsertOne) SetSubscriptionTier(v string) *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.SetSubscriptionTier(v)
+	})
+}
+
+// UpdateSubscriptionTier sets the "subscription_tier" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsertOne) UpdateSubscriptionTier() *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.UpdateSubscriptionTier()
+	})
+}
+
+// SetMaxBuyers sets the "max_buyers" field.
+func (u *GroupBuyPlanUpsertOne) SetMaxBuyers(v int) *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.SetMaxBuyers(v)
+	})
+}
+
+// AddMaxBuyers adds v to the "max_buyers" field.
+func (u *GroupBuyPlanUpsertOne) AddMaxBuyers(v int) *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.AddMaxBuyers(v)
+	})
+}
+
+// UpdateMaxBuyers sets the "max_buyers" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsertOne) UpdateMaxBuyers() *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.UpdateMaxBuyers()
+	})
+}
+
 // SetSeatCount sets the "seat_count" field.
 func (u *GroupBuyPlanUpsertOne) SetSeatCount(v int) *GroupBuyPlanUpsertOne {
 	return u.Update(func(s *GroupBuyPlanUpsert) {
@@ -1735,6 +1908,27 @@ func (u *GroupBuyPlanUpsertOne) AddMaxSharesPerUser(v int) *GroupBuyPlanUpsertOn
 func (u *GroupBuyPlanUpsertOne) UpdateMaxSharesPerUser() *GroupBuyPlanUpsertOne {
 	return u.Update(func(s *GroupBuyPlanUpsert) {
 		s.UpdateMaxSharesPerUser()
+	})
+}
+
+// SetFulfillmentTimeoutMinutes sets the "fulfillment_timeout_minutes" field.
+func (u *GroupBuyPlanUpsertOne) SetFulfillmentTimeoutMinutes(v int) *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.SetFulfillmentTimeoutMinutes(v)
+	})
+}
+
+// AddFulfillmentTimeoutMinutes adds v to the "fulfillment_timeout_minutes" field.
+func (u *GroupBuyPlanUpsertOne) AddFulfillmentTimeoutMinutes(v int) *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.AddFulfillmentTimeoutMinutes(v)
+	})
+}
+
+// UpdateFulfillmentTimeoutMinutes sets the "fulfillment_timeout_minutes" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsertOne) UpdateFulfillmentTimeoutMinutes() *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.UpdateFulfillmentTimeoutMinutes()
 	})
 }
 
@@ -2369,6 +2563,41 @@ func (u *GroupBuyPlanUpsertBulk) UpdateTotalShares() *GroupBuyPlanUpsertBulk {
 	})
 }
 
+// SetSubscriptionTier sets the "subscription_tier" field.
+func (u *GroupBuyPlanUpsertBulk) SetSubscriptionTier(v string) *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.SetSubscriptionTier(v)
+	})
+}
+
+// UpdateSubscriptionTier sets the "subscription_tier" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsertBulk) UpdateSubscriptionTier() *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.UpdateSubscriptionTier()
+	})
+}
+
+// SetMaxBuyers sets the "max_buyers" field.
+func (u *GroupBuyPlanUpsertBulk) SetMaxBuyers(v int) *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.SetMaxBuyers(v)
+	})
+}
+
+// AddMaxBuyers adds v to the "max_buyers" field.
+func (u *GroupBuyPlanUpsertBulk) AddMaxBuyers(v int) *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.AddMaxBuyers(v)
+	})
+}
+
+// UpdateMaxBuyers sets the "max_buyers" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsertBulk) UpdateMaxBuyers() *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.UpdateMaxBuyers()
+	})
+}
+
 // SetSeatCount sets the "seat_count" field.
 func (u *GroupBuyPlanUpsertBulk) SetSeatCount(v int) *GroupBuyPlanUpsertBulk {
 	return u.Update(func(s *GroupBuyPlanUpsert) {
@@ -2492,6 +2721,27 @@ func (u *GroupBuyPlanUpsertBulk) AddMaxSharesPerUser(v int) *GroupBuyPlanUpsertB
 func (u *GroupBuyPlanUpsertBulk) UpdateMaxSharesPerUser() *GroupBuyPlanUpsertBulk {
 	return u.Update(func(s *GroupBuyPlanUpsert) {
 		s.UpdateMaxSharesPerUser()
+	})
+}
+
+// SetFulfillmentTimeoutMinutes sets the "fulfillment_timeout_minutes" field.
+func (u *GroupBuyPlanUpsertBulk) SetFulfillmentTimeoutMinutes(v int) *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.SetFulfillmentTimeoutMinutes(v)
+	})
+}
+
+// AddFulfillmentTimeoutMinutes adds v to the "fulfillment_timeout_minutes" field.
+func (u *GroupBuyPlanUpsertBulk) AddFulfillmentTimeoutMinutes(v int) *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.AddFulfillmentTimeoutMinutes(v)
+	})
+}
+
+// UpdateFulfillmentTimeoutMinutes sets the "fulfillment_timeout_minutes" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsertBulk) UpdateFulfillmentTimeoutMinutes() *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.UpdateFulfillmentTimeoutMinutes()
 	})
 }
 

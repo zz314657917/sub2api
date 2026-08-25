@@ -85,6 +85,16 @@ func TotalShares(v int) predicate.GroupBuyPlan {
 	return predicate.GroupBuyPlan(sql.FieldEQ(FieldTotalShares, v))
 }
 
+// SubscriptionTier applies equality check predicate on the "subscription_tier" field. It's identical to SubscriptionTierEQ.
+func SubscriptionTier(v string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldEQ(FieldSubscriptionTier, v))
+}
+
+// MaxBuyers applies equality check predicate on the "max_buyers" field. It's identical to MaxBuyersEQ.
+func MaxBuyers(v int) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldEQ(FieldMaxBuyers, v))
+}
+
 // SeatCount applies equality check predicate on the "seat_count" field. It's identical to SeatCountEQ.
 func SeatCount(v int) predicate.GroupBuyPlan {
 	return predicate.GroupBuyPlan(sql.FieldEQ(FieldSeatCount, v))
@@ -118,6 +128,11 @@ func QuotaLabel(v string) predicate.GroupBuyPlan {
 // MaxSharesPerUser applies equality check predicate on the "max_shares_per_user" field. It's identical to MaxSharesPerUserEQ.
 func MaxSharesPerUser(v int) predicate.GroupBuyPlan {
 	return predicate.GroupBuyPlan(sql.FieldEQ(FieldMaxSharesPerUser, v))
+}
+
+// FulfillmentTimeoutMinutes applies equality check predicate on the "fulfillment_timeout_minutes" field. It's identical to FulfillmentTimeoutMinutesEQ.
+func FulfillmentTimeoutMinutes(v int) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldEQ(FieldFulfillmentTimeoutMinutes, v))
 }
 
 // TargetGroupID applies equality check predicate on the "target_group_id" field. It's identical to TargetGroupIDEQ.
@@ -525,6 +540,111 @@ func TotalSharesLTE(v int) predicate.GroupBuyPlan {
 	return predicate.GroupBuyPlan(sql.FieldLTE(FieldTotalShares, v))
 }
 
+// SubscriptionTierEQ applies the EQ predicate on the "subscription_tier" field.
+func SubscriptionTierEQ(v string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldEQ(FieldSubscriptionTier, v))
+}
+
+// SubscriptionTierNEQ applies the NEQ predicate on the "subscription_tier" field.
+func SubscriptionTierNEQ(v string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldNEQ(FieldSubscriptionTier, v))
+}
+
+// SubscriptionTierIn applies the In predicate on the "subscription_tier" field.
+func SubscriptionTierIn(vs ...string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldIn(FieldSubscriptionTier, vs...))
+}
+
+// SubscriptionTierNotIn applies the NotIn predicate on the "subscription_tier" field.
+func SubscriptionTierNotIn(vs ...string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldNotIn(FieldSubscriptionTier, vs...))
+}
+
+// SubscriptionTierGT applies the GT predicate on the "subscription_tier" field.
+func SubscriptionTierGT(v string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldGT(FieldSubscriptionTier, v))
+}
+
+// SubscriptionTierGTE applies the GTE predicate on the "subscription_tier" field.
+func SubscriptionTierGTE(v string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldGTE(FieldSubscriptionTier, v))
+}
+
+// SubscriptionTierLT applies the LT predicate on the "subscription_tier" field.
+func SubscriptionTierLT(v string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldLT(FieldSubscriptionTier, v))
+}
+
+// SubscriptionTierLTE applies the LTE predicate on the "subscription_tier" field.
+func SubscriptionTierLTE(v string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldLTE(FieldSubscriptionTier, v))
+}
+
+// SubscriptionTierContains applies the Contains predicate on the "subscription_tier" field.
+func SubscriptionTierContains(v string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldContains(FieldSubscriptionTier, v))
+}
+
+// SubscriptionTierHasPrefix applies the HasPrefix predicate on the "subscription_tier" field.
+func SubscriptionTierHasPrefix(v string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldHasPrefix(FieldSubscriptionTier, v))
+}
+
+// SubscriptionTierHasSuffix applies the HasSuffix predicate on the "subscription_tier" field.
+func SubscriptionTierHasSuffix(v string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldHasSuffix(FieldSubscriptionTier, v))
+}
+
+// SubscriptionTierEqualFold applies the EqualFold predicate on the "subscription_tier" field.
+func SubscriptionTierEqualFold(v string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldEqualFold(FieldSubscriptionTier, v))
+}
+
+// SubscriptionTierContainsFold applies the ContainsFold predicate on the "subscription_tier" field.
+func SubscriptionTierContainsFold(v string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldContainsFold(FieldSubscriptionTier, v))
+}
+
+// MaxBuyersEQ applies the EQ predicate on the "max_buyers" field.
+func MaxBuyersEQ(v int) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldEQ(FieldMaxBuyers, v))
+}
+
+// MaxBuyersNEQ applies the NEQ predicate on the "max_buyers" field.
+func MaxBuyersNEQ(v int) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldNEQ(FieldMaxBuyers, v))
+}
+
+// MaxBuyersIn applies the In predicate on the "max_buyers" field.
+func MaxBuyersIn(vs ...int) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldIn(FieldMaxBuyers, vs...))
+}
+
+// MaxBuyersNotIn applies the NotIn predicate on the "max_buyers" field.
+func MaxBuyersNotIn(vs ...int) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldNotIn(FieldMaxBuyers, vs...))
+}
+
+// MaxBuyersGT applies the GT predicate on the "max_buyers" field.
+func MaxBuyersGT(v int) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldGT(FieldMaxBuyers, v))
+}
+
+// MaxBuyersGTE applies the GTE predicate on the "max_buyers" field.
+func MaxBuyersGTE(v int) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldGTE(FieldMaxBuyers, v))
+}
+
+// MaxBuyersLT applies the LT predicate on the "max_buyers" field.
+func MaxBuyersLT(v int) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldLT(FieldMaxBuyers, v))
+}
+
+// MaxBuyersLTE applies the LTE predicate on the "max_buyers" field.
+func MaxBuyersLTE(v int) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldLTE(FieldMaxBuyers, v))
+}
+
 // SeatCountEQ applies the EQ predicate on the "seat_count" field.
 func SeatCountEQ(v int) predicate.GroupBuyPlan {
 	return predicate.GroupBuyPlan(sql.FieldEQ(FieldSeatCount, v))
@@ -878,6 +998,46 @@ func MaxSharesPerUserLT(v int) predicate.GroupBuyPlan {
 // MaxSharesPerUserLTE applies the LTE predicate on the "max_shares_per_user" field.
 func MaxSharesPerUserLTE(v int) predicate.GroupBuyPlan {
 	return predicate.GroupBuyPlan(sql.FieldLTE(FieldMaxSharesPerUser, v))
+}
+
+// FulfillmentTimeoutMinutesEQ applies the EQ predicate on the "fulfillment_timeout_minutes" field.
+func FulfillmentTimeoutMinutesEQ(v int) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldEQ(FieldFulfillmentTimeoutMinutes, v))
+}
+
+// FulfillmentTimeoutMinutesNEQ applies the NEQ predicate on the "fulfillment_timeout_minutes" field.
+func FulfillmentTimeoutMinutesNEQ(v int) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldNEQ(FieldFulfillmentTimeoutMinutes, v))
+}
+
+// FulfillmentTimeoutMinutesIn applies the In predicate on the "fulfillment_timeout_minutes" field.
+func FulfillmentTimeoutMinutesIn(vs ...int) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldIn(FieldFulfillmentTimeoutMinutes, vs...))
+}
+
+// FulfillmentTimeoutMinutesNotIn applies the NotIn predicate on the "fulfillment_timeout_minutes" field.
+func FulfillmentTimeoutMinutesNotIn(vs ...int) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldNotIn(FieldFulfillmentTimeoutMinutes, vs...))
+}
+
+// FulfillmentTimeoutMinutesGT applies the GT predicate on the "fulfillment_timeout_minutes" field.
+func FulfillmentTimeoutMinutesGT(v int) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldGT(FieldFulfillmentTimeoutMinutes, v))
+}
+
+// FulfillmentTimeoutMinutesGTE applies the GTE predicate on the "fulfillment_timeout_minutes" field.
+func FulfillmentTimeoutMinutesGTE(v int) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldGTE(FieldFulfillmentTimeoutMinutes, v))
+}
+
+// FulfillmentTimeoutMinutesLT applies the LT predicate on the "fulfillment_timeout_minutes" field.
+func FulfillmentTimeoutMinutesLT(v int) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldLT(FieldFulfillmentTimeoutMinutes, v))
+}
+
+// FulfillmentTimeoutMinutesLTE applies the LTE predicate on the "fulfillment_timeout_minutes" field.
+func FulfillmentTimeoutMinutesLTE(v int) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldLTE(FieldFulfillmentTimeoutMinutes, v))
 }
 
 // TargetGroupIDEQ applies the EQ predicate on the "target_group_id" field.

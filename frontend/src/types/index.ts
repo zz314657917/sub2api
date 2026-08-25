@@ -419,6 +419,7 @@ export interface PublicSettings {
   pixel_cafe_title?: string
   pixel_cafe_description?: string
   pixel_cafe_header_visible?: boolean
+  pixel_cafe_workstation_layout?: Array<{ id: number; x: number; y: number }>
   affiliate_enabled: boolean
   account_share_enabled: boolean
   account_share_channel_status_visible?: boolean

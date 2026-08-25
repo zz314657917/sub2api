@@ -5565,7 +5565,7 @@
                   data-testid="pixel-cafe-description"
                 />
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  展示在标题下方；留空即可隐藏说明文字。
+                  以说明卡片展示在像素网吧页面顶部；留空即可隐藏。
                 </p>
               </div>
               <div class="flex items-center justify-between gap-4">

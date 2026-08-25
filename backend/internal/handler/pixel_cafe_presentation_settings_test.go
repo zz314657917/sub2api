@@ -54,10 +54,11 @@ func (s *pixelCafePresentationHandlerRepoStub) Delete(context.Context, string) e
 func TestPixelCafePresentationSettingsPublicResponse(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := NewSettingHandler(service.NewSettingService(&pixelCafePresentationHandlerRepoStub{values: map[string]string{
-		service.SettingKeyPixelCafeEnabled:       "true",
-		service.SettingKeyPixelCafeTitle:         "模型包间",
-		service.SettingKeyPixelCafeDescription:   "按模型选择独立房间。",
-		service.SettingKeyPixelCafeHeaderVisible: "false",
+		service.SettingKeyPixelCafeEnabled:           "true",
+		service.SettingKeyPixelCafeTitle:             "模型包间",
+		service.SettingKeyPixelCafeDescription:       "按模型选择独立房间。",
+		service.SettingKeyPixelCafeHeaderVisible:     "false",
+		service.SettingKeyPixelCafeWorkstationLayout: `[{"id":1,"x":300,"y":200},{"id":2,"x":400,"y":200},{"id":3,"x":500,"y":200},{"id":4,"x":600,"y":200},{"id":5,"x":700,"y":200},{"id":6,"x":320,"y":340},{"id":7,"x":420,"y":340},{"id":8,"x":520,"y":340},{"id":9,"x":620,"y":340},{"id":10,"x":720,"y":340}]`,
 	}}, &config.Config{}), "test-version")
 
 	recorder := httptest.NewRecorder()
@@ -69,10 +70,11 @@ func TestPixelCafePresentationSettingsPublicResponse(t *testing.T) {
 	var response struct {
 		Code int `json:"code"`
 		Data struct {
-			PixelCafeEnabled       bool   `json:"pixel_cafe_enabled"`
-			PixelCafeTitle         string `json:"pixel_cafe_title"`
-			PixelCafeDescription   string `json:"pixel_cafe_description"`
-			PixelCafeHeaderVisible bool   `json:"pixel_cafe_header_visible"`
+			PixelCafeEnabled           bool                               `json:"pixel_cafe_enabled"`
+			PixelCafeTitle             string                             `json:"pixel_cafe_title"`
+			PixelCafeDescription       string                             `json:"pixel_cafe_description"`
+			PixelCafeHeaderVisible     bool                               `json:"pixel_cafe_header_visible"`
+			PixelCafeWorkstationLayout service.PixelCafeWorkstationLayout `json:"pixel_cafe_workstation_layout"`
 		} `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
@@ -81,4 +83,6 @@ func TestPixelCafePresentationSettingsPublicResponse(t *testing.T) {
 	require.Equal(t, "模型包间", response.Data.PixelCafeTitle)
 	require.Equal(t, "按模型选择独立房间。", response.Data.PixelCafeDescription)
 	require.False(t, response.Data.PixelCafeHeaderVisible)
+	require.Len(t, response.Data.PixelCafeWorkstationLayout, 10)
+	require.Equal(t, float64(300), response.Data.PixelCafeWorkstationLayout[0].X)
 }

@@ -25,6 +25,7 @@ const {
     group_buy_product_name: '我的拼团',
     group_buy_description: '后台配置的我的拼团顶部说明',
     pixel_cafe_enabled: false,
+    pixel_cafe_description: '后台配置的像素网吧顶部说明',
   },
   showError: vi.fn(),
   showSuccess: vi.fn(),
@@ -265,7 +266,8 @@ describe('GroupBuyView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('像素网吧')
-    expect(wrapper.text()).toContain('房间发现已接入')
+    expect(wrapper.text()).toContain('后台配置的像素网吧顶部说明')
+    expect(wrapper.text()).not.toContain('房间发现已接入')
     expect(listPlans).not.toHaveBeenCalled()
   })
 
