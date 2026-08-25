@@ -2,7 +2,7 @@
 phase: done
 current_sprint: pixel-cafe-my-room-usage-s260
 total_sprints: 260
-pending_action: S260 feature code is committed; commit workflow records, push the batch, and verify origin/main.
+pending_action: S260 source, tests, and workflow records are published to origin/main; preserve outputs/ and await the next explicit task.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
@@ -90,6 +90,9 @@ last_verified: 2026-08-25 20:35 +08:00
   were committed as `a785334e1` (`feat(pixel-cafe): show account and personal
   quota bars`). The remaining changes are workflow/handoff records only;
   `outputs/` remains untracked and excluded from the publish batch.
+- `PASS / publish`: commits `73c37a64b`, `a785334e1`, and `98f06e5b6` were
+  pushed normally to `origin/main`; `git ls-remote` confirms the remote head is
+  `98f06e5b6`. No force push or history rewrite was used.
 - Contract: `docs/workflow/tasks/pixel-cafe-my-room-usage-s260.md`.
 
 # Pixel Cafe S252-S256 Publication

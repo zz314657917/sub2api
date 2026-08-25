@@ -10,7 +10,7 @@
 - focused Go、完整 `internal/service`（66.589s）、server compile、Pixel Cafe Vitest 18/18、typecheck、1904-module production build、diff/index/隐私门禁均通过；精简跟进再次通过 Pixel Cafe Vitest 18/18、typecheck 和 1904-module build。
 - Google Chrome 151 独立 profile 验收通过：最新精简版在桌面 `1440x1000` 和移动 `390x844` 均只显示四类信息，两间示例房各一条“我的限额”，没有 5H/7D 标签、刷新信息、份额或邮箱，且无横向溢出。任务 Chrome/profile、Playwright daemon 和 Vite 5205 均归零，本次登录 localStorage 已清空。
 - 最新精简跟进已按用户授权更新本地应用容器：`http://127.0.0.1:62580` 运行 `sub2api:codex-20260825-1818-s260-compact-my-room`（`f41b956414b1`），`sub2api:local` 已同步。健康、前后台页面、真实 admin 登录、my-rooms/overview 和容器内精简文案检查通过；两间房仅返回脱敏账号字段，没有 credentials、完整邮箱或明文 Key。PostgreSQL/Redis 未重建，没有迁移或数据写入；回滚镜像为 `sub2api:rollback-before-20260825-1818-s260-compact-my-room`，Docker 更新锁已释放。
-- 用户随后明确要求拆成两条独立进度条：`账号 7D 剩余` 和 `我的限额`。后端仅对已绑定 OpenAI 账号从 `codex_7d_used_percent` 快照计算剩余百分比，不返回账号 `extra`；无快照安全显示不可用。`我的限额` 继续使用成员受管 Key 的 7D 使用量/上限。定向 Go、Vitest 18/18、typecheck、1904-module build 和 Chrome 151 桌面/移动验收通过；移动端无横向溢出。按用户授权，应用容器已更新为 `sub2api:codex-20260825-1846-s260-account-and-my-limit`（`8427603f7a02`），`sub2api:local` 已同步，PostgreSQL/Redis 未重建；回滚镜像为 `sub2api:rollback-before-20260825-1846-s260-account-and-my-limit`，Docker 更新锁已释放。功能代码已提交为 `a785334e1`，工作流记录随后整理提交并与身份隔离修复一并推送。
+- 用户随后明确要求拆成两条独立进度条：`账号 7D 剩余` 和 `我的限额`。后端仅对已绑定 OpenAI 账号从 `codex_7d_used_percent` 快照计算剩余百分比，不返回账号 `extra`；无快照安全显示不可用。`我的限额` 继续使用成员受管 Key 的 7D 使用量/上限。定向 Go、Vitest 18/18、typecheck、1904-module build 和 Chrome 151 桌面/移动验收通过；移动端无横向溢出。按用户授权，应用容器已更新为 `sub2api:codex-20260825-1846-s260-account-and-my-limit`（`8427603f7a02`），`sub2api:local` 已同步，PostgreSQL/Redis 未重建；回滚镜像为 `sub2api:rollback-before-20260825-1846-s260-account-and-my-limit`，Docker 更新锁已释放。功能代码与工作流记录已分批提交，并推送到 `origin/main@98f06e5b6`。
 
 ## 本地 admin 预览数据
 
@@ -74,11 +74,11 @@
 
 ## 当前目标
 
-- S260 精简跟进已完成本地实现、两条额度进度条、最终验收和本地应用容器更新；功能代码已分批准备提交并推送。共享/生产数据库不在本轮范围。
+- S260 精简跟进已完成本地实现、两条额度进度条、最终验收和本地应用容器更新；功能代码与工作流记录已分批提交并推送。共享/生产数据库不在本轮范围。
 
 ## 本次已完成
 
-- S260 完成私有刷新时间投影与过期窗口安全归零；最新前台精简为房名、绑定账号、剩余时间、账号 7D 剩余和我的限额两条进度条，并完成桌面/移动 Chrome 验收、任务进程清理及受保护的本地应用容器更新；功能代码提交为 `a785334e1`，工作流文档正整理为独立提交。
+- S260 完成私有刷新时间投影与过期窗口安全归零；最新前台精简为房名、绑定账号、剩余时间、账号 7D 剩余和我的限额两条进度条，并完成桌面/移动 Chrome 验收、任务进程清理及受保护的本地应用容器更新；功能代码与工作流文档已分批提交并推送到 `origin/main@98f06e5b6`。
 - 用户已授权发布；S252-S256 的完整功能源码已作为
   `origin/main@50ddfcc0b`（`feat(pixel-cafe): add share fulfillment lobby suite`）
   普通推送，发布证据文档已作为后续 `4556b28e3` 推送。
