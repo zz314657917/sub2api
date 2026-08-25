@@ -3584,15 +3584,12 @@ func (s *adminServiceImpl) CreateShadow(ctx context.Context, parentID int64, nam
 
 // isSparkShadowCreateConflict keeps the database-enforced one-shadow-per-parent
 // invariant observable as the same admin conflict returned by the preflight
-// lookup. Ent wraps database unique violations in ConstraintError; the message
-// fallback keeps optional repository adapters compatible with the repository
-// error translation used elsewhere in this codebase.
+// lookup. Ent exposes a constraint wrapper, but only its unique-violation
+// messages are safe to convert: a foreign-key or check failure must retain its
+// original error instead of claiming that a shadow already exists.
 func isSparkShadowCreateConflict(err error) bool {
 	if err == nil {
 		return false
-	}
-	if dbent.IsConstraintError(err) {
-		return true
 	}
 	message := strings.ToLower(err.Error())
 	return strings.Contains(message, "duplicate key") ||

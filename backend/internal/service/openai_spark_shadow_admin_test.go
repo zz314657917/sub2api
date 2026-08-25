@@ -21,6 +21,7 @@ type sparkShadowAdminRepo struct {
 	atomicShadowIDs []int64
 	updatedIDs      []int64
 	createAttempts  int
+	createFailure   error
 	refreshCalls    int
 	deletedIDs      []int64
 }
@@ -54,6 +55,9 @@ func (r *sparkShadowAdminRepo) Create(_ context.Context, account *Account) error
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.createAttempts++
+	if r.createFailure != nil {
+		return r.createFailure
+	}
 	if r.createAttempts > 1 {
 		return errors.New("duplicate key value violates unique constraint account_spark_shadow_parent_uq")
 	}
@@ -162,6 +166,21 @@ func TestSparkShadowConcurrentCreateReturnsStructuredConflict(t *testing.T) {
 	require.Equal(t, 1, successes)
 	require.Equal(t, 1, conflicts)
 	require.Equal(t, 2, repo.createAttempts)
+}
+
+func TestSparkShadowCreatePreservesNonUniqueFailure(t *testing.T) {
+	parentID := int64(9)
+	createFailure := errors.New("insert violates foreign key constraint")
+	repo := &sparkShadowAdminRepo{
+		accounts: map[int64]*Account{
+			parentID: {ID: parentID, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive},
+		},
+		createFailure: createFailure,
+	}
+
+	_, err := (&adminServiceImpl{accountRepo: repo}).CreateShadow(context.Background(), parentID, "", 0, 0, nil)
+	require.ErrorIs(t, err, createFailure)
+	require.NotEqual(t, "SPARK_SHADOW_ALREADY_EXISTS", infraerrors.Reason(err))
 }
 
 func TestSparkShadowBulkProxySkipsNonOAuthParents(t *testing.T) {
