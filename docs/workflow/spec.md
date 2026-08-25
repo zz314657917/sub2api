@@ -1,4 +1,68 @@
 ---
+
+## Pixel Cafe Room List Scene Overlay Addendum (S256)
+
+- The public room list is rendered once inside the existing Pixel Cafe lobby
+  scene instead of in a separate block outside the background.
+- Desktop uses a translucent right-side list with internal vertical scrolling;
+  mobile uses a compact bottom horizontal card strip contained by the scene.
+- Existing room metadata, member avatars, details dialog, share purchase,
+  loading/error/empty/demo behavior, Pixi/fallback rendering and reduced-motion
+  behavior remain unchanged.
+- Backend, state machines, admin/settings, images, dependencies, containers,
+  shared data, commit, push, unrelated dirty files and `outputs/` remain outside
+  this change. Contract:
+  `docs/workflow/tasks/pixel-cafe-room-list-scene-overlay-s256.md`.
+
+## Pixel Cafe Variable Workstation Count Addendum (S255)
+
+- The shared lobby layout supports 1 through 50 contiguous numbered computer
+  workstations instead of exactly ten; ten remains the missing-setting default.
+- The administrator can change the count before saving. Shrinking removes only
+  the highest IDs, growing preserves existing coordinates and appends
+  deterministic editable positions, and reset keeps the selected count.
+- The existing layout array remains the sole persisted source of truth. Public
+  Pixi/fallback rendering and seated-avatar capacity follow its validated
+  length; no schema, migration, second setting key, or private projection is
+  added.
+- Current S252-S254 dirty changes, room/share/account behavior, dependencies,
+  images, containers, shared data, commit, push, and `outputs/` remain outside
+  this change. Contract:
+  `docs/workflow/tasks/pixel-cafe-variable-workstation-count-s255.md`.
+
+## Pixel Cafe Workstation Layout Editor Addendum (S254)
+
+- Administrators can drag the ten numbered computer workstations directly on a
+  lobby preview, reset the unsaved draft, cancel it, or save one server-backed
+  layout shared by all users. Browser-local storage is not authoritative.
+- The backend accepts only ten unique IDs covering `1..10` with bounded finite
+  coordinates, and public settings expose only those IDs and coordinates.
+- The lobby bitmap, editor, Pixi renderer, fallback, and seated-avatar mapping
+  share a `960x540` 16:9 design space and cover transform. Missing or malformed
+  persisted data falls back to the built-in layout.
+- Room/share/account lifecycle, database schema, dependencies, image assets,
+  containers, deployment, commit, push, unrelated dirty files, and `outputs/`
+  remain outside this change. Contract:
+  `docs/workflow/tasks/pixel-cafe-workstation-layout-s254.md`.
+
+## Pixel Cafe Share Fulfillment Addendum (S252)
+
+- Pixel Cafe V2 sells 1-10 configurable shares rather than fixed seats. A Room
+  Plan supports only normalized ChatGPT `plus` or `pro`, has a configurable
+  distinct-buyer cap (default four), and lets an existing participant top up
+  while the Round remains open.
+- New Rooms/Rounds have no pre-bound Account. Paid-full changes the Round to
+  `awaiting_account`; an administrator then assigns a matching active OpenAI
+  Account. Successful activation creates one managed Key per `(round,user)`
+  membership with per-share limits multiplied by paid shares, and starts the
+  validity window at activation.
+- Unfulfilled paid-full Rounds enter idempotent refund handling after 24 hours.
+  Public APIs expose aggregate shares/buyers and pseudonymous avatars only;
+  Account details remain private until the requesting member is active.
+- The existing scene, custom Room/page copy, generic group-buy lifecycle, legacy
+  Cafe bindings, current user dirty work, containers, deployment, and push stay
+  outside the behavior change. Contract:
+  `docs/workflow/tasks/pixel-cafe-share-fulfillment-s252.md`.
 repo: sub2api
 project_type: web
 qa_mode: runtime

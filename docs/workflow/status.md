@@ -1,13 +1,245 @@
 ---
-phase: qa
-current_sprint: upstream-cn-anthropic-usage-billing-s251
-total_sprints: 251
-pending_action: Await independent S251 QA from its isolated report-only worktree; preserve active S249 worktrees and all primary-worktree user edits. No push is authorized.
+phase: done
+current_sprint: pixel-cafe-room-list-scene-overlay-s256
+total_sprints: 256
+pending_action: S252-S256 feature source has been published; preserve outputs, S249/S258 worktrees, tutorial navigation and the backup reference before evaluating a new contract.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-24 17:36 +08:00
+last_verified: 2026-08-25 16:42 +08:00
 ---
+
+# Pixel Cafe S252-S256 Publication
+
+- `PASS / publish`: user-authorized feature source batch `50ddfcc0b`
+  (`feat(pixel-cafe): add share fulfillment lobby suite`) was pushed normally to
+  `origin/main` after a fresh full service test, handler/admin/routes and server
+  compilation, seven focused frontend files (45 tests), typecheck, the
+  1904-module production build, exact source scope and `git diff --check`.
+- The published source combines the reviewed S252 share-membership fulfillment
+  and local-only migration, S253 walking assets, S254 shared workstation
+  layout, S255 1-50 workstation controls, and S256 in-scene room-list layout.
+  Shared/production data, provider traffic and deployment remain outside this
+  publication.
+
+# Pixel Cafe Room List Scene Overlay S256
+
+- `contract-draft`: user requested moving the room list directly onto the lobby
+  background. The contract keeps one room-list DOM and moves it inside the
+  scene, using a desktop right-side vertical overlay and a mobile bottom
+  horizontal strip.
+- Contract:
+  `docs/workflow/tasks/pixel-cafe-room-list-scene-overlay-s256.md`.
+- No backend, room/share/payment/account behavior, renderer behavior, image,
+  dependency, admin/settings, container, shared-data, commit, push, cleanup or
+  sub-agent dispatch is authorized.
+- `PASS / contract-review`: the existing room-list markup, `openRoom` handler
+  and teleported dialog can be reused without a new state source. Scene-owned
+  status/front-desk/demo-badge collision zones, responsive containment,
+  scroll/focus semantics, focused tests, Chrome geometry and exact cleanup
+  gates are decision-complete. Controller implementation is authorized.
+- `PASS / controller implementation`: the existing room-list template now
+  lives once inside `pixel-cafe-scene`. Desktop uses a translucent right-side
+  panel whose card grid scrolls vertically; mobile uses a compact bottom strip
+  whose cards scroll horizontally. The same cards still call `openRoom` and
+  open the existing teleported details dialog.
+- `PASS / final QA`: focused Pixel Cafe Vitest passed 20/20, explicit typecheck
+  and the 1904-module production build passed, and scoped diff/index gates are
+  clean. Google Chrome 151 in the task-owned S256 profile proved one scene-child
+  room list, internal desktop vertical scrolling, mobile horizontal scrolling,
+  working details dialog, renderer `ready`, one Canvas and equal document
+  scroll/client widths at `1440x1000` and `390x844`. The S256 profile/daemon and
+  Vite port 5199 are all zero after cleanup. No container, shared data, commit
+  or push action occurred.
+- `PASS / local container update`: after explicit user authorization, the
+  Docker update guard protected the application-only replacement. A heavy
+  multi-stage build was cancelled after Docker Engine returned an internal
+  error; Docker Desktop was restarted gracefully and the already verified
+  frontend artifact plus a host-built Go 1.26.3 Linux binary were packaged
+  through `Dockerfile.goreleaser`. Image
+  `sub2api:codex-20260825-1552-s256-room-overlay` (`4664eb11b3db`) is healthy
+  at `127.0.0.1:62580`, and `sub2api:local` points to the same image. `/health`,
+  `/group-buy?demo=1`, and `/admin/pixel-cafe/rooms` returned 200; seventeen
+  Pixel Cafe JS/CSS/background/walk-frame assets matched the local production
+  build by SHA-256. PostgreSQL and Redis retained their container IDs and were
+  not rebuilt; the Docker Desktop recovery restarted them. No migration,
+  shared-data, commit, or push action occurred. Rollback image
+  `sub2api:rollback-before-20260825-1552-s256-room-overlay` is retained.
+  The Docker update guard was released successfully.
+
+# Pixel Cafe Variable Workstation Count S255
+
+- `contract-draft`: user requested that the lobby workstation quantity be
+  configurable. The proposed contract keeps ten as the default, accepts 1..50
+  contiguous IDs in the existing Setting array, preserves positions while
+  resizing, resets deterministic positions at the current count, and makes
+  Pixi/fallback seated capacity follow the saved layout length.
+- Contract:
+  `docs/workflow/tasks/pixel-cafe-variable-workstation-count-s255.md`.
+- No schema, migration, second count setting, image generation, container,
+  shared-data, commit, push, cleanup, or sub-agent dispatch is authorized.
+- `PASS / contract-review`: the existing array length is a sufficient single
+  source of truth; public/admin DTOs already carry an unconstrained array, and
+  a worst-case compact 50-item coordinate payload is about 1.3 KiB under the
+  existing 4 KiB cap. The 1..50 contiguous-ID rule, resize/reset semantics,
+  dynamic seated/walking limits, exact owners, acceptance commands, browser
+  cleanup and dirty-worktree boundaries are decision-complete. Controller
+  implementation is authorized.
+- `PASS / controller implementation`: the existing layout array now accepts
+  one through fifty contiguous workstation IDs. The admin editor exposes a
+  count stepper/input, preserves existing coordinates while growing, removes
+  only the highest IDs while shrinking, and resets deterministic positions at
+  the current count. Pixi and fallback furniture plus seated/avatar capacity
+  follow the resolved layout length; the default and malformed-setting fallback
+  remain ten.
+- `PASS / final QA`: focused service and admin-handler Go tests, the complete
+  `internal/service` suite, server compilation, four focused Vitest files with
+  19 tests, explicit typecheck, and the 1904-module production build passed.
+  Google Chrome 151 was launched explicitly from `Program Files` with the
+  task-owned `E:/codex-browser/sub2api-s255/chrome-profile` because the stale
+  AppData Chrome 103 channel remains installed. Mocked admin persistence proved
+  10 -> 50 -> 1 -> 50, preservation of the first ten coordinates, contiguous
+  IDs, 50-item readback, current-count reset and no dialog overflow. Public
+  desktop `1440x1000` and mobile `390x844` both received 50 workstations and 50
+  demo avatars, reported Pixi `ready`, one Canvas, 16:9 geometry and equal
+  document scroll/client widths. The S255 Chrome/Edge profile processes,
+  Playwright daemon, Vite PID 38732 and port 5197 are all zero after cleanup.
+  No shared Setting, database, container, commit or push action occurred.
+
+# Pixel Cafe Workstation Layout Editor S254
+
+- `contract-draft`: administrator drag placement, server-backed shared layout,
+  strict ten-slot validation, public read-only projection, 16:9 cover-aligned
+  coordinates, default fallback, responsive rendering, and dirty-worktree/no-
+  external-state boundaries are drafted for Evaluator review.
+- Contract: `docs/workflow/tasks/pixel-cafe-workstation-layout-s254.md`.
+- No sub-agent is dispatched for this task. The primary Controller may
+  implement only after the contract review gate passes.
+- `PASS / contract-review`: the existing single-key setting repository,
+  authenticated admin route group, public DTO projection, exact ten-slot
+  validation, 16:9 cover transform, frontend owner list, acceptance commands,
+  and dirty-worktree/no-external-state gates are decision-complete. Controller
+  implementation is authorized.
+- `PASS / controller implementation`: the existing setting repository now
+  stores one normalized ten-workstation layout; admin-only GET/PUT endpoints
+  enforce a 4 KiB body limit, unique IDs 1..10, visible coordinate bounds and
+  one-decimal normalization. Public settings expose only ID/X/Y, and malformed
+  or absent saved data falls back to the safe default. The admin room workspace
+  provides drag, grid snap, keyboard/numeric adjustment, reset/cancel/save and
+  a mobile editing notice. Pixi and fallback rendering share a 960x540 cover
+  transform and saved workstation coordinates.
+- `PASS / final QA`: focused frontend Vitest passed 33/33; focused and complete
+  affected Go packages plus server compilation passed; explicit typecheck,
+  production build, diff check and unmerged-index gates passed. In a task-owned
+  Edge profile with mocked API routes, workstation 1 was dragged from 340,250
+  to the snapped 480,300, saved, and read back after a full page reload. Public
+  desktop 1440x1000 and mobile 390x844 both reported renderer `ready`, one
+  Canvas, a 1.7778/1.7779 scene aspect ratio, equal scroll/client widths and no
+  right-side overflow. The browser session, task-owned processes, Playwright
+  daemon and Vite port 5194 were all zero after cleanup. No shared database,
+  container, commit or push action occurred.
+- `PASS / local container update`: after explicit user authorization, the
+  Docker update guard protected the application-only cutover. The embedded
+  Linux binary reports `0.1.126` at commit
+  `83402d5e9e49-dirty-s254`; image
+  `sub2api:codex-20260825-1400-s254-layout-animation` (`ddacc63a2acd`) is
+  healthy at `127.0.0.1:62580` and `sub2api:local` points to the same image.
+  `/health`, `/group-buy?demo=1`, and `/admin/pixel-cafe/rooms` returned 200;
+  the three current Pixel Cafe chunks and all twelve walk-frame PNGs served by
+  the container matched the local build byte-for-byte by SHA-256. The first
+  Compose attempt hit the Hyper-V-reserved port 62080; the local Compose host
+  port was corrected to 62580 and the replacement was safely retried.
+  PostgreSQL and Redis IDs/start times were
+  unchanged; no migration or shared-data action occurred. Rollback image
+  `sub2api:rollback-before-20260825-1400-s254` is retained. S254 remains
+  uncommitted and unpushed.
+
+# Pixel Cafe Share Fulfillment S252
+
+- `spec-approved / contract-draft`: User approved a share-based Pixel Cafe
+  model with Plus/Pro plans, configurable shares and buyer caps, participant
+  top-ups, paid-full deferred Account assignment, one Key per participant, and
+  a 24-hour automatic-refund deadline.
+- Contract: `docs/workflow/tasks/pixel-cafe-share-fulfillment-s252.md`.
+- Primary worktree contains overlapping user-owned Pixel Cafe scene/page/demo
+  changes plus unrelated Group/Settings/knowledge changes; preservation is a
+  hard gate. No commit, push, container, or shared database action is approved.
+- `FAIL / contract-review-1`: migration 202 collides with an existing Prompt
+  Audit migration; membership binding persistence, admin API shapes, persisted
+  refund states, immutable Round snapshot columns, Ent generation, and isolated
+  worktree ownership required decision-complete amendments before dispatch.
+- `contract-amendment-1`: migration moved to 235; new membership-vs-legacy-seat
+  binding constraints and lookup priority, explicit Round snapshot columns,
+  persisted refund states, three admin endpoints/error codes, Ent generation
+  gate, and isolated-worktree integration ownership are now fixed.
+- `contract-amendment-2`: read-only source tracing confirmed APIKeyRepository
+  honors the Ent transaction context, but strict gateway/cache lookup must learn
+  the new membership source. The exact API-key repository/service owners and an
+  explicit `legacy_seat|membership_share` Round version are added; legacy Keys
+  and bindings are never rewritten.
+- `PASS / contract-review-2`: Evaluator confirmed migration 235, persisted
+  statuses, Round snapshots, Membership/legacy binding model, admin APIs,
+  strict gateway owners, Ent generation, isolated worktree ownership, and
+  acceptance commands are decision-complete. Build dispatch is authorized.
+- `build / developer-dispatch`: bounded backend and frontend
+  `gpt-5.6-terra` Developers were dispatched in detached worktrees
+  `E:/codex-worktrees/sub2api/pixel-cafe-share-s252-backend` and
+  `E:/codex-worktrees/sub2api/pixel-cafe-share-s252-frontend`. The frontend
+  worktree began with an exact overlay of the current Pixel Cafe feature patch
+  plus all five untracked sprite assets; the backend worktree began clean at
+  `main@c209e5ef1`. Neither worker may commit or touch the primary worktree.
+- `FAIL / frontend-controller-review-1`: the first frontend result preserved
+  the scene and implemented the share UI, but left legacy seat/account-binding
+  tests unchanged and did not run typecheck/build. The original Developer is
+  fixing those gaps with a task-owned junction to the primary worktree's
+  existing dependency install; no lockfile or dependency state is changed.
+- `FAIL / backend-developer-rounds-1-2`: the backend Developer produced a
+  schema/migration/order skeleton but did not complete atomic assignment,
+  strict Membership binding, persisted refund completion, public projections,
+  or legacy compatibility. The second round also failed the legacy Cafe order
+  fixtures. Per the two-failure stop rule, that low-cost loop is closed and the
+  partial patch is not eligible for integration.
+- `build / backend-controller-takeover`: Controller will deep-review and finish
+  the isolated backend patch as three gated slices: legacy-compatible share
+  ordering, atomic account assignment plus strict binding, and public/lifecycle
+  refund behavior. Independent QA remains mandatory after integration.
+- `PASS / controller implementation`: the primary worktree now contains the
+  complete additive migration, Membership/share ordering, deferred Account
+  assignment, atomic one-Key-per-Membership activation, timeout refund,
+  legacy compatibility, public/My Room projections, and Plus/Pro share UI.
+  Controller verification passed focused and full backend tests, real temporary
+  PostgreSQL migration/concurrency tests, 32 focused frontend tests, typecheck,
+  production build, desktop/mobile browser checks, and task-owned browser
+  process cleanup.
+- `PASS / independent QA`: report
+  `docs/workflow/qa-reports/pixel-cafe-share-fulfillment-s252-qa.md` independently
+  passed temporary PostgreSQL migration backfill/idempotency, last-share and
+  100-request concurrency, focused/full backend tests, server compilation,
+  27 focused frontend tests, typecheck, production build, privacy/state-machine
+  review, diff check, conflict check, and empty staged index.
+- `PASS / local container update`: after explicit user authorization, the
+  frontend was rebuilt, a Go 1.26.3 Linux release binary was produced, and the
+  guarded runtime image
+  `sub2api:codex-20260825-0905-s252-share-fulfillment` (`4c4ceadb51a4`) replaced
+  the local application container. Migration
+  `235_pixel_cafe_share_fulfillment.sql` is recorded in `schema_migrations`;
+  the Membership table and snapshot/binding columns exist. Health, Pixel Cafe,
+  and admin page smoke checks return 200. `sub2api:local` points to the same
+  image; rollback image `sub2api:rollback-before-20260825-0905-s252` and database
+  backup `E:/codex-backups/sub2api/20260825-0905-s252/sub2api-before-s252.dump`
+  are retained. Hyper-V dynamically reserved the former host port 62080 after
+  Docker Desktop recovery, so the healthy container is temporarily exposed at
+  `127.0.0.1:62580`. The Docker update guard was released successfully.
+- `done / local handoff`: S252 remains uncommitted and unpushed. No production
+  deployment or remote database action was performed.
+
+# Upstream CN Anthropic Usage Billing S251
+
+- `PASS / independent QA and main integration`: independent report
+  `1cf681cdd` passed all focused x10, full service, apicompat, server compile,
+  format, scope, provenance, and primary-worktree protection gates. Business
+  `661b5a194`, Developer evidence `12e9c7741`, and QA evidence `c209e5ef1` are
+  integrated locally. No push or external state action occurred.
 
 # Upstream CN Anthropic Usage Billing S251
 

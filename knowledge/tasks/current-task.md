@@ -1,20 +1,85 @@
 # 当前任务快照
 
-最后更新：2026-08-24 11:44 +08:00
+最后更新：2026-08-25 16:42 +08:00
+
+## 发布状态
+
+- 用户已授权发布；S252-S256 的完整功能源码已提交并普通推送为
+  `origin/main@50ddfcc0b`（`feat(pixel-cafe): add share fulfillment lobby suite`）。
+- 推送前复跑完整 `internal/service`（67.062s）、handler/admin/routes、server
+  compile、7 个前端 focused 文件共 45 项、typecheck、1904-module build、源码范围
+  与 diff/index 门禁均通过。`outputs/`、共享/生产数据、真实 provider 和部署均未写入。
+
+## 本地 admin 预览数据
+
+- 本地 PostgreSQL 已为用户 `admin@luoye.local`（ID `1`）创建两间可实际查看的 Pixel Cafe 示例房：`DEMO-ADMIN-SOLO` 为 1/1 份的“Admin 独享 Pro 包间”，`DEMO-ADMIN-SHARED` 为 10/10 份、最多 4 人的“四人协作 Plus 包间”。
+- admin 在独享房购买 1 份；在四人房购买 2 份，另有 3 个 inactive、不可登录且排除排行榜的虚拟用户分别购买 3、2、3 份。四人房公共 DTO 已显示 `joined_buyers=4`、4 个匿名头像。
+- 两间房均为 active，并绑定仅供界面预览的不可调度虚拟账号；所有演示对象统一标记 `pixel_cafe_admin_preview_v1`，不会作为真实账号参与调度。
+- 真实 `/api/v1/cafe/my-rooms?status=active` 与 `/api/v1/cafe/overview?room_limit=20` 验证通过：admin 可见账号名称、平台、脱敏邮箱与 5H/7D 用量；响应不含完整邮箱、credentials、占位 token 或 Key 原文。
+- 写入前备份为 `E:/codex-backups/sub2api/20260825-1625-pixel-cafe-admin-preview/sub2api-before-admin-preview.dump`，SHA-256 为 `B7DA3B5B0ED1C4C41A27E511D02CE88B376F4A305CF8A366D41C330D573156B8`。本轮只写本地演示数据，没有重建容器、commit 或 push，可按统一标记精确清理。
+
+## S256 当前结论
+
+- 前台包间列表不再作为背景外的独立区块；唯一一份列表已直接放入像素大厅 `.pixel-cafe-scene` 背景内，并继续复用原房间卡片、`openRoom` 和 Teleport 详情弹窗。
+- 桌面端为右侧半透明浮层，卡片区在面板内纵向滚动；移动端为背景底部紧凑横向卡片条，前台、实时/演示状态和演示提示仍保留。
+- 房间编号/名称、Plus/Pro、已售份额、参与人数、有效期、价格和匿名头像均保留；份额购买、支付、状态和接口未修改。
+- focused Pixel Cafe Vitest 20/20、显式 typecheck、1904 modules production build、scoped diff/index 门禁均通过。
+- Google Chrome 151 独立 profile 实测：桌面 `1440x1000` 只有一份场景子列表，卡片滚动区 `342x425`、纵向内容高 1396；移动 `390x844` 卡片区 `300x82`、横向内容宽 2618，头像无纵向裁切，详情弹窗完整显示。两端 renderer 均为 `ready`、1 个 Canvas，文档宽度分别为 `1440/1440` 和 `390/390`。
+- S256 Chrome profile、Playwright daemon、Vite 5199 均已清零；当前 `http://127.0.0.1:62580` 已更新为 `sub2api:codex-20260825-1552-s256-room-overlay`（`4664eb11b3db`），`sub2api:local` 已同步。健康、前台、后台均返回 200，17 个 Pixel Cafe 关键资源与本地 production 产物 SHA-256 一致；未写共享数据、未 commit 或 push。
+
+## S255 当前结论
+
+- 像素网吧大厅工位数量已经可由管理员在“大厅布局”弹窗中自定义为 `1–50` 个，内置默认仍为 10 个；数组长度继续作为唯一数量来源，不新增 Setting、字段、表或迁移。
+- 增加工位保留现有坐标并确定性补位，减少工位只删除最高编号；编号始终连续覆盖 `1..N`，重置布局保持当前数量，只有保存后才写入设置。
+- 后端保留 4 KiB 请求上限、坐标边界与一位小数归一化；Pixi、静态降级场景和坐席人物容量均跟随实际工位数量，另最多保留 6 个走动人物。
+- focused Go、完整 `internal/service`、server compile、4 个 focused Vitest 文件 19/19、typecheck 和 production build 均通过。Google Chrome 151 独立 profile 实测后台 `10 -> 50 -> 1 -> 50`、50 项保存回读、旧坐标保留、重置保持数量；公共桌面 `1440x1000` 和移动 `390x844` 均为 50 工位、50 演示人物、renderer `ready`、1 个 Canvas、16:9 且无横向溢出。
+- Chrome 使用 `C:/Program Files/Google/Chrome/Application/chrome.exe` 151 显式启动；默认 channel 仍会误选 AppData 中残留的 Chrome 103。S255 Chrome/Edge profile、Playwright daemon、Vite PID 38732 和端口 5197 已全部清零。
+- S255 尚未 commit 或 push；其 1–50 工位数量功能已随 S256 镜像进入当前本地容器。
+
+## S254 当前结论
+
+- 像素网吧后台房间页新增“大厅布局”编辑器，管理员可直接拖动 10 个编号电脑工位，并用网格吸附、方向键、数值输入、重置、取消和保存调整；布局通过现有 Setting 仓库存为全用户共享配置，不新增表或迁移。
+- 后端只接受固定 ID `1..10`、唯一且完整的 10 个工位，坐标限制为 `x=48..912`、`y=72..520`，请求体上限 4 KiB；公共设置仅暴露 `id/x/y`，缺失或损坏数据安全回退默认布局。
+- 前台背景、Pixi、静态降级工位和坐席人物统一使用 `960x540`、16:9 cover 映射并读取保存布局。浏览器实测将工位 1 从 `340,250` 拖到 `480,300`，保存并整页刷新后仍正确读回。
+- focused Vitest 33/33、受影响 Go 包、server compile、显式 typecheck、production build、diff/index 门禁均通过。独立 Edge profile 下桌面 `1440x1000` 与移动端 `390x844` 都是 renderer `ready`、1 个 Canvas、16:9 且无横向溢出；浏览器、daemon 和 Vite 5194 均已清零。
+- 用户已授权并完成本地应用容器更新：当前 `http://127.0.0.1:62580` 运行 `sub2api:codex-20260825-1400-s254-layout-animation`（`ddacc63a2acd`），`sub2api:local` 已同步；健康检查、前台、后台页面均返回 200，三个 Pixel Cafe chunk 与 12 张人物行走帧均和本地构建 SHA-256 一致。Hyper-V 保留 62080 后，本地 Compose 主机端口已修正为 62580。PostgreSQL/Redis 容器未重建，未执行迁移或共享数据写入；回滚镜像为 `sub2api:rollback-before-20260825-1400-s254`。S254 仍未 commit、未 push。
+
+## S253 当前结论
+
+- 像素大厅的 3 套人物已增加各 4 帧的透明侧向步行序列，共 12 张 `96x128` PNG；移动时以 6 FPS 循环，水平返回时复用同一序列并由 Pixi 翻转朝向，停顿与 `prefers-reduced-motion` 使用静止帧。
+- Image2-compatible `gpt-image-2` 以现有 teal/gold/wine 人物为参考生成四帧源图，保持发色和服装主色；随后只保留每帧主体连通区域、去除洋红底并归一化尺寸。源图和预览保留在 `output/imagegen/`，项目消费资产位于 `frontend/src/features/pixelCafe/assets/sprites/`。
+- `createCafeRenderer` 预加载步行帧、按移动方向更新 `scale.x`，并移除原先用上下正弦位移模拟走路的假动作；坐席人物仍使用原静态工作姿势。
+- focused Pixel Cafe Vitest 21/21、`npm.cmd run typecheck`、production build 均通过；独立 Edge profile 实机为 `rendererState=ready`、1 个 Canvas，连续场景帧哈希不同，桌面 `1440x1000` 与移动端 `390x844` 均无横向溢出。
+- 用户要求改用 Google Chrome 查看；本机 Chrome `103.0.5060.114` 与当前 Playwright CLI 不兼容，有头接管立即退出，无头直启停在浏览器主进程且不产出截图。未触碰用户默认 Chrome、未升级浏览器；所有 S253 专用 Chrome/Edge/Vite 进程与 5189 监听均已清零。
+- S253 仍未 commit、未 push；其 12 张人物行走帧和渲染逻辑已随 S254 镜像进入当前本地容器。
+
+## S252 当前结论
+
+- 像素网吧份额制与成团后配号已完成：仅 Plus/Pro、计划份额与人数上限、多份购买/补份、满份后 `awaiting_account`、后台按套餐搜索配号、每 Membership 一个受管 Key、额度按份数累加、激活时开始有效期，以及 24 小时未履约退款状态机。
+- 迁移 `235_pixel_cafe_share_fulfillment.sql` 保留旧 Seat/Binding，并新增 Membership 与 Round 履约快照；真实临时 PostgreSQL 回填、二次执行幂等、最后一份额和 100 并发均已验证。
+- 前台已改为份额/人数/匿名头像与 Plus/Pro 表达；我的包间只在激活后显示安全账号标签、脱敏邮箱和 5H/7D 用量；后台房间编辑不再预绑账号，待配号区提供服务器端账号搜索。
+- 独立 `gpt-5.6-terra` QA 已 PASS，报告为 `docs/workflow/qa-reports/pixel-cafe-share-fulfillment-s252-qa.md`。完整 backend、server compile、前端 27 项、typecheck、production build、隐私/状态机与 Git 门禁通过。
+- 份额选择器已从旧五列选座布局修正为三列居中布局；桌面 `1440x1000` 与移动端 `390x844` 的三格宽高一致、中心偏差 `0.008px`，均无横向溢出。
+- 像素大厅空场景已修复：默认和旧配置 CSP 均以独立 `worker-src 'self' blob:` 支持 Pixi Worker，`script-src` 未放宽；场景初始化增加 8 秒超时和迟到 renderer 清理。独立 Edge profile 验证为 `ready`、1 个 Canvas、10 组桌椅/12 个可见人物，两帧截图不同且无 CSP/Worker 控制台错误。
+- 用户已授权并完成本地容器更新：当前 `sub2api` 使用镜像 `sub2api:codex-20260825-1105-s252-scene-csp-fix`（`0edbae574058`），`sub2api:local` 已同步，迁移 235 已应用到本地数据库，健康/像素网吧页面均返回 200。Hyper-V 在 Docker Desktop 恢复后动态保留了原端口 62080，因此当前网址为 `http://127.0.0.1:62580`。数据库备份仍在 `E:/codex-backups/sub2api/20260825-0905-s252/sub2api-before-s252.dump`，本轮 rollback 镜像为 `sub2api:rollback-before-20260825-1105-s252-scene-csp-fix`。当前仍未 commit、未 push；Group、Settings、knowledge、场景资源和 `outputs/` 的既有改动继续保留。
 
 ## 背景
 
 - 用户要求持续比较本地与上游历史，只选择性移植可独立验证的修复，禁止整包合并长期分叉历史。
 - S223-S225 已完成；本轮为国产供应商一等支持建立独立 S226 contract，并先按可独立编译、验收的提交批次整理范围。
 - S237-A 已完成固定协议国产供应商账号连接测试路由的选择性移植；仅合入可独立验证的 Chat Completions、原生 Anthropic 与 DeepSeek Responses 行为。
-- 所有新提交仅在本地 `main`；未授权 push、部署、容器、共享/生产数据库或真实 provider 操作。
+- 既有上游选择性合入与 S252-S256 功能源码均已普通推送到 `origin/main`；共享/生产数据库、真实 provider 与部署仍未执行。
 
 ## 当前目标
 
-- S226、S228、S229-A-E、S230-A/B、S231、S237-A、S238-A、S239-A、S242-S248 已按批准边界集成 `main`；Image/Billing 与 Pixel Cafe 已分批提交，S244-S248 已完成分支/worktree 清理。并发 S249/QA 保留且不属于本轮清理。
+- S252-S256 已完成功能提交、普通推送和本地验收收口；后续只保留 `outputs/`、S249/S258 工作树、教程导航与备份引用，等待新的明确任务。共享/生产数据库不在本轮范围。
 
 ## 本次已完成
 
+- S256 完成唯一包间列表移入大厅背景、桌面纵向滚动面板、移动横向卡片条、Chrome 桌面/移动最终验收和受保护的本地应用容器更新；已随 `50ddfcc0b` 发布，未写共享数据。
+- S255 完成 1–50 工位数量控制、连续 ID 后端校验、保留式增减、当前数量重置、动态 Pixi/fallback/人物容量，以及 Google Chrome 桌面/移动最终验收；已随 `50ddfcc0b` 发布，未写共享 Setting。
+- S254 完成后端共享布局设置、后台拖放编辑器、前台统一坐标映射、最终浏览器验收和显式授权的本地应用容器更新；已随 `50ddfcc0b` 发布，共享/生产数据库仍保持未授权边界。
+- S252 完成 Controller 实现、主控验收和独立 Terra QA；报告、工作流状态与 `50ddfcc0b` 发布均已收口，未执行共享/生产部署。
 - S223 已本地合入：业务 `7af27c591`、独立 QA `3a3aeb601`，并完成 workflow 收口。
 - S224 已本地合入：业务 `69be22fae`、Developer 报告 `7242b824a`、独立 QA `ac3244191`，workflow 收口 `06e0e6ea5`。
 - S225 已本地合入：业务 `ba42a434e`、Developer 报告 `b82c9c998`、独立 QA `51b9a47bd`。
@@ -89,6 +154,7 @@
 
 ## 待验证点
 
+- S255 无待修复项；本地容器仍停在 S254，只有用户明确授权后才能把 S255 重建进容器。commit/push 同样需要单独授权。
 - `10c8b7020` 五项 CN 缺陷切片及 S230-A/B 已完成；下一步只评估新的上游候选或历史提交，不再回到已完成切片。
 - `ab0fcd1a0` 的 S231 Gemini skipped-policy 切片已完成；上游相关四文件在该提交后到 `upstream/main@49504adc9` 无后续修改。
 - S237-A 无待修复项；若继续工作，只需从 `upstream/main@67380eafd` 重新审计新的独立候选，并先建立 contract。
@@ -100,6 +166,8 @@
 
 ## 当前结论
 
+- `PASS / S255 final QA`：后台 1/10/50 数量控制、50 项保存回读、坐标保留、连续编号、当前数量重置、后端 1–50 安全边界、动态场景渲染、focused/full tests、typecheck/build、Chrome 桌面/移动与任务进程清理全部通过；未更新容器、共享数据、commit 或 push。
+- `PASS / S254 final QA`：共享布局安全边界、拖动保存与刷新读回、桌面/移动端场景、focused/full tests、typecheck/build、diff/index 及任务进程清理全部通过；未更新容器、commit 或 push。
 - `PASS / S226-E independent QA`：独立 QA 报告 `5ca12b78b`，静态、运行态、构建、scope/provenance 和保护边界均通过；UI 登录态限制已显式记录。
 - `PASS / S226 main integration`：A-D 业务与证据提交已按顺序集成 `main@6ca47c2f8`，用户 dirty patch IDs、未跟踪教程文件和 `outputs/` 均保持原值。
 - `PASS / S228 independent QA`：QA 报告 `docs/workflow/qa-reports/upstream-cn-group-entry-s228-qa.md` 首行为 `### PASS`，后端 binding x10、前端 focused 7 项、admin 117 项、typecheck、scope/provenance/conflict/index 均通过。
@@ -119,6 +187,7 @@
 
 ## 下一步
 
+- 当前 S255/S256 已可在 `http://127.0.0.1:62580/group-buy?demo=1` 查看；如继续修改，仍需新的明确授权后再走 Docker 更新保护流程。
 - 保留并发 S249/QA worktree，等待其独立门禁完成；不要把本轮清理扩展到 S249 或 detached `tutorial-nav`。
 - 若继续上游审计，从当前 upstream ref 重新 fetch 后比较；跳过已完成 `6244090c1`/`fd6cd474d`、缺前置 `219368ec6`，并重新评估原与 image/usage 脏改重叠的 `d29d7f8cb`。
 - 保留当前本地提交和用户 dirty 内容，等待明确发布授权。
@@ -126,6 +195,9 @@
 
 ## 验证记录
 
+- S256：focused Pixel Cafe Vitest 20/20、显式 typecheck、1904 modules production build、scoped diff/index PASS；Chrome 151 实测桌面/移动单一场景子列表、内部纵向/横向滚动、详情弹窗、ready Canvas、无页面横向溢出，任务 profile/daemon/Vite 5199 清零。本地容器 `37e9f1a6bd2a` 使用镜像 `4664eb11b3db` 且 healthy，三个页面为 200，17 个 Pixel Cafe 资源哈希一致，PostgreSQL/Redis ID 未变；Docker guard 已成功释放。
+- S255：focused service/handler Go、完整 `internal/service`（66.180 秒）、server compile、focused frontend 4 文件 19/19、显式 typecheck、1904 modules production build PASS；Chrome 151 实测后台 10/50/1/50、保存回读、坐标保留/连续编号/当前数量重置，以及公共 1440x1000、390x844 的 50 工位、50 人物、ready Canvas、16:9、无横向溢出。任务 profile/daemon/Vite PID 38732/端口 5197 清零。
+- S254：focused frontend 5 文件 33/33、受影响 Go service/handler/admin/routes 与 server compile、显式 `pnpm run typecheck`、production build、`git diff --check`、无冲突索引 PASS；Edge 实机拖动/保存/刷新及 1440x1000、390x844 响应式 PASS，session/profile process/daemon/Vite 端口清零。
 - S224 QA：`docs/workflow/qa-reports/upstream-billing-quantize-s224-qa.md`，首行为 `### PASS`。
 - S225 QA：`docs/workflow/qa-reports/upstream-fingerprint-user-agent-validation-s225-qa.md`，首行为 `### PASS`。
 - S225 Controller：focused x10 `0.092s`、service `60.469s`、server compile PASS；独立 QA：focused x10 `0.077s`、service `60.243s`、server compile PASS。

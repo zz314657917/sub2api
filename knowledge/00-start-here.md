@@ -1,6 +1,6 @@
 # Sub2API 知识库入口
 
-最后更新：2026-08-20
+最后更新：2026-08-24
 
 ## 项目定位
 
@@ -35,20 +35,21 @@ Sub2API 是 AI API 网关平台，用于把上游 AI 账号、订阅额度和模
 
 ## 当前仓库状态提示
 
-- 当前默认续做主线已从 `S220/S221/S222` 继续前移到 workflow status 中的 `S234 upstream-v178-ui-polish`；S234 当前因前端依赖环境阻塞，未授权业务提交或推送。S220/S221/S222 仍是已合入的稳定后端基线。
+- 当前默认续做主线已前移到已发布的 `S252-S256 Pixel Cafe` 功能链；此前 S244-S259 选择性合入与 S248 已在同一 `origin/main` 历史中收口。共享/生产数据库、真实 provider 与部署仍未执行。
 - 现在判断“仓库在做什么”，先看 `docs/workflow/status.md` 和 `knowledge/tasks/current-task.md`，再用 `knowledge/tasks/timeline.md` 补足最近阶段历史。
-- `knowledge/tasks/current-task.md` 现在应优先承载 S234 的阻塞快照；如果入口摘要与 workflow 文档冲突，先以 `docs/workflow/status.md` 的当前 Sprint/phase 为准，再用 `knowledge/05-current-focus.md` 判断稳定主线。
-- 当前主工作树剩余的用户未提交内容已经收敛到 `frontend/src/components/account/EditAccountModal.vue`、对应测试和 `outputs/`；开始新任务前先执行 `git status --short`，确认是否仍保持这组边界。
-- 当前默认边界是：`origin/main` 已与本地 `main` 同步；不继续 push、不部署、不更新容器、不触碰 `outputs/`，也不覆盖用户 account-modal dirty。若要继续新的上游切片或数据库影响改动，需先取得相应授权。
+- `knowledge/tasks/current-task.md` 现在应优先承载 `S248 + Pixel Cafe + worktree cleanup` 的收口快照；如果入口摘要与 workflow 文档冲突，先以 `docs/workflow/status.md` 的当前 Sprint/phase 为准，再用 `knowledge/05-current-focus.md` 判断稳定主线。
+- 当前主工作树的用户脏改已从旧的 account-modal 边界切回“仅保留未跟踪 `outputs/`”；并发 `S249/QA` worktree、detached `tutorial-nav-20260817` 与 `backup/pre-reorg-s240-s243-20260823` 仍需保留，开始新任务前先执行 `git status --short` 复核边界。
+- 当前默认边界是：`origin/main` 与本地 `main` 已同步，且包含 `50ddfcc0b` 的 Pixel Cafe S252-S256 功能链；不触碰 `outputs/`，也不清理并发 S249/S258、教程导航和备份引用。继续新上游切片、发布或数据库影响改动时仍先取得相应授权。
 - 不要清理、回滚或格式化与当前目标无关的文件。
 
 ## 当前默认心智
 
-- 当前最靠前的默认主线已经前移到 `S220 分组定价与长上下文账户 veto + S221 Codex fingerprint convergence + S222 分组用量日汇总`。继续接手分组定价、账号能力、OpenAI/Codex 调度、fingerprint、usage dashboard 或数据库聚合相关工作时，不应再把仓库先理解成 8 月 12 日的 `S211/S212` 收口仓。
-- `S220` 已把分组 built-in pricing、group long-context 开关、OpenAI group/account intersection 和非 OpenAI Grok veto 修正并入当前后端基线；`S221` 已把 opt-in `codex_fingerprint_mode` 收口到本地 gateway/account 编辑链路；`S222` 已把分组日汇总、失效重算、timezone rebuild、DST 边界与 advisory lock 多副本排斥并入 dashboard 稳态。
-- 当前 workflow phase 仍是 `done`，但这里表示 `v0.1.177` 已授权切片已本地验收并普通 push；不是“允许继续随手合更多上游”或“允许动共享数据库/生产环境”。新的上游 commit/tag 仍需先走 contract，数据库影响只在用户明确授权后继续。
-- 当前 dirty 边界也需显式保留：用户未提交内容只剩 account-modal 两个文件和 `outputs/`，其 patch-id 需要在后续主线操作前后保持不变。
-- `S219` turn-state、`S218` remote compaction v2、`S217` quota correctness、`S211/S212`、Studio Bridge / 落叶AI、Pixel Cafe、排行榜与更早的 safe patches 仍然成立，但都已退成这轮 `v0.1.177` 已授权切片之前的稳定背景层。
+- 当前最靠前的默认主线已经前移到 `S248 Google One 模型目录收口 + Pixel Cafe 账号选择器/房间详情批次 + S244-S248 清理完成`。继续接手 Gemini/Google One 账号能力、管理员可见模型目录、Pixel Cafe 房间管理或并发 worktree 清理相关工作时，不应再把仓库先理解成 8 月 20 日的 `S234` 阻塞仓。
+- `S248` 已把 legacy Gemini Google One OAuth 账号的默认/可见模型目录收口到 2.0 Flash、2.5 Flash、2.5 Pro，同时保留显式模型映射与其他 Gemini/Antigravity 账号类型原语义；对应 focused x10、完整 geminicli/admin-handler/service、server compile、scope/provenance 与保护门禁均已通过。
+- 受保护的 Pixel Cafe 批次已把账号选择器与房间详情并入当前主线；后续排查 Cafe 房间前后端行为时，应把它视为当前稳定产品面，而不是仍停在更早的静态 Lobby 或旧支付阶段。
+- 当前 workflow phase 仍是 `done`，表示 S248、S244-S259 与 S252-S256 已完成本地验收并普通发布；不是“允许继续随手 push/publish”或“允许动共享数据库/生产环境”。新的上游 commit/tag 仍需先走 contract，数据库影响只在用户明确授权后继续。
+- 当前工作树保护边界也已变化：主工作区默认只保留 `outputs/`，并发 `S249/QA` worktree、detached `tutorial-nav-20260817` 与备份引用必须保留；后续主线操作前后都要验证这些边界未被误清理。
+- `S244-S247`、`S220-S222`、`S219`、`S218`、`S217`、Studio Bridge / 落叶AI、早期 Pixel Cafe、排行榜与更早的 safe patches 仍然成立，但都已退成这轮 `S248` 和并发 `S249` 之前的稳定背景层。
 
 ## 知识维护规则
 
