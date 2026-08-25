@@ -3520,6 +3520,57 @@ type accountBillingSettingsAtomicUpdater interface {
 	UpdateWithAccountBillingSettings(context.Context, *Account, *bool, *bool, *float64) error
 }
 
+// CreateShadow creates one credential-less Spark account linked to an OAuth parent.
+// The optional repository capability avoids widening AccountRepository and breaking
+// unrelated adapters while still allowing the production Ent repository to enforce
+// the one-parent query.
+func (s *adminServiceImpl) CreateShadow(ctx context.Context, parentID int64, name string, priority, concurrency int, groupIDs []int64) (*Account, error) {
+	parent, err := s.accountRepo.GetByID(ctx, parentID)
+	if err != nil {
+		return nil, err
+	}
+	if parent == nil || !parent.IsOpenAIOAuth() || parent.IsShadow() {
+		return nil, infraerrors.BadRequest("SPARK_SHADOW_INVALID_PARENT", "spark shadow requires a normal OpenAI OAuth parent")
+	}
+	shadows, ok := s.accountRepo.(interface {
+		ListShadowsByParent(context.Context, int64) ([]*Account, error)
+	})
+	if !ok {
+		return nil, infraerrors.New(http.StatusInternalServerError, "SPARK_SHADOW_UNSUPPORTED", "account repository does not support spark shadows")
+	}
+	existing, err := shadows.ListShadowsByParent(ctx, parentID)
+	if err != nil {
+		return nil, err
+	}
+	if len(existing) != 0 {
+		return nil, infraerrors.Conflict("SPARK_SHADOW_ALREADY_EXISTS", "parent account already has a spark shadow")
+	}
+	if name == "" {
+		name = parent.Name + " Spark"
+	}
+	if priority == 0 {
+		priority = parent.Priority
+	}
+	if concurrency == 0 {
+		concurrency = parent.Concurrency
+	}
+	if len(groupIDs) == 0 {
+		groupIDs = append([]int64(nil), parent.GroupIDs...)
+	}
+	child := &Account{Name: name, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"model_mapping": defaultSparkShadowModelMapping()}, ParentAccountID: &parentID, QuotaDimension: QuotaDimensionSpark, ProxyID: parent.ProxyID, Priority: priority, Concurrency: concurrency, Status: StatusActive, Schedulable: true}
+	if err := s.accountRepo.Create(ctx, child); err != nil {
+		return nil, err
+	}
+	if len(groupIDs) > 0 {
+		if err := s.accountRepo.BindGroups(ctx, child.ID, groupIDs); err != nil {
+			_ = s.accountRepo.Delete(context.WithoutCancel(ctx), child.ID)
+			return nil, err
+		}
+		child.GroupIDs = groupIDs
+	}
+	return child, nil
+}
+
 func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *UpdateAccountInput) (*Account, error) {
 	account, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {

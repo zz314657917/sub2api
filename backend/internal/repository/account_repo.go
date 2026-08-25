@@ -180,6 +180,23 @@ func (r *accountRepository) GetByID(ctx context.Context, id int64) (*service.Acc
 	return &accounts[0], nil
 }
 
+// ListShadowsByParent returns Spark shadows only; callers use it through an
+// optional capability so existing repository test doubles remain compatible.
+func (r *accountRepository) ListShadowsByParent(ctx context.Context, parentID int64) ([]*service.Account, error) {
+	rows, err := r.client.Account.Query().Where(
+		dbaccount.ParentAccountIDEQ(parentID),
+		dbaccount.QuotaDimensionEQ(dbaccount.QuotaDimensionSpark),
+	).All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*service.Account, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, accountEntityToService(row))
+	}
+	return out, nil
+}
+
 func (r *accountRepository) GetByIDs(ctx context.Context, ids []int64) ([]*service.Account, error) {
 	if len(ids) == 0 {
 		return []*service.Account{}, nil

@@ -24,6 +24,42 @@ type OpenAIOAuthHandler struct {
 	rateLimitService   openAIAccountStateRecoverer
 }
 
+type createSparkShadowService interface {
+	CreateShadow(context.Context, int64, string, int, int, []int64) (*service.Account, error)
+}
+type createSparkShadowRequest struct {
+	Name        string  `json:"name"`
+	Priority    int     `json:"priority"`
+	Concurrency int     `json:"concurrency"`
+	GroupIDs    []int64 `json:"group_ids"`
+}
+
+// CreateShadow creates the credential-less Spark child through the existing
+// administrator-authenticated account route group.
+func (h *OpenAIOAuthHandler) CreateShadow(c *gin.Context) {
+	parentID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "Invalid account ID")
+		return
+	}
+	var req createSparkShadowRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	creator, ok := h.adminService.(createSparkShadowService)
+	if !ok {
+		response.BadRequest(c, "spark shadow is not enabled")
+		return
+	}
+	shadow, err := creator.CreateShadow(c.Request.Context(), parentID, req.Name, req.Priority, req.Concurrency, req.GroupIDs)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, dto.AccountFromServiceShallow(shadow))
+}
+
 type openAIQuotaService interface {
 	QueryUsage(ctx context.Context, accountID int64) (*service.OpenAIQuotaUsage, error)
 	CacheResetCreditsSnapshot(ctx context.Context, accountID int64, credits *service.OpenAIRateLimitResetCredits) error
