@@ -1,14 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-25 16:42 +08:00
-
-## 发布状态
-
-- 用户已授权发布；S252-S256 的完整功能源码已提交并普通推送为
-  `origin/main@50ddfcc0b`（`feat(pixel-cafe): add share fulfillment lobby suite`）。
-- 推送前复跑完整 `internal/service`（67.062s）、handler/admin/routes、server
-  compile、7 个前端 focused 文件共 45 项、typecheck、1904-module build、源码范围
-  与 diff/index 门禁均通过。`outputs/`、共享/生产数据、真实 provider 和部署均未写入。
+最后更新：2026-08-25 16:45 +08:00
 
 ## 本地 admin 预览数据
 
@@ -76,6 +68,12 @@
 
 ## 本次已完成
 
+- 用户已授权发布；S252-S256 的完整功能源码已作为
+  `origin/main@50ddfcc0b`（`feat(pixel-cafe): add share fulfillment lobby suite`）
+  普通推送，发布证据文档已作为后续 `4556b28e3` 推送。
+- 推送前复跑完整 `internal/service`（67.062s）、handler/admin/routes、server
+  compile、7 个前端 focused 文件共 45 项、typecheck、1904-module build、源码范围
+  与 diff/index 门禁均通过。`outputs/`、共享/生产数据、真实 provider 和部署均未写入。
 - S256 完成唯一包间列表移入大厅背景、桌面纵向滚动面板、移动横向卡片条、Chrome 桌面/移动最终验收和受保护的本地应用容器更新；已随 `50ddfcc0b` 发布，未写共享数据。
 - S255 完成 1–50 工位数量控制、连续 ID 后端校验、保留式增减、当前数量重置、动态 Pixi/fallback/人物容量，以及 Google Chrome 桌面/移动最终验收；已随 `50ddfcc0b` 发布，未写共享 Setting。
 - S254 完成后端共享布局设置、后台拖放编辑器、前台统一坐标映射、最终浏览器验收和显式授权的本地应用容器更新；已随 `50ddfcc0b` 发布，共享/生产数据库仍保持未授权边界。
