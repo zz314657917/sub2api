@@ -184,6 +184,10 @@ func (s *OpenAIQuotaService) accountRepository() AccountRepository {
 // OAuth account. Returns infraerrors so the handler layer can map them to
 // stable error codes / HTTP statuses.
 func (s *OpenAIQuotaService) QueryUsage(ctx context.Context, accountID int64) (*OpenAIQuotaUsage, error) {
+	requestedAccount, requestedErr := s.accountRepo.GetByID(ctx, accountID)
+	if requestedErr != nil {
+		return nil, infraerrors.Newf(http.StatusNotFound, "OPENAI_QUOTA_ACCOUNT_NOT_FOUND", "account not found: %v", requestedErr)
+	}
 	accessToken, chatGPTAccountID, proxyURL, fedRAMP, err := s.prepareUpstreamCall(ctx, accountID)
 	if err != nil {
 		return nil, err
@@ -229,6 +233,18 @@ func (s *OpenAIQuotaService) QueryUsage(ctx context.Context, accountID int64) (*
 	}
 
 	payload.FetchedAt = time.Now().Unix()
+	// A Spark shadow deliberately owns only bengalfox windows. Do not let the
+	// parent/global quota snapshot or reset-credit cache cross this boundary.
+	if requestedAccount.IsShadow() {
+		if writer, ok := s.accountRepo.(openAIQuotaExtraWriter); ok {
+			if updates := buildCodexSparkWindowExtraUpdates(&payload, time.Now()); len(updates) > 0 {
+				if err := writer.UpdateExtra(ctx, requestedAccount.ID, updates); err != nil {
+					return nil, infraerrors.Newf(http.StatusBadGateway, "OPENAI_QUOTA_CACHE_WRITE_FAILED", "failed to cache spark quota: %v", err)
+				}
+			}
+		}
+		return &payload, nil
+	}
 	details := s.queryResetCreditDetails(callCtx, client, accessToken, chatGPTAccountID, fedRAMP, accountID)
 	if details != nil {
 		hasDetailCount := details.AvailableCount != nil

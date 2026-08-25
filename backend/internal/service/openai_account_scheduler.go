@@ -722,6 +722,10 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 
 	filtered := make([]*Account, 0, len(accounts))
 	loadReq := make([]AccountWithConcurrency, 0, len(accounts))
+	accountsByID := make(map[int64]*Account, len(accounts))
+	for i := range accounts {
+		accountsByID[accounts[i].ID] = &accounts[i]
+	}
 	for i := range accounts {
 		account := &accounts[i]
 		if req.ExcludedIDs != nil {
@@ -730,6 +734,18 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 			}
 		}
 		if !account.IsSchedulableWithContext(ctx) || account.Platform != normalizeOpenAICompatiblePlatform(req.Platform) || !isOpenAICompatibleAccount(account) {
+			continue
+		}
+		if account.IsShadow() && !parentHealthyForShadow(account, func(parentID int64) *Account {
+			if parent := accountsByID[parentID]; parent != nil {
+				return parent
+			}
+			parent, err := s.service.accountRepo.GetByID(ctx, parentID)
+			if err != nil {
+				return nil
+			}
+			return parent
+		}, time.Now()) {
 			continue
 		}
 		if !accountAllowedByAPIKeyPoolStrategy(ctx, account, req.Sub2APIUserID) {

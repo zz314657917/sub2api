@@ -853,6 +853,12 @@ func (s *RateLimitService) handleCustomErrorCode(ctx context.Context, account *A
 // handle429 处理429限流错误
 // 解析响应头获取重置时间，标记账号为限流状态
 func (s *RateLimitService) handle429(ctx context.Context, account *Account, headers http.Header, responseBody []byte) {
+	// Spark shadows have an independent bengalfox dimension. /responses 429
+	// headers describe the parent's global Codex pool and must never persist or
+	// trip the ordinary global-429 path for the shadow.
+	if account != nil && account.IsShadow() && account.QuotaDimensionOrDefault() == QuotaDimensionSpark {
+		return
+	}
 	if s.applyCNProviderReactive429(ctx, account, headers, responseBody) {
 		return
 	}
@@ -1201,6 +1207,9 @@ func pickSooner(a, b *time.Time) *time.Time {
 
 func (s *RateLimitService) persistOpenAICodexSnapshot(ctx context.Context, account *Account, headers http.Header) bool {
 	if s == nil || s.accountRepo == nil || account == nil || headers == nil {
+		return false
+	}
+	if account.IsShadow() {
 		return false
 	}
 	snapshot := ParseCodexRateLimitHeaders(headers)
