@@ -18,7 +18,7 @@
           </div>
         </header>
 
-        <div v-if="allSubscriptionGroups.length === 0" class="admin-group-buy-alert">
+        <div v-if="roomManagedGroups.length === 0" class="admin-group-buy-alert">
           <Icon name="exclamationTriangle" size="sm" />
           <span>需要先创建并启用网吧房间托管分组，房间计划才能绑定真实可用额度。</span>
         </div>
@@ -154,13 +154,10 @@
               </label>
               <label>
                 <span>计划类型</span>
-                <select v-model="planForm.fulfillment_mode" @change="applyFulfillmentMode">
-                  <option value="aggregate_tier">普通拼团</option>
-                  <option value="room_subscription">网吧房间</option>
-                </select>
+                <div class="admin-group-buy-readonly-field">网吧房间</div>
               </label>
               <label>
-                <span>{{ isRoomForm ? '房间人数上限（1=独享）' : '总份额' }}</span>
+                <span>房间人数上限（1=独享）</span>
                 <input v-model.number="planForm.total_shares" type="number" min="1" max="10" required />
               </label>
               <label>
@@ -174,13 +171,6 @@
               <label>
                 <span>每用户最大份额</span>
                 <input v-model.number="planForm.max_shares_per_user" type="number" min="1" max="10" required />
-              </label>
-              <label v-if="!isRoomForm">
-                <span>开团模式</span>
-                <select v-model="planForm.launch_mode">
-                  <option value="auto">自动续开</option>
-                  <option value="manual">手动开团</option>
-                </select>
               </label>
               <label>
                 <span>有效期天数</span>
@@ -215,7 +205,7 @@
               <input v-model.trim="planForm.quota_per_share_label" placeholder="例如：单份约 50 USD 月额度" />
             </label>
 
-            <section v-if="isRoomForm" class="admin-group-buy-tiers">
+            <section class="admin-group-buy-tiers">
               <div class="admin-group-buy-tier-head">
                 <div>
                   <h3>房间托管配置</h3>
@@ -250,50 +240,6 @@
                 </label>
               </div>
               <p class="admin-group-buy-tier-note">受管 Key 会在座位激活时自动创建，不能关闭。</p>
-            </section>
-
-            <section v-else class="admin-group-buy-tiers">
-              <div class="admin-group-buy-tier-head">
-                <div>
-                  <h3>权益档位区间规则</h3>
-                  <p>用少量区间覆盖 1 到总份额，每个区间绑定一个已启用的订阅权益模板。</p>
-                </div>
-                <div class="admin-group-buy-tier-actions">
-                  <button type="button" class="admin-group-buy-secondary" @click="fillTiersWithSelectedGroup">一档覆盖全部</button>
-                  <button type="button" class="admin-group-buy-secondary" @click="addTierRule">添加档位</button>
-                </div>
-              </div>
-              <p class="admin-group-buy-tier-note">
-                示例：1-3 份绑定基础权益，4-7 份绑定进阶权益，8-10 份绑定旗舰权益。区间必须连续覆盖 1 到总份额。
-              </p>
-              <div class="admin-group-buy-tier-grid">
-                <div v-for="(tier, index) in planForm.tier_rules" :key="index" class="admin-group-buy-tier-rule">
-                  <label>
-                    <span>起始份额</span>
-                    <input v-model.number="tier.min_shares" type="number" min="1" max="10" required />
-                  </label>
-                  <label>
-                    <span>结束份额</span>
-                    <input v-model.number="tier.max_shares" type="number" min="1" max="10" required />
-                  </label>
-                  <label>
-                    <span>档位名称</span>
-                    <input v-model.trim="tier.label" placeholder="例如：基础权益" />
-                  </label>
-                  <label>
-                    <span>权益模板</span>
-                    <select v-model.number="tier.target_group_id" required>
-                      <option :value="0" disabled>选择权益模板</option>
-                      <option v-for="group in subscriptionGroups" :key="group.id" :value="group.id">
-                        {{ group.name }} · {{ group.platform }}{{ group.monthly_limit_usd != null ? ` · 月 ${group.monthly_limit_usd}` : '' }}
-                      </option>
-                    </select>
-                  </label>
-                  <button type="button" class="admin-group-buy-danger admin-group-buy-tier-remove" :disabled="planForm.tier_rules.length <= 1" @click="removeTierRule(index)">
-                    <Icon name="trash" size="sm" />
-                  </button>
-                </div>
-              </div>
             </section>
 
             <label class="admin-group-buy-full">
@@ -390,6 +336,7 @@ const groupBuyProductName = computed(() => resolveGroupBuyProductName(appStore.c
 const defaultAgreementText = computed(() => `我理解 ${groupBuyProductName.value} 为平台托管容量份额权益，不是官方 OpenAI Pro 子账号，不共享任何上游账号或官方 API Key。`)
 
 const plans = ref<GroupBuyPlan[]>([])
+const allPlans = ref<GroupBuyPlan[]>([])
 const groups = ref<AdminGroup[]>([])
 const rounds = ref<GroupBuyRound[]>([])
 const loading = ref(false)
@@ -421,15 +368,15 @@ const planForm = reactive({
   quota_per_share_label: '',
   max_shares_per_user: 10,
   target_group_id: 0,
-  fulfillment_mode: 'aggregate_tier' as GroupBuyFulfillmentMode,
+  fulfillment_mode: 'room_subscription' as GroupBuyFulfillmentMode,
   room_key_quota_usd: 0,
   room_key_rate_limit_5h: 0,
   room_key_rate_limit_1d: 0,
   room_key_rate_limit_7d: 0,
-  auto_create_room_key: false,
+  auto_create_room_key: true,
   tier_group_ids: {} as Record<string, number>,
   tier_rules: [] as GroupBuyTier[],
-  launch_mode: 'auto' as GroupBuyLaunchMode,
+  launch_mode: 'manual' as GroupBuyLaunchMode,
   validity_days: 30,
   timeout_minutes: 1440,
   refund_mode: 'balance_credit' as GroupBuyRefundMode,
@@ -438,19 +385,9 @@ const planForm = reactive({
   sort_order: 0,
 })
 
-const allSubscriptionGroups = computed(() =>
-  groups.value.filter((group) => group.status === 'active' && group.subscription_type === 'subscription'),
-)
-
-const subscriptionGroups = computed(() =>
-  groups.value.filter((group) => group.status === 'active' && group.subscription_type === 'subscription' && group.access_mode !== 'room_managed'),
-)
-
 const roomManagedGroups = computed(() =>
   groups.value.filter((group) => group.status === 'active' && group.subscription_type === 'subscription' && group.access_mode === 'room_managed'),
 )
-
-const isRoomForm = computed(() => planForm.fulfillment_mode === 'room_subscription')
 
 const canSubmitPlan = computed(() =>
   !!planForm.title.trim()
@@ -461,13 +398,11 @@ const canSubmitPlan = computed(() =>
   && planForm.max_shares_per_user <= 10
   && planForm.validity_days > 0
   && planForm.timeout_minutes >= 5
-  && (isRoomForm.value
-    ? planForm.target_group_id > 0
-      && planForm.room_key_quota_usd >= 0
-      && planForm.room_key_rate_limit_5h >= 0
-      && planForm.room_key_rate_limit_1d >= 0
-      && planForm.room_key_rate_limit_7d >= 0
-    : validateTierRules(planForm.tier_rules, Number(planForm.total_shares))),
+  && planForm.target_group_id > 0
+  && planForm.room_key_quota_usd >= 0
+  && planForm.room_key_rate_limit_5h >= 0
+  && planForm.room_key_rate_limit_1d >= 0
+  && planForm.room_key_rate_limit_7d >= 0,
 )
 
 async function refreshAll() {
@@ -482,7 +417,8 @@ async function refreshAll() {
 async function loadPlans() {
   try {
     const res = await adminAPI.groupBuy.listPlans()
-    plans.value = res.data || []
+    allPlans.value = res.data || []
+    plans.value = allPlans.value.filter(isRoomPlan)
   } catch (err: unknown) {
     appStore.showError(extractApiErrorMessage(err, '房间计划加载失败'))
   }
@@ -519,11 +455,6 @@ async function loadRounds() {
 function openCreatePlan() {
   editingPlan.value = null
   resetPlanForm()
-  const firstGroupID = subscriptionGroups.value[0]?.id || 0
-  if (firstGroupID) {
-    planForm.target_group_id = firstGroupID
-    planForm.tier_rules = [buildTierRule(1, Number(planForm.total_shares), firstGroupID, '默认权益')]
-  }
   planDialogOpen.value = true
 }
 
@@ -540,7 +471,7 @@ function openEditPlan(plan: GroupBuyPlan) {
     quota_per_share_label: plan.quota_per_share_label || plan.quota_label || '',
     max_shares_per_user: plan.max_shares_per_user || 10,
     target_group_id: targetGroupID,
-    fulfillment_mode: plan.fulfillment_mode || 'aggregate_tier',
+    fulfillment_mode: 'room_subscription',
     room_key_quota_usd: plan.room_key_quota_usd || 0,
     room_key_rate_limit_5h: plan.room_key_rate_limit_5h || 0,
     room_key_rate_limit_1d: plan.room_key_rate_limit_1d || 0,
@@ -560,8 +491,8 @@ function openEditPlan(plan: GroupBuyPlan) {
 }
 
 function resetPlanForm() {
-  const firstGroupID = subscriptionGroups.value[0]?.id || 0
-  const rules = firstGroupID ? [buildTierRule(1, 10, firstGroupID, '默认权益')] : [buildTierRule(1, 10, 0, '默认权益')]
+  const firstGroupID = roomManagedGroups.value[0]?.id || 0
+  const rules = firstGroupID ? [buildTierRule(1, 10, firstGroupID, '房间座位')] : []
   Object.assign(planForm, {
     title: '',
     description: `${groupBuyProductName.value} 平台托管容量份额，满份后自动开通。`,
@@ -571,15 +502,15 @@ function resetPlanForm() {
     quota_per_share_label: '单份月额度待填写',
     max_shares_per_user: 10,
     target_group_id: firstGroupID,
-    fulfillment_mode: 'aggregate_tier',
+    fulfillment_mode: 'room_subscription',
     room_key_quota_usd: 0,
     room_key_rate_limit_5h: 0,
     room_key_rate_limit_1d: 0,
     room_key_rate_limit_7d: 0,
-    auto_create_room_key: false,
+    auto_create_room_key: true,
     tier_group_ids: tierRulesToMap(rules, 10),
     tier_rules: rules,
-    launch_mode: 'auto',
+    launch_mode: 'manual',
     validity_days: 30,
     timeout_minutes: 1440,
     refund_mode: 'balance_credit',
@@ -594,46 +525,9 @@ function closePlanDialog() {
   planDialogOpen.value = false
 }
 
-function applyFulfillmentMode() {
-  if (isRoomForm.value) {
-    const groupID = roomManagedGroups.value[0]?.id || 0
-    planForm.target_group_id = groupID
-    planForm.tier_rules = groupID ? [buildTierRule(1, Number(planForm.total_shares), groupID, '房间座位')] : []
-    planForm.launch_mode = 'manual'
-    planForm.auto_create_room_key = true
-    return
-  }
-  const groupID = subscriptionGroups.value[0]?.id || 0
-  planForm.target_group_id = groupID
-  planForm.tier_rules = groupID ? [buildTierRule(1, Number(planForm.total_shares), groupID, '默认权益')] : []
-  planForm.auto_create_room_key = false
-}
-
-function fillTiersWithSelectedGroup() {
-  const groupID = Number(planForm.target_group_id || subscriptionGroups.value[0]?.id || 0)
-  if (!groupID) return
-  planForm.target_group_id = groupID
-  planForm.tier_rules = [buildTierRule(1, Number(planForm.total_shares), groupID, '默认权益')]
-}
-
-function addTierRule() {
-  const total = Number(planForm.total_shares || 10)
-  const last = planForm.tier_rules[planForm.tier_rules.length - 1]
-  const nextMin = Math.min(total, Number(last?.max_shares || 0) + 1)
-  const groupID = Number(last?.target_group_id || planForm.target_group_id || subscriptionGroups.value[0]?.id || 0)
-  planForm.tier_rules.push(buildTierRule(nextMin, total, groupID, ''))
-}
-
-function removeTierRule(index: number) {
-  if (planForm.tier_rules.length <= 1) return
-  planForm.tier_rules.splice(index, 1)
-}
-
 function buildPlanPayload(): GroupBuyPlanPayload {
   const totalShares = Number(planForm.total_shares)
-  const tierRules = isRoomForm.value
-    ? [buildTierRule(1, totalShares, Number(planForm.target_group_id), '房间座位')]
-    : normalizeTierRulesFromForm(planForm.tier_rules, totalShares)
+  const tierRules = [buildTierRule(1, totalShares, Number(planForm.target_group_id), '房间座位')]
   const tierGroupIds = tierRulesToMap(tierRules, totalShares)
   return {
     title: planForm.title.trim(),
@@ -647,16 +541,16 @@ function buildPlanPayload(): GroupBuyPlanPayload {
     quota_per_share_label: planForm.quota_per_share_label.trim(),
     quota_label: planForm.quota_per_share_label.trim(),
     max_shares_per_user: Number(planForm.max_shares_per_user),
-    target_group_id: Number(isRoomForm.value ? planForm.target_group_id : targetGroupIDForShares(tierRules, totalShares) || planForm.target_group_id),
-    fulfillment_mode: planForm.fulfillment_mode,
+    target_group_id: Number(planForm.target_group_id),
+    fulfillment_mode: 'room_subscription',
     room_key_quota_usd: Number(planForm.room_key_quota_usd) || 0,
     room_key_rate_limit_5h: Number(planForm.room_key_rate_limit_5h) || 0,
     room_key_rate_limit_1d: Number(planForm.room_key_rate_limit_1d) || 0,
     room_key_rate_limit_7d: Number(planForm.room_key_rate_limit_7d) || 0,
-    auto_create_room_key: isRoomForm.value,
+    auto_create_room_key: true,
     tier_group_ids: tierGroupIds,
     tier_rules: tierRules,
-    launch_mode: isRoomForm.value ? 'manual' : planForm.launch_mode,
+    launch_mode: 'manual',
     validity_days: Number(planForm.validity_days),
     timeout_minutes: Number(planForm.timeout_minutes),
     refund_mode: planForm.refund_mode,
@@ -850,26 +744,6 @@ function normalizeTierRules(plan: GroupBuyPlan): GroupBuyTier[] {
   return exactTierMapToRules(plan.tier_group_ids, total, plan.target_group_id)
 }
 
-function normalizeTierRulesFromForm(raw: GroupBuyTier[], totalShares: number): GroupBuyTier[] {
-  return raw
-    .map((tier) => {
-      const minShares = clampShare(Number(tier.min_shares || 0), totalShares)
-      const maxShares = clampShare(Number(tier.max_shares || minShares), totalShares)
-      return buildTierRule(minShares, maxShares, Number(tier.target_group_id || 0), tier.label?.trim() || tierLabel(minShares, maxShares))
-    })
-    .sort((a, b) => a.min_shares - b.min_shares || a.max_shares - b.max_shares)
-}
-
-function validateTierRules(rules: GroupBuyTier[], totalShares: number): boolean {
-  if (!rules.length || totalShares <= 0) return false
-  let expected = 1
-  for (const tier of normalizeTierRulesFromForm(rules, totalShares)) {
-    if (tier.min_shares !== expected || tier.max_shares < tier.min_shares || tier.max_shares > totalShares || !tier.target_group_id) return false
-    expected = tier.max_shares + 1
-  }
-  return expected === totalShares + 1
-}
-
 function exactTierMapToRules(raw?: Record<string, number>, totalShares = 10, fallback = 0): GroupBuyTier[] {
   const rules: GroupBuyTier[] = []
   let currentGroup = 0
@@ -912,11 +786,6 @@ function tierSummary(plan: GroupBuyPlan): string {
   return `${rules.length} 个档位 · 最高 ${rules[rules.length - 1].label || tierLabel(rules[rules.length - 1].min_shares, rules[rules.length - 1].max_shares)}`
 }
 
-function clampShare(value: number, totalShares: number): number {
-  if (!Number.isFinite(value) || value <= 0) return 1
-  return Math.min(Math.max(Math.trunc(value), 1), Math.max(1, totalShares))
-}
-
 function pricePerShare(plan: GroupBuyPlan): number {
   return Number(plan.price_per_share || plan.price_per_seat || 0)
 }
@@ -932,7 +801,7 @@ function currentRoundSummary(plan: GroupBuyPlan): string {
 }
 
 function planTitle(planId: number): string {
-  return plans.value.find((plan) => plan.id === planId)?.title || `计划 #${planId}`
+  return allPlans.value.find((plan) => plan.id === planId)?.title || `计划 #${planId}`
 }
 
 function formatMoney(value: number): string {
@@ -1346,6 +1215,7 @@ onMounted(() => {
 .admin-group-buy-filter select,
 .admin-group-buy-form-grid input,
 .admin-group-buy-form-grid select,
+.admin-group-buy-readonly-field,
 .admin-group-buy-full input,
 .admin-group-buy-full textarea,
 .admin-group-buy-tier-grid input,
@@ -1526,6 +1396,18 @@ onMounted(() => {
   min-height: 2.55rem;
   padding: 0.65rem 0.8rem;
   font-weight: 500;
+}
+
+.admin-group-buy-readonly-field {
+  display: flex;
+  min-height: 2.55rem;
+  align-items: center;
+  border: 1px solid var(--agb-border);
+  border-radius: 0.5rem;
+  background: var(--agb-surface-soft);
+  padding: 0.65rem 0.8rem;
+  color: var(--agb-text);
+  font-weight: 700;
 }
 
 .admin-group-buy-full,

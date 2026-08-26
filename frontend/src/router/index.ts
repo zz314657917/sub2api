@@ -1108,7 +1108,14 @@ router.beforeEach(async (to, _from, next) => {
     }
   }
 
-  if (to.meta.requiresGroupBuy && !isFeatureFlagEnabled(FeatureFlags.groupBuy)) {
+  // /group-buy is the compatibility entry for both the legacy group-buy page
+  // and Pixel Cafe. Keep it available when either feature is enabled so the
+  // view can select the appropriate experience.
+  if (
+    to.meta.requiresGroupBuy &&
+    !isFeatureFlagEnabled(FeatureFlags.groupBuy) &&
+    !isFeatureFlagEnabled(FeatureFlags.pixelCafe)
+  ) {
     next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
     return
   }

@@ -60,24 +60,28 @@ describe('AdminGroupBuyView', () => {
       quota_label: '50 USD/月',
       max_shares_per_user: 10,
       target_group_id: 7,
-      fulfillment_mode: 'aggregate_tier',
+      fulfillment_mode: 'room_subscription',
       room_key_quota_usd: 0,
       room_key_rate_limit_5h: 0,
       room_key_rate_limit_1d: 0,
       room_key_rate_limit_7d: 0,
-      auto_create_room_key: false,
+      auto_create_room_key: true,
       tier_group_ids: { '1': 7 },
       tier_groups: [],
       tier_rules: [{ min_shares: 1, max_shares: 10, target_group_id: 7, label: '默认' }],
       validity_days: 30,
       timeout_minutes: 1440,
-      launch_mode: 'auto',
+      launch_mode: 'manual',
       refund_mode: 'balance_credit',
       agreement_text: '',
       status: 'active',
       sort_order: 0,
       created_at: '',
       updated_at: '',
+    }, {
+      id: 12,
+      title: '旧普通拼团计划',
+      fulfillment_mode: 'aggregate_tier',
     }] })
     listRounds.mockReset().mockResolvedValue({ data: {
       items: [{
@@ -116,7 +120,7 @@ describe('AdminGroupBuyView', () => {
     processRefunds.mockReset().mockResolvedValue({ data: { processed: 1, succeeded: 1, pending: 0, failed: 0, failures: [] } })
     createPlan.mockReset().mockResolvedValue({ data: {} })
     updatePlan.mockReset().mockResolvedValue({ data: {} })
-    getAll.mockReset().mockResolvedValue([{ id: 7, name: '订阅组', status: 'active', subscription_type: 'subscription', access_mode: 'normal', platform: 'openai' }])
+    getAll.mockReset().mockResolvedValue([{ id: 7, name: '网吧托管组', status: 'active', subscription_type: 'subscription', access_mode: 'room_managed', platform: 'openai' }])
     showError.mockReset()
     showSuccess.mockReset()
   })
@@ -219,10 +223,11 @@ describe('AdminGroupBuyView', () => {
 
     expect(wrapper.find('[data-testid="group-buy-layout"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('网吧房间计划')
+    expect(wrapper.text()).not.toContain('旧普通拼团计划')
     wrapper.unmount()
   })
 
-  it('submits a Room plan with the managed group and key policy', async () => {
+  it('removes the legacy plan option and submits a Room plan with the managed group and key policy', async () => {
     getAll.mockResolvedValue([
       { id: 7, name: '普通订阅组', status: 'active', subscription_type: 'subscription', access_mode: 'normal', platform: 'openai' },
       { id: 19, name: '网吧托管组', status: 'active', subscription_type: 'subscription', access_mode: 'room_managed', platform: 'openai' },
@@ -238,12 +243,9 @@ describe('AdminGroupBuyView', () => {
     await flushPromises()
 
     const modal = document.body.querySelector<HTMLElement>('.admin-group-buy-modal')!
-    const mode = Array.from(modal.querySelectorAll<HTMLSelectElement>('select')).find((select) =>
-      Array.from(select.options).some((option) => option.value === 'room_subscription'),
-    )!
-    mode.value = 'room_subscription'
-    mode.dispatchEvent(new Event('change', { bubbles: true }))
-    await flushPromises()
+    expect(modal.textContent).not.toContain('普通拼团')
+    expect(Array.from(modal.querySelectorAll('option')).some((option) => option.value === 'aggregate_tier')).toBe(false)
+    expect(modal.querySelector('.admin-group-buy-readonly-field')?.textContent).toBe('网吧房间')
 
     const title = modal.querySelector<HTMLInputElement>('input')!
     title.value = 'A 区四人房'
@@ -260,7 +262,6 @@ describe('AdminGroupBuyView', () => {
     expect(title.value).toBe('A 区四人房')
     expect(price.value).toBe('12')
     expect(groupSelect.value).toBe('19')
-    expect(mode.value).toBe('room_subscription')
     await flushPromises()
 
     const saveButton = Array.from(modal.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent?.includes('保存房间计划'))!

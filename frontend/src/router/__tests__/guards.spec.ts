@@ -59,6 +59,7 @@ interface MockAuthState {
   setupNeedsSetup?: boolean
   createdAt?: string
   minimumAccountAgeDays?: unknown
+  groupBuyEnabled?: boolean
   pixelCafeEnabled?: boolean
 }
 
@@ -135,6 +136,15 @@ function simulateGuard(
   }
 
   if (toMeta.requiresPixelCafe && authState.pixelCafeEnabled !== true) {
+    return authState.isAdmin ? '/admin/dashboard' : '/dashboard'
+  }
+
+  // /group-buy is shared by the legacy group-buy page and Pixel Cafe. The
+  // legacy flag is opt-out while Pixel Cafe is opt-in, matching the real
+  // feature flag resolver in the router.
+  const groupBuyEnabled = authState.groupBuyEnabled !== false
+  const pixelCafeEnabled = authState.pixelCafeEnabled === true
+  if (toMeta.requiresGroupBuy && !groupBuyEnabled && !pixelCafeEnabled) {
     return authState.isAdmin ? '/admin/dashboard' : '/dashboard'
   }
 
@@ -349,6 +359,24 @@ describe('路由守卫逻辑', () => {
     it('访问用户页面允许通过', () => {
       const redirect = simulateGuard('/dashboard', {}, authState)
       expect(redirect).toBeNull()
+    })
+
+    it('旧拼团关闭但像素网吧开启时允许访问兼容入口', () => {
+      const redirect = simulateGuard('/group-buy', { requiresGroupBuy: true }, {
+        ...authState,
+        groupBuyEnabled: false,
+        pixelCafeEnabled: true,
+      })
+      expect(redirect).toBeNull()
+    })
+
+    it('旧拼团和像素网吧都关闭时拦截兼容入口', () => {
+      const redirect = simulateGuard('/group-buy', { requiresGroupBuy: true }, {
+        ...authState,
+        groupBuyEnabled: false,
+        pixelCafeEnabled: false,
+      })
+      expect(redirect).toBe('/admin/dashboard')
     })
 
     it('像素网吧关闭时禁止直接访问管理房间页', () => {
@@ -672,6 +700,14 @@ describe('订阅入口兼容路由', () => {
     expect(subscriptionsRoute).toContain("beforeEnter: () => ({ path: '/usage', hash: '#subscriptions' })")
     expect(subscriptionsRoute).toContain('requiresAuth: true')
     expect(subscriptionsRoute).toContain('requiresAdmin: false')
+  })
+})
+
+describe('像素网吧兼容入口守卫', () => {
+  it('仅在旧拼团和像素网吧同时关闭时拦截 /group-buy', () => {
+    expect(routerSource).toContain('to.meta.requiresGroupBuy &&')
+    expect(routerSource).toContain('!isFeatureFlagEnabled(FeatureFlags.groupBuy) &&')
+    expect(routerSource).toContain('!isFeatureFlagEnabled(FeatureFlags.pixelCafe)')
   })
 })
 
