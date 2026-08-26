@@ -117,6 +117,49 @@ func compactCodexCallID(id string) string {
 	return codexCallIDPrefix + encoded[:codexCallIDMaxLength-len(codexCallIDPrefix)]
 }
 
+// codexContinuationToolCallIDPrefix returns the upstream call-ID namespace for
+// native tool continuation items. Non-native function-style calls retain the
+// established fc_ namespace.
+func codexContinuationToolCallIDPrefix(itemType string) string {
+	switch strings.TrimSpace(itemType) {
+	case "custom_tool_call", "custom_tool_call_output":
+		return "ctc_"
+	case "tool_search_call", "tool_search_output":
+		return "tsc_"
+	default:
+		return codexCallIDPrefix
+	}
+}
+
+func normalizeCodexContinuationCallID(itemType, id string) string {
+	prefix := codexContinuationToolCallIDPrefix(itemType)
+	candidate := id
+	switch {
+	case id == "":
+		return ""
+	case strings.HasPrefix(id, strings.TrimSuffix(prefix, "_")):
+	case strings.HasPrefix(id, "call_"):
+		candidate = prefix + strings.TrimPrefix(id, "call_")
+	default:
+		candidate = prefix + trimCodexKnownCallIDPrefix(id)
+	}
+	if len(candidate) <= codexCallIDMaxLength {
+		return candidate
+	}
+	digest := sha256.Sum256([]byte("sub2api:codex-call-id:v1:" + candidate))
+	encoded := hex.EncodeToString(digest[:])
+	return prefix + encoded[:codexCallIDMaxLength-len(prefix)]
+}
+
+func trimCodexKnownCallIDPrefix(id string) string {
+	for _, prefix := range []string{"fc_", "ctc_", "tsc_"} {
+		if strings.HasPrefix(id, prefix) {
+			return strings.TrimPrefix(id, prefix)
+		}
+	}
+	return id
+}
+
 const (
 	codexImageGenerationBridgeMarker = "<sub2api-codex-image-generation>"
 	codexImageGenerationBridgeText   = codexImageGenerationBridgeMarker + "\nWhen the user asks for raster image generation or editing, use the OpenAI Responses native `image_generation` tool attached to this request. The local Codex client may not expose an `image_gen` namespace, but that does not mean image generation is unavailable. Do not ask the user to switch to CLI fallback solely because `image_gen` is absent.\n</sub2api-codex-image-generation>"
@@ -1270,6 +1313,9 @@ func filterCodexInputWithOptions(input []any, opts codexInputFilterOptions) []an
 				}
 				return compactCodexCallID(id)
 			}
+			if opts.PreserveReferences {
+				return normalizeCodexContinuationCallID(typ, id)
+			}
 			return normalizeCodexCallID(id)
 		}
 
@@ -1345,21 +1391,40 @@ func filterCodexInputWithOptions(input []any, opts codexInputFilterOptions) []an
 		if !opts.PreserveReferences {
 			ensureCopy()
 			delete(newItem, "id")
-		} else if isCodexToolCallInputType(typ) {
-			// 续链模式下保留 id 以维持上下文引用，但 function_call 等
-			// call-input 类 item 的 id 必须以 "fc" 开头（上游校验
-			// "Expected an ID that begins with 'fc'"）。item_* 形式的 id
-			// 来自客户端回放，需要删除。
-			// 注意：function_call_output 等 output 类的 id 无此约束，不动。
-			if id, ok := m["id"].(string); ok && id != "" && !strings.HasPrefix(id, "fc") {
-				ensureCopy()
-				delete(newItem, "id")
-			}
+		} else if id, ok := m["id"].(string); ok && shouldStripCodexContinuationItemID(typ, id) {
+			// 续链模式可保留可被上游识别的历史 item ID，但 native
+			// custom/tool-search 项分别使用 ctc/tsc 命名空间；错误 ID
+			// 直接删除，避免把客户端回放的 ID 伪造成另一上游对象。
+			ensureCopy()
+			delete(newItem, "id")
 		}
 
 		filtered = append(filtered, newItem)
 	}
 	return filtered
+}
+
+func codexContinuationItemIDPrefix(itemType string) (string, bool) {
+	switch strings.TrimSpace(itemType) {
+	case "custom_tool_call":
+		return "ctc", true
+	case "tool_search_call":
+		return "tsc", true
+	case "custom_tool_call_output":
+		// The replayed custom-call output item itself is validated in the
+		// generic fc namespace; its paired call_id remains ctc_.
+		return "fc", true
+	default:
+		if isCodexToolCallInputType(itemType) {
+			return "fc", true
+		}
+		return "", false
+	}
+}
+
+func shouldStripCodexContinuationItemID(itemType, id string) bool {
+	prefix, constrained := codexContinuationItemIDPrefix(itemType)
+	return constrained && (id == "" || !strings.HasPrefix(id, prefix))
 }
 
 func isCodexToolCallItemType(typ string) bool {

@@ -279,7 +279,7 @@ func TestApplyCodexOAuthTransform_ToolSearchOutputPreservesCallID(t *testing.T) 
 	first, ok := input[0].(map[string]any)
 	require.True(t, ok)
 	require.Equal(t, "tool_search_output", first["type"])
-	require.Equal(t, "fc_1", first["call_id"])
+	require.Equal(t, "tsc_1", first["call_id"])
 }
 
 func TestApplyCodexOAuthTransform_CustomAndMCPToolOutputsPreserveCallID(t *testing.T) {
@@ -299,7 +299,7 @@ func TestApplyCodexOAuthTransform_CustomAndMCPToolOutputsPreserveCallID(t *testi
 
 	first, ok := input[0].(map[string]any)
 	require.True(t, ok)
-	require.Equal(t, "fc_custom", first["call_id"])
+	require.Equal(t, "ctc_custom", first["call_id"])
 
 	second, ok := input[1].(map[string]any)
 	require.True(t, ok)
@@ -494,7 +494,7 @@ func TestApplyCodexOAuthTransform_PreservesFunctionCallInputName(t *testing.T) {
 	item, ok := input[0].(map[string]any)
 	require.True(t, ok)
 	require.Equal(t, "shell", item["name"])
-	require.Equal(t, "fc_1", item["call_id"])
+	require.Equal(t, "ctc_1", item["call_id"])
 }
 
 func TestApplyCodexOAuthTransform_PreservesMCPToolCallIDAndName(t *testing.T) {
@@ -526,6 +526,51 @@ func TestCodexInputItemRequiresNameTypesAllowCallID(t *testing.T) {
 	for _, typ := range []string{"function_call", "custom_tool_call", "mcp_tool_call"} {
 		require.True(t, codexInputItemRequiresName(typ), typ)
 		require.True(t, isCodexToolCallItemType(typ), typ)
+	}
+}
+
+func TestNativeToolContinuationItemIDPrefixValidation(t *testing.T) {
+	tests := []struct {
+		name     string
+		itemType string
+		id       string
+		strip    bool
+	}{
+		{name: "function call accepts fc", itemType: "function_call", id: "fc_123", strip: false},
+		{name: "function call rejects ctc", itemType: "function_call", id: "ctc_123", strip: true},
+		{name: "custom call accepts ctc", itemType: "custom_tool_call", id: "ctc_123", strip: false},
+		{name: "custom call rejects fc", itemType: "custom_tool_call", id: "fc_123", strip: true},
+		{name: "tool search accepts tsc", itemType: "tool_search_call", id: "tsc_123", strip: false},
+		{name: "tool search rejects fc", itemType: "tool_search_call", id: "fc_123", strip: true},
+		{name: "custom output accepts fc item id", itemType: "custom_tool_call_output", id: "fc_123", strip: false},
+		{name: "custom output rejects ctc item id", itemType: "custom_tool_call_output", id: "ctc_123", strip: true},
+		{name: "future item remains unconstrained", itemType: "future_item", id: "item_123", strip: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.strip, shouldStripCodexContinuationItemID(tc.itemType, tc.id))
+		})
+	}
+}
+
+func TestNativeToolContinuationCallIDNormalization(t *testing.T) {
+	tests := []struct {
+		itemType string
+		callID   string
+		want     string
+	}{
+		{itemType: "function_call", callID: "ctc_123", want: "fc_123"},
+		{itemType: "custom_tool_call", callID: "fc_123", want: "ctc_123"},
+		{itemType: "custom_tool_call_output", callID: "call_123", want: "ctc_123"},
+		{itemType: "tool_search_call", callID: "fc_123", want: "tsc_123"},
+		{itemType: "tool_search_output", callID: "call_123", want: "tsc_123"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.itemType, func(t *testing.T) {
+			require.Equal(t, tc.want, normalizeCodexContinuationCallID(tc.itemType, tc.callID))
+		})
 	}
 }
 
