@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { validateIntervals, type IntervalFormEntry } from '../types'
+import { getPlatformTagClass, getPlatformTextClass, validateIntervals, type IntervalFormEntry } from '../types'
 
 function makeInterval(over: Partial<IntervalFormEntry>): IntervalFormEntry {
   return {
@@ -75,5 +75,16 @@ describe('validateIntervals', () => {
       ]
       expect(validateIntervals(intervals, 'image')).toMatch(/必须大于/)
     })
+  })
+})
+
+describe('CN provider channel colors', () => {
+  it.each([
+    ['kimi', 'pink'],
+    ['zhipu', 'indigo'],
+    ['deepseek', 'teal'],
+  ])('uses the %s channel palette', (platform, color) => {
+    expect(getPlatformTagClass(platform)).toContain(color)
+    expect(getPlatformTextClass(platform)).toContain(color)
   })
 })
