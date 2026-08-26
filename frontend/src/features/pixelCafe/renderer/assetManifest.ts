@@ -1,4 +1,4 @@
-import lobbySceneUrl from '../assets/scenes/pixel-cafe-lobby-v2.png'
+import lobbySceneUrl from '../assets/scenes/pixel-cafe-lobby-v2.webp'
 import avatarGoldUrl from '../assets/sprites/avatar-gold.png'
 import avatarGoldWalk0Url from '../assets/sprites/avatar-gold-walk-0.png'
 import avatarGoldWalk1Url from '../assets/sprites/avatar-gold-walk-1.png'
