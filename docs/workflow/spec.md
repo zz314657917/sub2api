@@ -1,5 +1,23 @@
 ---
 
+## Upstream Composite Billing Fallback Addendum (S261)
+
+- Adapt upstream `ba88cc239` in the local `GatewayService` billing owner: a
+  composite public alias selected by `BillingModelSource` uses the concrete
+  forwarded model unless an administrator configured an explicit price for the
+  alias.
+- Preserve local explicit group-model pricing as well as channel pricing; both
+  are administrator-owned overrides. Apply the composite guard before general
+  price resolvability so family-name aliases cannot inherit an unrelated
+  built-in fallback price.
+- Outside composite groups, only a completely unresolvable selected billing
+  model may fall back to a resolvable concrete forwarded candidate. Keep
+  mappings, price tables, usage attribution, image/video behavior, schemas,
+  APIs, frontend, providers, containers, shared data, staging, push, and
+  `outputs/` out of scope. Contract:
+  `docs/workflow/tasks/upstream-composite-billing-fallback-s261.md`.
+
+
 ## Pixel Cafe My-Room Usage Progress Addendum (S260)
 
 - Active “我的包间” cards show two accessible progress bars only after an

@@ -1,15 +1,14 @@
 # 当前任务快照
 
-最后更新：2026-08-26 11:44 +08:00
+最后更新：2026-08-26 12:45 +08:00
 
 ## 上游选择性合入进度（2026-08-26）
 
-- 已刷新到 `upstream/main@6ca1e15b0`；基线后的最新两笔仅为 sponsor 文档，没有新的业务提交。当前本地 `main@a2f0b578f` 相对 `origin/main@49893ac60` 领先 8 个提交，尚未推送。
-- 本轮已独立提交 `a2f0b578f`（`fix(channels): expose CN platform pricing`）：管理端渠道编辑页可展示 Kimi、Zhipu、DeepSeek 平台及各自 tag/text 配色。定向 Vitest 10/10 通过；此前同一工作区的 typecheck 与 production build 均通过。
-- 上游 `4795650d2` 的实际端点观测已作为本地 `7b48cb6e9` 合入；完整 `internal/service`、handler 定向测试、server compile 与 diff 检查均已通过。
-- 已确认等价而不重复合入：`e440ac48c`（同类型批量移除被拒绝的 Responses `status`，本地 `8a0585dfa`）、`847c0c452`（模型列表读取上限可配置，本地 `962db2c11`）、`017f6bbd5`（URL 路径 guard，本地 `31918bca5` 及后续兼容提交）、`d493ce0bb`（OAuth 账号身份隔离，本地 `c655d4354` 与 `73c37a64b`）。路径 guard 定向 Go 测试通过。
-- 继续暂缓：OAuth 429 调度、自动重置卡完整产品流。后者会实际消耗上游权益并改变调度/多实例语义；本地手动重置刻意不刷新 reset-credit 缓存，与上游 helper 前提不同，不能借重构名义改变既有响应契约。
-- 工作区的 `outputs/` 仍未跟踪且不得暂存。本轮收口时另发现 8 个 Pixel Cafe 文件处于未提交状态，均不属于本轮选择性合入范围，必须原样保留。
+- 已按本地 `upstream/main@6ca1e15b0` 评估并手工适配 `ba88cc239`。本地代码 owner 仍是 `gateway_service.go`，不能直接摘取上游后来拆分的文件历史。
+- 新提交 `f596eed75`（`fix(billing): bill composite aliases by forwarded model`）：composite 公开别名没有显式分组/渠道定价时，按实际转发模型计费；显式管理员别名价保留优先级。通用路径只在所选模型完全不可定价时才回退具体模型。
+- 定向默认 Go 测试连续两次通过，`internal/service` 和 `cmd/server` 编译通过，格式、差异、冲突和索引门禁通过。带 `unit` tag 的整包测试继续被既有测试/API 漂移阻断（`stringPtr` 重名、旧签名等），不属于 S261 改动。
+- 上游同一提交中的 Grok media 用量归因小节未合入；它不改变本次计费结论且需要独立评估。
+- 工作区的 `outputs/` 仍未跟踪且不得暂存或删除。本批本地提交尚未推送。
 
 ## S260 当前结论
 

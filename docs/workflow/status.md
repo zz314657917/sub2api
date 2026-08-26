@@ -1,15 +1,42 @@
 ---
 phase: done
-current_sprint: pixel-cafe-my-room-usage-s260
-total_sprints: 260
-pending_action: S260 source, tests, and workflow records are published to origin/main; preserve outputs/ and await the next explicit task.
+current_sprint: upstream-composite-billing-fallback-s261
+total_sprints: 261
+pending_action: S261 source and workflow records are committed locally; preserve outputs/ and await an explicit push or next upstream-selection task.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-25 20:35 +08:00
+last_verified: 2026-08-26 12:45 +08:00
 ---
 
 # Pixel Cafe My-Room Usage Progress S260
+
+# Upstream Composite Billing Fallback S261
+
+- `contract-draft`: port only the local-equivalent billing portion of upstream
+  `ba88cc239`. Composite aliases without explicit local group/channel pricing
+  should bill their concrete forwarded model; explicit administrator alias
+  pricing remains authoritative. The upstream Grok media attribution hunk is
+  intentionally excluded.
+- `PASS / contract-review`: `recordUsageCore` can retain the concrete model
+  before source overrides, and the existing resolver can identify explicit
+  local group or channel prices without changing its architecture. The ordered
+  composite guard plus general fallback, exact owners, and isolated default
+  test command are decision-complete; controller implementation is authorized.
+- `PASS / controller implementation`: the local gateway billing path now keeps
+  the concrete model before source overrides, protects unpriced composite
+  aliases before family fallback, and uses a general resolvability fallback.
+  Explicit local group/channel alias prices remain authoritative; only the
+  gateway owner and its focused regression were changed.
+- `PASS / final QA`: the three focused default tests passed twice; default
+  `internal/service` and `cmd/server` compile checks passed. Formatting, diff,
+  conflict, unmerged-index, and staged-scope gates are clean. The tagged legacy
+  suite remains blocked by existing unrelated test/API drift, including a
+  duplicate `stringPtr` and obsolete service method signatures; no repair was
+  mixed into this bounded port.
+- `PASS / source commit`: `f596eed75` (`fix(billing): bill composite aliases by
+  forwarded model`) contains only the approved gateway code and focused test.
+- Contract: `docs/workflow/tasks/upstream-composite-billing-fallback-s261.md`.
 
 - `contract-draft`: active joined-room cards gain 5H/7D progress bars, derived
   future reset timestamps and live reset/validity countdowns. The contract
