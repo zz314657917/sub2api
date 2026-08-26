@@ -466,6 +466,7 @@ const OpsIcon: IconName = 'cpu'
 const UsageIcon: IconName = 'chartBar'
 const TrophyIcon: IconName = 'trendingUp'
 const GiftIcon: IconName = 'gift'
+const CafeIcon: IconName = 'cafe'
 const WelfareIcon: IconName = 'sparkles'
 const ChatIcon: IconName = 'chatBubble'
 const UserIcon: IconName = 'user'
@@ -548,7 +549,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
     { path: '/usage', label: t('nav.usageAndSubscriptions'), icon: UsageIcon, hideInSimpleMode: true },
     { path: '/tickets', label: t('nav.tickets'), icon: TicketIcon, hideInSimpleMode: true },
     { path: '/purchase', label: t('nav.buySubscription'), icon: RechargeSubscriptionIcon, hideInSimpleMode: true, featureFlag: flagPayment },
-    { path: '/group-buy', label: groupBuyNavigationLabel.value, icon: GiftIcon, hideInSimpleMode: true, featureFlag: flagGroupBuyOrPixelCafe },
+    { path: '/group-buy', label: groupBuyNavigationLabel.value, icon: CafeIcon, hideInSimpleMode: true, featureFlag: flagGroupBuyOrPixelCafe },
     { path: '/affiliate', label: t('nav.affiliate'), icon: TeamIcon, hideInSimpleMode: true, featureFlag: flagAffiliate },
     welfareItem,
   ]
@@ -657,7 +658,7 @@ const adminNavItems = computed((): NavItem[] => {
       children: [
         { path: '/admin/subscriptions', label: t('nav.subscriptions'), icon: CreditCardIcon, hideInSimpleMode: true },
         { path: '/admin/orders/plans', label: t('nav.paymentPlans'), icon: PriceTagIcon, hideInSimpleMode: true, featureFlag: flagAdminPayment },
-        { path: '/admin/pixel-cafe/rooms', label: t('nav.pixelCafeRooms'), icon: GiftIcon, hideInSimpleMode: true, featureFlag: flagPixelCafe },
+        { path: '/admin/pixel-cafe/rooms', label: t('nav.pixelCafeRooms'), icon: CafeIcon, hideInSimpleMode: true, featureFlag: flagPixelCafe },
         { path: '/admin/redeem', label: t('nav.redeemCodes'), icon: TicketIcon, hideInSimpleMode: true },
         { path: '/admin/promo-codes', label: t('nav.promoCodes'), icon: GiftIcon, hideInSimpleMode: true },
         {

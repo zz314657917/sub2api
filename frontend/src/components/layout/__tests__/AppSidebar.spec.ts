@@ -36,6 +36,7 @@ describe('AppSidebar Pixel Cafe navigation label', () => {
     expect(componentSource).not.toContain("path: '/admin/group-buy'")
     expect(componentSource).not.toContain('flagAdminGroupBuy')
     expect(componentSource).toContain("path: '/admin/pixel-cafe/rooms', label: t('nav.pixelCafeRooms')")
+    expect(componentSource).toContain("const CafeIcon: IconName = 'cafe'")
   })
 })
 
