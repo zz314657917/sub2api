@@ -1,8 +1,8 @@
 ---
 phase: done
-current_sprint: upstream-opencode-go-reset-s262
-total_sprints: 262
-pending_action: S262 source and workflow records are committed locally; preserve outputs/ and await an explicit push or next upstream-selection task.
+current_sprint: upstream-wsv2-native-tool-id-repair-s264
+total_sprints: 264
+pending_action: S264 passed final QA and is ready for its local source/workflow commits; preserve the concurrently changed Pixel Cafe scene assets and outputs/, and do not push without separate authorization.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
@@ -10,6 +10,57 @@ last_verified: 2026-08-26 13:30 +08:00
 ---
 
 # Pixel Cafe My-Room Usage Progress S260
+
+# Upstream WSv2 Native Tool-ID Repair S264
+
+- `contract-draft`: S263 proved that the existing generic `fc_` assumption
+  incorrectly preserves a stale `fc_*` item ID for native
+  `custom_tool_call` history. S264 may change only the Codex input filter and
+  its tests: while preserving continuation references, strip an item `id`
+  whose type-specific prefix is invalid, and normalize paired native tool
+  `call_id`s to the correct `ctc_`, `tsc_`, or `fc_` namespace.
+- The repair must not fabricate or rewrite item IDs, must retain the current
+  non-continuation and `PreserveToolCallIDs` behavior, and excludes gateway
+  topology, account/scheduler/identity logic, configuration, dependencies,
+  frontend, containers, external state, staging/push, and `outputs/**`.
+- `PASS / contract-review`: the local filter owns both the retained replay item
+  ID and paired call-ID normalization before WSv2 payload construction. The
+  observed `ctc`/`tsc`/`fc` contracts, continuation-only condition, explicit
+  legacy-preservation boundary, exact test owners, no-network commands, and
+  protected user-work boundary are decision-complete; controller
+  implementation is authorized.
+- `PASS / final QA`: continuation-only native call IDs now normalize to
+  `ctc_`/`tsc_`/`fc_` by item type, and invalid constrained replay item IDs are
+  removed rather than rewritten. The focused S264/S263 and affected legacy
+  regressions passed x10, the default `internal/service` suite passed in
+  65.183s, and `cmd/server` compiled. Format, diff, conflict, unmerged-index,
+  and scope checks passed; user-owned Pixel Cafe scene work and `outputs/`
+  remain outside the repair.
+- `PASS / source commit`: `33a741c61`
+  (`fix(openai): normalize native continuation tool IDs`) contains only the
+  approved filter and regression tests, including S263's OAuth WSv2 capture.
+  No push or external-state operation occurred.
+- Contract:
+  `docs/workflow/tasks/upstream-wsv2-native-tool-id-repair-s264.md`.
+
+# Upstream WSv2 Native Tool-ID Regression S263
+
+- `contract-draft`: port only upstream `d8694f03b`'s end-to-end OAuth WSv2
+  regression. It must prove an invalid legacy `fc_*` item ID is absent from
+  the outbound native `custom_tool_call`, while paired call/output IDs become
+  `ctc_*`; all production behavior is denied.
+- `PASS / contract-review`: the local OAuth WSv2 capture fixtures, V2 config,
+  and typed-ID normalization are sufficient. The exact test-only owner,
+  no-network acceptance commands, production-code stop rule, and dirty-worktree
+  boundary are decision-complete; controller test implementation is authorized.
+- `FAIL / focused QA`: the new default-tag no-network regression fails before
+  any production change: the outbound `response.create` still contains
+  `input[0].id="fc_hotfix_probe"` for a native `custom_tool_call`. This proves
+  the local typed-ID work did not cover the WSv2 native-request path. S263's
+  stop rule forbids production repair here; a separate repair contract is
+  required.
+- Contract:
+  `docs/workflow/tasks/upstream-wsv2-native-tool-id-regression-s263.md`.
 
 # Upstream OpenCode Go Reset Duration S262
 

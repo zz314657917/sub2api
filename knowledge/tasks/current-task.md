@@ -1,6 +1,20 @@
 # 当前任务快照
 
-最后更新：2026-08-26 13:30 +08:00
+最后更新：2026-08-26 15:54 +08:00
+
+## S264 当前结论
+
+- `PASS / upstream-wsv2-native-tool-id-repair-s264`：S263 的 OAuth WSv2
+  无网络回归确认本地会把遗留 `fc_*` item ID 作为原生
+  `custom_tool_call` 重放。S264 仅在工具续链引用保留路径中修复：原生
+  custom/tool-search/普通函数调用及其配对输出的 call ID 分别标准化为
+  `ctc_`/`tsc_`/`fc_`；不匹配该类型契约的已回放 item ID 只删除、不伪造。
+- 定向 native-ID、原有受影响用例与 WSv2 OAuth 捕获均 `-count=10` 通过；
+  默认 `internal/service` 完整测试通过（65.183s），`cmd/server` 编译、
+  gofmt、diff、冲突、未合并索引和范围门禁通过。没有真实上游、数据库、
+  容器、共享数据或 push 操作。
+- 期间 Pixel Cafe 场景资源发生外部改动（tracked PNG 删除并新增未跟踪
+  WebP）；该用户工作以及 `outputs/` 均未触碰、不得纳入 S264 提交。
 
 ## 上游选择性合入进度（2026-08-26）
 
