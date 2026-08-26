@@ -1,14 +1,14 @@
 # 当前任务快照
 
-最后更新：2026-08-26 12:45 +08:00
+最后更新：2026-08-26 13:30 +08:00
 
 ## 上游选择性合入进度（2026-08-26）
 
-- 已按本地 `upstream/main@6ca1e15b0` 评估并手工适配 `ba88cc239`。本地代码 owner 仍是 `gateway_service.go`，不能直接摘取上游后来拆分的文件历史。
-- 新提交 `f596eed75`（`fix(billing): bill composite aliases by forwarded model`）：composite 公开别名没有显式分组/渠道定价时，按实际转发模型计费；显式管理员别名价保留优先级。通用路径只在所选模型完全不可定价时才回退具体模型。
-- 定向默认 Go 测试连续两次通过，`internal/service` 和 `cmd/server` 编译通过，格式、差异、冲突和索引门禁通过。带 `unit` tag 的整包测试继续被既有测试/API 漂移阻断（`stringPtr` 重名、旧签名等），不属于 S261 改动。
-- 上游同一提交中的 Grok media 用量归因小节未合入；它不改变本次计费结论且需要独立评估。
-- 工作区的 `outputs/` 仍未跟踪且不得暂存或删除。本批本地提交尚未推送。
+- 已按本地 `upstream/main@6ca1e15b0` 评估并手工适配两项独立修复，均避免直接摘取后来拆分的上游文件历史。
+- `f596eed75`（`fix(billing): bill composite aliases by forwarded model`）：composite 公开别名没有显式分组/渠道定价时，按实际转发模型计费；显式管理员别名价保留优先级。通用路径只在所选模型完全不可定价时才回退具体模型。
+- `17c13fb47`（`fix(openai): honor OpenCode Go reset durations`）：识别 `GoUsageLimitError` 的 `Resets in ...` 文本并安全解析复合恢复时长，交给现有通用 429 暂停路径；未知、零、负数、溢出或畸形输入仍走原有短冷却。没有引入上游缺失的 runtime blocker 或调度逻辑。
+- 两项的定向默认 Go 测试均连续两次通过，`internal/service` 和 `cmd/server` 编译通过，格式、差异、冲突和索引门禁通过。带 `unit` tag 的整包测试继续被既有测试/API 漂移阻断（`stringPtr` 重名、旧签名等），不属于本批改动。
+- 上游同一 `ba88cc239` 中的 Grok media 用量归因小节在本地没有对应 handler，未合入；工作区的 `outputs/` 仍未跟踪且不得暂存或删除。本批本地提交尚未推送。
 
 ## S260 当前结论
 

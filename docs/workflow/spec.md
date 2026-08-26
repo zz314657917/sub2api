@@ -1,5 +1,21 @@
 ---
 
+## Upstream OpenCode Go Reset Duration Addendum (S262)
+
+- Adapt only the parser portion of upstream `a6b11ccce`: an OpenCode Go
+  `GoUsageLimitError` with a valid `Resets in ...` message supplies the
+  temporary account-rate-limit expiry already consumed by the local generic
+  429 pipeline.
+- Parse bounded compound durations after the marker and return nil for unknown,
+  malformed, zero, negative, or overflowing input so current fallback behavior
+  remains unchanged. Do not import upstream runtime blocker APIs absent from
+  this topology.
+- Scheduler/account state, rate-limit persistence, provider calls, schemas,
+  APIs, frontend, dependencies, containers, shared data, staging, push, and
+  `outputs/` are out of scope. Contract:
+  `docs/workflow/tasks/upstream-opencode-go-reset-s262.md`.
+
+
 ## Upstream Composite Billing Fallback Addendum (S261)
 
 - Adapt upstream `ba88cc239` in the local `GatewayService` billing owner: a

@@ -1,15 +1,39 @@
 ---
 phase: done
-current_sprint: upstream-composite-billing-fallback-s261
-total_sprints: 261
-pending_action: S261 source and workflow records are committed locally; preserve outputs/ and await an explicit push or next upstream-selection task.
+current_sprint: upstream-opencode-go-reset-s262
+total_sprints: 262
+pending_action: S262 source and workflow records are committed locally; preserve outputs/ and await an explicit push or next upstream-selection task.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-26 12:45 +08:00
+last_verified: 2026-08-26 13:30 +08:00
 ---
 
 # Pixel Cafe My-Room Usage Progress S260
+
+# Upstream OpenCode Go Reset Duration S262
+
+- `contract-draft`: port only `GoUsageLimitError` message-duration parsing into
+  the existing generic OpenAI rate-limit parser. The upstream runtime-blocker
+  test and APIs are absent locally and explicitly excluded.
+- `PASS / contract-review`: the local generic 429 pipeline already calls this
+  parser before its normal fallback and persists the returned reset timestamp.
+  Bounded parser-only adaptation, exact owners, default focused regressions,
+  and no-runtime-blocker/no-scheduler boundaries are decision-complete;
+  controller implementation is authorized.
+- `PASS / controller implementation`: `GoUsageLimitError` now derives a reset
+  timestamp from bounded `Resets in ...` duration text. The existing parser
+  continues to return nil for unknown or invalid input, leaving the normal 429
+  fallback intact; no caller, persistence, or scheduler behavior changed.
+- `PASS / final QA`: focused default parser tests passed twice; default
+  `internal/service` and `cmd/server` compile checks passed. Formatting, diff,
+  conflict, unmerged-index, and staged-scope gates are clean. The tagged legacy
+  suite remains blocked by existing unrelated test/API drift, including a
+  duplicate `stringPtr` and obsolete service method signatures; no repair was
+  mixed into this bounded port.
+- `PASS / source commit`: `17c13fb47` (`fix(openai): honor OpenCode Go reset
+  durations`) contains only the approved parser and focused test.
+- Contract: `docs/workflow/tasks/upstream-opencode-go-reset-s262.md`.
 
 # Upstream Composite Billing Fallback S261
 
