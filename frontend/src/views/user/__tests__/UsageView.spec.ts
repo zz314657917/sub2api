@@ -855,6 +855,7 @@ describe('user UsageView', () => {
     expect(cacheReadCell.text()).toContain('700')
     expect(cacheReadCell.text()).toContain('87.5%')
     expect(cacheReadCell.find('[title]').attributes('title')).toBe('700 (87.5%)')
+    expect(cacheReadCell.find('[title]').classes()).toContain('flex-col')
   })
 
   it('renders studio bridge rows with null timing values', async () => {

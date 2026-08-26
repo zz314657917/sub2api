@@ -241,6 +241,8 @@ describe('admin UsageTable tooltip', () => {
     expect(wrapper.get('[data-testid="cache-read-percent"]').text()).toBe('20.0%')
     expect(wrapper.get('[data-testid="cache-read-percent"]').element.parentElement?.getAttribute('title'))
       .toBe('100 (20.0%)')
+    expect(wrapper.get('[data-testid="cache-read-percent"]').element.parentElement?.classList.contains('flex-col'))
+      .toBe(true)
   })
 
   it('splits image input and output token usage from text usage', async () => {

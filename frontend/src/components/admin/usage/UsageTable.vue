@@ -150,13 +150,15 @@
         <template #cell-cache_read="{ row }">
           <div
             v-if="!isImageUsage(row) && row.cache_read_tokens > 0"
-            class="inline-flex items-center gap-1 text-sm"
+            class="inline-flex flex-col items-start gap-0.5 text-sm leading-tight"
             :title="`${row.cache_read_tokens.toLocaleString()} (${formatCacheReadPercent(row)})`"
           >
-            <Icon name="database" size="sm" class="h-3.5 w-3.5 text-[#a9583e]" />
-            <span class="font-medium text-[#a9583e] dark:text-[#f0b89e]">
-              {{ formatCacheTokens(row.cache_read_tokens) }}
-            </span>
+            <div class="inline-flex items-center gap-1">
+              <Icon name="database" size="sm" class="h-3.5 w-3.5 text-[#a9583e]" />
+              <span class="font-medium text-[#a9583e] dark:text-[#f0b89e]">
+                {{ formatCacheTokens(row.cache_read_tokens) }}
+              </span>
+            </div>
             <span data-testid="cache-read-percent" class="text-xs font-medium text-[#8e8b82] dark:text-[#d8cec2]/80">
               {{ formatCacheReadPercent(row) }}
             </span>
