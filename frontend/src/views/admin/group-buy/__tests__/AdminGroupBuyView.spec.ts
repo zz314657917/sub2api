@@ -58,6 +58,7 @@ describe('AdminGroupBuyView', () => {
       price_label: '',
       quota_per_share_label: '50 USD/月',
       quota_label: '50 USD/月',
+      max_buyers: 4,
       max_shares_per_user: 10,
       target_group_id: 7,
       fulfillment_mode: 'room_subscription',
@@ -270,6 +271,9 @@ describe('AdminGroupBuyView', () => {
     await flushPromises()
 
     expect(createPlan).toHaveBeenCalledWith(expect.objectContaining({
+      total_shares: 10,
+      max_buyers: 4,
+      max_shares_per_user: 10,
       fulfillment_mode: 'room_subscription',
       target_group_id: 19,
       auto_create_room_key: true,

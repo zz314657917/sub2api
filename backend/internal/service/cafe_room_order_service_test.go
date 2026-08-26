@@ -84,6 +84,32 @@ func TestCafeRoomOrderAllowsExistingBuyerTopUpAtBuyerCap(t *testing.T) {
 	require.Equal(t, 10, round.ReservedShares)
 }
 
+func TestCafeRoomOrderAllowsOneBuyerToPurchaseAllShares(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "cafe_room_order_single_buyer_all_shares")
+	now := time.Date(2026, 8, 3, 13, 45, 0, 0, time.UTC)
+	fixture := newCafeRoomOrderFixture(t, ctx, client, now, 10)
+	cfg := &PaymentConfig{MaxPendingOrders: 3, OrderTimeoutMin: 30}
+
+	_, round, err := fixture.orderService.lockSeatAndCreateOrder(
+		ctx,
+		CreateOrderRequest{UserID: fixture.user.ID, PaymentType: payment.TypeAlipay},
+		fixture.room.ID,
+		10,
+		cfg,
+		0,
+		fixture.plan.PricePerShare*10,
+		nil,
+	)
+	require.NoError(t, err)
+	require.Equal(t, 10, round.ReservedShares)
+
+	memberships, err := client.CafeRoundMembership.Query().Where(caferoundmembership.RoundIDEQ(fixture.round.ID)).All(ctx)
+	require.NoError(t, err)
+	require.Len(t, memberships, 1)
+	require.Equal(t, 10, memberships[0].ReservedShares)
+}
+
 func TestCafeRoomOrderCapsDistinctLiveRooms(t *testing.T) {
 	ctx := context.Background()
 	client := newGroupBuyTestClient(t, "cafe_room_order_cap")

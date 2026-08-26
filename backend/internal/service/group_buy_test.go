@@ -247,13 +247,14 @@ func TestGroupBuyAdminRoomPlanPersistsKeyPolicyAndBlocksOrdinaryRounds(t *testin
 	svc := newGroupBuyTestService(client, groupRepo, nil)
 	input := GroupBuyPlanInput{
 		Title:              "Pixel Cafe Room",
-		TotalShares:        4,
+		TotalShares:        10,
 		PricePerShare:      12,
 		QuotaPerShareLabel: "25 USD",
-		MaxSharesPerUser:   1,
+		MaxBuyers:          4,
+		MaxSharesPerUser:   10,
 		TargetGroupID:      groupID,
 		TierRules: []GroupBuyTierInput{{
-			MinShares: 1, MaxShares: 4, TargetGroupID: groupID, Label: "房间座位",
+			MinShares: 1, MaxShares: 10, TargetGroupID: groupID, Label: "房间座位",
 		}},
 		ValidityDays:       30,
 		TimeoutMinutes:     60,
@@ -270,6 +271,9 @@ func TestGroupBuyAdminRoomPlanPersistsKeyPolicyAndBlocksOrdinaryRounds(t *testin
 	plan, err := svc.AdminCreatePlan(ctx, input)
 	require.NoError(t, err)
 	require.Equal(t, CafeRoomFulfillmentMode, plan.FulfillmentMode)
+	require.Equal(t, 10, plan.TotalShares)
+	require.Equal(t, 4, plan.MaxBuyers)
+	require.Equal(t, 10, plan.MaxSharesPerUser)
 	require.True(t, plan.AutoCreateRoomKey)
 	require.Equal(t, 25.0, plan.RoomKeyQuotaUsd)
 	require.Equal(t, 5.0, plan.RoomKeyRateLimit5h)
@@ -281,6 +285,29 @@ func TestGroupBuyAdminRoomPlanPersistsKeyPolicyAndBlocksOrdinaryRounds(t *testin
 	rounds, err := client.GroupBuyRound.Query().Count(ctx)
 	require.NoError(t, err)
 	require.Zero(t, rounds)
+}
+
+func TestGroupBuyAdminRoomPlanRejectsBuyerLimitAboveShares(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "groupbuy_room_plan_buyer_limit")
+	groupID := createGroupBuyTestGroup(t, ctx, client, 1, 100)
+	groupRepo := newGroupBuyGroupRepoStubWithGroups(map[int64]*Group{
+		groupID: {
+			ID: groupID, Status: StatusActive, Platform: PlatformOpenAI,
+			SubscriptionType: SubscriptionTypeSubscription, AccessMode: GroupAccessModeRoomManaged,
+		},
+	})
+	svc := newGroupBuyTestService(client, groupRepo, nil)
+
+	_, err := svc.AdminCreatePlan(ctx, GroupBuyPlanInput{
+		Title: "Invalid buyer limit", TotalShares: 4, PricePerShare: 12,
+		MaxBuyers: 5, MaxSharesPerUser: 4, TargetGroupID: groupID,
+		TierRules:    []GroupBuyTierInput{{MinShares: 1, MaxShares: 4, TargetGroupID: groupID, Label: "房间座位"}},
+		ValidityDays: 30, TimeoutMinutes: 60, FulfillmentMode: CafeRoomFulfillmentMode,
+		AutoCreateRoomKey: true, Status: GroupBuyPlanStatusActive,
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "max_buyers cannot exceed total_shares")
 }
 
 func TestGroupBuyAdminRoomPlanRejectsNonManagedTargetGroup(t *testing.T) {

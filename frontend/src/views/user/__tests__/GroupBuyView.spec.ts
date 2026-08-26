@@ -95,6 +95,7 @@ const plan = {
   price_label: '每份 128 元',
   quota_per_share_label: '单份约 50 USD 月额度',
   quota_label: '单份约 50 USD 月额度',
+  max_buyers: 4,
   max_shares_per_user: 10,
   target_group_id: 7,
   tier_group_ids: Object.fromEntries(Array.from({ length: 10 }, (_, index) => [String(index + 1), 7])),

@@ -70,6 +70,7 @@ export interface GroupBuyPlan {
   price_label: string
   quota_per_share_label: string
   quota_label: string
+  max_buyers: number
   max_shares_per_user: number
   target_group_id: number
   fulfillment_mode: GroupBuyFulfillmentMode

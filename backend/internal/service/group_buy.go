@@ -213,6 +213,7 @@ type GroupBuyPlanInput struct {
 	PriceLabel         string              `json:"price_label"`
 	QuotaPerShareLabel string              `json:"quota_per_share_label"`
 	QuotaLabel         string              `json:"quota_label"`
+	MaxBuyers          int                 `json:"max_buyers"`
 	MaxSharesPerUser   int                 `json:"max_shares_per_user"`
 	TargetGroupID      int64               `json:"target_group_id"`
 	FulfillmentMode    string              `json:"fulfillment_mode"`
@@ -269,6 +270,7 @@ type GroupBuyPlanView struct {
 	PriceLabel         string             `json:"price_label"`
 	QuotaPerShareLabel string             `json:"quota_per_share_label"`
 	QuotaLabel         string             `json:"quota_label"`
+	MaxBuyers          int                `json:"max_buyers"`
 	MaxSharesPerUser   int                `json:"max_shares_per_user"`
 	TargetGroupID      int64              `json:"target_group_id"`
 	FulfillmentMode    string             `json:"fulfillment_mode"`
@@ -1822,6 +1824,7 @@ func (s *GroupBuyService) AdminCreatePlan(ctx context.Context, input GroupBuyPla
 		SetPriceLabel(strings.TrimSpace(input.PriceLabel)).
 		SetQuotaPerShareLabel(strings.TrimSpace(input.QuotaPerShareLabel)).
 		SetQuotaLabel(strings.TrimSpace(input.QuotaPerShareLabel)).
+		SetMaxBuyers(input.MaxBuyers).
 		SetMaxSharesPerUser(input.MaxSharesPerUser).
 		SetTargetGroupID(input.TargetGroupID).
 		SetFulfillmentMode(input.FulfillmentMode).
@@ -1889,6 +1892,7 @@ func (s *GroupBuyService) AdminUpdatePlan(ctx context.Context, id int64, input G
 		SetPriceLabel(strings.TrimSpace(input.PriceLabel)).
 		SetQuotaPerShareLabel(strings.TrimSpace(input.QuotaPerShareLabel)).
 		SetQuotaLabel(strings.TrimSpace(input.QuotaPerShareLabel)).
+		SetMaxBuyers(input.MaxBuyers).
 		SetMaxSharesPerUser(input.MaxSharesPerUser).
 		SetTargetGroupID(input.TargetGroupID).
 		SetFulfillmentMode(input.FulfillmentMode).
@@ -2828,8 +2832,19 @@ func (s *GroupBuyService) validatePlanInput(ctx context.Context, input *GroupBuy
 	if input.QuotaPerShareLabel == "" {
 		input.QuotaPerShareLabel = input.QuotaLabel
 	}
+	input.FulfillmentMode = normalizeGroupBuyFulfillmentMode(input.FulfillmentMode)
+	if input.FulfillmentMode == "" {
+		return infraerrors.BadRequest("INVALID_INPUT", "invalid fulfillment_mode")
+	}
+	if input.MaxBuyers <= 0 {
+		input.MaxBuyers = min(input.TotalShares, 4)
+	}
 	if input.MaxSharesPerUser <= 0 {
-		input.MaxSharesPerUser = defaultGroupBuyMaxUserShares
+		if input.FulfillmentMode == CafeRoomFulfillmentMode {
+			input.MaxSharesPerUser = input.TotalShares
+		} else {
+			input.MaxSharesPerUser = defaultGroupBuyMaxUserShares
+		}
 	}
 	if input.MaxSharesPerUser > groupBuyMaxShareCount {
 		input.MaxSharesPerUser = groupBuyMaxShareCount
@@ -2843,10 +2858,6 @@ func (s *GroupBuyService) validatePlanInput(ctx context.Context, input *GroupBuy
 	input.LaunchMode = normalizeGroupBuyLaunchMode(input.LaunchMode)
 	input.RefundMode = normalizeGroupBuyRefundMode(input.RefundMode)
 	input.Status = normalizeGroupBuyPlanStatus(input.Status)
-	input.FulfillmentMode = normalizeGroupBuyFulfillmentMode(input.FulfillmentMode)
-	if input.FulfillmentMode == "" {
-		return infraerrors.BadRequest("INVALID_INPUT", "invalid fulfillment_mode")
-	}
 	input.TierRules = normalizeTierRuleInputs(input.TotalShares, input.TargetGroupID, input.TierRules, input.TierGroups, input.TierGroupIDs)
 	if err := validateTierRuleShape(input.TierRules, input.TotalShares); err != nil {
 		return err
@@ -2857,6 +2868,12 @@ func (s *GroupBuyService) validatePlanInput(ctx context.Context, input *GroupBuy
 		input.TargetGroupID = input.TierRules[len(input.TierRules)-1].TargetGroupID
 	}
 	if input.FulfillmentMode == CafeRoomFulfillmentMode {
+		if input.MaxBuyers > input.TotalShares {
+			return infraerrors.BadRequest("INVALID_ROOM_PLAN", "max_buyers cannot exceed total_shares")
+		}
+		if input.MaxSharesPerUser > input.TotalShares {
+			return infraerrors.BadRequest("INVALID_ROOM_PLAN", "max_shares_per_user cannot exceed total_shares")
+		}
 		if len(input.TierRules) != 1 || input.TierRules[0].MinShares != groupBuyMinShareCount || input.TierRules[0].MaxShares != input.TotalShares || input.TierRules[0].TargetGroupID != input.TargetGroupID {
 			return ErrGroupBuyTierMappingInvalid
 		}
@@ -3285,6 +3302,7 @@ func (s *GroupBuyService) planView(ctx context.Context, p *dbent.GroupBuyPlan) G
 		PriceLabel:         p.PriceLabel,
 		QuotaPerShareLabel: p.QuotaPerShareLabel,
 		QuotaLabel:         p.QuotaPerShareLabel,
+		MaxBuyers:          p.MaxBuyers,
 		MaxSharesPerUser:   p.MaxSharesPerUser,
 		TargetGroupID:      p.TargetGroupID,
 		FulfillmentMode:    p.FulfillmentMode,

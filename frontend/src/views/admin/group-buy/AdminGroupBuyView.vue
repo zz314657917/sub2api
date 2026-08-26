@@ -157,8 +157,12 @@
                 <div class="admin-group-buy-readonly-field">网吧房间</div>
               </label>
               <label>
-                <span>房间人数上限（1=独享）</span>
+                <span>房间总份额</span>
                 <input v-model.number="planForm.total_shares" type="number" min="1" max="10" required />
+              </label>
+              <label>
+                <span>最多参与人数（1=独享）</span>
+                <input v-model.number="planForm.max_buyers" type="number" min="1" :max="planForm.total_shares" required />
               </label>
               <label>
                 <span>单份价格</span>
@@ -170,7 +174,7 @@
               </label>
               <label>
                 <span>每用户最大份额</span>
-                <input v-model.number="planForm.max_shares_per_user" type="number" min="1" max="10" required />
+                <input v-model.number="planForm.max_shares_per_user" type="number" min="1" :max="planForm.total_shares" required />
               </label>
               <label>
                 <span>有效期天数</span>
@@ -366,6 +370,7 @@ const planForm = reactive({
   price_per_share: 0,
   price_label: '',
   quota_per_share_label: '',
+  max_buyers: 4,
   max_shares_per_user: 10,
   target_group_id: 0,
   fulfillment_mode: 'room_subscription' as GroupBuyFulfillmentMode,
@@ -394,8 +399,10 @@ const canSubmitPlan = computed(() =>
   && planForm.total_shares > 0
   && planForm.total_shares <= 10
   && planForm.price_per_share > 0
+  && planForm.max_buyers > 0
+  && planForm.max_buyers <= planForm.total_shares
   && planForm.max_shares_per_user > 0
-  && planForm.max_shares_per_user <= 10
+  && planForm.max_shares_per_user <= planForm.total_shares
   && planForm.validity_days > 0
   && planForm.timeout_minutes >= 5
   && planForm.target_group_id > 0
@@ -469,6 +476,7 @@ function openEditPlan(plan: GroupBuyPlan) {
     price_per_share: pricePerShare(plan),
     price_label: plan.price_label || '',
     quota_per_share_label: plan.quota_per_share_label || plan.quota_label || '',
+    max_buyers: plan.max_buyers || Math.min(totalShares(plan), 4),
     max_shares_per_user: plan.max_shares_per_user || 10,
     target_group_id: targetGroupID,
     fulfillment_mode: 'room_subscription',
@@ -500,6 +508,7 @@ function resetPlanForm() {
     price_per_share: 0,
     price_label: '',
     quota_per_share_label: '单份月额度待填写',
+    max_buyers: 4,
     max_shares_per_user: 10,
     target_group_id: firstGroupID,
     fulfillment_mode: 'room_subscription',
@@ -540,6 +549,7 @@ function buildPlanPayload(): GroupBuyPlanPayload {
     price_label: planForm.price_label.trim(),
     quota_per_share_label: planForm.quota_per_share_label.trim(),
     quota_label: planForm.quota_per_share_label.trim(),
+    max_buyers: Number(planForm.max_buyers),
     max_shares_per_user: Number(planForm.max_shares_per_user),
     target_group_id: Number(planForm.target_group_id),
     fulfillment_mode: 'room_subscription',
@@ -717,7 +727,7 @@ function totalShares(plan: GroupBuyPlan): number {
 function capacityLabel(plan: GroupBuyPlan): string {
   const total = totalShares(plan)
   if (!isRoomPlan(plan)) return `总 ${total} 份`
-  return total === 1 ? '独享房间' : `${total} 人共享`
+  return plan.max_buyers === 1 ? `${total} 份 · 独享房间` : `${total} 份 · 最多 ${plan.max_buyers} 人`
 }
 
 function buildTierRule(minShares: number, maxShares: number, groupID: number, label: string): GroupBuyTier {
