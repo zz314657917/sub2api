@@ -2,8 +2,9 @@
 
 Source range: `22e1b8144..2abce6503` (manual adaptation retry).
 
-No commit was created. The task worktree remains clean at `1696c7281` with no
-product or workflow file changes.
+No product commit was created. Workflow evidence was recorded in commit
+`8d462fa1b71f2b72ebd7261e5b62c8521f2e5e6c`. The task worktree is clean at
+`1696c7281` apart from that evidence commit.
 
 Attempted command:
 
