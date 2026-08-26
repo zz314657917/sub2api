@@ -2732,6 +2732,15 @@ func (s *OpenAIGatewayService) handleFailoverSideEffects(ctx context.Context, re
 // Forward forwards request to OpenAI API
 func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, account *Account, body []byte) (*OpenAIForwardResult, error) {
 	startTime := time.Now()
+	ClearActualOpenAIUpstreamEndpoint(c)
+	if account != nil {
+		switch {
+		case account.IsAnthropicProtocol():
+			SetActualOpenAIUpstreamEndpoint(c, "/v1/messages")
+		case account.Type == AccountTypeAPIKey && !openai_compat.ShouldUseResponsesAPI(account.Extra):
+			SetActualOpenAIUpstreamEndpoint(c, "/v1/chat/completions")
+		}
+	}
 	clearOpenAIResponsesClientToolMapping(c)
 	stageCodexAccountIdentityOriginalPromptCacheKey(c, "")
 	if _, err := s.prepareCodexAccountIdentitySource(ctx, c, account); err != nil {

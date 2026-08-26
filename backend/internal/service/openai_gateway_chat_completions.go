@@ -61,6 +61,15 @@ func (s *OpenAIGatewayService) ForwardAsChatCompletions(
 	promptCacheKey string,
 	defaultMappedModel string,
 ) (*OpenAIForwardResult, error) {
+	ClearActualOpenAIUpstreamEndpoint(c)
+	if account != nil {
+		switch {
+		case account.IsAnthropicProtocol():
+			SetActualOpenAIUpstreamEndpoint(c, "/v1/messages")
+		case account.Platform == PlatformGrok || (account.Type == AccountTypeAPIKey && !openai_compat.ShouldUseResponsesAPI(account.Extra)):
+			SetActualOpenAIUpstreamEndpoint(c, "/v1/chat/completions")
+		}
+	}
 	if _, err := s.prepareCodexAccountIdentitySource(ctx, c, account); err != nil {
 		return nil, err
 	}

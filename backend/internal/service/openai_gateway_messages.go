@@ -34,6 +34,10 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	promptCacheKey string,
 	defaultMappedModel string,
 ) (*OpenAIForwardResult, error) {
+	ClearActualOpenAIUpstreamEndpoint(c)
+	if account != nil && account.IsAnthropicProtocol() {
+		SetActualOpenAIUpstreamEndpoint(c, "/v1/messages")
+	}
 	if _, err := s.prepareCodexAccountIdentitySource(ctx, c, account); err != nil {
 		return nil, err
 	}

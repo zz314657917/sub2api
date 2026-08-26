@@ -336,3 +336,18 @@ func TestGetUpstreamEndpoint_FullFlow(t *testing.T) {
 	got := GetUpstreamEndpoint(c, service.PlatformOpenAI)
 	require.Equal(t, "/v1/responses/compact", got)
 }
+
+func TestGetUpstreamEndpointPrefersActualOpenAIEndpoint(t *testing.T) {
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, EndpointResponses, nil)
+	c.Set(ctxKeyInboundEndpoint, EndpointResponses)
+	service.SetActualOpenAIUpstreamEndpoint(c, EndpointChatCompletions)
+
+	require.Equal(t, EndpointChatCompletions, GetUpstreamEndpoint(c, service.PlatformOpenAI))
+	require.Equal(t, EndpointChatCompletions, GetUpstreamEndpoint(c, service.PlatformGrok))
+	require.Equal(t, EndpointChatCompletions, GetUpstreamEndpoint(c, service.PlatformKimi))
+	// The override belongs only to OpenAI-compatible paths. An Anthropic
+	// request must retain its own protocol-derived endpoint.
+	require.Equal(t, EndpointMessages, GetUpstreamEndpoint(c, service.PlatformAnthropic))
+}

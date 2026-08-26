@@ -290,6 +290,15 @@ func GetInboundEndpoint(c *gin.Context) string {
 // and the account platform. Handlers call this after scheduling an
 // account, passing account.Platform.
 func GetUpstreamEndpoint(c *gin.Context, platform string) string {
+	// OpenAI compatibility paths may fall back from Responses to raw Chat
+	// Completions (or native Messages). In those cases the inbound route alone
+	// cannot identify the endpoint that actually failed; prefer the service
+	// layer's request-scoped observation when available.
+	if platform == service.PlatformOpenAI || platform == service.PlatformGrok || service.IsCNProvider(platform) {
+		if endpoint := service.GetActualOpenAIUpstreamEndpoint(c); endpoint != "" {
+			return endpoint
+		}
+	}
 	inbound := GetInboundEndpoint(c)
 	rawPath := ""
 	if c != nil && c.Request != nil && c.Request.URL != nil {
