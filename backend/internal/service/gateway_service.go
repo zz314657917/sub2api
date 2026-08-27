@@ -9673,7 +9673,8 @@ func (s *GatewayService) calculateImageCost(
 	return s.billingService.CalculateImageCost(billingModel, sizeTier, result.ImageCount, groupConfig, multiplier)
 }
 
-// calculateTokenCost 计算 Token 计费：根据 opts 决定走普通/长上下文/渠道统一计费。
+// calculateTokenCost 计算 Token 计费：路径选择统一交给 BillingService，保证显式定价、
+// Gemini 旧规则和分组长上下文开关使用相同的优先级。
 func (s *GatewayService) calculateTokenCost(
 	ctx context.Context,
 	result *ForwardResult,
@@ -9693,38 +9694,51 @@ func (s *GatewayService) calculateTokenCost(
 		ImageOutputTokens:     result.Usage.ImageOutputTokens,
 	}
 
-	var cost *CostBreakdown
-	var err error
-
-	// 优先尝试渠道定价 → CalculateCostUnified
-	if resolved := s.resolveChannelPricing(ctx, billingModel, apiKey); resolved != nil {
-		gid := apiKey.Group.ID
-		rateMultiplier := tokenMultiplier
-		if resolved.Mode == BillingModePerRequest || resolved.Mode == BillingModeImage {
-			rateMultiplier = perRequestMultiplier
-		}
-		cost, err = s.billingService.CalculateCostUnified(CostInput{
-			Ctx:            ctx,
-			Model:          billingModel,
-			GroupID:        &gid,
-			Group:          apiKey.Group,
-			Tokens:         tokens,
-			RequestCount:   1,
-			RateMultiplier: rateMultiplier,
-			Resolver:       s.resolver,
-			Resolved:       resolved,
-		})
-	} else if opts.LongContextThreshold > 0 {
-		// 长上下文双倍计费（如 Gemini 200K 阈值）
-		cost, err = s.billingService.CalculateCostWithLongContext(billingModel, tokens, tokenMultiplier, opts.LongContextThreshold, opts.LongContextMultiplier)
-	} else {
-		cost, err = s.billingService.CalculateCost(billingModel, tokens, tokenMultiplier)
+	var resolved *ResolvedPricing
+	var group *Group
+	if apiKey != nil {
+		group = apiKey.Group
 	}
+	if s.resolver != nil && group != nil {
+		groupID := group.ID
+		resolved = s.resolver.Resolve(ctx, PricingInput{Model: billingModel, GroupID: &groupID, Group: group})
+	}
+
+	rateMultiplier := tokenMultiplier
+	if resolved != nil && (resolved.Mode == BillingModePerRequest || resolved.Mode == BillingModeImage) {
+		rateMultiplier = perRequestMultiplier
+	}
+	var legacy *LegacyLongContextRule
+	if opts != nil && opts.LongContextThreshold > 0 {
+		legacy = &LegacyLongContextRule{
+			Threshold:  opts.LongContextThreshold,
+			Multiplier: opts.LongContextMultiplier,
+		}
+	}
+
+	cost, err := s.billingService.CalculateTokenCostForRequest(TokenCostRequest{
+		Ctx:               ctx,
+		Model:             billingModel,
+		Group:             group,
+		Tokens:            tokens,
+		RateMultiplier:    rateMultiplier,
+		Resolver:          s.resolver,
+		Resolved:          resolved,
+		LegacyLongContext: legacy,
+	})
 	if err != nil {
 		logger.LegacyPrintf("service.gateway", "Calculate cost failed: %v", err)
 		return &CostBreakdown{ActualCost: 0}
 	}
 	return cost
+}
+
+// LegacyLongContextRule exposes BillingService's platform rule to handlers.
+func (s *GatewayService) LegacyLongContextRule(platform string) *LegacyLongContextRule {
+	if s == nil || s.billingService == nil {
+		return nil
+	}
+	return s.billingService.LegacyLongContextRule(platform)
 }
 
 // buildRecordUsageLog 构建使用日志并设置计费模式。
