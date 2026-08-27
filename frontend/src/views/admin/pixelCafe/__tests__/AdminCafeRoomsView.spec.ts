@@ -11,6 +11,7 @@ const {
   removeRoom,
   bulkCreate,
   openRound,
+  pauseRound,
   listAccountOptions,
   listPendingRounds,
   listRoundAccountOptions,
@@ -27,6 +28,7 @@ const {
   removeRoom: vi.fn(),
   bulkCreate: vi.fn(),
   openRound: vi.fn(),
+  pauseRound: vi.fn(),
   listAccountOptions: vi.fn(),
   listPendingRounds: vi.fn(),
   listRoundAccountOptions: vi.fn(),
@@ -53,6 +55,7 @@ vi.mock('@/api/admin', () => ({
       remove: removeRoom,
       bulkCreate,
       openRound,
+      pauseRound,
     },
     groups: { getAll: getAllGroups },
   },
@@ -89,10 +92,19 @@ const labels: Record<string, string> = {
   'admin.pixelCafe.actions.edit': '编辑',
   'admin.pixelCafe.actions.openRound': '开团',
   'admin.pixelCafe.actions.openingRound': '开团中',
+  'admin.pixelCafe.actions.pauseRound': '暂停',
+  'admin.pixelCafe.actions.pausingRound': '暂停中',
+  'admin.pixelCafe.actions.awaitingAccount': '待配号',
+  'admin.pixelCafe.actions.activating': '开通中',
+  'admin.pixelCafe.actions.active': '使用中',
+  'admin.pixelCafe.actions.refunding': '退款中',
   'admin.pixelCafe.actions.delete': '删除',
   'admin.pixelCafe.form.createTitle': '新建房间',
   'admin.pixelCafe.form.editTitle': '编辑房间',
   'admin.pixelCafe.form.save': '保存房间',
+  'admin.pixelCafe.form.sortOrder': '优先级',
+  'admin.pixelCafe.form.sortOrderHint': '数值越小越靠前。',
+  'admin.pixelCafe.columns.sortOrder': '优先级',
   'admin.pixelCafe.bulk.title': '批量创建房间',
   'admin.pixelCafe.bulk.submit': '开始创建',
   'admin.pixelCafe.accountDeferred': '成团后配号',
@@ -105,6 +117,7 @@ const labels: Record<string, string> = {
   'admin.pixelCafe.success.updated': '房间已更新',
   'admin.pixelCafe.success.deleted': '房间已删除',
   'admin.pixelCafe.success.roundOpened': 'open Round 已创建',
+  'admin.pixelCafe.success.roundPaused': '空团次已暂停',
   'common.cancel': '取消',
   'common.close': '关闭',
 }
@@ -134,6 +147,7 @@ const DataTableStub = defineComponent({
         <slot name="cell-plan" :row="row" />
         <slot name="cell-account" :row="row" />
         <slot name="cell-status" :row="row" />
+        <slot name="cell-sort_order" :row="row" />
         <slot name="cell-actions" :row="row" />
       </div>
       <slot v-if="data.length === 0" name="empty" />
@@ -241,6 +255,7 @@ describe('AdminCafeRoomsView', () => {
     updateRoom.mockReset().mockResolvedValue({ data: room() })
     removeRoom.mockReset().mockResolvedValue({ data: { message: 'ok' } })
     openRound.mockReset().mockResolvedValue({ data: { id: 81, status: 'open' } })
+    pauseRound.mockReset().mockResolvedValue({ data: { id: 81, status: 'cancelled' } })
     bulkCreate.mockReset().mockResolvedValue({ data: {
       created: [{ room: room() }],
       failed: [{ index: 2, error_code: 'CAFE_ROOM_CREATE_FAILED', message: 'failed' }],
@@ -257,11 +272,15 @@ describe('AdminCafeRoomsView', () => {
     expect(listAccountOptions).not.toHaveBeenCalled()
     expect(wrapper.text()).toContain('OpenAI 七号房')
     expect(wrapper.text()).toContain('成团后配号')
+    expect(wrapper.text()).toContain('7')
 
     const createButton = wrapper.findAll('button').find((button) => button.text().includes('新建房间'))
     await createButton?.trigger('click')
     expect(wrapper.text()).toContain('ChatGPT Plus')
     expect(wrapper.text()).toContain('托管订阅分组')
+    expect(wrapper.text()).toContain('优先级')
+    expect(wrapper.text()).toContain('数值越小越靠前')
+    expect(wrapper.find('#cafe-room-form input[type="checkbox"]').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('选择 Room 计划')
   })
 
@@ -331,6 +350,28 @@ describe('AdminCafeRoomsView', () => {
     await wrapper.findAll('button').find((button) => button.text().trim() === '开团')?.trigger('click')
     await flushPromises()
     expect(openRound).toHaveBeenCalledWith(7)
+  })
+
+  it('shows pause for an open round and display-only labels for later states', async () => {
+    const openRoom = room()
+    openRoom.plan.current_round_status = 'open'
+    listRooms.mockResolvedValue({ data: { items: [openRoom], total: 1, page: 1, page_size: 20, pages: 1 } })
+    const wrapper = mountView()
+    await flushPromises()
+
+    const pauseButton = wrapper.findAll('button').find((button) => button.text().trim() === '暂停')
+    expect(pauseButton?.attributes('disabled')).toBeUndefined()
+    await pauseButton?.trigger('click')
+    await flushPromises()
+    expect(pauseRound).toHaveBeenCalledWith(7)
+
+    const activeRoom = room()
+    activeRoom.plan.current_round_status = 'active'
+    listRooms.mockResolvedValue({ data: { items: [activeRoom], total: 1, page: 1, page_size: 20, pages: 1 } })
+    await wrapper.findAll('button').find((button) => button.attributes('title') === '刷新')?.trigger('click')
+    await flushPromises()
+    const activeButton = wrapper.findAll('button').find((button) => button.text().trim() === '使用中')
+    expect(activeButton?.attributes('disabled')).toBeDefined()
   })
 
   it('updates and deletes a non-enabled room through the S145 endpoints', async () => {

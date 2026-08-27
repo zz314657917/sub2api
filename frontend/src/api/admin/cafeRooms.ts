@@ -96,6 +96,10 @@ const cafeRoomsAPI = {
     return apiClient.post<CafeRound>(`/admin/cafe/rooms/${id}/open-round`)
   },
 
+  pauseRound(id: number) {
+    return apiClient.post<CafeRound>(`/admin/cafe/rooms/${id}/pause-round`)
+  },
+
   listPendingRounds(params?: { page?: number; page_size?: number; search?: string }) {
     return apiClient.get<PaginatedResponse<CafePendingRound>>('/admin/cafe/rounds/pending', { params })
   },

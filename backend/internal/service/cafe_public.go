@@ -63,16 +63,21 @@ func newCafePublicService(entClient *dbent.Client, settings CafePublicSettings, 
 }
 
 type CafePublicPlan struct {
-	ID               int64   `json:"id"`
-	Title            string  `json:"title"`
-	Description      string  `json:"description"`
-	PricePerShare    float64 `json:"price_per_share"`
-	PriceLabel       string  `json:"price_label"`
-	ValidityDays     int     `json:"validity_days"`
-	SubscriptionTier string  `json:"subscription_tier"`
-	TotalShares      int     `json:"total_shares"`
-	MaxBuyers        int     `json:"max_buyers"`
-	MaxSharesPerUser int     `json:"max_shares_per_user"`
+	ID                 int64   `json:"id"`
+	Title              string  `json:"title"`
+	Description        string  `json:"description"`
+	PricePerShare      float64 `json:"price_per_share"`
+	PriceLabel         string  `json:"price_label"`
+	ValidityDays       int     `json:"validity_days"`
+	SubscriptionTier   string  `json:"subscription_tier"`
+	TotalShares        int     `json:"total_shares"`
+	MaxBuyers          int     `json:"max_buyers"`
+	MaxSharesPerUser   int     `json:"max_shares_per_user"`
+	QuotaPerShareLabel string  `json:"quota_per_share_label"`
+	RoomKeyQuotaUsd    float64 `json:"room_key_quota_usd"`
+	RoomKeyRateLimit5h float64 `json:"room_key_rate_limit_5h"`
+	RoomKeyRateLimit1d float64 `json:"room_key_rate_limit_1d"`
+	RoomKeyRateLimit7d float64 `json:"room_key_rate_limit_7d"`
 }
 
 type CafePublicRound struct {
@@ -710,7 +715,7 @@ func (s *CafePublicService) listVisibleRoomEntities(ctx context.Context, page, p
 		query.Where(caferoom.FeaturedEQ(*featured))
 	}
 	rooms, err := query.
-		Order(dbent.Desc(caferoom.FieldFeatured), dbent.Asc(caferoom.FieldSortOrder), dbent.Asc(caferoom.FieldID)).
+		Order(dbent.Asc(caferoom.FieldSortOrder), dbent.Asc(caferoom.FieldID)).
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).
 		WithPlan().
@@ -800,16 +805,21 @@ func publicCafeRoom(room *dbent.CafeRoom, userID int64, now time.Time) CafePubli
 	plan := room.Edges.Plan
 	totalShares, tier, maxBuyers, maxSharesPerUser := publicCafePlanPolicy(plan)
 	publicPlan := CafePublicPlan{
-		ID:               plan.ID,
-		Title:            plan.Title,
-		Description:      cafeString(plan.Description),
-		PricePerShare:    plan.PricePerShare,
-		PriceLabel:       plan.PriceLabel,
-		ValidityDays:     plan.ValidityDays,
-		SubscriptionTier: tier,
-		TotalShares:      totalShares,
-		MaxBuyers:        maxBuyers,
-		MaxSharesPerUser: maxSharesPerUser,
+		ID:                 plan.ID,
+		Title:              plan.Title,
+		Description:        cafeString(plan.Description),
+		PricePerShare:      plan.PricePerShare,
+		PriceLabel:         plan.PriceLabel,
+		ValidityDays:       plan.ValidityDays,
+		SubscriptionTier:   tier,
+		TotalShares:        totalShares,
+		MaxBuyers:          maxBuyers,
+		MaxSharesPerUser:   maxSharesPerUser,
+		QuotaPerShareLabel: plan.QuotaPerShareLabel,
+		RoomKeyQuotaUsd:    plan.RoomKeyQuotaUsd,
+		RoomKeyRateLimit5h: plan.RoomKeyRateLimit5h,
+		RoomKeyRateLimit1d: plan.RoomKeyRateLimit1d,
+		RoomKeyRateLimit7d: plan.RoomKeyRateLimit7d,
 	}
 	result := CafePublicRoom{
 		ID:            room.ID,

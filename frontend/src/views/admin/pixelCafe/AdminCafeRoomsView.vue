@@ -120,10 +120,8 @@
               {{ t(`admin.pixelCafe.status.${row.status}`) }}
             </span>
           </template>
-          <template #cell-featured="{ row }">
-            <span class="text-sm" :class="row.featured ? 'text-amber-600 dark:text-amber-300' : 'text-gray-500 dark:text-dark-400'">
-              {{ row.featured ? t('admin.pixelCafe.featured') : t('admin.pixelCafe.notFeatured') }}
-            </span>
+          <template #cell-sort_order="{ row }">
+            <span class="font-mono text-sm text-gray-700 dark:text-gray-300">{{ row.sort_order }}</span>
           </template>
           <template #cell-actions="{ row }">
             <div class="flex min-w-56 flex-wrap items-center gap-2">
@@ -134,11 +132,11 @@
               <button
                 type="button"
                 class="btn btn-secondary btn-sm"
-                :disabled="row.status !== 'enabled' || openingRoundId === row.id"
-                @click="openRound(row)"
+                :disabled="!canOperateRound(row) || roundActionBusy(row)"
+                @click="handleRoundAction(row)"
               >
                 <Icon name="play" size="sm" class="mr-1" />
-                {{ openingRoundId === row.id ? t('admin.pixelCafe.actions.openingRound') : t('admin.pixelCafe.actions.openRound') }}
+                {{ roundActionLabel(row) }}
               </button>
               <button
                 type="button"
@@ -269,7 +267,8 @@
           </label>
           <label class="field">
             <span class="input-label">{{ t('admin.pixelCafe.form.sortOrder') }}</span>
-            <input v-model.number="roomForm.sort_order" class="input" type="number" min="0" />
+            <input v-model.number="roomForm.sort_order" class="input" type="number" step="1" />
+            <span class="field-hint">{{ t('admin.pixelCafe.form.sortOrderHint') }}</span>
           </label>
         </div>
         <section class="space-y-4 rounded-lg border border-gray-200 p-4 dark:border-dark-700" data-testid="room-owned-plan-fields">
@@ -299,10 +298,6 @@
             <label class="field sm:col-span-2 lg:col-span-4"><span class="input-label">用户协议</span><textarea v-model.trim="roomForm.plan!.agreement_text" class="input min-h-20" :disabled="commercialLocked" maxlength="4000" /></label>
           </div>
         </section>
-        <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-          <input v-model="roomForm.featured" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600" />
-          {{ t('admin.pixelCafe.form.featured') }}
-        </label>
       </form>
       <template #footer>
         <div class="flex justify-end gap-3">
@@ -445,6 +440,7 @@ const editingRoom = ref<CafeRoom | null>(null)
 const saving = ref(false)
 const bulkSaving = ref(false)
 const openingRoundId = ref<number | null>(null)
+const pausingRoundId = ref<number | null>(null)
 const deletingId = ref<number | null>(null)
 const roomToDelete = ref<CafeRoom | null>(null)
 const bulkResult = ref<CafeRoomBulkResult | null>(null)
@@ -490,7 +486,7 @@ const columns = computed<Column[]>(() => [
   { key: 'plan', label: t('admin.pixelCafe.columns.plan') },
   { key: 'account', label: t('admin.pixelCafe.columns.account') },
   { key: 'status', label: t('admin.pixelCafe.columns.status'), sortable: true },
-  { key: 'featured', label: t('admin.pixelCafe.columns.featured') },
+  { key: 'sort_order', label: t('admin.pixelCafe.columns.sortOrder') },
   { key: 'actions', label: t('admin.pixelCafe.columns.actions') },
 ])
 
@@ -724,6 +720,53 @@ async function openRound(room: CafeRoom) {
   } finally {
     openingRoundId.value = null
   }
+}
+
+async function pauseRound(room: CafeRoom) {
+  pausingRoundId.value = room.id
+  try {
+    await adminAPI.cafeRooms.pauseRound(room.id)
+    appStore.showSuccess(t('admin.pixelCafe.success.roundPaused'))
+    await loadRooms()
+  } catch (error) {
+    appStore.showError(extractApiErrorMessage(error, t('admin.pixelCafe.errors.pauseRound')))
+  } finally {
+    pausingRoundId.value = null
+  }
+}
+
+function roundStatus(room: CafeRoom): string {
+  return room.plan?.current_round_status || ''
+}
+
+function canOperateRound(room: CafeRoom): boolean {
+  return room.status === 'enabled' && (roundStatus(room) === '' || roundStatus(room) === 'open')
+}
+
+function roundActionBusy(room: CafeRoom): boolean {
+  return openingRoundId.value === room.id || pausingRoundId.value === room.id
+}
+
+function roundActionLabel(room: CafeRoom): string {
+  if (openingRoundId.value === room.id) return t('admin.pixelCafe.actions.openingRound')
+  if (pausingRoundId.value === room.id) return t('admin.pixelCafe.actions.pausingRound')
+  switch (roundStatus(room)) {
+    case 'open': return t('admin.pixelCafe.actions.pauseRound')
+    case 'awaiting_account': return t('admin.pixelCafe.actions.awaitingAccount')
+    case 'activating': return t('admin.pixelCafe.actions.activating')
+    case 'active': return t('admin.pixelCafe.actions.active')
+    case 'refunding': return t('admin.pixelCafe.actions.refunding')
+    default: return t('admin.pixelCafe.actions.openRound')
+  }
+}
+
+function handleRoundAction(room: CafeRoom) {
+  if (roundActionBusy(room)) return
+  if (roundStatus(room) === 'open') {
+    void pauseRound(room)
+    return
+  }
+  if (roundStatus(room) === '') void openRound(room)
 }
 
 async function submitBulkCreate() {

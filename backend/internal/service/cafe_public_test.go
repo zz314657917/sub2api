@@ -46,7 +46,14 @@ func TestCafePublicServiceListsOnlyEnabledRoomPlansAndRedactsOperations(t *testi
 	client := newCafePublicTestClient(t, "cafe_public_list")
 	groupID := createGroupBuyTestGroup(t, ctx, client, 1, 100)
 	roomPlan := createGroupBuyTestPlan(t, ctx, client, groupID, GroupBuyLaunchModeManual, 3)
-	_, err := client.GroupBuyPlan.UpdateOneID(roomPlan.ID).SetFulfillmentMode(CafeRoomFulfillmentMode).Save(ctx)
+	_, err := client.GroupBuyPlan.UpdateOneID(roomPlan.ID).
+		SetFulfillmentMode(CafeRoomFulfillmentMode).
+		SetQuotaPerShareLabel("每份独立 Key 额度").
+		SetRoomKeyQuotaUsd(500).
+		SetRoomKeyRateLimit5h(0).
+		SetRoomKeyRateLimit1d(0).
+		SetRoomKeyRateLimit7d(100).
+		Save(ctx)
 	require.NoError(t, err)
 
 	room, err := client.CafeRoom.Create().
@@ -103,6 +110,11 @@ func TestCafePublicServiceListsOnlyEnabledRoomPlansAndRedactsOperations(t *testi
 	require.Equal(t, int64(1), page.Total)
 	require.Len(t, rooms, 1)
 	require.Equal(t, room.ID, rooms[0].ID)
+	require.Equal(t, "每份独立 Key 额度", rooms[0].Plan.QuotaPerShareLabel)
+	require.Equal(t, float64(500), rooms[0].Plan.RoomKeyQuotaUsd)
+	require.Zero(t, rooms[0].Plan.RoomKeyRateLimit5h)
+	require.Zero(t, rooms[0].Plan.RoomKeyRateLimit1d)
+	require.Equal(t, float64(100), rooms[0].Plan.RoomKeyRateLimit7d)
 	require.Equal(t, "available", rooms[0].PurchaseState)
 	require.Len(t, rooms[0].SeatVisuals, 3)
 	require.Equal(t, "paid", rooms[0].SeatVisuals[0].State)
@@ -134,7 +146,7 @@ func TestCafePublicServiceListsOnlyEnabledRoomPlansAndRedactsOperations(t *testi
 	require.Equal(t, "今日使用用户", overview.Lobby.Label)
 }
 
-func TestCafePublicServiceOverviewIncludesNonFeaturedRoomsAndOrdersFeaturedFirst(t *testing.T) {
+func TestCafePublicServiceOverviewOrdersByPriorityInsteadOfFeatured(t *testing.T) {
 	ctx := context.Background()
 	client := newCafePublicTestClient(t, "cafe_public_overview_all_rooms")
 	groupID := createGroupBuyTestGroup(t, ctx, client, 1, 100)
@@ -149,6 +161,7 @@ func TestCafePublicServiceOverviewIncludesNonFeaturedRoomsAndOrdersFeaturedFirst
 		SetZoneKey("openai").
 		SetStatus(CafeRoomStatusEnabled).
 		SetFeatured(false).
+		SetSortOrder(10).
 		Save(ctx)
 	require.NoError(t, err)
 	featuredRoom, err := client.CafeRoom.Create().
@@ -158,6 +171,7 @@ func TestCafePublicServiceOverviewIncludesNonFeaturedRoomsAndOrdersFeaturedFirst
 		SetZoneKey("openai").
 		SetStatus(CafeRoomStatusEnabled).
 		SetFeatured(true).
+		SetSortOrder(20).
 		Save(ctx)
 	require.NoError(t, err)
 
@@ -165,10 +179,10 @@ func TestCafePublicServiceOverviewIncludesNonFeaturedRoomsAndOrdersFeaturedFirst
 	overview, err := svc.Overview(ctx, 1, 10)
 	require.NoError(t, err)
 	require.Len(t, overview.Rooms, 2)
-	require.Equal(t, featuredRoom.ID, overview.Rooms[0].ID)
-	require.Equal(t, regularRoom.ID, overview.Rooms[1].ID)
-	require.True(t, overview.Rooms[0].Featured)
-	require.False(t, overview.Rooms[1].Featured)
+	require.Equal(t, regularRoom.ID, overview.Rooms[0].ID)
+	require.Equal(t, featuredRoom.ID, overview.Rooms[1].ID)
+	require.False(t, overview.Rooms[0].Featured)
+	require.True(t, overview.Rooms[1].Featured)
 	require.Len(t, overview.Zones, 1)
 	require.Equal(t, 2, overview.Zones[0].RoomCount)
 }

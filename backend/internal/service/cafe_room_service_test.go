@@ -19,16 +19,17 @@ type cafeAccountStub struct {
 }
 
 type cafeRoomRepositoryStub struct {
-	plan           *CafeRoomPlan
-	accounts       map[int64]cafeAccountStub
-	rooms          map[int64]*CafeRoom
-	assigned       map[int64]bool
-	live           map[int64]bool
-	openRoundError map[int64]error
-	deleted        []int64
-	nextRoomID     int64
-	nextPlanID     int64
-	optionParams   CafeRoomAccountOptionParams
+	plan            *CafeRoomPlan
+	accounts        map[int64]cafeAccountStub
+	rooms           map[int64]*CafeRoom
+	assigned        map[int64]bool
+	live            map[int64]bool
+	openRoundError  map[int64]error
+	pauseRoundError map[int64]error
+	deleted         []int64
+	nextRoomID      int64
+	nextPlanID      int64
+	optionParams    CafeRoomAccountOptionParams
 }
 
 func newCafeRoomRepositoryStub() *cafeRoomRepositoryStub {
@@ -51,10 +52,11 @@ func newCafeRoomRepositoryStub() *cafeRoomRepositoryStub {
 		accounts: map[int64]cafeAccountStub{
 			1: {status: StatusActive, platform: "openai", groupIDs: []int64{20}},
 		},
-		rooms:          map[int64]*CafeRoom{},
-		assigned:       map[int64]bool{},
-		live:           map[int64]bool{},
-		openRoundError: map[int64]error{},
+		rooms:           map[int64]*CafeRoom{},
+		assigned:        map[int64]bool{},
+		live:            map[int64]bool{},
+		openRoundError:  map[int64]error{},
+		pauseRoundError: map[int64]error{},
 	}
 }
 
@@ -214,6 +216,35 @@ func (r *cafeRoomRepositoryStub) CreateOpenRound(_ context.Context, roomID int64
 		TotalSeats:        r.plan.SeatCount,
 		DeadlineAt:        now.Add(time.Hour),
 	}, nil
+}
+
+func (r *cafeRoomRepositoryStub) PauseOpenRound(_ context.Context, roomID int64, now time.Time) (*CafeRound, error) {
+	if err := r.pauseRoundError[roomID]; err != nil {
+		return nil, err
+	}
+	room := r.rooms[roomID]
+	return &CafeRound{
+		ID:          roomID + 100,
+		PlanID:      room.PlanID,
+		CafeRoomID:  &roomID,
+		Status:      GroupBuyRoundStatusCancelled,
+		TotalShares: r.plan.TotalShares,
+		TotalSeats:  r.plan.SeatCount,
+		DeadlineAt:  now.Add(time.Hour),
+	}, nil
+}
+
+func TestCafeRoomServicePausesOpenRoundThroughRepository(t *testing.T) {
+	repo := newCafeRoomRepositoryStub()
+	repo.rooms[1] = &CafeRoom{ID: 1, PlanID: repo.plan.ID, Plan: repo.plan, Status: CafeRoomStatusEnabled}
+	svc := NewCafeRoomService(repo)
+
+	paused, err := svc.PauseOpenRound(context.Background(), 1)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuyRoundStatusCancelled, paused.Status)
+
+	_, err = svc.PauseOpenRound(context.Background(), 0)
+	require.ErrorIs(t, err, ErrCafeRoomInvalid)
 }
 
 func TestCafeRoomServiceCreateValidatesStatusAndCompatibility(t *testing.T) {

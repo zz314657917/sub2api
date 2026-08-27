@@ -183,6 +183,20 @@ func (h *CafeRoomHandler) OpenRound(c *gin.Context) {
 	response.Created(c, round)
 }
 
+func (h *CafeRoomHandler) PauseRound(c *gin.Context) {
+	id, err := parseCafeRoomPositiveInt64Param(c, "id")
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	round, err := h.service.PauseOpenRound(c.Request.Context(), id)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, round)
+}
+
 func (h *CafeRoomHandler) ListPendingRounds(c *gin.Context) {
 	page, pageSize := response.ParsePagination(c)
 	items, result, err := h.activation.ListPendingRounds(c.Request.Context(), service.CafePendingRoundParams{Page: page, PageSize: pageSize, Search: strings.TrimSpace(c.Query("search"))})

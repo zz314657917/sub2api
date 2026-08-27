@@ -172,6 +172,18 @@ func (r *cafeRoomHandlerRepositoryStub) CreateOpenRound(_ context.Context, roomI
 	}, nil
 }
 
+func (r *cafeRoomHandlerRepositoryStub) PauseOpenRound(_ context.Context, roomID int64, now time.Time) (*service.CafeRound, error) {
+	return &service.CafeRound{
+		ID:          100,
+		PlanID:      r.room.PlanID,
+		CafeRoomID:  &roomID,
+		Status:      service.GroupBuyRoundStatusCancelled,
+		TotalShares: 4,
+		TotalSeats:  4,
+		DeadlineAt:  now.Add(time.Hour),
+	}, nil
+}
+
 func newCafeRoomHandlerTestRouter(repo *cafeRoomHandlerRepositoryStub) *gin.Engine {
 	handler := NewCafeRoomHandler(service.NewCafeRoomService(repo))
 	router := gin.New()
@@ -183,6 +195,7 @@ func newCafeRoomHandlerTestRouter(repo *cafeRoomHandlerRepositoryStub) *gin.Engi
 	router.PATCH("/rooms/:id", handler.Update)
 	router.DELETE("/rooms/:id", handler.Delete)
 	router.POST("/rooms/:id/open-round", handler.OpenRound)
+	router.POST("/rooms/:id/pause-round", handler.PauseRound)
 	return router
 }
 
@@ -320,6 +333,12 @@ func TestCafeRoomHandlerCreateAndOpenRoundDoNotExposeAccountSecrets(t *testing.T
 	router.ServeHTTP(openRound, openRoundReq)
 	require.Equal(t, http.StatusCreated, openRound.Code)
 	require.Contains(t, openRound.Body.String(), `"status":"open"`)
+
+	pauseRound := httptest.NewRecorder()
+	pauseRoundReq := httptest.NewRequest(http.MethodPost, "/rooms/1/pause-round", nil)
+	router.ServeHTTP(pauseRound, pauseRoundReq)
+	require.Equal(t, http.StatusOK, pauseRound.Code)
+	require.Contains(t, pauseRound.Body.String(), `"status":"cancelled"`)
 }
 
 func TestCafeRoomHandlerRejectsInvalidIDsAndStatuses(t *testing.T) {
@@ -335,6 +354,7 @@ func TestCafeRoomHandlerRejectsInvalidIDsAndStatuses(t *testing.T) {
 		{method: http.MethodPatch, path: "/rooms/nope", body: `{}`},
 		{method: http.MethodDelete, path: "/rooms/-1"},
 		{method: http.MethodPost, path: "/rooms/0/open-round"},
+		{method: http.MethodPost, path: "/rooms/0/pause-round"},
 	} {
 		recorder := httptest.NewRecorder()
 		req := httptest.NewRequest(request.method, request.path, strings.NewReader(request.body))

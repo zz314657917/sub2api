@@ -8,6 +8,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	dbgroup "github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
 	_ "github.com/Wei-Shaw/sub2api/ent/runtime"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -20,7 +21,7 @@ import (
 func TestLockCafeRoomPlanLocksAndRejectsPlanWithoutRoomFulfillment(t *testing.T) {
 	var capturedSQL string
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherFunc(func(_ string, actual string) error {
-		capturedSQL = actual
+		capturedSQL += "\n" + actual
 		return nil
 	})))
 	require.NoError(t, err)
@@ -34,10 +35,13 @@ func TestLockCafeRoomPlanLocksAndRejectsPlanWithoutRoomFulfillment(t *testing.T)
 	mock.ExpectQuery("locked cafe room plan").
 		WithArgs(int64(7)).
 		WillReturnRows(sqlmock.NewRows(groupbuyplan.Columns).AddRow(
-			int64(7), now, now, "ordinary plan", nil, "token_pinpinpin", 2, 2, 1.0, 1.0,
-			"", "", "", 1, int64(3), []byte("{}"), []byte("[]"), 30, 60, "manual",
+			int64(7), now, now, "ordinary plan", nil, "token_pinpinpin", 2, "plus", 2, 2, 1.0, 1.0,
+			"", "", "", 2, 1440, int64(3), []byte("{}"), []byte("[]"), 30, 60, "manual",
 			"aggregate_tier", 0.0, 0.0, 0.0, 0.0, false, "balance_credit", nil, "active", 0, nil, nil,
 		))
+	mock.ExpectQuery("load cafe room plan target group").
+		WithArgs(int64(3)).
+		WillReturnRows(sqlmock.NewRows(dbgroup.Columns))
 
 	_, err = lockCafeRoomPlan(context.Background(), client, 7)
 	require.ErrorIs(t, err, service.ErrCafePlanInvalid)

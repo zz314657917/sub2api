@@ -33,7 +33,7 @@ const room = {
   theme_key: 'warm_wood',
   scene_slot_key: 'claude-18',
   featured: true,
-  plan: { id: 3, title: 'ChatGPT Plus', description: '', price_per_share: 99, price_label: '99 CNY', validity_days: 30, subscription_tier: 'plus', total_shares: 5, max_buyers: 4, max_shares_per_user: 4 },
+  plan: { id: 3, title: 'ChatGPT Plus', description: '', price_per_share: 99, price_label: '99 CNY', validity_days: 30, subscription_tier: 'plus', total_shares: 5, max_buyers: 4, max_shares_per_user: 4, quota_per_share_label: '每份独立 Key 额度', room_key_quota_usd: 500, room_key_rate_limit_5h: 0, room_key_rate_limit_1d: 0, room_key_rate_limit_7d: 100 },
   round: { id: 1008, status: 'open', paid_shares: 2, reserved_shares: 0, remaining_shares: 3, max_buyers: 4, joined_buyers: 1, remaining_buyer_slots: 3, deadline_at: '2026-08-03T12:00:00Z' },
   member_avatars: [{ avatar_seed: 'member-one' }],
   purchase_state: 'available',
@@ -138,6 +138,13 @@ describe('PixelCafePage', () => {
     expect(wrapper.find('.pixel-cafe-inspector').attributes('aria-modal')).toBe('true')
     expect(wrapper.text()).toContain('周期')
     expect(wrapper.text()).toContain('30 天')
+    const limits = wrapper.get('[data-testid="pixel-cafe-purchase-limits"]')
+    expect(limits.text()).toContain('每份独立 Key 额度')
+    expect(limits.text()).toContain('总额度500.00 USD')
+    expect(limits.text()).toContain('5H 限额不限')
+    expect(limits.text()).toContain('1D 限额不限')
+    expect(limits.text()).toContain('7D 限额100.00 USD')
+    expect(limits.text()).not.toContain('月限额')
     expect(wrapper.find('[data-testid="pixel-cafe-lobby-activity"]').exists()).toBe(false)
     expect(lobbyActivity).not.toHaveBeenCalled()
     expect(wrapper.text()).not.toContain('abcdef1234567890')

@@ -5,12 +5,14 @@ import (
 	"database/sql"
 	"fmt"
 	"testing"
+	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/enttest"
 	dbgroup "github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/stretchr/testify/require"
 
@@ -154,6 +156,81 @@ func TestCafeRoomRepositoryOwnedPlanLifecycle(t *testing.T) {
 	updated, err := repo.Update(ctx, terminal)
 	require.NoError(t, err)
 	require.Equal(t, terminalPlan.PricePerShare, updated.Plan.PricePerShare)
+}
+
+func TestCafeRoomRepositoryPauseRequiresAnEmptyOpenRoundAndAllowsReopen(t *testing.T) {
+	ctx := context.Background()
+	client := newCafeOwnedPlanTestClient(t)
+	repo := NewCafeRoomRepository(client)
+	groupID := createCafeOwnedPlanGroup(t, ctx, client)
+	room, err := repo.Create(ctx, cafeOwnedPlanRoom("ROOM-PAUSE-1", groupID))
+	require.NoError(t, err)
+
+	round, err := repo.CreateOpenRound(ctx, room.ID, time.Now().UTC())
+	require.NoError(t, err)
+	user, err := client.User.Create().SetEmail("pause-test@example.com").SetPasswordHash("test").Save(ctx)
+	require.NoError(t, err)
+	seat, err := client.GroupBuySeat.Create().
+		SetRoundID(round.ID).
+		SetPlanID(room.PlanID).
+		SetUserID(user.ID).
+		SetStatus(service.GroupBuySeatStatusLocked).
+		Save(ctx)
+	require.NoError(t, err)
+
+	_, err = repo.PauseOpenRound(ctx, room.ID, time.Now().UTC())
+	require.ErrorIs(t, err, service.ErrCafeRoundNotEmpty)
+	require.Equal(t, service.CafeRoundStatusOpen, client.GroupBuyRound.GetX(ctx, round.ID).Status)
+
+	client.GroupBuySeat.UpdateOneID(seat.ID).SetStatus(service.GroupBuySeatStatusReleased).SaveX(ctx)
+	membership, err := client.CafeRoundMembership.Create().
+		SetRoundID(round.ID).
+		SetUserID(user.ID).
+		SetStatus(service.GroupBuySeatStatusPaid).
+		SetPaidShares(1).
+		Save(ctx)
+	require.NoError(t, err)
+	_, err = repo.PauseOpenRound(ctx, room.ID, time.Now().UTC())
+	require.ErrorIs(t, err, service.ErrCafeRoundNotEmpty)
+
+	client.CafeRoundMembership.UpdateOneID(membership.ID).SetPaidShares(0).SaveX(ctx)
+	pausedAt := time.Now().UTC().Truncate(time.Second)
+	paused, err := repo.PauseOpenRound(ctx, room.ID, pausedAt)
+	require.NoError(t, err)
+	require.Equal(t, service.GroupBuyRoundStatusCancelled, paused.Status)
+	stored := client.GroupBuyRound.GetX(ctx, round.ID)
+	require.Equal(t, service.GroupBuyRoundStatusCancelled, stored.Status)
+	require.NotNil(t, stored.ClosedAt)
+	require.Equal(t, "paused by administrator", *stored.CloseReason)
+
+	reopened, err := repo.CreateOpenRound(ctx, room.ID, pausedAt.Add(time.Minute))
+	require.NoError(t, err)
+	require.Equal(t, service.CafeRoundStatusOpen, reopened.Status)
+	require.NotEqual(t, round.ID, reopened.ID)
+}
+
+func TestCafeRoomRepositoryListDefaultsToPriorityInsteadOfFeatured(t *testing.T) {
+	ctx := context.Background()
+	client := newCafeOwnedPlanTestClient(t)
+	repo := NewCafeRoomRepository(client)
+	groupID := createCafeOwnedPlanGroup(t, ctx, client)
+
+	lowerPriority := cafeOwnedPlanRoom("ROOM-PRIORITY-20", groupID)
+	lowerPriority.Featured = true
+	lowerPriority.SortOrder = 20
+	createdLower, err := repo.Create(ctx, lowerPriority)
+	require.NoError(t, err)
+	higherPriority := cafeOwnedPlanRoom("ROOM-PRIORITY-10", groupID)
+	higherPriority.Featured = false
+	higherPriority.SortOrder = 10
+	createdHigher, err := repo.Create(ctx, higherPriority)
+	require.NoError(t, err)
+
+	rooms, _, err := repo.List(ctx, pagination.PaginationParams{Page: 1, PageSize: 20}, "", "", "")
+	require.NoError(t, err)
+	require.Len(t, rooms, 2)
+	require.Equal(t, createdHigher.ID, rooms[0].ID)
+	require.Equal(t, createdLower.ID, rooms[1].ID)
 }
 
 func TestCafeRoomRepositoryDeleteSoftDeletesOwnedPlan(t *testing.T) {

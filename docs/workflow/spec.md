@@ -1,5 +1,22 @@
 ---
 
+## Pixel Cafe Purchase Information And Round Controls Addendum (S270)
+
+- Public purchase details expose the existing per-share managed-Key total,
+  5H/1D/7D limits and display label. Zero means unlimited; a 30-day total is
+  not represented as a monthly-reset quota.
+- Existing `sort_order` becomes the administrator-facing priority and the
+  default public/admin ordering source (`ASC`, then room ID). The legacy
+  `featured` field remains wire-compatible but no longer outranks priority.
+- An enabled room with no live round can be opened. An `open` round can be
+  paused only while atomically proven empty of locked/paid seats and paid
+  memberships; pausing closes it as `cancelled`, performs no refund/order
+  mutation, and permits a later fresh round. Other live states are display-only
+  in this action column.
+- Schema/migrations, payment/refund execution, billing, providers, shared data,
+  containers, deployment, commit, push and `outputs/**` remain out of scope.
+  Contract: `docs/workflow/tasks/pixel-cafe-purchase-controls-s270.md`.
+
 ## Upstream OpenCode Go Reset Duration Addendum (S262)
 
 - Adapt only the parser portion of upstream `a6b11ccce`: an OpenCode Go

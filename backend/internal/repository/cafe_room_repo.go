@@ -12,9 +12,11 @@ import (
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/caferoom"
+	"github.com/Wei-Shaw/sub2api/ent/caferoundmembership"
 	dbgroup "github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -524,6 +526,86 @@ func (r *cafeRoomRepository) CreateOpenRound(ctx context.Context, roomID int64, 
 	return &converted, nil
 }
 
+func (r *cafeRoomRepository) PauseOpenRound(ctx context.Context, roomID int64, now time.Time) (*service.CafeRound, error) {
+	tx, err := r.client.Tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	txClient := tx.Client()
+	defer func() { _ = tx.Rollback() }()
+
+	roomQ := txClient.CafeRoom.Query().Where(caferoom.IDEQ(roomID), caferoom.DeletedAtIsNil())
+	if txClient.Driver().Dialect() != dialect.SQLite {
+		roomQ = roomQ.ForUpdate()
+	}
+	if _, err := roomQ.Only(ctx); err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, service.ErrCafeRoomNotFound
+		}
+		return nil, err
+	}
+
+	roundQ := txClient.GroupBuyRound.Query().Where(
+		groupbuyround.CafeRoomIDEQ(roomID),
+		groupbuyround.StatusIn(cafeCommercialLockStatuses...),
+	).Order(dbent.Desc(groupbuyround.FieldID))
+	if txClient.Driver().Dialect() != dialect.SQLite {
+		roundQ = roundQ.ForUpdate()
+	}
+	round, err := roundQ.First(ctx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, service.ErrCafeRoundNotOpen
+		}
+		return nil, err
+	}
+	if round.Status != service.CafeRoundStatusOpen {
+		return nil, service.ErrCafeRoundNotOpen
+	}
+	if round.PaidShares != 0 || round.ReservedShares != 0 || round.PaidSeats != 0 || round.ReservedSeats != 0 {
+		return nil, service.ErrCafeRoundNotEmpty
+	}
+	occupiedSeat, err := txClient.GroupBuySeat.Query().Where(
+		groupbuyseat.RoundIDEQ(round.ID),
+		groupbuyseat.StatusIn(
+			service.GroupBuySeatStatusLocked,
+			service.GroupBuySeatStatusPaid,
+			service.GroupBuySeatStatusActive,
+			service.GroupBuySeatStatusRefundPending,
+			service.GroupBuySeatStatusRefundProcessing,
+			service.GroupBuySeatStatusRefunded,
+		),
+	).Exist(ctx)
+	if err != nil {
+		return nil, err
+	}
+	occupiedMembership, err := txClient.CafeRoundMembership.Query().Where(
+		caferoundmembership.RoundIDEQ(round.ID),
+		caferoundmembership.Or(caferoundmembership.PaidSharesGT(0), caferoundmembership.ReservedSharesGT(0)),
+	).Exist(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if occupiedSeat || occupiedMembership {
+		return nil, service.ErrCafeRoundNotEmpty
+	}
+
+	updated, err := txClient.GroupBuyRound.UpdateOneID(round.ID).
+		SetStatus(service.GroupBuyRoundStatusCancelled).
+		SetClosedAt(now).
+		SetCloseReason("paused by administrator").
+		SetUpdatedAt(now).
+		Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	converted := cafeRoundToService(updated)
+	return &converted, nil
+}
+
 func createCafeRoomPlanInTx(ctx context.Context, client *dbent.Client, room *service.CafeRoom) (*dbent.GroupBuyPlan, error) {
 	if room == nil || room.Plan == nil {
 		return nil, service.ErrCafePlanInvalid
@@ -817,7 +899,7 @@ func cafeRoomListOrder(params pagination.PaginationParams) []caferoom.OrderOptio
 	sortBy := strings.ToLower(strings.TrimSpace(params.SortBy))
 	sortOrder := params.NormalizedSortOrder(pagination.SortOrderAsc)
 	if sortBy == "" {
-		return []caferoom.OrderOption{caferoom.ByFeatured(sql.OrderDesc()), caferoom.BySortOrder(sql.OrderAsc()), caferoom.ByID(sql.OrderAsc())}
+		return []caferoom.OrderOption{caferoom.BySortOrder(sql.OrderAsc()), caferoom.ByID(sql.OrderAsc())}
 	}
 	var order func(...sql.OrderTermOption) caferoom.OrderOption
 	switch sortBy {

@@ -1,13 +1,33 @@
 ---
-phase: contract-approved
-current_sprint: upstream-routed-codex-model-catalog-s265
-total_sprints: 265
-pending_action: Both the Claude runner and the platform Developer Worker failed before making a S265 worktree diff because the approved Terra model returned a zero-token model-access 404. Resolve model access or obtain explicit approval for an alternative before redispatch; preserve the user-owned Pixel Cafe changes and outputs/ in the primary worktree.
+phase: complete
+current_sprint: pixel-cafe-purchase-controls-s270
+total_sprints: 270
+pending_action: S270 is complete and locally verified. Preserve the separately blocked S265 worker state and untracked outputs/; commit, push, container or shared-data updates still require explicit authorization.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-27 12:06 +08:00
+last_verified: 2026-08-27 18:35 +08:00
 ---
+
+# Pixel Cafe Purchase Information And Round Controls S270
+
+- `PASS / contract-review`: expose existing non-sensitive per-share Key limits
+  before purchase, replace recommendation ordering with existing numeric
+  priority, and make the open-round action state-aware. A pause is authorized
+  only for an atomically empty `open` Room round and closes it as `cancelled`;
+  no paid/locked Seat, Membership, refund, order, schema, shared-data or
+  container behavior may be changed.
+- Contract:
+  `docs/workflow/tasks/pixel-cafe-purchase-controls-s270.md`.
+- `DONE / generator`: public purchase quota projection, priority ordering,
+  state-aware admin actions and the transactionally empty-only pause endpoint
+  are implemented within the allowlist.
+- `PASS / final-qa`: focused Go tests, server compile, 28 Vitest cases,
+  frontend typecheck/build and diff checks passed. No schema, payment/refund,
+  container, shared-data, commit, push, S265 worktree or `outputs/**` mutation
+  occurred. Reports:
+  `docs/workflow/worker-results/pixel-cafe-purchase-controls-s270-result.md`,
+  `docs/workflow/qa-reports/pixel-cafe-purchase-controls-s270-qa.md`.
 
 # Pixel Cafe My-Room Usage Progress S260
 

@@ -40,6 +40,8 @@ var (
 	ErrCafeAccountAssigned            = errors.Conflict("CAFE_ACCOUNT_ALREADY_ASSIGNED", "account is already assigned to another cafe room")
 	ErrCafeRoomLive                   = errors.Conflict("CAFE_ROOM_LIVE_ROUND", "room has a live round")
 	ErrCafeRoundExists                = errors.Conflict("CAFE_ROOM_OPEN_ROUND_EXISTS", "room already has a live round")
+	ErrCafeRoundNotOpen               = errors.Conflict("CAFE_ROUND_NOT_OPEN", "cafe room does not have an open round")
+	ErrCafeRoundNotEmpty              = errors.Conflict("CAFE_ROUND_NOT_EMPTY", "cafe round already has participants or payment activity")
 	ErrCafeRoomDisabled               = errors.Conflict("CAFE_ROOM_DISABLED", "disabled rooms cannot open a round")
 	ErrCafeRoomEnabled                = errors.Conflict("CAFE_ROOM_ENABLED", "enabled rooms cannot be deleted")
 	ErrCafeRoundNotAwaitingAccount    = errors.Conflict("CAFE_ROUND_NOT_AWAITING_ACCOUNT", "cafe round is not awaiting an account")
@@ -229,6 +231,7 @@ type CafeRoomRepository interface {
 	Update(ctx context.Context, room *CafeRoom) (*CafeRoom, error)
 	Delete(ctx context.Context, id int64) error
 	CreateOpenRound(ctx context.Context, roomID int64, now time.Time) (*CafeRound, error)
+	PauseOpenRound(ctx context.Context, roomID int64, now time.Time) (*CafeRound, error)
 }
 
 type CafeRoomService struct {
@@ -432,6 +435,13 @@ func (s *CafeRoomService) OpenRound(ctx context.Context, id int64) (*CafeRound, 
 		return nil, ErrCafeRoomDisabled
 	}
 	return s.repo.CreateOpenRound(ctx, id, s.now())
+}
+
+func (s *CafeRoomService) PauseOpenRound(ctx context.Context, id int64) (*CafeRound, error) {
+	if id <= 0 {
+		return nil, ErrCafeRoomInvalid
+	}
+	return s.repo.PauseOpenRound(ctx, id, s.now())
 }
 
 func (s *CafeRoomService) BulkCreate(ctx context.Context, input CafeRoomBulkInput) CafeRoomBulkResult {

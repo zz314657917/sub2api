@@ -236,6 +236,18 @@
               <div><dt>进度</dt><dd>{{ roomShareLabel(selectedRoom) }}</dd></div>
               <div><dt>周期</dt><dd>{{ selectedRoom.plan.validity_days }} 天</dd></div>
             </dl>
+            <section class="pixel-cafe-purchase-limits" data-testid="pixel-cafe-purchase-limits" aria-label="每份额度">
+              <div class="pixel-cafe-purchase-limits-heading">
+                <strong>每份额度</strong>
+                <span v-if="selectedRoom.plan.quota_per_share_label">{{ selectedRoom.plan.quota_per_share_label }}</span>
+              </div>
+              <dl>
+                <div><dt>总额度</dt><dd>{{ formatPurchaseLimit(selectedRoom.plan.room_key_quota_usd) }}</dd></div>
+                <div><dt>5H 限额</dt><dd>{{ formatPurchaseLimit(selectedRoom.plan.room_key_rate_limit_5h) }}</dd></div>
+                <div><dt>1D 限额</dt><dd>{{ formatPurchaseLimit(selectedRoom.plan.room_key_rate_limit_1d) }}</dd></div>
+                <div><dt>7D 限额</dt><dd>{{ formatPurchaseLimit(selectedRoom.plan.room_key_rate_limit_7d) }}</dd></div>
+              </dl>
+            </section>
             <template v-if="paymentPhase === 'paying'">
               <PaymentStatusPanel
                 :order-id="paymentState.orderId"
@@ -469,6 +481,11 @@ function roomTone(room: CafePublicRoom): string {
 }
 
 function tierLabel(room: CafePublicRoom): string { return room.plan.subscription_tier === 'pro' ? 'PRO' : 'PLUS' }
+function formatPurchaseLimit(value?: number): string {
+  if (value === undefined || value === null || !Number.isFinite(value)) return '暂未配置'
+  if (value <= 0) return '不限'
+  return `${value.toFixed(2)} USD`
+}
 function roomMembers(room: CafePublicRoom): CafePublicMemberAvatar[] { return room.member_avatars || [] }
 
 function roomMemberCount(room: CafePublicRoom): number {
@@ -793,4 +810,12 @@ onUnmounted(() => {
 @media (max-width: 620px) { .pixel-cafe-room-card-members { min-height: 1.05rem; padding: 0 0 0 .2rem; }.pixel-cafe-room-member-avatar { width: 1rem; height: 1rem; margin-left: -.2rem; }.pixel-cafe-room-member-more { min-width: 1rem; height: 1rem; margin-left: -.12rem; padding: 0 .12rem; font-size: .5rem; } }
 @media (max-width: 620px) { .pixel-cafe-my-room-usage { grid-template-columns: 1fr; } }
 @media (max-width: 620px) { .pixel-cafe-my-room-members { min-height: 1.3rem; }.pixel-cafe-my-room-member-avatar { width: 1.2rem; height: 1.2rem; margin-left: -.22rem; }.pixel-cafe-my-room-member-more { min-width: 1.2rem; height: 1.2rem; margin-left: -.1rem; padding: 0 .1rem; font-size: .5rem; } }
+.pixel-cafe-purchase-limits { margin: 0 0 1rem; padding: .75rem; border: 1px solid rgba(190, 213, 230, .22); background: rgba(9, 29, 45, .72); }
+.pixel-cafe-purchase-limits-heading { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; color: #f1c26f; font-size: .76rem; }
+.pixel-cafe-purchase-limits-heading span { color: #9fb2c1; font-size: .68rem; text-align: right; }
+.pixel-cafe-purchase-limits dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; margin: .65rem 0 0; }
+.pixel-cafe-purchase-limits dl div { display: flex; align-items: baseline; justify-content: space-between; gap: .45rem; padding: .45rem .5rem; border: 1px solid rgba(190, 213, 230, .16); }
+.pixel-cafe-purchase-limits dt { color: #9fb2c1; font-size: .68rem; }
+.pixel-cafe-purchase-limits dd { margin: 0; color: #eaf3fa; font: 700 .7rem/1.2 monospace; }
+@media (max-width: 420px) { .pixel-cafe-purchase-limits dl { grid-template-columns: 1fr; } }
 </style>
