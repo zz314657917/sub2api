@@ -1,12 +1,12 @@
 ---
-phase: contract-approved
+phase: build
 current_sprint: upstream-content-moderation-main-integration-s266-c
 total_sprints: 267
-pending_action: Codex Controller integrates c2cd7a0a1 then eeed2369f into unchanged local main@2a3664747 with -x provenance, verifies exact scope/patch IDs/protected outputs, then dispatches independent native gpt-5.6-terra fresh-main QA.
+pending_action: Independent native gpt-5.6-terra QA verifies the combined local main@f080bbd09 against the S266-C contract. QA may write only its evidence-worktree report; product edits, push, deployment, containers and external state remain denied.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-27 22:16 +08:00
+last_verified: 2026-08-27 22:20 +08:00
 ---
 
 # Upstream Content Moderation Parity S266
@@ -21,6 +21,12 @@ last_verified: 2026-08-27 22:16 +08:00
   product paths have zero overlap with the four-commit main delta, no product
   owner changed between S266-A and the S266-B parent, and A is an ancestor of B.
   Controller integration is authorized; any conflict or baseline drift stops it.
+- `PASS / S266-C Controller integration`: local main now contains separate
+  `-x` commits `6054b9266` (S266-A) and `f080bbd09` (S266-B). Their scopes and
+  patch IDs match the reviewed products exactly; the combined delta is the
+  expected 67 paths with zero denied paths. Index/conflict/diff gates are clean,
+  and the protected 20-file `outputs/` manifest is unchanged. Independent
+  fresh-main QA is the next gate.
 
 - `S265 / BLOCKED`: the routed Codex catalog Worker stopped twice because the
   approved baseline lacked denied Composite route/resolver prerequisites. The
