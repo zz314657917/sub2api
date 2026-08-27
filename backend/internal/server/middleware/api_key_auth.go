@@ -383,7 +383,7 @@ func setSubscriptionContext(c *gin.Context, subscription *service.UserSubscripti
 // the request model/body. It updates gin.Context and reloads subscription
 // context when the effective group changes.
 func ResolveAPIKeyForModelRequest(c *gin.Context, apiKeyService *service.APIKeyService, apiKey *service.APIKey, requestedModel string, imageIntent bool) (*service.APIKey, bool) {
-	if c == nil || apiKeyService == nil || apiKey == nil || (len(apiKey.MultiGroupRoutes) == 0 && apiKey.PinnedAccountID <= 0) {
+	if c == nil || apiKeyService == nil || apiKey == nil {
 		return apiKey, true
 	}
 	forcePlatform, _ := GetForcePlatformFromContext(c)
