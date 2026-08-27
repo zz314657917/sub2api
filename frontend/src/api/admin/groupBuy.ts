@@ -15,6 +15,8 @@ export interface GroupBuyPlanPayload {
   quota_label: string
   max_buyers: number
   max_shares_per_user: number
+  subscription_tier: 'plus' | 'pro'
+  fulfillment_timeout_minutes: number
   target_group_id: number
   fulfillment_mode: GroupBuyFulfillmentMode
   room_key_quota_usd: number

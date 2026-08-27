@@ -225,6 +225,15 @@ func (r *groupRepository) GetByIDLite(ctx context.Context, id int64) (*service.G
 }
 
 func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) error {
+	current, err := r.client.Group.Query().Where(group.IDEQ(groupIn.ID), group.DeletedAtIsNil()).Only(ctx)
+	if err != nil {
+		return translatePersistenceError(err, service.ErrGroupNotFound, nil)
+	}
+	if isPixelCafeDefaultManagedGroup(current) &&
+		(groupIn.Status != service.StatusActive || groupIn.Platform != service.PlatformOpenAI ||
+			groupIn.SubscriptionType != service.SubscriptionTypeSubscription || groupIn.AccessMode != service.CafeRoomGroupAccessMode) {
+		return service.ErrCafeDefaultGroupProtected
+	}
 	modelPricing, err := json.Marshal(groupIn.ModelPricing)
 	if err != nil {
 		return fmt.Errorf("marshal group model pricing: %w", err)
@@ -335,7 +344,14 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
 }
 
 func (r *groupRepository) Delete(ctx context.Context, id int64) error {
-	_, err := r.client.Group.Delete().Where(group.IDEQ(id)).Exec(ctx)
+	current, err := r.client.Group.Query().Where(group.IDEQ(id), group.DeletedAtIsNil()).Only(ctx)
+	if err != nil {
+		return translatePersistenceError(err, service.ErrGroupNotFound, nil)
+	}
+	if isPixelCafeDefaultManagedGroup(current) {
+		return service.ErrCafeDefaultGroupProtected
+	}
+	_, err = r.client.Group.Delete().Where(group.IDEQ(id)).Exec(ctx)
 	if err != nil {
 		return translatePersistenceError(err, service.ErrGroupNotFound, nil)
 	}
@@ -692,6 +708,9 @@ func (r *groupRepository) DeleteCascade(ctx context.Context, id int64) ([]int64,
 	g, err := r.client.Group.Query().Where(group.IDEQ(id)).Only(ctx)
 	if err != nil {
 		return nil, translatePersistenceError(err, service.ErrGroupNotFound, nil)
+	}
+	if isPixelCafeDefaultManagedGroup(g) {
+		return nil, service.ErrCafeDefaultGroupProtected
 	}
 	groupSvc := groupEntityToService(g)
 

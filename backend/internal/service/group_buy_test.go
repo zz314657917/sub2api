@@ -231,7 +231,7 @@ func TestGroupBuyAdminPlanViewExposesFulfillmentMode(t *testing.T) {
 	require.Equal(t, "room_subscription", plans[0].FulfillmentMode)
 }
 
-func TestGroupBuyAdminRoomPlanPersistsKeyPolicyAndBlocksOrdinaryRounds(t *testing.T) {
+func TestGroupBuyAdminRoomPlanWritesAreOwnedByCafeRooms(t *testing.T) {
 	ctx := context.Background()
 	client := newGroupBuyTestClient(t, "groupbuy_room_plan_policy")
 	groupID := createGroupBuyTestGroup(t, ctx, client, 1, 100)
@@ -268,23 +268,29 @@ func TestGroupBuyAdminRoomPlanPersistsKeyPolicyAndBlocksOrdinaryRounds(t *testin
 		Status:             GroupBuyPlanStatusActive,
 	}
 
-	plan, err := svc.AdminCreatePlan(ctx, input)
+	_, err := svc.AdminCreatePlan(ctx, input)
+	require.ErrorIs(t, err, ErrGroupBuyRoomPlanManagedByCafe)
+	plans, err := client.GroupBuyPlan.Query().Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, CafeRoomFulfillmentMode, plan.FulfillmentMode)
-	require.Equal(t, 10, plan.TotalShares)
-	require.Equal(t, 4, plan.MaxBuyers)
-	require.Equal(t, 10, plan.MaxSharesPerUser)
-	require.True(t, plan.AutoCreateRoomKey)
-	require.Equal(t, 25.0, plan.RoomKeyQuotaUsd)
-	require.Equal(t, 5.0, plan.RoomKeyRateLimit5h)
-	require.Equal(t, 10.0, plan.RoomKeyRateLimit1d)
-	require.Equal(t, 15.0, plan.RoomKeyRateLimit7d)
+	require.Zero(t, plans)
+}
 
-	_, err = svc.AdminCreateRound(ctx, plan.ID)
-	require.ErrorIs(t, err, ErrCafeRoundLifecycleDeferred)
-	rounds, err := client.GroupBuyRound.Query().Count(ctx)
+func TestGroupBuyAdminRoomPlanUpdateAndDeleteAreOwnedByCafeRooms(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "groupbuy_room_plan_owned_writes")
+	groupID := createGroupBuyTestGroup(t, ctx, client, 1, 100)
+	plan := createGroupBuyTestPlan(t, ctx, client, groupID, GroupBuyLaunchModeManual, 4)
+	_, err := client.GroupBuyPlan.UpdateOneID(plan.ID).SetFulfillmentMode(CafeRoomFulfillmentMode).Save(ctx)
 	require.NoError(t, err)
-	require.Zero(t, rounds)
+	svc := newGroupBuyTestService(client, newGroupBuyGroupRepoStubWithGroup(groupID), nil)
+
+	_, err = svc.AdminUpdatePlan(ctx, plan.ID, GroupBuyPlanInput{Title: "legacy API update", FulfillmentMode: "aggregate_tier"})
+	require.ErrorIs(t, err, ErrGroupBuyRoomPlanManagedByCafe)
+	require.ErrorIs(t, svc.AdminDeletePlan(ctx, plan.ID), ErrGroupBuyRoomPlanManagedByCafe)
+	reloaded, err := client.GroupBuyPlan.Get(ctx, plan.ID)
+	require.NoError(t, err)
+	require.Equal(t, CafeRoomFulfillmentMode, reloaded.FulfillmentMode)
+	require.Nil(t, reloaded.DeletedAt)
 }
 
 func TestGroupBuyAdminRoomPlanRejectsBuyerLimitAboveShares(t *testing.T) {
@@ -306,8 +312,7 @@ func TestGroupBuyAdminRoomPlanRejectsBuyerLimitAboveShares(t *testing.T) {
 		ValidityDays: 30, TimeoutMinutes: 60, FulfillmentMode: CafeRoomFulfillmentMode,
 		AutoCreateRoomKey: true, Status: GroupBuyPlanStatusActive,
 	})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "max_buyers cannot exceed total_shares")
+	require.ErrorIs(t, err, ErrGroupBuyRoomPlanManagedByCafe)
 }
 
 func TestGroupBuyAdminRoomPlanRejectsNonManagedTargetGroup(t *testing.T) {
@@ -333,7 +338,7 @@ func TestGroupBuyAdminRoomPlanRejectsNonManagedTargetGroup(t *testing.T) {
 		AutoCreateRoomKey: true,
 		Status:            GroupBuyPlanStatusActive,
 	})
-	require.ErrorIs(t, err, ErrGroupBuyTargetGroupInvalid)
+	require.ErrorIs(t, err, ErrGroupBuyRoomPlanManagedByCafe)
 }
 
 func TestGroupBuyAdminPlanCannotSwitchOrdinaryRoundsToRoom(t *testing.T) {
@@ -371,7 +376,7 @@ func TestGroupBuyAdminPlanCannotSwitchOrdinaryRoundsToRoom(t *testing.T) {
 		AutoCreateRoomKey: true,
 		Status:            GroupBuyPlanStatusActive,
 	})
-	require.ErrorIs(t, err, ErrGroupBuyPlanFulfillmentLocked)
+	require.ErrorIs(t, err, ErrGroupBuyRoomPlanManagedByCafe)
 
 	reloaded, err := client.GroupBuyPlan.Get(ctx, plan.ID)
 	require.NoError(t, err)

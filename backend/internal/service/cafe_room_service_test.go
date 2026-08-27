@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"regexp"
 	"testing"
 	"time"
 
@@ -26,6 +27,7 @@ type cafeRoomRepositoryStub struct {
 	openRoundError map[int64]error
 	deleted        []int64
 	nextRoomID     int64
+	nextPlanID     int64
 	optionParams   CafeRoomAccountOptionParams
 }
 
@@ -81,6 +83,13 @@ func (r *cafeRoomRepositoryStub) GetPlan(context.Context, int64) (*CafeRoomPlan,
 	return &copy, nil
 }
 
+func (r *cafeRoomRepositoryStub) ResolveDefaultRoomManagedGroupID(context.Context) (int64, error) {
+	if r.plan == nil || r.plan.TargetGroupID <= 0 {
+		return 0, ErrCafeGroupInvalid
+	}
+	return r.plan.TargetGroupID, nil
+}
+
 func (r *cafeRoomRepositoryStub) GetAccount(_ context.Context, id int64) (string, string, []int64, error) {
 	account, ok := r.accounts[id]
 	if !ok {
@@ -113,12 +122,63 @@ func (r *cafeRoomRepositoryStub) HasLiveRound(_ context.Context, roomID int64) (
 func (r *cafeRoomRepositoryStub) Create(_ context.Context, room *CafeRoom) (*CafeRoom, error) {
 	r.nextRoomID++
 	copy := *room
+	if copy.Plan != nil && copy.PlanID <= 0 {
+		planCopy := *copy.Plan
+		r.nextPlanID++
+		planCopy.ID = 9 + r.nextPlanID
+		planCopy.GroupPlatform = "openai"
+		planCopy.GroupAccessMode = CafeRoomGroupAccessMode
+		planCopy.TargetGroupStatus = StatusActive
+		r.plan = &planCopy
+		copy.Plan = &planCopy
+		copy.PlanID = planCopy.ID
+	}
 	copy.ID = r.nextRoomID
 	r.rooms[copy.ID] = &copy
 	if copy.AccountID != nil && (copy.Status == CafeRoomStatusEnabled || copy.Status == CafeRoomStatusMaintenance) {
 		r.assigned[*copy.AccountID] = true
 	}
 	return &copy, nil
+}
+
+func TestCafeRoomServiceCreateOwnsNestedPlusOrProPlan(t *testing.T) {
+	repo := newCafeRoomRepositoryStub()
+	created, err := NewCafeRoomService(repo).Create(context.Background(), CafeRoomInput{
+		Code: "PRO-001", Name: "Pro 独享包间", Description: "成团后配号", Status: CafeRoomStatusEnabled,
+		Plan: &CafeRoomPlanInput{
+			SubscriptionTier: "pro", TotalShares: 10, MaxBuyers: 1, MaxSharesPerUser: 10,
+			PricePerShare: 128, TimeoutMinutes: 60, FulfillmentTimeoutMinutes: 1440,
+			ValidityDays: 30, TargetGroupID: 20, RefundMode: "balance_credit",
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(10), created.PlanID)
+	require.NotNil(t, created.Plan)
+	require.Equal(t, "pro", created.Plan.SubscriptionTier)
+	require.Equal(t, "Pro 独享包间", created.Plan.Title)
+	require.Equal(t, "成团后配号", created.Plan.Description)
+	require.Equal(t, 10, created.Plan.MaxSharesPerUser)
+
+	_, err = NewCafeRoomService(newCafeRoomRepositoryStub()).Create(context.Background(), CafeRoomInput{
+		Code: "BAD", Name: "Bad", Plan: &CafeRoomPlanInput{SubscriptionTier: "team"},
+	})
+	require.Equal(t, "CAFE_PLAN_TIER_INVALID", infraerrors.Reason(err))
+}
+
+func TestCafeRoomServiceGeneratesRandomCodeAndUsesDefaultGroup(t *testing.T) {
+	repo := newCafeRoomRepositoryStub()
+	created, err := NewCafeRoomService(repo).Create(context.Background(), CafeRoomInput{
+		Code: "client-supplied-code", Name: "自动编号房间", Status: CafeRoomStatusEnabled,
+		Plan: &CafeRoomPlanInput{
+			SubscriptionTier: "plus", TotalShares: 4, MaxBuyers: 4, MaxSharesPerUser: 4,
+			PricePerShare: 10, TimeoutMinutes: 60, FulfillmentTimeoutMinutes: 1440,
+			ValidityDays: 30, TargetGroupID: 0, RefundMode: "balance_credit",
+		},
+	})
+	require.NoError(t, err)
+	require.Regexp(t, regexp.MustCompile(`^ROOM-[A-Z2-9]{8}$`), created.Code)
+	require.NotEqual(t, "client-supplied-code", created.Code)
+	require.Equal(t, int64(20), created.Plan.TargetGroupID)
 }
 
 func (r *cafeRoomRepositoryStub) Update(_ context.Context, room *CafeRoom) (*CafeRoom, error) {
@@ -246,17 +306,21 @@ func TestCafeRoomServiceBulkCreateUsesQuantityWithoutAccounts(t *testing.T) {
 	repo.openRoundError[2] = errors.New("round create failed")
 
 	result := NewCafeRoomService(repo).BulkCreate(context.Background(), CafeRoomBulkInput{
-		PlanID:          10,
+		PlanTemplate: &CafeRoomPlanInput{
+			SubscriptionTier: "plus", TotalShares: 10, MaxBuyers: 4, MaxSharesPerUser: 10,
+			PricePerShare: 10, TimeoutMinutes: 60, FulfillmentTimeoutMinutes: 1440,
+			ValidityDays: 30, TargetGroupID: 20, RefundMode: GroupBuyRefundModeBalanceCredit,
+		},
 		Quantity:        3,
-		CodePrefix:      "CAFE-",
-		StartNumber:     8,
 		CreateOpenRound: true,
 	})
 
 	require.Len(t, result.Created, 2)
-	require.Equal(t, "CAFE-008", result.Created[0].Room.Code)
+	require.Regexp(t, regexp.MustCompile(`^ROOM-[A-Z2-9]{8}$`), result.Created[0].Room.Code)
+	require.NotEqual(t, result.Created[0].Room.Code, result.Created[1].Room.Code)
 	require.NotNil(t, result.Created[0].Round)
-	require.Equal(t, "CAFE-010", result.Created[1].Room.Code)
+	require.Regexp(t, regexp.MustCompile(`^ROOM-[A-Z2-9]{8}$`), result.Created[1].Room.Code)
+	require.NotEqual(t, result.Created[0].Room.PlanID, result.Created[1].Room.PlanID)
 	require.Len(t, result.Failed, 1)
 	require.Equal(t, 1, result.Failed[0].Index)
 	require.Equal(t, []int64{2}, repo.deleted)

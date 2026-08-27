@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -111,6 +112,10 @@ func (r *cafeRoomHandlerRepositoryStub) GetPlan(context.Context, int64) (*servic
 	return &copy, nil
 }
 
+func (r *cafeRoomHandlerRepositoryStub) ResolveDefaultRoomManagedGroupID(context.Context) (int64, error) {
+	return 20, nil
+}
+
 func (r *cafeRoomHandlerRepositoryStub) GetAccount(context.Context, int64) (string, string, []int64, error) {
 	return service.StatusActive, "openai", []int64{20}, nil
 }
@@ -131,7 +136,15 @@ func (r *cafeRoomHandlerRepositoryStub) HasLiveRound(context.Context, int64) (bo
 func (r *cafeRoomHandlerRepositoryStub) Create(_ context.Context, room *service.CafeRoom) (*service.CafeRoom, error) {
 	copy := *room
 	copy.ID = 1
-	copy.Plan = r.room.Plan
+	if copy.Plan != nil && copy.PlanID <= 0 {
+		copy.PlanID = 10
+		copy.Plan.ID = 10
+		copy.Plan.GroupPlatform = "openai"
+		copy.Plan.GroupAccessMode = service.CafeRoomGroupAccessMode
+		copy.Plan.TargetGroupStatus = service.StatusActive
+	} else {
+		copy.Plan = r.room.Plan
+	}
 	r.room = &copy
 	return &copy, nil
 }
@@ -291,11 +304,13 @@ func TestCafeRoomHandlerCreateAndOpenRoundDoNotExposeAccountSecrets(t *testing.T
 	router := newCafeRoomHandlerTestRouter(repo)
 
 	create := httptest.NewRecorder()
-	createReq := httptest.NewRequest(http.MethodPost, "/rooms", strings.NewReader(`{"code":"ROOM-001","name":"Room 1","plan_id":10,"account_id":30,"status":"enabled"}`))
+	createReq := httptest.NewRequest(http.MethodPost, "/rooms", strings.NewReader(`{"name":"Room 1","description":"owned plan","status":"enabled","plan":{"subscription_tier":"pro","total_shares":10,"max_buyers":4,"max_shares_per_user":10,"price_per_share":12,"timeout_minutes":60,"fulfillment_timeout_minutes":1440,"validity_days":30,"target_group_id":20,"refund_mode":"balance_credit"}}`))
 	createReq.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(create, createReq)
 	require.Equal(t, http.StatusCreated, create.Code)
-	require.Contains(t, create.Body.String(), `"code":"ROOM-001"`)
+	require.Regexp(t, regexp.MustCompile(`"code":"ROOM-[A-Z2-9]{8}"`), create.Body.String())
+	require.Contains(t, create.Body.String(), `"subscription_tier":"pro"`)
+	require.Contains(t, create.Body.String(), `"fulfillment_timeout_minutes":1440`)
 	require.NotContains(t, create.Body.String(), "credentials")
 	require.NotContains(t, create.Body.String(), "oauth")
 	require.NotContains(t, create.Body.String(), "proxy_url")

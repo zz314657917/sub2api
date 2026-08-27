@@ -79,6 +79,16 @@ func InitEnt(cfg *config.Config) (*ent.Client, *sql.DB, error) {
 		return nil, nil, fmt.Errorf("validate config after secret bootstrap: %w", err)
 	}
 
+	// Pixel Cafe always owns one default OpenAI subscription group. It is
+	// system-maintained and recreated automatically after an older local setup
+	// removed all room-managed groups.
+	defaultCafeGroupCtx, defaultCafeGroupCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer defaultCafeGroupCancel()
+	if _, err := ensurePixelCafeDefaultManagedGroup(defaultCafeGroupCtx, client); err != nil {
+		_ = client.Close()
+		return nil, nil, err
+	}
+
 	// SIMPLE 模式：启动时补齐各平台默认分组。
 	// - anthropic/openai/gemini: 确保存在 <platform>-default
 	// - antigravity: 仅要求存在 >=2 个未软删除分组（用于 claude/gemini 混合调度场景）

@@ -5,7 +5,7 @@
       embedded ? 'py-1' : '-m-4 md:-m-[1.35rem] lg:-m-[1.6rem]',
     ]">
       <div class="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-        <header class="admin-group-buy-header admin-group-buy-toolbar">
+        <header v-if="!roundsOnly" class="admin-group-buy-header admin-group-buy-toolbar">
           <div class="admin-group-buy-actions">
             <button type="button" class="admin-group-buy-secondary" :disabled="loading" @click="refreshAll">
               <Icon name="refresh" size="sm" :class="{ 'animate-spin': loading }" />
@@ -18,12 +18,12 @@
           </div>
         </header>
 
-        <div v-if="roomManagedGroups.length === 0" class="admin-group-buy-alert">
+        <div v-if="!roundsOnly && roomManagedGroups.length === 0" class="admin-group-buy-alert">
           <Icon name="exclamationTriangle" size="sm" />
           <span>需要先创建并启用网吧房间托管分组，房间计划才能绑定真实可用额度。</span>
         </div>
 
-        <section class="admin-group-buy-panel">
+        <section v-if="!roundsOnly" class="admin-group-buy-panel">
           <div class="admin-group-buy-panel-head">
             <div>
               <h2>网吧房间计划</h2>
@@ -139,7 +139,7 @@
 
     <Teleport to="body">
       <Transition name="modal">
-        <div v-if="planDialogOpen" class="admin-group-buy-modal-backdrop">
+        <div v-if="!roundsOnly && planDialogOpen" class="admin-group-buy-modal-backdrop">
           <form class="admin-group-buy-modal" @submit.prevent="savePlan">
             <button type="button" class="admin-group-buy-modal-close" @click="closePlanDialog">
               <Icon name="x" size="sm" />
@@ -330,8 +330,10 @@ import type { GroupBuyPlanPayload } from '@/api/admin/groupBuy'
 
 withDefaults(defineProps<{
   embedded?: boolean
+  roundsOnly?: boolean
 }>(), {
   embedded: false,
+  roundsOnly: true,
 })
 
 const appStore = useAppStore()
@@ -372,6 +374,8 @@ const planForm = reactive({
   quota_per_share_label: '',
   max_buyers: 4,
   max_shares_per_user: 10,
+  subscription_tier: 'plus' as 'plus' | 'pro',
+  fulfillment_timeout_minutes: 1440,
   target_group_id: 0,
   fulfillment_mode: 'room_subscription' as GroupBuyFulfillmentMode,
   room_key_quota_usd: 0,
@@ -478,6 +482,8 @@ function openEditPlan(plan: GroupBuyPlan) {
     quota_per_share_label: plan.quota_per_share_label || plan.quota_label || '',
     max_buyers: plan.max_buyers || Math.min(totalShares(plan), 4),
     max_shares_per_user: plan.max_shares_per_user || 10,
+    subscription_tier: plan.subscription_tier || 'plus',
+    fulfillment_timeout_minutes: plan.fulfillment_timeout_minutes || 1440,
     target_group_id: targetGroupID,
     fulfillment_mode: 'room_subscription',
     room_key_quota_usd: plan.room_key_quota_usd || 0,
@@ -510,6 +516,8 @@ function resetPlanForm() {
     quota_per_share_label: '单份月额度待填写',
     max_buyers: 4,
     max_shares_per_user: 10,
+    subscription_tier: 'plus',
+    fulfillment_timeout_minutes: 1440,
     target_group_id: firstGroupID,
     fulfillment_mode: 'room_subscription',
     room_key_quota_usd: 0,
@@ -551,6 +559,8 @@ function buildPlanPayload(): GroupBuyPlanPayload {
     quota_label: planForm.quota_per_share_label.trim(),
     max_buyers: Number(planForm.max_buyers),
     max_shares_per_user: Number(planForm.max_shares_per_user),
+    subscription_tier: planForm.subscription_tier,
+    fulfillment_timeout_minutes: Number(planForm.fulfillment_timeout_minutes),
     target_group_id: Number(planForm.target_group_id),
     fulfillment_mode: 'room_subscription',
     room_key_quota_usd: Number(planForm.room_key_quota_usd) || 0,

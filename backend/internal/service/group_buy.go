@@ -91,6 +91,7 @@ var (
 	ErrGroupBuyPlanNotFound          = infraerrors.NotFound("GROUP_BUY_PLAN_NOT_FOUND", "group buy plan not found")
 	ErrGroupBuyPlanUnavailable       = infraerrors.Forbidden("GROUP_BUY_PLAN_UNAVAILABLE", "group buy plan is unavailable")
 	ErrGroupBuyPlanFulfillmentLocked = infraerrors.Conflict("GROUP_BUY_PLAN_FULFILLMENT_LOCKED", "cannot change plan fulfillment mode after it has related rounds or rooms")
+	ErrGroupBuyRoomPlanManagedByCafe = infraerrors.Conflict("GROUP_BUY_ROOM_PLAN_MANAGED_BY_CAFE", "room subscription plans must be managed from Pixel Cafe rooms")
 	ErrGroupBuyTargetGroupInvalid    = infraerrors.BadRequest("GROUP_BUY_TARGET_GROUP_INVALID", "target groups must be active subscription groups")
 	ErrGroupBuyTierMappingInvalid    = infraerrors.BadRequest("GROUP_BUY_TIER_MAPPING_INVALID", "tier rules must cover the configured share range without gaps or overlaps")
 	ErrGroupBuyShareUnavailable      = infraerrors.Conflict("GROUP_BUY_SHARE_UNAVAILABLE", "not enough shares are available in this round")
@@ -203,35 +204,37 @@ func (s *GroupBuyService) requireEnabled(ctx context.Context) error {
 }
 
 type GroupBuyPlanInput struct {
-	Title              string              `json:"title"`
-	Description        string              `json:"description"`
-	ProductKey         string              `json:"product_key"`
-	TotalShares        int                 `json:"total_shares"`
-	SeatCount          int                 `json:"seat_count"`
-	PricePerShare      float64             `json:"price_per_share"`
-	PricePerSeat       float64             `json:"price_per_seat"`
-	PriceLabel         string              `json:"price_label"`
-	QuotaPerShareLabel string              `json:"quota_per_share_label"`
-	QuotaLabel         string              `json:"quota_label"`
-	MaxBuyers          int                 `json:"max_buyers"`
-	MaxSharesPerUser   int                 `json:"max_shares_per_user"`
-	TargetGroupID      int64               `json:"target_group_id"`
-	FulfillmentMode    string              `json:"fulfillment_mode"`
-	RoomKeyQuotaUsd    float64             `json:"room_key_quota_usd"`
-	RoomKeyRateLimit5h float64             `json:"room_key_rate_limit_5h"`
-	RoomKeyRateLimit1d float64             `json:"room_key_rate_limit_1d"`
-	RoomKeyRateLimit7d float64             `json:"room_key_rate_limit_7d"`
-	AutoCreateRoomKey  bool                `json:"auto_create_room_key"`
-	TierGroupIDs       map[string]int64    `json:"tier_group_ids"`
-	TierGroups         []GroupBuyTierInput `json:"tier_groups"`
-	TierRules          []GroupBuyTierInput `json:"tier_rules"`
-	ValidityDays       int                 `json:"validity_days"`
-	TimeoutMinutes     int                 `json:"timeout_minutes"`
-	LaunchMode         string              `json:"launch_mode"`
-	RefundMode         string              `json:"refund_mode"`
-	AgreementText      string              `json:"agreement_text"`
-	Status             string              `json:"status"`
-	SortOrder          int                 `json:"sort_order"`
+	Title                     string              `json:"title"`
+	Description               string              `json:"description"`
+	ProductKey                string              `json:"product_key"`
+	TotalShares               int                 `json:"total_shares"`
+	SeatCount                 int                 `json:"seat_count"`
+	PricePerShare             float64             `json:"price_per_share"`
+	PricePerSeat              float64             `json:"price_per_seat"`
+	PriceLabel                string              `json:"price_label"`
+	QuotaPerShareLabel        string              `json:"quota_per_share_label"`
+	QuotaLabel                string              `json:"quota_label"`
+	MaxBuyers                 int                 `json:"max_buyers"`
+	MaxSharesPerUser          int                 `json:"max_shares_per_user"`
+	SubscriptionTier          string              `json:"subscription_tier"`
+	FulfillmentTimeoutMinutes int                 `json:"fulfillment_timeout_minutes"`
+	TargetGroupID             int64               `json:"target_group_id"`
+	FulfillmentMode           string              `json:"fulfillment_mode"`
+	RoomKeyQuotaUsd           float64             `json:"room_key_quota_usd"`
+	RoomKeyRateLimit5h        float64             `json:"room_key_rate_limit_5h"`
+	RoomKeyRateLimit1d        float64             `json:"room_key_rate_limit_1d"`
+	RoomKeyRateLimit7d        float64             `json:"room_key_rate_limit_7d"`
+	AutoCreateRoomKey         bool                `json:"auto_create_room_key"`
+	TierGroupIDs              map[string]int64    `json:"tier_group_ids"`
+	TierGroups                []GroupBuyTierInput `json:"tier_groups"`
+	TierRules                 []GroupBuyTierInput `json:"tier_rules"`
+	ValidityDays              int                 `json:"validity_days"`
+	TimeoutMinutes            int                 `json:"timeout_minutes"`
+	LaunchMode                string              `json:"launch_mode"`
+	RefundMode                string              `json:"refund_mode"`
+	AgreementText             string              `json:"agreement_text"`
+	Status                    string              `json:"status"`
+	SortOrder                 int                 `json:"sort_order"`
 }
 
 type GroupBuyTierInput struct {
@@ -259,40 +262,42 @@ type GroupBuyCreateOrderInput struct {
 }
 
 type GroupBuyPlanView struct {
-	ID                 int64              `json:"id"`
-	Title              string             `json:"title"`
-	Description        string             `json:"description"`
-	ProductKey         string             `json:"product_key"`
-	TotalShares        int                `json:"total_shares"`
-	SeatCount          int                `json:"seat_count"`
-	PricePerShare      float64            `json:"price_per_share"`
-	PricePerSeat       float64            `json:"price_per_seat"`
-	PriceLabel         string             `json:"price_label"`
-	QuotaPerShareLabel string             `json:"quota_per_share_label"`
-	QuotaLabel         string             `json:"quota_label"`
-	MaxBuyers          int                `json:"max_buyers"`
-	MaxSharesPerUser   int                `json:"max_shares_per_user"`
-	TargetGroupID      int64              `json:"target_group_id"`
-	FulfillmentMode    string             `json:"fulfillment_mode"`
-	RoomKeyQuotaUsd    float64            `json:"room_key_quota_usd"`
-	RoomKeyRateLimit5h float64            `json:"room_key_rate_limit_5h"`
-	RoomKeyRateLimit1d float64            `json:"room_key_rate_limit_1d"`
-	RoomKeyRateLimit7d float64            `json:"room_key_rate_limit_7d"`
-	AutoCreateRoomKey  bool               `json:"auto_create_room_key"`
-	TargetGroup        *GroupBuyGroupView `json:"target_group,omitempty"`
-	TierGroupIDs       map[string]int64   `json:"tier_group_ids"`
-	TierGroups         []GroupBuyTierView `json:"tier_groups"`
-	TierRules          []GroupBuyTierView `json:"tier_rules"`
-	ValidityDays       int                `json:"validity_days"`
-	TimeoutMinutes     int                `json:"timeout_minutes"`
-	LaunchMode         string             `json:"launch_mode"`
-	RefundMode         string             `json:"refund_mode"`
-	AgreementText      string             `json:"agreement_text"`
-	Status             string             `json:"status"`
-	SortOrder          int                `json:"sort_order"`
-	CurrentRound       *GroupBuyRoundView `json:"current_round,omitempty"`
-	CreatedAt          time.Time          `json:"created_at"`
-	UpdatedAt          time.Time          `json:"updated_at"`
+	ID                        int64              `json:"id"`
+	Title                     string             `json:"title"`
+	Description               string             `json:"description"`
+	ProductKey                string             `json:"product_key"`
+	TotalShares               int                `json:"total_shares"`
+	SeatCount                 int                `json:"seat_count"`
+	PricePerShare             float64            `json:"price_per_share"`
+	PricePerSeat              float64            `json:"price_per_seat"`
+	PriceLabel                string             `json:"price_label"`
+	QuotaPerShareLabel        string             `json:"quota_per_share_label"`
+	QuotaLabel                string             `json:"quota_label"`
+	MaxBuyers                 int                `json:"max_buyers"`
+	MaxSharesPerUser          int                `json:"max_shares_per_user"`
+	SubscriptionTier          string             `json:"subscription_tier"`
+	FulfillmentTimeoutMinutes int                `json:"fulfillment_timeout_minutes"`
+	TargetGroupID             int64              `json:"target_group_id"`
+	FulfillmentMode           string             `json:"fulfillment_mode"`
+	RoomKeyQuotaUsd           float64            `json:"room_key_quota_usd"`
+	RoomKeyRateLimit5h        float64            `json:"room_key_rate_limit_5h"`
+	RoomKeyRateLimit1d        float64            `json:"room_key_rate_limit_1d"`
+	RoomKeyRateLimit7d        float64            `json:"room_key_rate_limit_7d"`
+	AutoCreateRoomKey         bool               `json:"auto_create_room_key"`
+	TargetGroup               *GroupBuyGroupView `json:"target_group,omitempty"`
+	TierGroupIDs              map[string]int64   `json:"tier_group_ids"`
+	TierGroups                []GroupBuyTierView `json:"tier_groups"`
+	TierRules                 []GroupBuyTierView `json:"tier_rules"`
+	ValidityDays              int                `json:"validity_days"`
+	TimeoutMinutes            int                `json:"timeout_minutes"`
+	LaunchMode                string             `json:"launch_mode"`
+	RefundMode                string             `json:"refund_mode"`
+	AgreementText             string             `json:"agreement_text"`
+	Status                    string             `json:"status"`
+	SortOrder                 int                `json:"sort_order"`
+	CurrentRound              *GroupBuyRoundView `json:"current_round,omitempty"`
+	CreatedAt                 time.Time          `json:"created_at"`
+	UpdatedAt                 time.Time          `json:"updated_at"`
 }
 
 type GroupBuyTierView struct {
@@ -1810,6 +1815,9 @@ func (s *GroupBuyService) ListMyOrders(ctx context.Context, userID int64, params
 }
 
 func (s *GroupBuyService) AdminCreatePlan(ctx context.Context, input GroupBuyPlanInput) (*GroupBuyPlanView, error) {
+	if strings.EqualFold(strings.TrimSpace(input.FulfillmentMode), CafeRoomFulfillmentMode) {
+		return nil, ErrGroupBuyRoomPlanManagedByCafe
+	}
 	if err := s.validatePlanInput(ctx, &input); err != nil {
 		return nil, err
 	}
@@ -1826,6 +1834,8 @@ func (s *GroupBuyService) AdminCreatePlan(ctx context.Context, input GroupBuyPla
 		SetQuotaLabel(strings.TrimSpace(input.QuotaPerShareLabel)).
 		SetMaxBuyers(input.MaxBuyers).
 		SetMaxSharesPerUser(input.MaxSharesPerUser).
+		SetSubscriptionTier(input.SubscriptionTier).
+		SetFulfillmentTimeoutMinutes(input.FulfillmentTimeoutMinutes).
 		SetTargetGroupID(input.TargetGroupID).
 		SetFulfillmentMode(input.FulfillmentMode).
 		SetRoomKeyQuotaUsd(input.RoomKeyQuotaUsd).
@@ -1858,6 +1868,16 @@ func (s *GroupBuyService) AdminCreatePlan(ctx context.Context, input GroupBuyPla
 func (s *GroupBuyService) AdminUpdatePlan(ctx context.Context, id int64, input GroupBuyPlanInput) (*GroupBuyPlanView, error) {
 	if id <= 0 {
 		return nil, ErrGroupBuyPlanNotFound
+	}
+	existingMode, err := s.entClient.GroupBuyPlan.Query().Where(groupbuyplan.IDEQ(id), groupbuyplan.DeletedAtIsNil()).Select(groupbuyplan.FieldFulfillmentMode).String(ctx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, ErrGroupBuyPlanNotFound
+		}
+		return nil, err
+	}
+	if existingMode == CafeRoomFulfillmentMode || strings.EqualFold(strings.TrimSpace(input.FulfillmentMode), CafeRoomFulfillmentMode) {
+		return nil, ErrGroupBuyRoomPlanManagedByCafe
 	}
 	if err := s.validatePlanInput(ctx, &input); err != nil {
 		return nil, err
@@ -1894,6 +1914,8 @@ func (s *GroupBuyService) AdminUpdatePlan(ctx context.Context, id int64, input G
 		SetQuotaLabel(strings.TrimSpace(input.QuotaPerShareLabel)).
 		SetMaxBuyers(input.MaxBuyers).
 		SetMaxSharesPerUser(input.MaxSharesPerUser).
+		SetSubscriptionTier(input.SubscriptionTier).
+		SetFulfillmentTimeoutMinutes(input.FulfillmentTimeoutMinutes).
 		SetTargetGroupID(input.TargetGroupID).
 		SetFulfillmentMode(input.FulfillmentMode).
 		SetRoomKeyQuotaUsd(input.RoomKeyQuotaUsd).
@@ -1932,6 +1954,16 @@ func (s *GroupBuyService) AdminUpdatePlan(ctx context.Context, id int64, input G
 func (s *GroupBuyService) AdminDeletePlan(ctx context.Context, id int64) error {
 	if id <= 0 {
 		return ErrGroupBuyPlanNotFound
+	}
+	mode, err := s.entClient.GroupBuyPlan.Query().Where(groupbuyplan.IDEQ(id), groupbuyplan.DeletedAtIsNil()).Select(groupbuyplan.FieldFulfillmentMode).String(ctx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return ErrGroupBuyPlanNotFound
+		}
+		return err
+	}
+	if mode == CafeRoomFulfillmentMode {
+		return ErrGroupBuyRoomPlanManagedByCafe
 	}
 	now := s.now()
 	n, err := s.entClient.GroupBuyPlan.Update().
@@ -2849,6 +2881,16 @@ func (s *GroupBuyService) validatePlanInput(ctx context.Context, input *GroupBuy
 	if input.MaxSharesPerUser > groupBuyMaxShareCount {
 		input.MaxSharesPerUser = groupBuyMaxShareCount
 	}
+	input.SubscriptionTier = strings.ToLower(strings.TrimSpace(input.SubscriptionTier))
+	if input.SubscriptionTier == "" {
+		input.SubscriptionTier = "plus"
+	}
+	if input.SubscriptionTier != "plus" && input.SubscriptionTier != "pro" {
+		return infraerrors.BadRequest("INVALID_INPUT", "subscription_tier must be plus or pro")
+	}
+	if input.FulfillmentTimeoutMinutes <= 0 {
+		input.FulfillmentTimeoutMinutes = 1440
+	}
 	if input.ValidityDays <= 0 {
 		input.ValidityDays = 30
 	}
@@ -3291,36 +3333,38 @@ func (s *GroupBuyService) planView(ctx context.Context, p *dbent.GroupBuyPlan) G
 	}
 	rules := normalizedPlanTierRules(p)
 	view := GroupBuyPlanView{
-		ID:                 p.ID,
-		Title:              p.Title,
-		Description:        psStringValue(p.Description),
-		ProductKey:         p.ProductKey,
-		TotalShares:        p.TotalShares,
-		SeatCount:          p.TotalShares,
-		PricePerShare:      p.PricePerShare,
-		PricePerSeat:       p.PricePerShare,
-		PriceLabel:         p.PriceLabel,
-		QuotaPerShareLabel: p.QuotaPerShareLabel,
-		QuotaLabel:         p.QuotaPerShareLabel,
-		MaxBuyers:          p.MaxBuyers,
-		MaxSharesPerUser:   p.MaxSharesPerUser,
-		TargetGroupID:      p.TargetGroupID,
-		FulfillmentMode:    p.FulfillmentMode,
-		RoomKeyQuotaUsd:    p.RoomKeyQuotaUsd,
-		RoomKeyRateLimit5h: p.RoomKeyRateLimit5h,
-		RoomKeyRateLimit1d: p.RoomKeyRateLimit1d,
-		RoomKeyRateLimit7d: p.RoomKeyRateLimit7d,
-		AutoCreateRoomKey:  p.AutoCreateRoomKey,
-		TierGroupIDs:       copyTierGroupIDs(p.TierGroupIds),
-		ValidityDays:       p.ValidityDays,
-		TimeoutMinutes:     p.TimeoutMinutes,
-		LaunchMode:         p.LaunchMode,
-		RefundMode:         p.RefundMode,
-		AgreementText:      psStringValue(p.AgreementText),
-		Status:             p.Status,
-		SortOrder:          p.SortOrder,
-		CreatedAt:          p.CreatedAt,
-		UpdatedAt:          p.UpdatedAt,
+		ID:                        p.ID,
+		Title:                     p.Title,
+		Description:               psStringValue(p.Description),
+		ProductKey:                p.ProductKey,
+		TotalShares:               p.TotalShares,
+		SeatCount:                 p.TotalShares,
+		PricePerShare:             p.PricePerShare,
+		PricePerSeat:              p.PricePerShare,
+		PriceLabel:                p.PriceLabel,
+		QuotaPerShareLabel:        p.QuotaPerShareLabel,
+		QuotaLabel:                p.QuotaPerShareLabel,
+		MaxBuyers:                 p.MaxBuyers,
+		MaxSharesPerUser:          p.MaxSharesPerUser,
+		SubscriptionTier:          p.SubscriptionTier,
+		FulfillmentTimeoutMinutes: p.FulfillmentTimeoutMinutes,
+		TargetGroupID:             p.TargetGroupID,
+		FulfillmentMode:           p.FulfillmentMode,
+		RoomKeyQuotaUsd:           p.RoomKeyQuotaUsd,
+		RoomKeyRateLimit5h:        p.RoomKeyRateLimit5h,
+		RoomKeyRateLimit1d:        p.RoomKeyRateLimit1d,
+		RoomKeyRateLimit7d:        p.RoomKeyRateLimit7d,
+		AutoCreateRoomKey:         p.AutoCreateRoomKey,
+		TierGroupIDs:              copyTierGroupIDs(p.TierGroupIds),
+		ValidityDays:              p.ValidityDays,
+		TimeoutMinutes:            p.TimeoutMinutes,
+		LaunchMode:                p.LaunchMode,
+		RefundMode:                p.RefundMode,
+		AgreementText:             psStringValue(p.AgreementText),
+		Status:                    p.Status,
+		SortOrder:                 p.SortOrder,
+		CreatedAt:                 p.CreatedAt,
+		UpdatedAt:                 p.UpdatedAt,
 	}
 	if g := p.Edges.TargetGroup; g != nil {
 		view.TargetGroup = groupViewFromEnt(g)

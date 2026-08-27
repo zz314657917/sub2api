@@ -7,14 +7,34 @@ export type CafeRoomUpdateInput = Partial<CafeRoomInput>
 export type CafePublicPurchaseState = 'available' | 'buyers_full' | 'awaiting_account' | 'activating' | 'active' | 'refunding' | 'refunded' | 'unavailable'
 export type CafeMyRoomFilter = 'active,waiting' | 'history'
 
-export interface CafeRoomPlan extends Pick<GroupBuyPlan, 'id' | 'title' | 'target_group_id' | 'total_shares' | 'timeout_minutes' | 'validity_days'> {
+export interface CafeRoomPlan extends Pick<GroupBuyPlan, 'id' | 'title' | 'description' | 'target_group_id' | 'total_shares' | 'timeout_minutes' | 'validity_days' | 'price_per_share' | 'price_label' | 'quota_per_share_label' | 'room_key_quota_usd' | 'room_key_rate_limit_5h' | 'room_key_rate_limit_1d' | 'room_key_rate_limit_7d' | 'refund_mode' | 'agreement_text'> {
   fulfillment_mode: 'room_subscription' | 'aggregate_tier' | string
   group_platform: string
   group_access_mode: 'room_managed' | 'normal' | string
-  subscription_tier?: 'plus' | 'pro'
-  max_buyers?: number
-  max_shares_per_user?: number
-  fulfillment_timeout_minutes?: number
+  subscription_tier: 'plus' | 'pro'
+  max_buyers: number
+  max_shares_per_user: number
+  fulfillment_timeout_minutes: number
+  current_round_status?: string
+}
+export interface CafeRoomPlanInput {
+  subscription_tier: 'plus' | 'pro'
+  total_shares: number
+  max_buyers: number
+  max_shares_per_user: number
+  price_per_share: number
+  price_label: string
+  quota_per_share_label: string
+  timeout_minutes: number
+  fulfillment_timeout_minutes: number
+  validity_days: number
+  target_group_id: number
+  room_key_quota_usd: number
+  room_key_rate_limit_5h: number
+  room_key_rate_limit_1d: number
+  room_key_rate_limit_7d: number
+  refund_mode: 'balance_credit' | 'provider_refund'
+  agreement_text: string
 }
 export interface CafeRound {
   id: number; plan_id: number; status: CafeRoundStatus | string; total_shares: number
@@ -22,9 +42,9 @@ export interface CafeRound {
   max_buyers?: number; joined_buyers?: number; remaining_buyer_slots?: number
   deadline_at: string; created_at: string; updated_at: string
 }
-export interface CafeRoom { id: number; code: string; name: string; plan_id: number; account_id?: number | null; zone_key: string; theme_key: string; scene_slot_key: string; status: CafeRoomStatus; featured: boolean; sort_order: number; plan?: CafeRoomPlan; created_at: string; updated_at: string }
-export interface CafeRoomInput { code: string; name: string; plan_id: number; zone_key: string; theme_key: string; scene_slot_key?: string; status: CafeRoomStatus; featured: boolean; sort_order: number }
-export interface CafeRoomBulkInput { plan_id: number; quantity: number; code_prefix: string; start_number: number; zone_key: string; theme_key: string; create_open_round: boolean }
+export interface CafeRoom { id: number; code: string; name: string; description: string; plan_id: number; account_id?: number | null; zone_key: string; theme_key: string; scene_slot_key: string; status: CafeRoomStatus; featured: boolean; sort_order: number; plan?: CafeRoomPlan; created_at: string; updated_at: string }
+export interface CafeRoomInput { code: string; name: string; description: string; plan_id?: number; plan?: CafeRoomPlanInput; zone_key: string; theme_key: string; scene_slot_key?: string; status: CafeRoomStatus; featured: boolean; sort_order: number }
+export interface CafeRoomBulkInput { plan_template: CafeRoomPlanInput; quantity: number; zone_key: string; theme_key: string; create_open_round: boolean }
 export interface CafeRoomBulkResult { created: Array<{ room?: CafeRoom; round?: CafeRound }>; failed: Array<{ index?: number; error_code: string; message: string }> }
 export interface CafePublicPlan { id: number; title: string; description: string; price_per_share: number; price_label: string; validity_days: number; subscription_tier: 'plus' | 'pro'; total_shares: number; max_buyers: number; max_shares_per_user: number }
 export interface CafePublicRound { id: number; status: CafeRoundStatus | string; paid_shares: number; reserved_shares: number; remaining_shares: number; max_buyers: number; joined_buyers: number; remaining_buyer_slots: number; deadline_at: string; fulfillment_deadline_at?: string | null }

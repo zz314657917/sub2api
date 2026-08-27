@@ -156,7 +156,7 @@ describe('AdminGroupBuyView', () => {
     wrapper.unmount()
   })
 
-  it('keeps the plan editor open and submits an editable agreement', async () => {
+  it('removes the standalone Room-plan editor and keeps writes out of the legacy API', async () => {
     const wrapper = mount(AdminGroupBuyView, {
       global: {
         stubs: {
@@ -167,34 +167,11 @@ describe('AdminGroupBuyView', () => {
     })
     await flushPromises()
 
-    const editButton = wrapper.findAll('button').find((button) => button.text().includes('编辑'))
-    expect(editButton).toBeDefined()
-    await editButton!.trigger('click')
-
-    const backdrop = document.body.querySelector<HTMLElement>('.admin-group-buy-modal-backdrop')
-    expect(backdrop).not.toBeNull()
-    backdrop!.click()
-    await flushPromises()
-    expect(document.body.textContent).toContain('编辑房间计划')
-
-    const textareas = document.body.querySelectorAll<HTMLTextAreaElement>('textarea')
-    const agreement = textareas.item(textareas.length - 1)
-    agreement.value = '自定义退款协议'
-    agreement.dispatchEvent(new Event('input', { bubbles: true }))
-
-    const saveButton = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find((button) =>
-      button.textContent?.includes('保存房间计划'),
-    )
-    expect(saveButton).toBeDefined()
-    saveButton!.click()
-    await flushPromises()
-
-    expect(updatePlan).toHaveBeenCalledWith(
-      11,
-      expect.objectContaining({
-        agreement_text: '自定义退款协议',
-      }),
-    )
+    expect(wrapper.text()).not.toContain('新建房间计划')
+    expect(wrapper.text()).not.toContain('编辑房间计划')
+    expect(document.body.querySelector('.admin-group-buy-modal-backdrop')).toBeNull()
+    expect(updatePlan).not.toHaveBeenCalled()
+    expect(createPlan).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 
@@ -223,12 +200,13 @@ describe('AdminGroupBuyView', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-testid="group-buy-layout"]').exists()).toBe(false)
-    expect(wrapper.text()).toContain('网吧房间计划')
+    expect(wrapper.text()).toContain('团次处理')
+    expect(wrapper.text()).not.toContain('网吧房间计划')
     expect(wrapper.text()).not.toContain('旧普通拼团计划')
     wrapper.unmount()
   })
 
-  it('removes the legacy plan option and submits a Room plan with the managed group and key policy', async () => {
+  it('does not expose Room plan creation even when managed groups exist', async () => {
     getAll.mockResolvedValue([
       { id: 7, name: '普通订阅组', status: 'active', subscription_type: 'subscription', access_mode: 'normal', platform: 'openai' },
       { id: 19, name: '网吧托管组', status: 'active', subscription_type: 'subscription', access_mode: 'room_managed', platform: 'openai' },
@@ -239,46 +217,10 @@ describe('AdminGroupBuyView', () => {
     })
     await flushPromises()
 
-    const createButton = wrapper.findAll('button').find((button) => button.text().includes('新建房间计划'))
-    await createButton!.trigger('click')
-    await flushPromises()
-
-    const modal = document.body.querySelector<HTMLElement>('.admin-group-buy-modal')!
-    expect(modal.textContent).not.toContain('普通拼团')
-    expect(Array.from(modal.querySelectorAll('option')).some((option) => option.value === 'aggregate_tier')).toBe(false)
-    expect(modal.querySelector('.admin-group-buy-readonly-field')?.textContent).toBe('网吧房间')
-
-    const title = modal.querySelector<HTMLInputElement>('input')!
-    title.value = 'A 区四人房'
-    title.dispatchEvent(new Event('input', { bubbles: true }))
-    const priceLabel = Array.from(modal.querySelectorAll('label')).find((label) => label.textContent?.includes('单份价格'))!
-    const price = priceLabel.querySelector<HTMLInputElement>('input')!
-    price.value = '12'
-    price.dispatchEvent(new Event('input', { bubbles: true }))
-    const groupSelect = Array.from(modal.querySelectorAll<HTMLSelectElement>('select')).find((select) =>
-      Array.from(select.options).some((option) => option.value === '19'),
-    )!
-    groupSelect.value = '19'
-    groupSelect.dispatchEvent(new Event('change', { bubbles: true }))
-    expect(title.value).toBe('A 区四人房')
-    expect(price.value).toBe('12')
-    expect(groupSelect.value).toBe('19')
-    await flushPromises()
-
-    const saveButton = Array.from(modal.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent?.includes('保存房间计划'))!
-    expect(saveButton.disabled).toBe(false)
-    saveButton.click()
-    await flushPromises()
-
-    expect(createPlan).toHaveBeenCalledWith(expect.objectContaining({
-      total_shares: 10,
-      max_buyers: 4,
-      max_shares_per_user: 10,
-      fulfillment_mode: 'room_subscription',
-      target_group_id: 19,
-      auto_create_room_key: true,
-      tier_rules: [expect.objectContaining({ min_shares: 1, max_shares: 10, target_group_id: 19 })],
-    }))
+    expect(wrapper.text()).toContain('团次处理')
+    expect(wrapper.text()).not.toContain('新建房间计划')
+    expect(document.body.querySelector('.admin-group-buy-modal')).toBeNull()
+    expect(createPlan).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 })

@@ -73,9 +73,9 @@
           </template>
           <template #cell-plan="{ row }">
             <div class="min-w-44">
-              <div class="font-medium text-gray-800 dark:text-gray-200">{{ planTitle(row) }}</div>
+              <div class="font-medium text-gray-800 dark:text-gray-200">ChatGPT {{ row.plan?.subscription_tier === 'pro' ? 'Pro' : 'Plus' }}</div>
               <div class="text-xs text-gray-500 dark:text-dark-400">
-                #{{ row.plan_id }} · {{ planMode(row) }}
+                {{ row.plan?.total_shares || '-' }} 份 · {{ formatPrice(row.plan?.price_per_share) }} · {{ row.plan?.current_round_status || '无进行中团次' }}
               </div>
             </div>
           </template>
@@ -148,7 +148,7 @@
         <div v-else class="space-y-2"><div v-for="round in pendingRounds" :key="round.id" class="flex flex-wrap items-center gap-3 rounded border border-amber-200 bg-white p-3 dark:border-amber-900 dark:bg-dark-900"><span class="font-medium">{{ round.room_code }} · {{ round.room_name }}</span><span>ChatGPT {{ round.subscription_tier === 'pro' ? 'Pro' : 'Plus' }}</span><span>{{ round.paid_shares }}/{{ round.total_shares }} 份 · {{ round.joined_buyers }}/{{ round.max_buyers }} 人</span><button type="button" class="btn btn-secondary btn-sm ml-auto" @click="openAssignDialog(round)">{{ t('admin.pixelCafe.pending.assign') }}</button></div></div>
       </section>
 
-      <AdminGroupBuyView embedded />
+      <AdminGroupBuyView embedded rounds-only />
     </div>
 
     <BaseDialog
@@ -188,24 +188,16 @@
       <form id="cafe-room-form" class="space-y-4" @submit.prevent="saveRoom">
         <div class="grid gap-4 sm:grid-cols-2">
           <label class="field">
-            <span class="input-label">{{ t('admin.pixelCafe.form.code') }}</span>
-            <input v-model.trim="roomForm.code" class="input" required maxlength="64" />
+            <span class="input-label">房间编号（自动生成）</span>
+            <input v-model.trim="roomForm.code" class="input" maxlength="64" readonly placeholder="保存后自动生成" />
           </label>
           <label class="field">
             <span class="input-label">{{ t('admin.pixelCafe.form.name') }}</span>
             <input v-model.trim="roomForm.name" class="input" required maxlength="120" />
           </label>
-          <label class="field">
-            <span class="input-label">{{ t('admin.pixelCafe.form.plan') }}</span>
-            <select v-model.number="roomForm.plan_id" class="input" required>
-              <option :value="0" disabled>{{ t('admin.pixelCafe.form.choosePlan') }}</option>
-              <option v-for="plan in roomPlans" :key="plan.id" :value="plan.id">
-                {{ plan.title }} · #{{ plan.id }} · {{ plan.target_group_id }}
-              </option>
-            </select>
-            <span v-if="roomPlans.length === 0" class="field-hint text-amber-600 dark:text-amber-300">
-              {{ t('admin.pixelCafe.noRoomPlans') }}
-            </span>
+          <label class="field sm:col-span-2">
+            <span class="input-label">房间说明</span>
+            <textarea v-model.trim="roomForm.description" class="input min-h-20" maxlength="2000" :disabled="commercialLocked" />
           </label>
           <label class="field">
             <span class="input-label">{{ t('admin.pixelCafe.form.zone') }}</span>
@@ -221,7 +213,7 @@
           </label>
           <label class="field">
             <span class="input-label">{{ t('admin.pixelCafe.form.status') }}</span>
-            <select v-model="roomForm.status" class="input">
+            <select v-model="roomForm.status" class="input" :disabled="commercialLocked">
               <option v-for="option in statusOptions.slice(1)" :key="String(option.value)" :value="option.value">
                 {{ option.label }}
               </option>
@@ -232,18 +224,42 @@
             <input v-model.number="roomForm.sort_order" class="input" type="number" min="0" />
           </label>
         </div>
+        <section class="space-y-4 rounded-lg border border-gray-200 p-4 dark:border-dark-700" data-testid="room-owned-plan-fields">
+          <div>
+            <h3 class="font-semibold text-gray-900 dark:text-white">套餐与份额</h3>
+            <p class="text-xs text-gray-500 dark:text-dark-400">每个房间自动创建专属计划；有进行中团次时商业配置会锁定。</p>
+          </div>
+          <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <label class="field"><span class="input-label">账号套餐</span><select v-model="roomForm.plan!.subscription_tier" class="input" :disabled="commercialLocked"><option value="plus">ChatGPT Plus</option><option value="pro">ChatGPT Pro</option></select></label>
+            <label class="field"><span class="input-label">总份额</span><input v-model.number="roomForm.plan!.total_shares" class="input" type="number" min="1" max="10" :disabled="commercialLocked" /></label>
+            <label class="field"><span class="input-label">最多参与人数</span><input v-model.number="roomForm.plan!.max_buyers" class="input" type="number" min="1" :max="roomForm.plan!.total_shares" :disabled="commercialLocked" /></label>
+            <label class="field"><span class="input-label">单用户最大份额</span><input v-model.number="roomForm.plan!.max_shares_per_user" class="input" type="number" min="1" :max="roomForm.plan!.total_shares" :disabled="commercialLocked" /></label>
+            <label class="field"><span class="input-label">每份价格</span><input v-model.number="roomForm.plan!.price_per_share" class="input" type="number" min="0.01" step="0.01" :disabled="commercialLocked" /></label>
+            <label class="field"><span class="input-label">价格展示文案</span><input v-model.trim="roomForm.plan!.price_label" class="input" maxlength="120" :disabled="commercialLocked" placeholder="可留空，自动显示价格" /></label>
+            <label class="field"><span class="input-label">拼团截止（分钟）</span><input v-model.number="roomForm.plan!.timeout_minutes" class="input" type="number" min="1" :disabled="commercialLocked" /></label>
+            <label class="field"><span class="input-label">成团后配号时限（分钟）</span><input v-model.number="roomForm.plan!.fulfillment_timeout_minutes" class="input" type="number" min="1" :disabled="commercialLocked" /></label>
+            <label class="field"><span class="input-label">有效期（天）</span><input v-model.number="roomForm.plan!.validity_days" class="input" type="number" min="1" :disabled="commercialLocked" /></label>
+            <div class="field sm:col-span-2 lg:col-span-3"><span class="input-label">托管订阅分组</span><div class="input bg-gray-50 text-gray-600 dark:bg-dark-800 dark:text-gray-300">自动使用系统默认的网吧托管订阅分组</div><span class="field-hint">该分组由系统自动创建和维护，不需要手动选择。</span></div>
+          </div>
+          <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <label class="field"><span class="input-label">每份 Key 总额度</span><input v-model.number="roomForm.plan!.room_key_quota_usd" class="input" type="number" min="0" step="0.01" :disabled="commercialLocked" /></label>
+            <label class="field"><span class="input-label">每份 5H 限额</span><input v-model.number="roomForm.plan!.room_key_rate_limit_5h" class="input" type="number" min="0" step="0.01" :disabled="commercialLocked" /></label>
+            <label class="field"><span class="input-label">每份 1D 限额</span><input v-model.number="roomForm.plan!.room_key_rate_limit_1d" class="input" type="number" min="0" step="0.01" :disabled="commercialLocked" /></label>
+            <label class="field"><span class="input-label">每份 7D 限额</span><input v-model.number="roomForm.plan!.room_key_rate_limit_7d" class="input" type="number" min="0" step="0.01" :disabled="commercialLocked" /></label>
+            <label class="field sm:col-span-2"><span class="input-label">额度展示文案</span><input v-model.trim="roomForm.plan!.quota_per_share_label" class="input" maxlength="255" :disabled="commercialLocked" /></label>
+            <label class="field"><span class="input-label">退款方式</span><select v-model="roomForm.plan!.refund_mode" class="input" :disabled="commercialLocked"><option value="balance_credit">退回余额</option><option value="provider_refund">原路退款</option></select></label>
+            <label class="field sm:col-span-2 lg:col-span-4"><span class="input-label">用户协议</span><textarea v-model.trim="roomForm.plan!.agreement_text" class="input min-h-20" :disabled="commercialLocked" maxlength="4000" /></label>
+          </div>
+        </section>
         <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
           <input v-model="roomForm.featured" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600" />
           {{ t('admin.pixelCafe.form.featured') }}
         </label>
-        <p v-if="dependencyLoading" class="text-sm text-gray-500 dark:text-dark-400">
-          {{ t('admin.pixelCafe.loadingDependencies') }}
-        </p>
       </form>
       <template #footer>
         <div class="flex justify-end gap-3">
           <button type="button" class="btn btn-secondary" @click="closeRoomDialog">{{ t('common.cancel') }}</button>
-          <button type="submit" form="cafe-room-form" class="btn btn-primary" :disabled="saving || !roomForm.plan_id">
+          <button type="submit" form="cafe-room-form" class="btn btn-primary" :disabled="saving || !canSaveRoom">
             <Icon v-if="saving" name="refresh" size="sm" class="mr-1 animate-spin" />
             {{ saving ? t('admin.pixelCafe.form.saving') : t('admin.pixelCafe.form.save') }}
           </button>
@@ -268,21 +284,7 @@
             <span class="input-label">{{ t('admin.pixelCafe.bulk.quantity') }}</span>
             <input v-model.number="bulkForm.quantity" class="input" type="number" min="1" max="100" />
           </label>
-          <label class="field">
-            <span class="input-label">{{ t('admin.pixelCafe.form.plan') }}</span>
-            <select v-model.number="bulkForm.plan_id" class="input" required>
-              <option :value="0" disabled>{{ t('admin.pixelCafe.form.choosePlan') }}</option>
-              <option v-for="plan in roomPlans" :key="plan.id" :value="plan.id">{{ plan.title }} · #{{ plan.id }}</option>
-            </select>
-          </label>
-          <label class="field">
-            <span class="input-label">{{ t('admin.pixelCafe.bulk.codePrefix') }}</span>
-            <input v-model.trim="bulkForm.code_prefix" class="input" maxlength="40" />
-          </label>
-          <label class="field">
-            <span class="input-label">{{ t('admin.pixelCafe.bulk.startNumber') }}</span>
-            <input v-model.number="bulkForm.start_number" class="input" type="number" min="1" />
-          </label>
+          <label class="field"><span class="input-label">账号套餐</span><select v-model="bulkForm.plan_template.subscription_tier" class="input"><option value="plus">ChatGPT Plus</option><option value="pro">ChatGPT Pro</option></select></label>
           <label class="field">
             <span class="input-label">{{ t('admin.pixelCafe.form.zone') }}</span>
             <input v-model.trim="bulkForm.zone_key" class="input" maxlength="32" />
@@ -291,6 +293,22 @@
             <span class="input-label">{{ t('admin.pixelCafe.form.theme') }}</span>
             <input v-model.trim="bulkForm.theme_key" class="input" maxlength="64" />
           </label>
+          <label class="field"><span class="input-label">总份额</span><input v-model.number="bulkForm.plan_template.total_shares" class="input" type="number" min="1" max="10" /></label>
+          <label class="field"><span class="input-label">最多参与人数</span><input v-model.number="bulkForm.plan_template.max_buyers" class="input" type="number" min="1" :max="bulkForm.plan_template.total_shares" /></label>
+          <label class="field"><span class="input-label">单用户最大份额</span><input v-model.number="bulkForm.plan_template.max_shares_per_user" class="input" type="number" min="1" :max="bulkForm.plan_template.total_shares" /></label>
+          <label class="field"><span class="input-label">每份价格</span><input v-model.number="bulkForm.plan_template.price_per_share" class="input" type="number" min="0.01" step="0.01" /></label>
+          <label class="field"><span class="input-label">有效期（天）</span><input v-model.number="bulkForm.plan_template.validity_days" class="input" type="number" min="1" /></label>
+          <label class="field"><span class="input-label">拼团截止（分钟）</span><input v-model.number="bulkForm.plan_template.timeout_minutes" class="input" type="number" min="1" /></label>
+          <label class="field"><span class="input-label">配号时限（分钟）</span><input v-model.number="bulkForm.plan_template.fulfillment_timeout_minutes" class="input" type="number" min="1" /></label>
+          <div class="field sm:col-span-2"><span class="input-label">托管订阅分组</span><div class="input bg-gray-50 text-gray-600 dark:bg-dark-800 dark:text-gray-300">自动使用系统默认的网吧托管订阅分组</div></div>
+          <label class="field"><span class="input-label">每份 Key 总额度</span><input v-model.number="bulkForm.plan_template.room_key_quota_usd" class="input" type="number" min="0" step="0.01" /></label>
+          <label class="field"><span class="input-label">每份 5H 限额</span><input v-model.number="bulkForm.plan_template.room_key_rate_limit_5h" class="input" type="number" min="0" step="0.01" /></label>
+          <label class="field"><span class="input-label">每份 1D 限额</span><input v-model.number="bulkForm.plan_template.room_key_rate_limit_1d" class="input" type="number" min="0" step="0.01" /></label>
+          <label class="field"><span class="input-label">每份 7D 限额</span><input v-model.number="bulkForm.plan_template.room_key_rate_limit_7d" class="input" type="number" min="0" step="0.01" /></label>
+          <label class="field"><span class="input-label">退款方式</span><select v-model="bulkForm.plan_template.refund_mode" class="input"><option value="balance_credit">退回余额</option><option value="provider_refund">原路退款</option></select></label>
+          <label class="field sm:col-span-2"><span class="input-label">价格展示文案</span><input v-model.trim="bulkForm.plan_template.price_label" class="input" maxlength="120" /></label>
+          <label class="field sm:col-span-2"><span class="input-label">额度展示文案</span><input v-model.trim="bulkForm.plan_template.quota_per_share_label" class="input" maxlength="255" /></label>
+          <label class="field sm:col-span-2"><span class="input-label">用户协议</span><textarea v-model.trim="bulkForm.plan_template.agreement_text" class="input min-h-20" maxlength="4000" /></label>
         </div>
         <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
           <input v-model="bulkForm.create_open_round" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600" />
@@ -311,7 +329,7 @@
       <template #footer>
         <div class="flex justify-end gap-3">
           <button type="button" class="btn btn-secondary" @click="closeBulkDialog">{{ t('common.close') }}</button>
-          <button type="submit" form="cafe-room-bulk-form" class="btn btn-primary" :disabled="bulkSaving || !bulkForm.plan_id || bulkForm.quantity < 1">
+          <button type="submit" form="cafe-room-bulk-form" class="btn btn-primary" :disabled="bulkSaving || !canSaveBulk">
             <Icon v-if="bulkSaving" name="refresh" size="sm" class="mr-1 animate-spin" />
             {{ bulkSaving ? t('admin.pixelCafe.bulk.submitting') : t('admin.pixelCafe.bulk.submit') }}
           </button>
@@ -336,9 +354,8 @@ import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import { useAppStore } from '@/stores/app'
 import { extractApiErrorMessage } from '@/utils/apiError'
-import type { GroupBuyPlan } from '@/types/groupBuy'
 import type { Column } from '@/components/common/types'
-import type { CafeRoom, CafeRoomBulkResult, CafeRoomInput, CafeRoomStatus, CafeWorkstationPosition } from '@/types/pixelCafe'
+import type { CafeRoom, CafeRoomBulkResult, CafeRoomInput, CafeRoomPlanInput, CafeRoomStatus, CafeWorkstationPosition } from '@/types/pixelCafe'
 import { createCafeWorkstationLayout, resolveCafeWorkstationLayout } from '@/features/pixelCafe/renderer/sceneLayout'
 
 import AppLayout from '@/components/layout/AppLayout.vue'
@@ -358,7 +375,6 @@ const { t } = useI18n()
 const appStore = useAppStore()
 
 const rooms = ref<CafeRoom[]>([])
-const plans = ref<GroupBuyPlan[]>([])
 const pendingRounds = ref<CafePendingRound[]>([])
 const pendingSearch = ref('')
 const pendingLoading = ref(false)
@@ -369,7 +385,6 @@ const selectedAccountID = ref(0)
 const accountLoading = ref(false)
 const assigning = ref(false)
 const loading = ref(false)
-const dependencyLoading = ref(false)
 const loadError = ref('')
 const search = ref('')
 const filters = reactive({ status: '', zone: '' })
@@ -389,10 +404,21 @@ const layoutLoading = ref(false)
 const layoutSaving = ref(false)
 const workstationLayoutDraft = ref<CafeWorkstationPosition[]>(resolveCafeWorkstationLayout())
 
+function defaultPlanInput(): CafeRoomPlanInput {
+  return {
+    subscription_tier: 'plus', total_shares: 10, max_buyers: 4, max_shares_per_user: 10,
+    price_per_share: 1, price_label: '', quota_per_share_label: '', timeout_minutes: 1440,
+    fulfillment_timeout_minutes: 1440, validity_days: 30, target_group_id: 0,
+    room_key_quota_usd: 0, room_key_rate_limit_5h: 0, room_key_rate_limit_1d: 0, room_key_rate_limit_7d: 0,
+    refund_mode: 'balance_credit', agreement_text: '',
+  }
+}
+
 const roomForm = reactive<CafeRoomInput>({
   code: '',
   name: '',
-  plan_id: 0,
+  description: '',
+  plan: defaultPlanInput(),
   zone_key: 'featured',
   theme_key: 'warm_wood',
   scene_slot_key: '',
@@ -402,10 +428,8 @@ const roomForm = reactive<CafeRoomInput>({
 })
 
 const bulkForm = reactive({
-  plan_id: 0,
+  plan_template: defaultPlanInput(),
   quantity: 1,
-  code_prefix: 'ROOM-',
-  start_number: 1,
   zone_key: 'featured',
   theme_key: 'warm_wood',
   create_open_round: false,
@@ -434,10 +458,18 @@ const zoneOptions = computed(() => [
   ...Array.from(new Set(rooms.value.map((room) => room.zone_key).filter(Boolean))).map((zone) => ({ value: zone, label: zone })),
 ])
 
-const roomPlans = computed(() => plans.value.filter((plan) => plan.fulfillment_mode === 'room_subscription'))
+const commercialLocked = computed(() => Boolean(editingRoom.value?.plan?.current_round_status))
+const canSaveRoom = computed(() => {
+  const plan = roomForm.plan
+  return Boolean(roomForm.name.trim() && plan && plan.price_per_share > 0 && plan.total_shares >= 1 && plan.total_shares <= 10 && plan.max_buyers >= 1 && plan.max_buyers <= plan.total_shares && plan.max_shares_per_user >= 1 && plan.max_shares_per_user <= plan.total_shares)
+})
+const canSaveBulk = computed(() => {
+  const plan = bulkForm.plan_template
+  return bulkForm.quantity >= 1 && bulkForm.quantity <= 100 && plan.price_per_share > 0 && plan.total_shares >= 1 && plan.total_shares <= 10 && plan.max_buyers >= 1 && plan.max_buyers <= plan.total_shares && plan.max_shares_per_user >= 1 && plan.max_shares_per_user <= plan.total_shares
+})
 function resetRoomForm() {
   Object.assign(roomForm, {
-    code: '', name: '', plan_id: roomPlans.value[0]?.id ?? 0,
+    code: '', name: '', description: '', plan_id: undefined, plan: defaultPlanInput(),
     zone_key: 'featured', theme_key: 'warm_wood', scene_slot_key: '', status: 'draft', featured: false, sort_order: 0,
   })
 }
@@ -451,7 +483,17 @@ function openCreateDialog() {
 function openEditDialog(room: CafeRoom) {
   editingRoom.value = room
   Object.assign(roomForm, {
-    code: room.code, name: room.name, plan_id: room.plan_id,
+    code: room.code, name: room.name, description: room.description || room.plan?.description || '', plan_id: undefined,
+    plan: room.plan ? {
+      subscription_tier: room.plan.subscription_tier || 'plus', total_shares: room.plan.total_shares,
+      max_buyers: room.plan.max_buyers || Math.min(room.plan.total_shares, 4), max_shares_per_user: room.plan.max_shares_per_user || room.plan.total_shares,
+      price_per_share: room.plan.price_per_share, price_label: room.plan.price_label || '', quota_per_share_label: room.plan.quota_per_share_label || '',
+      timeout_minutes: room.plan.timeout_minutes, fulfillment_timeout_minutes: room.plan.fulfillment_timeout_minutes || 1440,
+      validity_days: room.plan.validity_days, target_group_id: room.plan.target_group_id,
+      room_key_quota_usd: room.plan.room_key_quota_usd || 0, room_key_rate_limit_5h: room.plan.room_key_rate_limit_5h || 0,
+      room_key_rate_limit_1d: room.plan.room_key_rate_limit_1d || 0, room_key_rate_limit_7d: room.plan.room_key_rate_limit_7d || 0,
+      refund_mode: room.plan.refund_mode || 'balance_credit', agreement_text: room.plan.agreement_text || '',
+    } : defaultPlanInput(),
     zone_key: room.zone_key, theme_key: room.theme_key, scene_slot_key: room.scene_slot_key,
     status: room.status, featured: room.featured, sort_order: room.sort_order,
   })
@@ -465,7 +507,7 @@ function closeRoomDialog() {
 
 function openBulkDialog() {
   bulkResult.value = null
-  bulkForm.plan_id = roomPlans.value[0]?.id ?? 0
+  bulkForm.plan_template = defaultPlanInput()
   bulkForm.quantity = 1
   bulkDialogOpen.value = true
 }
@@ -521,24 +563,8 @@ function statusClass(status: string) {
   }[status] || 'status-badge-muted'
 }
 
-function planTitle(room: CafeRoom) {
-  return room.plan?.title || plans.value.find((plan) => plan.id === room.plan_id)?.title || `#${room.plan_id}`
-}
-
-function planMode(room: CafeRoom) {
-  return room.plan?.fulfillment_mode || plans.value.find((plan) => plan.id === room.plan_id)?.fulfillment_mode || 'aggregate_tier'
-}
-
-async function loadDependencies() {
-  dependencyLoading.value = true
-  try {
-    const planResponse = await adminAPI.groupBuy.listPlans()
-    plans.value = planResponse.data
-  } catch (error) {
-    appStore.showError(extractApiErrorMessage(error, t('admin.pixelCafe.errors.dependencies')))
-  } finally {
-    dependencyLoading.value = false
-  }
+function formatPrice(value?: number) {
+  return value != null ? `¥${Number(value).toFixed(2)}/份` : '-'
 }
 
 let searchTimer: number | null = null
@@ -590,14 +616,17 @@ function changePageSize(pageSize: number) {
 }
 
 async function saveRoom() {
-  if (!roomForm.plan_id) return
+  if (!canSaveRoom.value) return
   saving.value = true
   try {
+    const payload = { ...roomForm }
+    if (!editingRoom.value) payload.code = ''
+    if (!payload.plan_id) delete payload.plan_id
     if (editingRoom.value) {
-      await adminAPI.cafeRooms.update(editingRoom.value.id, { ...roomForm })
+      await adminAPI.cafeRooms.update(editingRoom.value.id, payload)
       appStore.showSuccess(t('admin.pixelCafe.success.updated'))
     } else {
-      await adminAPI.cafeRooms.create({ ...roomForm })
+      await adminAPI.cafeRooms.create(payload)
       appStore.showSuccess(t('admin.pixelCafe.success.created'))
     }
     roomDialogOpen.value = false
@@ -644,7 +673,7 @@ async function openRound(room: CafeRoom) {
 }
 
 async function submitBulkCreate() {
-  if (!bulkForm.plan_id || bulkForm.quantity < 1) {
+  if (!canSaveBulk.value) {
     appStore.showError(t('admin.pixelCafe.bulk.noneSelected'))
     return
   }
@@ -666,7 +695,7 @@ async function submitBulkCreate() {
 }
 
 onMounted(() => {
-  void Promise.all([loadDependencies(), loadRooms(), loadPendingRounds()])
+  void Promise.all([loadRooms(), loadPendingRounds()])
 })
 
 async function loadPendingRounds() { pendingLoading.value = true; try { const response = await adminAPI.cafeRooms.listPendingRounds({ page: 1, page_size: 20, search: pendingSearch.value.trim() || undefined }); pendingRounds.value = response.data.items } catch (error) { appStore.showError(extractApiErrorMessage(error, t('admin.pixelCafe.errors.pending'))) } finally { pendingLoading.value = false } }

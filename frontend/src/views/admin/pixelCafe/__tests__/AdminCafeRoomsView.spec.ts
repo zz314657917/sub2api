@@ -17,7 +17,7 @@ const {
   assignRoundAccount,
   getWorkstationLayout,
   updateWorkstationLayout,
-  listPlans,
+  getAllGroups,
   showError,
   showSuccess,
 } = vi.hoisted(() => ({
@@ -33,7 +33,7 @@ const {
   assignRoundAccount: vi.fn(),
   getWorkstationLayout: vi.fn(),
   updateWorkstationLayout: vi.fn(),
-  listPlans: vi.fn(),
+  getAllGroups: vi.fn(),
   showError: vi.fn(),
   showSuccess: vi.fn(),
 }))
@@ -54,7 +54,7 @@ vi.mock('@/api/admin', () => ({
       bulkCreate,
       openRound,
     },
-    groupBuy: { listPlans },
+    groups: { getAll: getAllGroups },
   },
 }))
 
@@ -176,6 +176,16 @@ function room(status: 'enabled' | 'maintenance' = 'enabled') {
       max_shares_per_user: 4,
       timeout_minutes: 60,
       validity_days: 30,
+      price_per_share: 12,
+      price_label: '',
+      quota_per_share_label: '',
+      fulfillment_timeout_minutes: 1440,
+      room_key_quota_usd: 0,
+      room_key_rate_limit_5h: 0,
+      room_key_rate_limit_1d: 0,
+      room_key_rate_limit_7d: 0,
+      refund_mode: 'balance_credit',
+      agreement_text: '',
       group_platform: 'openai',
       group_access_mode: 'room_managed',
     },
@@ -198,8 +208,8 @@ function mountView() {
         ConfirmDialog: ConfirmDialogStub,
         Icon: true,
         AdminGroupBuyView: {
-          props: { embedded: Boolean },
-          template: '<section data-testid="embedded-group-buy" :data-embedded="String(embedded)">拼团工作区</section>',
+          props: { embedded: Boolean, roundsOnly: Boolean },
+          template: '<section data-testid="embedded-group-buy" :data-embedded="String(embedded)" :data-rounds-only="String(roundsOnly)">拼团工作区</section>',
         },
       },
     },
@@ -209,10 +219,10 @@ function mountView() {
 describe('AdminCafeRoomsView', () => {
   beforeEach(() => {
     listRooms.mockReset().mockResolvedValue({ data: { items: [room()], total: 1, page: 1, page_size: 20, pages: 1 } })
-    listPlans.mockReset().mockResolvedValue({ data: [
-      { id: 20, title: 'Legacy plan', target_group_id: 4, fulfillment_mode: 'aggregate_tier' },
-      { id: 21, title: 'ChatGPT Plus', target_group_id: 5, fulfillment_mode: 'room_subscription', subscription_tier: 'plus' },
-    ] })
+    getAllGroups.mockReset().mockResolvedValue([
+      { id: 4, name: '普通订阅组', status: 'active', subscription_type: 'subscription', access_mode: 'normal', platform: 'openai' },
+      { id: 5, name: '网吧托管组', status: 'active', subscription_type: 'subscription', access_mode: 'room_managed', platform: 'openai' },
+    ])
     listAccountOptions.mockReset().mockResolvedValue({ data: { items: [
       { id: 41, name: 'OpenAI account', platform: 'openai', status: 'active', email_masked: 'o***i@example.com' },
       { id: 42, name: 'Second account', platform: 'openai', status: 'active', email_masked: 's***d@example.com' },
@@ -239,7 +249,7 @@ describe('AdminCafeRoomsView', () => {
     showSuccess.mockReset()
   })
 
-  it('loads rooms and exposes only room_subscription plans in the create form', async () => {
+  it('loads rooms and exposes the owned Plus/Pro plan fields in the create form', async () => {
     const wrapper = mountView()
     await flushPromises()
 
@@ -251,7 +261,8 @@ describe('AdminCafeRoomsView', () => {
     const createButton = wrapper.findAll('button').find((button) => button.text().includes('新建房间'))
     await createButton?.trigger('click')
     expect(wrapper.text()).toContain('ChatGPT Plus')
-    expect(wrapper.text()).not.toContain('Legacy plan')
+    expect(wrapper.text()).toContain('托管订阅分组')
+    expect(wrapper.text()).not.toContain('选择 Room 计划')
   })
 
   it('renders room management and embedded plan management together', async () => {
@@ -260,6 +271,7 @@ describe('AdminCafeRoomsView', () => {
 
     expect(wrapper.text()).toContain('OpenAI 七号房')
     expect(wrapper.find('[data-testid="embedded-group-buy"]').attributes('data-embedded')).toBe('true')
+    expect(wrapper.find('[data-testid="embedded-group-buy"]').attributes('data-rounds-only')).toBe('true')
   })
 
   it('loads, resizes, resets, edits, and saves one shared lobby workstation layout', async () => {
@@ -287,7 +299,7 @@ describe('AdminCafeRoomsView', () => {
     expect(showSuccess).toHaveBeenCalledWith('大厅电脑布局已保存')
   })
 
-  it('submits create input without client-owned price or group fields and opens a round', async () => {
+  it('submits one room with its nested owned plan and opens a round', async () => {
     const wrapper = mountView()
     await flushPromises()
 
@@ -296,19 +308,16 @@ describe('AdminCafeRoomsView', () => {
     const inputs = form.findAll('input')
     await inputs[0].setValue('ROOM-008')
     await inputs[1].setValue('八号房')
-    const selects = form.findAll('select')
-    await selects[0].setValue('21')
     await form.trigger('submit')
     await flushPromises()
 
     expect(createRoom).toHaveBeenCalledWith(expect.objectContaining({
-      code: 'ROOM-008',
+      code: '',
       name: '八号房',
-      plan_id: 21,
+      plan: expect.objectContaining({ subscription_tier: 'plus', target_group_id: 0, total_shares: 10 }),
     }))
     const payload = createRoom.mock.calls[0][0]
-    expect(payload).not.toHaveProperty('price')
-    expect(payload).not.toHaveProperty('group_id')
+    expect(payload).not.toHaveProperty('plan_id')
     expect(payload).not.toHaveProperty('account_id')
 
     await wrapper.findAll('button').find((button) => button.text().trim() === '开团')?.trigger('click')
@@ -334,19 +343,32 @@ describe('AdminCafeRoomsView', () => {
     expect(removeRoom).toHaveBeenCalledWith(7)
   })
 
+  it('locks commercial fields and room status while a round is in progress', async () => {
+    const liveRoom = room()
+    liveRoom.plan.current_round_status = 'open'
+    listRooms.mockResolvedValue({ data: { items: [liveRoom], total: 1, page: 1, page_size: 20, pages: 1 } })
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.findAll('button').find((button) => button.text().trim() === '编辑')?.trigger('click')
+
+    const commercial = wrapper.get('[data-testid="room-owned-plan-fields"]')
+    expect(commercial.findAll('input, select, textarea').every((control) => control.attributes('disabled') !== undefined)).toBe(true)
+    expect(wrapper.get('#cafe-room-form textarea').attributes('disabled')).not.toBeUndefined()
+    const statusSelect = wrapper.findAll('#cafe-room-form select').find((select) => select.find('option[value="maintenance"]').exists())
+    expect(statusSelect?.attributes('disabled')).not.toBeUndefined()
+  })
+
   it('bulk creates by quantity and renders per-item failures', async () => {
     const wrapper = mountView()
     await flushPromises()
 
     await wrapper.findAll('button').find((button) => button.text().includes('批量创建'))?.trigger('click')
     const form = wrapper.find('#cafe-room-bulk-form')
-    const selects = form.findAll('select')
-    await selects[0].setValue('21')
     await form.find('input[type="number"]').setValue(3)
     await form.trigger('submit')
     await flushPromises()
 
-    expect(bulkCreate).toHaveBeenCalledWith(expect.objectContaining({ plan_id: 21, quantity: 3 }))
+    expect(bulkCreate).toHaveBeenCalledWith(expect.objectContaining({ quantity: 3, plan_template: expect.objectContaining({ target_group_id: 0, subscription_tier: 'plus' }) }))
     expect(bulkCreate.mock.calls[0][0]).not.toHaveProperty('account_ids')
     expect(wrapper.text()).toContain('CAFE_ROOM_CREATE_FAILED')
     expect(showSuccess).toHaveBeenCalled()
