@@ -8696,8 +8696,10 @@ type postUsageBillingParams struct {
 	NewUserTrial                 *NewUserTrialSession
 	SkipUsageCounters            bool
 	PrepaidBalanceCost           float64
-	RequireBalanceCheck          bool
-	Platform                     string
+	// RequireBalanceCheck is retained for call-site compatibility; the billing
+	// repository always enforces sufficient wallet funds for positive charges.
+	RequireBalanceCheck bool
+	Platform            string
 }
 
 type accountShareBillingSettings struct {
@@ -8761,8 +8763,13 @@ func (p *postUsageBillingParams) shouldSkipSelfOwnedPrivateBilling() bool {
 
 // postUsageBilling is the legacy fallback billing path used when the unified
 // billing repo is unavailable (nil). Production uses applyUsageBilling → repo.Apply
-// for atomic billing. This path only runs in tests or degraded mode.
-func postUsageBilling(ctx context.Context, p *postUsageBillingParams, deps *billingDeps) {
+// for atomic billing. This path only runs in tests or degraded mode. Critical
+// wallet/subscription write failures must propagate so callers do not report an
+// unbilled request as successfully applied.
+func postUsageBilling(ctx context.Context, p *postUsageBillingParams, deps *billingDeps) error {
+	if err := validatePostUsageBillingFallback(p, deps); err != nil {
+		return err
+	}
 	billingCtx, cancel := detachedBillingContext(ctx)
 	defer cancel()
 
@@ -8776,6 +8783,10 @@ func postUsageBilling(ctx context.Context, p *postUsageBillingParams, deps *bill
 		if cost.ActualCost > 0 {
 			if err := deps.userSubRepo.IncrementUsage(billingCtx, p.Subscription.ID, cost.ActualCost); err != nil {
 				slog.Error("increment subscription usage failed", "subscription_id", p.Subscription.ID, "error", err)
+				return fmt.Errorf("increment subscription usage %d: %w", p.Subscription.ID, err)
+			}
+			if deps.billingCacheService != nil && p.User != nil && p.APIKey != nil && p.APIKey.GroupID != nil {
+				deps.billingCacheService.QueueUpdateSubscriptionUsage(p.User.ID, *p.APIKey.GroupID, cost.ActualCost)
 			}
 		}
 	} else if !p.shouldSkipSelfOwnedPrivateBilling() {
@@ -8783,7 +8794,12 @@ func postUsageBilling(ctx context.Context, p *postUsageBillingParams, deps *bill
 		if balanceCost > 0 {
 			if err := deps.userRepo.DeductBalance(billingCtx, p.User.ID, balanceCost); err != nil {
 				slog.Error("deduct balance failed", "user_id", p.User.ID, "error", err)
+				invalidateUsageBillingBalanceCache(billingCtx, p, deps, "failed fallback deduction")
+				return fmt.Errorf("deduct balance for user %d: %w", p.User.ID, err)
 			}
+			// A delta cache update can race with an in-flight DB cache fill and
+			// double-apply the deduction. Invalidate so the next read uses DB truth.
+			invalidateUsageBillingBalanceCache(billingCtx, p, deps, "successful fallback deduction")
 		}
 	}
 
@@ -8806,10 +8822,27 @@ func postUsageBilling(ctx context.Context, p *postUsageBillingParams, deps *bill
 		}
 	}
 
-	// NOTE: finalizePostUsageBilling is NOT called here to avoid double-queuing
-	// cache updates. The legacy path does DB writes directly; the finalize path
-	// does cache queue + notifications. Notifications are dispatched separately
-	// by the caller after recording the usage log.
+	return nil
+}
+
+func validatePostUsageBillingFallback(p *postUsageBillingParams, deps *billingDeps) error {
+	if p == nil || p.Cost == nil || p.User == nil || p.APIKey == nil || p.Account == nil || deps == nil {
+		return ErrUsageBillingCommandInvalid
+	}
+	if p.isNewUserTrialBilling() || p.shouldSkipSelfOwnedPrivateBilling() {
+		return nil
+	}
+	if p.IsSubscriptionBill {
+		if p.Cost.ActualCost > 0 && (p.Subscription == nil || deps.userSubRepo == nil) {
+			return ErrBillingServiceUnavailable
+		}
+	} else if p.Cost.ActualCost-normalizeNonNegativeFloat(p.PrepaidBalanceCost) > 0 && deps.userRepo == nil {
+		return ErrBillingServiceUnavailable
+	}
+	if p.shouldUpdateAccountQuota() && deps.accountRepo == nil {
+		return ErrBillingServiceUnavailable
+	}
+	return nil
 }
 
 func resolveUsageBillingRequestID(ctx context.Context, upstreamRequestID string) string {
@@ -8941,8 +8974,16 @@ func applyUsageBilling(ctx context.Context, requestID string, usageLog *UsageLog
 	}
 
 	cmd := buildUsageBillingCommand(requestID, usageLog, p)
-	if cmd == nil || cmd.RequestID == "" || repo == nil {
-		postUsageBilling(ctx, p, deps)
+	if cmd == nil {
+		return false, ErrUsageBillingCommandInvalid
+	}
+	if cmd.RequestID == "" {
+		return false, ErrUsageBillingRequestIDRequired
+	}
+	if repo == nil {
+		if err := postUsageBilling(ctx, p, deps); err != nil {
+			return false, err
+		}
 		return true, nil
 	}
 
@@ -8951,6 +8992,9 @@ func applyUsageBilling(ctx context.Context, requestID string, usageLog *UsageLog
 
 	result, err := repo.Apply(billingCtx, cmd)
 	if err != nil {
+		if errors.Is(err, ErrInsufficientBalance) {
+			invalidateUsageBillingBalanceCache(billingCtx, p, deps, "rejected unified deduction")
+		}
 		return false, err
 	}
 
@@ -8965,7 +9009,7 @@ func applyUsageBilling(ctx context.Context, requestID string, usageLog *UsageLog
 		}
 	}
 
-	finalizePostUsageBilling(p, deps, result)
+	finalizePostUsageBilling(billingCtx, p, deps, result)
 	return true, nil
 }
 
@@ -8975,6 +9019,12 @@ const (
 )
 
 func applyUsageBillingWithNewUserTrialOverage(ctx context.Context, requestID string, usageLog *UsageLog, p *postUsageBillingParams, deps *billingDeps, repo UsageBillingRepository, welfareService *WelfareService) (bool, error) {
+	// The legacy fallback cannot consume welfare vouchers atomically. When the
+	// welfare wallet is active, fail closed instead of bypassing voucher-first
+	// billing and potentially charging or accepting the wrong source of funds.
+	if repo == nil && welfareService != nil && requiresUnifiedWalletBilling(p) {
+		return false, ErrBillingServiceUnavailable
+	}
 	applied, err := applyUsageBilling(ctx, requestID, usageLog, p, deps, repo)
 	if err != nil || p == nil || p.NewUserTrial == nil || p.Cost == nil {
 		return applied, err
@@ -9007,6 +9057,18 @@ func applyUsageBillingWithNewUserTrialOverage(ctx context.Context, requestID str
 	}
 
 	return applied, nil
+}
+
+func requiresUnifiedWalletBilling(p *postUsageBillingParams) bool {
+	if p == nil || p.Cost == nil || p.IsSubscriptionBill || p.shouldSkipSelfOwnedPrivateBilling() {
+		return false
+	}
+	remainingCost := p.Cost.ActualCost
+	if p.NewUserTrial != nil {
+		remainingCost -= newUserTrialCoveredAmount(p.Cost, p.NewUserTrial)
+	}
+	remainingCost -= normalizeNonNegativeFloat(p.PrepaidBalanceCost)
+	return remainingCost > 0
 }
 
 func newUserTrialCoveredAmount(cost *CostBreakdown, session *NewUserTrialSession) float64 {
@@ -9078,7 +9140,7 @@ func newUserTrialOverageRequestID(requestID string) string {
 	return base[:maxBaseLen] + "-" + hash + newUserTrialOverageRequestIDSuffix
 }
 
-func finalizePostUsageBilling(p *postUsageBillingParams, deps *billingDeps, result *UsageBillingApplyResult) {
+func finalizePostUsageBilling(ctx context.Context, p *postUsageBillingParams, deps *billingDeps, result *UsageBillingApplyResult) {
 	if p == nil || p.Cost == nil || deps == nil {
 		return
 	}
@@ -9092,7 +9154,7 @@ func finalizePostUsageBilling(p *postUsageBillingParams, deps *billingDeps, resu
 	} else if p.Cost.ActualCost > 0 && p.User != nil {
 		balanceCost := usageBillingWalletBalanceCost(p, result)
 		if balanceCost > 0 {
-			deps.billingCacheService.QueueDeductBalance(p.User.ID, balanceCost)
+			invalidateUsageBillingBalanceCache(ctx, p, deps, "successful unified deduction")
 		}
 	}
 
@@ -9106,6 +9168,17 @@ func finalizePostUsageBilling(p *postUsageBillingParams, deps *billingDeps, resu
 	// no dependency on the request context or upstream connection.
 	go notifyBalanceLow(p, deps, result)
 	go notifyAccountQuota(p, deps, result)
+}
+
+func invalidateUsageBillingBalanceCache(ctx context.Context, p *postUsageBillingParams, deps *billingDeps, reason string) {
+	if p == nil || p.User == nil || deps == nil || deps.billingCacheService == nil {
+		return
+	}
+	cacheCtx, cancel := detachedBillingContext(ctx)
+	defer cancel()
+	if err := deps.billingCacheService.InvalidateUserBalance(cacheCtx, p.User.ID); err != nil {
+		slog.Error("invalidate balance cache after usage billing", "user_id", p.User.ID, "reason", reason, "error", err)
+	}
 }
 
 // notifyBalanceLow sends balance low notification after deduction.

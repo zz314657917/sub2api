@@ -14,6 +14,7 @@ import (
 
 var ErrUsageBillingRequestIDRequired = errors.New("usage billing request_id is required")
 var ErrUsageBillingRequestConflict = errors.New("usage billing request fingerprint conflict")
+var ErrUsageBillingCommandInvalid = errors.New("usage billing command is invalid")
 
 // UsageBillingCommand describes one billable request that must be applied at most once.
 type UsageBillingCommand struct {
@@ -38,8 +39,10 @@ type UsageBillingCommand struct {
 	ImageCount          int
 	MediaType           string
 
-	BalanceCost         float64
-	PrepaidBalanceCost  float64
+	BalanceCost        float64
+	PrepaidBalanceCost float64
+	// RequireBalanceCheck is retained for command compatibility; every wallet
+	// deduction is now guarded by the repository regardless of this flag.
 	RequireBalanceCheck bool
 	SubscriptionCost    float64
 	APIKeyQuotaCost     float64
@@ -60,6 +63,9 @@ func (c *UsageBillingCommand) Normalize() {
 		c.RequestFingerprint = buildUsageBillingFingerprint(c)
 	}
 	c.quantizeMonetaryFields()
+	if c.BalanceCost > 0 {
+		c.RequireBalanceCheck = true
+	}
 }
 
 // UsageBillingMonetaryScale aligns command amounts with PostgreSQL NUMERIC(20,8).

@@ -121,7 +121,6 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 			cmd.BalanceCost,
 			welfareVoucherOperationUsageBilling,
 			usageBillingVoucherOperationKey(cmd),
-			cmd.RequireBalanceCheck,
 		)
 		if err != nil {
 			return err

@@ -176,7 +176,7 @@ func getWelfareVoucherAvailableAmount(ctx context.Context, exec sqlQueryExecutor
 	return normalizeWelfareVoucherAmount(summary.VoucherAvailable), nil
 }
 
-func deductWelfareVoucherThenBalance(ctx context.Context, tx *sql.Tx, userID int64, amount float64, operationType, operationKey string, requireSufficient bool) (*welfareVoucherDeductResult, error) {
+func deductWelfareVoucherThenBalance(ctx context.Context, tx *sql.Tx, userID int64, amount float64, operationType, operationKey string) (*welfareVoucherDeductResult, error) {
 	if tx == nil {
 		return nil, fmt.Errorf("welfare voucher transaction is nil")
 	}
@@ -200,14 +200,15 @@ func deductWelfareVoucherThenBalance(ctx context.Context, tx *sql.Tx, userID int
 		return nil, err
 	}
 
-	if requireSufficient {
-		available, err := getWelfareVoucherAvailableAmount(ctx, tx, userID)
-		if err != nil {
-			return nil, err
-		}
-		if normalizeWelfareVoucherAmount(balance+available)+1e-9 < amount {
-			return nil, service.ErrInsufficientBalance
-		}
+	available, err := getWelfareVoucherAvailableAmount(ctx, tx, userID)
+	if err != nil {
+		return nil, err
+	}
+	// Every wallet deduction must be covered by the user's balance plus active
+	// welfare vouchers. Checking only selected call sites would let a future
+	// caller reintroduce an overdraft through this shared transaction helper.
+	if normalizeWelfareVoucherAmount(balance+available)+1e-9 < amount {
+		return nil, service.ErrInsufficientBalance
 	}
 
 	remaining := amount

@@ -76,7 +76,16 @@ var (
 		if current == false then
 			return 0
 		end
-		local newVal = tonumber(current) - tonumber(ARGV[1])
+		local currentVal = tonumber(current)
+		local amount = tonumber(ARGV[1])
+		if currentVal == nil or amount == nil or amount < 0 then
+			return redis.error_reply('invalid cached balance deduction')
+		end
+		if currentVal < amount then
+			redis.call('DEL', KEYS[1])
+			return -1
+		end
+		local newVal = currentVal - amount
 		redis.call('SET', KEYS[1], newVal)
 		redis.call('EXPIRE', KEYS[1], ARGV[2])
 		return 1

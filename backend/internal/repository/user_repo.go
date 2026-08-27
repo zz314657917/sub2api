@@ -833,22 +833,26 @@ func (r *userRepository) AddBalance(ctx context.Context, id int64, amount float6
 	return nil
 }
 
-// DeductBalance 扣除用户余额
-// 透支策略：允许余额变为负数，确保当前请求能够完成
-// 中间件会阻止余额 <= 0 的用户发起后续请求
+// DeductBalance 原子扣除用户余额，不允许余额变为负数。
 func (r *userRepository) DeductBalance(ctx context.Context, id int64, amount float64) error {
+	if amount <= 0 {
+		return nil
+	}
 	client := clientFromContext(ctx, r.client)
 	n, err := client.User.Update().
-		Where(dbuser.IDEQ(id)).
+		Where(dbuser.IDEQ(id), dbuser.BalanceGTE(amount)).
 		AddBalance(-amount).
 		Save(ctx)
 	if err != nil {
-		return err
+		return translatePersistenceError(err, service.ErrUserNotFound, nil)
 	}
-	if n == 0 {
-		return service.ErrUserNotFound
+	if n > 0 {
+		return nil
 	}
-	return nil
+	if _, err := client.User.Get(ctx, id); err != nil {
+		return translatePersistenceError(err, service.ErrUserNotFound, nil)
+	}
+	return service.ErrInsufficientBalance
 }
 
 // DeductAvailableBalance atomically deducts min(amount, max(balance, 0)).

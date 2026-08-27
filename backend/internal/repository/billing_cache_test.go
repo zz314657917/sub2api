@@ -3,10 +3,13 @@
 package repository
 
 import (
+	"context"
 	"math"
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 )
 
@@ -108,4 +111,20 @@ func TestJitteredTTL_HasVariation(t *testing.T) {
 	}
 	// 50 次调用中应该至少有 2 个不同的值
 	require.Greater(t, len(seen), 1, "jitteredTTL() 应产生不同的 TTL 值")
+}
+
+func TestBillingCacheDeductUserBalance_InvalidatesInsufficientCachedBalance(t *testing.T) {
+	mini := miniredis.RunT(t)
+	rdb := redis.NewClient(&redis.Options{Addr: mini.Addr()})
+	t.Cleanup(func() { require.NoError(t, rdb.Close()) })
+
+	cache := NewBillingCache(rdb)
+	ctx := context.Background()
+	const userID int64 = 42
+
+	require.NoError(t, cache.SetUserBalance(ctx, userID, 5))
+	require.NoError(t, cache.DeductUserBalance(ctx, userID, 10))
+
+	_, err := cache.GetUserBalance(ctx, userID)
+	require.ErrorIs(t, err, redis.Nil, "insufficient cached balance must be invalidated instead of becoming negative")
 }
