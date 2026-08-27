@@ -1,12 +1,12 @@
 ---
-phase: retest
+phase: done
 current_sprint: upstream-content-moderation-main-integration-s266-c
 total_sprints: 267
-pending_action: Independent native gpt-5.6-terra QA reruns S266-C from unchanged main@f080bbd09 using the exact embedded outputs algorithm, then executes every backend/frontend Acceptance Command and final scope/protection gates.
+pending_action: S266-A/B are integrated and independently verified on local main@f080bbd09. Await explicit authorization before any push, deployment, container update, migration application, or live external-state smoke.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-27 22:54 +08:00
+last_verified: 2026-08-27 23:19 +08:00
 ---
 
 # Upstream Content Moderation Parity S266
@@ -42,6 +42,18 @@ last_verified: 2026-08-27 22:54 +08:00
   from unchanged `main@f080bbd09`. The amendment changes only the ambiguous
   protection gate; product scope and all acceptance commands are unchanged.
   Independent QA retest is authorized.
+- `PASS / S266-C independent QA retest`: report commit `cde069a52` starts
+  `### PASS: upstream-content-moderation-main-integration-s266-c`. The frozen
+  outputs manifest matched before and after testing; all four focused backend
+  groups x10, the affected full service/handler/admin packages, migration 237,
+  server compilation, frontend Vitest 7/7, typecheck and 1904-module build
+  passed. Exact 67-path scope, patch IDs, `-x` provenance, gofmt, diff,
+  conflict/index and protected-worktree gates passed with no confirmed defect.
+- `S266-C / DONE`: complete content moderation is now present on local
+  `main@f080bbd09` as products `6054b9266` and `f080bbd09`. Evidence remains in
+  the S266 candidate worktree; no workflow-only history was copied into main.
+  No push, deployment, container update, migration application, shared data or
+  live external-service operation occurred.
 
 - `S265 / BLOCKED`: the routed Codex catalog Worker stopped twice because the
   approved baseline lacked denied Composite route/resolver prerequisites. The
@@ -108,8 +120,8 @@ last_verified: 2026-08-27 22:54 +08:00
   drift. One service x10 run hit a one-second stale-snapshot `Eventually`
   timeout; the complete rerun and isolated x20/x100 repetitions passed, so it
   is retained as a test-stability risk rather than a confirmed product defect.
-- The candidate branch is complete at `89f2d8869`, but S266-A/B have not been
-  integrated into local `main`. No provider, SMTP, real Redis/PostgreSQL,
+- The candidate branch is complete and S266-A/B are integrated into local
+  `main@f080bbd09`. No provider, SMTP, real Redis/PostgreSQL,
   shared-database, container, deployment, staging or push operation occurred.
 
 # Pixel Cafe My-Room Usage Progress S260

@@ -97,7 +97,7 @@
 
 ## 当前目标
 
-- S266-B 候选链已完成实现和独立 QA；当前等待明确授权后再决定是否按提交边界集成本地 `main`。后续 transcript 重构、迁移、外部服务、容器、staging、push 仍不在本合同范围。
+- S266-A/B 已按独立产品提交边界进入本地 `main@f080bbd09` 并完成组合主线独立 QA；当前等待明确授权后再决定是否 push、部署、更新容器或执行隔离运行态验证。后续 transcript 重构仍不在本合同范围。
 - 完成本轮上游选择性合入的收口：保留 `a2f0b578f` 待用户决定推送时机；无可安全独立合入的上游业务切片前，不做整包 merge 或重置卡自动消费流程。
 - S260 精简跟进已完成本地实现、两条额度进度条、最终验收和本地应用容器更新；功能代码与工作流记录已分批提交并推送。共享/生产数据库不在本轮范围。
 
@@ -107,6 +107,7 @@
 - S266-B 合同来源为 `b62b573f7` 加 `6564d376e`，允许本地 gateway/cache/settings/admin/frontend owner 及直接映射测试，明确排除后续 `openAIRequestPayloadView` transcript 重构、Ent/schema、迁移、依赖与外部状态。
 - S266-B 在 CLI transport 404 和原 native Developer allowlist 失败后按合同停止低成本 worker loop，由 Controller 接管；产品提交 `eeed2369f` 精确包含 56 个 allowlist 文件，Controller 证据为 `4fd7a2aa1`，QA 派发记录为 `8ebb4fb5b`。
 - 独立 native `gpt-5.6-terra` QA 已 `PASS`，报告提交为 `89f2d8869`。Responses、Chat Completions、Messages、compat fallback、WebSocket 的终止透传/无 failover/单错误体，下一 turn 阻断和 mark 清理，真实/零 token 计费，Risk Control group/model scope，历史 cyber 计数排除，API-key 加显式 session 隔离，审计先落库再发邮件，以及 API/UI 控制均有 focused 证据。
+- S266-C 已将 A/B 产品按 `-x` 提交为本地 `main` 的 `6054b9266` 和 `f080bbd09`；两者 patch-id 与候选一致，组合 delta 精确为 67 路径，无 Pixel Cafe、wallet/billing、workflow、锁文件或 `outputs/**` 越界。首次 QA 因保护清单序列化未写清而正确 BLOCKED，修订合同后同一独立 Terra QA retest PASS，最终报告提交为 `cde069a52`。
 - 上游 `main` 刷新与行为级核对完成；CN 渠道编辑适配已提交，实际端点观测、Responses Lite、Kimi 并发 403 与 session-id 粘性等前序选择性合入保持独立提交。`outputs/` 和后续出现的无关 Pixel Cafe 脏改动均未触碰；未执行 push、部署、数据库或真实 provider 调用。
 - S260 完成私有刷新时间投影与过期窗口安全归零；最新前台精简为房名、绑定账号、剩余时间、账号 7D 剩余和我的限额两条进度条，并完成桌面/移动 Chrome 验收、任务进程清理及受保护的本地应用容器更新；功能代码与工作流文档已分批提交并推送到 `origin/main@98f06e5b6`。
 - 用户已授权发布；S252-S256 的完整功能源码已作为
@@ -171,6 +172,7 @@
 
 - S266-B 冻结基线为本地 `e5b62a9b9`、上游 `efb46db0a`；源提交可达。现有 `miniredis` 依赖、设置缓存和网关缓存 owner 足以实现 contract，最终没有 schema、迁移或依赖变更。
 - S266-B 候选提交链为产品 `eeed2369f` -> Controller `4fd7a2aa1` -> QA 派发 `8ebb4fb5b` -> QA 报告 `89f2d8869`；独立报告首行为 `### PASS: upstream-content-moderation-cyber-policy-s266-b`。受保护任务目录、`outputs/**`、Pixel Cafe、锁文件和 denied paths 均未进入产品提交。
+- S266-C 主线集成以 `2a3664747` 为基线，结果为 A `6054b9266` -> B `f080bbd09`；A/B patch-id 分别为 `922e3bc0...` 与 `1c0333b2...`。20 文件 `outputs/` 的确定性 manifest 在 QA 前后均为 `2996311A...79145`，主工作区 tracked/index 干净，仅保留 `?? outputs/`。
 - S224 在生成/保留原始请求指纹后，用 decimal 八位量化六个金额字段，包含本地 `PrepaidBalanceCost`。Developer、Controller、独立 QA 与集成主线 focused 均 PASS。
 - S225 保留本地 `claude-cli/2.1.92`、Stainless `0.70.0/v24.13.0` 等默认值；创建和升级共用 UA 校验，污染缓存两种自愈均保留 `ClientID`。独立 QA 未发现实现缺陷。
 - S225 集成主线 11/11 focused 测试 x10 PASS（0.077s）；候选与主线业务 patch-id 均为 `3c649274094273e6c75c14859669eed1b6c8e753`。
@@ -197,7 +199,7 @@
 
 - S266-B 合同范围内没有确认产品缺陷；但真实 provider、SMTP、Redis/PostgreSQL、共享数据库、容器、部署和登录态浏览器 smoke 均未获授权，不能用本地 mock/build 证据替代这些运行态验证。
 - 独立 QA 首轮 service x10 曾有一次一秒 `Eventually` 超时，完整重跑及隔离 x20/x100 均通过；当前按测试稳定性风险保留。带 `unit` tag 的 API contract 有四项既有快照漂移，完整 repository 仍被既有 billing SQL mock 32/34 列漂移阻断，均不属于 S266-B 产品 diff。
-- S266-A/B 尚未进入本地 `main`。集成动作 -> 仅在用户明确授权后按产品/证据提交边界执行；验证：保护主工作区 dirty/untracked 内容，组合主线 fresh 跑 focused backend/frontend、server compile、typecheck/build、scope/provenance/conflict/index 门禁，并保持普通提交历史、不得 push。
+- S266-A/B 已进入本地 `main` 且组合 QA 通过；仍未验证真实 provider、SMTP、真实 Redis/PostgreSQL、迁移应用、容器、部署和登录态浏览器运行态。任何此类动作都需要新的明确授权和隔离 contract。
 - S255 无待修复项；本地容器仍停在 S254，只有用户明确授权后才能把 S255 重建进容器。commit/push 同样需要单独授权。
 - `10c8b7020` 五项 CN 缺陷切片及 S230-A/B 已完成；下一步只评估新的上游候选或历史提交，不再回到已完成切片。
 - `ab0fcd1a0` 的 S231 Gemini skipped-policy 切片已完成；上游相关四文件在该提交后到 `upstream/main@49504adc9` 无后续修改。
@@ -210,8 +212,8 @@
 
 ## 当前结论
 
-- `PASS / S266-B independent QA`：`eeed2369f` 已完成 cyber-policy 全链，独立 Terra QA 报告提交 `89f2d8869` 未发现确认产品缺陷；已知基线失败和一次未复现的异步测试超时已单独记录。
-- `PASS / S266-A independent QA`：内容审计核心已提交并有独立 Terra QA 证据。S266-A/B 候选功能完整，但尚未集成本地 `main`、push 或部署。
+- `PASS / S266-C main integration`：完整内容审计已作为 `6054b9266`、`f080bbd09` 进入本地 `main`；独立 Terra 组合 QA 报告 `cde069a52` 验证 67 路径、patch-id/provenance、四组 focused x10、完整受影响后端包、migration、server compile、前端 7/7、typecheck/build 与保护门禁全部通过。
+- `PASS / S266-A/B independent QA`：候选阶段和组合主线阶段均有独立 Terra QA 证据；未发现确认产品缺陷。当前未 push、部署或运行真实外部服务。
 - `PASS / S255 final QA`：后台 1/10/50 数量控制、50 项保存回读、坐标保留、连续编号、当前数量重置、后端 1–50 安全边界、动态场景渲染、focused/full tests、typecheck/build、Chrome 桌面/移动与任务进程清理全部通过；未更新容器、共享数据、commit 或 push。
 - `PASS / S254 final QA`：共享布局安全边界、拖动保存与刷新读回、桌面/移动端场景、focused/full tests、typecheck/build、diff/index 及任务进程清理全部通过；未更新容器、commit 或 push。
 - `PASS / S226-E independent QA`：独立 QA 报告 `5ca12b78b`，静态、运行态、构建、scope/provenance 和保护边界均通过；UI 登录态限制已显式记录。
@@ -233,7 +235,7 @@
 
 ## 下一步
 
-- 等待用户决定是否集成本地 `main` -> 验证：集成前读取主工作区状态和保护清单，只按 S266-A/B 产品/证据提交边界引入；组合主线 fresh 跑 focused backend/frontend、server compile、typecheck/build、diff/conflict/index 与 denied-path 门禁。当前不得 push 或部署。
+- 等待用户决定是否普通 push 本地 `main` -> 验证：发布前重新读取 HEAD/status/远端 refs，确认 `origin/main` 未漂移、主线仅保留 `outputs/`，复核本地 ahead 提交范围后才可执行非强制 push。当前没有 push 授权。
 - 如需真实运行态验证 -> 验证：另建明确授权的 contract，使用隔离 provider/SMTP/Redis/PostgreSQL 测试设施和受控登录态浏览器 smoke；不得连接共享/生产数据。
 - 当前 S255/S256 已可在 `http://127.0.0.1:62580/group-buy?demo=1` 查看；如继续修改，仍需新的明确授权后再走 Docker 更新保护流程。
 - 保留并发 S249/QA worktree，等待其独立门禁完成；不要把本轮清理扩展到 S249 或 detached `tutorial-nav`。
@@ -245,6 +247,7 @@
 
 - S266-A：定向 content-moderation service/repository/admin/migration tests `-count=10`、`cmd/server` compile、前端 Vitest 7/7、typecheck、1904-module build、gofmt/diff/conflict/index/provenance/保护门禁均通过；受影响 repository 整包仍被既有 billing fixture 的 32/34 列漂移阻断。
 - S266-B：产品 `eeed2369f` 精确 56 个 allowlist 文件；Controller 与独立 QA 的 focused backend x10、server compile、前端 Vitest 7/7、typecheck、1904-module build、gofmt/diff/conflict/index/scope 均通过。QA 报告 `89f2d8869` 首行为 `### PASS`；一次 service 异步测试超时在完整重跑和隔离 x20/x100 中未复现。带 `unit` tag 的四项既有 API 快照漂移及 repository billing fixture 32/34 列失败继续单独记录。
+- S266-C：本地 `main@f080bbd09` 上四组 focused backend x10、完整 service/handler/admin、migration 237、server compile、前端 Vitest 7/7、typecheck 和 1904-module build PASS；67 路径、A/B patch-id、`-x` provenance、gofmt/diff/conflict/index 与 20 文件 outputs manifest 前后保护均 PASS。独立报告为 `cde069a52`；未 push、部署、更新容器或执行外部状态操作。
 - S256：focused Pixel Cafe Vitest 20/20、显式 typecheck、1904 modules production build、scoped diff/index PASS；Chrome 151 实测桌面/移动单一场景子列表、内部纵向/横向滚动、详情弹窗、ready Canvas、无页面横向溢出，任务 profile/daemon/Vite 5199 清零。本地容器 `37e9f1a6bd2a` 使用镜像 `4664eb11b3db` 且 healthy，三个页面为 200，17 个 Pixel Cafe 资源哈希一致，PostgreSQL/Redis ID 未变；Docker guard 已成功释放。
 - S255：focused service/handler Go、完整 `internal/service`（66.180 秒）、server compile、focused frontend 4 文件 19/19、显式 typecheck、1904 modules production build PASS；Chrome 151 实测后台 10/50/1/50、保存回读、坐标保留/连续编号/当前数量重置，以及公共 1440x1000、390x844 的 50 工位、50 人物、ready Canvas、16:9、无横向溢出。任务 profile/daemon/Vite PID 38732/端口 5197 清零。
 - S254：focused frontend 5 文件 33/33、受影响 Go service/handler/admin/routes 与 server compile、显式 `pnpm run typecheck`、production build、`git diff --check`、无冲突索引 PASS；Edge 实机拖动/保存/刷新及 1440x1000、390x844 响应式 PASS，session/profile process/daemon/Vite 端口清零。
