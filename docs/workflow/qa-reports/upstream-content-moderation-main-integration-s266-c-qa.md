@@ -1,4 +1,4 @@
-### BLOCKED: upstream-content-moderation-main-integration-s266-c
+### PASS: upstream-content-moderation-main-integration-s266-c
 
 # QA Report
 
@@ -6,46 +6,62 @@
 upstream-content-moderation-main-integration-s266-c
 
 ## Verdict
-`BLOCKED`
+`PASS`
 
 ## Contract Checked
 - `docs/workflow/tasks/upstream-content-moderation-main-integration-s266-c.md`
+- Retest amendment/review present in evidence history: `2e3e336a9`, `37fe41015`.
 
-## Findings
-- The contract's protected outputs gate cannot be verified. `F:/mcplugins/sub2api/outputs/` contains the required 20 untracked files and the tracked/index state is clean, but a deterministic manifest of current SHA-256 entries (`<file-sha256><two spaces><relative path>`, path-sorted, UTF-8, no final newline) is `CB91CA1C6CC1DD00B180B64547E06387C651EA8CC8AEC2F10087B42B59C626E2`, not frozen `2996311A4EC1458EEC9C2AE4327D5D5EAA695C878783DE984AF841BBF0A79145`.
-- Recomputations with slash/backslash paths, absolute/relative paths, hash/path order, optional size, LF/CRLF/final newline, and UTF-8/UTF-16 serializations did not yield the contract value. Neither the contract nor accessible workflow records state the original manifest serialization or per-file SHA-256 baseline. Therefore QA cannot prove that the protected untracked outputs are unchanged.
-- The contract and user instruction require immediate BLOCKED on outputs-manifest drift. Acceptance test commands were intentionally not run after this protection gate failed.
+## Retest Context
+- The first QA attempt was correctly `BLOCKED`: the original contract supplied an aggregate outputs digest but omitted its serialization algorithm, so QA could not verify the protected untracked tree.
+- The amended contract now defines the exact PowerShell manifest algorithm. This retest executed that snippet verbatim from `F:/mcplugins/sub2api` before and after all acceptance checks.
 
-## Scope and Provenance Evidence
+## Evidence
+- main state: `HEAD=f080bbd094e2afd196ada2c00fbcfe7b86275361`; tracked worktree and index clean; only `?? outputs/`; unmerged and staged indexes empty.
+- outputs protection: both runs returned `count=20`, `manifest=2996311A4EC1458EEC9C2AE4327D5D5EAA695C878783DE984AF841BBF0A79145`.
+- provenance: `6054b9266` retains `-x c2cd7a0a1`; `f080bbd09` retains `-x eeed2369f`; A is an ancestor of B and the integration baseline `2a3664747` is an ancestor of A.
+- patch IDs: main A `922e3bc0fc4ccf5c1bd1fecc41e33e8894ac8d0a`; main B `1c0333b260eb320ffeb89982757756a9e8c26df1`; both match the reviewed product commits.
+- scope: A=21 paths, B=56 paths, exact union=67 paths, `2a3664747..HEAD`=67 paths; no missing or extra paths, no overlap with the frozen main delta, and no denied path hit (including Pixel Cafe, wallet/billing, workflow, lockfile, or outputs).
+- integrity: `git diff --check 2a3664747..HEAD` passed; `gofmt -d` was empty; `git ls-files -u` and `git diff --cached --name-only` were empty.
+
+## Commands
 ```text
-main HEAD -> f080bbd094e2afd196ada2c00fbcfe7b86275361 (expected f080bbd09)
-git status --short -> ?? outputs/ only
-git diff --quiet -> 0
-git diff --cached --quiet -> 0
-git ls-files -u -> empty
-outputs file count -> 20
-6054b9266 patch-id -> 922e3bc0fc4ccf5c1bd1fecc41e33e8894ac8d0a (matches c2cd7a0a1)
-f080bbd09 patch-id -> 1c0333b260eb320ffeb89982757756a9e8c26df1 (matches eeed2369f)
-both commits retain -x provenance; 6054b9266 is an ancestor of f080bbd09
-21 S266-A paths + 56 S266-B paths -> exact 67-path union
-main delta 2a3664747..HEAD -> 67 paths, exact union; frozen main delta overlap -> 0; denied-path hits -> 0
+contract outputs PowerShell snippet (before acceptance) -> PASS, 20 files / 2996311A4EC1458EEC9C2AE4327D5D5EAA695C878783DE984AF841BBF0A79145
+go test ./internal/service -list 'Cyber|ContentModeration|KeywordMatcher|OpenAI.*Policy' -> PASS; non-empty discovery
+go test ./internal/handler -list 'Cyber|OpenAI' -> PASS; non-empty discovery
+go test ./internal/handler/admin -list 'ContentModeration|Cyber|Settings|RiskControl' -> PASS; non-empty discovery
+go test ./internal/repository -list 'Cyber|ContentModeration|OpsError' -> PASS; non-empty discovery
+go test ./internal/service -run 'Cyber|ContentModeration|KeywordMatcher|OpenAI.*Policy' -count=10 -> PASS, 8.322s
+go test ./internal/handler -run 'Cyber|OpenAI' -count=10 -> PASS, 10.495s
+go test ./internal/handler/admin -run 'ContentModeration|Cyber|Settings|RiskControl' -count=10 -> PASS, 0.176s
+go test ./internal/repository -run 'Cyber|ContentModeration|OpsError' -count=10 -> PASS, 0.185s
+go test ./migrations -run 'ContentModerationMatchedKeyword' -count=1 -> PASS, 0.174s
+go test ./internal/service ./internal/handler ./internal/handler/admin -count=1 -> PASS; service 65.303s, handler 27.390s, admin 0.216s
+go test ./cmd/server -run '^$' -count=1 -> PASS
+node node_modules/vitest/vitest.mjs run src/features/prompt-audit/__tests__/integrationSurface.spec.ts src/views/admin/__tests__/RiskControlView.spec.ts -> PASS, 2 files / 7 tests
+node node_modules/vue-tsc/bin/vue-tsc.js --noEmit -> PASS
+node node_modules/vite/bin/vite.js build -> PASS, 1904 modules; existing browserslist, dynamic-import, and chunk-size warnings only
+contract outputs PowerShell snippet (after acceptance) -> PASS, 20 files / 2996311A4EC1458EEC9C2AE4327D5D5EAA695C878783DE984AF841BBF0A79145
 ```
 
-## Commands Not Run
-- All backend/frontend Acceptance Commands, including compilation and build, were not run because the contract stop rule requires stopping on protected outputs drift.
+## Findings
+- 未发现明确问题。
+
+## Baseline Failures
+- Contract-known tagged API snapshot drift and the full repository billing SQL-mock `updatedAccountRows` 32/34-column fixture drift remain outside this integration. The contract does not require those broader suites; all required focused repository tests and required three-package full backend command passed.
 
 ## Bug Owner Recommendation
-`codex-planner`
+`none`
 
 ## Root Cause
-- `contract-ambiguous`: the contract supplies only an aggregate outputs digest, without a reproducible manifest serialization or individual-file baseline, and the current reproducible manifest does not equal the supplied digest.
+- `none`
 
 ## Retest Scope
-- Controller must provide the original manifest generation command and/or the 20-file relative-path/SHA-256 baseline, then confirm whether `outputs/` is unchanged. On an exact match, dispatch a fresh independent QA run from the frozen `main@f080bbd09` state and execute the full Acceptance Commands.
+- none
 
 ## Unverified Risks
-- Combined backend/frontend regressions, server compilation, typecheck/build, gofmt, and final diff gate are unverified in this QA attempt because of the mandatory early stop.
-- No provider, SMTP, Redis/PostgreSQL, container, deployment, staging, or push action was performed.
+- No live provider, SMTP, real Redis/PostgreSQL, container, deployment, staging, push, or browser-runtime session was run, as required by the contract.
+- Vite emitted pre-existing browserslist freshness, dynamic-import chunking, and chunk-size warnings; build completed successfully.
 
 ## Knowledge Promotion
 `none`
