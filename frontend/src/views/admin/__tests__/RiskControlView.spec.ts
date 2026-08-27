@@ -93,6 +93,7 @@ const baseConfig = (): ContentModerationConfig => ({
   block_message: '内容审计命中风险规则，请调整输入后重试',
   email_on_hit: true,
   auto_ban_enabled: true,
+  cyber_policy_exclude_from_ban_count: false,
   ban_threshold: 10,
   violation_window_hours: 720,
   retry_count: 2,
@@ -244,6 +245,7 @@ describe('admin RiskControlView', () => {
     await flushPromises()
 
     expect(updateConfig).toHaveBeenCalledWith(expect.objectContaining({
+      cyber_policy_exclude_from_ban_count: false,
       model_filter: {
         type: 'include',
         models: ['gpt-5.5', 'gpt-5.4'],

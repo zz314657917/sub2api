@@ -303,8 +303,10 @@ type SystemSettings struct {
 	WelfareNewUserTrialDailyIPActivationLimit int     `json:"welfare_new_user_trial_daily_ip_activation_limit"`
 
 	// 风控中心功能开关
-	RiskControlEnabled         bool `json:"risk_control_enabled"`
-	AllowUserViewErrorRequests bool `json:"allow_user_view_error_requests"`
+	RiskControlEnabled          bool `json:"risk_control_enabled"`
+	AllowUserViewErrorRequests  bool `json:"allow_user_view_error_requests"`
+	CyberSessionBlockEnabled    bool `json:"cyber_session_block_enabled"`
+	CyberSessionBlockTTLSeconds int  `json:"cyber_session_block_ttl_seconds"`
 
 	// Affiliate (邀请返利) feature switch
 	AffiliateEnabled bool `json:"affiliate_enabled"`

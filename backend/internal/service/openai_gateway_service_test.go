@@ -2308,6 +2308,137 @@ func TestOpenAINonStreamingContentTypeDefault(t *testing.T) {
 	}
 }
 
+func TestOpenAIResponsesCyberPolicyErrorBodyIsForwardedOnceWithoutFailover(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := &OpenAIGatewayService{cfg: &config.Config{}}
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", strings.NewReader(`{"model":"gpt-5.1"}`))
+
+	body := []byte(`{"error":{"code":"cyber_policy","message":"blocked by cyber policy"}}`)
+	resp := &http.Response{
+		StatusCode: http.StatusBadRequest,
+		Body:       io.NopCloser(bytes.NewReader(body)),
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+	}
+
+	result, err := svc.handleErrorResponse(c.Request.Context(), resp, c, &Account{ID: 266, Platform: PlatformOpenAI}, []byte(`{"model":"gpt-5.1"}`))
+	require.Error(t, err)
+	require.Nil(t, result)
+	var failoverErr *UpstreamFailoverError
+	require.False(t, errors.As(err, &failoverErr), "cyber_policy must be terminal and never enter failover")
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Equal(t, body, rec.Body.Bytes(), "responses cyber error must be forwarded exactly once")
+	mark := GetOpsCyberPolicy(c)
+	require.NotNil(t, mark)
+	require.Equal(t, "cyber_policy", mark.Code)
+}
+
+func TestOpenAIResponsesNonStreamingSSECyberPolicyIsAuditedAndReturnedOnce(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := &OpenAIGatewayService{cfg: &config.Config{}}
+	body := []byte(strings.Join([]string{
+		`data: {"type":"response.created","response":{"id":"resp_cyber_sse"}}`,
+		"",
+		`data: {"type":"response.failed","response":{"id":"resp_cyber_sse","status":"failed","usage":{"input_tokens":9,"output_tokens":2},"error":{"code":"cyber_policy","message":"blocked by cyber policy"}}}`,
+		"",
+	}, "\n"))
+
+	for _, tc := range []struct {
+		name        string
+		passthrough bool
+	}{
+		{name: "normalized", passthrough: false},
+		{name: "passthrough", passthrough: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", strings.NewReader(`{"model":"gpt-5.1","stream":false}`))
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+			}
+
+			var err error
+			if tc.passthrough {
+				_, err = svc.handlePassthroughSSEToJSON(resp, c, &Account{ID: 267, Platform: PlatformOpenAI}, body, "gpt-5.1", "gpt-5.1")
+			} else {
+				_, err = svc.handleSSEToJSON(resp, c, &Account{ID: 267, Platform: PlatformOpenAI}, body, "gpt-5.1", "gpt-5.1")
+			}
+
+			require.ErrorIs(t, err, errOpenAICyberPolicyForwarded)
+			require.Equal(t, http.StatusBadRequest, rec.Code)
+			require.Equal(t, 1, strings.Count(rec.Body.String(), `"code":"cyber_policy"`), "non-streaming response must contain one cyber error body")
+			mark := GetOpsCyberPolicy(c)
+			require.NotNil(t, mark)
+			require.Equal(t, http.StatusBadRequest, mark.UpstreamStatus)
+			require.Equal(t, 9, mark.UpstreamInTok)
+			require.Equal(t, 2, mark.UpstreamOutTok)
+		})
+	}
+}
+
+func TestOpenAIResponsesStreamingCyberPolicyPassesThroughWithoutFailover(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := &config.Config{}
+	cfg.Gateway.MaxLineSize = defaultMaxLineSize
+	svc := &OpenAIGatewayService{cfg: cfg, toolCorrector: NewCodexToolCorrector()}
+	body := strings.Join([]string{
+		`data: {"type":"response.created","response":{"id":"resp_cyber_stream"}}`,
+		"",
+		`data: {"type":"response.failed","response":{"id":"resp_cyber_stream","status":"failed","usage":{"input_tokens":11,"output_tokens":5},"error":{"code":"cyber_policy","message":"blocked by cyber policy"}}}`,
+		"",
+	}, "\n")
+
+	for _, tc := range []struct {
+		name        string
+		passthrough bool
+	}{
+		{name: "normalized", passthrough: false},
+		{name: "passthrough", passthrough: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+				Body:       io.NopCloser(strings.NewReader(body)),
+			}
+
+			var usage *OpenAIUsage
+			var err error
+			if tc.passthrough {
+				var result *openaiStreamingResultPassthrough
+				result, err = svc.handleStreamingResponsePassthrough(c.Request.Context(), resp, c, &Account{ID: 268, Platform: PlatformOpenAI}, time.Now(), "gpt-5.1", "gpt-5.1")
+				require.NotNil(t, result)
+				usage = result.usage
+			} else {
+				var result *openaiStreamingResult
+				result, err = svc.handleStreamingResponse(c.Request.Context(), resp, c, &Account{ID: 268, Platform: PlatformOpenAI}, time.Now(), "gpt-5.1", "gpt-5.1")
+				require.NotNil(t, result)
+				usage = result.usage
+			}
+
+			require.Error(t, err)
+			var failoverErr *UpstreamFailoverError
+			require.False(t, errors.As(err, &failoverErr), "cyber stream must not trigger failover")
+			require.NotNil(t, usage)
+			require.Equal(t, 11, usage.InputTokens)
+			require.Equal(t, 5, usage.OutputTokens)
+			require.Equal(t, 1, strings.Count(rec.Body.String(), `"code":"cyber_policy"`), "client must receive one cyber terminal event")
+			mark := GetOpsCyberPolicy(c)
+			require.NotNil(t, mark)
+			require.Equal(t, http.StatusOK, mark.UpstreamStatus)
+			require.Equal(t, 11, mark.UpstreamInTok)
+			require.Equal(t, 5, mark.UpstreamOutTok)
+		})
+	}
+}
+
 func TestOpenAIStreamingHeadersOverride(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := &config.Config{

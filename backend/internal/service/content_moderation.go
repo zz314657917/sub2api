@@ -38,6 +38,7 @@ const (
 	ContentModerationActionHashBlock    = "hash_block"
 	ContentModerationActionKeywordBlock = "keyword_block"
 	ContentModerationActionError        = "error"
+	ContentModerationActionCyberPolicy  = "cyber_policy"
 
 	contentModerationKeywordCategory = "keyword"
 
@@ -166,6 +167,8 @@ type ContentModerationConfig struct {
 	BlockedKeywords      []string                     `json:"blocked_keywords"`
 	KeywordBlockingMode  string                       `json:"keyword_blocking_mode"`
 	ModelFilter          ContentModerationModelFilter `json:"model_filter"`
+
+	CyberPolicyExcludeFromBanCount bool `json:"cyber_policy_exclude_from_ban_count"`
 }
 
 type ContentModerationConfigView struct {
@@ -200,6 +203,8 @@ type ContentModerationConfigView struct {
 	BlockedKeywords      []string                        `json:"blocked_keywords"`
 	KeywordBlockingMode  string                          `json:"keyword_blocking_mode"`
 	ModelFilter          ContentModerationModelFilter    `json:"model_filter"`
+
+	CyberPolicyExcludeFromBanCount bool `json:"cyber_policy_exclude_from_ban_count"`
 }
 
 type ContentModerationAPIKeyStatus struct {
@@ -289,6 +294,8 @@ type UpdateContentModerationConfigInput struct {
 	BlockedKeywords      *[]string                     `json:"blocked_keywords"`
 	KeywordBlockingMode  *string                       `json:"keyword_blocking_mode"`
 	ModelFilter          *ContentModerationModelFilter `json:"model_filter"`
+
+	CyberPolicyExcludeFromBanCount *bool `json:"cyber_policy_exclude_from_ban_count"`
 }
 
 type ContentModerationModelFilter struct {
@@ -471,8 +478,9 @@ type ContentModerationClearHashesResult struct {
 type ContentModerationRepository interface {
 	CreateLog(ctx context.Context, log *ContentModerationLog) error
 	ListLogs(ctx context.Context, filter ContentModerationLogFilter) ([]ContentModerationLog, *pagination.PaginationResult, error)
-	CountFlaggedByUserSince(ctx context.Context, userID int64, since time.Time) (int, error)
+	CountFlaggedByUserSince(ctx context.Context, userID int64, since time.Time, excludeCyberPolicy bool) (int, error)
 	CleanupExpiredLogs(ctx context.Context, hitBefore time.Time, nonHitBefore time.Time) (*ContentModerationCleanupResult, error)
+	UpdateLogEmailSent(ctx context.Context, id int64, sent bool) error
 }
 
 type ContentModerationHashCache interface {
@@ -690,6 +698,9 @@ func (s *ContentModerationService) UpdateConfig(ctx context.Context, input Updat
 	}
 	if input.RecordNonHits != nil {
 		cfg.RecordNonHits = *input.RecordNonHits
+	}
+	if input.CyberPolicyExcludeFromBanCount != nil {
+		cfg.CyberPolicyExcludeFromBanCount = *input.CyberPolicyExcludeFromBanCount
 	}
 	if input.Thresholds != nil {
 		cfg.Thresholds = mergeContentModerationThresholds(ContentModerationDefaultThresholds(), *input.Thresholds)
@@ -1876,7 +1887,8 @@ func (s *ContentModerationService) persistContentModerationLog(ctx context.Conte
 		}
 	}
 	if applySideEffects {
-		s.applyFlaggedSideEffects(ctx, cfg, log)
+		autoBanJustApplied := s.applyFlaggedAccountSideEffects(ctx, cfg, log)
+		s.sendFlaggedNotificationSideEffects(ctx, cfg, log, autoBanJustApplied)
 	}
 	if s.repo != nil {
 		if err := s.repo.CreateLog(ctx, log); err != nil {
@@ -1885,14 +1897,14 @@ func (s *ContentModerationService) persistContentModerationLog(ctx context.Conte
 	}
 }
 
-func (s *ContentModerationService) applyFlaggedSideEffects(ctx context.Context, cfg *ContentModerationConfig, log *ContentModerationLog) {
+func (s *ContentModerationService) applyFlaggedAccountSideEffects(ctx context.Context, cfg *ContentModerationConfig, log *ContentModerationLog) bool {
 	if s == nil || cfg == nil || log == nil || !log.Flagged || log.UserID == nil || *log.UserID <= 0 {
-		return
+		return false
 	}
 	count := 1
 	if s.repo != nil && cfg.ViolationWindowHours > 0 {
 		since := time.Now().Add(-time.Duration(cfg.ViolationWindowHours) * time.Hour)
-		if n, err := s.repo.CountFlaggedByUserSince(ctx, *log.UserID, since); err == nil {
+		if n, err := s.repo.CountFlaggedByUserSince(ctx, *log.UserID, since, cfg.CyberPolicyExcludeFromBanCount); err == nil {
 			count = n + 1
 		}
 	}
@@ -1902,18 +1914,18 @@ func (s *ContentModerationService) applyFlaggedSideEffects(ctx context.Context, 
 		user, err := s.userRepo.GetByID(ctx, *log.UserID)
 		if err != nil {
 			slog.Warn("content_moderation.ban_get_user_failed", "user_id", *log.UserID, "error", err)
-			return
+			return false
 		}
 		if user.IsAdmin() {
 			slog.Warn("content_moderation.autoban_skipped_admin", "user_id", *log.UserID, "role", user.Role, "count", count, "threshold", cfg.BanThreshold)
 			// TODO: Disable the triggering API key instead when API key mutation is available here.
-			return
+			return false
 		}
 		if user.Status != StatusDisabled {
 			user.Status = StatusDisabled
 			if err := s.userRepo.Update(ctx, user, UserUpdateFields{Status: true}); err != nil {
 				slog.Warn("content_moderation.ban_update_user_failed", "user_id", *log.UserID, "error", err)
-				return
+				return false
 			}
 			if s.authCacheInvalidator != nil {
 				s.authCacheInvalidator.InvalidateAuthCacheByUserID(ctx, *log.UserID)
@@ -1922,7 +1934,18 @@ func (s *ContentModerationService) applyFlaggedSideEffects(ctx context.Context, 
 		}
 		log.AutoBanned = true
 	}
+	return autoBanJustApplied
+}
 
+func (s *ContentModerationService) applyFlaggedSideEffects(ctx context.Context, cfg *ContentModerationConfig, log *ContentModerationLog) {
+	autoBanJustApplied := s.applyFlaggedAccountSideEffects(ctx, cfg, log)
+	s.sendFlaggedNotificationSideEffects(ctx, cfg, log, autoBanJustApplied)
+}
+
+func (s *ContentModerationService) sendFlaggedNotificationSideEffects(ctx context.Context, cfg *ContentModerationConfig, log *ContentModerationLog, autoBanJustApplied bool) {
+	if s == nil || cfg == nil || log == nil || !log.Flagged || log.UserID == nil || *log.UserID <= 0 {
+		return
+	}
 	if s.emailService == nil || strings.TrimSpace(log.UserEmail) == "" {
 		return
 	}
@@ -2077,6 +2100,7 @@ func defaultContentModerationConfig() *ContentModerationConfig {
 			Type:   ContentModerationModelFilterAll,
 			Models: []string{},
 		},
+		CyberPolicyExcludeFromBanCount: false,
 	}
 }
 
@@ -2408,6 +2432,8 @@ func (s *ContentModerationService) configView(cfg *ContentModerationConfig) *Con
 		BlockedKeywords:      append([]string(nil), cfg.BlockedKeywords...),
 		KeywordBlockingMode:  cfg.KeywordBlockingMode,
 		ModelFilter:          cloneContentModerationModelFilter(cfg.ModelFilter),
+
+		CyberPolicyExcludeFromBanCount: cfg.CyberPolicyExcludeFromBanCount,
 	}
 }
 
@@ -2934,4 +2960,139 @@ func maskSecretTail(secret string) string {
 		return "****"
 	}
 	return strings.Repeat("*", 8) + secret[len(secret)-4:]
+}
+
+// CyberPolicyRecordInput describes one upstream cyber_policy hard block.
+type CyberPolicyRecordInput struct {
+	RequestID       string
+	UserID          int64
+	UserEmail       string
+	APIKeyID        int64
+	APIKeyName      string
+	GroupID         *int64
+	GroupName       string
+	Endpoint        string
+	Model           string
+	UpstreamMessage string
+	UpstreamBody    string
+	UpstreamStatus  int
+	UpstreamInTok   int
+	UpstreamOutTok  int
+}
+
+// RecordCyberPolicyEvent writes one post-upstream cyber_policy event. It is
+// controlled by Risk Control and the configured group/model scope, but not by
+// ordinary moderation enabled/mode/sample settings.
+func (s *ContentModerationService) RecordCyberPolicyEvent(ctx context.Context, in CyberPolicyRecordInput) {
+	if s == nil || s.repo == nil {
+		return
+	}
+	runtimeSnapshot, err := s.loadRuntimeSnapshot(ctx)
+	if err != nil {
+		slog.Warn("content_moderation.cyber_runtime_snapshot_load_failed", "error", err)
+		return
+	}
+	if runtimeSnapshot == nil || !runtimeSnapshot.riskControlEnabled || runtimeSnapshot.config == nil {
+		return
+	}
+	cfg := runtimeSnapshot.config
+	if !cfg.includesGroup(in.GroupID) || !cfg.includesModel(in.Model) {
+		return
+	}
+
+	var userID *int64
+	if in.UserID > 0 {
+		userID = &in.UserID
+	}
+	var apiKeyID *int64
+	if in.APIKeyID > 0 {
+		apiKeyID = &in.APIKeyID
+	}
+	errBody := strings.TrimSpace(in.UpstreamMessage)
+	if body := strings.TrimSpace(in.UpstreamBody); body != "" {
+		errBody = strings.TrimSpace(errBody + "\n" + body)
+	}
+	if in.UpstreamInTok > 0 || in.UpstreamOutTok > 0 {
+		errBody = fmt.Sprintf("%s\nupstream_usage=in:%d,out:%d", errBody, in.UpstreamInTok, in.UpstreamOutTok)
+	}
+	log := &ContentModerationLog{
+		RequestID:       in.RequestID,
+		UserID:          userID,
+		UserEmail:       in.UserEmail,
+		APIKeyID:        apiKeyID,
+		APIKeyName:      in.APIKeyName,
+		GroupID:         cloneInt64Ptr(in.GroupID),
+		GroupName:       in.GroupName,
+		Endpoint:        in.Endpoint,
+		Provider:        "openai",
+		Model:           in.Model,
+		Mode:            "post_upstream",
+		Action:          ContentModerationActionCyberPolicy,
+		Flagged:         true,
+		HighestCategory: "cyber_policy",
+		HighestScore:    1.0,
+		Error:           trimRunes(redactContentModerationSecrets(errBody), maxModerationExcerptRunes*4),
+		CreatedAt:       time.Now(),
+	}
+
+	autoBanned := false
+	if !cfg.CyberPolicyExcludeFromBanCount {
+		autoBanned = s.applyFlaggedAccountSideEffects(ctx, cfg, log)
+	}
+	log.EmailSent = false
+	if err := s.repo.CreateLog(ctx, log); err != nil {
+		slog.Warn("content_moderation.cyber_create_log_failed", "user_id", in.UserID, "error", err)
+		return
+	}
+
+	emailSent := false
+	if s.emailService != nil && strings.TrimSpace(log.UserEmail) != "" {
+		if err := s.sendCyberPolicyEmail(ctx, log); err != nil {
+			slog.Warn("content_moderation.cyber_email_failed", "user_id", in.UserID, "error", err)
+		} else {
+			emailSent = true
+		}
+		if autoBanned {
+			if err := s.sendAccountDisabledEmail(ctx, cfg, log); err != nil {
+				slog.Warn("content_moderation.cyber_ban_email_failed", "user_id", in.UserID, "error", err)
+			} else {
+				emailSent = true
+			}
+		}
+	}
+	if emailSent {
+		if err := s.repo.UpdateLogEmailSent(ctx, log.ID, true); err != nil {
+			slog.Warn("content_moderation.cyber_update_email_sent_failed", "log_id", log.ID, "error", err)
+		}
+	}
+}
+
+func (s *ContentModerationService) sendCyberPolicyEmail(ctx context.Context, log *ContentModerationLog) error {
+	siteName := s.siteName(ctx)
+	if s.emailService.notificationEmailService != nil {
+		variables := map[string]string{
+			"triggered_at":     log.CreatedAt.UTC().Format(time.RFC3339),
+			"model":            defaultContentModerationString(log.Model, "-"),
+			"group_name":       defaultContentModerationString(log.GroupName, "-"),
+			"upstream_message": defaultContentModerationString(log.Error, "-"),
+		}
+		err := s.emailService.notificationEmailService.Send(ctx, NotificationEmailSendInput{
+			Event:          NotificationEmailEventCyberPolicyNotice,
+			RecipientEmail: log.UserEmail,
+			RecipientName:  emailRecipientName(log.UserEmail),
+			UserID:         contentModerationEmailUserID(log),
+			SourceType:     "content_moderation",
+			SourceID:       contentModerationEmailSourceID(log),
+			Variables:      variables,
+		})
+		if err == nil {
+			return nil
+		}
+		if !shouldFallbackNotificationEmail(err) {
+			return err
+		}
+		slog.Warn("template cyber policy email failed; falling back", "err", err.Error())
+	}
+	subject := fmt.Sprintf("[%s] 网络安全策略拦截 / Cyber Policy Notice", sanitizeEmailHeader(siteName))
+	return s.emailService.SendEmail(ctx, log.UserEmail, subject, buildCyberPolicyNoticeEmailBody(siteName, log))
 }

@@ -2388,6 +2388,11 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 			parseOpenAIWSResponseUsageFromCompletedEvent(message, usage)
 		}
 		imageCounter.AddSSEData(message)
+		if eventType == "response.failed" {
+			if hit, code, msg := detectOpenAICyberPolicy(message); hit {
+				MarkOpsCyberPolicy(c, CyberPolicyMark{Code: code, Message: msg, Body: truncateString(string(message), 4096), UpstreamStatus: http.StatusOK, UpstreamInTok: usage.InputTokens, UpstreamOutTok: usage.OutputTokens})
+			}
+		}
 
 		if eventType == "error" {
 			s.handleOpenAIWSErrorEventTransientFailure(ctx, account, mappedModel, lease.HandshakeHeaders(), message)
@@ -3467,6 +3472,11 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 				parseOpenAIWSResponseUsageFromCompletedEvent(upstreamMessage, &usage)
 			}
 			imageCounter.AddSSEData(upstreamMessage)
+			if eventType == "response.failed" {
+				if hit, code, msg := detectOpenAICyberPolicy(upstreamMessage); hit {
+					MarkOpsCyberPolicy(c, CyberPolicyMark{Code: code, Message: msg, Body: truncateString(string(upstreamMessage), 4096), UpstreamStatus: http.StatusOK, UpstreamInTok: usage.InputTokens, UpstreamOutTok: usage.OutputTokens})
+				}
+			}
 
 			if !clientDisconnected {
 				if needModelReplace && len(mappedModelBytes) > 0 && openAIWSEventMayContainModel(eventType) && bytes.Contains(upstreamMessage, mappedModelBytes) {

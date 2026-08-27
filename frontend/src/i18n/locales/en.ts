@@ -38,6 +38,37 @@ import onboarding from './en/onboarding'
 import payment from './en/payment'
 import tickets from './en/tickets'
 
+const usageWithCyberPolicy = {
+  ...usage,
+  cyber: 'Cyber',
+}
+
+const adminWithCyberPolicy = {
+  ...admin,
+  riskControl: {
+    ...admin.riskControl,
+    cyberPolicyExcludeBan: 'Exclude Cyber Policy Hits from Ban Count',
+    cyberPolicyExcludeBanHint: 'When enabled, cyber_policy hits are excluded from the current and historical auto-ban count. Logs and notice emails are unaffected.',
+    violationNotCounted: 'Not counted',
+    action: {
+      ...admin.riskControl.action,
+      cyberPolicy: 'Cyber policy',
+    },
+  },
+  settings: {
+    ...admin.settings,
+    features: {
+      ...admin.settings.features,
+      riskControl: {
+        ...admin.settings.features.riskControl,
+        cyberSessionBlock: 'Cyber session auto-block',
+        cyberSessionBlockHint: 'Block only the exact API key and explicit session after an upstream cyber_policy hit; other sessions on the same key remain available.',
+        cyberSessionBlockTTL: 'Block TTL (seconds)',
+      },
+    },
+  },
+}
+
 export default {
   home,
   keyUsage,
@@ -55,7 +86,7 @@ export default {
   imageCreator,
   imageManager,
   canvas,
-  usage,
+  usage: usageWithCyberPolicy,
   monitorCommon,
   channelStatus,
   availableChannels,
@@ -68,7 +99,7 @@ export default {
   pagination,
   errors,
   dates,
-  admin,
+  admin: adminWithCyberPolicy,
   subscriptionProgress,
   version,
   purchase,

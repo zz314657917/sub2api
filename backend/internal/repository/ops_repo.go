@@ -1346,7 +1346,7 @@ func buildOpsErrorLogsWhere(filter *service.OpsErrorLogFilter) (string, []any) {
 	}
 	// Keep list endpoints scoped to client errors unless explicitly filtering upstream phase.
 	if phaseFilter != "upstream" {
-		clauses = append(clauses, "COALESCE(e.status_code, 0) >= 400")
+		clauses = append(clauses, "(COALESCE(e.status_code, 0) >= 400 OR e.error_type = 'cyber_policy')")
 	}
 
 	if filter.StartTime != nil && !filter.StartTime.IsZero() {

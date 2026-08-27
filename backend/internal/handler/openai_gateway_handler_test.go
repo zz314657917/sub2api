@@ -932,8 +932,12 @@ func (r *contentModerationHandlerTestRepo) ListLogs(ctx context.Context, filter 
 	return nil, nil, nil
 }
 
-func (r *contentModerationHandlerTestRepo) CountFlaggedByUserSince(ctx context.Context, userID int64, since time.Time) (int, error) {
+func (r *contentModerationHandlerTestRepo) CountFlaggedByUserSince(ctx context.Context, userID int64, since time.Time, excludeCyberPolicy bool) (int, error) {
 	return 0, nil
+}
+
+func (r *contentModerationHandlerTestRepo) UpdateLogEmailSent(ctx context.Context, id int64, sent bool) error {
+	return nil
 }
 
 func (r *contentModerationHandlerTestRepo) CleanupExpiredLogs(ctx context.Context, hitBefore time.Time, nonHitBefore time.Time) (*service.ContentModerationCleanupResult, error) {
@@ -976,17 +980,6 @@ func TestOpenAIResponsesWebSocket_ContentModerationBlocksFirstFrame(t *testing.T
 		nil,
 		nil,
 	)
-	decision, err := moderationSvc.Check(context.Background(), service.ContentModerationCheckInput{
-		UserID:   1,
-		Endpoint: "/v1/responses",
-		Provider: "openai",
-		Model:    "gpt-5.5",
-		Protocol: service.ContentModerationProtocolOpenAIResponses,
-		Body:     []byte(`{"model":"gpt-5.5","input":[{"type":"message","role":"user","content":[{"type":"input_text","text":"bad prompt"}]}]}`),
-	})
-	require.NoError(t, err)
-	require.True(t, decision.Blocked)
-	repo.logs = nil
 	h := &OpenAIGatewayHandler{
 		gatewayService:           &service.OpenAIGatewayService{},
 		billingCacheService:      &service.BillingCacheService{},

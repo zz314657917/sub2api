@@ -20,6 +20,9 @@ type gatewayCache struct {
 }
 
 var _ service.LiveCallStore = (*gatewayCache)(nil)
+var _ service.CyberSessionBlockStore = (*gatewayCache)(nil)
+
+const cyberSessionBlockPrefix = "cyber_session_block:"
 
 func NewGatewayCache(rdb *redis.Client) service.GatewayCache {
 	return &gatewayCache{rdb: rdb}
@@ -56,6 +59,18 @@ func (c *gatewayCache) RefreshSessionTTL(ctx context.Context, groupID int64, ses
 func (c *gatewayCache) DeleteSessionAccountID(ctx context.Context, groupID int64, sessionHash string) error {
 	key := buildSessionKey(groupID, sessionHash)
 	return c.rdb.Del(ctx, key).Err()
+}
+
+func (c *gatewayCache) SetCyberSessionBlocked(ctx context.Context, key string, ttl time.Duration) error {
+	return c.rdb.Set(ctx, cyberSessionBlockPrefix+key, "1", ttl).Err()
+}
+
+func (c *gatewayCache) IsCyberSessionBlocked(ctx context.Context, key string) (bool, error) {
+	n, err := c.rdb.Exists(ctx, cyberSessionBlockPrefix+key).Result()
+	if err != nil {
+		return false, err
+	}
+	return n > 0, nil
 }
 
 func liveCallKey(callHash string) string { return liveCallPrefix + callHash }
