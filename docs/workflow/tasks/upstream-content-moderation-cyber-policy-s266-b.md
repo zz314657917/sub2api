@@ -7,9 +7,12 @@ upstream-content-moderation-cyber-policy-s266-b
 ## Role
 
 Planner and Final Evaluator: Codex. Generator: an independent
-`gpt-5.6-terra` Developer Worker in the existing clean S266 worktree. QA: a
-separate `gpt-5.6-terra` QA Worker after the Controller reviews the worker
-diff. The worker implements only this approved contract.
+`gpt-5.6-terra` Developer Worker through the current Codex session's native
+sub-agent transport in the existing clean S266 worktree. QA: a separate
+native `gpt-5.6-terra` QA Worker after the Controller reviews the worker diff.
+Do not route either role through `claude.cmd`; that CLI's configured backend
+does not expose the Terra model. The worker implements only this approved
+contract.
 
 ## Goal
 
@@ -146,6 +149,9 @@ block and whether cyber events count toward automatic bans.
 ## Constraints
 
 - Hand-adapt behavior; do not merge or cherry-pick upstream history.
+- Dispatch Developer and QA through the Codex-native sub-agent transport. The
+  earlier `claude.cmd` API 404 is a transport mismatch, not authority to change
+  the required Terra model or the independent role boundary.
 - No schema generation or migration is authorized. Stop if a database enum,
   schema or migration becomes required rather than using the existing local
   request-type storage.

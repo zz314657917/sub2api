@@ -1,12 +1,12 @@
 ---
-phase: blocked
+phase: contract-approved
 current_sprint: upstream-content-moderation-cyber-policy-s266-b
 total_sprints: 266
-pending_action: BLOCKED: gpt-5.6-terra Developer Worker dispatch returned API 404 with zero input tokens. Obtain explicit authorization for an alternate Developer and independent QA model, then resume the approved S266-B contract without widening scope.
+pending_action: Dispatch the approved S266-B contract through the Codex-native gpt-5.6-terra Developer sub-agent transport. Do not use claude.cmd; preserve the same model, independent QA gate, allowlist and denied boundaries.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-27 13:31 +08:00
+last_verified: 2026-08-27 14:55 +08:00
 ---
 
 # Upstream Content Moderation Parity S266
@@ -50,6 +50,10 @@ last_verified: 2026-08-27 13:31 +08:00
   failure artifacts and a copied-contract line-ending change. Do not silently
   substitute a model; explicit authorization is required for an alternate
   Developer and independent QA model.
+- `RESUMED / native transport`: the user requested continuation after the CLI
+  routing explanation. The model remains `gpt-5.6-terra`; only the worker
+  transport changes from incompatible `claude.cmd` to the Codex-native
+  sub-agent channel. Contract scope and independent QA gate are unchanged.
 
 # Pixel Cafe My-Room Usage Progress S260
 
