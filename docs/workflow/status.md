@@ -1,12 +1,12 @@
 ---
-phase: contract-draft
+phase: retest
 current_sprint: upstream-content-moderation-main-integration-s266-c
 total_sprints: 267
-pending_action: Review the outputs-manifest serialization amendment after QA correctly blocked on the ambiguous aggregate. Confirm the exact contract algorithm reproduces the frozen 20-file hash on unchanged main@f080bbd09 before authorizing retest.
+pending_action: Independent native gpt-5.6-terra QA reruns S266-C from unchanged main@f080bbd09 using the exact embedded outputs algorithm, then executes every backend/frontend Acceptance Command and final scope/protection gates.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-27 22:50 +08:00
+last_verified: 2026-08-27 22:54 +08:00
 ---
 
 # Upstream Content Moderation Parity S266
@@ -36,6 +36,12 @@ last_verified: 2026-08-27 22:50 +08:00
   exact deterministic PowerShell manifest algorithm. Controller reproduction
   on unchanged main yields the frozen 20-file hash; independent review must
   approve the amendment before QA retest.
+- `PASS / S266-C amendment-review`: the exact embedded snippet independently
+  reproduces 20 files and manifest
+  `2996311A4EC1458EEC9C2AE4327D5D5EAA695C878783DE984AF841BBF0A79145`
+  from unchanged `main@f080bbd09`. The amendment changes only the ambiguous
+  protection gate; product scope and all acceptance commands are unchanged.
+  Independent QA retest is authorized.
 
 - `S265 / BLOCKED`: the routed Codex catalog Worker stopped twice because the
   approved baseline lacked denied Composite route/resolver prerequisites. The
