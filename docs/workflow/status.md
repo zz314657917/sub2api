@@ -1,12 +1,12 @@
 ---
-phase: build
+phase: done
 current_sprint: upstream-content-moderation-cyber-policy-s266-b
 total_sprints: 266
-pending_action: Codex Controller implements the approved S266-B contract after two Developer dispatch failures, then performs diff review before independent native gpt-5.6-terra QA. Scope, acceptance and denied boundaries remain unchanged.
+pending_action: S266-B implementation and independent native gpt-5.6-terra QA are complete. Await explicit authorization before integrating the candidate commit chain into local main, pushing, deploying, or running live external-state smoke.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-27 15:12 +08:00
+last_verified: 2026-08-27 18:20 +08:00
 ---
 
 # Upstream Content Moderation Parity S266
@@ -21,12 +21,12 @@ last_verified: 2026-08-27 15:12 +08:00
   pre-block/key-load metrics, persisted matched keywords, a compiled keyword
   hot path, explicit moderation proxy selection, simple-mode navigation, and
   the final fail-open behavior after `af6928a26`.
-- `S266-B / contract-approved`: port the separate `b62b573f7` plus
-  `6564d376e` `cyber_policy` audit/usage/session-block chain without the later
-  transcript rewrite. Exact OpenAI protocol passthrough/no-failover,
+- `S266-B / PASS`: product commit `eeed2369f` ports the separate `b62b573f7`
+  plus `6564d376e` `cyber_policy` audit/usage/session-block chain without the
+  later transcript rewrite. Exact OpenAI protocol passthrough/no-failover,
   group/model-scoped Risk Control audit, historical-ban-count exclusion,
-  bounded API-key-plus-explicit-session blocking, API/UI controls, no-live
-  fixtures, and direct admin/frontend regressions are required before QA.
+  bounded API-key-plus-explicit-session blocking, API/UI controls, and direct
+  admin/frontend regressions are covered by independent QA.
 - Frozen baseline: local `main@e5b62a9b9`; upstream
   `main@efb46db0a`. Worktree:
   `E:/codex-worktrees/sub2api/upstream-content-moderation-parity-s266`.
@@ -61,6 +61,24 @@ last_verified: 2026-08-27 15:12 +08:00
 - `CONTROLLER TAKEOVER`: after the CLI transport failure and native allowlist
   failure, the low-cost Developer loop is closed. Codex will implement the same
   approved contract directly; independent native Terra QA remains mandatory.
+- `PASS / Controller implementation`: product commit `eeed2369f` contains
+  exactly 56 contract-allowed product/test files. Controller evidence is
+  `4fd7a2aa1`; focused backend tests x10, server compilation, frontend Vitest
+  7/7, typecheck/build, gofmt, scope, conflict and index gates passed.
+- `PASS / independent QA`: report commit `89f2d8869` starts with
+  `### PASS: upstream-content-moderation-cyber-policy-s266-b`. Independent
+  native `gpt-5.6-terra` QA confirmed terminal no-failover/single-body behavior,
+  WebSocket turn cleanup, isolated optional session blocking, scoped audit,
+  durable-log-before-email ordering, redaction and exact/zero-token billing.
+- `KNOWN BASELINE / residual risk`: the tagged API contract suite has four
+  pre-existing Group/Usage/Settings snapshot drifts, and the full repository
+  package remains blocked by the pre-existing billing SQL-mock 32/34-column
+  drift. One service x10 run hit a one-second stale-snapshot `Eventually`
+  timeout; the complete rerun and isolated x20/x100 repetitions passed, so it
+  is retained as a test-stability risk rather than a confirmed product defect.
+- The candidate branch is complete at `89f2d8869`, but S266-A/B have not been
+  integrated into local `main`. No provider, SMTP, real Redis/PostgreSQL,
+  shared-database, container, deployment, staging or push operation occurred.
 
 # Pixel Cafe My-Room Usage Progress S260
 
