@@ -265,13 +265,21 @@ describe('AdminCafeRoomsView', () => {
     expect(wrapper.text()).not.toContain('选择 Room 计划')
   })
 
-  it('renders room management and embedded plan management together', async () => {
+  it('switches the unified workspace between room management and round handling', async () => {
     const wrapper = mountView()
     await flushPromises()
 
     expect(wrapper.text()).toContain('OpenAI 七号房')
+    expect(wrapper.find('[data-testid="embedded-group-buy"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="cafe-pending-fulfillment"]').exists()).toBe(false)
+
+    await wrapper.findAll('[data-testid="cafe-workspace-tabs"] button').find((button) => button.text().includes('团次处理'))?.trigger('click')
+    await flushPromises()
+
     expect(wrapper.find('[data-testid="embedded-group-buy"]').attributes('data-embedded')).toBe('true')
     expect(wrapper.find('[data-testid="embedded-group-buy"]').attributes('data-rounds-only')).toBe('true')
+    expect(wrapper.find('[data-testid="cafe-pending-fulfillment"]').text()).toContain('10/10 份')
+    expect(wrapper.findAll('[data-testid="cafe-workspace-tabs"] button').find((button) => button.text().includes('房间管理'))?.attributes('aria-pressed')).toBe('false')
   })
 
   it('loads, resizes, resets, edits, and saves one shared lobby workstation layout', async () => {
@@ -377,6 +385,8 @@ describe('AdminCafeRoomsView', () => {
   it('searches and assigns accounts only from the pending-round workspace', async () => {
     const wrapper = mountView()
     await flushPromises()
+    await wrapper.findAll('[data-testid="cafe-workspace-tabs"] button').find((button) => button.text().includes('团次处理'))?.trigger('click')
+    await flushPromises()
     expect(listPendingRounds).toHaveBeenCalledWith({ page: 1, page_size: 20, search: undefined })
     expect(wrapper.find('[data-testid="cafe-pending-fulfillment"]').text()).toContain('10/10 份')
     await wrapper.findAll('button').filter(button => button.text() === '选择账号').at(-1)?.trigger('click')
@@ -392,6 +402,8 @@ describe('AdminCafeRoomsView', () => {
 
   it('filters pending rounds and account candidates server-side', async () => {
     const wrapper = mountView()
+    await flushPromises()
+    await wrapper.findAll('[data-testid="cafe-workspace-tabs"] button').find((button) => button.text().includes('团次处理'))?.trigger('click')
     await flushPromises()
     const pendingSearch = wrapper.find('[data-testid="cafe-pending-fulfillment"] input[type="search"]')
     await pendingSearch.setValue('七号')

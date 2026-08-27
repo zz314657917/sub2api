@@ -1,7 +1,40 @@
 <template>
   <AppLayout>
     <div class="space-y-4">
-      <TablePageLayout>
+      <nav
+        class="flex flex-wrap items-center gap-2 border-b border-gray-200 pb-3 dark:border-dark-700"
+        aria-label="像素网吧管理视图"
+        data-testid="cafe-workspace-tabs"
+      >
+        <button
+          type="button"
+          class="btn btn-sm"
+          :class="activeWorkspace === 'rooms' ? 'btn-primary' : 'btn-ghost'"
+          :aria-pressed="activeWorkspace === 'rooms'"
+          @click="switchWorkspace('rooms')"
+        >
+          <Icon name="home" size="sm" class="mr-1" />
+          房间管理
+        </button>
+        <button
+          type="button"
+          class="btn btn-sm"
+          :class="activeWorkspace === 'rounds' ? 'btn-primary' : 'btn-ghost'"
+          :aria-pressed="activeWorkspace === 'rounds'"
+          @click="switchWorkspace('rounds')"
+        >
+          <Icon name="clipboard" size="sm" class="mr-1" />
+          团次处理
+          <span
+            v-if="pendingRounds.length > 0"
+            class="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+          >
+            {{ pendingRounds.length }}
+          </span>
+        </button>
+      </nav>
+
+      <TablePageLayout v-if="activeWorkspace === 'rooms'">
       <template #filters>
         <div class="flex flex-wrap items-center gap-3">
           <div class="min-w-56 flex-1 sm:max-w-72">
@@ -141,14 +174,29 @@
       </template>
       </TablePageLayout>
 
-      <section class="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/20" data-testid="cafe-pending-fulfillment">
-        <div class="mb-3 flex flex-wrap items-center gap-3"><div><h2 class="font-semibold">{{ t('admin.pixelCafe.pending.title') }}</h2><p class="text-sm text-gray-600 dark:text-dark-300">{{ t('admin.pixelCafe.pending.description') }}</p></div><input v-model="pendingSearch" class="input ml-auto max-w-xs" type="search" :placeholder="t('admin.pixelCafe.pending.search')" @change="loadPendingRounds" /></div>
-        <p v-if="pendingLoading" class="text-sm">{{ t('admin.pixelCafe.pending.loading') }}</p>
-        <p v-else-if="pendingRounds.length === 0" class="text-sm text-gray-600 dark:text-dark-300">{{ t('admin.pixelCafe.pending.empty') }}</p>
-        <div v-else class="space-y-2"><div v-for="round in pendingRounds" :key="round.id" class="flex flex-wrap items-center gap-3 rounded border border-amber-200 bg-white p-3 dark:border-amber-900 dark:bg-dark-900"><span class="font-medium">{{ round.room_code }} · {{ round.room_name }}</span><span>ChatGPT {{ round.subscription_tier === 'pro' ? 'Pro' : 'Plus' }}</span><span>{{ round.paid_shares }}/{{ round.total_shares }} 份 · {{ round.joined_buyers }}/{{ round.max_buyers }} 人</span><button type="button" class="btn btn-secondary btn-sm ml-auto" @click="openAssignDialog(round)">{{ t('admin.pixelCafe.pending.assign') }}</button></div></div>
-      </section>
+      <section v-else class="space-y-4" data-testid="cafe-round-workspace">
+        <section class="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/20" data-testid="cafe-pending-fulfillment">
+          <div class="mb-3 flex flex-wrap items-center gap-3">
+            <div>
+              <h2 class="font-semibold">{{ t('admin.pixelCafe.pending.title') }}</h2>
+              <p class="text-sm text-gray-600 dark:text-dark-300">{{ t('admin.pixelCafe.pending.description') }}</p>
+            </div>
+            <input v-model="pendingSearch" class="input ml-auto max-w-xs" type="search" :placeholder="t('admin.pixelCafe.pending.search')" @change="loadPendingRounds" />
+          </div>
+          <p v-if="pendingLoading" class="text-sm">{{ t('admin.pixelCafe.pending.loading') }}</p>
+          <p v-else-if="pendingRounds.length === 0" class="text-sm text-gray-600 dark:text-dark-300">{{ t('admin.pixelCafe.pending.empty') }}</p>
+          <div v-else class="space-y-2">
+            <div v-for="round in pendingRounds" :key="round.id" class="flex flex-wrap items-center gap-3 rounded border border-amber-200 bg-white p-3 dark:border-amber-900 dark:bg-dark-900">
+              <span class="font-medium">{{ round.room_code }} · {{ round.room_name }}</span>
+              <span>ChatGPT {{ round.subscription_tier === 'pro' ? 'Pro' : 'Plus' }}</span>
+              <span>{{ round.paid_shares }}/{{ round.total_shares }} 份 · {{ round.joined_buyers }}/{{ round.max_buyers }} 人</span>
+              <button type="button" class="btn btn-secondary btn-sm ml-auto" @click="openAssignDialog(round)">{{ t('admin.pixelCafe.pending.assign') }}</button>
+            </div>
+          </div>
+        </section>
 
-      <AdminGroupBuyView embedded rounds-only />
+        <AdminGroupBuyView embedded rounds-only />
+      </section>
     </div>
 
     <BaseDialog
@@ -374,6 +422,7 @@ import type { CafePendingRound, CafeRoomAccountOption } from '@/api/admin/cafeRo
 const { t } = useI18n()
 const appStore = useAppStore()
 
+const activeWorkspace = ref<'rooms' | 'rounds'>('rooms')
 const rooms = ref<CafeRoom[]>([])
 const pendingRounds = ref<CafePendingRound[]>([])
 const pendingSearch = ref('')
@@ -565,6 +614,11 @@ function statusClass(status: string) {
 
 function formatPrice(value?: number) {
   return value != null ? `¥${Number(value).toFixed(2)}/份` : '-'
+}
+
+function switchWorkspace(workspace: 'rooms' | 'rounds') {
+  activeWorkspace.value = workspace
+  if (workspace === 'rounds') void loadPendingRounds()
 }
 
 let searchTimer: number | null = null

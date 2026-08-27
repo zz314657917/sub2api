@@ -1,10 +1,13 @@
 <template>
   <component :is="embedded ? 'div' : AppLayout">
     <div :class="[
-      'admin-group-buy min-h-[calc(100vh-4rem)]',
-      embedded ? 'py-1' : '-m-4 md:-m-[1.35rem] lg:-m-[1.6rem]',
+      'admin-group-buy',
+      embedded ? '' : 'min-h-[calc(100vh-4rem)] -m-4 md:-m-[1.35rem] lg:-m-[1.6rem]',
     ]">
-      <div class="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+      <div :class="[
+        'flex w-full flex-col',
+        embedded ? 'gap-4' : 'mx-auto max-w-[1440px] gap-6 px-4 py-6 sm:px-6 lg:px-8',
+      ]">
         <header v-if="!roundsOnly" class="admin-group-buy-header admin-group-buy-toolbar">
           <div class="admin-group-buy-actions">
             <button type="button" class="admin-group-buy-secondary" :disabled="loading" @click="refreshAll">
