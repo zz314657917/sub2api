@@ -1,15 +1,48 @@
 ---
-phase: done
-current_sprint: upstream-wsv2-native-tool-id-repair-s264
-total_sprints: 264
-pending_action: S264 passed final QA and is ready for its local source/workflow commits; preserve the concurrently changed Pixel Cafe scene assets and outputs/, and do not push without separate authorization.
+phase: contract-approved
+current_sprint: upstream-routed-codex-model-catalog-s265
+total_sprints: 265
+pending_action: Both the Claude runner and the platform Developer Worker failed before making a S265 worktree diff because the approved Terra model returned a zero-token model-access 404. Resolve model access or obtain explicit approval for an alternative before redispatch; preserve the user-owned Pixel Cafe changes and outputs/ in the primary worktree.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-26 13:30 +08:00
+last_verified: 2026-08-27 12:06 +08:00
 ---
 
 # Pixel Cafe My-Room Usage Progress S260
+
+# Upstream Routed Codex Model Catalog S265
+
+- `contract-draft`: hand-port the complete, coherent catalog behavior from
+  upstream `22e1b8144..2abce6503`: API-key users can obtain a deterministic
+  Codex model manifest for their effective group routes, including mapped
+  models and safe capability metadata; official OpenAI live manifests remain
+  the fallback where no local configuration owns the catalog.
+- The work is split into one contract but must be implemented and reviewed in
+  a clean worktree: backend manifest/metadata and route dispatch first, then
+  account-model discovery/cache correctness, then the existing admin and
+  “Use Key” surfaces. Composite exact-alias routing (`3e98a5a1a`) is not a
+  prerequisite and remains a separate future Sprint because this topology
+  lacks its route repository/resolver model.
+- No schema/migration, account scheduling semantics, billing, provider traffic,
+  container/data/deployment/push, Pixel Cafe, or `outputs/**` operation is
+  included. Contract:
+  `docs/workflow/tasks/upstream-routed-codex-model-catalog-s265.md`.
+- `PASS / contract-review`: the local Codex endpoint, existing ordinary routed
+  catalogs, upstream manifest/metadata chain and absent Composite route model
+  establish a decision-complete boundary. The three implementation slices,
+  exact allowlist, no-schema/no-provider rule, independent Terra roles,
+  executable QA commands, clean-worktree path, 46.6 GB disk preflight, and
+  protected cafe_public patch baseline are sufficient; developer dispatch is
+  authorized.
+- `INFO / runner substitution`: `Invoke-PgeWorker.ps1` received a zero-token
+  `gpt-5.6-terra` access 404 before making a worktree change. The task uses the
+  same approved Terra model through the platform Developer Worker instead; no
+  model fallback, scope expansion or primary-worktree code change occurred.
+- `BLOCKED / developer dispatch`: the platform Developer Worker also returned
+  the same zero-token model-access 404 before changing the S265 worktree. No
+  implementation or QA dispatch may continue until Terra access is restored or
+  the user explicitly approves an alternative model.
 
 # Upstream WSv2 Native Tool-ID Repair S264
 
