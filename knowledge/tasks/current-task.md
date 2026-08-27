@@ -1,6 +1,31 @@
 # 当前任务快照
 
-最后更新：2026-08-26 15:54 +08:00
+最后更新：2026-08-28 06:27 +08:00
+
+## S271 / S272 当前结论
+
+- `PASS / group-model-match-auth-enforcement-s272`：单分组 API Key 不再因
+  middleware 的 route-count 快速路径绕过管理员配置的
+  `model_match_patterns`。源码提交为 `8b84ccf34`
+  (`fix(auth): enforce group model matching for API keys`)，只包含
+  `api_key_auth.go` 的 nil-only guard 修复和 S272 mismatch/match 回归。
+- S272 独立 `gpt-5.6-terra` QA 已通过 focused x10、完整 service 与
+  middleware、S88/S91、pinned-account no-fallback、server compile、格式、
+  scope 和索引门禁。本次提交前再次通过 S272 x10、server compile、gofmt
+  和 diff/index 检查；没有 push、部署、容器、provider、共享数据或
+  `outputs/` 操作。
+- `FAIL / api-key-adaptive-route-breaker-s271 developer-review-1`：实现仍以
+  未提交状态保留在
+  `E:/codex-worktrees/sub2api/api-key-adaptive-route-breaker-s271`。Controller
+  复核确认重复 skipper 调用可能重新获取后又拒绝同一个 half-open probe，
+  健康路径会创建/写入 Redis 状态，且 31 分钟 retention 可能早于延迟的
+  30 分钟 half-open probe 到达。原 Terra Developer 必须先做 bounded fix，
+  补齐完整 service/middleware 证据并把报告改为 DONE，之后才能独立 QA。
+- 完整 repository 的 SQL mock 32/34 列失败已在 pre-S271 主线复现，属于
+  denied-path baseline fixture drift，不混入 S271。S271 worktree 基于 S272
+  之前的 `f080bbd09` 且同样修改 `api_key_auth.go`；后续集成必须保留
+  `8b84ccf34` 的 nil-only guard 并运行 `TestS272` x10。S271 的 commit、
+  push、容器、共享数据和 `outputs/` 操作仍未授权。
 
 ## S264 当前结论
 

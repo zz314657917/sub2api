@@ -1,5 +1,42 @@
 ---
 
+## Group Model Match Auth Enforcement Addendum (S272)
+
+- Every grouped API key must enter the existing model-aware resolver after a
+  gateway handler parses the requested model. A middleware fast path must not
+  bypass the effective group's administrator-owned `model_match_patterns`.
+- A mismatch returns the existing HTTP 403 `NO_MATCHING_GROUP_ROUTE`; a match,
+  an ungrouped key, multi-group routing, and pinned-account no-fallback behavior
+  retain their existing service semantics.
+- The repair is limited to the middleware guard and focused regression tests.
+  Schema, persistence, group rule syntax, routing priority/weight/cooldown,
+  billing, subscriptions, provider traffic, frontend, deployment, containers,
+  shared data, commit, push and `outputs/**` are excluded. Contract:
+  `docs/workflow/tasks/group-model-match-auth-enforcement-s272.md`.
+
+## API Key Adaptive Route Breaker Addendum (S271)
+
+- Keep the existing immediate `API Key + group` transient cooldown as the
+  first-user protection. Add a multi-instance shared breaker scoped to group,
+  routing type and normalized exact requested model so one broken model cannot
+  disable unrelated traffic in the group.
+- Three consecutive transient upstream failures open the shared breaker.
+  Recovery is half-open with one probe and bounded adaptive cooldowns of 30
+  seconds, 2 minutes, 10 minutes and 30 minutes; any successful response
+  resets the streak, while ordinary business/client 4xx responses only release
+  a probe and never count as group health failures.
+- A sub-threshold failure streak expires after 30 minutes without another
+  failure. Shared escalation accepts explicit upstream-transient markers and
+  final 502/503/504/529 only; ambiguous bare 429/500 responses retain the
+  existing per-Key cooldown but do not poison shared group health.
+- Redis state changes are atomic and use Redis time. Cache failure is fail-open;
+  pinned accounts retain strict no-fallback, and all skipped routes must not
+  silently fall back to the excluded default group.
+- Same-request cross-group body replay, admin UI, schemas, billing, quota,
+  subscriptions, provider traffic, containers, shared data, commit, push and
+  `outputs/**` remain out of scope. Contract:
+  `docs/workflow/tasks/api-key-adaptive-route-breaker-s271.md`.
+
 ## Pixel Cafe Purchase Information And Round Controls Addendum (S270)
 
 - Public purchase details expose the existing per-share managed-Key total,

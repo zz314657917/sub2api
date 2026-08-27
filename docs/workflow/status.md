@@ -1,13 +1,69 @@
 ---
-phase: complete
-current_sprint: pixel-cafe-purchase-controls-s270
-total_sprints: 270
-pending_action: S270 is complete and locally verified. Preserve the separately blocked S265 worker state and untracked outputs/; commit, push, container or shared-data updates still require explicit authorization.
+phase: fix
+current_sprint: api-key-adaptive-route-breaker-s271
+total_sprints: 271
+pending_action: The original gpt-5.6-terra Developer must fix S271 request-local breaker memoization, retention, and healthy-path Redis writes, then capture complete service/middleware evidence and rewrite the report as DONE before independent QA. Commit, push, container and shared-data actions remain unauthorized.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-27 18:35 +08:00
+last_verified: 2026-08-28 06:27 +08:00
 ---
+
+# Group Model Match Auth Enforcement S272
+
+- `PASS / contract-review`: in parallel with the independently owned S271,
+  every grouped API key must enter the existing model-aware resolver after the
+  request model is parsed. Remove only the middleware route-count fast path and
+  prove both mismatch rejection and match acceptance for a single-group key.
+- S271 ownership and state remain unchanged. Schema, persistence, group rule
+  syntax, routing policy, billing, subscriptions, provider traffic, frontend,
+  deployment, containers, shared data, commit, push and `outputs/**` are
+  excluded. Contract:
+  `docs/workflow/tasks/group-model-match-auth-enforcement-s272.md`.
+- `DONE / generator`: removed the route-count middleware fast path and added
+  mismatch/match single-group controls. The pre-fix mismatch test failed on
+  `ok=true`; the post-fix focused suite passed 10 times. Independent QA remains
+  required before a final verdict.
+- `PASS / final QA`: independent `gpt-5.6-terra` QA passed S272 x10, complete
+  service and middleware packages, S88/S91 routing, pinned-account no-fallback,
+  server compilation, exact scope, diff and index gates. The source repair is
+  accepted; provider traffic, deployment, containers and production API smoke
+  remain unverified and unauthorized. Report:
+  `docs/workflow/qa-reports/group-model-match-auth-enforcement-s272-qa.md`.
+- `PASS / source commit`: `8b84ccf34`
+  (`fix(auth): enforce group model matching for API keys`) contains only the
+  middleware guard repair and its focused S272 regression. No push, deployment,
+  container, provider, shared-data or `outputs/**` action occurred.
+
+# API Key Adaptive Route Breaker S271
+
+- `contract-draft`: preserve the existing per-Key first-failure cooldown and
+  add a Redis-backed shared breaker isolated by group, routing scope and exact
+  requested model. Three consecutive transient failures open the breaker;
+  half-open recovery uses one probe and 30s/2m/10m/30m bounded backoff.
+- Pinned-account no-fallback, account-model transient isolation, billing,
+  subscription, quota, schemas, same-request cross-group replay, frontend,
+  provider traffic, containers, shared data, commit, push and `outputs/**` are
+  excluded. Contract:
+  `docs/workflow/tasks/api-key-adaptive-route-breaker-s271.md`.
+- `PASS / contract-review`: the current model-aware route handoff and
+  request-local API Key copy can carry a generation-bound breaker lease without
+  changing persistence. A single-key Redis state machine, 30-minute inactive
+  streak TTL, conservative transient classification, default-group skipper
+  correction, exact allowlist and no-replay/no-external-state gates are
+  decision-complete; Terra Developer implementation is authorized.
+- `FAIL / developer-review-1`: focused tests passed, but Controller review found
+  repeated skipper calls can reacquire and then reject the same half-open probe,
+  healthy route checks create/write Redis state, and a 31-minute retention can
+  expire a 30-minute open state before a delayed half-open probe. The complete
+  repository failure was reproduced unchanged on the pre-S271 primary checkout
+  and is dispositioned as an out-of-scope baseline fixture drift; complete
+  service evidence remains mandatory. The original Terra Developer owns the
+  bounded fix and report rewrite before QA.
+- `REQUIRED / integration gate`: the S271 worktree predates S272 and changes
+  `api_key_auth.go`. Any later accepted S271 integration must preserve
+  `8b84ccf34`'s nil-only authorization guard and pass `TestS272` x10 before
+  independent QA.
 
 # Pixel Cafe Purchase Information And Round Controls S270
 
