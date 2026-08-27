@@ -1,5 +1,42 @@
 ---
 
+## Upstream Content Moderation Parity Addendum (S266)
+
+- Complete current upstream content-moderation behavior in two gated slices
+  without merging the divergent history. S266-A owns the Risk Control core;
+  S266-B owns the wider OpenAI cyber-policy security/billing chain.
+- S266-A ports final behavior from `23f3d426c`, `1b2d8873b`, `815bc6c9b`,
+  `8b37ba882`, `948b63c9c`, and `0d7b6ae64`: administrators can configure
+  category thresholds and a proxy, observe complete pre-block/key-load runtime
+  metrics, inspect the exact persisted matched keyword, and reach Security
+  Audit in simple mode. Keyword matching must use the upstream compiled/runtime
+  cache design instead of rebuilding the matcher per request.
+- The persisted keyword column uses local migration `237` because migrations
+  through `236` already exist. The migration must be idempotent and is tested
+  statically or against an isolated test database only; no shared database is
+  changed.
+- Proxy resolution must validate the selected proxy, cache ID-to-URL lookup,
+  use the shared proxy-capable HTTP client, never leak proxy credentials, and
+  fail the moderation call instead of silently falling back to direct access.
+- Preserve local notification templates, multi-key health, group/model scope,
+  admin auto-ban exemption, image input support and Prompt Audit. Preserve the
+  final upstream fail-open state after `af6928a26`; do not import the reverted
+  fail-closed behavior from `e01c917a9`.
+- S266-B will separately port `b62b573f7` plus `6564d376e`: exact
+  `cyber_policy` detection/forwarding across supported OpenAI HTTP/compat/WS
+  paths, free zero-token usage attribution, Risk Control audit/email/auto-ban
+  integration, optional Redis-backed session blocking, and the final
+  group/model and ban-count scope controls. It requires its own contract and
+  independent QA because it crosses gateway, billing, settings, cache and
+  notification boundaries.
+- Full upstream merge/rebase, Prompt Audit changes, server-timing metrics,
+  unrelated localization, generic repository refactors, dependencies,
+  containers, provider traffic, shared data, deployment, push, Pixel Cafe,
+  primary-worktree dirty files and `outputs/**` are excluded.
+- Contracts:
+  `docs/workflow/tasks/upstream-content-moderation-core-s266-a.md` and, after
+  A passes, `docs/workflow/tasks/upstream-content-moderation-cyber-s266-b.md`.
+
 ## Upstream OpenCode Go Reset Duration Addendum (S262)
 
 - Adapt only the parser portion of upstream `a6b11ccce`: an OpenCode Go

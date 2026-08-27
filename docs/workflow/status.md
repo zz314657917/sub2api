@@ -1,13 +1,47 @@
 ---
-phase: done
-current_sprint: upstream-wsv2-native-tool-id-repair-s264
-total_sprints: 264
-pending_action: S264 passed final QA and is ready for its local source/workflow commits; preserve the concurrently changed Pixel Cafe scene assets and outputs/, and do not push without separate authorization.
+phase: contract-approved
+current_sprint: upstream-content-moderation-core-s266-a
+total_sprints: 266
+pending_action: Dispatch the approved S266-A contract to an independent gpt-5.6-terra Developer Worker in the clean S266 worktree. Preserve primary-worktree workflow/lockfile changes and outputs/; all implementation must remain in the clean S266 worktree.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-26 13:30 +08:00
+last_verified: 2026-08-27 11:45 +08:00
 ---
+
+# Upstream Content Moderation Parity S266
+
+- `S265 / BLOCKED`: the routed Codex catalog Worker stopped twice because the
+  approved baseline lacked denied Composite route/resolver prerequisites. The
+  S265 task worktree contains workflow evidence only and no product diff; the
+  user has replaced that active request with full content-moderation parity.
+- `S266-A / contract-draft`: first restore the self-contained Risk Control
+  surface from upstream `23f3d426c`, `1b2d8873b`, `815bc6c9b`, `8b37ba882`,
+  `948b63c9c`, and `0d7b6ae64`: configurable category thresholds, complete
+  pre-block runtime/load metrics, persisted matched keywords, compiled keyword
+  hot path, explicit moderation proxy selection, and simple-mode navigation.
+- Preserve the final upstream fail-open behavior after `af6928a26`; the
+  temporary fail-closed commit `e01c917a9` must not be reintroduced.
+- `S266-B` is mandatory after A passes and will port the separate
+  `b62b573f7` plus `6564d376e` cyber-policy audit/usage/session-block chain.
+  Keeping it in a second contract prevents the broad OpenAI gateway and
+  billing/security boundary from weakening A's migration and admin QA gates.
+- Frozen baseline: local `main@e5b62a9b9`; upstream
+  `main@efb46db0a`. Worktree:
+  `E:/codex-worktrees/sub2api/upstream-content-moderation-parity-s266`.
+- No provider call, shared database migration, container update, deployment,
+  staging, push, Pixel Cafe change, lockfile change, or `outputs/**` operation
+  is authorized.
+- Contract:
+  `docs/workflow/tasks/upstream-content-moderation-core-s266-a.md`.
+- `PASS / contract-review`: migration `237` is unclaimed, the clean worktree
+  begins at `e5b62a9b9`, and pre-implementation discovery found real service,
+  repository, admin handler, migration, and server owners. The current
+  `ProxyRepository` plus shared client pool can provide proxy routing without
+  Ent/schema work. The exact allowlist, final fail-open boundary, no-live
+  dependency, executable backend/frontend acceptance commands, and required
+  independent Terra roles are decision-complete; Developer dispatch is
+  authorized.
 
 # Pixel Cafe My-Room Usage Progress S260
 
