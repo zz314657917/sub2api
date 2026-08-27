@@ -67,12 +67,20 @@ describe('CNProviderQuotaCell', () => {
     queryQuota.mockResolvedValue({ success: false, error: 'quota unavailable' })
     const wrapper = mount(CNProviderQuotaCell, { props: { account: makeAccount('coding') } })
 
-    await wrapper.get('button').trigger('click')
+    await wrapper.get('[data-test="cn-provider-quota-probe"]').trigger('click')
     await flushPromises()
 
     expect(queryQuota).toHaveBeenCalledWith(42)
     expect(wrapper.text()).toContain('45%')
     expect(wrapper.text()).toContain('quota unavailable')
+  })
+
+  it('labels the refresh control as an explicit action', async () => {
+    const wrapper = mount(CNProviderQuotaCell, { props: { account: makeAccount('coding') } })
+    await flushPromises()
+
+    expect(queryQuota).not.toHaveBeenCalled()
+    expect(wrapper.get('[data-test="cn-provider-quota-probe"]').text()).toBe('admin.accounts.cnProviders.probe')
   })
 
   it('hides quota controls for pay-as-you-go accounts', () => {

@@ -53,8 +53,8 @@ describe('CNProviderBalanceCell', () => {
 
   it('shows the last balance snapshot for a pay-as-you-go account', () => {
     const wrapper = mount(CNProviderBalanceCell, { props: { account: makeAccount('payg') } })
-    expect(wrapper.text()).toContain('CNY 12.30')
-    expect(wrapper.find('button').exists()).toBe(true)
+    expect(wrapper.get('[data-test="cn-provider-balance-value"]').text()).toContain('CNY 12.30')
+    expect(wrapper.get('[data-test="cn-provider-balance-probe"]').text()).toBe('admin.accounts.cnProviders.probe')
   })
 
   it('uses the CN balance placeholder when no snapshot is available', () => {
@@ -71,7 +71,7 @@ describe('CNProviderBalanceCell', () => {
     queryBalance.mockResolvedValue({ success: false, error: 'provider unavailable' })
     const wrapper = mount(CNProviderBalanceCell, { props: { account: makeAccount('payg') } })
 
-    await wrapper.get('button').trigger('click')
+    await wrapper.get('[data-test="cn-provider-balance-probe"]').trigger('click')
     await flushPromises()
 
     expect(queryBalance).toHaveBeenCalledWith(41)
