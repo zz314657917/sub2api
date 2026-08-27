@@ -55,10 +55,11 @@ last_verified: 2026-08-27 23:19 +08:00
   No push, deployment, container update, migration application, shared data or
   live external-service operation occurred.
 - `LIVE PROTECTION / post-QA`: after independent QA completed on a tracked-clean
-  main, a concurrent task added unstaged changes to `docs/workflow/main-log.md`,
-  `docs/workflow/spec.md`, and `docs/workflow/status.md` while HEAD remained
-  `f080bbd09`. These paths are outside the 67-path S266 product scope and were
-  preserved untouched; `outputs/` still matches the frozen 20-file manifest.
+  main, a concurrent task continued adding unstaged/untracked workflow and API
+  key middleware changes while HEAD remained `f080bbd09`. Its exact live file
+  set is volatile, so the stable closeout gate is zero overlap with all 67 S266
+  product paths; that gate passes. Concurrent paths remain untouched, the index
+  is empty, and `outputs/` still matches the frozen 20-file manifest.
 
 - `S265 / BLOCKED`: the routed Codex catalog Worker stopped twice because the
   approved baseline lacked denied Composite route/resolver prerequisites. The

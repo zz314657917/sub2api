@@ -172,7 +172,7 @@
 
 - S266-B 冻结基线为本地 `e5b62a9b9`、上游 `efb46db0a`；源提交可达。现有 `miniredis` 依赖、设置缓存和网关缓存 owner 足以实现 contract，最终没有 schema、迁移或依赖变更。
 - S266-B 候选提交链为产品 `eeed2369f` -> Controller `4fd7a2aa1` -> QA 派发 `8ebb4fb5b` -> QA 报告 `89f2d8869`；独立报告首行为 `### PASS: upstream-content-moderation-cyber-policy-s266-b`。受保护任务目录、`outputs/**`、Pixel Cafe、锁文件和 denied paths 均未进入产品提交。
-- S266-C 主线集成以 `2a3664747` 为基线，结果为 A `6054b9266` -> B `f080bbd09`；A/B patch-id 分别为 `922e3bc0...` 与 `1c0333b2...`。20 文件 `outputs/` 的确定性 manifest 在 QA 前后均为 `2996311A...79145`；QA 验收快照中 tracked/index 干净，仅保留 `?? outputs/`。QA 后另一并发任务新增了未暂存的 `docs/workflow/main-log.md`、`spec.md`、`status.md` 改动，HEAD 和产品范围未变，本轮未触碰这些文档改动。
+- S266-C 主线集成以 `2a3664747` 为基线，结果为 A `6054b9266` -> B `f080bbd09`；A/B patch-id 分别为 `922e3bc0...` 与 `1c0333b2...`。20 文件 `outputs/` 的确定性 manifest 在 QA 前后均为 `2996311A...79145`；QA 验收快照中 tracked/index 干净，仅保留 `?? outputs/`。QA 后另一并发任务持续新增 workflow 与 API-key middleware 脏文件；实时文件集合可能继续变化，但与 67 个 S266 产品路径零交集，HEAD/index/patch-id/outputs 均未变，本轮未触碰这些并发改动。
 - S224 在生成/保留原始请求指纹后，用 decimal 八位量化六个金额字段，包含本地 `PrepaidBalanceCost`。Developer、Controller、独立 QA 与集成主线 focused 均 PASS。
 - S225 保留本地 `claude-cli/2.1.92`、Stainless `0.70.0/v24.13.0` 等默认值；创建和升级共用 UA 校验，污染缓存两种自愈均保留 `ClientID`。独立 QA 未发现实现缺陷。
 - S225 集成主线 11/11 focused 测试 x10 PASS（0.077s）；候选与主线业务 patch-id 均为 `3c649274094273e6c75c14859669eed1b6c8e753`。
