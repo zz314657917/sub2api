@@ -1,15 +1,21 @@
 ---
-phase: done
-current_sprint: upstream-content-moderation-cyber-policy-s266-b
-total_sprints: 266
-pending_action: S266-B implementation and independent native gpt-5.6-terra QA are complete. Await explicit authorization before integrating the candidate commit chain into local main, pushing, deploying, or running live external-state smoke.
+phase: contract-draft
+current_sprint: upstream-content-moderation-main-integration-s266-c
+total_sprints: 267
+pending_action: Review the S266-C main-integration contract against live main@2a3664747, the exact S266-A/B product scopes and protected outputs manifest before any cherry-pick.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-27 18:20 +08:00
+last_verified: 2026-08-27 22:12 +08:00
 ---
 
 # Upstream Content Moderation Parity S266
+
+- `S266-C / contract-draft`: integrate only reviewed product commits
+  `c2cd7a0a1` then `eeed2369f` into local `main@2a3664747`, preserve their
+  patch IDs and the unrelated four-commit main delta, protect the 20-file
+  `outputs/` manifest, and run combined fresh-main QA. Push, deploy, containers,
+  database application and new product edits remain denied.
 
 - `S265 / BLOCKED`: the routed Codex catalog Worker stopped twice because the
   approved baseline lacked denied Composite route/resolver prerequisites. The
