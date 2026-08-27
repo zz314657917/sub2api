@@ -1,12 +1,12 @@
 ---
-phase: contract-approved
+phase: blocked
 current_sprint: upstream-content-moderation-cyber-policy-s266-b
 total_sprints: 266
-pending_action: Dispatch the approved S266-B cyber-policy contract to an independent gpt-5.6-terra Developer Worker in the clean S266 worktree. Preserve primary-worktree workflow/lockfile changes and outputs/; all implementation must remain in the clean S266 worktree.
+pending_action: BLOCKED: gpt-5.6-terra Developer Worker dispatch returned API 404 with zero input tokens. Obtain explicit authorization for an alternate Developer and independent QA model, then resume the approved S266-B contract without widening scope.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-27 13:28 +08:00
+last_verified: 2026-08-27 13:31 +08:00
 ---
 
 # Upstream Content Moderation Parity S266
@@ -44,6 +44,12 @@ last_verified: 2026-08-27 13:28 +08:00
   settings/content-moderation/frontend mapping regressions. Developer dispatch
   is authorized; shared data, external providers, containers, staging and push
   remain denied.
+- `BLOCKED / Developer dispatch`: the required `gpt-5.6-terra` worker returned
+  API `404` before sampling (`input_tokens=0`, no product diff or worker
+  report). The task-owned retry worktree contains only ignored invocation/raw
+  failure artifacts and a copied-contract line-ending change. Do not silently
+  substitute a model; explicit authorization is required for an alternate
+  Developer and independent QA model.
 
 # Pixel Cafe My-Room Usage Progress S260
 
