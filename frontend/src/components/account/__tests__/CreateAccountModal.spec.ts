@@ -2,15 +2,18 @@ import { defineComponent } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { createAccount, importCodexSession } = vi.hoisted(() => ({
+const { createAccount, importCodexSession, authStoreMock } = vi.hoisted(() => ({
   createAccount: vi.fn(),
   importCodexSession: vi.fn(),
+  authStoreMock: {
+    isSimpleMode: true
+  }
 }))
 
 vi.mock('@/stores/app', () => ({
   useAppStore: () => ({ cachedPublicSettings: {}, showError: vi.fn(), showSuccess: vi.fn(), showWarning: vi.fn() }),
 }))
-vi.mock('@/stores/auth', () => ({ useAuthStore: () => ({ isSimpleMode: true }) }))
+vi.mock('@/stores/auth', () => ({ useAuthStore: () => authStoreMock }))
 vi.mock('@/api/admin', () => ({
   adminAPI: {
     accounts: {
@@ -30,7 +33,10 @@ vi.mock('vue-i18n', async () => {
 
 import CreateAccountModal from '../CreateAccountModal.vue'
 
-const BaseDialogStub = defineComponent({ props: { show: Boolean }, template: '<div v-if="show"><slot /><slot name="footer" /></div>' })
+const BaseDialogStub = defineComponent({
+  props: { show: Boolean, width: { type: String, default: 'normal' } },
+  template: '<div v-if="show"><slot /><slot name="footer" /></div>'
+})
 const OAuthAuthorizationFlowStub = defineComponent({
   emits: ['import-codex-session'],
   template: '<button data-testid="import-codex-session" @click="$emit(\'import-codex-session\', \'session-json\')">session</button>',
@@ -44,6 +50,10 @@ const SelectStub = defineComponent({
     </select>
   `,
 })
+const GroupSelectorStub = defineComponent({
+  name: 'GroupSelector',
+  template: '<div data-testid="group-selector" />'
+})
 
 function mountModal() {
   return mount(CreateAccountModal, {
@@ -51,7 +61,7 @@ function mountModal() {
     global: {
       stubs: {
         BaseDialog: BaseDialogStub, OAuthAuthorizationFlow: OAuthAuthorizationFlowStub, Toggle: true, ConfirmDialog: true, Select: SelectStub, PlatformIcon: true, Icon: true,
-        ProxySelector: true, GroupSelector: true, ModelWhitelistSelector: true, AccountCapabilitySelector: true,
+        ProxySelector: true, GroupSelector: GroupSelectorStub, ModelWhitelistSelector: true, AccountCapabilitySelector: true,
         QuotaLimitCard: true, ShareDisplayCard: true,
       },
     },
@@ -205,5 +215,35 @@ describe('CreateAccountModal OpenAI billing default', () => {
     await wrapper.findAll('[data-testid="cn-account-mode"]')[1].trigger('click')
 
     expect((baseUrl.element as HTMLInputElement).value).toBe('https://gateway.example.test/kimi')
+  })
+})
+
+describe('CreateAccountModal standard layout', () => {
+  it('places account settings on the left and group controls on the right on wide screens', async () => {
+    authStoreMock.isSimpleMode = false
+    try {
+      const wrapper = mountModal()
+      await flushPromises()
+
+      const form = wrapper.get('#create-account-form')
+      const layout = wrapper.get('[data-testid="create-account-layout"]')
+      const mainColumn = wrapper.get('[data-testid="create-account-main-column"]')
+      const sideColumn = wrapper.get('[data-testid="create-account-side-column"]')
+      const groupSelector = wrapper.get('[data-testid="group-selector"]')
+      const availabilitySection = wrapper.get('[data-testid="account-time-availability-section"]')
+
+      expect(layout.element.parentElement).toBe(form.element)
+      expect(layout.classes()).toContain('grid')
+      expect(layout.classes()).toContain('grid-cols-1')
+      expect(layout.classes()).toContain('lg:grid-cols-[minmax(0,1fr)_minmax(28rem,36rem)]')
+      expect(layout.element.children[0]).toBe(mainColumn.element)
+      expect(layout.element.children[1]).toBe(sideColumn.element)
+      expect(mainColumn.find('[data-tour="account-form-name"]').exists()).toBe(true)
+      expect(groupSelector.element.parentElement).toBe(sideColumn.element)
+      expect(availabilitySection.element.parentElement).toBe(sideColumn.element)
+      expect(wrapper.findComponent(BaseDialogStub).props('width')).toBe('extra-wide')
+    } finally {
+      authStoreMock.isSimpleMode = true
+    }
   })
 })

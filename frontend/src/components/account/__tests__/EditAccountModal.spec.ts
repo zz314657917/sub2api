@@ -227,22 +227,30 @@ function mountModal(account = buildAccount()) {
 }
 
 describe('EditAccountModal', () => {
-	it('uses the expanded API-key-style layout for groups and account availability on wide screens', async () => {
+	it('places account settings on the left and group controls on the right on wide screens', async () => {
 		authStoreMock.isSimpleMode = false
 		try {
 			const wrapper = mountModal()
 			await flushPromises()
 
+			const form = wrapper.get('form#edit-account-form')
+			const layout = wrapper.get('[data-testid="edit-account-layout"]')
+			const mainColumn = wrapper.get('[data-testid="edit-account-main-column"]')
+			const sideColumn = wrapper.get('[data-testid="edit-account-side-column"]')
+			const statusSection = wrapper.get('[data-testid="edit-account-status-section"]')
 			const groupSelector = wrapper.get('[data-testid="group-selector"]')
 			const availabilitySection = wrapper.get('[data-testid="account-time-availability-section"]')
-			const layout = availabilitySection.element.parentElement
 
-			expect(layout).not.toBeNull()
-			expect(layout?.classList.contains('grid')).toBe(true)
-			expect(layout?.classList.contains('grid-cols-1')).toBe(true)
-			expect(layout?.classList.contains('lg:grid-cols-[minmax(0,1fr)_minmax(28rem,36rem)]')).toBe(true)
-			expect(groupSelector.element.parentElement).toBe(layout)
-			expect(availabilitySection.classes()).toContain('lg:border-t-0')
+			expect(layout.element.parentElement).toBe(form.element)
+			expect(layout.classes()).toContain('grid')
+			expect(layout.classes()).toContain('grid-cols-1')
+			expect(layout.classes()).toContain('lg:grid-cols-[minmax(0,1fr)_minmax(28rem,36rem)]')
+			expect(layout.element.children[0]).toBe(mainColumn.element)
+			expect(layout.element.children[1]).toBe(sideColumn.element)
+			expect(mainColumn.find('[data-tour="edit-account-form-name"]').exists()).toBe(true)
+			expect(statusSection.element.parentElement).toBe(mainColumn.element)
+			expect(groupSelector.element.parentElement).toBe(sideColumn.element)
+			expect(availabilitySection.element.parentElement).toBe(sideColumn.element)
 			expect(wrapper.findComponent(BaseDialogStub).props('width')).toBe('extra-wide')
 		} finally {
 			authStoreMock.isSimpleMode = true
@@ -253,8 +261,15 @@ describe('EditAccountModal', () => {
 		const wrapper = mountModal()
 		await flushPromises()
 
+		const layout = wrapper.get('[data-testid="edit-account-layout"]')
+		const mainColumn = wrapper.get('[data-testid="edit-account-main-column"]')
+		const sideColumn = wrapper.get('[data-testid="edit-account-side-column"]')
+		const statusSection = wrapper.get('[data-testid="edit-account-status-section"]')
 		const availabilitySection = wrapper.get('[data-testid="account-time-availability-section"]')
-		expect(availabilitySection.classes()).not.toContain('lg:border-t-0')
+		expect(layout.classes()).not.toContain('lg:grid-cols-[minmax(0,1fr)_minmax(28rem,36rem)]')
+		expect(statusSection.element.parentElement).toBe(mainColumn.element)
+		expect(sideColumn.find('[data-testid="group-selector"]').exists()).toBe(false)
+		expect(availabilitySection.element.parentElement).toBe(sideColumn.element)
 	})
 
 	it('normalizes and preserves a valid disabled availability window in the update payload', async () => {

@@ -9,22 +9,29 @@
       v-if="account"
       id="edit-account-form"
       @submit.prevent="handleSubmit"
-      class="space-y-5"
     >
-      <div>
-        <label class="input-label">{{ t('common.name') }}</label>
-        <input v-model="form.name" type="text" required class="input" data-tour="edit-account-form-name" />
-      </div>
-      <div>
-        <label class="input-label">{{ t('admin.accounts.notes') }}</label>
-        <textarea
-          v-model="form.notes"
-          rows="3"
-          class="input"
-          :placeholder="t('admin.accounts.notesPlaceholder')"
-        ></textarea>
-        <p class="input-hint">{{ t('admin.accounts.notesHint') }}</p>
-      </div>
+      <div
+        data-testid="edit-account-layout"
+        :class="[
+          'grid grid-cols-1 gap-5',
+          !authStore.isSimpleMode && 'lg:grid-cols-[minmax(0,1fr)_minmax(28rem,36rem)] lg:items-start'
+        ]"
+      >
+        <div data-testid="edit-account-main-column" class="min-w-0 space-y-5">
+          <div>
+            <label class="input-label">{{ t('common.name') }}</label>
+            <input v-model="form.name" type="text" required class="input" data-tour="edit-account-form-name" />
+          </div>
+          <div>
+            <label class="input-label">{{ t('admin.accounts.notes') }}</label>
+            <textarea
+              v-model="form.notes"
+              rows="3"
+              class="input"
+              :placeholder="t('admin.accounts.notesPlaceholder')"
+            ></textarea>
+            <p class="input-hint">{{ t('admin.accounts.notesHint') }}</p>
+          </div>
 
       <!-- API Key fields (only for apikey type) -->
       <div v-if="account.type === 'apikey'" class="space-y-4">
@@ -2450,7 +2457,7 @@
         </div>
       </div>
 
-      <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+      <div data-testid="edit-account-status-section" class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <div>
           <label class="input-label">{{ t('common.status') }}</label>
           <Select v-model="form.status" :options="statusOptions" />
@@ -2515,32 +2522,28 @@
         </div>
       </div>
 
-      <div
-        :class="[
-          'grid grid-cols-1 gap-5',
-          !authStore.isSimpleMode && 'lg:grid-cols-[minmax(0,1fr)_minmax(28rem,36rem)] lg:items-start'
-        ]"
-      >
-        <!-- Group Selection - 仅标准模式显示 -->
-        <GroupSelector
-          v-if="!authStore.isSimpleMode"
-          v-model="form.group_ids"
-          :groups="groups"
-          :platform="groupSelectorPlatform"
-          :mixed-scheduling="mixedScheduling"
-          data-tour="account-form-groups"
-        />
+        </div>
 
-        <AccountTimeAvailabilityWindow
-          v-model:enabled="accountAvailabilityEnabled"
-          v-model:start="accountAvailabilityStart"
-          v-model:end="accountAvailabilityEnd"
-          :class="!authStore.isSimpleMode && 'lg:border-t-0 lg:pt-0'"
-          @valid="accountAvailabilityValid = $event"
-          @window-valid="accountAvailabilityWindowValid = $event"
-        />
+        <div data-testid="edit-account-side-column" class="min-w-0 space-y-5">
+          <!-- Group Selection - 仅标准模式显示 -->
+          <GroupSelector
+            v-if="!authStore.isSimpleMode"
+            v-model="form.group_ids"
+            :groups="groups"
+            :platform="groupSelectorPlatform"
+            :mixed-scheduling="mixedScheduling"
+            data-tour="account-form-groups"
+          />
+
+          <AccountTimeAvailabilityWindow
+            v-model:enabled="accountAvailabilityEnabled"
+            v-model:start="accountAvailabilityStart"
+            v-model:end="accountAvailabilityEnd"
+            @valid="accountAvailabilityValid = $event"
+            @window-valid="accountAvailabilityWindowValid = $event"
+          />
+        </div>
       </div>
-
     </form>
 
     <template #footer>

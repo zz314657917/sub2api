@@ -2,7 +2,7 @@
   <BaseDialog
     :show="show"
     :title="t('admin.accounts.createAccount')"
-    width="wide"
+    width="extra-wide"
     @close="handleClose"
   >
     <!-- Step Indicator for OAuth accounts -->
@@ -43,29 +43,36 @@
       v-if="step === 1"
       id="create-account-form"
       @submit.prevent="handleSubmit"
-      class="space-y-5"
     >
-      <div>
-        <label class="input-label">{{ t('admin.accounts.accountName') }}</label>
-        <input
-          v-model="form.name"
-          type="text"
-          required
-          class="input"
-          :placeholder="t('admin.accounts.enterAccountName')"
-          data-tour="account-form-name"
-        />
-      </div>
-      <div>
-        <label class="input-label">{{ t('admin.accounts.notes') }}</label>
-        <textarea
-          v-model="form.notes"
-          rows="3"
-          class="input"
-          :placeholder="t('admin.accounts.notesPlaceholder')"
-        ></textarea>
-        <p class="input-hint">{{ t('admin.accounts.notesHint') }}</p>
-      </div>
+      <div
+        data-testid="create-account-layout"
+        :class="[
+          'grid grid-cols-1 gap-5',
+          !authStore.isSimpleMode && 'lg:grid-cols-[minmax(0,1fr)_minmax(28rem,36rem)] lg:items-start'
+        ]"
+      >
+        <div data-testid="create-account-main-column" class="min-w-0 space-y-5">
+          <div>
+            <label class="input-label">{{ t('admin.accounts.accountName') }}</label>
+            <input
+              v-model="form.name"
+              type="text"
+              required
+              class="input"
+              :placeholder="t('admin.accounts.enterAccountName')"
+              data-tour="account-form-name"
+            />
+          </div>
+          <div>
+            <label class="input-label">{{ t('admin.accounts.notes') }}</label>
+            <textarea
+              v-model="form.notes"
+              rows="3"
+              class="input"
+              :placeholder="t('admin.accounts.notesPlaceholder')"
+            ></textarea>
+            <p class="input-hint">{{ t('admin.accounts.notesHint') }}</p>
+          </div>
 
       <!-- Platform Selection - Segmented Control Style -->
       <div>
@@ -2990,25 +2997,30 @@
           </div>
         </div>
 
-        <AccountTimeAvailabilityWindow
-          v-model:enabled="accountAvailabilityEnabled"
-          v-model:start="accountAvailabilityStart"
-          v-model:end="accountAvailabilityEnd"
-          @valid="accountAvailabilityValid = $event"
-          @window-valid="accountAvailabilityWindowValid = $event"
-        />
+        </div>
 
-        <!-- Group Selection - 仅标准模式显示 -->
-        <GroupSelector
-          v-if="!authStore.isSimpleMode"
-          v-model="form.group_ids"
-          :groups="groups"
-          :platform="groupSelectorPlatform"
-          :mixed-scheduling="mixedScheduling"
-          data-tour="account-form-groups"
-        />
+        </div>
+
+        <div data-testid="create-account-side-column" class="min-w-0 space-y-5">
+          <!-- Group Selection - 仅标准模式显示 -->
+          <GroupSelector
+            v-if="!authStore.isSimpleMode"
+            v-model="form.group_ids"
+            :groups="groups"
+            :platform="groupSelectorPlatform"
+            :mixed-scheduling="mixedScheduling"
+            data-tour="account-form-groups"
+          />
+
+          <AccountTimeAvailabilityWindow
+            v-model:enabled="accountAvailabilityEnabled"
+            v-model:start="accountAvailabilityStart"
+            v-model:end="accountAvailabilityEnd"
+            @valid="accountAvailabilityValid = $event"
+            @window-valid="accountAvailabilityWindowValid = $event"
+          />
+        </div>
       </div>
-
     </form>
 
     <!-- Step 2: OAuth Authorization -->
