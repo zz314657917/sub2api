@@ -1,12 +1,12 @@
 ---
-phase: contract-approved
+phase: build
 current_sprint: upstream-content-moderation-cyber-policy-s266-b
 total_sprints: 266
-pending_action: Dispatch the approved S266-B contract through the Codex-native gpt-5.6-terra Developer sub-agent transport. Do not use claude.cmd; preserve the same model, independent QA gate, allowlist and denied boundaries.
+pending_action: Codex Controller implements the approved S266-B contract after two Developer dispatch failures, then performs diff review before independent native gpt-5.6-terra QA. Scope, acceptance and denied boundaries remain unchanged.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-27 14:55 +08:00
+last_verified: 2026-08-27 15:12 +08:00
 ---
 
 # Upstream Content Moderation Parity S266
@@ -54,6 +54,13 @@ last_verified: 2026-08-27 14:55 +08:00
   routing explanation. The model remains `gpt-5.6-terra`; only the worker
   transport changes from incompatible `claude.cmd` to the Codex-native
   sub-agent channel. Contract scope and independent QA gate are unchanged.
+- `FAILED / native Developer`: the native Developer created an allowlist-outside
+  temporary root patch before implementation. The Controller stopped the turn;
+  the worker removed the unapplied file and committed only the allowlisted
+  `FAILED` report as `81ba95d4d`. No product diff exists.
+- `CONTROLLER TAKEOVER`: after the CLI transport failure and native allowlist
+  failure, the low-cost Developer loop is closed. Codex will implement the same
+  approved contract directly; independent native Terra QA remains mandatory.
 
 # Pixel Cafe My-Room Usage Progress S260
 
