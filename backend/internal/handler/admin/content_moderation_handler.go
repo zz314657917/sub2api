@@ -34,6 +34,8 @@ type contentModerationConfigRequest struct {
 	AllGroups            *bool                                 `json:"all_groups"`
 	GroupIDs             *[]int64                              `json:"group_ids"`
 	RecordNonHits        *bool                                 `json:"record_non_hits"`
+	Thresholds           *map[string]float64                   `json:"thresholds"`
+	ProxyID              *int64                                `json:"proxy_id"`
 	WorkerCount          *int                                  `json:"worker_count"`
 	QueueSize            *int                                  `json:"queue_size"`
 	BlockStatus          *int                                  `json:"block_status"`
@@ -56,6 +58,7 @@ type contentModerationAPIKeyTestRequest struct {
 	BaseURL   string   `json:"base_url"`
 	Model     string   `json:"model"`
 	TimeoutMS int      `json:"timeout_ms"`
+	ProxyID   *int64   `json:"proxy_id"`
 	Prompt    string   `json:"prompt"`
 	Images    []string `json:"images"`
 }
@@ -94,6 +97,8 @@ func (h *ContentModerationHandler) UpdateConfig(c *gin.Context) {
 		AllGroups:            req.AllGroups,
 		GroupIDs:             req.GroupIDs,
 		RecordNonHits:        req.RecordNonHits,
+		Thresholds:           req.Thresholds,
+		ProxyID:              req.ProxyID,
 		WorkerCount:          req.WorkerCount,
 		QueueSize:            req.QueueSize,
 		BlockStatus:          req.BlockStatus,
@@ -128,6 +133,7 @@ func (h *ContentModerationHandler) TestAPIKeys(c *gin.Context) {
 		BaseURL:   req.BaseURL,
 		Model:     req.Model,
 		TimeoutMS: req.TimeoutMS,
+		ProxyID:   req.ProxyID,
 		Prompt:    req.Prompt,
 		Images:    req.Images,
 	})

@@ -12,6 +12,8 @@ const {
   getStatus,
   listLogs,
   getGroups,
+  getProxies,
+  testAPIKeys,
   showError,
   showSuccess,
 } = vi.hoisted(() => ({
@@ -20,6 +22,8 @@ const {
   getStatus: vi.fn(),
   listLogs: vi.fn(),
   getGroups: vi.fn(),
+  getProxies: vi.fn(),
+  testAPIKeys: vi.fn(),
   showError: vi.fn(),
   showSuccess: vi.fn(),
 }))
@@ -31,13 +35,16 @@ vi.mock('@/api/admin', () => ({
       updateConfig,
       getStatus,
       listLogs,
-      testAPIKeys: vi.fn(),
+      testAPIKeys,
       deleteFlaggedHash: vi.fn(),
       clearFlaggedHashes: vi.fn(),
       unbanUser: vi.fn(),
     },
     groups: {
       getAll: getGroups,
+    },
+    proxies: {
+      getAll: getProxies,
     },
   },
 }))
@@ -69,6 +76,7 @@ const baseConfig = (): ContentModerationConfig => ({
   mode: 'pre_block',
   base_url: 'https://api.openai.com',
   model: 'omni-moderation-latest',
+  proxy_id: null,
   api_key_configured: false,
   api_key_masked: '',
   api_key_count: 0,
@@ -91,6 +99,10 @@ const baseConfig = (): ContentModerationConfig => ({
   hit_retention_days: 180,
   non_hit_retention_days: 3,
   pre_hash_check_enabled: false,
+  thresholds: {
+    harassment: 0.98,
+    sexual: 0.65,
+  },
   blocked_keywords: [],
   keyword_blocking_mode: 'keyword_and_api',
   model_filter: {
@@ -114,6 +126,16 @@ const runtimeStatus = () => ({
   dropped: 0,
   processed: 0,
   errors: 0,
+  pre_block_active: 0,
+  pre_block_checked: 0,
+  pre_block_allowed: 0,
+  pre_block_blocked: 0,
+  pre_block_errors: 0,
+  pre_block_avg_latency_ms: 0,
+  pre_block_api_key_active: 0,
+  pre_block_api_key_available_count: 0,
+  pre_block_api_key_total_calls: 0,
+  pre_block_api_key_loads: [],
   api_key_statuses: [],
   flagged_hash_count: 0,
   last_cleanup_deleted_hit: 0,
@@ -173,6 +195,8 @@ describe('admin RiskControlView', () => {
     getStatus.mockReset()
     listLogs.mockReset()
     getGroups.mockReset()
+    getProxies.mockReset()
+    testAPIKeys.mockReset()
     showError.mockReset()
     showSuccess.mockReset()
 
@@ -180,6 +204,8 @@ describe('admin RiskControlView', () => {
     getStatus.mockResolvedValue(runtimeStatus())
     listLogs.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 20, pages: 1 })
     getGroups.mockResolvedValue([])
+    getProxies.mockResolvedValue([])
+    testAPIKeys.mockResolvedValue({ items: [], image_count: 0 })
     updateConfig.mockImplementation(async (payload: UpdateContentModerationConfig) => ({
       ...baseConfig(),
       ...payload,
@@ -203,6 +229,7 @@ describe('admin RiskControlView', () => {
           Toggle: true,
           Pagination: true,
           ModelWhitelistSelector: ModelWhitelistSelectorStub,
+          ProxySelector: true,
         },
       },
     })
@@ -223,5 +250,108 @@ describe('admin RiskControlView', () => {
       },
     }))
     expect(showError).not.toHaveBeenCalled()
+  })
+
+  it('saves edited risk thresholds as normalized fractions', async () => {
+    const wrapper = mount(RiskControlView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+          BaseDialog: BaseDialogStub,
+          Icon: true,
+          Select: true,
+          Toggle: true,
+          Pagination: true,
+          ModelWhitelistSelector: ModelWhitelistSelectorStub,
+          ProxySelector: true,
+        },
+      },
+    })
+
+    await flushPromises()
+    await findButtonByText(wrapper, 'admin.riskControl.openSettings').trigger('click')
+    await findButtonByText(wrapper, 'admin.riskControl.tabs.riskThresholds').trigger('click')
+    await wrapper.get('[data-test="risk-threshold-sexual"]').setValue('72')
+    await findButtonByText(wrapper, 'admin.riskControl.saveConfig').trigger('click')
+    await flushPromises()
+
+    expect(updateConfig).toHaveBeenCalledWith(expect.objectContaining({
+      thresholds: expect.objectContaining({ sexual: 0.72 }),
+    }))
+  })
+
+  it('shows synchronous pre-block metrics and key load separately from workers', async () => {
+    getStatus.mockResolvedValue({
+      ...runtimeStatus(),
+      pre_block_checked: 12,
+      pre_block_allowed: 10,
+      pre_block_blocked: 2,
+      pre_block_avg_latency_ms: 86,
+      pre_block_api_key_active: 1,
+      pre_block_api_key_available_count: 2,
+      pre_block_api_key_total_calls: 12,
+      pre_block_api_key_loads: [{
+        index: 0,
+        key_hash: 'hash-one',
+        masked: '********one',
+        status: 'ok',
+        active: 1,
+        total: 12,
+        success: 10,
+        errors: 2,
+        avg_latency_ms: 86,
+        last_latency_ms: 80,
+        last_http_status: 200,
+      }],
+    })
+    const wrapper = mount(RiskControlView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+          BaseDialog: BaseDialogStub,
+          Icon: true,
+          Select: true,
+          Toggle: true,
+          Pagination: true,
+          ModelWhitelistSelector: ModelWhitelistSelectorStub,
+          ProxySelector: true,
+        },
+      },
+    })
+    await flushPromises()
+    expect(wrapper.get('[data-test="pre-block-sync-card"]').text()).toContain('12')
+    expect(wrapper.get('[data-test="pre-block-api-key-load-card"]').text()).toContain('********one')
+    expect(wrapper.text()).not.toContain('admin.riskControl.workerStatus')
+  })
+
+  it('sends the selected proxy for save and test requests', async () => {
+    const wrapper = mount(RiskControlView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+          BaseDialog: BaseDialogStub,
+          Icon: true,
+          Select: true,
+          Toggle: true,
+          Pagination: true,
+          ModelWhitelistSelector: ModelWhitelistSelectorStub,
+          ProxySelector: defineComponent({
+            props: { modelValue: { type: Number, default: null } },
+            emits: ['update:modelValue'],
+            template: '<button data-test="proxy-select" @click="$emit(\'update:modelValue\', 7)">{{ modelValue }}</button>',
+          }),
+        },
+      },
+    })
+    await flushPromises()
+    await findButtonByText(wrapper, 'admin.riskControl.openSettings').trigger('click')
+    await wrapper.get('[data-test="proxy-select"]').trigger('click')
+    await wrapper.findAll('textarea')[0].setValue('sk-test')
+    await findButtonByText(wrapper, 'admin.riskControl.testInputApiKeys').trigger('click')
+    await flushPromises()
+    expect(testAPIKeys).toHaveBeenCalledWith(expect.objectContaining({ proxy_id: 7 }))
+    await findButtonByText(wrapper, 'admin.riskControl.saveConfig').trigger('click')
+    await flushPromises()
+    expect(updateConfig).toHaveBeenCalledWith(expect.objectContaining({ proxy_id: 7 }))
   })
 })
