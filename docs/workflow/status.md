@@ -1,12 +1,12 @@
 ---
-phase: contract-draft
+phase: contract-approved
 current_sprint: upstream-content-moderation-main-integration-s266-c
 total_sprints: 267
-pending_action: Review the S266-C main-integration contract against live main@2a3664747, the exact S266-A/B product scopes and protected outputs manifest before any cherry-pick.
+pending_action: Codex Controller integrates c2cd7a0a1 then eeed2369f into unchanged local main@2a3664747 with -x provenance, verifies exact scope/patch IDs/protected outputs, then dispatches independent native gpt-5.6-terra fresh-main QA.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-27 22:12 +08:00
+last_verified: 2026-08-27 22:16 +08:00
 ---
 
 # Upstream Content Moderation Parity S266
@@ -16,6 +16,11 @@ last_verified: 2026-08-27 22:12 +08:00
   patch IDs and the unrelated four-commit main delta, protect the 20-file
   `outputs/` manifest, and run combined fresh-main QA. Push, deploy, containers,
   database application and new product edits remain denied.
+- `PASS / S266-C contract-review`: live main remains `2a3664747` with a clean
+  tracked/index state and only the frozen 20-file `outputs/` tree. The 67 unique
+  product paths have zero overlap with the four-commit main delta, no product
+  owner changed between S266-A and the S266-B parent, and A is an ancestor of B.
+  Controller integration is authorized; any conflict or baseline drift stops it.
 
 - `S265 / BLOCKED`: the routed Codex catalog Worker stopped twice because the
   approved baseline lacked denied Composite route/resolver prerequisites. The
