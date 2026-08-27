@@ -3,8 +3,8 @@
 ## Scope and provenance
 
 - QA worktree: `E:/codex-worktrees/sub2api/upstream-oauth-image-verbatim-s268`.
-- Tested implementation: `6aad7e254d161b44ea8ef07f66bfc055fe4e1691`.
-- Frozen base: `cd42eebf1`; upstream source: `329b92ef0f2e58cce2cbb5c6dbd7dd1e2b6a57d7`.
+- Tested implementation: `1853a3bec`.
+- Frozen base: `cd42eebf1`; upstream source: `329b92ef045fd24b49b33e719e42facc7b26e1b2`.
 - Relative implementation scope is exactly `backend/internal/service/openai_images.go`, `openai_images_responses.go`, `openai_images_test.go`, plus the contract and worker result. No denied path or unmerged index entry was found.
 
 ## Commands
