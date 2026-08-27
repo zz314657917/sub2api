@@ -93,12 +93,15 @@ func (r *contentModerationTestRepo) ListLogs(ctx context.Context, filter Content
 	return nil, nil, nil
 }
 
-func (r *contentModerationTestRepo) CountFlaggedByUserSince(ctx context.Context, userID int64, since time.Time) (int, error) {
+func (r *contentModerationTestRepo) CountFlaggedByUserSince(ctx context.Context, userID int64, since time.Time, excludeCyberPolicy bool) (int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	count := 0
 	for _, log := range r.logs {
 		if !log.Flagged || log.Action == ContentModerationActionHashBlock || log.UserID == nil || *log.UserID != userID {
+			continue
+		}
+		if excludeCyberPolicy && log.Action == ContentModerationActionCyberPolicy {
 			continue
 		}
 		if !log.CreatedAt.IsZero() && log.CreatedAt.Before(since) {
@@ -107,6 +110,10 @@ func (r *contentModerationTestRepo) CountFlaggedByUserSince(ctx context.Context,
 		count++
 	}
 	return count, nil
+}
+
+func (r *contentModerationTestRepo) UpdateLogEmailSent(ctx context.Context, id int64, sent bool) error {
+	return nil
 }
 
 func (r *contentModerationTestRepo) CleanupExpiredLogs(ctx context.Context, hitBefore time.Time, nonHitBefore time.Time) (*ContentModerationCleanupResult, error) {

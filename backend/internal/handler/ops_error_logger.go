@@ -606,6 +606,9 @@ func OpsErrorLoggerMiddleware(ops *service.OpsService) gin.HandlerFunc {
 		if !ops.IsMonitoringEnabled(c.Request.Context()) {
 			return
 		}
+		if shouldSkipOpsErrorLogForCyber(c) {
+			return
+		}
 
 		status := c.Writer.Status()
 		if status < 400 {
@@ -1630,6 +1633,10 @@ func truncateString(s string, max int) string {
 
 func strconvItoa(v int) string {
 	return strconv.Itoa(v)
+}
+
+func shouldSkipOpsErrorLogForCyber(c *gin.Context) bool {
+	return service.GetOpsCyberPolicy(c) != nil
 }
 
 // shouldSkipOpsErrorLog determines if an error should be skipped from logging based on settings.

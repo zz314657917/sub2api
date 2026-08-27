@@ -412,6 +412,12 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 		// Client wants JSON: buffer the streaming response and assemble a JSON reply.
 		result, handleErr = s.handleAnthropicBufferedStreamingResponse(resp, c, account, originalModel, billingModel, upstreamModel, startTime)
 	}
+	if GetOpsCyberPolicy(c) != nil {
+		if handleErr == nil {
+			handleErr = errOpenAICyberPolicyForwarded
+		}
+		return nil, handleErr
+	}
 
 	// Propagate ServiceTier and ReasoningEffort to result for billing
 	if handleErr == nil && result != nil {
@@ -510,6 +516,15 @@ func (s *OpenAIGatewayService) handleAnthropicBufferedStreamingResponse(
 	}
 	if strings.TrimSpace(finalResponse.Status) == "failed" {
 		payload, _ := json.Marshal(gin.H{"type": "response.failed", "response": finalResponse})
+		if hit, code, msg := detectOpenAICyberPolicy(payload); hit {
+			MarkOpsCyberPolicy(c, CyberPolicyMark{Code: code, Message: msg, Body: truncateString(string(payload), 4096), UpstreamStatus: http.StatusBadRequest, UpstreamInTok: usage.InputTokens, UpstreamOutTok: usage.OutputTokens})
+			clientMsg := msg
+			if clientMsg == "" {
+				clientMsg = "Request blocked by upstream cyber-security policy"
+			}
+			writeAnthropicError(c, http.StatusBadRequest, "invalid_request_error", clientMsg)
+			return nil, fmt.Errorf("openai cyber_policy: %s", msg)
+		}
 		message := openAICompatFailedResponseMessage(finalResponse)
 		if openAIStreamFailedEventShouldFailover(payload, message) {
 			return nil, s.newOpenAIStreamFailoverError(c, account, false, requestID, payload, message, resp.Header)
@@ -849,6 +864,22 @@ func (s *OpenAIGatewayService) handleAnthropicStreamingResponse(
 			if eventType == "response.failed" {
 				payloadBytes := []byte(payload)
 				message := extractOpenAISSEErrorMessage(payloadBytes)
+				if hit, code, msg := detectOpenAICyberPolicy(payloadBytes); hit {
+					MarkOpsCyberPolicy(c, CyberPolicyMark{Code: code, Message: msg, Body: truncateString(payload, 4096), UpstreamStatus: http.StatusOK, UpstreamInTok: usage.InputTokens, UpstreamOutTok: usage.OutputTokens})
+					if !clientDisconnected {
+						writeStreamHeaders()
+						clientMsg := msg
+						if clientMsg == "" {
+							clientMsg = "Request blocked by upstream cyber-security policy"
+						}
+						if _, err := fmt.Fprint(c.Writer, buildAnthropicStreamErrorSSE("invalid_request_error", clientMsg)); err == nil {
+							c.Writer.Flush()
+						}
+						clientDisconnected = true
+					}
+					streamFailoverErr = errOpenAICyberPolicyForwarded
+					return true
+				}
 				if !clientOutputStarted && openAIStreamFailedEventShouldFailover(payloadBytes, message) {
 					streamFailoverErr = s.newOpenAIStreamFailoverError(c, account, false, requestID, payloadBytes, message, resp.Header)
 					return true
@@ -1136,6 +1167,14 @@ func writeAnthropicError(c *gin.Context, statusCode int, errType, message string
 			"message": message,
 		},
 	})
+}
+
+func buildAnthropicStreamErrorSSE(errType, message string) string {
+	payload, err := json.Marshal(gin.H{"type": "error", "error": gin.H{"type": errType, "message": message}})
+	if err != nil {
+		return "event: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"upstream error\"}}\n\n"
+	}
+	return "event: error\ndata: " + string(payload) + "\n\n"
 }
 
 func copyOpenAIUsageFromResponsesUsage(usage *apicompat.ResponsesUsage) OpenAIUsage {

@@ -136,6 +136,15 @@ type cachedOpenAIQuotaAutoPauseSettings struct {
 	expiresAt int64
 }
 
+// cachedCyberSessionBlockRuntime keeps the cyber session-block toggle and TTL
+// off the gateway hot path. Errors deliberately cache a disabled value briefly
+// so storage failures remain fail-open.
+type cachedCyberSessionBlockRuntime struct {
+	enabled   bool
+	ttl       time.Duration
+	expiresAt int64
+}
+
 const antigravityUserAgentVersionCacheTTL = 60 * time.Second
 const antigravityUserAgentVersionErrorTTL = 5 * time.Second
 const antigravityUserAgentVersionDBTimeout = 5 * time.Second
@@ -143,6 +152,11 @@ const antigravityUserAgentVersionDBTimeout = 5 * time.Second
 const openAIQuotaAutoPauseSettingsCacheTTL = 60 * time.Second
 const openAIQuotaAutoPauseSettingsErrorTTL = 5 * time.Second
 const openAIQuotaAutoPauseSettingsDBTimeout = 5 * time.Second
+
+const cyberSessionBlockRuntimeCacheTTL = 60 * time.Second
+const cyberSessionBlockRuntimeErrorTTL = 5 * time.Second
+const cyberSessionBlockRuntimeDBTimeout = 5 * time.Second
+const cyberSessionBlockRuntimeRefreshKey = "cyber_session_block_runtime"
 
 const openAIQuotaAutoPauseSettingsRefreshKey = "openai_quota_auto_pause_settings"
 
@@ -171,6 +185,8 @@ type SettingService struct {
 	openAIQuotaAutoPauseSettingsCache atomic.Value // *cachedOpenAIQuotaAutoPauseSettings
 	openAIQuotaAutoPauseSettingsSF    singleflight.Group
 	openAIQuotaAutoPauseSettingsRev   atomic.Uint64
+	cyberSessionBlockRuntimeCache     atomic.Value // *cachedCyberSessionBlockRuntime
+	cyberSessionBlockRuntimeSF        singleflight.Group
 }
 
 type ProviderDefaultGrantSettings struct {
@@ -964,6 +980,64 @@ func (s *SettingService) GetFrontendURL(ctx context.Context) string {
 		return strings.TrimSpace(val)
 	}
 	return s.cfg.Server.FrontendURL
+}
+
+// GetCyberSessionBlockRuntime returns the optional session-block toggle and
+// TTL. The feature defaults to disabled and all repository failures fail open.
+func (s *SettingService) GetCyberSessionBlockRuntime(ctx context.Context) (bool, time.Duration) {
+	if s == nil {
+		return false, time.Hour
+	}
+	if cached, ok := s.cyberSessionBlockRuntimeCache.Load().(*cachedCyberSessionBlockRuntime); ok && cached != nil {
+		if time.Now().UnixNano() < cached.expiresAt {
+			return cached.enabled, cached.ttl
+		}
+	}
+	if s.settingRepo == nil {
+		return false, time.Hour
+	}
+
+	result, _, _ := s.cyberSessionBlockRuntimeSF.Do(cyberSessionBlockRuntimeRefreshKey, func() (any, error) {
+		if cached, ok := s.cyberSessionBlockRuntimeCache.Load().(*cachedCyberSessionBlockRuntime); ok && cached != nil {
+			if time.Now().UnixNano() < cached.expiresAt {
+				return cached, nil
+			}
+		}
+
+		dbCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), cyberSessionBlockRuntimeDBTimeout)
+		defer cancel()
+		enabledVal, enabledErr := s.settingRepo.GetValue(dbCtx, SettingKeyCyberSessionBlockEnabled)
+		ttlVal, ttlErr := s.settingRepo.GetValue(dbCtx, SettingKeyCyberSessionBlockTTLSeconds)
+		if enabledErr != nil && !errors.Is(enabledErr, ErrSettingNotFound) {
+			slog.Warn("failed to get cyber_session_block_enabled setting", "error", enabledErr)
+			entry := &cachedCyberSessionBlockRuntime{
+				enabled:   false,
+				ttl:       time.Hour,
+				expiresAt: time.Now().Add(cyberSessionBlockRuntimeErrorTTL).UnixNano(),
+			}
+			s.cyberSessionBlockRuntimeCache.Store(entry)
+			return entry, nil
+		}
+
+		enabled := enabledErr == nil && strings.TrimSpace(enabledVal) == "true"
+		ttl := time.Hour
+		if ttlErr == nil {
+			if seconds, err := strconv.Atoi(strings.TrimSpace(ttlVal)); err == nil && seconds > 0 {
+				ttl = time.Duration(seconds) * time.Second
+			}
+		}
+		entry := &cachedCyberSessionBlockRuntime{
+			enabled:   enabled,
+			ttl:       ttl,
+			expiresAt: time.Now().Add(cyberSessionBlockRuntimeCacheTTL).UnixNano(),
+		}
+		s.cyberSessionBlockRuntimeCache.Store(entry)
+		return entry, nil
+	})
+	if entry, ok := result.(*cachedCyberSessionBlockRuntime); ok && entry != nil {
+		return entry.enabled, entry.ttl
+	}
+	return false, time.Hour
 }
 
 // GetPublicSettings 获取公开设置（无需登录）
@@ -2374,6 +2448,10 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 
 	// 风控中心功能开关
 	updates[SettingKeyRiskControlEnabled] = strconv.FormatBool(settings.RiskControlEnabled)
+	updates[SettingKeyCyberSessionBlockEnabled] = strconv.FormatBool(settings.CyberSessionBlockEnabled)
+	if settings.CyberSessionBlockTTLSeconds > 0 {
+		updates[SettingKeyCyberSessionBlockTTLSeconds] = strconv.Itoa(settings.CyberSessionBlockTTLSeconds)
+	}
 	updates[SettingKeyAllowUserViewErrorRequests] = strconv.FormatBool(settings.AllowUserViewErrorRequests)
 
 	// Claude Code version check
@@ -2529,6 +2607,16 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 			expiresAt: 0,
 		})
 	}
+	s.cyberSessionBlockRuntimeSF.Forget(cyberSessionBlockRuntimeRefreshKey)
+	cyberSessionBlockTTL := time.Hour
+	if settings.CyberSessionBlockTTLSeconds > 0 {
+		cyberSessionBlockTTL = time.Duration(settings.CyberSessionBlockTTLSeconds) * time.Second
+	}
+	s.cyberSessionBlockRuntimeCache.Store(&cachedCyberSessionBlockRuntime{
+		enabled:   settings.CyberSessionBlockEnabled,
+		ttl:       cyberSessionBlockTTL,
+		expiresAt: time.Now().Add(cyberSessionBlockRuntimeCacheTTL).UnixNano(),
+	})
 	if s.cfg != nil {
 		s.cfg.SetForwardedClientIPSettings(settings.APIKeyACLTrustForwardedIP, settings.ForwardedClientIPHeaders)
 	}
@@ -3629,8 +3717,10 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyAccountShareUserAccountLimit:     strconv.Itoa(AccountShareUserAccountLimitDefault),
 
 		// 风控中心功能（默认关闭，显式启用）
-		SettingKeyRiskControlEnabled:         "false",
-		SettingKeyAllowUserViewErrorRequests: "false",
+		SettingKeyRiskControlEnabled:          "false",
+		SettingKeyCyberSessionBlockEnabled:    "false",
+		SettingKeyCyberSessionBlockTTLSeconds: "3600",
+		SettingKeyAllowUserViewErrorRequests:  "false",
 
 		// Claude Code version check (default: empty = disabled)
 		SettingKeyMinClaudeCodeVersion: "",
@@ -4169,6 +4259,12 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 
 	// 风控中心功能（默认关闭，严格 true 才启用）
 	result.RiskControlEnabled = settings[SettingKeyRiskControlEnabled] == "true"
+	result.CyberSessionBlockEnabled = settings[SettingKeyCyberSessionBlockEnabled] == "true"
+	if seconds, err := strconv.Atoi(strings.TrimSpace(settings[SettingKeyCyberSessionBlockTTLSeconds])); err == nil && seconds > 0 {
+		result.CyberSessionBlockTTLSeconds = seconds
+	} else {
+		result.CyberSessionBlockTTLSeconds = 3600
+	}
 	result.AllowUserViewErrorRequests = settings[SettingKeyAllowUserViewErrorRequests] == "true"
 
 	// Claude Code version check

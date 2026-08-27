@@ -39,7 +39,7 @@ func TestContentModerationHandlerUpdateConfigMapsThresholdsAndProxyID(t *testing
 	router.PUT("/risk-control/config", handler.UpdateConfig)
 
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPut, "/risk-control/config", strings.NewReader(`{"proxy_id":7,"thresholds":{"sexual":0.72}}`))
+	request := httptest.NewRequest(http.MethodPut, "/risk-control/config", strings.NewReader(`{"proxy_id":7,"thresholds":{"sexual":0.72},"cyber_policy_exclude_from_ban_count":true}`))
 	request.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(recorder, request)
 
@@ -49,4 +49,5 @@ func TestContentModerationHandlerUpdateConfigMapsThresholdsAndProxyID(t *testing
 	require.NotNil(t, saved.ProxyID)
 	require.Equal(t, int64(7), *saved.ProxyID)
 	require.Equal(t, 0.72, saved.Thresholds["sexual"])
+	require.True(t, saved.CyberPolicyExcludeFromBanCount)
 }

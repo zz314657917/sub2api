@@ -35,12 +35,14 @@ func updateSettingsPayload(t *testing.T, handler *SettingHandler, payload map[st
 func TestUpdateSettingsPartialPayloadKeepsUnsentKeys(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	handler, repo := newPartialPayloadSettingsHandler(map[string]string{
-		service.SettingKeyRegistrationEnabled: "true",
-		service.SettingKeySiteName:            "Example Gateway",
-		service.SettingKeySiteSubtitle:        "Example Gateway Platform",
-		service.SettingKeySMTPHost:            "smtp.example.com",
-		service.SettingKeySMTPFrom:            "noreply@example.com",
-		service.SettingKeyTurnstileEnabled:    "true",
+		service.SettingKeyRegistrationEnabled:         "true",
+		service.SettingKeySiteName:                    "Example Gateway",
+		service.SettingKeySiteSubtitle:                "Example Gateway Platform",
+		service.SettingKeySMTPHost:                    "smtp.example.com",
+		service.SettingKeySMTPFrom:                    "noreply@example.com",
+		service.SettingKeyTurnstileEnabled:            "true",
+		service.SettingKeyCyberSessionBlockEnabled:    "true",
+		service.SettingKeyCyberSessionBlockTTLSeconds: "7200",
 	})
 
 	rec := updateSettingsPayload(t, handler, map[string]any{"registration_enabled": false})
@@ -52,6 +54,47 @@ func TestUpdateSettingsPartialPayloadKeepsUnsentKeys(t *testing.T) {
 	require.Equal(t, "smtp.example.com", repo.values[service.SettingKeySMTPHost])
 	require.Equal(t, "noreply@example.com", repo.values[service.SettingKeySMTPFrom])
 	require.Equal(t, "true", repo.values[service.SettingKeyTurnstileEnabled])
+	require.Equal(t, "true", repo.values[service.SettingKeyCyberSessionBlockEnabled])
+	require.Equal(t, "7200", repo.values[service.SettingKeyCyberSessionBlockTTLSeconds])
+}
+
+func TestUpdateSettingsCyberSessionBlockFieldsAreWritable(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler, repo := newPartialPayloadSettingsHandler(map[string]string{
+		service.SettingKeyCyberSessionBlockEnabled:    "true",
+		service.SettingKeyCyberSessionBlockTTLSeconds: "7200",
+	})
+
+	rec := updateSettingsPayload(t, handler, map[string]any{
+		"cyber_session_block_enabled":     false,
+		"cyber_session_block_ttl_seconds": 1800,
+	})
+
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Equal(t, "false", repo.values[service.SettingKeyCyberSessionBlockEnabled])
+	require.Equal(t, "1800", repo.values[service.SettingKeyCyberSessionBlockTTLSeconds])
+	var envelope struct {
+		Data map[string]any `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &envelope))
+	require.Equal(t, false, envelope.Data["cyber_session_block_enabled"])
+	require.Equal(t, float64(1800), envelope.Data["cyber_session_block_ttl_seconds"])
+}
+
+func TestUpdateSettingsRejectsInvalidCyberSessionBlockTTL(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler, repo := newPartialPayloadSettingsHandler(map[string]string{
+		service.SettingKeyCyberSessionBlockEnabled:    "true",
+		service.SettingKeyCyberSessionBlockTTLSeconds: "7200",
+	})
+
+	rec := updateSettingsPayload(t, handler, map[string]any{
+		"cyber_session_block_ttl_seconds": 0,
+	})
+
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Equal(t, "true", repo.values[service.SettingKeyCyberSessionBlockEnabled])
+	require.Equal(t, "7200", repo.values[service.SettingKeyCyberSessionBlockTTLSeconds])
 }
 
 func TestUpdateSettingsExplicitEmptyValueClearsSentField(t *testing.T) {

@@ -60,6 +60,55 @@ func TestOpenAIGatewayServiceRecordUsage_RejectsNilInput(t *testing.T) {
 	require.Error(t, svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{}))
 }
 
+func TestRecordCyberPolicyUsageLog_ZeroTokensRecordsNoCharge(t *testing.T) {
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	userRepo := &openAIRecordUsageUserRepoStub{}
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{}, nil)
+	user := &User{ID: 2266}
+
+	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{
+		APIKey:       &APIKey{ID: 1266, User: user},
+		Account:      &Account{ID: 3266, Platform: PlatformOpenAI},
+		RequestID:    "resp_cyber_zero",
+		Model:        "gpt-5.1",
+		InputTokens:  0,
+		OutputTokens: 0,
+	})
+
+	require.Equal(t, 1, usageRepo.calls)
+	require.NotNil(t, usageRepo.lastLog)
+	require.Equal(t, RequestTypeCyberBlocked, usageRepo.lastLog.RequestType)
+	require.Zero(t, usageRepo.lastLog.TotalTokens())
+	require.Zero(t, usageRepo.lastLog.TotalCost)
+	require.Zero(t, usageRepo.lastLog.ActualCost)
+	require.Zero(t, userRepo.lastAmount, "zero-token cyber event must not deduct any balance")
+}
+
+func TestRecordCyberPolicyUsageLog_ObservedTokensAreRecordedAndBilledExactly(t *testing.T) {
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	userRepo := &openAIRecordUsageUserRepoStub{}
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{}, nil)
+	user := &User{ID: 2267}
+
+	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{
+		APIKey:       &APIKey{ID: 1267, User: user},
+		Account:      &Account{ID: 3267, Platform: PlatformOpenAI},
+		RequestID:    "resp_cyber_observed",
+		Model:        "gpt-5.1",
+		InputTokens:  17,
+		OutputTokens: 4,
+	})
+
+	require.Equal(t, 1, usageRepo.calls)
+	require.NotNil(t, usageRepo.lastLog)
+	require.Equal(t, RequestTypeCyberBlocked, usageRepo.lastLog.RequestType)
+	require.Equal(t, 17, usageRepo.lastLog.InputTokens)
+	require.Equal(t, 4, usageRepo.lastLog.OutputTokens)
+	require.Equal(t, 21, usageRepo.lastLog.TotalTokens())
+	require.Greater(t, usageRepo.lastLog.ActualCost, 0.0)
+	require.InDelta(t, usageRepo.lastLog.ActualCost, userRepo.lastAmount, 1e-12)
+}
+
 type openAIRecordUsageUserRepoStub struct {
 	UserRepository
 

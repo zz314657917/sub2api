@@ -554,6 +554,8 @@ export interface SystemSettings {
   pixel_cafe_description: string;
   pixel_cafe_header_visible: boolean;
   risk_control_enabled: boolean;
+  cyber_session_block_enabled: boolean;
+  cyber_session_block_ttl_seconds: number;
   payment_min_amount: number;
   payment_max_amount: number;
   payment_daily_limit: number;
@@ -836,6 +838,8 @@ export interface UpdateSettingsRequest {
   pixel_cafe_description?: string;
   pixel_cafe_header_visible?: boolean;
   risk_control_enabled?: boolean;
+  cyber_session_block_enabled?: boolean;
+  cyber_session_block_ttl_seconds?: number;
   payment_min_amount?: number;
   payment_max_amount?: number;
   payment_daily_limit?: number;
