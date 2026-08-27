@@ -245,8 +245,7 @@ func (s *CafePublicService) Overview(ctx context.Context, userID int64, roomLimi
 		roomLimit = cafePublicMaxRoomLimit
 	}
 
-	featured := true
-	rooms, _, err := s.list(ctx, userID, CafePublicListParams{Page: 1, PageSize: roomLimit, Featured: &featured})
+	rooms, _, err := s.list(ctx, userID, CafePublicListParams{Page: 1, PageSize: roomLimit})
 	if err != nil {
 		return nil, err
 	}

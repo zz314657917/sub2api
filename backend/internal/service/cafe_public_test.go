@@ -134,6 +134,45 @@ func TestCafePublicServiceListsOnlyEnabledRoomPlansAndRedactsOperations(t *testi
 	require.Equal(t, "今日使用用户", overview.Lobby.Label)
 }
 
+func TestCafePublicServiceOverviewIncludesNonFeaturedRoomsAndOrdersFeaturedFirst(t *testing.T) {
+	ctx := context.Background()
+	client := newCafePublicTestClient(t, "cafe_public_overview_all_rooms")
+	groupID := createGroupBuyTestGroup(t, ctx, client, 1, 100)
+	plan := createGroupBuyTestPlan(t, ctx, client, groupID, GroupBuyLaunchModeManual, 2)
+	_, err := client.GroupBuyPlan.UpdateOneID(plan.ID).SetFulfillmentMode(CafeRoomFulfillmentMode).Save(ctx)
+	require.NoError(t, err)
+
+	regularRoom, err := client.CafeRoom.Create().
+		SetCode("CAFE-REGULAR").
+		SetName("普通包间").
+		SetPlanID(plan.ID).
+		SetZoneKey("openai").
+		SetStatus(CafeRoomStatusEnabled).
+		SetFeatured(false).
+		Save(ctx)
+	require.NoError(t, err)
+	featuredRoom, err := client.CafeRoom.Create().
+		SetCode("CAFE-FEATURED").
+		SetName("精选包间").
+		SetPlanID(plan.ID).
+		SetZoneKey("openai").
+		SetStatus(CafeRoomStatusEnabled).
+		SetFeatured(true).
+		Save(ctx)
+	require.NoError(t, err)
+
+	svc := NewCafePublicService(client, cafePublicSettingsStub{enabled: true})
+	overview, err := svc.Overview(ctx, 1, 10)
+	require.NoError(t, err)
+	require.Len(t, overview.Rooms, 2)
+	require.Equal(t, featuredRoom.ID, overview.Rooms[0].ID)
+	require.Equal(t, regularRoom.ID, overview.Rooms[1].ID)
+	require.True(t, overview.Rooms[0].Featured)
+	require.False(t, overview.Rooms[1].Featured)
+	require.Len(t, overview.Zones, 1)
+	require.Equal(t, 2, overview.Zones[0].RoomCount)
+}
+
 func TestCafePublicServiceFailsClosedWhenFeatureIsDisabled(t *testing.T) {
 	client := newCafePublicTestClient(t, "cafe_public_disabled")
 	svc := NewCafePublicService(client, cafePublicSettingsStub{enabled: false})
