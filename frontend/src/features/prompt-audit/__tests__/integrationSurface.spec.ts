@@ -22,7 +22,9 @@ describe('Prompt Audit integration surface', () => {
     const sidebar = read('../../../components/layout/AppSidebar.vue')
     const group = sidebar.slice(sidebar.indexOf("path: '/admin/security-audit'"), sidebar.indexOf("path: '/admin/redeem'"))
     expect(group).toContain('expandOnly: true')
-    expect(group).toContain("path: '/admin/risk-control'")
+    const riskControlEntry = group.slice(group.indexOf("path: '/admin/risk-control'"), group.indexOf("path: '/admin/prompt-audit'"))
+    expect(riskControlEntry).toContain("path: '/admin/risk-control'")
+    expect(riskControlEntry).not.toContain('hideInSimpleMode')
     expect(group).toContain("path: '/admin/prompt-audit'")
   })
 
