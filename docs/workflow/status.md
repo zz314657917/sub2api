@@ -1,12 +1,12 @@
 ---
-phase: build
+phase: contract-draft
 current_sprint: upstream-content-moderation-main-integration-s266-c
 total_sprints: 267
-pending_action: Independent native gpt-5.6-terra QA verifies the combined local main@f080bbd09 against the S266-C contract. QA may write only its evidence-worktree report; product edits, push, deployment, containers and external state remain denied.
+pending_action: Review the outputs-manifest serialization amendment after QA correctly blocked on the ambiguous aggregate. Confirm the exact contract algorithm reproduces the frozen 20-file hash on unchanged main@f080bbd09 before authorizing retest.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-27 22:20 +08:00
+last_verified: 2026-08-27 22:50 +08:00
 ---
 
 # Upstream Content Moderation Parity S266
@@ -27,6 +27,15 @@ last_verified: 2026-08-27 22:20 +08:00
   expected 67 paths with zero denied paths. Index/conflict/diff gates are clean,
   and the protected 20-file `outputs/` manifest is unchanged. Independent
   fresh-main QA is the next gate.
+- `BLOCKED / S266-C QA attempt 1`: QA independently confirmed main HEAD,
+  tracked/index state, exact 67-path scope, patch IDs and `-x` provenance, then
+  stopped before tests because the contract supplied an aggregate outputs hash
+  without its serialization algorithm. This is contract ambiguity, not product
+  failure; report commit `d6e86e621` preserves the evidence.
+- `S266-C / contract-amendment-draft`: Acceptance Commands now contain the
+  exact deterministic PowerShell manifest algorithm. Controller reproduction
+  on unchanged main yields the frozen 20-file hash; independent review must
+  approve the amendment before QA retest.
 
 - `S265 / BLOCKED`: the routed Codex catalog Worker stopped twice because the
   approved baseline lacked denied Composite route/resolver prerequisites. The

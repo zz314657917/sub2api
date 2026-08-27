@@ -25,6 +25,10 @@ contact live external services.
   clean tracked/index state, and only untracked `outputs/`. The 20-file outputs
   manifest SHA-256 is
   `2996311A4EC1458EEC9C2AE4327D5D5EAA695C878783DE984AF841BBF0A79145`.
+  It is computed only by the exact PowerShell algorithm in Acceptance Commands:
+  root-relative forward-slash paths, uppercase file SHA-256, one ASCII space
+  between hash and path, PowerShell `Sort-Object FullName` ordering, UTF-8
+  bytes, LF separators, and no final newline.
 - Integrate S266-A product commit `c2cd7a0a1` before S266-B product commit
   `eeed2369f`, retaining separate commits and `-x` provenance. Their patch IDs
   must remain `922e3bc0fc4ccf5c1bd1fecc41e33e8894ac8d0a` and
@@ -82,6 +86,9 @@ contact live external services.
   -x`; stop on any conflict instead of resolving across an owner boundary.
 - Capture and compare main HEAD, exact status, staged/unmerged index, product
   scope, patch IDs and outputs manifest before and after integration.
+- The outputs aggregate is not a generic checksum format. QA must execute the
+  exact contract snippet verbatim from `F:/mcplugins/sub2api`; alternative
+  `sha256sum` spacing, path sorting, separators or encodings are not equivalent.
 - Do not use broad `git add`, reset, checkout, clean, stash or amend. Do not
   absorb concurrent work; if main changes after the frozen baseline, stop and
   re-contract against the new state.
@@ -91,6 +98,21 @@ contact live external services.
 ## Acceptance Commands
 
 ```powershell
+Set-Location F:/mcplugins/sub2api
+$outputFiles = @(Get-ChildItem -LiteralPath 'outputs' -Recurse -File | Sort-Object FullName)
+$outputRows = @($outputFiles | ForEach-Object {
+  $outputFileHash = Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256
+  $outputRelativePath = [IO.Path]::GetRelativePath((Get-Location).Path, $_.FullName).Replace('\', '/')
+  "{0} {1}" -f $outputFileHash.Hash, $outputRelativePath
+})
+$outputPayload = $outputRows -join "`n"
+$outputManifest = [Convert]::ToHexString(
+  [Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($outputPayload))
+)
+if ($outputFiles.Count -ne 20 -or $outputManifest -ne '2996311A4EC1458EEC9C2AE4327D5D5EAA695C878783DE984AF841BBF0A79145') {
+  throw "protected outputs manifest drift: count=$($outputFiles.Count) manifest=$outputManifest"
+}
+
 Set-Location F:/mcplugins/sub2api/backend
 go test ./internal/service -list 'Cyber|ContentModeration|KeywordMatcher|OpenAI.*Policy'
 go test ./internal/handler -list 'Cyber|OpenAI'
@@ -131,6 +153,8 @@ git diff --cached --name-only
 
 - Stop if local `main` is no longer exactly `2a3664747` before the first
   cherry-pick, tracked/index state is dirty, or outputs manifest changes.
+- For retest after the reviewed integration, the expected main HEAD is
+  `f080bbd09`; apply the exact outputs algorithm above before other commands.
 - Stop on any cherry-pick conflict, product-scope drift, patch-ID mismatch,
   unexpected migration/dependency/lockfile change, protected-path change, or
   empty focused-test discovery.
