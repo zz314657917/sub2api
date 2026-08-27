@@ -76,7 +76,10 @@ the hot request path remains bounded, proxy-safe, and backward compatible.
 - `backend/internal/service/content_moderation_test.go`
 - `backend/internal/service/content_moderation_keyword_matcher.go`
 - `backend/internal/service/content_moderation_keyword_matcher_test.go`
+- `backend/internal/service/content_moderation_matched_keyword_test.go`
+- `backend/internal/service/content_moderation_proxy_test.go`
 - `backend/internal/service/content_moderation_runtime_cache_test.go`
+- `backend/internal/handler/admin/content_moderation_handler_test.go`
 - `backend/migrations/237_content_moderation_matched_keyword.sql`
 - `backend/migrations/content_moderation_matched_keyword_test.go`
 - `frontend/src/api/admin/riskControl.ts`
@@ -87,6 +90,7 @@ the hot request path remains bounded, proxy-safe, and backward compatible.
 - `frontend/src/views/admin/RiskControlView.vue`
 - `frontend/src/views/admin/__tests__/RiskControlView.spec.ts`
 - `docs/workflow/worker-results/upstream-content-moderation-core-s266-a-result.md`
+- `docs/workflow/qa-reports/upstream-content-moderation-core-s266-a-qa.md`
 
 ## Denied Paths
 
@@ -157,6 +161,12 @@ git diff --cached --name-only
 - Report source commits, changed files, commands and discovered test names,
   migration/proxy/fail-open evidence, risks, knowledge candidates, and exact
   contract compliance. Do not paste unrelated long logs.
+- The independent QA Worker may create only
+  `docs/workflow/qa-reports/upstream-content-moderation-core-s266-a-qa.md`.
+  Its first line must be `### PASS: upstream-content-moderation-core-s266-a`,
+  `### FAIL: upstream-content-moderation-core-s266-a`, or
+  `### BLOCKED: upstream-content-moderation-core-s266-a` and it must not edit
+  product files.
 
 ## Stop Rules
 
