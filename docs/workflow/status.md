@@ -92,6 +92,10 @@ last_verified: 2026-08-28 07:11 +08:00
   committed as `439e68568`; alias pagination, explicit CN quota probing and
   Gemini long-context helper/tests were committed separately as `f8d98790c`.
   `outputs/**` was excluded. Push and external-state actions remain pending.
+- `PASS / cleanup`: S249 scene-preview code was confirmed superseded by the
+  later Pixel Cafe scene commits (including `50ddfcc0b`). Its two clean
+  worktrees and branches were removed. Dirty or evidence-only worktrees for
+  S271, S265 and S266 remain intentionally preserved.
 
 # Pixel Cafe Purchase Information And Round Controls S270
 

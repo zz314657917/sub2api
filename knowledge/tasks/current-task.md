@@ -26,10 +26,11 @@
   通过。代码与测试已提交为 `439e68568`；本轮 alias/CN/Gemini 修复已提交为
   `f8d98790c`。没有 push、容器、共享数据或 `outputs/` 操作。
 
-- 当前整理边界：`outputs/` 仍未跟踪且保留；S249、S265、S266 分支分别保留
-  独有 QA/blocked/workflow 证据，且 S266 下有 dirty 子 worktree；S271 分支
-  仍有未提交工作树，暂不删除。仅在 worktree clean、证据已在 main 保留且
-  行为已确认覆盖时才允许后续清理。
+- 当前整理边界：`outputs/` 仍未跟踪且保留。S249 场景活动代码已被主线后续
+  `50ddfcc0b` 覆盖，两个 clean 的 S249 worktree/分支已清理；S265、S266
+  仍保留独有 blocked/workflow 证据，且 S266 下有 dirty 子 worktree；S271
+  分支仍有未提交工作树，暂不删除。仅在 worktree clean、证据已保留且行为
+  已确认覆盖时才继续清理。
 
 ## S264 当前结论
 
