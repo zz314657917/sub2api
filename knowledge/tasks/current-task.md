@@ -1,6 +1,22 @@
 # 当前任务快照
 
-最后更新：2026-08-28 17:43 +08:00
+最后更新：2026-08-29 00:55 +08:00
+
+## S274 当前结论
+
+- `PASS / upstream-openai-small-parity-s274`：选择性合入上游三个独立修复：
+  OpenAI 入站 WebSocket 客户端正常关闭/取消不再计为账号故障；非流式普通与
+  passthrough SSE 的 `response.failed/error` 复用流式 failover 分类；EasyPay
+  `mapi.php` 单斜杠根相对 `payurl/payurl2/qrcode` 在合法 HTTP(S) base 下补全，
+  协议相对 `//host/path`、绝对 URL、deep link、opaque token 和无效 base 原样保留。
+- 独立 `gpt-5.6-terra` QA 首轮发现协议相对 URL 改写和 handler 测试命名缺口；
+  bounded fix 后 retest PASS。handler/service/payment focused x10、完整三包、
+  server compile、gofmt、diff、冲突、allowlist 和 protected-path 检查均通过。
+- 已分批提交并普通推送：`2c9c79478`（WS 归因）、`7dd9b37c3`（非流式
+  failover）、`661b22585`（EasyPay URL）、`1e488abfc`（workflow/QA 证据）。
+  当前本地 `main` 与 `origin/main` 均为 `1e488abfc`，ahead/behind 为 `0/0`。
+- `knowledge/05-current-focus.md` 与未跟踪 `outputs/` 是用户既有改动，本轮未暂存、
+  未修改、未纳入提交；未执行容器、部署、数据库或真实 provider 请求。
 
 ## S273 当前结论
 
