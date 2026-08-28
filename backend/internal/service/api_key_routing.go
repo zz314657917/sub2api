@@ -116,12 +116,26 @@ func (k *APIKey) canFallbackToDefaultGroup(path, forcePlatform, requestedModel s
 	if !k.canUseDefaultGroup() {
 		return false
 	}
+	if len(k.MultiGroupRoutes) == 0 && k.PinnedAccountID <= 0 {
+		// A legacy key with one default group has no route metadata to select a
+		// platform or scope. Preserve that pre-S272 behavior and enforce only
+		// the administrator-owned model rule (when configured); image permission
+		// remains the gateway handler's stable permission_error boundary.
+		patterns := NormalizeGroupModelMatchPatterns(k.Group.ModelMatchPatterns)
+		return len(patterns) == 0 || k.Group.MatchesModel(requestedModel)
+	}
 	platforms := preferredPlatformsForRequest(path, forcePlatform, requestedModel, true)
 	if len(platforms) > 0 && !containsString(platforms, k.Group.Platform) {
 		return false
 	}
 	routingScope := RoutingScopeForRequest(path, requestedModel, imageIntent)
 	if !apiKeyRouteMatchesGroupScope(k.Group, routingScope) {
+		return false
+	}
+	patterns := NormalizeGroupModelMatchPatterns(k.Group.ModelMatchPatterns)
+	if len(patterns) == 0 {
+		// Empty rules remain fail-closed for multi-group and pinned routes; the
+		// legacy single-group exception returned above is deliberately narrower.
 		return false
 	}
 	if !k.Group.MatchesModel(requestedModel) {

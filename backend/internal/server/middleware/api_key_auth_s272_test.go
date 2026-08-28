@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -47,6 +48,63 @@ func TestS272ResolveAPIKeyForModelRequestAllowsSingleGroupModelMatch(t *testing.
 	require.Same(t, apiKey, resolved)
 	require.False(t, c.IsAborted())
 	require.Equal(t, http.StatusOK, recorder.Code)
+}
+
+func TestS273ResolveAPIKeyForModelRequestAllowsLegacySingleGroupWithoutModelRules(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	groupID := int64(42)
+	apiKey := s272SingleGroupAPIKey(groupID, nil)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	apiKeyService := service.NewAPIKeyService(nil, nil, nil, nil, nil, nil, &config.Config{})
+
+	resolved, ok := ResolveAPIKeyForModelRequest(c, apiKeyService, apiKey, "gpt-5.6", false)
+
+	require.True(t, ok)
+	require.Same(t, apiKey, resolved)
+	require.False(t, c.IsAborted())
+	require.Equal(t, http.StatusOK, recorder.Code)
+}
+
+func TestS273ResolveAPIKeyForModelRequestDoesNotBypassMultiGroupForIncompleteDefault(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	defaultGroupID := int64(43)
+	fallbackGroupID := int64(44)
+	apiKey := &service.APIKey{
+		GroupID: &defaultGroupID,
+		Group: &service.Group{
+			ID:       defaultGroupID,
+			Platform: service.PlatformOpenAI,
+			Status:   service.StatusActive,
+			// An incomplete snapshot must not trigger the single-group guard
+			// when a valid multi-group route can still be selected.
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{{
+			GroupID:  fallbackGroupID,
+			Priority: 1,
+			Weight:   1,
+			Enabled:  true,
+		}},
+		MultiGroupRouteGroups: []*service.Group{{
+			ID:                 fallbackGroupID,
+			Platform:           service.PlatformOpenAI,
+			Status:             service.StatusActive,
+			Hydrated:           true,
+			RoutingScope:       service.GroupRoutingScopeInference,
+			ModelMatchPatterns: []string{"gpt-*"},
+		}},
+	}
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	apiKeyService := service.NewAPIKeyService(nil, nil, nil, nil, nil, nil, &config.Config{})
+
+	resolved, ok := ResolveAPIKeyForModelRequest(c, apiKeyService, apiKey, "gpt-5.6", false)
+
+	require.True(t, ok)
+	require.NotNil(t, resolved)
+	require.Equal(t, fallbackGroupID, *resolved.GroupID)
 }
 
 func s272SingleGroupAPIKey(groupID int64, modelMatchPatterns []string) *service.APIKey {

@@ -386,6 +386,12 @@ func ResolveAPIKeyForModelRequest(c *gin.Context, apiKeyService *service.APIKeyS
 	if c == nil || apiKeyService == nil || apiKey == nil {
 		return apiKey, true
 	}
+	if !service.IsGroupContextValid(apiKey.Group) && len(apiKey.MultiGroupRoutes) == 0 && apiKey.PinnedAccountID <= 0 {
+		// Direct handler callers may carry the legacy, partially hydrated single
+		// group snapshot. Authentication owns availability validation; do not let
+		// this compatibility case bypass multi-group or pinned route resolution.
+		return apiKey, true
+	}
 	forcePlatform, _ := GetForcePlatformFromContext(c)
 	resolved := apiKeyService.ResolveForModelRequest(c.Request.Context(), apiKey, c.Request.URL.Path, forcePlatform, requestedModel, imageIntent)
 	if resolved == nil {
