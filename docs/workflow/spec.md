@@ -1,5 +1,22 @@
 ---
 
+## Group Model Match Legacy Compatibility Addendum (S273)
+
+- Preserve pre-S91 routing for a non-pinned single-group API key whose
+  administrator-owned `model_match_patterns` are still empty. Such a key may
+  continue to use its default group for model-aware requests, including image
+  requests whose final `permission_error` remains owned by the gateway
+  handler.
+- Once a single-group rule set is configured, model matching remains strict;
+  endpoint-derived platform and routing-scope lists must not reject a legacy
+  provider that matches its configured rule. Multi-group and pinned-account
+  routes with empty rules remain fail-closed.
+- The repair is limited to the API-key routing fallback and focused backend
+  regressions. Group rule normalization/validation, persistence, schema,
+  billing, provider traffic, frontend, deployment, containers, shared data,
+  commit, push and `outputs/**` are excluded. Contract:
+  `docs/workflow/tasks/group-model-match-legacy-compat-s273.md`.
+
 ## Group Model Match Auth Enforcement Addendum (S272)
 
 - Every grouped API key must enter the existing model-aware resolver after a

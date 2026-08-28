@@ -1,13 +1,38 @@
 ---
 phase: done
-current_sprint: api-key-adaptive-route-breaker-s271
-total_sprints: 271
-pending_action: S271 and the follow-up alias/CN/Gemini fixes are committed locally; push, container, deployment and shared-data actions remain unauthorized. Clean only branches/worktrees whose evidence is preserved and whose worktree is clean.
+current_sprint: group-model-match-legacy-compat-s273
+total_sprints: 273
+pending_action: S273 source repair is verified in the primary worktree but remains uncommitted; preserve outputs/ and unrelated worktrees, and wait for explicit authorization before staging, commit, push, container, deployment or shared-data actions.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-28 07:11 +08:00
+last_verified: 2026-08-28 17:03 +08:00
 ---
+
+# Group Model Match Legacy Compatibility S273
+
+- `PASS / contract-review`: the approved contract narrows compatibility to a
+  non-pinned single-group default route whose model rules are empty. Configured
+  rules remain strict; multi-group and pinned routes remain fail-closed. No
+  schema, persistence, provider, deployment, container, shared-data, commit,
+  push or `outputs/**` action is in scope.
+- `PASS / generator`: `api_key_routing.go` now preserves the legacy empty-rule
+  fallback while applying configured model rules without generic endpoint
+  platform/scope filtering. `api_key_auth.go` keeps a narrow compatibility guard
+  only for incomplete single-group non-pinned snapshots; multi-group and pinned
+  requests still enter service routing. Added S273 service and middleware
+  regressions for empty-rule compatibility, strict route modes, disabled-image
+  handler ownership, configured image mismatch, and Grok matching.
+- `PASS / final QA`: focused service and middleware regressions passed 10 times;
+  complete `internal/service` (65.352s), complete middleware, handler package,
+  gateway routes and server compilation passed. `gofmt`, `git diff --check` and
+  unmerged-index checks passed; changed source scope is limited to the approved
+  routing/test paths. The pre-existing repository 32/34 fixture drift remains
+  outside this sprint and was not modified. Report:
+  `docs/workflow/qa-reports/group-model-match-legacy-compat-s273-qa.md`.
+- `PASS / source state`: no commit or push was performed. `outputs/` remains
+  untracked and untouched; S271/S266 protected worktrees and unrelated user
+  changes remain preserved.
 
 # Group Model Match Auth Enforcement S272
 
