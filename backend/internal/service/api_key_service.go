@@ -379,15 +379,42 @@ func (s *APIKeyService) ResolveForModelRequest(ctx context.Context, apiKey *APIK
 	if apiKey.PinnedAccountID > 0 {
 		return s.resolvePinnedAPIKey(apiKey, path, forcePlatform, requestedModel, imageIntent)
 	}
+	type breakerDecision struct {
+		skip  bool
+		lease *APIKeyRouteBreakerLease
+	}
+	breakerDecisions := make(map[int64]breakerDecision)
+	breakerLeases := make(map[int64]*APIKeyRouteBreakerLease)
 	resolved := apiKey.ResolveForModelRequestWithGroupSkipper(path, forcePlatform, requestedModel, imageIntent, func(groupID int64) bool {
+		if decision, ok := breakerDecisions[groupID]; ok {
+			return decision.skip
+		}
+		decision := breakerDecision{}
 		if apiKey.IsRouteGroupUnavailable(groupID) {
+			decision.skip = true
+			breakerDecisions[groupID] = decision
 			return true
 		}
-		if s == nil {
-			return false
+		if s != nil && s.isRouteGroupCooling(ctx, apiKey, groupID) {
+			decision.skip = true
+			breakerDecisions[groupID] = decision
+			return true
 		}
-		return s.isRouteGroupCooling(ctx, apiKey, groupID)
+		lease, allowed := s.acquireRouteBreaker(ctx, groupID, path, requestedModel, imageIntent)
+		if !allowed {
+			decision.skip = true
+			breakerDecisions[groupID] = decision
+			return true
+		}
+		if lease != nil {
+			breakerLeases[groupID] = lease
+			decision.lease = lease
+		}
+		breakerDecisions[groupID] = decision
+		return decision.skip
 	})
+	s.releaseUnselectedRouteBreakerProbes(ctx, breakerLeases, resolved)
+	resolved = s.attachRouteBreakerLease(resolved, breakerLeases)
 	return s.refreshResolvedAPIKeyGroupState(ctx, apiKey, resolved)
 }
 

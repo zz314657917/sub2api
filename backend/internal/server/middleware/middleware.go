@@ -28,6 +28,9 @@ const (
 	ContextKeyDeferredGroupBilling ContextKey = "deferred_group_billing"
 	// ContextKeyAPIKeyRouteCooldown marks a request whose terminal stream error must cool its selected route.
 	ContextKeyAPIKeyRouteCooldown ContextKey = "api_key_route_cooldown"
+	// ContextKeyAPIKeyRouteBreakerStatus preserves an explicitly classified
+	// upstream transient error after a streaming response has committed HTTP 200.
+	ContextKeyAPIKeyRouteBreakerStatus ContextKey = "api_key_route_breaker_status"
 	// ContextKeyStudioBridgeGateway marks gateway requests authenticated by the internal studio bridge.
 	ContextKeyStudioBridgeGateway ContextKey = "studio_bridge_gateway"
 	// ContextKeyForcePlatform 强制平台（用于 /antigravity 路由）
@@ -70,6 +73,7 @@ func MarkAPIKeyRouteCooldown(c *gin.Context, status int) {
 		return
 	}
 	c.Set(string(ContextKeyAPIKeyRouteCooldown), true)
+	c.Set(string(ContextKeyAPIKeyRouteBreakerStatus), status)
 }
 
 func IsAPIKeyRouteCooldownMarked(c *gin.Context) bool {
@@ -79,6 +83,15 @@ func IsAPIKeyRouteCooldownMarked(c *gin.Context) bool {
 	marked, _ := c.Get(string(ContextKeyAPIKeyRouteCooldown))
 	value, _ := marked.(bool)
 	return value
+}
+
+func APIKeyRouteBreakerMarkedStatus(c *gin.Context) (int, bool) {
+	if c == nil {
+		return 0, false
+	}
+	status, ok := c.Get(string(ContextKeyAPIKeyRouteBreakerStatus))
+	value, ok := status.(int)
+	return value, ok
 }
 
 // ErrorResponse 标准错误响应结构

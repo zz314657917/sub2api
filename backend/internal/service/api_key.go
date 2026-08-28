@@ -40,10 +40,13 @@ type APIKey struct {
 	// UnavailableRouteGroupIDs is populated on a request-local copy by auth
 	// middleware. It must never be written back to the auth cache or repository.
 	UnavailableRouteGroupIDs map[int64]struct{} `json:"-"`
-	AccountPoolStrategy      string
-	Status                   string
-	IPWhitelist              []string
-	IPBlacklist              []string
+	// RouteBreakerLease is populated on the request-local copy selected by
+	// model-aware routing. It must never be cached or persisted.
+	RouteBreakerLease   *APIKeyRouteBreakerLease `json:"-"`
+	AccountPoolStrategy string
+	Status              string
+	IPWhitelist         []string
+	IPBlacklist         []string
 	// 预编译的 IP 规则，用于认证热路径避免重复 ParseIP/ParseCIDR。
 	CompiledIPWhitelist *ip.CompiledIPRules `json:"-"`
 	CompiledIPBlacklist *ip.CompiledIPRules `json:"-"`
@@ -108,6 +111,16 @@ func (k *APIKey) IsRouteGroupUnavailable(groupID int64) bool {
 	}
 	_, unavailable := k.UnavailableRouteGroupIDs[groupID]
 	return unavailable
+}
+
+func (k *APIKey) WithRouteBreakerLease(lease *APIKeyRouteBreakerLease) *APIKey {
+	if k == nil || lease == nil {
+		return k
+	}
+	clone := *k
+	leaseCopy := *lease
+	clone.RouteBreakerLease = &leaseCopy
+	return &clone
 }
 
 func (k *APIKey) IsActive() bool {

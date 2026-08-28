@@ -46,6 +46,11 @@ func (k *APIKey) resolveForRequest(path, forcePlatform, requestedModel string, i
 	}
 	selected := k.selectRouteGroup(path, forcePlatform, requestedModel, imageIntent, modelAware, skipGroup)
 	if selected == nil {
+		// A model-aware skipper may exclude the default route as well. Falling
+		// back to it would silently bypass cooldown or shared-breaker state.
+		if modelAware && skipGroup != nil && k.GroupID != nil && skipGroup(*k.GroupID) {
+			return nil
+		}
 		if k.hasEnabledRoutes() && !k.hasUsableEnabledRouteGroup() && !k.canUseDefaultGroup() {
 			return nil
 		}

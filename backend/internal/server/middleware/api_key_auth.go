@@ -645,11 +645,18 @@ func applyAPIKeyRouteCooldownAfterRequest(c *gin.Context, apiKeyService *service
 	}
 	if IsAPIKeyRouteCooldownMarked(c) || shouldCooldownAPIKeyRoute(c.Writer.Status()) {
 		apiKeyService.MarkRouteGroupCooldown(c.Request.Context(), apiKey, groupID, cooldownSeconds)
+	}
+	if routeBreakerFailureStatus(c) {
+		apiKeyService.RecordAPIKeyRouteBreakerFailure(c.Request.Context(), apiKey)
 		return
 	}
 	if c.Writer.Status() < http.StatusBadRequest {
 		apiKeyService.ClearRouteGroupCooldown(c.Request.Context(), apiKey, groupID)
+		apiKeyService.RecordAPIKeyRouteBreakerSuccess(c.Request.Context(), apiKey)
+		return
 	}
+	// Business and unclassified client failures must not strand a half-open probe.
+	apiKeyService.ReleaseAPIKeyRouteBreakerProbe(c.Request.Context(), apiKey)
 }
 
 func currentAPIKeyFromContext(c *gin.Context, fallback *service.APIKey) *service.APIKey {
@@ -661,4 +668,31 @@ func currentAPIKeyFromContext(c *gin.Context, fallback *service.APIKey) *service
 
 func shouldCooldownAPIKeyRoute(status int) bool {
 	return status == http.StatusTooManyRequests || status == 529 || status >= http.StatusInternalServerError
+}
+
+func routeBreakerFailureStatus(c *gin.Context) bool {
+	if c == nil {
+		return false
+	}
+	// A successful final response always clears the selected route, even when
+	// an intermediate failover left an upstream status in the Ops context.
+	finalStatus := c.Writer.Status()
+	markedStatus, marked := APIKeyRouteBreakerMarkedStatus(c)
+	if !marked && finalStatus < http.StatusBadRequest {
+		return false
+	}
+	if upstreamValue, exists := c.Get(service.OpsUpstreamStatusCodeKey); exists {
+		if upstreamStatus, ok := upstreamValue.(int); ok && upstreamStatus > 0 {
+			return shouldCooldownAPIKeyRoute(upstreamStatus)
+		}
+	}
+	if marked {
+		return shouldCooldownAPIKeyRoute(markedStatus)
+	}
+	switch finalStatus {
+	case http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout, 529:
+		return true
+	default:
+		return false
+	}
 }
