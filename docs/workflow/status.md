@@ -96,6 +96,12 @@ last_verified: 2026-08-28 07:11 +08:00
   later Pixel Cafe scene commits (including `50ddfcc0b`). Its two clean
   worktrees and branches were removed. Dirty or evidence-only worktrees for
   S271, S265 and S266 remain intentionally preserved.
+- `PASS / cleanup follow-up`: S271 code and its independent QA evidence are now
+  retained in main (`439e68568`, `e70ae9a78`); its duplicate dirty worktree was
+  compared file-by-file, the only divergence was S272's rejected old fast path,
+  then the worktree/branch was removed. S265's two BLOCKED evidence commits were
+  cherry-picked as `47ab962c6` and `02be023ea` before removing its clean
+  worktree/branch. S266 remains preserved because of dirty nested worktrees.
 
 # Pixel Cafe Purchase Information And Round Controls S270
 

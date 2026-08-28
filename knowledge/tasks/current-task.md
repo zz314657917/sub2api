@@ -27,10 +27,10 @@
   `f8d98790c`。没有 push、容器、共享数据或 `outputs/` 操作。
 
 - 当前整理边界：`outputs/` 仍未跟踪且保留。S249 场景活动代码已被主线后续
-  `50ddfcc0b` 覆盖，两个 clean 的 S249 worktree/分支已清理；S265、S266
-  仍保留独有 blocked/workflow 证据，且 S266 下有 dirty 子 worktree；S271
-  分支仍有未提交工作树，暂不删除。仅在 worktree clean、证据已保留且行为
-  已确认覆盖时才继续清理。
+  `50ddfcc0b` 覆盖，两个 clean 的 S249 worktree/分支已清理；S271 代码/QA
+  已分别由 `439e68568`/`e70ae9a78` 保留，其工作tree/分支已清理；S265 的
+  blocked 证据已摘入 `47ab962c6`/`02be023ea` 后清理。S266 下仍有 dirty 子
+  worktree，三套 detached worktree 也有用户改动，均继续保留。
 
 ## S264 当前结论
 
