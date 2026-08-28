@@ -1,12 +1,12 @@
 ---
-phase: fix
+phase: done
 current_sprint: api-key-adaptive-route-breaker-s271
 total_sprints: 271
-pending_action: The original gpt-5.6-terra Developer must fix S271 request-local breaker memoization, retention, and healthy-path Redis writes, then capture complete service/middleware evidence and rewrite the report as DONE before independent QA. Commit, push, container and shared-data actions remain unauthorized.
+pending_action: S271 and the follow-up alias/CN/Gemini fixes are committed locally; push, container, deployment and shared-data actions remain unauthorized. Clean only branches/worktrees whose evidence is preserved and whose worktree is clean.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-28 06:27 +08:00
+last_verified: 2026-08-28 07:11 +08:00
 ---
 
 # Group Model Match Auth Enforcement S272
@@ -60,10 +60,38 @@ last_verified: 2026-08-28 06:27 +08:00
   and is dispositioned as an out-of-scope baseline fixture drift; complete
   service evidence remains mandatory. The original Terra Developer owns the
   bounded fix and report rewrite before QA.
-- `REQUIRED / integration gate`: the S271 worktree predates S272 and changes
-  `api_key_auth.go`. Any later accepted S271 integration must preserve
-  `8b84ccf34`'s nil-only authorization guard and pass `TestS272` x10 before
-  independent QA.
+- `PASS / developer-fix-1`: the original Terra Developer rewrote the report as
+  `DONE`. Request-local group decisions are memoized; healthy Acquire returns
+  generation 0 without Redis writes; failures create state lazily; retention is
+  24 hours; original upstream status classification prevents mapped 4xx from
+  opening the shared breaker. Focused repository/service/middleware tests x10,
+  complete service (65.286s), complete middleware and server compile passed.
+  The only remaining repository-package failure is the previously reproduced
+  out-of-scope account fixture drift (`expected 32, actual 34`).
+- `PASS / final QA`: independent `gpt-5.6-terra` QA passed S271 focused
+  repository/service/middleware x10, complete service (65.190s), middleware,
+  server compile, Lua/manual semantics, exact scope, diff and index gates. The
+  joint repository command failed only at the dispositioned baseline fixture
+  (`account_repo_upstream_billing_probe_update_test.go:559`, expected 32 actual
+  34). Report:
+  `docs/workflow/qa-reports/api-key-adaptive-route-breaker-s271-qa.md`.
+- `PASS / integration`: S271 was hand-integrated into the current main worktree
+  while preserving S272 commit `8b84ccf34`'s nil-only authorization guard.
+  Integration fresh verification passed S271 focused x10, S272 x10, complete
+  service (65.143s), complete middleware and server compile. The same joint
+  repository baseline fixture failure reproduced unchanged; no S271 or S272
+  source was staged or committed.
+- `PASS / final`: S271 is accepted locally. Provider traffic, real Redis,
+  database, deployment, container, commit, push and `outputs/**` remain outside
+  scope and unverified. The pre-existing S267 dirty work and `outputs/` remain
+  untouched.
+- `PASS / integration gate satisfied`: S271 was integrated after S272 and
+  preserves `8b84ccf34`'s nil-only authorization guard; post-integration
+  `TestS272` x10 and the complete service/middleware/server checks passed.
+- `PASS / local commit organization`: S271 route-breaker code and tests were
+  committed as `439e68568`; alias pagination, explicit CN quota probing and
+  Gemini long-context helper/tests were committed separately as `f8d98790c`.
+  `outputs/**` was excluded. Push and external-state actions remain pending.
 
 # Pixel Cafe Purchase Information And Round Controls S270
 

@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-28 06:27 +08:00
+最后更新：2026-08-28 07:25 +08:00
 
 ## S271 / S272 当前结论
 
@@ -14,18 +14,22 @@
   scope 和索引门禁。本次提交前再次通过 S272 x10、server compile、gofmt
   和 diff/index 检查；没有 push、部署、容器、provider、共享数据或
   `outputs/` 操作。
-- `FAIL / api-key-adaptive-route-breaker-s271 developer-review-1`：实现仍以
-  未提交状态保留在
-  `E:/codex-worktrees/sub2api/api-key-adaptive-route-breaker-s271`。Controller
-  复核确认重复 skipper 调用可能重新获取后又拒绝同一个 half-open probe，
-  健康路径会创建/写入 Redis 状态，且 31 分钟 retention 可能早于延迟的
-  30 分钟 half-open probe 到达。原 Terra Developer 必须先做 bounded fix，
-  补齐完整 service/middleware 证据并把报告改为 DONE，之后才能独立 QA。
+- `PASS / api-key-adaptive-route-breaker-s271`：原 Terra Developer 已完成
+  bounded fix，独立 Terra QA 与主线集成复核均通过。请求内 group 决策
+  memoize、健康 `Acquire` 不写 Redis、失败时惰性建状态、24 小时 retention，
+  以及上游原始状态分类均已覆盖；S271/S272 的 focused x10、完整 service、
+  middleware 和 server compile 均通过。报告：
+  `docs/workflow/qa-reports/api-key-adaptive-route-breaker-s271-qa.md`。
 - 完整 repository 的 SQL mock 32/34 列失败已在 pre-S271 主线复现，属于
-  denied-path baseline fixture drift，不混入 S271。S271 worktree 基于 S272
-  之前的 `f080bbd09` 且同样修改 `api_key_auth.go`；后续集成必须保留
-  `8b84ccf34` 的 nil-only guard 并运行 `TestS272` x10。S271 的 commit、
-  push、容器、共享数据和 `outputs/` 操作仍未授权。
+  denied-path baseline fixture drift，不混入 S271。S271 已手工整合到当前
+  主工作区并保留 `8b84ccf34` 的 nil-only guard；集成后 `TestS272` x10
+  通过。代码与测试已提交为 `439e68568`；本轮 alias/CN/Gemini 修复已提交为
+  `f8d98790c`。没有 push、容器、共享数据或 `outputs/` 操作。
+
+- 当前整理边界：`outputs/` 仍未跟踪且保留；S249、S265、S266 分支分别保留
+  独有 QA/blocked/workflow 证据，且 S266 下有 dirty 子 worktree；S271 分支
+  仍有未提交工作树，暂不删除。仅在 worktree clean、证据已在 main 保留且
+  行为已确认覆盖时才允许后续清理。
 
 ## S264 当前结论
 
