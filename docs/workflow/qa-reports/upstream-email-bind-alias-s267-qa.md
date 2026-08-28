@@ -1,4 +1,4 @@
-### PASS: upstream-email-bind-alias-s267
+### BLOCKED: upstream-email-bind-alias-s267
 
 ## Scope and provenance
 
@@ -13,7 +13,7 @@
 - `go test -tags=unit ./internal/repository -run '^TestUserRepository(ExistsByEmailAlias|CreateWithEmailAliasGuard)' -count=1` -> PASS.
 - `go test ./internal/service ./internal/repository -run '^$' -count=1` -> PASS (both packages compile).
 - `go test ./cmd/server -run '^$' -count=1` -> PASS (server compiles).
-- `go test ./internal/service -run '^(TestAuthServiceBindEmailIdentity|TestAuthServiceSendEmailIdentityBindCode)' -count=1` -> PASS command, but `[no tests to run]` because these tests require the `unit` build tag.
+- `go test ./internal/service -run '^(TestAuthServiceBindEmailIdentity|TestAuthServiceSendEmailIdentityBindCode)' -count=1` -> command completed with `[no tests to run]` because these tests require the `unit` build tag; this does not constitute service coverage.
 - Contract command `go test -tags=unit ./internal/service -run '^(TestAuthServiceBindEmailIdentity|TestAuthServiceSendEmailIdentityBindCode)' -count=10` was attempted. It is BLOCKED before test execution by pre-existing package compile drift: duplicate `stringPtr` (`ops_health_score_test.go` vs `usage_leaderboard_reward.go`) and obsolete billing/gateway/proxy test APIs. These errors are outside this change and were not repaired.
 - `gofmt -d internal/repository/user_repo.go internal/service/auth_email_binding.go internal/service/auth_service_email_bind_test.go` -> no output.
 - `git diff --check -- <approved paths>` -> PASS.
@@ -26,3 +26,5 @@ The diff implements bounded alias candidate probing with normalized final matchi
 ## Residual risk
 
 Runtime service alias/concurrency tests are not executable until the unrelated existing unit-test compile drift is repaired. No provider, database, container, deployment, staging, push, or primary-worktree operation was performed.
+
+This report therefore proves repository checks and compile gates only; it does not constitute a complete alias/concurrency QA PASS. Re-run acceptance after the unit-tag service tests become executable.
