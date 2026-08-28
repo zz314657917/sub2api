@@ -63,6 +63,27 @@ describe('CNProviderQuotaCell', () => {
     expect(wrapper.text()).toContain('80%')
   })
 
+  it('does not automatically probe stale snapshots', async () => {
+    const account = makeAccount('coding')
+    account.extra!.kimi_usage_updated_at = '2020-01-01T00:00:00Z'
+    const wrapper = mount(CNProviderQuotaCell, { props: { account } })
+    await flushPromises()
+
+    expect(queryQuota).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('45%')
+    expect(wrapper.text()).toContain('80%')
+  })
+
+  it('does not automatically probe when no snapshot exists', async () => {
+    const account = makeAccount('coding')
+    account.extra = {}
+    const wrapper = mount(CNProviderQuotaCell, { props: { account } })
+    await flushPromises()
+
+    expect(queryQuota).not.toHaveBeenCalled()
+    expect(wrapper.get('[data-test="cn-provider-quota-probe"]')).toBeTruthy()
+  })
+
   it('retains the snapshot when a manual probe fails', async () => {
     queryQuota.mockResolvedValue({ success: false, error: 'quota unavailable' })
     const wrapper = mount(CNProviderQuotaCell, { props: { account: makeAccount('coding') } })

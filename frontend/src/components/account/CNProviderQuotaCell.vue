@@ -30,7 +30,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import type { CNProviderQuotaProbeResult } from '@/api/admin/cnProviders'
@@ -47,9 +47,6 @@ const visible = computed(() => cnQuotaCellVisible(props.account.platform, accoun
 const loading = ref(false)
 const error = ref<string | null>(null)
 const data = ref<CNProviderQuotaProbeResult | null>(null)
-const SNAPSHOT_STALE_MS = 15 * 60 * 1000
-const AUTO_PROBE_DEBOUNCE_MS = 5 * 60 * 1000
-const lastAutoProbeAt = new Map<number, number>()
 
 const readExtraNumber = (key: string): number | null => {
   const value = (props.account.extra as Record<string, unknown> | undefined)?.[key]
@@ -69,22 +66,9 @@ const snapshotData = computed<CNProviderQuotaProbeResult | null>(() => {
   if (usedWeekly != null) tiers.push({ window: 'weekly', used_percent: usedWeekly, reset_at: readExtraString(`${platform}_weekly_reset_at`) || undefined })
   return { success: true, tiers } as CNProviderQuotaProbeResult
 })
-const snapshotIsStale = computed(() => {
-  const updatedAt = readExtraString(`${props.account.platform}_usage_updated_at`)
-  if (!updatedAt) return true
-  const timestamp = new Date(updatedAt).getTime()
-  return Number.isNaN(timestamp) || Date.now() - timestamp > SNAPSHOT_STALE_MS
-})
-
-onMounted(() => {
-  if (!visible.value) return
-  data.value = snapshotData.value
-  if (!snapshotIsStale.value) return
-  const last = lastAutoProbeAt.get(props.account.id) ?? 0
-  if (Date.now() - last < AUTO_PROBE_DEBOUNCE_MS) return
-  lastAutoProbeAt.set(props.account.id, Date.now())
-  handleProbe()
-})
+watch(snapshotData, (snapshot) => {
+  if (!loading.value) data.value = snapshot
+}, { immediate: true })
 
 const extractError = (cause: unknown): string => {
   const err = cause as { message?: string; reason?: string; response?: { data?: { message?: string; error?: string } } }
@@ -121,7 +105,7 @@ const handleProbe = async () => {
 }
 
 watch(() => props.account.id, () => {
-  data.value = null
+  data.value = snapshotData.value
   error.value = null
   loading.value = false
 })

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -63,6 +64,32 @@ func TestUserRepositoryExistsByEmailAliasIgnoresMalformedInput(t *testing.T) {
 	got, err := repo.ExistsByEmailAlias(context.Background(), "not-an-email")
 	require.NoError(t, err)
 	require.False(t, got)
+}
+
+func TestUserRepositoryExistsByEmailAliasPaginatesPastBroadMatches(t *testing.T) {
+	repo, _ := newUserEntRepo(t)
+	const probe = "a.b.c.d.e.f.g.h.i.j@example.com"
+	const local = "abcdefghij"
+
+	// Non-Gmail dots are significant after the final normalization, but the SQL
+	// probe strips them. Seed 50 such false matches before the exact conflict.
+	for mask := 0; mask < emailAliasCandidateLimit; mask++ {
+		var candidateLocal string
+		for i := 0; i < len(local); i++ {
+			if i > 0 && mask&(1<<(i-1)) != 0 {
+				candidateLocal += "."
+			}
+			candidateLocal += string(local[i])
+		}
+		candidate := fmt.Sprintf("%s@example.com", candidateLocal)
+		require.NotEqual(t, probe, candidate)
+		seedUserForAliasTest(t, repo, candidate)
+	}
+	seedUserForAliasTest(t, repo, probe)
+
+	got, err := repo.ExistsByEmailAlias(context.Background(), probe)
+	require.NoError(t, err)
+	require.True(t, got, "the true alias conflict after the first page must be found")
 }
 
 func TestUserRepositoryCreateWithEmailAliasGuard(t *testing.T) {

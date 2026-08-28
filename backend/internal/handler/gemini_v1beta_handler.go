@@ -552,12 +552,11 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		inboundEndpoint := GetInboundEndpoint(c)
 		upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
 		sessionID := service.ExtractClientSessionID(c)
-		longContextThreshold := 0
-		longContextMultiplier := 0.0
-		if rule := h.gatewayService.LegacyLongContextRule(service.PlatformGemini); rule != nil {
-			longContextThreshold = rule.Threshold
-			longContextMultiplier = rule.Multiplier
+		var longContextRule *service.LegacyLongContextRule
+		if h.gatewayService != nil {
+			longContextRule = h.gatewayService.LegacyLongContextRule(service.PlatformGemini)
 		}
+		longContextThreshold, longContextMultiplier := geminiLongContextBillingOptions(longContextRule)
 		h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
 			if err := h.gatewayService.RecordUsageWithLongContext(ctx, &service.RecordUsageLongContextInput{
 				Result:                result,
@@ -594,6 +593,13 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		)
 		return
 	}
+}
+
+func geminiLongContextBillingOptions(rule *service.LegacyLongContextRule) (threshold int, multiplier float64) {
+	if rule == nil {
+		return 0, 0
+	}
+	return rule.Threshold, rule.Multiplier
 }
 
 func parseGeminiModelAction(rest string) (model string, action string, err error) {

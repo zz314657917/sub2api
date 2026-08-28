@@ -982,31 +982,42 @@ func emailAliasOwnerIDWithClient(ctx context.Context, client *dbent.Client, emai
 			dotStrippedEmailLike(escapeLikeWildcards(probe.Local)+"+%@"+escapeLikeWildcards(probe.Domain)),
 		)
 	}
-	candidates, err := client.User.Query().
-		Where(dbuser.Or(preds...)).
-		Limit(emailAliasCandidateLimit).
-		Select(dbuser.FieldID, dbuser.FieldEmail).
-		All(ctx)
-	if err != nil {
-		return 0, false, err
-	}
-
 	// 探针会有过度匹配（点号只在 Gmail 家族无意义），最终判定必须回到完整归一化规则。
 	// 返回“其他用户”优先于当前用户，避免历史重复数据让调用方误判为仅当前用户占用。
 	identity := service.NormalizeEmailForAliasDedup(email)
 	var selfID int64
 	selfExists := false
-	for _, candidate := range candidates {
-		if service.NormalizeEmailForAliasDedup(candidate.Email) != identity {
-			continue
+	offset := 0
+	for {
+		// 先按稳定 ID 顺序分页，再做完整归一化，避免宽泛的点号探针把真实冲突挤出首批。
+		candidates, err := client.User.Query().
+			Where(dbuser.Or(preds...)).
+			Order(dbent.Asc(dbuser.FieldID)).
+			Offset(offset).
+			Limit(emailAliasCandidateLimit).
+			Select(dbuser.FieldID, dbuser.FieldEmail).
+			All(ctx)
+		if err != nil {
+			return 0, false, err
 		}
-		if candidate.ID != 0 && candidate.ID != currentUserID {
-			return candidate.ID, true, nil
+
+		for _, candidate := range candidates {
+			if service.NormalizeEmailForAliasDedup(candidate.Email) != identity {
+				continue
+			}
+			if candidate.ID != 0 && candidate.ID != currentUserID {
+				return candidate.ID, true, nil
+			}
+			if candidate.ID == currentUserID {
+				selfID = candidate.ID
+				selfExists = true
+			}
 		}
-		if candidate.ID == currentUserID {
-			selfID = candidate.ID
-			selfExists = true
+
+		if len(candidates) < emailAliasCandidateLimit {
+			break
 		}
+		offset += len(candidates)
 	}
 	return selfID, selfExists, nil
 }
