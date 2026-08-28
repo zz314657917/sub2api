@@ -1,13 +1,39 @@
 ---
 phase: done
-current_sprint: group-model-match-legacy-compat-s273
-total_sprints: 273
-pending_action: S273 source repair is verified in the primary worktree but remains uncommitted; preserve outputs/ and unrelated worktrees, and wait for explicit authorization before staging, commit, push, container, deployment or shared-data actions.
+current_sprint: upstream-openai-small-parity-s274
+total_sprints: 274
+pending_action: S274 passed independent Terra retest and is ready for explicit publication authorization; preserve knowledge/05-current-focus.md, outputs/ and unrelated worktrees. No push, container, deployment or shared-data action is authorized without explicit user request.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-28 17:03 +08:00
+last_verified: 2026-08-29 00:45 +08:00
 ---
+
+# Upstream OpenAI Small Parity S274
+
+- `PASS / contract-review`: the approved contract ports only upstream `c83dced4b`,
+  `81ac8ccd6` and `1e8745c88` behavior. It covers benign OpenAI WebSocket client
+  termination attribution, non-streaming terminal SSE failover classification,
+  and EasyPay root-relative return URL resolution. The local service file split
+  is respected; no whole-history merge is allowed.
+- Contract: `docs/workflow/tasks/upstream-openai-small-parity-s274.md`.
+- Allowed product paths are limited to the OpenAI handler/service and payment
+  provider files plus focused tests. Schema, migrations, frontend, production
+  config, provider traffic, containers, deployment, shared data, `knowledge/**`
+  and `outputs/**` are denied. Worker must use `gpt-5.6-terra` and return a
+  first-line DONE/BLOCKED/FAILED report before QA.
+- Previous independent QA was `FAIL`: protocol-relative EasyPay references were
+  rewritten and the contract-named handler attribution test was missing. The
+  bounded fix now preserves `//host/path` verbatim and adds
+  `TestShouldReportOpenAIWSProxyAccountFailure`; controller focused x10, full
+  affected packages, server compile, format, conflict and allowlist checks pass.
+- Phase is `retest`; independent Terra QA must verify the failed cases plus the
+  original S274 acceptance matrix. No commit, push, container, deployment,
+  provider, migration or shared-data action is authorized before QA PASS.
+- Independent Terra retest is `PASS`: both bounded fixes and the original S274
+  focused/full package, server compile, format, scope, conflict and protected
+  path checks passed. S274 is ready for split commits; publication remains
+  separately gated.
 
 # Group Model Match Legacy Compatibility S273
 
