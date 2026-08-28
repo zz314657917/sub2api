@@ -85,6 +85,33 @@ func shouldRecordStandaloneCyberUsage(err error, result *service.OpenAIForwardRe
 
 type openAIModelBodyReplaceFunc func([]byte, string) []byte
 
+var errOpenAIWSUnsupportedModelSwitch = errors.New("selected account does not support websocket model switch")
+
+func newOpenAIWSUnsupportedModelSwitchError(model string) error {
+	return fmt.Errorf("%w: model %q", errOpenAIWSUnsupportedModelSwitch, strings.TrimSpace(model))
+}
+
+func shouldReportOpenAIWSProxyAccountFailure(err error) bool {
+	return err != nil && !errors.Is(err, errOpenAIWSUnsupportedModelSwitch) && !openAIWSIngressEndedByClient(err)
+}
+
+// openAIWSIngressEndedByClient recognizes clean client-side WebSocket teardown.
+// A clean close may arrive either as a gateway wrapper, a bare coder/websocket
+// CloseError, or a cancellation while reading the current turn.
+func openAIWSIngressEndedByClient(err error) bool {
+	if err == nil {
+		return true
+	}
+	var closeErr *service.OpenAIWSClientCloseError
+	if errors.As(err, &closeErr) && closeErr.StatusCode() == coderws.StatusNormalClosure {
+		return true
+	}
+	if coderws.CloseStatus(err) == coderws.StatusNormalClosure {
+		return true
+	}
+	return errors.Is(err, context.Canceled)
+}
+
 func openAIModelMappedBody(body []byte, mapped bool, mappedModel string, replace openAIModelBodyReplaceFunc) []byte {
 	if !mapped || replace == nil {
 		return body
@@ -1971,16 +1998,34 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				continue
 			}
 
-			h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil, account.GetMappedModel(reqModel))
 			closeStatus, closeReason := summarizeWSCloseErrorForLog(err)
+			var closeErr *service.OpenAIWSClientCloseError
+			hasClientCloseErr := errors.As(err, &closeErr)
+			if openAIWSIngressEndedByClient(err) {
+				closedFields := []zap.Field{zap.Int64("account_id", account.ID)}
+				if hasClientCloseErr {
+					closedFields = append(closedFields, zap.String("reason", closeErr.Reason()))
+				} else {
+					closedFields = append(closedFields, zap.Error(err))
+				}
+				reqLog.Info("openai.websocket_ingress_closed_normally", closedFields...)
+				if hasClientCloseErr {
+					closeOpenAIClientWS(wsConn, closeErr.StatusCode(), closeErr.Reason())
+				} else {
+					closeOpenAIClientWS(wsConn, coderws.StatusNormalClosure, "")
+				}
+				return
+			}
+			if shouldReportOpenAIWSProxyAccountFailure(err) {
+				h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil, account.GetMappedModel(reqModel))
+			}
 			reqLog.Warn("openai.websocket_proxy_failed",
 				zap.Int64("account_id", account.ID),
 				zap.Error(err),
 				zap.String("close_status", closeStatus),
 				zap.String("close_reason", closeReason),
 			)
-			var closeErr *service.OpenAIWSClientCloseError
-			if errors.As(err, &closeErr) {
+			if hasClientCloseErr {
 				closeOpenAIClientWS(wsConn, closeErr.StatusCode(), closeErr.Reason())
 				return
 			}
