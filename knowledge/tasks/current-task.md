@@ -1,6 +1,21 @@
 # 当前任务快照
 
-最后更新：2026-08-28 07:25 +08:00
+最后更新：2026-08-28 17:43 +08:00
+
+## S273 当前结论
+
+- `PASS / group-model-match-legacy-compat-s273`：修复 S272 引入的旧数据回归。
+  非 pinned、无多组路由的单组 API Key 在 `model_match_patterns` 为空时继续
+  使用默认分组；已配置规则仍严格匹配，并避免通用 endpoint 平台/scope 误伤
+  旧的 Grok 等 provider。多组和 pinned 空规则保持 fail-closed，图片权限继续
+  由 handler 返回 `permission_error`。
+- middleware 仅对不完整的单组非 pinned 快照保留直接 handler 兼容；有多组路由
+  或 pinned 账号时仍进入 service resolver。S273 focused service/middleware
+  x10、完整 service、middleware、handler、routes、server compile、gofmt、diff、
+  冲突和 unmerged-index 均通过。
+- 源码提交为 `10873f9df`，工作流/QA 证据提交为 `c31c3f8c8`；已普通推送到
+  `origin/main`，远端 `refs/heads/main` 与本地同为 `c31c3f8c8`。`outputs/`
+  仍未跟踪且未触碰。
 
 ## S271 / S272 当前结论
 
@@ -126,11 +141,16 @@
 
 ## 当前目标
 
+- S273 已完成源码修复、证据收口和普通推送；后续如继续上游审计，必须从
+  `origin/main@c31c3f8c8` 重新刷新 refs 并建立新的 contract。
 - 完成本轮上游选择性合入的收口：保留 `a2f0b578f` 待用户决定推送时机；无可安全独立合入的上游业务切片前，不做整包 merge 或重置卡自动消费流程。
 - S260 精简跟进已完成本地实现、两条额度进度条、最终验收和本地应用容器更新；功能代码与工作流记录已分批提交并推送。共享/生产数据库不在本轮范围。
 
 ## 本次已完成
 
+- S273 已按源码/测试与 workflow 证据两批提交：`10873f9df`、`c31c3f8c8`。
+  推送前后 `HEAD`、`origin/main` 和远端 `refs/heads/main` 均确认一致；只包含
+  S273 allowlist 路径，`outputs/` 保持未跟踪且未修改。
 - 上游 `main` 刷新与行为级核对完成；CN 渠道编辑适配已提交，实际端点观测、Responses Lite、Kimi 并发 403 与 session-id 粘性等前序选择性合入保持独立提交。`outputs/` 和后续出现的无关 Pixel Cafe 脏改动均未触碰；未执行 push、部署、数据库或真实 provider 调用。
 - S260 完成私有刷新时间投影与过期窗口安全归零；最新前台精简为房名、绑定账号、剩余时间、账号 7D 剩余和我的限额两条进度条，并完成桌面/移动 Chrome 验收、任务进程清理及受保护的本地应用容器更新；功能代码与工作流文档已分批提交并推送到 `origin/main@98f06e5b6`。
 - 用户已授权发布；S252-S256 的完整功能源码已作为
@@ -217,6 +237,8 @@
 
 ## 待验证点
 
+- S273 无待验证项；源码与 workflow 证据已分两批提交并普通推送，远端
+  `refs/heads/main` 已核对为 `c31c3f8c8`。仅需保留 `outputs/` 和其他用户改动。
 - S255 无待修复项；本地容器仍停在 S254，只有用户明确授权后才能把 S255 重建进容器。commit/push 同样需要单独授权。
 - `10c8b7020` 五项 CN 缺陷切片及 S230-A/B 已完成；下一步只评估新的上游候选或历史提交，不再回到已完成切片。
 - `ab0fcd1a0` 的 S231 Gemini skipped-policy 切片已完成；上游相关四文件在该提交后到 `upstream/main@49504adc9` 无后续修改。
@@ -224,11 +246,15 @@
 - S246 无待修复项；若继续工作，从 `upstream/main@d45135d87` 审计下一项可独立测试且不触碰 Pixel Cafe 脏路径的候选，并先建立新 contract。`219368ec6` 需完整 Composite/Grok 视频前置，不作为独立小修。
 - S247 无待修复项；继续工作时避开当前用户改动的三个 image/usage owner，因此上游 `d29d7f8cb` OAuth 图片稳定性候选暂不进入下一 Sprint。优先评估 Google One 模型目录、Ollama Cloud 或其他无重叠独立候选。
 - S248 无待修复项；真实 provider、数据库、容器、部署和 push 未执行，仍需单独授权。
-- 若授权发布：先复核最终 `git status`、主线测试证据和远端差异，再执行普通 `git push origin main`；当前没有发布授权。
+- S273 发布已完成；后续发布动作只针对新任务，需重新复核 `git status`、测试
+  证据和远端差异后再执行普通 `git push origin main`。
 - S225/S226/S228 均未运行真实 Redis 或上游 provider 集成；合同禁止这些操作，当前证据来自 mock/httptest、包回归、server 编译和前端构建。
 
 ## 当前结论
 
+- `PASS / S273 main integration`：源码/测试提交 `10873f9df` 与 workflow/QA
+  证据提交 `c31c3f8c8` 已进入 `main` 并推送；远端与本地一致，`outputs/` 未
+  暂存、未提交、未修改。
 - `PASS / S255 final QA`：后台 1/10/50 数量控制、50 项保存回读、坐标保留、连续编号、当前数量重置、后端 1–50 安全边界、动态场景渲染、focused/full tests、typecheck/build、Chrome 桌面/移动与任务进程清理全部通过；未更新容器、共享数据、commit 或 push。
 - `PASS / S254 final QA`：共享布局安全边界、拖动保存与刷新读回、桌面/移动端场景、focused/full tests、typecheck/build、diff/index 及任务进程清理全部通过；未更新容器、commit 或 push。
 - `PASS / S226-E independent QA`：独立 QA 报告 `5ca12b78b`，静态、运行态、构建、scope/provenance 和保护边界均通过；UI 登录态限制已显式记录。
@@ -253,8 +279,9 @@
 - 当前 S255/S256 已可在 `http://127.0.0.1:62580/group-buy?demo=1` 查看；如继续修改，仍需新的明确授权后再走 Docker 更新保护流程。
 - 保留并发 S249/QA worktree，等待其独立门禁完成；不要把本轮清理扩展到 S249 或 detached `tutorial-nav`。
 - 若继续上游审计，从当前 upstream ref 重新 fetch 后比较；跳过已完成 `6244090c1`/`fd6cd474d`、缺前置 `219368ec6`，并重新评估原与 image/usage 脏改重叠的 `d29d7f8cb`。
-- 保留当前本地提交和用户 dirty 内容，等待明确发布授权。
-- 发布当前本地提交（需用户授权） -> 验证：push 前后比较 `HEAD`、`origin/main` 和远端 `refs/heads/main`，只允许普通 push。
+- 保留 `outputs/` 和用户 dirty 内容；S273 已完成普通推送。
+- 后续新任务发布 -> 验证：push 前后比较 `HEAD`、`origin/main` 和远端
+  `refs/heads/main`，只允许普通 push。
 
 ## 验证记录
 
