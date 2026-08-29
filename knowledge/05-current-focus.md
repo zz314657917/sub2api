@@ -1,5 +1,15 @@
 # 当前主线
 
+## 2026-08-28 之后
+
+- 默认续做心智已从已发布的 `S252-S256 Pixel Cafe` 前移到 `S271-S273` API Key 路由兼容与自适应熔断，以及 `S264` 原生工具续链 ID 修复；Pixel Cafe、S260/S262 和更早 S244-S259 仍是已发布稳定背景。
+- `S273` 已修复 S272 对旧数据的回归：非 pinned、无多组路由且 `model_match_patterns` 为空的单组 API Key 继续使用默认分组；已配置规则仍严格匹配，多组和 pinned 空规则继续 fail-closed。
+- `S271` 的按 group、routing scope、requested model 隔离的 Redis 自适应 route breaker 与 `S272` 的单组 model-match 强制校验已通过 focused x10、完整 service/middleware、server compile 和差异门禁；provider、部署、容器和生产 API smoke 仍未验证。
+- 近期上游/兼容主线还包括：Responses Lite typed tool 与 sticky session 转发、原生 continuation tool ID、OpenCode Go reset duration、composite alias 按 forwarded model 计费，以及 CN/Kimi/Grok/Gemini 兼容边界。继续接手网关问题时，先看 `docs/workflow/status.md` 与 `knowledge/tasks/current-task.md` 的最新 Sprint，而不是回退到 Pixel Cafe 页面语境。
+- 当前主工作树保留未跟踪 `outputs/`，并存在受保护的 S266 等 dirty worktree 与 detached worktree；S273 源码/QA 已推送到 `origin/main`，但当前仍不得擅自 staging、commit、push、更新容器、部署或操作共享数据。
+
+最后更新：2026-08-28
+
 ## 2026-08-25 之后
 
 - 默认续做心智已前移到已发布的 `S252-S256 Pixel Cafe` 产品链；`S244-S259`、`S248`、更早的 `S220-S222`、Usage、`S111/S112`、group-buy 与 Studio Bridge 均保留为稳定背景。
