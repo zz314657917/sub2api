@@ -299,6 +299,9 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	cafeRoomRepository := repository.NewCafeRoomRepository(client)
 	cafeRoomService := service.NewCafeRoomService(cafeRoomRepository)
 	cafeRoomHandler := admin.NewCafeRoomHandlerWithActivation(cafeRoomService, cafeRoomActivationService, settingService)
+	if quotaReset, ok := adminService.(service.CafeQuotaResetService); ok {
+		cafeRoomHandler.SetQuotaResetService(quotaReset)
+	}
 	imageCreatorStorageGovernanceRepository := repository.NewImageCreatorStorageGovernanceRepository(db)
 	imageCreatorStorageGovernanceService := service.NewImageCreatorStorageGovernanceService(imageCreatorStorageGovernanceRepository, imageCreatorService, configConfig)
 	imageCreatorStorageGovernanceHandler := admin.NewImageCreatorStorageGovernanceHandler(imageCreatorStorageGovernanceService)

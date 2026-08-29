@@ -44,6 +44,12 @@ export interface CafePendingRound {
   fulfillment_deadline_at?: string | null
 }
 
+export interface CafeQuotaResetResult {
+  scope: 'room' | 'all' | string
+  room_id?: number
+  affected_keys: number
+}
+
 export interface CafeRoomAccountOptionParams {
   page?: number
   page_size?: number
@@ -86,6 +92,14 @@ const cafeRoomsAPI = {
 
   remove(id: number) {
     return apiClient.delete<{ message: string }>(`/admin/cafe/rooms/${id}`)
+  },
+
+  resetRoomQuotas(id: number) {
+    return apiClient.post<CafeQuotaResetResult>(`/admin/cafe/rooms/${id}/reset-quotas`)
+  },
+
+  resetAllQuotas() {
+    return apiClient.post<CafeQuotaResetResult>('/admin/cafe/rooms/reset-quotas')
   },
 
   bulkCreate(data: CafeRoomBulkInput) {

@@ -77,6 +77,11 @@
               <Icon name="copy" size="md" class="mr-1" />
               {{ t('admin.pixelCafe.bulkCreate') }}
             </button>
+            <button type="button" class="btn btn-secondary" :disabled="quotaResetting === 'all'" @click="askResetAllQuotas">
+              <Icon v-if="quotaResetting === 'all'" name="refresh" size="md" class="mr-1 animate-spin" />
+              <Icon v-else name="refresh" size="md" class="mr-1" />
+              {{ t('admin.pixelCafe.quotaReset.allButton') }}
+            </button>
             <button type="button" class="btn btn-primary" @click="openCreateDialog">
               <Icon name="plus" size="md" class="mr-1" />
               {{ t('admin.pixelCafe.createRoom') }}
@@ -146,6 +151,16 @@
               >
                 <Icon name="trash" size="sm" class="mr-1" />
                 {{ t('admin.pixelCafe.actions.delete') }}
+              </button>
+              <button
+                type="button"
+                class="btn btn-ghost btn-sm"
+                :disabled="quotaResetting === row.id"
+                @click="askResetRoomQuotas(row)"
+              >
+                <Icon v-if="quotaResetting === row.id" name="refresh" size="sm" class="mr-1 animate-spin" />
+                <Icon v-else name="refresh" size="sm" class="mr-1" />
+                {{ t('admin.pixelCafe.quotaReset.roomButton') }}
               </button>
             </div>
           </template>
@@ -388,6 +403,14 @@
       @cancel="roomToDelete = null"
       @confirm="deleteRoom"
     />
+
+    <ConfirmDialog
+      :show="Boolean(quotaResetScope)"
+      :title="t('admin.pixelCafe.quotaReset.confirmTitle')"
+      :message="quotaResetConfirmMessage"
+      @cancel="closeQuotaResetConfirm"
+      @confirm="confirmQuotaReset"
+    />
   </AppLayout>
 </template>
 
@@ -443,6 +466,9 @@ const openingRoundId = ref<number | null>(null)
 const pausingRoundId = ref<number | null>(null)
 const deletingId = ref<number | null>(null)
 const roomToDelete = ref<CafeRoom | null>(null)
+const quotaResetScope = ref<'room' | 'all' | null>(null)
+const quotaResetRoom = ref<CafeRoom | null>(null)
+const quotaResetting = ref<number | 'all' | null>(null)
 const bulkResult = ref<CafeRoomBulkResult | null>(null)
 const layoutDialogOpen = ref(false)
 const layoutLoading = ref(false)
@@ -690,6 +716,48 @@ async function saveRoom() {
 
 function askDelete(room: CafeRoom) {
   roomToDelete.value = room
+}
+
+const quotaResetConfirmMessage = computed(() => {
+  if (quotaResetScope.value === 'room' && quotaResetRoom.value) {
+    return t('admin.pixelCafe.quotaReset.roomMessage', { name: quotaResetRoom.value.name })
+  }
+  return t('admin.pixelCafe.quotaReset.allMessage')
+})
+
+function askResetRoomQuotas(room: CafeRoom) {
+  quotaResetRoom.value = room
+  quotaResetScope.value = 'room'
+}
+
+function askResetAllQuotas() {
+  quotaResetRoom.value = null
+  quotaResetScope.value = 'all'
+}
+
+function closeQuotaResetConfirm() {
+  if (quotaResetting.value !== null) return
+  quotaResetScope.value = null
+  quotaResetRoom.value = null
+}
+
+async function confirmQuotaReset() {
+  const scope = quotaResetScope.value
+  const room = quotaResetRoom.value
+  if (!scope || (scope === 'room' && !room)) return
+  quotaResetting.value = scope === 'all' ? 'all' : room!.id
+  try {
+    const response = scope === 'all'
+      ? await adminAPI.cafeRooms.resetAllQuotas()
+      : await adminAPI.cafeRooms.resetRoomQuotas(room!.id)
+    appStore.showSuccess(t('admin.pixelCafe.quotaReset.success', { count: response.data.affected_keys }))
+    quotaResetScope.value = null
+    quotaResetRoom.value = null
+  } catch (error) {
+    appStore.showError(extractApiErrorMessage(error, t('admin.pixelCafe.quotaReset.error')))
+  } finally {
+    quotaResetting.value = null
+  }
 }
 
 async function deleteRoom() {

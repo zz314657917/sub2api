@@ -16,6 +16,8 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
@@ -135,6 +137,22 @@ type AdminService interface {
 	ExpireRedeemCode(ctx context.Context, id int64) (*RedeemCode, error)
 	ResetAccountQuota(ctx context.Context, id int64) error
 	RefreshAccountQuota(ctx context.Context, id int64) (*Account, error)
+}
+
+// AdminCafeQuotaResetResult describes a scoped reset of rate-limit windows for
+// Pixel Cafe managed keys. It deliberately excludes quota_used and any
+// upstream account state.
+type AdminCafeQuotaResetResult struct {
+	Scope        string `json:"scope"`
+	RoomID       *int64 `json:"room_id,omitempty"`
+	AffectedKeys int    `json:"affected_keys"`
+}
+
+// CafeQuotaResetService is the narrow dependency required by the Pixel Cafe
+// admin handler. Keeping it separate avoids widening AdminService and breaking
+// lightweight admin test doubles.
+type CafeQuotaResetService interface {
+	AdminResetCafeRateLimitUsage(context.Context, *int64) (*AdminCafeQuotaResetResult, error)
 }
 
 // CreateUserInput represents input for creating a new user via admin operations.
@@ -3203,6 +3221,51 @@ func (s *adminServiceImpl) AdminResetAPIKeyRateLimitUsage(ctx context.Context, k
 		_ = s.billingCacheService.InvalidateAPIKeyRateLimit(ctx, apiKey.ID)
 	}
 	return apiKey, nil
+}
+
+// AdminResetCafeRateLimitUsage clears only the local rate-limit windows of
+// active Pixel Cafe managed keys. A room scope is resolved through active
+// account bindings, so stale/replaced bindings and ordinary user keys are not
+// included. Each key is reset through the existing cache-aware operation.
+func (s *adminServiceImpl) AdminResetCafeRateLimitUsage(ctx context.Context, roomID *int64) (*AdminCafeQuotaResetResult, error) {
+	if s.entClient == nil {
+		return nil, fmt.Errorf("entClient is nil, cannot reset cafe quota usage")
+	}
+
+	query := s.entClient.APIKeyAccountBinding.Query().Where(
+		apikeyaccountbinding.StatusEQ("active"),
+		apikeyaccountbinding.CafeRoomIDNEQ(0),
+		apikeyaccountbinding.HasAPIKeyWith(
+			apikey.DeletedAtIsNil(),
+			apikey.ManagedSourceTypeIn(APIKeyManagedSourceCafeRoomSeat, APIKeyManagedSourceCafeRoomMembership),
+		),
+	)
+	if roomID != nil {
+		query.Where(apikeyaccountbinding.CafeRoomIDEQ(*roomID))
+	}
+
+	bindings, err := query.Select(apikeyaccountbinding.FieldAPIKeyID).All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list cafe managed keys: %w", err)
+	}
+
+	keyIDs := make(map[int64]struct{}, len(bindings))
+	for _, binding := range bindings {
+		if binding.APIKeyID > 0 {
+			keyIDs[binding.APIKeyID] = struct{}{}
+		}
+	}
+	for keyID := range keyIDs {
+		if _, err := s.AdminResetAPIKeyRateLimitUsage(ctx, keyID); err != nil {
+			return nil, fmt.Errorf("reset cafe managed key %d: %w", keyID, err)
+		}
+	}
+
+	scope := "all"
+	if roomID != nil {
+		scope = "room"
+	}
+	return &AdminCafeQuotaResetResult{Scope: scope, RoomID: roomID, AffectedKeys: len(keyIDs)}, nil
 }
 
 // ReplaceUserGroup 替换用户的专属分组

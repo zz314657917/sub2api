@@ -38,6 +38,20 @@ type cafeWorkstationLayoutHandlerStub struct {
 	writes int
 }
 
+type cafeQuotaResetHandlerStub struct {
+	roomIDs []*int64
+}
+
+func (s *cafeQuotaResetHandlerStub) AdminResetCafeRateLimitUsage(_ context.Context, roomID *int64) (*service.AdminCafeQuotaResetResult, error) {
+	s.roomIDs = append(s.roomIDs, roomID)
+	result := &service.AdminCafeQuotaResetResult{AffectedKeys: 3, Scope: "all"}
+	if roomID != nil {
+		result.Scope = "room"
+		result.RoomID = roomID
+	}
+	return result, nil
+}
+
 func (s *cafeWorkstationLayoutHandlerStub) GetPixelCafeWorkstationLayout(context.Context) (service.PixelCafeWorkstationLayout, error) {
 	return s.layout, nil
 }
@@ -370,6 +384,30 @@ func TestCafeRoomHandlerRejectsInvalidIDsAndStatuses(t *testing.T) {
 	router.ServeHTTP(recorder, req)
 	require.Equal(t, http.StatusBadRequest, recorder.Code)
 	require.Contains(t, recorder.Body.String(), "CAFE_ROOM_INVALID_STATUS")
+}
+
+func TestCafeRoomHandlerQuotaResetEndpointsUseScopedService(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	quota := &cafeQuotaResetHandlerStub{}
+	handler := NewCafeRoomHandler(nil)
+	handler.SetQuotaResetService(quota)
+	router := gin.New()
+	router.POST("/rooms/reset-quotas", handler.ResetAllQuotas)
+	router.POST("/rooms/:id/reset-quotas", handler.ResetRoomQuotas)
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/rooms/42/reset-quotas", nil))
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Len(t, quota.roomIDs, 1)
+	require.NotNil(t, quota.roomIDs[0])
+	require.Equal(t, int64(42), *quota.roomIDs[0])
+	require.Contains(t, recorder.Body.String(), `"affected_keys":3`)
+
+	recorder = httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/rooms/reset-quotas", nil))
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Len(t, quota.roomIDs, 2)
+	require.Nil(t, quota.roomIDs[1])
 }
 
 func TestCafeRoomHandlerPendingFulfillmentEndpointsArePaginatedAndRedacted(t *testing.T) {

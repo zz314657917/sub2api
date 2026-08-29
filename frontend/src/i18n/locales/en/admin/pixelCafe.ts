@@ -11,6 +11,15 @@ export default {
   noRoomPlans: 'No room_subscription plan is available.',
   noAccounts: 'No active account is available.',
   accountDeferred: 'Assigned after full',
+  quotaReset: {
+    allButton: 'Reset all user quotas',
+    roomButton: 'Reset room quotas',
+    confirmTitle: 'Reset Pixel Cafe quotas',
+    roomMessage: 'Reset local 5h/1d/7d usage for all managed keys in “{name}”? Total quota, expiry, and upstream account quotas are unchanged.',
+    allMessage: 'Reset local 5h/1d/7d usage for all Pixel Cafe managed keys? Total quota, expiry, and upstream account quotas are unchanged.',
+    success: 'Quotas reset; {count} managed key(s) affected',
+    error: 'Failed to reset Pixel Cafe user quotas',
+  },
   loadingDependencies: 'Loading Room plans...',
   layout: {
     open: 'Lobby layout',

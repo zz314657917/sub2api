@@ -9,6 +9,8 @@ const {
   createRoom,
   updateRoom,
   removeRoom,
+  resetRoomQuotas,
+  resetAllQuotas,
   bulkCreate,
   openRound,
   pauseRound,
@@ -26,6 +28,8 @@ const {
   createRoom: vi.fn(),
   updateRoom: vi.fn(),
   removeRoom: vi.fn(),
+  resetRoomQuotas: vi.fn(),
+  resetAllQuotas: vi.fn(),
   bulkCreate: vi.fn(),
   openRound: vi.fn(),
   pauseRound: vi.fn(),
@@ -53,6 +57,8 @@ vi.mock('@/api/admin', () => ({
       create: createRoom,
       update: updateRoom,
       remove: removeRoom,
+      resetRoomQuotas,
+      resetAllQuotas,
       bulkCreate,
       openRound,
       pauseRound,
@@ -108,6 +114,13 @@ const labels: Record<string, string> = {
   'admin.pixelCafe.bulk.title': '批量创建房间',
   'admin.pixelCafe.bulk.submit': '开始创建',
   'admin.pixelCafe.accountDeferred': '成团后配号',
+  'admin.pixelCafe.quotaReset.allButton': '重置全部用户额度',
+  'admin.pixelCafe.quotaReset.roomButton': '重置本房间额度',
+  'admin.pixelCafe.quotaReset.confirmTitle': '确认重置网吧额度',
+  'admin.pixelCafe.quotaReset.roomMessage': '确认重置房间“{name}”所有已绑定用户的本地 5H/1D/7D 用量吗？不会改变总额度、有效期或官方账号额度。',
+  'admin.pixelCafe.quotaReset.allMessage': '确认重置全部网吧房间用户的本地 5H/1D/7D 用量吗？不会改变总额度、有效期或官方账号额度。',
+  'admin.pixelCafe.quotaReset.success': '额度已重置，共影响 {count} 个受管 Key',
+  'admin.pixelCafe.quotaReset.error': '重置网吧用户额度失败',
   'admin.pixelCafe.pending.title': '待配号轮次',
   'admin.pixelCafe.pending.description': '份额售罄后在这里绑定账号',
   'admin.pixelCafe.pending.assign': '选择账号',
@@ -161,9 +174,9 @@ const BaseDialogStub = defineComponent({
 })
 
 const ConfirmDialogStub = defineComponent({
-  props: { show: Boolean },
+  props: { show: Boolean, message: String },
   emits: ['confirm', 'cancel'],
-  template: '<div v-if="show" class="confirm-dialog"><button type="button" @click="$emit(\'confirm\')">confirm-delete</button></div>',
+  template: '<div v-if="show" class="confirm-dialog"><p>{{ message }}</p><button type="button" @click="$emit(\'confirm\')">confirm-delete</button></div>',
 })
 
 function room(status: 'enabled' | 'maintenance' = 'enabled') {
@@ -254,6 +267,8 @@ describe('AdminCafeRoomsView', () => {
     createRoom.mockReset().mockResolvedValue({ data: room() })
     updateRoom.mockReset().mockResolvedValue({ data: room() })
     removeRoom.mockReset().mockResolvedValue({ data: { message: 'ok' } })
+    resetRoomQuotas.mockReset().mockResolvedValue({ data: { scope: 'room', room_id: 7, affected_keys: 2 } })
+    resetAllQuotas.mockReset().mockResolvedValue({ data: { scope: 'all', affected_keys: 5 } })
     openRound.mockReset().mockResolvedValue({ data: { id: 81, status: 'open' } })
     pauseRound.mockReset().mockResolvedValue({ data: { id: 81, status: 'cancelled' } })
     bulkCreate.mockReset().mockResolvedValue({ data: {
@@ -458,5 +473,23 @@ describe('AdminCafeRoomsView', () => {
     await accountSearch.trigger('change')
     await flushPromises()
     expect(listRoundAccountOptions).toHaveBeenLastCalledWith(81, { page: 1, page_size: 30, search: 'owner' })
+  })
+
+  it('resets quotas for one room or all Pixel Cafe users with confirmation', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.findAll('button').find(button => button.text().includes('重置本房间额度'))?.trigger('click')
+    expect(wrapper.text()).toContain('不会改变总额度')
+    await wrapper.findAll('button').find(button => button.text() === 'confirm-delete')?.trigger('click')
+    await flushPromises()
+    expect(resetRoomQuotas).toHaveBeenCalledWith(7)
+    expect(showSuccess).toHaveBeenCalledWith('额度已重置，共影响 2 个受管 Key')
+
+    await wrapper.findAll('button').find(button => button.text().includes('重置全部用户额度'))?.trigger('click')
+    await wrapper.findAll('button').find(button => button.text() === 'confirm-delete')?.trigger('click')
+    await flushPromises()
+    expect(resetAllQuotas).toHaveBeenCalledTimes(1)
+    expect(showSuccess).toHaveBeenLastCalledWith('额度已重置，共影响 5 个受管 Key')
   })
 })

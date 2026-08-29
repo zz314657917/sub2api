@@ -11,6 +11,15 @@ export default {
   noRoomPlans: '暂无 room_subscription 计划，请先准备兼容计划。',
   noAccounts: '暂无可用账号。',
   accountDeferred: '成团后配号',
+  quotaReset: {
+    allButton: '重置全部用户额度',
+    roomButton: '重置本房间额度',
+    confirmTitle: '确认重置网吧额度',
+    roomMessage: '确认重置房间“{name}”所有已绑定用户的本地 5H/1D/7D 用量吗？不会改变总额度、有效期或官方账号额度。',
+    allMessage: '确认重置全部网吧房间用户的本地 5H/1D/7D 用量吗？不会改变总额度、有效期或官方账号额度。',
+    success: '额度已重置，共影响 {count} 个受管 Key',
+    error: '重置网吧用户额度失败',
+  },
   loadingDependencies: '正在加载 Room 计划…',
   layout: {
     open: '大厅布局',

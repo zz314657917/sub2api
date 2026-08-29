@@ -201,8 +201,10 @@ func registerCafeRoomRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		rooms.GET("/:id", h.Admin.CafeRoom.Get)
 		rooms.PATCH("/:id", h.Admin.CafeRoom.Update)
 		rooms.DELETE("/:id", h.Admin.CafeRoom.Delete)
+		rooms.POST("/:id/reset-quotas", h.Admin.CafeRoom.ResetRoomQuotas)
 		rooms.POST("/:id/open-round", h.Admin.CafeRoom.OpenRound)
 		rooms.POST("/:id/pause-round", h.Admin.CafeRoom.PauseRound)
+		rooms.POST("/reset-quotas", h.Admin.CafeRoom.ResetAllQuotas)
 	}
 	rounds := admin.Group("/cafe/rounds")
 	{

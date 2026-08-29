@@ -17,6 +17,7 @@ type CafeRoomHandler struct {
 	service    *service.CafeRoomService
 	activation cafeRoundFulfillmentService
 	settings   cafeWorkstationLayoutService
+	quotaReset service.CafeQuotaResetService
 }
 
 type cafeWorkstationLayoutService interface {
@@ -36,6 +37,13 @@ func NewCafeRoomHandler(cafeRoomService *service.CafeRoomService) *CafeRoomHandl
 
 func NewCafeRoomHandlerWithActivation(cafeRoomService *service.CafeRoomService, activation *service.CafeRoomActivationService, settings *service.SettingService) *CafeRoomHandler {
 	return &CafeRoomHandler{service: cafeRoomService, activation: activation, settings: settings}
+}
+
+// SetQuotaResetService wires the optional admin-only quota reset capability.
+// It is kept as a setter so existing lightweight handler constructors/tests do
+// not need an AdminService dependency.
+func (h *CafeRoomHandler) SetQuotaResetService(reset service.CafeQuotaResetService) {
+	h.quotaReset = reset
 }
 
 func (h *CafeRoomHandler) GetWorkstationLayout(c *gin.Context) {
@@ -158,6 +166,37 @@ func (h *CafeRoomHandler) Delete(c *gin.Context) {
 		return
 	}
 	response.Success(c, gin.H{"message": "ok"})
+}
+
+func (h *CafeRoomHandler) ResetRoomQuotas(c *gin.Context) {
+	if h.quotaReset == nil {
+		response.ErrorFrom(c, infraerrors.InternalServer("CAFE_QUOTA_RESET_UNAVAILABLE", "cafe quota reset is unavailable"))
+		return
+	}
+	id, err := parseCafeRoomPositiveInt64Param(c, "id")
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	result, err := h.quotaReset.AdminResetCafeRateLimitUsage(c.Request.Context(), &id)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+func (h *CafeRoomHandler) ResetAllQuotas(c *gin.Context) {
+	if h.quotaReset == nil {
+		response.ErrorFrom(c, infraerrors.InternalServer("CAFE_QUOTA_RESET_UNAVAILABLE", "cafe quota reset is unavailable"))
+		return
+	}
+	result, err := h.quotaReset.AdminResetCafeRateLimitUsage(c.Request.Context(), nil)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
 }
 
 func (h *CafeRoomHandler) BulkCreate(c *gin.Context) {
