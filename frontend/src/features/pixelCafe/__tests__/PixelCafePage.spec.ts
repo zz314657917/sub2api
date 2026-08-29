@@ -7,6 +7,7 @@ const lobbyActivity = vi.hoisted(() => vi.fn())
 const listRooms = vi.hoisted(() => vi.fn())
 const listMyRooms = vi.hoisted(() => vi.fn())
 const createOrder = vi.hoisted(() => vi.fn())
+const getCheckoutInfo = vi.hoisted(() => vi.fn())
 const routeQuery = vi.hoisted(() => ({} as Record<string, string>))
 const cachedPublicSettings = vi.hoisted(() => ({
   pixel_cafe_title: '像素网吧',
@@ -15,6 +16,7 @@ const cachedPublicSettings = vi.hoisted(() => ({
 }))
 
 vi.mock('@/api/cafe', () => ({ cafeAPI: { overview, lobbyActivity, listRooms, listMyRooms, createOrder } }))
+vi.mock('@/api/payment', () => ({ paymentAPI: { getCheckoutInfo } }))
 vi.mock('@/stores', () => ({ useAppStore: () => ({ cachedPublicSettings }) }))
 vi.mock('vue-router', () => ({
   useRoute: () => ({ query: routeQuery }),
@@ -110,6 +112,17 @@ describe('PixelCafePage', () => {
         room_id: room.id,
         round_id: room.round.id,
         share_count: 1,
+      },
+    })
+    getCheckoutInfo.mockReset().mockResolvedValue({
+      data: {
+        methods: {
+          alipay: { available: true },
+          wxpay: { available: false },
+          wxpay_direct: { available: false },
+          stripe: { available: true },
+          airwallex: { available: false },
+        },
       },
     })
   })
@@ -423,6 +436,17 @@ describe('PixelCafePage', () => {
       agreement_accepted: true,
     }), expect.any(String))
     expect(wrapper.find('[data-testid="payment-status-panel"]').exists()).toBe(true)
+  })
+
+  it('only shows payment methods enabled by the shared Sub2API checkout config', async () => {
+    const wrapper = mountPage()
+    await flushPromises()
+    await wrapper.find('.pixel-cafe-room-card').trigger('click')
+
+    const options = wrapper.findAll('.pixel-cafe-payment-select option').map(option => option.text())
+    expect(options).toEqual(['支付宝', 'Stripe'])
+    expect(options).not.toContain('微信支付')
+    expect(options).not.toContain('Airwallex')
   })
 
   it('supports a one-share room through the same share purchase contract', async () => {

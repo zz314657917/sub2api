@@ -271,9 +271,10 @@
               <p class="pixel-cafe-single-room-note">每份 {{ selectedRoom.plan.price_label || `${selectedRoom.plan.price_per_share} CNY` }}，合计 {{ selectedShareCount * selectedRoom.plan.price_per_share }} CNY。{{ selectedRoom.my_paid_shares ? ` 已持有 ${selectedRoom.my_paid_shares} 份，可在成团前补份。` : '' }}</p>
               <label class="pixel-cafe-payment-label">
                 支付方式
-                <select v-model="selectedPaymentMethod" class="pixel-cafe-payment-select">
+                <select v-if="paymentMethods.length" v-model="selectedPaymentMethod" class="pixel-cafe-payment-select">
                   <option v-for="method in paymentMethods" :key="method" :value="method">{{ paymentMethodLabel(method) }}</option>
                 </select>
+                <span v-else class="pixel-cafe-payment-unavailable">当前没有可用的支付方式，请联系管理员。</span>
               </label>
               <label class="pixel-cafe-agreement">
                 <input v-model="agreementAccepted" type="checkbox" />
@@ -283,7 +284,7 @@
               <button
                 type="button"
                 class="pixel-cafe-primary"
-                :disabled="isLocalDemoMode || submitting || selectedShareCount < 1 || !agreementAccepted"
+                :disabled="isLocalDemoMode || submitting || !paymentMethods.length || selectedShareCount < 1 || !agreementAccepted"
                 @click="submitOrder"
               >
                 {{ isLocalDemoMode ? '本地演示不创建订单' : submitting ? '正在创建订单' : '购买份额并付款' }}
@@ -313,6 +314,7 @@ import PaymentStatusPanel from '@/components/payment/PaymentStatusPanel.vue'
 import CafeScene from './components/CafeScene.vue'
 import { createPixelCafeDemoOverview, isLocalPixelCafeDemo } from './demoData'
 import { cafeAPI } from '@/api/cafe'
+import { paymentAPI } from '@/api/payment'
 import { useAppStore } from '@/stores'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { isMobileDevice } from '@/utils/device'
@@ -324,6 +326,7 @@ import {
   PAYMENT_RECOVERY_STORAGE_KEY,
   clearPaymentRecoverySnapshot,
   decidePaymentLaunch,
+  getVisibleMethods,
   normalizeVisibleMethod,
   writePaymentRecoverySnapshot,
   type PaymentRecoverySnapshot,
@@ -351,12 +354,12 @@ let countdownTimer: number | undefined
 const loading = ref(false)
 const errorMessage = ref('')
 const selectedShareCount = ref(1)
-const selectedPaymentMethod = ref('alipay')
+const selectedPaymentMethod = ref('')
 const agreementAccepted = ref(false)
 const submitting = ref(false)
 const orderError = ref('')
 const paymentPhase = ref<'selecting' | 'paying'>('selecting')
-const paymentMethods = ['alipay', 'wxpay', 'stripe', 'airwallex']
+const paymentMethods = ref<string[]>([])
 const MAX_ROOM_MEMBER_AVATARS = 5
 const roomMemberAvatarUrls = [avatarTealUrl, avatarGoldUrl, avatarWineUrl] as const
 const paymentState = ref<PaymentRecoverySnapshot>({
@@ -418,6 +421,38 @@ async function loadOverview(): Promise<void> {
     errorMessage.value = extractApiErrorMessage(error, '加载房间失败')
   } finally {
     loading.value = false
+  }
+}
+
+async function loadPaymentMethods(): Promise<void> {
+  // 演示模式不创建订单，保留一个示例渠道用于展示支付区布局。
+  if (isLocalDemoMode.value) {
+    paymentMethods.value = ['alipay']
+    selectedPaymentMethod.value = 'alipay'
+    return
+  }
+
+  try {
+    const response = await paymentAPI.getCheckoutInfo()
+    const available = Object.fromEntries(
+      Object.entries(response.data?.methods || {}).filter(([, limit]) => limit?.available !== false),
+    )
+    const visible = getVisibleMethods(available)
+    const order = ['alipay', 'wxpay', 'stripe', 'airwallex']
+    paymentMethods.value = Object.entries(visible)
+      .map(([method]) => method)
+      .sort((a, b) => {
+        const ai = order.indexOf(a)
+        const bi = order.indexOf(b)
+        return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi)
+      })
+    if (!paymentMethods.value.includes(selectedPaymentMethod.value)) {
+      selectedPaymentMethod.value = paymentMethods.value[0] || ''
+    }
+  } catch (error) {
+    paymentMethods.value = []
+    selectedPaymentMethod.value = ''
+    console.warn('[pixel-cafe] Failed to load available payment methods:', error)
   }
 }
 
@@ -761,6 +796,7 @@ onMounted(() => {
   containHorizontalOverflow()
   countdownTimer = window.setInterval(() => { countdownNow.value = Date.now() }, 30_000)
   void loadOverview()
+  void loadPaymentMethods()
   void loadMyRooms()
 })
 
@@ -788,6 +824,7 @@ onUnmounted(() => {
 .pixel-cafe-error { gap: .75rem; color: #a94d48; }.pixel-cafe-error p { margin: 0; }.pixel-cafe-retry { padding: .5rem .75rem; border: 1px solid #b97867; color: #824d40; background: #fffdf8; cursor: pointer; }
 .pixel-cafe-dialog-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; padding: 1rem; place-items: center; background: rgba(2, 8, 15, .74); backdrop-filter: blur(5px); }.pixel-cafe-inspector { width: min(34rem, 100%); max-height: calc(100dvh - 2rem); overflow-y: auto; padding: 1.2rem; }.pixel-cafe-inspector-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; color: #9a6a53; }.pixel-cafe-dialog-close { display: grid; width: 2rem; height: 2rem; flex: 0 0 auto; padding: 0; border: 1px solid currentColor; color: inherit; background: transparent; cursor: pointer; place-items: center; font: 700 1.2rem/1 monospace; }.pixel-cafe-dialog-close:hover, .pixel-cafe-dialog-close:focus-visible { color: #fff7e5; border-color: #efbd68; outline: 2px solid rgba(239, 189, 104, .28); outline-offset: 2px; }.pixel-cafe-label { font: 700 .7rem monospace; text-transform: uppercase; }.pixel-cafe-inspector h2 { margin: 1.25rem 0 .3rem; font-size: 1.25rem; }.pixel-cafe-room-code { margin: 0; color: #8c8278; font: .75rem monospace; }.pixel-cafe-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin: 1.5rem 0; }.pixel-cafe-stats div { padding: .55rem .4rem; border: 1px solid #e0d6c8; text-align: center; }.pixel-cafe-stats dt { color: #8c8278; font-size: .68rem; }.pixel-cafe-stats dd { margin: .25rem 0 0; font-size: .78rem; font-weight: 700; }.pixel-cafe-primary { width: 100%; padding: .7rem; border: 0; color: #fffdf8; background: #a9785d; font-weight: 700; }.pixel-cafe-primary:disabled { cursor: not-allowed; opacity: .72; }.pixel-cafe-muted { color: #82786e; font-size: .86rem; line-height: 1.6; }
 .pixel-cafe-seat-picker { display: grid; grid-template-columns: repeat(3, minmax(0, 5.9rem)); justify-content: center; align-items: stretch; gap: .45rem; margin: 1rem 0; }.pixel-cafe-seat-button { min-height: 2.2rem; border: 1px solid #c9bdac; color: #5d5148; background: #fffdf8; cursor: pointer; font: 700 .8rem monospace; }.pixel-cafe-share-count { display: grid; min-height: 2.2rem; border: 1px solid #c9bdac; color: #5d5148; background: #f7efe4; place-items: center; font: 700 .8rem/1 monospace; white-space: nowrap; }.pixel-cafe-seat-button:hover, .pixel-cafe-seat-button:focus-visible, .pixel-cafe-seat-button.active { border-color: #9a644f; color: #fffdf8; background: #a9785d; outline: 0; }.pixel-cafe-single-room-note { margin: 1rem 0; padding: .65rem .7rem; border-left: 3px solid #c28d4c; color: #74695d; background: #f7efe4; font-size: .78rem; line-height: 1.45; }.pixel-cafe-payment-label { display: grid; gap: .35rem; margin: 1rem 0; color: #74695d; font-size: .78rem; }.pixel-cafe-payment-select { width: 100%; min-height: 2.3rem; border: 1px solid #cfc1b2; border-radius: 0; color: #473d36; background: #fffdf8; }.pixel-cafe-agreement { display: flex; align-items: flex-start; gap: .45rem; margin: 1rem 0; color: #74695d; font-size: .76rem; line-height: 1.45; }.pixel-cafe-agreement input { margin-top: .1rem; accent-color: #9a644f; }.pixel-cafe-inline-error { margin: .75rem 0; color: #a94d48; font-size: .78rem; line-height: 1.4; }
+.pixel-cafe-payment-unavailable { color: #aebfcd; font-size: .75rem; line-height: 1.4; }
 .pixel-cafe-notice { display: flex; gap: .75rem; align-items: flex-start; max-width: 1400px; margin: 1rem auto 0; padding: .85rem 1rem; }.pixel-cafe-notice-icon { display: grid; width: 1.8rem; height: 1.8rem; place-items: center; color: #8f624f; background: #f1e0d3; }.pixel-cafe-notice strong { font-size: .82rem; }.pixel-cafe-notice p { margin: .25rem 0 0; color: #776e65; font-size: .78rem; }
 @media (max-width: 900px) { .pixel-cafe-workbench { grid-template-columns: 1fr; }.pixel-cafe-inspector { min-height: 0; }.pixel-cafe-scene { min-height: 430px; } }
 @media (max-width: 620px) { .pixel-cafe-page { padding: .85rem; }.pixel-cafe-header { align-items: stretch; flex-direction: column; }.pixel-cafe-my-rooms-heading { align-items: flex-start; flex-direction: column; }.pixel-cafe-my-rooms-list { grid-template-columns: 1fr; } }
