@@ -15,6 +15,26 @@
   excluded. Contract:
   `docs/workflow/tasks/upstream-v0184-compat-fixes-s276.md`.
 
+## Upstream v0.1.184 Frontend Compatibility Addendum (S277)
+
+- Adapt upstream `81e461f65` and `5778739cd` so only genuine local
+  `datetime-local` strings are interpreted as local wall-clock times. Reject
+  timezone-bearing, malformed and calendar-overflow strings instead of
+  allowing `Date.parse` normalization; retain the browser's ordinary local/DST
+  semantics for valid values.
+- Redeem batch expiry must use the strict parser and serialize its seconds
+  result to ISO only after parsing succeeds. Existing clear-mode and error
+  text behavior remain unchanged.
+- Adapt `c03776604` by removing the sole remaining
+  `CLAUDE_CODE_ATTRIBUTION_HEADER=0` settings override. The generated Unix,
+  CMD, PowerShell and settings JSON variants must retain
+  `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` while not disabling Claude
+  attribution.
+- Test only these utility/view/modal owners. Backend, migrations, APIs,
+  billing, lockfile/dependencies, Pixel Cafe, external services, containers,
+  deployment, commit, push and `outputs/**` are excluded. Contract:
+  `docs/workflow/tasks/upstream-v0184-frontend-compat-s277.md`.
+
 ## Usage Billing Multiplier Breakdown Addendum (S275)
 
 - Keep the persisted composite `usage_logs.rate_multiplier`, `total_cost`,

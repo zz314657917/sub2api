@@ -184,4 +184,77 @@ describe('admin RedeemView batch update', () => {
     })
     expect(showSuccess).toHaveBeenCalledWith('admin.redeem.batchUpdateSuccess')
   })
+
+  it('converts a valid custom expiry through the strict local parser', async () => {
+    const wrapper = mount(RedeemView, {
+      attachTo: document.body,
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          TablePageLayout: {
+            template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
+          },
+          DataTable: DataTableStub,
+          Pagination: true,
+          ConfirmDialog: true,
+          Select: SelectStub,
+          GroupBadge: true,
+          GroupOptionItem: true,
+          Icon: true,
+          Teleport: true
+        }
+      }
+    })
+
+    await flushPromises()
+    await wrapper.findAll('[data-test="select-code"]')[0].setValue(true)
+    await wrapper.get('[data-test="batch-update-open"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.get('[data-test="batch-field-expires"]').setValue(true)
+    await wrapper.get('[data-test="batch-expiry-mode-select"]').setValue('custom')
+    await wrapper.get('[data-test="batch-expiry-input"]').setValue('2026-07-23T09:05:30.999')
+    await wrapper.get('[data-test="batch-update-form"]').trigger('submit')
+    await flushPromises()
+
+    const expected = new Date(2026, 6, 23, 9, 5, 30, 0).toISOString()
+    expect(batchUpdateRedeemCodes).toHaveBeenCalledWith([1], { expires_at: expected })
+    expect(showError).not.toHaveBeenCalled()
+  })
+
+  it('blocks the batch API when custom expiry is invalid', async () => {
+    const wrapper = mount(RedeemView, {
+      attachTo: document.body,
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          TablePageLayout: {
+            template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
+          },
+          DataTable: DataTableStub,
+          Pagination: true,
+          ConfirmDialog: true,
+          Select: SelectStub,
+          GroupBadge: true,
+          GroupOptionItem: true,
+          Icon: true,
+          Teleport: true
+        }
+      }
+    })
+
+    await flushPromises()
+    await wrapper.findAll('[data-test="select-code"]')[0].setValue(true)
+    await wrapper.get('[data-test="batch-update-open"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.get('[data-test="batch-field-expires"]').setValue(true)
+    await wrapper.get('[data-test="batch-expiry-mode-select"]').setValue('custom')
+    await wrapper.get('[data-test="batch-expiry-input"]').setValue('2026-02-30T09:05')
+    await wrapper.get('[data-test="batch-update-form"]').trigger('submit')
+    await flushPromises()
+
+    expect(batchUpdateRedeemCodes).not.toHaveBeenCalled()
+    expect(showError).toHaveBeenCalledWith('admin.redeem.expiryDaysRequired')
+  })
 })

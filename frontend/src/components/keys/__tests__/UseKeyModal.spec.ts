@@ -17,6 +17,51 @@ vi.mock('@/composables/useClipboard', () => ({
 import UseKeyModal from '../UseKeyModal.vue'
 
 describe('UseKeyModal', () => {
+  it.each(['anthropic', 'grok'])('preserves Claude attribution for %s shell and settings variants', async (platform) => {
+    const wrapper = mount(UseKeyModal, {
+      props: {
+        show: true,
+        apiKey: 'sk-claude-test',
+        baseUrl: 'https://example.com/v1',
+        platform: platform as 'anthropic' | 'grok'
+      },
+      global: {
+        stubs: {
+          BaseDialog: {
+            template: '<div><slot /><slot name="footer" /></div>'
+          },
+          Icon: {
+            template: '<span />'
+          }
+        }
+      }
+    })
+
+    for (const [shell, expectedLine] of [
+      ['macOS / Linux', 'export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1'],
+      ['Windows CMD', 'set CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1'],
+      ['PowerShell', '$env:CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1']
+    ]) {
+      const shellTab = wrapper.findAll('button').find((button) => button.text().trim() === shell)
+      expect(shellTab).toBeDefined()
+      if (shell !== 'macOS / Linux') {
+        await shellTab!.trigger('click')
+        await nextTick()
+      }
+
+      const codeBlocks = wrapper.findAll('pre code').map((code) => code.text())
+      const allCode = codeBlocks.join('\n')
+      const settingsText = codeBlocks.find((content) => content.trimStart().startsWith('{'))
+      expect(settingsText).toBeDefined()
+      const settings = JSON.parse(settingsText!)
+
+      expect(codeBlocks[0]).toContain(expectedLine)
+      expect(allCode).not.toContain('CLAUDE_CODE_ATTRIBUTION_HEADER')
+      expect(settings.env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC).toBe('1')
+      expect(settings.env).not.toHaveProperty('CLAUDE_CODE_ATTRIBUTION_HEADER')
+    }
+  })
+
   it('normalizes trailing slashes in Codex config.toml', () => {
     const wrapper = mount(UseKeyModal, {
       props: {

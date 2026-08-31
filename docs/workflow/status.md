@@ -1,12 +1,12 @@
 ---
 phase: done
-current_sprint: upstream-v0184-compat-fixes-s276
-total_sprints: 276
-pending_action: S276 is committed locally after independent QA PASS. Preserve unrelated dirty paths and outputs; do not push unless explicitly requested. Next legal action is a new Planner contract for S277.
+current_sprint: upstream-v0184-frontend-compat-s277
+total_sprints: 277
+pending_action: S277 is committed locally after independent QA PASS. Preserve all other dirty paths and outputs; next legal action is a new Planner contract for S278 or S279. Do not push unless explicitly requested.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-31 22:18 +08:00
+last_verified: 2026-09-01 00:22 +08:00
 ---
 
 # Upstream v0.1.184 Compatibility Fixes S276
@@ -60,6 +60,33 @@ last_verified: 2026-08-31 22:18 +08:00
 - `PASS / local-commit`: the exact S276 product/test scope and worker/QA
   evidence are committed locally; no push, provider, database, container,
   deployment or shared-data action was performed.
+
+# Upstream v0.1.184 Frontend Compatibility S277
+
+- `contract-draft`: manually adapt three non-overlapping frontend behaviors
+  from the diverged v0.1.179--v0.1.184 history: strict local parsing for
+  `datetime-local` values, redeem batch-expiry conversion through that parser,
+  and removal of the Claude attribution-header override from generated Claude
+  Code settings. The existing shell snippets already omit the override; the
+  remaining settings JSON must match them.
+- Protected out-of-scope dirty paths include all `backend/**` edits,
+  `frontend/pnpm-lock.yaml`, route breaker/auth, `admin_service.go`, Pixel
+  Cafe, `outputs/**`, and any deployment/external state. No whole-history
+  merge, cherry-pick, dependency refresh, provider, database, container,
+  deployment, commit or push is authorized.
+- Contract: `docs/workflow/tasks/upstream-v0184-frontend-compat-s277.md`.
+- `DONE / generator`: strict local parser, Redeem custom expiry conversion and
+  Claude settings cleanup implemented in the six-file allowlist; worker report
+  is `docs/workflow/worker-results/upstream-v0184-frontend-compat-s277-result.md`.
+- `PASS / controller-review`: initial test expectation was corrected to the
+  contract's second truncation (`.000Z`); focused Vitest 31/31, typecheck,
+  build, diff and conflict checks passed.
+- `PASS / final-qa`: independent Terra QA confirmed the same tests, typecheck,
+  build and protected-path digests; QA report is
+  `docs/workflow/qa-reports/upstream-v0184-frontend-compat-s277-qa.md`.
+- `PASS / local-commit`: exact S277 product/test scope is committed locally;
+  no backend, lockfile, Pixel Cafe, knowledge, outputs or external-state
+  changes are included and no push was performed.
 
 # Usage Billing Multiplier Breakdown S275
 

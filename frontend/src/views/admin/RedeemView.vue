@@ -448,6 +448,7 @@
             <div class="space-y-2">
               <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                 <input
+                  data-test="batch-field-expires"
                   v-model="batchUpdateForm.update_expires_at"
                   type="checkbox"
                   class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
@@ -455,9 +456,14 @@
                 {{ t('admin.redeem.batchFields.expiresAt') }}
               </label>
               <template v-if="batchUpdateForm.update_expires_at">
-                <Select v-model="batchUpdateForm.expires_mode" :options="batchExpiryModeOptions" />
+                <Select
+                  v-model="batchUpdateForm.expires_mode"
+                  data-test="batch-expiry-mode-select"
+                  :options="batchExpiryModeOptions"
+                />
                 <input
                   v-if="batchUpdateForm.expires_mode === 'custom'"
+                  data-test="batch-expiry-input"
                   v-model="batchUpdateForm.expires_at_local"
                   type="datetime-local"
                   class="input"
@@ -615,7 +621,7 @@ import { useClipboard } from '@/composables/useClipboard'
 import { useTableSelection } from '@/composables/useTableSelection'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { adminAPI } from '@/api/admin'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, parseDateTimeLocalInput } from '@/utils/format'
 import type {
   RedeemCode,
   RedeemCodeType,
@@ -1002,12 +1008,12 @@ const buildBatchUpdateFields = (): BatchUpdateRedeemCodeFields | null => {
     if (batchUpdateForm.expires_mode === 'clear') {
       fields.expires_at = null
     } else {
-      const expiresAt = new Date(batchUpdateForm.expires_at_local)
-      if (!batchUpdateForm.expires_at_local || Number.isNaN(expiresAt.getTime())) {
+      const expiresAt = parseDateTimeLocalInput(batchUpdateForm.expires_at_local)
+      if (expiresAt === null) {
         appStore.showError(t('admin.redeem.expiryDaysRequired'))
         return null
       }
-      fields.expires_at = expiresAt.toISOString()
+      fields.expires_at = new Date(expiresAt * 1000).toISOString()
     }
   }
   if (batchUpdateForm.update_notes) {
