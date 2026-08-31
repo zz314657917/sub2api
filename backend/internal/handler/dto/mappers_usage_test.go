@@ -207,6 +207,32 @@ func TestUsageLogFromService_PreservesHistoricalMissingImageSize(t *testing.T) {
 	require.NotContains(t, string(body), `"image_size":"2K"`)
 }
 
+func TestUsageLogFromServiceMultiplierBreakdown(t *testing.T) {
+	t.Parallel()
+
+	log := &service.UsageLog{
+		Model:          "gpt-image-2-official",
+		ImageCount:     1,
+		RateMultiplier: 16.8,
+	}
+
+	userDTO := UsageLogFromService(log)
+	adminDTO := UsageLogFromServiceAdmin(log)
+	for _, got := range []*UsageLog{userDTO, &adminDTO.UsageLog} {
+		require.InDelta(t, 16.8, got.RateMultiplier, 1e-12)
+		require.InDelta(t, 2, got.PricingRateMultiplier, 1e-12)
+		require.InDelta(t, 8.4, got.BalanceConversionMultiplier, 1e-12)
+	}
+}
+
+func TestUsageLogFromServiceMultiplierBreakdownFallsBackForOrdinaryUsage(t *testing.T) {
+	t.Parallel()
+
+	got := UsageLogFromService(&service.UsageLog{Model: "gpt-5.6", RateMultiplier: 1.25})
+	require.InDelta(t, 1.25, got.PricingRateMultiplier, 1e-12)
+	require.InDelta(t, 1, got.BalanceConversionMultiplier, 1e-12)
+}
+
 func f64Ptr(value float64) *float64 {
 	return &value
 }

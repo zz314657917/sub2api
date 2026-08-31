@@ -79,6 +79,8 @@ const messages: Record<string, string> = {
   'usage.serviceTierFlex': 'Flex',
   'usage.serviceTierStandard': 'Standard',
   'usage.rate': 'Rate',
+  'usage.pricingRate': 'Pricing rate',
+  'usage.balanceConversion': 'Balance conversion',
   'usage.original': 'Original',
   'usage.billed': 'Billed',
   'usage.totalRequests': 'Total Requests',
@@ -815,6 +817,23 @@ describe('user UsageView', () => {
     expect(groupCell.text()).toContain('1.25x')
   })
 
+  it('uses the pricing multiplier for APIMart group and detail displays', async () => {
+    const wrapper = await mountUsageView([baseUsageLog({
+      rate_multiplier: 8.4,
+      pricing_rate_multiplier: 1,
+      balance_conversion_multiplier: 8.4,
+    })])
+
+    expect(wrapper.find('.table-cell[data-column="group"]').text()).toContain('1x')
+    const setupState = (wrapper.vm as any).$?.setupState
+    setupState.tooltipData = baseUsageLog({ rate_multiplier: 8.4, pricing_rate_multiplier: 1, balance_conversion_multiplier: 8.4 })
+    setupState.tooltipVisible = true
+    await nextTick()
+    expect(wrapper.text()).toContain('Pricing rate')
+    expect(wrapper.text()).toContain('Balance conversion')
+    expect(wrapper.text()).toContain('8.40x')
+  })
+
   it('shows original and billed cost in the cost column', async () => {
     const wrapper = await mountUsageView([
       baseUsageLog({
@@ -1056,6 +1075,28 @@ describe('user UsageView', () => {
     }
   })
 
+  it('exports pricing, balance conversion, and composite multipliers', async () => {
+    const wrapper = await mountUsageView([baseUsageLog({
+      rate_multiplier: 8.4,
+      pricing_rate_multiplier: 1,
+      balance_conversion_multiplier: 8.4,
+    })])
+    const csvExport = captureCsvExport()
+    try {
+      await (wrapper.vm as any).$?.setupState.exportToCSV()
+      const csv = await readBlobText(csvExport.getBlob() as Blob)
+      const [headerLine, dataLine] = csv.split('\n')
+      const headers = parseSimpleCsvLine(headerLine)
+      const values = parseSimpleCsvLine(dataLine)
+      const row = Object.fromEntries(headers.map((header, index) => [header, values[index]]))
+      expect(row['Pricing Rate Multiplier']).toBe('1')
+      expect(row['Balance Conversion Multiplier']).toBe('8.4')
+      expect(row['Composite Rate Multiplier']).toBe('8.4')
+    } finally {
+      csvExport.restore()
+    }
+  })
+
   it('shows fast service tier and unit prices in user tooltip', async () => {
     const wrapper = await mountUsageView()
 
@@ -1079,7 +1120,7 @@ describe('user UsageView', () => {
     const text = wrapper.text()
     expect(text).toContain('Service tier')
     expect(text).toContain('Fast')
-    expect(text).toContain('Rate')
+    expect(text).toContain('Pricing rate')
     expect(text).toContain('1.00x')
     expect(text).toContain('Billed')
     expect(text).toContain('✪ 0.092883')

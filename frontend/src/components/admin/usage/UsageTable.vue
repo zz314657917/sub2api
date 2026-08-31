@@ -418,8 +418,12 @@
             <span class="font-semibold text-[#a9583e] dark:text-[#f0b89e]">{{ getUsageServiceTierLabel(tooltipData?.service_tier, t) }}</span>
           </div>
           <div class="flex items-center justify-between gap-6">
-            <span class="text-[#6c6a64] dark:text-gray-400">{{ t('usage.rate') }}</span>
-            <span class="font-semibold text-[#a9583e] dark:text-[#f0b89e]">{{ formatMultiplier(tooltipData?.rate_multiplier || 1) }}x</span>
+            <span class="text-[#6c6a64] dark:text-gray-400">{{ t('usage.pricingRate') }}</span>
+            <span class="font-semibold text-[#a9583e] dark:text-[#f0b89e]">{{ formatMultiplier(pricingRateMultiplier(tooltipData)) }}x</span>
+          </div>
+          <div v-if="balanceConversionMultiplier(tooltipData) !== 1" class="flex items-center justify-between gap-6">
+            <span class="text-[#6c6a64] dark:text-gray-400">{{ t('usage.balanceConversion') }}</span>
+            <span class="font-semibold text-[#a9583e] dark:text-[#f0b89e]">{{ formatMultiplier(balanceConversionMultiplier(tooltipData)) }}x</span>
           </div>
           <div class="flex items-center justify-between gap-6">
             <span class="text-[#6c6a64] dark:text-gray-400">{{ t('usage.original') }}</span>
@@ -488,6 +492,14 @@ function accountBilled(row: { total_cost?: number | null; account_stats_cost?: n
   const base = row.account_stats_cost != null ? row.account_stats_cost : (row.total_cost ?? 0)
   const result = base * (row.account_rate_multiplier ?? 1)
   return Number.isNaN(result) ? 0 : result
+}
+
+function pricingRateMultiplier(row: Pick<AdminUsageLog, 'rate_multiplier' | 'pricing_rate_multiplier'> | null): number {
+  return row?.pricing_rate_multiplier ?? row?.rate_multiplier ?? 1
+}
+
+function balanceConversionMultiplier(row: Pick<AdminUsageLog, 'balance_conversion_multiplier'> | null): number {
+  return row?.balance_conversion_multiplier ?? 1
 }
 
 function imageUnitPrice(row: AdminUsageLog | null): number {

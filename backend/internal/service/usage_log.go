@@ -217,3 +217,26 @@ func (u *UsageLog) SyncRequestTypeAndLegacyFields() {
 	u.RequestType = requestType
 	u.Stream, u.OpenAIWSMode = ApplyLegacyRequestFields(requestType, u.Stream, u.OpenAIWSMode)
 }
+
+// UsageRateMultiplierBreakdown projects the persisted composite multiplier into
+// its configured pricing and APIMart balance-conversion components. Account
+// detection deliberately uses the account associated with this query result;
+// historical rows cannot reconstruct a former account configuration.
+func UsageRateMultiplierBreakdown(log *UsageLog) (pricingRateMultiplier float64, balanceConversionMultiplier float64) {
+	if log == nil || log.ImageCount <= 0 {
+		if log == nil {
+			return 0, 1
+		}
+		return log.RateMultiplier, 1
+	}
+
+	models := []string{log.RequestedModel, log.Model}
+	if log.UpstreamModel != nil {
+		models = append(models, *log.UpstreamModel)
+	}
+	conversion := apimartImageUsageMultiplierForModels(log.Account, models, 1)
+	if conversion != 1 {
+		return log.RateMultiplier / conversion, conversion
+	}
+	return log.RateMultiplier, 1
+}

@@ -341,7 +341,7 @@
               :name="row.group.name"
               :platform="row.group.platform"
               :subscription-type="row.group.subscription_type"
-              :rate-multiplier="row.rate_multiplier"
+              :rate-multiplier="pricingRateMultiplier(row)"
             />
             <span v-else-if="row.group_id" class="text-sm text-gray-500 dark:text-gray-400">#{{ row.group_id }}</span>
             <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
@@ -791,10 +791,14 @@
             <span class="font-semibold text-[#6c6a64] dark:text-[#f0b89e]">{{ getUsageServiceTierLabel(tooltipData?.service_tier, t) }}</span>
           </div>
           <div class="flex items-center justify-between gap-6">
-            <span class="text-[#6c6a64] dark:text-gray-400">{{ t('usage.rate') }}</span>
+            <span class="text-[#6c6a64] dark:text-gray-400">{{ t('usage.pricingRate') }}</span>
             <span class="font-semibold text-[#a9583e] dark:text-[#f0b89e]"
-              >{{ formatMultiplier(tooltipData?.rate_multiplier || 1) }}x</span
+              >{{ formatMultiplier(pricingRateMultiplier(tooltipData)) }}x</span
             >
+          </div>
+          <div v-if="balanceConversionMultiplier(tooltipData) !== 1" class="flex items-center justify-between gap-6">
+            <span class="text-[#6c6a64] dark:text-gray-400">{{ t('usage.balanceConversion') }}</span>
+            <span class="font-semibold text-[#a9583e] dark:text-[#f0b89e]">{{ formatMultiplier(balanceConversionMultiplier(tooltipData)) }}x</span>
           </div>
           <div class="flex items-center justify-between gap-6">
             <span class="text-[#6c6a64] dark:text-gray-400">{{ t('usage.officialReferenceCost') }}</span>
@@ -855,7 +859,7 @@
                     :name="selectedUsageLog.group.name"
                     :platform="selectedUsageLog.group.platform"
                     :subscription-type="selectedUsageLog.group.subscription_type"
-                    :rate-multiplier="selectedUsageLog.rate_multiplier"
+                    :rate-multiplier="pricingRateMultiplier(selectedUsageLog)"
                   />
                   <span v-else-if="selectedUsageLog.group_id" class="text-gray-600 dark:text-gray-300">#{{ selectedUsageLog.group_id }}</span>
                   <span v-else class="text-gray-400">-</span>
@@ -866,8 +870,12 @@
                 <div class="mt-1 font-mono text-gray-900 dark:text-white">{{ selectedUsageLog.group_id ?? '-' }}</div>
               </div>
               <div>
-                <div class="text-xs text-gray-500 dark:text-gray-400">{{ t('usage.rate') }}</div>
-                <div class="mt-1 font-medium text-gray-900 dark:text-white">{{ formatMultiplier(selectedUsageLog.rate_multiplier || 1) }}x</div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">{{ t('usage.pricingRate') }}</div>
+                <div class="mt-1 font-medium text-gray-900 dark:text-white">{{ formatMultiplier(pricingRateMultiplier(selectedUsageLog)) }}x</div>
+              </div>
+              <div v-if="balanceConversionMultiplier(selectedUsageLog) !== 1">
+                <div class="text-xs text-gray-500 dark:text-gray-400">{{ t('usage.balanceConversion') }}</div>
+                <div class="mt-1 font-medium text-gray-900 dark:text-white">{{ formatMultiplier(balanceConversionMultiplier(selectedUsageLog)) }}x</div>
               </div>
             </div>
           </section>
@@ -1911,7 +1919,9 @@ const exportToCSV = async () => {
       'Output Tokens',
       'Cache Read Tokens',
       'Cache Creation Tokens',
-      'Rate Multiplier',
+      'Pricing Rate Multiplier',
+      'Balance Conversion Multiplier',
+      'Composite Rate Multiplier',
       'Billed Cost',
       'Original Cost',
       'First Token (ms)',
@@ -1934,6 +1944,8 @@ const exportToCSV = async () => {
         toFiniteNumber(log.output_tokens),
         toFiniteNumber(log.cache_read_tokens),
         toFiniteNumber(log.cache_creation_tokens),
+        pricingRateMultiplier(log),
+        balanceConversionMultiplier(log),
         toFiniteNumber(log.rate_multiplier, 1),
         formatCostNumberFixed(log.actual_cost, 8),
         formatCostNumberFixed(log.total_cost, 8),
@@ -1981,6 +1993,12 @@ const hideTooltip = () => {
   tooltipVisible.value = false
   tooltipData.value = null
 }
+
+const pricingRateMultiplier = (log: Pick<UsageLog, 'rate_multiplier' | 'pricing_rate_multiplier'> | null | undefined): number =>
+  log?.pricing_rate_multiplier ?? log?.rate_multiplier ?? 1
+
+const balanceConversionMultiplier = (log: Pick<UsageLog, 'balance_conversion_multiplier'> | null | undefined): number =>
+  log?.balance_conversion_multiplier ?? 1
 
 // Token tooltip functions
 const showTokenTooltip = (event: MouseEvent, row: UsageLog) => {

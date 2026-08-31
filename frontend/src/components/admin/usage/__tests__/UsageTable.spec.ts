@@ -24,6 +24,8 @@ const messages: Record<string, string> = {
   'usage.serviceTierFlex': 'Flex',
   'usage.serviceTierStandard': 'Standard',
   'usage.rate': 'Rate',
+  'usage.pricingRate': 'Pricing rate',
+  'usage.balanceConversion': 'Balance conversion',
   'usage.accountMultiplier': 'Account rate',
   'usage.original': 'Original',
   'usage.userBilled': 'User billed',
@@ -212,7 +214,7 @@ describe('admin UsageTable tooltip', () => {
     const text = wrapper.text()
     expect(text).toContain('Service tier')
     expect(text).toContain('Fast')
-    expect(text).toContain('Rate')
+    expect(text).toContain('Pricing rate')
     expect(text).toContain('1.00x')
     expect(text).toContain('Account rate')
     expect(text).toContain('User billed')
@@ -221,6 +223,25 @@ describe('admin UsageTable tooltip', () => {
     expect(text).toContain('$5.0000 / 1M tokens')
     expect(text).toContain('$30.0000 / 1M tokens')
     expect(text).toContain('$0.069568')
+  })
+
+  it('separates pricing and balance conversion multipliers in the cost tooltip', async () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{ ...baseImageRow, rate_multiplier: 8.4, pricing_rate_multiplier: 1, balance_conversion_multiplier: 8.4 }],
+        loading: false,
+        columns: [],
+      },
+      global: { stubs: { DataTable: DataTableStub, EmptyState: true, Icon: true, Teleport: true } },
+    })
+
+    const tooltipTriggers = wrapper.findAll('.group.relative')
+    await tooltipTriggers[tooltipTriggers.length - 1].trigger('mouseenter')
+    await nextTick()
+    expect(wrapper.text()).toContain('Pricing rate')
+    expect(wrapper.text()).toContain('Balance conversion')
+    expect(wrapper.text()).toContain('1.00x')
+    expect(wrapper.text()).toContain('8.40x')
   })
 
   it('shows cache read percentage using input and cache token totals', () => {
