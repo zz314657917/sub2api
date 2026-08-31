@@ -62,3 +62,24 @@ func TestUpdateServicePerformUpdateNoUpdateReturnsSentinel(t *testing.T) {
 	require.True(t, errors.Is(err, ErrNoUpdateAvailable))
 	require.ErrorIs(t, err, ErrNoUpdateAvailable)
 }
+
+func TestCompareVersionsHyphenatedSuffix(t *testing.T) {
+	if got := compareVersions("v0.1.183-custom", "v0.1.183"); got != 0 {
+		t.Fatalf("equal versions got %d", got)
+	}
+	if compareVersions("v0.1.183-custom", "v0.1.184") >= 0 {
+		t.Fatal("expected lower custom version")
+	}
+	if compareVersions("v0.1.184", "v0.1.183-custom") <= 0 {
+		t.Fatal("expected higher version")
+	}
+	if got := compareVersions("v1.2.3", "v1.2.3"); got != 0 {
+		t.Fatalf("ordinary equal versions got %d", got)
+	}
+	if compareVersions("v1.2.3", "v1.2.4") >= 0 {
+		t.Fatal("expected ordinary lower version")
+	}
+	if compareVersions("v1.3.0", "v1.2.9") <= 0 {
+		t.Fatal("expected ordinary higher version")
+	}
+}

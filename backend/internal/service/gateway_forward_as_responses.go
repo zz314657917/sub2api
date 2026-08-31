@@ -540,7 +540,9 @@ func (s *GatewayService) handleResponsesStreamingResponse(
 
 // appendRawJSON appends a JSON fragment string to existing raw JSON.
 func appendRawJSON(existing json.RawMessage, fragment string) json.RawMessage {
-	if len(existing) == 0 {
+	var existingObject map[string]json.RawMessage
+	isEmptyObject := json.Unmarshal(existing, &existingObject) == nil && existingObject != nil && len(existingObject) == 0
+	if len(existing) == 0 || isEmptyObject {
 		return json.RawMessage(fragment)
 	}
 	return json.RawMessage(string(existing) + fragment)

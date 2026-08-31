@@ -1,3 +1,20 @@
+## Upstream v0.1.184 Compatibility Fixes Addendum (S276)
+
+- Port four independently testable upstream fixes without merging or
+  cherry-picking the diverged `v0.1.184` history: Anthropic-to-Responses stream
+  item lifecycle/content indexes (`8f5451587`), Anthropic streamed tool argument
+  assembly (`da10822d7`), saved SMTP TLS fallback in test endpoints
+  (`c31fe2ed9`), and custom-version suffix comparison (`9e7aff59d`).
+- Adapt each behavior to the local owners. In particular, SMTP test handlers
+  remain in the local monolithic `setting_handler.go`; do not import the
+  upstream split-file topology or unrelated surrounding changes.
+- Preserve Responses event ordering, usage/failover/billing behavior, explicit
+  SMTP `true`/`false` overrides, and ordinary semantic-version comparisons.
+- Schema, migrations, repositories, provider traffic, frontend, dependencies,
+  VERSION, containers, deployment, shared data, push and `outputs/**` are
+  excluded. Contract:
+  `docs/workflow/tasks/upstream-v0184-compat-fixes-s276.md`.
+
 ## Usage Billing Multiplier Breakdown Addendum (S275)
 
 - Keep the persisted composite `usage_logs.rate_multiplier`, `total_cost`,

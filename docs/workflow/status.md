@@ -1,13 +1,65 @@
 ---
 phase: done
-current_sprint: usage-billing-multiplier-breakdown-s275
-total_sprints: 275
-pending_action: S275 product change is committed locally as 27daa1f2a; workflow evidence is recorded in the companion documentation commit and the handoff follows separately. No push, billing, schema, history, provider, container, deployment or shared-data action is authorized; preserve all unrelated dirty paths and outputs.
+current_sprint: upstream-v0184-compat-fixes-s276
+total_sprints: 276
+pending_action: S276 is committed locally after independent QA PASS. Preserve unrelated dirty paths and outputs; do not push unless explicitly requested. Next legal action is a new Planner contract for S277.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-08-31 17:21 +08:00
+last_verified: 2026-08-31 22:18 +08:00
 ---
+
+# Upstream v0.1.184 Compatibility Fixes S276
+
+- `contract-draft`: port the Anthropic-to-Responses stream lifecycle/content
+  index repair, streamed Anthropic tool argument placeholder repair, saved SMTP
+  TLS fallback for test endpoints, and custom version suffix comparison.
+- The work must use local owners and focused regressions. Whole-history merge,
+  cherry-pick, frontend, schema, migrations, billing, provider traffic,
+  dependencies, VERSION, containers, deployment, shared data, push and
+  `outputs/**` are excluded. Contract:
+  `docs/workflow/tasks/upstream-v0184-compat-fixes-s276.md`.
+- Protected user changes remain in API-key route breaker/auth files,
+  `backend/internal/service/admin_service.go`, the Pixel Cafe admin view and
+  `outputs/**`.
+- `PASS / contract-review`: all four behaviors map to existing local owners,
+  the SMTP split-file topology is explicitly adapted, tests cover the critical
+  positive/negative cases, and the approved allowlist does not overlap current
+  protected dirty files. Terra Developer implementation is authorized.
+- `BLOCKED / generator-dispatch`: `gpt-5.6-terra` returned HTTP 403 with
+  `No available group route matches the requested model or request type`
+  before processing the prompt. Cost and token usage are zero; the task
+  worktree is clean and no business source or external state changed. Report:
+  `docs/workflow/worker-results/upstream-v0184-compat-fixes-s276-result.md`.
+- `AUTHORIZED / model-exception`: the user explicitly approved
+  `gpt-5.6-sol` for both the S276 Developer Worker and independent QA. The
+  contract and review record this S276-only exception; the global Agent Matrix
+  remains unchanged.
+- `BLOCKED / generator-dispatch-retry`: the Sol retry also returned HTTP 403
+  with `No available group route matches the requested model or request type`
+  before processing the prompt. Both attempts used zero tokens/cost; the
+  task worktree remained clean and no business source or external state
+  changed. Worker report records both attempts.
+- `DONE / generator`: after the user authorized a collaboration sub-agent as
+  the alternate execution path, the Developer implemented all four bounded
+  behaviors in the approved allowlist. Controller findings added the upstream
+  current-buffer stream state and real Chat/Responses/native tool-argument
+  path regressions. Worker report:
+  `docs/workflow/worker-results/upstream-v0184-compat-fixes-s276-result.md`.
+- `PASS / controller-review`: seven stream lifecycle regressions, five gateway
+  tool-argument paths, both native bridges, both SMTP request types, version
+  suffix and ordinary-version comparisons passed ten iterations. Default-tag
+  affected packages and server compile passed; gofmt, diff, conflict, exact
+  allowlist and protected-file hash gates passed. Full unit-tag service
+  compilation remains blocked by pre-existing tests outside the S276 diff.
+- `PASS / final-qa`: independent `gpt-5.6-sol` QA passed the same focused
+  regressions, default affected packages, server compile, formatting, diff,
+  conflict, exact allowlist and protected-hash gates. The full unit-tag service
+  baseline failure remains unowned by S276. QA report:
+  `docs/workflow/qa-reports/upstream-v0184-compat-fixes-s276-qa.md`.
+- `PASS / local-commit`: the exact S276 product/test scope and worker/QA
+  evidence are committed locally; no push, provider, database, container,
+  deployment or shared-data action was performed.
 
 # Usage Billing Multiplier Breakdown S275
 

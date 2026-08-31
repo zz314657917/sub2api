@@ -1,57 +1,44 @@
 # 当前任务快照
 
-最后更新：2026-08-31 17:23 +08:00
+最后更新：2026-08-31 22:18 +08:00
 
 ## 背景
 
-- S275 修复 APIMart 图片余额换算倍率被误展示成分组/用户计价倍率的问题。
-- Earlier task snapshots were archived by pge-compact at 20260831T062627697Z.
+- 用户要求检查 `v0.1.184` 上游差异并选择可安全合入本地的行为。
+- 只读审计已拒绝整体 merge/cherry-pick，并把近期候选拆为 S276-S279。
+- 当前先执行 S276：四项互不扩张的后端兼容修复。
 
 ## 当前目标
 
-- S275 的实现、独立 QA 和本地提交均已完成；保持未推送状态。
+- 审核并执行 `upstream-v0184-compat-fixes-s276` contract。
+- 按本地拓扑移植 Anthropic-to-Responses 流式生命周期、Anthropic 工具参数、SMTP 测试 TLS fallback 和版本后缀比较修复。
 
-## 本次已完成
+## 当前状态
 
-- 产品与回归测试已提交为 `27daa1f2a`：只读投影
-  `pricing_rate_multiplier` / `balance_conversion_multiplier`，用户端、管理端和导出
-  分别展示计价倍率、余额换算与综合倍率。
-- workflow contract/review/result/QA 与历史压缩归档已提交为 `641d0d341`。
-- 未修改实际扣费、余额、`total_cost`、`actual_cost`、持久化
-  `rate_multiplier`、schema、migration 或 repository SQL。
+- Workflow phase: `done`。
+- Contract: `docs/workflow/tasks/upstream-v0184-compat-fixes-s276.md`。
+- Base commit: `a4844cc6b43a3fdf23e91a35e8202bb5eb1d2165`。
+- Contract review: `PASS`；本地 owner、测试命令、allowlist、denied paths 和 base commit 均已确认。
+- `pge-doctor --strict`: 20 checks，0 issues。
+- 外部 `gpt-5.6-terra` 与用户授权的 S276-only `gpt-5.6-sol` 调度均在处理 prompt 前返回 HTTP 403；两次调用均为 0 token/cost。
+- 用户随后明确授权协作子智能体作为 S276 Developer 替代执行路径；实现和两轮 Controller finding 修正均已完成，worker report 首行为 `DONE`。
+- Controller review: `PASS`；7 类 stream regressions、5 条 gateway tool-argument 路径、2 条 native bridge、SMTP 三态、版本后缀和普通版本比较均 x10 通过；默认 tag 的 3 个受影响包和 server compile 通过。
+- `go test -tags unit ./internal/service` 仍被 contract 外的旧测试编译基线阻断，具体为重复 helper、旧函数签名和已删除字段引用；不计为 S276 回归。
+- 独立 QA 已按用户授权由新的协作子智能体完成，只读审查并写入 QA report 首行为 `PASS`；全局 Agent Matrix 不修改。
 
-## 已确认事实
+## 保护边界
 
-- 独立 `gpt-5.6-terra` QA 已通过 service/DTO focused x10、完整受影响 Go 包、
-  server compile、43 个前端 Vitest、typecheck、gofmt、diff/冲突/allowlist 和受保护
-  路径 SHA-256 门禁。
-- 本轮提交前复跑 focused Go、43 个前端 Vitest、`vue-tsc --noEmit` 和两次 staged
-  `git diff --check`，均通过。
-- API-key route breaker、`admin_service.go`、Pixel Cafe 管理页和 `outputs/**` 的既有
-  修改未进入上述提交。
-
-## 待验证点
-
-- 若未来由独立单条详情 API 展示非 official、仅靠 APIMart 账号触发的历史图片记录，
-  需补 `GetByID` Account hydrate；验证方式：新增 repository/service 单条读取回归并核对
-  DTO 拆分字段。当前详情抽屉使用已 hydrate 的列表行，不受影响。
-
-## 当前结论
-
-- `PASS / usage-billing-multiplier-breakdown-s275`：实现、证据和 handoff 已按独立提交
-  整理；当前未 push、未更新容器、未操作数据库或共享数据。
+- 不整体 merge、rebase 或 cherry-pick `v0.1.184`。
+- 保留 API-key route breaker/auth、`backend/internal/service/admin_service.go`、Pixel Cafe 管理页的现有修改和 `outputs/**`。
+- 不 push、不部署、不更新容器，不操作数据库、共享数据或真实 provider。
 
 ## 下一步
 
-- 仅在用户明确要求推送后执行普通 push -> 验证：比较 `HEAD`、`origin/main` 与远端
-  `refs/heads/main`，确认无强推且 ahead/behind 收敛。
-- 如需处理 `GetByID` 关联边界，另开 contract -> 验证：覆盖非 official APIMart
-  账号图片的独立单条查询，不改变持久化账单。
+1. S276 已由 Codex 最终裁决并精确提交本地；不 push。
+2. 如继续上游迁移，进入 S277 Planner：前端本地时间解析、Usage tooltip 和 Claude attribution。
 
-## 验证记录
+## 后续队列
 
-- `go test ./internal/service -run 'TestUsageRateMultiplierBreakdown' -count=1`：PASS。
-- `go test ./internal/handler/dto -run 'TestUsageLogFromService.*MultiplierBreakdown' -count=1`：PASS。
-- `vitest` 两个目标文件：2 files / 43 tests PASS。
-- `pnpm run typecheck`：PASS。
-- 产品提交 `27daa1f2a`；workflow 提交 `641d0d341`；均未推送。
+- S277：前端本地时间解析、Usage tooltip、Claude attribution。
+- S278：带后缀模型的渠道定价归一化。
+- S279：分组部分更新限额；必须额外保护当前脏的 `admin_service.go`。
