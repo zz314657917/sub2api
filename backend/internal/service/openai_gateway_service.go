@@ -408,6 +408,9 @@ type OpenAIGatewayService struct {
 	openaiProxyStreamFailOpenLogAt atomic.Int64
 
 	openaiWSFallbackUntil               sync.Map // key: int64(accountID), value: time.Time
+	openaiAccountRuntimeBlockUntil      sync.Map // key: int64(accountID), value: time.Time
+	openaiAccountRuntimeBlockLocks      sync.Map // key: int64(accountID), value: *sync.Mutex
+	openaiOAuth429RetryStartedAt        sync.Map // key: int64(accountID), value: time.Time
 	openaiOAuth429WindowStartUnixNano   atomic.Int64
 	openaiOAuth429WindowCount           atomic.Int64
 	openaiWSRetryMetrics                openAIWSRetryMetrics
@@ -499,6 +502,9 @@ func NewOpenAIGatewayService(
 		responseHeaderFilter:  compileResponseHeaderFilter(cfg),
 		codexSnapshotThrottle: newAccountWriteThrottle(openAICodexSnapshotPersistMinInterval),
 		openaiModelTransient:  newOpenAIAccountModelTransientState(openAIModelTransientDefaultMax),
+	}
+	if rateLimitService != nil {
+		rateLimitService.SetAccountRuntimeBlocker(svc)
 	}
 	svc.logOpenAIWSModeBootstrap()
 	return svc
@@ -2712,7 +2718,7 @@ func (s *OpenAIGatewayService) failoverOpenAIUpstreamHTTPError(
 	}
 	s.handleOpenAIAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, responseBody, requestedModel)
 	retryLimit, retryBackoffBase := openAISameAccountRetryPolicy(upstreamMsg, responseBody)
-	return &UpstreamFailoverError{
+	failoverErr := &UpstreamFailoverError{
 		StatusCode:                  resp.StatusCode,
 		ResponseBody:                responseBody,
 		ResponseHeaders:             resp.Header.Clone(),
@@ -2720,6 +2726,7 @@ func (s *OpenAIGatewayService) failoverOpenAIUpstreamHTTPError(
 		SameAccountRetryLimit:       retryLimit,
 		SameAccountRetryBackoffBase: retryBackoffBase,
 	}
+	return s.applyOpenAIOAuth429Retry(account, resp.StatusCode, false, resp.Header, responseBody, failoverErr)
 }
 
 func (s *OpenAIGatewayService) handleFailoverSideEffects(ctx context.Context, resp *http.Response, account *Account, responseBody []byte, requestedModel ...string) {
@@ -3670,7 +3677,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 
 				s.handleFailoverSideEffects(ctx, resp, account, respBody, upstreamModel)
 				retryLimit, retryBackoffBase := openAISameAccountRetryPolicy(upstreamMsg, respBody)
-				return nil, &UpstreamFailoverError{
+				failoverErr := &UpstreamFailoverError{
 					StatusCode:   resp.StatusCode,
 					ResponseBody: respBody,
 					RetryableOnSameAccount: retryLimit > 0 ||
@@ -3678,6 +3685,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 					SameAccountRetryLimit:       retryLimit,
 					SameAccountRetryBackoffBase: retryBackoffBase,
 				}
+				return nil, s.applyOpenAIOAuth429Retry(account, resp.StatusCode, false, resp.Header, respBody, failoverErr)
 			}
 			return s.handleErrorResponse(ctx, resp, c, account, body, upstreamModel)
 		}
@@ -4352,7 +4360,7 @@ func (s *OpenAIGatewayService) handleFailoverErrorResponsePassthrough(
 		UpstreamResponseBody: upstreamDetail,
 	})
 	retryLimit, retryBackoffBase := openAISameAccountRetryPolicy(upstreamMsg, body)
-	return &UpstreamFailoverError{
+	failoverErr := &UpstreamFailoverError{
 		StatusCode:                  resp.StatusCode,
 		ResponseBody:                body,
 		ResponseHeaders:             resp.Header.Clone(),
@@ -4360,6 +4368,7 @@ func (s *OpenAIGatewayService) handleFailoverErrorResponsePassthrough(
 		SameAccountRetryLimit:       retryLimit,
 		SameAccountRetryBackoffBase: retryBackoffBase,
 	}
+	return s.applyOpenAIOAuth429Retry(account, resp.StatusCode, false, resp.Header, body, failoverErr)
 }
 
 func (s *OpenAIGatewayService) handleErrorResponsePassthrough(

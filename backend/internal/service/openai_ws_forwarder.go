@@ -4737,7 +4737,7 @@ func (s *OpenAIGatewayService) persistOpenAIWSRateLimitSignal(ctx context.Contex
 	if !isOpenAIWSRateLimitError(codeRaw, errTypeRaw, msgRaw) {
 		return
 	}
-	s.recordOpenAIOAuth429(account)
+	s.markOpenAIOAuth429RateLimited(ctx, account, headers, responseBody)
 	s.rateLimitService.HandleUpstreamError(ctx, account, http.StatusTooManyRequests, headers, responseBody)
 }
 

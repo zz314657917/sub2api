@@ -29,8 +29,17 @@ type RateLimitService struct {
 	openAI403CounterCache OpenAI403CounterCache
 	settingService        *SettingService
 	tokenCacheInvalidator TokenCacheInvalidator
+	runtimeBlocker        AccountRuntimeBlocker
 	usageCacheMu          sync.RWMutex
 	usageCache            map[int64]*geminiUsageCacheEntry
+}
+
+// AccountRuntimeBlocker mirrors durable account scheduling changes into the
+// gateway's in-process scheduler state. It is optional so existing service
+// callers and test doubles remain source-compatible.
+type AccountRuntimeBlocker interface {
+	BlockAccountScheduling(account *Account, until time.Time, reason string)
+	ClearAccountSchedulingBlock(accountID int64)
 }
 
 // SuccessfulTestRecoveryResult 表示测试成功后恢复了哪些运行时状态。
@@ -101,6 +110,26 @@ func (s *RateLimitService) SetSettingService(settingService *SettingService) {
 // SetTokenCacheInvalidator 设置 token 缓存清理器（可选依赖）
 func (s *RateLimitService) SetTokenCacheInvalidator(invalidator TokenCacheInvalidator) {
 	s.tokenCacheInvalidator = invalidator
+}
+
+func (s *RateLimitService) SetAccountRuntimeBlocker(blocker AccountRuntimeBlocker) {
+	if s != nil {
+		s.runtimeBlocker = blocker
+	}
+}
+
+func (s *RateLimitService) notifyAccountSchedulingBlocked(account *Account, until time.Time, reason string) {
+	if s == nil || s.runtimeBlocker == nil || account == nil {
+		return
+	}
+	s.runtimeBlocker.BlockAccountScheduling(account, until, reason)
+}
+
+func (s *RateLimitService) notifyAccountSchedulingBlockCleared(accountID int64) {
+	if s == nil || s.runtimeBlocker == nil || accountID <= 0 {
+		return
+	}
+	s.runtimeBlocker.ClearAccountSchedulingBlock(accountID)
 }
 
 // ErrorPolicyResult 表示错误策略检查的结果
@@ -865,6 +894,16 @@ func (s *RateLimitService) handleCustomErrorCode(ctx context.Context, account *A
 // handle429 处理429限流错误
 // 解析响应头获取重置时间，标记账号为限流状态
 func (s *RateLimitService) handle429(ctx context.Context, account *Account, headers http.Header, responseBody []byte) {
+	// The gateway owns a bounded retry window for ordinary OpenAI OAuth 429s.
+	// Do not persist a cooldown before that window is exhausted; otherwise the
+	// next same-account attempt would be filtered out by the scheduler.
+	if account != nil && isOpenAIOAuthAccount(account) && s != nil && s.runtimeBlocker != nil {
+		if checker, ok := s.runtimeBlocker.(interface {
+			ShouldRetryOpenAIOAuth429(*Account, http.Header, []byte) bool
+		}); ok && checker.ShouldRetryOpenAIOAuth429(account, headers, responseBody) {
+			return
+		}
+	}
 	// Spark shadows have an independent bengalfox dimension. /responses 429
 	// headers describe the parent's global Codex pool and must never persist or
 	// trip the ordinary global-429 path for the shadow.
@@ -882,6 +921,7 @@ func (s *RateLimitService) handle429(ctx context.Context, account *Account, head
 			return
 		}
 		if resetAt := s.calculateOpenAI429ResetTime(headers); resetAt != nil {
+			s.notifyAccountSchedulingBlocked(account, *resetAt, "429")
 			if err := s.accountRepo.SetRateLimited(ctx, account.ID, *resetAt); err != nil {
 				slog.Warn("rate_limit_set_failed", "account_id", account.ID, "error", err)
 				return
@@ -922,6 +962,7 @@ func (s *RateLimitService) handle429(ctx context.Context, account *Account, head
 			// 尝试解析 OpenAI 的 usage_limit_reached 错误
 			if resetAt := parseOpenAIRateLimitResetTime(responseBody); resetAt != nil {
 				resetTime := time.Unix(*resetAt, 0)
+				s.notifyAccountSchedulingBlocked(account, resetTime, "429")
 				if err := s.accountRepo.SetRateLimited(ctx, account.ID, resetTime); err != nil {
 					slog.Warn("rate_limit_set_failed", "account_id", account.ID, "error", err)
 					return
@@ -971,6 +1012,7 @@ func (s *RateLimitService) handle429(ctx context.Context, account *Account, head
 	resetAt := time.Unix(ts, 0)
 
 	// 标记限流状态
+	s.notifyAccountSchedulingBlocked(account, resetAt, "429")
 	if err := s.accountRepo.SetRateLimited(ctx, account.ID, resetAt); err != nil {
 		slog.Warn("rate_limit_set_failed", "account_id", account.ID, "error", err)
 		return
@@ -995,6 +1037,7 @@ func (s *RateLimitService) apply429FallbackRateLimit(ctx context.Context, accoun
 
 	resetAt := time.Now().Add(cooldown)
 	slog.Warn("rate_limit_429_fallback_used", "account_id", account.ID, "platform", account.Platform, "reason", reason, "using_default", cooldown.String())
+	s.notifyAccountSchedulingBlocked(account, resetAt, "429_fallback")
 	if err := s.accountRepo.SetRateLimited(ctx, account.ID, resetAt); err != nil {
 		slog.Warn("rate_limit_set_failed", "account_id", account.ID, "error", err)
 	}
@@ -1570,6 +1613,7 @@ func (s *RateLimitService) ClearRateLimit(ctx context.Context, accountID int64) 
 		}
 	}
 	s.ResetOpenAI403Counter(ctx, accountID)
+	s.notifyAccountSchedulingBlockCleared(accountID)
 	return nil
 }
 

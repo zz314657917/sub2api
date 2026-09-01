@@ -185,7 +185,7 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 			})
 			s.handleOpenAIAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody, upstreamModel)
 			retryLimit, retryBackoffBase := openAISameAccountRetryPolicy(upstreamMsg, respBody)
-			return nil, &UpstreamFailoverError{
+			failoverErr := &UpstreamFailoverError{
 				StatusCode:   resp.StatusCode,
 				ResponseBody: respBody,
 				RetryableOnSameAccount: retryLimit > 0 ||
@@ -193,6 +193,7 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 				SameAccountRetryLimit:       retryLimit,
 				SameAccountRetryBackoffBase: retryBackoffBase,
 			}
+			return nil, s.applyOpenAIOAuth429Retry(account, resp.StatusCode, false, resp.Header, respBody, failoverErr)
 		}
 		return s.handleErrorResponse(ctx, resp, c, account, chatBody, upstreamModel)
 	}

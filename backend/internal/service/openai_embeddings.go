@@ -132,13 +132,14 @@ func (s *OpenAIGatewayService) ForwardEmbeddings(
 			})
 			s.handleOpenAIAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody, upstreamModel)
 			capacityRetryLimit := openAIModelCapacityRetryLimit(upstreamMsg, respBody)
-			return nil, &UpstreamFailoverError{
+			failoverErr := &UpstreamFailoverError{
 				StatusCode:   resp.StatusCode,
 				ResponseBody: respBody,
 				RetryableOnSameAccount: capacityRetryLimit > 0 ||
 					(account.IsPoolMode() && (account.IsPoolModeRetryableStatus(resp.StatusCode) || isOpenAITransientProcessingError(resp.StatusCode, upstreamMsg, respBody))),
 				SameAccountRetryLimit: capacityRetryLimit,
 			}
+			return nil, s.applyOpenAIOAuth429Retry(account, resp.StatusCode, false, resp.Header, respBody, failoverErr)
 		}
 		writeOpenAIEmbeddingsUpstreamResponse(c, resp, respBody, s.responseHeaderFilter)
 		return nil, fmt.Errorf("upstream returned status %d", resp.StatusCode)

@@ -286,6 +286,7 @@ func (s *OpenAIGatewayService) tempUnscheduleGrok(ctx context.Context, account *
 	}
 	account.TempUnschedulableUntil = &until
 	account.TempUnschedulableReason = reason
+	s.BlockAccountScheduling(account, until, reason)
 	if s.accountRepo != nil {
 		stateCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), openAITransportErrorStateUpdateTimeout)
 		defer cancel()
