@@ -6,7 +6,18 @@ import (
 	"time"
 )
 
-const modelRateLimitsKey = "model_rate_limits"
+const (
+	modelRateLimitsKey              = "model_rate_limits"
+	openAICodexSparkRateLimitReason = "openai_codex_spark_rate_limit"
+)
+
+func normalizeModelRateLimitLookupKey(modelKey string) string {
+	modelKey = strings.TrimSpace(modelKey)
+	if isCodexSparkModel(modelKey) {
+		return normalizeCodexModel(modelKey)
+	}
+	return modelKey
+}
 
 // isRateLimitActiveForKey 检查指定 key 的限流是否生效
 func (a *Account) isRateLimitActiveForKey(key string) bool {
@@ -36,7 +47,7 @@ func (a *Account) isModelRateLimitedWithContext(ctx context.Context, requestedMo
 	if a.Platform == PlatformAntigravity {
 		modelKey = resolveFinalAntigravityModelKey(ctx, a, requestedModel)
 	}
-	modelKey = strings.TrimSpace(modelKey)
+	modelKey = normalizeModelRateLimitLookupKey(modelKey)
 	if modelKey == "" {
 		return false
 	}
@@ -58,7 +69,7 @@ func (a *Account) GetModelRateLimitRemainingTimeWithContext(ctx context.Context,
 	if a.Platform == PlatformAntigravity {
 		modelKey = resolveFinalAntigravityModelKey(ctx, a, requestedModel)
 	}
-	modelKey = strings.TrimSpace(modelKey)
+	modelKey = normalizeModelRateLimitLookupKey(modelKey)
 	if modelKey == "" {
 		return 0
 	}
