@@ -112,8 +112,11 @@
                 </div>
               </div>
               <div class="flex-shrink-0 text-right">
-                <p class="text-sm font-semibold text-[#a9583e] dark:text-[#f0b89e]">
+                <p v-if="isBillingSettled(log)" class="text-sm font-semibold text-[#a9583e] dark:text-[#f0b89e]">
                   {{ formatUsageCost(log.actual_cost) }}
+                </p>
+                <p v-else class="text-sm font-semibold text-amber-700 dark:text-amber-300" :title="log.billing_error || undefined">
+                  {{ log.billing_status === 'failed' ? t('usage.billingFailed') : t('usage.billingPending') }}
                 </p>
                 <p v-if="log.total_cost !== log.actual_cost" class="text-xs text-gray-400 line-through dark:text-dark-500">
                   {{ formatUsageCost(log.total_cost) }}
@@ -468,6 +471,9 @@ const formatUsageCost = (value: unknown): string =>
     minimumFractionDigits: 4,
     maximumFractionDigits: 4,
   })
+
+const isBillingSettled = (log: Pick<AdminUsageLog, 'billing_status'> | null | undefined): boolean =>
+  !log?.billing_status || log.billing_status === 'applied'
 
 const formatSubscriptionOrderAmount = (order: PaymentOrder): string =>
   formatPaymentAmount(toFiniteNumber(order.pay_amount || order.amount), normalizePaymentCurrency(order.currency))

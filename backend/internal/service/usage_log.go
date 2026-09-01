@@ -12,6 +12,12 @@ const (
 	BillingTypeNewUserTrial int8 = 2 // 新手试用消费池
 )
 
+const (
+	BillingSettlementPending = "pending"
+	BillingSettlementFailed  = "failed"
+	BillingSettlementApplied = "applied"
+)
+
 type RequestType int16
 
 const (
@@ -150,12 +156,16 @@ type UsageLog struct {
 	ImageOutputTokens int
 	ImageOutputCost   float64
 
-	InputCost                 float64
-	OutputCost                float64
-	CacheCreationCost         float64
-	CacheReadCost             float64
-	TotalCost                 float64
-	ActualCost                float64
+	InputCost         float64
+	OutputCost        float64
+	CacheCreationCost float64
+	CacheReadCost     float64
+	TotalCost         float64
+	ActualCost        float64
+	// BillingStatus records settlement independently from the measured cost.
+	// Historical rows default to applied after migration.
+	BillingStatus             string
+	BillingError              *string
 	RateMultiplier            float64
 	LongContextBillingApplied bool
 	// AccountRateMultiplier 账号计费倍率快照（nil 表示历史数据，按 1.0 处理）

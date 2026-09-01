@@ -1666,9 +1666,13 @@ func (h *GatewayHandler) buildUsageData(ctx context.Context, apiKeyID int64) gin
 			"cost":                  dashStats.TotalCost,
 			"actual_cost":           dashStats.TotalActualCost,
 		},
-		"average_duration_ms": dashStats.AverageDurationMs,
-		"rpm":                 dashStats.Rpm,
-		"tpm":                 dashStats.Tpm,
+		"pending_billing_count": dashStats.PendingBillingCount,
+		"failed_billing_count":  dashStats.FailedBillingCount,
+		"pending_billing_cost":  dashStats.PendingBillingCost,
+		"failed_billing_cost":   dashStats.FailedBillingCost,
+		"average_duration_ms":   dashStats.AverageDurationMs,
+		"rpm":                   dashStats.Rpm,
+		"tpm":                   dashStats.Tpm,
 	}
 }
 

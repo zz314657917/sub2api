@@ -120,6 +120,8 @@ export default {
     compositeRate: '综合倍率',
     original: '原始',
     billed: '计费',
+    billingPending: '结算处理中',
+    billingFailed: '结算失败',
     noRecords: '未找到使用记录，请尝试调整筛选条件。',
     failedToLoad: '加载使用记录失败',
     noDataToExport: '没有可导出的数据',

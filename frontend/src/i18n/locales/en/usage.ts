@@ -120,6 +120,8 @@ export default {
     compositeRate: 'Composite rate',
     original: 'Original',
     billed: 'Billed',
+    billingPending: 'Settlement pending',
+    billingFailed: 'Settlement failed',
     noRecords: 'No usage records found. Try adjusting your filters.',
     failedToLoad: 'Failed to load usage logs',
     noDataToExport: 'No data to export',

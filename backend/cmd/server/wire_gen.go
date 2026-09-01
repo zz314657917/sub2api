@@ -142,6 +142,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	balanceNotifyService := service.ProvideBalanceNotifyService(emailService, settingRepository, accountRepository, notificationEmailService)
 	welfareRepository := repository.NewWelfareRepository(client, db)
 	welfareService := service.ProvideWelfareService(welfareRepository, userRepository, redeemCodeRepository, settingRepository, client, apiKeyAuthCacheInvalidator, billingCacheService, systemTicketService)
+	usageBillingSettlementService := service.ProvideUsageBillingSettlementService(usageBillingRepository, usageLogRepository, timingWheelService, welfareService, billingCacheService, deferredService, userRepository, accountRepository, apiKeyAuthCacheInvalidator, affiliateService, balanceNotifyService)
 	openAIVideoTaskRepository := repository.NewOpenAIVideoTaskRepository(db)
 	backupObjectStoreFactory := repository.NewS3BackupStoreFactory()
 	membershipRepository := repository.NewMembershipRepository(db)
@@ -366,11 +367,12 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	cafeRoomLifecycleService := service.ProvideCafeRoomLifecycleService(client, groupBuyService, cafeRoomActivationService, cafeRoomExpiryService)
 	groupBuyLifecycleService := service.ProvideGroupBuyLifecycleService(groupBuyService, cafeRoomLifecycleService)
 	channelMonitorRunner := service.ProvideChannelMonitorRunner(channelMonitorService, settingService)
-	v2 := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, affiliateRiskScannerService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, schedulerSnapshotService, tokenRefreshService, accountExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, auditLogService, leaderboardLotteryRunner, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, openAIGatewayService, imageCreatorService, scheduledTestRunnerService, backupService, paymentOrderExpiryService, groupBuyLifecycleService, channelMonitorRunner, promptService, upstreamBillingProbeService, cnProviderBalanceCheckService)
+	v2 := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, affiliateRiskScannerService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, schedulerSnapshotService, tokenRefreshService, accountExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, auditLogService, leaderboardLotteryRunner, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, openAIGatewayService, imageCreatorService, scheduledTestRunnerService, backupService, paymentOrderExpiryService, groupBuyLifecycleService, channelMonitorRunner, promptService, upstreamBillingProbeService, cnProviderBalanceCheckService, usageBillingSettlementService)
 	application := &Application{
-		Server:      httpServer,
-		PromptAudit: promptService,
-		Cleanup:     v2,
+		Server:            httpServer,
+		PromptAudit:       promptService,
+		BillingSettlement: usageBillingSettlementService,
+		Cleanup:           v2,
 	}
 	return application, nil
 }
@@ -378,9 +380,10 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 // wire.go:
 
 type Application struct {
-	Server      *http.Server
-	PromptAudit *securityaudit.PromptService
-	Cleanup     func()
+	Server            *http.Server
+	PromptAudit       *securityaudit.PromptService
+	BillingSettlement *service.UsageBillingSettlementService
+	Cleanup           func()
 }
 
 func providePrivacyClientFactory() service.PrivacyClientFactory {
@@ -432,6 +435,7 @@ func provideCleanup(
 	promptAudit *securityaudit.PromptService,
 	upstreamBillingProbe *service.UpstreamBillingProbeService,
 	cnProviderBalanceCheck *service.CNProviderBalanceCheckService,
+	billingSettlement *service.UsageBillingSettlementService,
 ) func() {
 	return func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -443,6 +447,12 @@ func provideCleanup(
 		}
 
 		parallelSteps := []cleanupStep{
+			{"UsageBillingSettlementService", func() error {
+				if billingSettlement != nil {
+					billingSettlement.Stop()
+				}
+				return nil
+			}},
 			{"CNProviderBalanceCheckService", func() error {
 				if cnProviderBalanceCheck != nil {
 					cnProviderBalanceCheck.Stop()

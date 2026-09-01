@@ -233,6 +233,22 @@ func TestUsageLogFromServiceMultiplierBreakdownFallsBackForOrdinaryUsage(t *test
 	require.InDelta(t, 1, got.BalanceConversionMultiplier, 1e-12)
 }
 
+func TestUsageLogFromServiceBillingErrorIsAdminOnly(t *testing.T) {
+	t.Parallel()
+
+	errorMessage := "database connection reset"
+	log := &service.UsageLog{
+		BillingStatus: service.BillingSettlementFailed,
+		BillingError:  &errorMessage,
+	}
+
+	user := UsageLogFromService(log)
+	admin := UsageLogFromServiceAdmin(log)
+	require.Equal(t, service.BillingSettlementFailed, user.BillingStatus)
+	require.Nil(t, user.BillingError)
+	require.Equal(t, &errorMessage, admin.BillingError)
+}
+
 func f64Ptr(value float64) *float64 {
 	return &value
 }

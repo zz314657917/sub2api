@@ -64,6 +64,8 @@ export default {
     totalCacheRead: 'Total Cache Read',
     totalCost: 'Total Cost',
     avgDuration: 'Avg Duration',
+    pendingBilling: 'Billing pending',
+    failedBilling: 'Billing failed',
     // Messages
     enterApiKey: 'Please enter an API Key',
     querySuccess: 'Query successful',

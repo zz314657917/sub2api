@@ -677,6 +677,7 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 		CacheReadCost:               l.CacheReadCost,
 		TotalCost:                   l.TotalCost,
 		ActualCost:                  l.ActualCost,
+		BillingStatus:               l.BillingStatus,
 		RateMultiplier:              l.RateMultiplier,
 		PricingRateMultiplier:       pricingRateMultiplier,
 		BalanceConversionMultiplier: balanceConversionMultiplier,
@@ -726,8 +727,10 @@ func UsageLogFromServiceAdmin(l *service.UsageLog) *AdminUsageLog {
 	if l == nil {
 		return nil
 	}
+	usage := usageLogFromServiceUser(l)
+	usage.BillingError = l.BillingError
 	return &AdminUsageLog{
-		UsageLog:              usageLogFromServiceUser(l),
+		UsageLog:              usage,
 		UpstreamModel:         l.UpstreamModel,
 		ChannelID:             l.ChannelID,
 		ModelMappingChain:     l.ModelMappingChain,

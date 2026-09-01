@@ -49,6 +49,8 @@ const messages: Record<string, string> = {
   'usage.imageSizeUnknown': 'unknown',
   'usage.imageUnitPrice': 'Per-image price',
   'usage.imageTotalPrice': 'Image total price',
+  'usage.billingPending': 'Settlement pending',
+  'usage.billingFailed': 'Settlement failed',
   'admin.usage.billingModeToken': 'Token',
   'admin.usage.billingModePerRequest': 'Per request',
   'admin.usage.billingModeImage': 'Image',
@@ -138,6 +140,19 @@ describe('admin UsageTable tooltip', () => {
     })
 
     expect(wrapper.get('[data-testid="long-context-billing-marker"]').text()).toBe('x2')
+  })
+
+  it('does not present an unsettled cost as a completed charge', () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{ ...baseImageRow, request_id: 'req-admin-pending', billing_status: 'pending' }],
+        loading: false,
+        columns: [],
+      },
+      global: { stubs: { DataTable: DataTableStub, EmptyState: true, Icon: true, Teleport: true } },
+    })
+
+    expect(wrapper.find('span.text-amber-700').text()).toBe('Settlement pending')
   })
 
   it('renders paired first-token and total-duration health states', () => {

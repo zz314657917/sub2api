@@ -1890,6 +1890,8 @@ export interface UsageLog {
   cache_read_cost: number
   total_cost: number
   actual_cost: number
+  billing_status: 'pending' | 'failed' | 'applied'
+  billing_error?: string | null
   rate_multiplier: number
   pricing_rate_multiplier?: number
   balance_conversion_multiplier?: number

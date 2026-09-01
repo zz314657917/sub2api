@@ -169,7 +169,15 @@
         <template #cell-cost="{ row }">
           <div class="text-sm">
             <div class="flex items-center gap-1.5">
-              <span class="font-medium text-[#a9583e] dark:text-[#f0b89e]">${{ row.actual_cost?.toFixed(6) || '0.000000' }}</span>
+              <span
+                v-if="isBillingSettled(row)"
+                class="font-medium text-[#a9583e] dark:text-[#f0b89e]"
+              >${{ row.actual_cost?.toFixed(6) || '0.000000' }}</span>
+              <span
+                v-else
+                class="font-medium text-amber-700 dark:text-amber-300"
+                :title="row.billing_error || undefined"
+              >{{ row.billing_status === 'failed' ? t('usage.billingFailed') : t('usage.billingPending') }}</span>
               <span
                 v-if="row.long_context_billing_applied"
                 data-testid="long-context-billing-marker"
@@ -431,7 +439,10 @@
           </div>
           <div class="flex items-center justify-between gap-6">
             <span class="text-[#6c6a64] dark:text-gray-400">{{ t('usage.userBilled') }}</span>
-            <span class="font-semibold text-[#a9583e] dark:text-[#f0b89e]">${{ tooltipData?.actual_cost?.toFixed(6) || '0.000000' }}</span>
+            <span v-if="isBillingSettled(tooltipData)" class="font-semibold text-[#a9583e] dark:text-[#f0b89e]">${{ tooltipData?.actual_cost?.toFixed(6) || '0.000000' }}</span>
+            <span v-else class="font-semibold text-amber-700 dark:text-amber-300" :title="tooltipData?.billing_error || undefined">
+              {{ tooltipData?.billing_status === 'failed' ? t('usage.billingFailed') : t('usage.billingPending') }}
+            </span>
           </div>
           <!-- Account billing (separated from user billing) -->
           <div class="flex items-center justify-between gap-6 border-t border-[#d8cec2] pt-1.5 dark:border-gray-700">
@@ -558,6 +569,11 @@ defineEmits<{
   sort: [key: string, order: 'asc' | 'desc']
 }>()
 const { t } = useI18n()
+
+// Legacy API responses may omit billing_status; those rows predate the
+// settlement migration and retain the historical applied interpretation.
+const isBillingSettled = (row: Pick<AdminUsageLog, 'billing_status'> | null | undefined): boolean =>
+  !row?.billing_status || row.billing_status === 'applied'
 
 // Tooltip state - cost
 const tooltipVisible = ref(false)

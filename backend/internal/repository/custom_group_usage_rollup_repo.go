@@ -24,7 +24,7 @@ WITH state_values AS (
 ), historical AS (
  SELECT rollup.group_id, COALESCE(SUM(rollup.actual_cost), 0) AS actual_cost, COALESCE(SUM(rollup.actual_cost) FILTER (WHERE rollup.bucket_date = $5::date), 0) AS yesterday_cost FROM usage_group_daily_rollups rollup CROSS JOIN state WHERE state.valid AND rollup.bucket_date >= (state.retained_from AT TIME ZONE $3::text)::date AND rollup.bucket_date < state.closed_before GROUP BY rollup.group_id
 ), tail AS (
- SELECT ul.group_id, COALESCE(SUM(ul.actual_cost), 0) AS actual_cost, COALESCE(SUM(ul.actual_cost) FILTER (WHERE ul.created_at >= $1), 0) AS today_cost, COALESCE(SUM(ul.actual_cost) FILTER (WHERE ul.created_at >= $2 AND ul.created_at < $1), 0) AS yesterday_cost FROM usage_logs ul CROSS JOIN state WHERE ul.created_at >= state.tail_start GROUP BY ul.group_id
+ SELECT ul.group_id, COALESCE(SUM(CASE WHEN ul.billing_status = 'applied' THEN ul.actual_cost ELSE 0 END), 0) AS actual_cost, COALESCE(SUM(CASE WHEN ul.billing_status = 'applied' THEN ul.actual_cost ELSE 0 END) FILTER (WHERE ul.created_at >= $1), 0) AS today_cost, COALESCE(SUM(CASE WHEN ul.billing_status = 'applied' THEN ul.actual_cost ELSE 0 END) FILTER (WHERE ul.created_at >= $2 AND ul.created_at < $1), 0) AS yesterday_cost FROM usage_logs ul CROSS JOIN state WHERE ul.created_at >= state.tail_start GROUP BY ul.group_id
 )
 SELECT g.id, COALESCE(historical.actual_cost, 0) + COALESCE(tail.actual_cost, 0), COALESCE(tail.today_cost, 0), COALESCE(historical.yesterday_cost, 0) + COALESCE(tail.yesterday_cost, 0) FROM groups g LEFT JOIN historical ON historical.group_id = g.id LEFT JOIN tail ON tail.group_id = g.id ORDER BY g.id`
 	rows, err := r.sql.QueryContext(ctx, query, todayStart, yesterdayStart, timezoneName, todayDate, yesterdayDate)
@@ -121,7 +121,7 @@ func (r *dashboardAggregationRepository) syncGroupUsageRollupsInTx(ctx context.C
 	if _, err := r.sql.ExecContext(ctx, `DELETE FROM usage_group_daily_rollups WHERE bucket_date < $1::date OR (bucket_date >= $2::date AND bucket_date < $3::date) OR bucket_date >= $3::date`, retainedDate, rebuildStartDate, todayDate); err != nil {
 		return fmt.Errorf("clear group usage day buckets: %w", err)
 	}
-	if _, err := r.sql.ExecContext(ctx, `INSERT INTO usage_group_daily_rollups (bucket_date, group_id, actual_cost, computed_at) SELECT (created_at AT TIME ZONE $3::text)::date, group_id, COALESCE(SUM(actual_cost), 0), NOW() FROM usage_logs WHERE group_id IS NOT NULL AND created_at >= $1 AND created_at < $2 GROUP BY 1, 2 ON CONFLICT (bucket_date, group_id) DO UPDATE SET actual_cost = EXCLUDED.actual_cost, computed_at = EXCLUDED.computed_at`, rebuildStart.UTC(), todayStart.UTC(), timezoneName); err != nil {
+	if _, err := r.sql.ExecContext(ctx, `INSERT INTO usage_group_daily_rollups (bucket_date, group_id, actual_cost, computed_at) SELECT (created_at AT TIME ZONE $3::text)::date, group_id, COALESCE(SUM(CASE WHEN billing_status = 'applied' THEN actual_cost ELSE 0 END), 0), NOW() FROM usage_logs WHERE group_id IS NOT NULL AND created_at >= $1 AND created_at < $2 GROUP BY 1, 2 ON CONFLICT (bucket_date, group_id) DO UPDATE SET actual_cost = EXCLUDED.actual_cost, computed_at = EXCLUDED.computed_at`, rebuildStart.UTC(), todayStart.UTC(), timezoneName); err != nil {
 		return fmt.Errorf("rebuild group usage day buckets: %w", err)
 	}
 	if _, err := r.sql.ExecContext(ctx, `UPDATE usage_group_rollup_state SET closed_before = $1::date, retained_from = $2, timezone_name = $3, updated_at = NOW() WHERE id = 1`, todayDate, retainedFrom, timezoneName); err != nil {

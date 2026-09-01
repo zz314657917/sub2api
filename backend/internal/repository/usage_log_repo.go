@@ -28,7 +28,7 @@ import (
 	gocache "github.com/patrickmn/go-cache"
 )
 
-const usageLogSelectColumns = "id, user_id, api_key_id, account_id, request_id, model, requested_model, upstream_model, group_id, subscription_id, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, cache_creation_5m_tokens, cache_creation_1h_tokens, image_output_tokens, image_output_cost, image_input_tokens, image_input_cost, input_cost, output_cost, cache_creation_cost, cache_read_cost, total_cost, actual_cost, rate_multiplier, long_context_billing_applied, account_rate_multiplier, billing_type, request_type, stream, openai_ws_mode, duration_ms, first_token_ms, user_agent, ip_address, session_id, image_count, image_size, image_input_size, image_output_size, image_size_source, image_size_breakdown, service_tier, reasoning_effort, inbound_endpoint, upstream_endpoint, cache_ttl_overridden, channel_id, model_mapping_chain, billing_tier, billing_mode, account_stats_cost, media_type, created_at"
+const usageLogSelectColumns = "id, user_id, api_key_id, account_id, request_id, model, requested_model, upstream_model, group_id, subscription_id, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, cache_creation_5m_tokens, cache_creation_1h_tokens, image_output_tokens, image_output_cost, image_input_tokens, image_input_cost, input_cost, output_cost, cache_creation_cost, cache_read_cost, total_cost, actual_cost, rate_multiplier, long_context_billing_applied, account_rate_multiplier, billing_type, request_type, stream, openai_ws_mode, duration_ms, first_token_ms, user_agent, ip_address, session_id, image_count, image_size, image_input_size, image_output_size, image_size_source, image_size_breakdown, service_tier, reasoning_effort, inbound_endpoint, upstream_endpoint, cache_ttl_overridden, channel_id, model_mapping_chain, billing_tier, billing_mode, account_stats_cost, media_type, created_at, billing_status, billing_error"
 
 // usageLogInsertArgTypes must stay in the same order as:
 //  1. prepareUsageLogInsert().args
@@ -104,13 +104,19 @@ const rawUsageLogModelColumn = "model"
 // usageLogSuccessFilterUL 用于把"失败请求 usage log"（tokens=0、cost=0、不计费的占位记录）
 // 从统计性聚合中排除，避免污染 Dashboard / 用量拆分等指标。
 //
-// schema 中没有 success bool 列；新增列要做迁移，风险大；这里用 actual_cost > 0 作为代理：
-// 任何成功落账的请求都会产生 actual_cost（包括 token 计费、纯图片 token 计费、按次/按图计费），
-// 反之 failed-request usage log 的 actual_cost 为 0。
+// 结算状态与成本分离：只有 applied 的请求才进入已完成计费统计；
+// pending/failed 即使保留 actual_cost，也不能被当作已扣款。
 // 早期版本用 4 项 token 和 > 0 判定会把"按次/按图计费"与"image_output_tokens 独立计费"的纯图片
 // 请求误判为失败，导致这部分请求从用量统计里消失，故改用 actual_cost。
 // 配合 `FROM usage_logs ul` JOIN 查询使用。
-const usageLogSuccessFilterUL = "ul.actual_cost > 0"
+const usageLogSuccessFilterUL = "ul.billing_status = 'applied' AND ul.actual_cost > 0"
+
+// usageLogAppliedActualCostExpr is the user-facing "actually charged" cost
+// expression. A usage log keeps the measured cost while settlement is pending
+// or failed, so every user/API-key/reporting aggregate must explicitly include
+// only rows whose billing side effects were applied.
+const usageLogAppliedActualCostExpr = "COALESCE(SUM(CASE WHEN billing_status = 'applied' THEN actual_cost ELSE 0 END), 0)"
+const usageLogAppliedActualCostExprUL = "COALESCE(SUM(CASE WHEN ul.billing_status = 'applied' THEN ul.actual_cost ELSE 0 END), 0)"
 
 // usageLogEffectivePlatformExpr 用于按"有效平台"维度聚合 usage_logs：
 // 优先取请求实际走的分组 platform，若分组未设置 platform 再 fallback 到 account.platform。
@@ -352,6 +358,395 @@ func (r *usageLogRepository) Create(ctx context.Context, log *service.UsageLog) 
 	}
 	log.RequestID = requestID
 	return r.createBatched(ctx, log)
+}
+
+// CreatePending atomically persists the authoritative usage snapshot and its
+// local billing replay command. It is intentionally separate from Create so
+// existing callers and test doubles keep their original contract.
+func (r *usageLogRepository) CreatePending(ctx context.Context, log *service.UsageLog, cmd *service.UsageBillingCommand) error {
+	if cmd == nil {
+		return errors.New("usage billing settlement command is nil")
+	}
+	payload := &service.UsageBillingSettlementPayload{Version: 1, Primary: *cmd}
+	return r.CreatePendingPayload(ctx, log, payload)
+}
+
+func (r *usageLogRepository) CreatePendingPayload(ctx context.Context, log *service.UsageLog, payload *service.UsageBillingSettlementPayload) error {
+	_, _, err := r.CreatePendingPayloadWithOwnership(ctx, log, payload)
+	return err
+}
+
+func (r *usageLogRepository) CreatePendingPayloadWithOwnership(ctx context.Context, log *service.UsageLog, payload *service.UsageBillingSettlementPayload) (owned bool, settled bool, err error) {
+	if r == nil || r.db == nil || log == nil || payload == nil {
+		return false, false, errors.New("usage billing settlement repository is not ready")
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, false, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	inserted, err := r.createSingle(ctx, tx, log)
+	if err != nil {
+		return false, false, err
+	}
+	if log.ID <= 0 {
+		return false, false, errors.New("usage billing settlement has no usage log id")
+	}
+	// createSingle also maintains the user daily rollup. A pending log must
+	// retain its measured actual_cost in usage_logs but must not enter the
+	// "actually charged" rollup until settlement is applied.
+	if inserted && log.ActualCost != 0 {
+		if err := adjustUserUsageDailyActualCost(ctx, tx, log, -log.ActualCost); err != nil {
+			return false, false, err
+		}
+	}
+	payload.Primary.UsageLogID = log.ID
+	payload.Primary.Normalize()
+	if payload.Overage != nil {
+		payload.Overage.UsageLogID = log.ID
+		payload.Overage.Normalize()
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return false, false, err
+	}
+	statusPredicate := "billing_status <> 'applied'"
+	if inserted {
+		statusPredicate = "TRUE"
+	}
+	statusResult, err := tx.ExecContext(ctx, `
+		UPDATE usage_logs
+		SET billing_status = 'pending', billing_error = NULL
+		WHERE id = $1 AND `+statusPredicate,
+		log.ID)
+	if err != nil {
+		return false, false, err
+	}
+	statusRows, err := statusResult.RowsAffected()
+	if err != nil {
+		return false, false, err
+	}
+	if statusRows == 0 {
+		// A duplicate request found an already-applied usage log. This is also
+		// the normal state for historical rows created before the outbox
+		// migration, so do not create a new processing task or re-run billing.
+		if err := tx.Commit(); err != nil {
+			return false, false, err
+		}
+		log.BillingStatus = service.BillingSettlementApplied
+		log.BillingError = nil
+		return false, true, nil
+	}
+	outboxResult, err := tx.ExecContext(ctx, `
+		INSERT INTO usage_billing_settlement_outbox (usage_log_id, request_id, api_key_id, payload, status, available_at, lease_until)
+		VALUES ($1, $2, $3, $4::jsonb, 'processing', NOW(), NOW() + (30 * INTERVAL '1 second'))
+		ON CONFLICT (usage_log_id) DO UPDATE
+		SET status = 'processing', available_at = NOW(),
+			lease_until = NOW() + (30 * INTERVAL '1 second'),
+			last_error = NULL, updated_at = NOW()
+		WHERE usage_billing_settlement_outbox.status IN ('pending', 'failed')
+	`, log.ID, payload.Primary.RequestID, payload.Primary.APIKeyID, payloadBytes)
+	if err != nil {
+		return false, false, err
+	}
+	outboxRows, err := outboxResult.RowsAffected()
+	if err != nil {
+		return false, false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return false, false, err
+	}
+	log.BillingStatus = service.BillingSettlementPending
+	log.BillingError = nil
+	return outboxRows > 0, false, nil
+}
+
+// adjustUserUsageDailyActualCost changes only the charged-cost component of
+// the pre-aggregated user daily row. Requests and token counters are written
+// when the usage log is created and must not be duplicated on settlement
+// retries. A positive delta uses an upsert so historical/repaired rows without
+// a rollup bucket can still be reconciled safely.
+func adjustUserUsageDailyActualCost(ctx context.Context, exec sqlExecutor, log *service.UsageLog, delta float64) error {
+	if exec == nil || log == nil || log.UserID <= 0 || delta == 0 {
+		return nil
+	}
+	tzName := usageStatsTimezoneName()
+	if delta > 0 {
+		_, err := exec.ExecContext(ctx, `
+			INSERT INTO user_usage_daily_stats (
+				user_id, usage_date, requests, input_tokens, output_tokens,
+				cache_creation_tokens, cache_read_tokens, tokens, actual_cost,
+				night_requests, updated_at
+			)
+			VALUES ($1, ($2::timestamptz AT TIME ZONE $4)::date, 0, 0, 0, 0, 0, 0, $3, 0, NOW())
+			ON CONFLICT (user_id, usage_date) DO UPDATE SET
+				actual_cost = user_usage_daily_stats.actual_cost + EXCLUDED.actual_cost,
+				updated_at = NOW()
+		`, log.UserID, log.CreatedAt.UTC(), delta, tzName)
+		return err
+	}
+	result, err := exec.ExecContext(ctx, `
+		UPDATE user_usage_daily_stats
+		SET actual_cost = actual_cost + $3, updated_at = NOW()
+		WHERE user_id = $1 AND usage_date = ($2::timestamptz AT TIME ZONE $4)::date
+	`, log.UserID, log.CreatedAt.UTC(), delta, tzName)
+	if err != nil {
+		return err
+	}
+	if rows, err := result.RowsAffected(); err == nil && rows == 0 {
+		return fmt.Errorf("user usage daily rollup missing for user_id=%d created_at=%s", log.UserID, log.CreatedAt.UTC().Format(time.RFC3339))
+	}
+	return nil
+}
+
+func (r *usageLogRepository) MarkPendingError(ctx context.Context, usageLogID int64, billingErr error) error {
+	if r == nil || r.db == nil || usageLogID <= 0 {
+		return errors.New("usage billing settlement repository is not ready")
+	}
+	message := "billing settlement failed"
+	if billingErr != nil {
+		message = billingErr.Error()
+	}
+	_, err := r.db.ExecContext(ctx, `
+		WITH updated AS (
+			UPDATE usage_logs
+			SET billing_status = 'pending', billing_error = $2
+			WHERE id = $1 AND billing_status <> 'applied'
+			RETURNING id
+		)
+		UPDATE usage_billing_settlement_outbox
+		SET status = 'pending', available_at = NOW(), lease_until = NULL,
+			last_error = $2, updated_at = NOW()
+		WHERE usage_log_id IN (SELECT id FROM updated)
+	`, usageLogID, message)
+	return err
+}
+
+func (r *usageLogRepository) MarkApplied(ctx context.Context, usageLogID int64) error {
+	if r == nil || r.db == nil || usageLogID <= 0 {
+		return errors.New("usage billing settlement repository is not ready")
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	var log service.UsageLog
+	err = tx.QueryRowContext(ctx, `
+		UPDATE usage_logs
+		SET billing_status = 'applied', billing_error = NULL
+		WHERE id = $1 AND billing_status <> 'applied'
+		RETURNING user_id, created_at, actual_cost
+	`, usageLogID).Scan(&log.UserID, &log.CreatedAt, &log.ActualCost)
+	if errors.Is(err, sql.ErrNoRows) {
+		// Already applied (or a legacy row without a status transition). The
+		// outbox can still be closed, but the daily charged-cost rollup must not
+		// be incremented a second time.
+		err = nil
+	} else if err != nil {
+		return err
+	} else if log.ActualCost != 0 {
+		if err := adjustUserUsageDailyActualCost(ctx, tx, &log, log.ActualCost); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE usage_billing_settlement_outbox
+		SET status = 'applied', lease_until = NULL, last_error = NULL, updated_at = NOW()
+		WHERE usage_log_id = $1
+	`, usageLogID); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// MarkAppliedAttempt finalizes only the outbox lease that the current worker
+// claimed. The attempts value acts as the lease generation token: when a
+// lease expires and another worker claims the row, the stale worker's update
+// affects no rows and returns marked=false. This prevents an old worker from
+// moving a newer pending/failed attempt back to applied or duplicating its
+// post-settlement side effects.
+func (r *usageLogRepository) MarkAppliedAttempt(ctx context.Context, taskID int64, attempts int, usageLogID int64) (marked bool, err error) {
+	if r == nil || r.db == nil || taskID <= 0 || attempts <= 0 || usageLogID <= 0 {
+		return false, errors.New("usage billing settlement repository is not ready")
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var claimedUsageLogID int64
+	err = tx.QueryRowContext(ctx, `
+		UPDATE usage_billing_settlement_outbox
+		SET status = 'applied', lease_until = NULL, last_error = NULL, updated_at = NOW()
+		WHERE id = $1
+		  AND usage_log_id = $3
+		  AND status = 'processing'
+		  AND attempts = $2
+		RETURNING usage_log_id
+	`, taskID, attempts, usageLogID).Scan(&claimedUsageLogID)
+	if errors.Is(err, sql.ErrNoRows) {
+		// The row may already be applied by the competing worker, or the
+		// lease generation may have moved on. Both cases are safe to ignore;
+		// the caller must not run duplicate side effects.
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	var log service.UsageLog
+	err = tx.QueryRowContext(ctx, `
+		UPDATE usage_logs
+		SET billing_status = 'applied', billing_error = NULL
+		WHERE id = $1 AND billing_status <> 'applied'
+		RETURNING user_id, created_at, actual_cost
+	`, claimedUsageLogID).Scan(&log.UserID, &log.CreatedAt, &log.ActualCost)
+	if errors.Is(err, sql.ErrNoRows) {
+		err = nil
+	} else if err != nil {
+		return false, err
+	} else if log.ActualCost != 0 {
+		if err := adjustUserUsageDailyActualCost(ctx, tx, &log, log.ActualCost); err != nil {
+			return false, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (r *usageLogRepository) ClaimPending(ctx context.Context, limit int, lease time.Duration) ([]service.UsageBillingSettlementTask, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("usage billing settlement repository is not ready")
+	}
+	if limit <= 0 {
+		limit = 32
+	}
+	if lease <= 0 {
+		lease = time.Minute
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	rows, err := tx.QueryContext(ctx, `
+		WITH claimable AS (
+			SELECT id
+			FROM usage_billing_settlement_outbox
+			WHERE (status = 'pending' AND available_at <= NOW())
+			   OR (status = 'processing' AND lease_until <= NOW())
+			ORDER BY id
+			FOR UPDATE SKIP LOCKED
+			LIMIT $1
+		)
+		UPDATE usage_billing_settlement_outbox o
+		SET status = 'processing', attempts = o.attempts + 1,
+			lease_until = NOW() + ($2 * INTERVAL '1 second'), updated_at = NOW()
+		FROM claimable c
+		WHERE o.id = c.id
+		RETURNING o.id, o.usage_log_id, o.payload, o.attempts
+	`, limit, int64(lease.Seconds()))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var tasks []service.UsageBillingSettlementTask
+	type malformedSettlement struct {
+		id, usageLogID int64
+		err            error
+	}
+	var malformed []malformedSettlement
+	for rows.Next() {
+		var task service.UsageBillingSettlementTask
+		var payload []byte
+		if err := rows.Scan(&task.ID, &task.UsageLogID, &payload, &task.Attempts); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(payload, &task.Payload); err != nil {
+			malformed = append(malformed, malformedSettlement{id: task.ID, usageLogID: task.UsageLogID, err: err})
+			continue
+		}
+		if task.Payload.Version == 0 || task.Payload.Primary.RequestID == "" {
+			// Backward compatibility for rows written before the composite
+			// payload was introduced: the payload itself was a command object.
+			if err := json.Unmarshal(payload, &task.Command); err != nil {
+				return nil, fmt.Errorf("decode legacy usage billing settlement payload %d: %w", task.ID, err)
+			}
+			task.Payload = service.UsageBillingSettlementPayload{Version: 1, Primary: task.Command}
+		}
+		task.Command = task.Payload.Primary
+		task.Command.UsageLogID = task.UsageLogID
+		if !task.Command.FinalizeUsageLog && task.Payload.Overage == nil && task.Payload.Trial == nil {
+			task.Command.FinalizeUsageLog = true
+		}
+		task.Payload.Primary.UsageLogID = task.UsageLogID
+		if task.Payload.Overage != nil {
+			task.Payload.Overage.UsageLogID = task.UsageLogID
+		}
+		tasks = append(tasks, task)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(malformed) > 0 {
+		rows.Close()
+		for _, bad := range malformed {
+			message := fmt.Sprintf("decode usage billing settlement payload: %v", bad.err)
+			if _, err := tx.ExecContext(ctx, `
+				UPDATE usage_billing_settlement_outbox
+				SET status = 'failed', lease_until = NULL, last_error = $2, updated_at = NOW()
+				WHERE id = $1
+			`, bad.id, message); err != nil {
+				return nil, err
+			}
+			if _, err := tx.ExecContext(ctx, `
+				UPDATE usage_logs
+				SET billing_status = 'failed', billing_error = $2
+				WHERE id = $1 AND billing_status <> 'applied'
+			`, bad.usageLogID, message); err != nil {
+				return nil, err
+			}
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return tasks, nil
+}
+
+func (r *usageLogRepository) MarkRetry(ctx context.Context, taskID int64, attempts int, billingErr error, nextAttempt time.Time, terminal bool) error {
+	if r == nil || r.db == nil || taskID <= 0 {
+		return errors.New("usage billing settlement repository is not ready")
+	}
+	message := "billing settlement failed"
+	if billingErr != nil {
+		message = billingErr.Error()
+	}
+	status := service.BillingSettlementPending
+	outboxStatus := "pending"
+	if terminal {
+		status = service.BillingSettlementFailed
+		outboxStatus = "failed"
+	}
+	_, err := r.db.ExecContext(ctx, `
+		WITH updated AS (
+			UPDATE usage_billing_settlement_outbox
+			SET status = $2, available_at = $3, lease_until = NULL, last_error = $4, updated_at = NOW()
+			WHERE id = $1 AND status = 'processing' AND attempts = $6
+			RETURNING usage_log_id
+		)
+		UPDATE usage_logs ul
+		SET billing_status = $5, billing_error = $4
+		FROM updated u WHERE ul.id = u.usage_log_id
+	`, taskID, outboxStatus, nextAttempt, message, status, attempts)
+	return err
 }
 
 func (r *usageLogRepository) CreateBestEffort(ctx context.Context, log *service.UsageLog) error {
@@ -1884,7 +2279,7 @@ func (r *usageLogRepository) GetUserStats(ctx context.Context, userID int64, sta
 		SELECT
 			COUNT(*) as total_requests,
 			COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) as total_tokens,
-			COALESCE(SUM(actual_cost), 0) as total_cost,
+			` + usageLogAppliedActualCostExpr + ` as total_cost,
 			COALESCE(SUM(input_tokens), 0) as input_tokens,
 			COALESCE(SUM(output_tokens), 0) as output_tokens,
 			COALESCE(SUM(cache_read_tokens), 0) as cache_read_tokens
@@ -2036,7 +2431,7 @@ func (r *usageLogRepository) fillDashboardUsageStatsAggregated(ctx context.Conte
 			COALESCE(SUM(cache_creation_tokens), 0) as total_cache_creation_tokens,
 			COALESCE(SUM(cache_read_tokens), 0) as total_cache_read_tokens,
 			COALESCE(SUM(total_cost), 0) as total_cost,
-			COALESCE(SUM(actual_cost), 0) as total_actual_cost,
+			` + usageLogAppliedActualCostExpr + ` as total_actual_cost,
 			COALESCE(SUM(account_cost), 0) as total_account_cost,
 			COALESCE(SUM(total_duration_ms), 0) as total_duration_ms
 		FROM usage_dashboard_daily
@@ -2098,7 +2493,6 @@ func (r *usageLogRepository) fillDashboardUsageStatsAggregated(ctx context.Conte
 		}
 	}
 	stats.TodayTokens = stats.TodayInputTokens + stats.TodayOutputTokens + stats.TodayCacheCreationTokens + stats.TodayCacheReadTokens
-
 	hourlyActiveQuery := `
 		SELECT active_users
 		FROM usage_dashboard_hourly
@@ -2139,7 +2533,7 @@ func (r *usageLogRepository) fillDashboardUsageStatsFromUsageLogs(ctx context.Co
 			COALESCE(SUM(cache_creation_tokens) FILTER (WHERE created_at >= $1::timestamptz AND created_at < $2::timestamptz), 0) AS total_cache_creation_tokens,
 			COALESCE(SUM(cache_read_tokens) FILTER (WHERE created_at >= $1::timestamptz AND created_at < $2::timestamptz), 0) AS total_cache_read_tokens,
 			COALESCE(SUM(total_cost) FILTER (WHERE created_at >= $1::timestamptz AND created_at < $2::timestamptz), 0) AS total_cost,
-			COALESCE(SUM(actual_cost) FILTER (WHERE created_at >= $1::timestamptz AND created_at < $2::timestamptz), 0) AS total_actual_cost,
+			COALESCE(SUM(CASE WHEN billing_status = 'applied' THEN actual_cost ELSE 0 END) FILTER (WHERE created_at >= $1::timestamptz AND created_at < $2::timestamptz), 0) AS total_actual_cost,
 			COALESCE(SUM(account_cost) FILTER (WHERE created_at >= $1::timestamptz AND created_at < $2::timestamptz), 0) AS total_account_cost,
 			COALESCE(SUM(duration_ms) FILTER (WHERE created_at >= $1::timestamptz AND created_at < $2::timestamptz), 0) AS total_duration_ms,
 			COUNT(*) FILTER (WHERE created_at >= $3::timestamptz AND created_at < $4::timestamptz) AS today_requests,
@@ -2148,7 +2542,7 @@ func (r *usageLogRepository) fillDashboardUsageStatsFromUsageLogs(ctx context.Co
 			COALESCE(SUM(cache_creation_tokens) FILTER (WHERE created_at >= $3::timestamptz AND created_at < $4::timestamptz), 0) AS today_cache_creation_tokens,
 			COALESCE(SUM(cache_read_tokens) FILTER (WHERE created_at >= $3::timestamptz AND created_at < $4::timestamptz), 0) AS today_cache_read_tokens,
 			COALESCE(SUM(total_cost) FILTER (WHERE created_at >= $3::timestamptz AND created_at < $4::timestamptz), 0) AS today_cost,
-			COALESCE(SUM(actual_cost) FILTER (WHERE created_at >= $3::timestamptz AND created_at < $4::timestamptz), 0) AS today_actual_cost,
+			COALESCE(SUM(CASE WHEN billing_status = 'applied' THEN actual_cost ELSE 0 END) FILTER (WHERE created_at >= $3::timestamptz AND created_at < $4::timestamptz), 0) AS today_actual_cost,
 			COALESCE(SUM(account_cost) FILTER (WHERE created_at >= $3::timestamptz AND created_at < $4::timestamptz), 0) AS today_account_cost
 		FROM scoped
 	`
@@ -2227,7 +2621,7 @@ func (r *usageLogRepository) GetUserStatsAggregated(ctx context.Context, userID 
 			COALESCE(SUM(cache_creation_tokens), 0) as total_cache_creation_tokens,
 			COALESCE(SUM(cache_read_tokens), 0) as total_cache_read_tokens,
 			COALESCE(SUM(total_cost), 0) as total_cost,
-			COALESCE(SUM(actual_cost), 0) as total_actual_cost,
+			` + usageLogAppliedActualCostExpr + ` as total_actual_cost,
 			COALESCE(AVG(COALESCE(duration_ms, 0)), 0) as avg_duration_ms
 		FROM usage_logs
 		WHERE user_id = $1 AND created_at >= $2 AND created_at < $3
@@ -2266,7 +2660,7 @@ func (r *usageLogRepository) GetAPIKeyStatsAggregated(ctx context.Context, apiKe
 			COALESCE(SUM(cache_creation_tokens), 0) as total_cache_creation_tokens,
 			COALESCE(SUM(cache_read_tokens), 0) as total_cache_read_tokens,
 			COALESCE(SUM(total_cost), 0) as total_cost,
-			COALESCE(SUM(actual_cost), 0) as total_actual_cost,
+			` + usageLogAppliedActualCostExpr + ` as total_actual_cost,
 			COALESCE(AVG(COALESCE(duration_ms, 0)), 0) as avg_duration_ms
 		FROM usage_logs
 		WHERE api_key_id = $1 AND created_at >= $2 AND created_at < $3
@@ -2315,7 +2709,7 @@ func (r *usageLogRepository) GetAccountStatsAggregated(ctx context.Context, acco
 			COALESCE(SUM(cache_creation_tokens), 0) as total_cache_creation_tokens,
 			COALESCE(SUM(cache_read_tokens), 0) as total_cache_read_tokens,
 			COALESCE(SUM(total_cost), 0) as total_cost,
-			COALESCE(SUM(actual_cost), 0) as total_actual_cost,
+			` + usageLogAppliedActualCostExpr + ` as total_actual_cost,
 			COALESCE(AVG(COALESCE(duration_ms, 0)), 0) as avg_duration_ms
 		FROM usage_logs
 		WHERE account_id = $1 AND created_at >= $2 AND created_at < $3
@@ -2355,7 +2749,7 @@ func (r *usageLogRepository) GetModelStatsAggregated(ctx context.Context, modelN
 			COALESCE(SUM(cache_creation_tokens), 0) as total_cache_creation_tokens,
 			COALESCE(SUM(cache_read_tokens), 0) as total_cache_read_tokens,
 			COALESCE(SUM(total_cost), 0) as total_cost,
-			COALESCE(SUM(actual_cost), 0) as total_actual_cost,
+			`+usageLogAppliedActualCostExpr+` as total_actual_cost,
 			COALESCE(AVG(COALESCE(duration_ms, 0)), 0) as avg_duration_ms
 		FROM usage_logs
 		WHERE %s = $1 AND created_at >= $2 AND created_at < $3
@@ -2396,7 +2790,7 @@ func (r *usageLogRepository) GetDailyStatsAggregated(ctx context.Context, userID
 			COALESCE(SUM(output_tokens), 0) as total_output_tokens,
 			COALESCE(SUM(cache_creation_tokens + cache_read_tokens), 0) as total_cache_tokens,
 			COALESCE(SUM(total_cost), 0) as total_cost,
-			COALESCE(SUM(actual_cost), 0) as total_actual_cost,
+			` + usageLogAppliedActualCostExpr + ` as total_actual_cost,
 			COALESCE(AVG(COALESCE(duration_ms, 0)), 0) as avg_duration_ms
 		FROM usage_logs
 		WHERE user_id = $1 AND created_at >= $2 AND created_at < $3
@@ -2505,7 +2899,7 @@ func (r *usageLogRepository) GetAccountTodayStats(ctx context.Context, accountID
 			COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) as tokens,
 			COALESCE(SUM(COALESCE(account_stats_cost, total_cost) * COALESCE(account_rate_multiplier, 1)), 0) as cost,
 			COALESCE(SUM(total_cost), 0) as standard_cost,
-			COALESCE(SUM(actual_cost), 0) as user_cost
+			` + usageLogAppliedActualCostExpr + ` as user_cost
 		FROM usage_logs
 		WHERE account_id = $1 AND created_at >= $2
 	`
@@ -2535,7 +2929,7 @@ func (r *usageLogRepository) GetAccountWindowStats(ctx context.Context, accountI
 			COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) as tokens,
 			COALESCE(SUM(COALESCE(account_stats_cost, total_cost) * COALESCE(account_rate_multiplier, 1)), 0) as cost,
 			COALESCE(SUM(total_cost), 0) as standard_cost,
-			COALESCE(SUM(actual_cost), 0) as user_cost
+			` + usageLogAppliedActualCostExpr + ` as user_cost
 		FROM usage_logs
 		WHERE account_id = $1 AND created_at >= $2
 	`
@@ -2572,7 +2966,7 @@ func (r *usageLogRepository) GetAccountWindowStatsBatch(ctx context.Context, acc
 			COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) as tokens,
 			COALESCE(SUM(COALESCE(account_stats_cost, total_cost) * COALESCE(account_rate_multiplier, 1)), 0) as cost,
 			COALESCE(SUM(total_cost), 0) as standard_cost,
-			COALESCE(SUM(actual_cost), 0) as user_cost
+			` + usageLogAppliedActualCostExpr + ` as user_cost
 		FROM usage_logs
 		WHERE account_id = ANY($1) AND created_at >= $2
 		GROUP BY account_id
@@ -2762,7 +3156,7 @@ func (r *usageLogRepository) GetUserUsageTrend(ctx context.Context, startTime, e
 			COUNT(*) as requests,
 			COALESCE(SUM(u.input_tokens + u.output_tokens + u.cache_creation_tokens + u.cache_read_tokens), 0) as tokens,
 			COALESCE(SUM(u.total_cost), 0) as cost,
-			COALESCE(SUM(u.actual_cost), 0) as actual_cost
+				COALESCE(SUM(CASE WHEN u.billing_status = 'applied' THEN u.actual_cost ELSE 0 END), 0) as actual_cost
 		FROM usage_logs u
 		LEFT JOIN users us ON u.user_id = us.id
 		WHERE u.user_id IN (SELECT user_id FROM top_users)
@@ -2811,7 +3205,7 @@ func (r *usageLogRepository) GetUserSpendingRanking(ctx context.Context, startTi
 				u.user_id,
 				COALESCE(us.email, '') as email,
 				COALESCE(us.username, '') as username,
-				COALESCE(SUM(u.actual_cost), 0) as actual_cost,
+				COALESCE(SUM(CASE WHEN u.billing_status = 'applied' THEN u.actual_cost ELSE 0 END), 0) as actual_cost,
 				COUNT(*) as requests,
 				COALESCE(SUM(u.input_tokens + u.output_tokens + u.cache_creation_tokens + u.cache_read_tokens), 0) as tokens
 			FROM usage_logs u
@@ -2936,7 +3330,7 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 				COALESCE(us.email, '') as email,
 				COALESCE(ua.url, '') as avatar_url,
 				COALESCE(us.balance, 0) as balance,
-				COALESCE(SUM(u.actual_cost), 0) as actual_cost,
+				COALESCE(SUM(CASE WHEN u.billing_status = 'applied' THEN u.actual_cost ELSE 0 END), 0) as actual_cost,
 				COUNT(*) as requests,
 				COALESCE(SUM(u.input_tokens), 0) as input_tokens,
 				COALESCE(SUM(u.output_tokens), 0) as output_tokens,
@@ -2952,7 +3346,7 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 		previous_user_spend AS (
 			SELECT
 				previous_usage.user_id,
-				COALESCE(SUM(previous_usage.actual_cost), 0) as previous_actual_cost,
+				COALESCE(SUM(CASE WHEN previous_usage.billing_status = 'applied' THEN previous_usage.actual_cost ELSE 0 END), 0) as previous_actual_cost,
 				COUNT(*) as previous_requests,
 				COALESCE(SUM(previous_usage.input_tokens + previous_usage.output_tokens + previous_usage.cache_creation_tokens + previous_usage.cache_read_tokens), 0) as previous_tokens
 			FROM usage_logs previous_usage
@@ -4210,7 +4604,7 @@ func (r *usageLogRepository) GetUserDashboardStats(ctx context.Context, userID i
 			COALESCE(SUM(cache_creation_tokens), 0) as total_cache_creation_tokens,
 			COALESCE(SUM(cache_read_tokens), 0) as total_cache_read_tokens,
 			COALESCE(SUM(total_cost), 0) as total_cost,
-			COALESCE(SUM(actual_cost), 0) as total_actual_cost,
+			` + usageLogAppliedActualCostExpr + ` as total_actual_cost,
 			COALESCE(AVG(duration_ms), 0) as avg_duration_ms
 		FROM usage_logs
 		WHERE user_id = $1
@@ -4242,7 +4636,7 @@ func (r *usageLogRepository) GetUserDashboardStats(ctx context.Context, userID i
 			COALESCE(SUM(cache_creation_tokens), 0) as today_cache_creation_tokens,
 			COALESCE(SUM(cache_read_tokens), 0) as today_cache_read_tokens,
 			COALESCE(SUM(total_cost), 0) as today_cost,
-			COALESCE(SUM(actual_cost), 0) as today_actual_cost
+			` + usageLogAppliedActualCostExpr + ` as today_actual_cost
 		FROM usage_logs
 		WHERE user_id = $1 AND created_at >= $2
 	`
@@ -4262,6 +4656,15 @@ func (r *usageLogRepository) GetUserDashboardStats(ctx context.Context, userID i
 		return nil, err
 	}
 	stats.TodayTokens = stats.TodayInputTokens + stats.TodayOutputTokens + stats.TodayCacheCreationTokens + stats.TodayCacheReadTokens
+	if err := scanSingleRow(ctx, r.sql, `
+		SELECT COUNT(*) FILTER (WHERE billing_status = 'pending'),
+		       COUNT(*) FILTER (WHERE billing_status = 'failed'),
+		       COALESCE(SUM(actual_cost) FILTER (WHERE billing_status = 'pending'), 0),
+		       COALESCE(SUM(actual_cost) FILTER (WHERE billing_status = 'failed'), 0)
+		FROM usage_logs WHERE user_id = $1
+	`, []any{userID}, &stats.PendingBillingCount, &stats.FailedBillingCount, &stats.PendingBillingCost, &stats.FailedBillingCost); err != nil {
+		return nil, err
+	}
 
 	// 性能指标：RPM 和 TPM（最近1分钟，仅统计该用户的请求）
 	rpm, tpm, err := r.getPerformanceStats(ctx, userID)
@@ -4282,10 +4685,10 @@ func (r *usageLogRepository) GetUserDashboardStats(ctx context.Context, userID i
 			` + usageLogEffectivePlatformExpr + ` as platform,
 			COUNT(*) as total_requests,
 			COALESCE(SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens), 0) as total_tokens,
-			COALESCE(SUM(ul.actual_cost), 0) as total_actual_cost,
+			` + usageLogAppliedActualCostExprUL + ` as total_actual_cost,
 			COUNT(*) FILTER (WHERE ul.created_at >= $2) as today_requests,
 			COALESCE(SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens) FILTER (WHERE ul.created_at >= $2), 0) as today_tokens,
-			COALESCE(SUM(ul.actual_cost) FILTER (WHERE ul.created_at >= $2), 0) as today_actual_cost
+			COALESCE(SUM(CASE WHEN ul.billing_status = 'applied' THEN ul.actual_cost ELSE 0 END) FILTER (WHERE ul.created_at >= $2), 0) as today_actual_cost
 		FROM usage_logs ul
 		LEFT JOIN groups g ON g.id = ul.group_id
 		LEFT JOIN accounts a ON a.id = ul.account_id
@@ -4362,7 +4765,7 @@ func (r *usageLogRepository) GetAPIKeyDashboardStats(ctx context.Context, apiKey
 			COALESCE(SUM(cache_creation_tokens), 0) as total_cache_creation_tokens,
 			COALESCE(SUM(cache_read_tokens), 0) as total_cache_read_tokens,
 			COALESCE(SUM(total_cost), 0) as total_cost,
-			COALESCE(SUM(actual_cost), 0) as total_actual_cost,
+			` + usageLogAppliedActualCostExpr + ` as total_actual_cost,
 			COALESCE(AVG(duration_ms), 0) as avg_duration_ms
 		FROM usage_logs
 		WHERE api_key_id = $1
@@ -4394,7 +4797,7 @@ func (r *usageLogRepository) GetAPIKeyDashboardStats(ctx context.Context, apiKey
 			COALESCE(SUM(cache_creation_tokens), 0) as today_cache_creation_tokens,
 			COALESCE(SUM(cache_read_tokens), 0) as today_cache_read_tokens,
 			COALESCE(SUM(total_cost), 0) as today_cost,
-			COALESCE(SUM(actual_cost), 0) as today_actual_cost
+			` + usageLogAppliedActualCostExpr + ` as today_actual_cost
 		FROM usage_logs
 		WHERE api_key_id = $1 AND created_at >= $2
 	`
@@ -4416,6 +4819,16 @@ func (r *usageLogRepository) GetAPIKeyDashboardStats(ctx context.Context, apiKey
 	stats.TodayTokens = stats.TodayInputTokens + stats.TodayOutputTokens + stats.TodayCacheCreationTokens + stats.TodayCacheReadTokens
 
 	// 性能指标：RPM 和 TPM（最近5分钟，按 API Key 过滤）
+	if err := scanSingleRow(ctx, r.sql, `
+		SELECT COUNT(*) FILTER (WHERE billing_status = 'pending'),
+		       COUNT(*) FILTER (WHERE billing_status = 'failed'),
+		       COALESCE(SUM(actual_cost) FILTER (WHERE billing_status = 'pending'), 0),
+		       COALESCE(SUM(actual_cost) FILTER (WHERE billing_status = 'failed'), 0)
+		FROM usage_logs WHERE api_key_id = $1
+	`, []any{apiKeyID}, &stats.PendingBillingCount, &stats.FailedBillingCount, &stats.PendingBillingCost, &stats.FailedBillingCost); err != nil {
+		return nil, err
+	}
+
 	rpm, tpm, err := r.getPerformanceStatsByAPIKey(ctx, apiKeyID)
 	if err != nil {
 		return nil, err
@@ -4440,7 +4853,7 @@ func (r *usageLogRepository) GetUserUsageTrendByUserID(ctx context.Context, user
 			COALESCE(SUM(cache_read_tokens), 0) as cache_read_tokens,
 			COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) as total_tokens,
 			COALESCE(SUM(total_cost), 0) as cost,
-			COALESCE(SUM(actual_cost), 0) as actual_cost
+			`+usageLogAppliedActualCostExpr+` as actual_cost
 		FROM usage_logs
 		WHERE user_id = $1 AND created_at >= $2 AND created_at < $3
 		GROUP BY date
@@ -4600,8 +5013,8 @@ func (r *usageLogRepository) GetBatchUserUsageStats(ctx context.Context, userIDs
 		SELECT
 			ul.user_id,
 			` + usageLogEffectivePlatformExpr + ` as platform,
-			COALESCE(SUM(ul.actual_cost) FILTER (WHERE ul.created_at >= $2 AND ul.created_at < $3), 0) as total_cost,
-			COALESCE(SUM(ul.actual_cost) FILTER (WHERE ul.created_at >= $4), 0) as today_cost
+			COALESCE(SUM(CASE WHEN ul.billing_status = 'applied' THEN ul.actual_cost ELSE 0 END) FILTER (WHERE ul.created_at >= $2 AND ul.created_at < $3), 0) as total_cost,
+			COALESCE(SUM(CASE WHEN ul.billing_status = 'applied' THEN ul.actual_cost ELSE 0 END) FILTER (WHERE ul.created_at >= $4), 0) as today_cost
 		FROM usage_logs ul
 		LEFT JOIN groups g ON g.id = ul.group_id
 		LEFT JOIN accounts a ON a.id = ul.account_id
@@ -4675,8 +5088,8 @@ func (r *usageLogRepository) GetBatchAPIKeyUsageStats(ctx context.Context, apiKe
 	query := `
 		SELECT
 			api_key_id,
-			COALESCE(SUM(actual_cost) FILTER (WHERE created_at >= $2 AND created_at < $3), 0) as total_cost,
-			COALESCE(SUM(actual_cost) FILTER (WHERE created_at >= $4), 0) as today_cost
+			COALESCE(SUM(CASE WHEN billing_status = 'applied' THEN actual_cost ELSE 0 END) FILTER (WHERE created_at >= $2 AND created_at < $3), 0) as total_cost,
+			COALESCE(SUM(CASE WHEN billing_status = 'applied' THEN actual_cost ELSE 0 END) FILTER (WHERE created_at >= $4), 0) as today_cost
 		FROM usage_logs
 		WHERE api_key_id = ANY($1)
 		  AND created_at >= LEAST($2, $4)
@@ -4739,7 +5152,7 @@ func (r *usageLogRepository) getUsageTrendWithFilters(ctx context.Context, start
 			COALESCE(SUM(cache_read_tokens), 0) as cache_read_tokens,
 			COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) as total_tokens,
 			COALESCE(SUM(total_cost), 0) as cost,
-			COALESCE(SUM(actual_cost), 0) as actual_cost
+			`+usageLogAppliedActualCostExpr+` as actual_cost
 		FROM usage_logs
 		WHERE created_at >= $1 AND created_at < $2
 	`, dateFormat)
@@ -4881,7 +5294,7 @@ func (r *usageLogRepository) GetModelStatsWithUsageFiltersBySource(ctx context.C
 }
 
 func (r *usageLogRepository) getModelStatsWithFiltersBySource(ctx context.Context, startTime, endTime time.Time, userID, apiKeyID, accountID, groupID int64, model string, requestType *int16, stream *bool, billingType *int8, source, billingMode string) (results []ModelStat, err error) {
-	actualCostExpr := "COALESCE(SUM(actual_cost), 0) as actual_cost"
+	actualCostExpr := usageLogAppliedActualCostExpr + " as actual_cost"
 	// 当仅按 account_id 聚合时，实际费用使用账号倍率（total_cost * account_rate_multiplier）。
 	if accountID > 0 && userID == 0 && apiKeyID == 0 {
 		actualCostExpr = "COALESCE(SUM(COALESCE(account_stats_cost, total_cost) * COALESCE(account_rate_multiplier, 1)), 0) as actual_cost"
@@ -4971,7 +5384,7 @@ func (r *usageLogRepository) getGroupStatsWithFilters(ctx context.Context, start
 			COUNT(*) as requests,
 			COALESCE(SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens), 0) as total_tokens,
 			COALESCE(SUM(ul.total_cost), 0) as cost,
-			COALESCE(SUM(ul.actual_cost), 0) as actual_cost,
+			` + usageLogAppliedActualCostExprUL + ` as actual_cost,
 			COALESCE(SUM(COALESCE(ul.account_stats_cost, ul.total_cost) * COALESCE(ul.account_rate_multiplier, 1)), 0) as account_cost
 		FROM usage_logs ul
 		LEFT JOIN groups g ON g.id = ul.group_id
@@ -5053,7 +5466,7 @@ func (r *usageLogRepository) GetUserBreakdownStats(ctx context.Context, startTim
 			COALESCE(SUM(ul.cache_creation_tokens + ul.cache_read_tokens), 0) as cache_tokens,
 			COALESCE(SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens), 0) as total_tokens,
 			COALESCE(SUM(ul.total_cost), 0) as cost,
-			COALESCE(SUM(ul.actual_cost), 0) as actual_cost,
+			` + usageLogAppliedActualCostExprUL + ` as actual_cost,
 			COALESCE(SUM(COALESCE(ul.account_stats_cost, ul.total_cost) * COALESCE(ul.account_rate_multiplier, 1)), 0) as account_cost
 		FROM usage_logs ul
 		LEFT JOIN users u ON u.id = ul.user_id
@@ -5209,7 +5622,7 @@ func (r *usageLogRepository) GetGlobalStats(ctx context.Context, startTime, endT
 			COALESCE(SUM(output_tokens), 0) as total_output_tokens,
 			COALESCE(SUM(cache_creation_tokens + cache_read_tokens), 0) as total_cache_tokens,
 			COALESCE(SUM(total_cost), 0) as total_cost,
-			COALESCE(SUM(actual_cost), 0) as total_actual_cost,
+			` + usageLogAppliedActualCostExpr + ` as total_actual_cost,
 			COALESCE(AVG(duration_ms), 0) as avg_duration_ms
 		FROM usage_logs
 		WHERE created_at >= $1 AND created_at < $2
@@ -5279,7 +5692,7 @@ func (r *usageLogRepository) GetStatsWithFilters(ctx context.Context, filters Us
 			COALESCE(SUM(output_tokens), 0) as total_output_tokens,
 			COALESCE(SUM(cache_creation_tokens + cache_read_tokens), 0) as total_cache_tokens,
 			COALESCE(SUM(total_cost), 0) as total_cost,
-			COALESCE(SUM(actual_cost), 0) as total_actual_cost,
+			`+usageLogAppliedActualCostExpr+` as total_actual_cost,
 			COALESCE(SUM(COALESCE(account_stats_cost, total_cost) * COALESCE(account_rate_multiplier, 1)), 0) as total_account_cost,
 			COALESCE(AVG(duration_ms), 0) as avg_duration_ms
 		FROM usage_logs
@@ -5351,7 +5764,7 @@ type AccountUsageStatsResponse = usagestats.AccountUsageStatsResponse
 type EndpointStat = usagestats.EndpointStat
 
 func (r *usageLogRepository) getEndpointStatsByColumnWithFilters(ctx context.Context, endpointColumn string, startTime, endTime time.Time, userID, apiKeyID, accountID, groupID int64, model, modelSource string, requestType *int16, stream *bool, billingType *int8, billingMode string) (results []EndpointStat, err error) {
-	actualCostExpr := "COALESCE(SUM(actual_cost), 0) as actual_cost"
+	actualCostExpr := usageLogAppliedActualCostExpr + " as actual_cost"
 	if accountID > 0 && userID == 0 && apiKeyID == 0 {
 		actualCostExpr = "COALESCE(SUM(COALESCE(account_stats_cost, total_cost) * COALESCE(account_rate_multiplier, 1)), 0) as actual_cost"
 	}
@@ -5419,7 +5832,7 @@ func (r *usageLogRepository) getEndpointStatsByColumnWithFilters(ctx context.Con
 }
 
 func (r *usageLogRepository) getEndpointPathStatsWithFilters(ctx context.Context, startTime, endTime time.Time, userID, apiKeyID, accountID, groupID int64, model, modelSource string, requestType *int16, stream *bool, billingType *int8, billingMode string) (results []EndpointStat, err error) {
-	actualCostExpr := "COALESCE(SUM(actual_cost), 0) as actual_cost"
+	actualCostExpr := usageLogAppliedActualCostExpr + " as actual_cost"
 	if accountID > 0 && userID == 0 && apiKeyID == 0 {
 		actualCostExpr = "COALESCE(SUM(COALESCE(account_stats_cost, total_cost) * COALESCE(account_rate_multiplier, 1)), 0) as actual_cost"
 	}
@@ -5514,7 +5927,7 @@ func (r *usageLogRepository) GetAccountUsageStats(ctx context.Context, accountID
 			COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) as tokens,
 			COALESCE(SUM(total_cost), 0) as cost,
 			COALESCE(SUM(COALESCE(account_stats_cost, total_cost) * COALESCE(account_rate_multiplier, 1)), 0) as actual_cost,
-			COALESCE(SUM(actual_cost), 0) as user_cost
+			` + usageLogAppliedActualCostExpr + ` as user_cost
 		FROM usage_logs
 		WHERE account_id = $1 AND created_at >= $2 AND created_at < $3
 		GROUP BY date
@@ -6002,6 +6415,8 @@ func scanUsageLog(scanner interface{ Scan(...any) error }) (*service.UsageLog, e
 		accountStatsCost          sql.NullFloat64
 		mediaType                 sql.NullString
 		createdAt                 time.Time
+		billingStatus             sql.NullString
+		billingError              sql.NullString
 	)
 
 	if err := scanner.Scan(
@@ -6061,6 +6476,8 @@ func scanUsageLog(scanner interface{ Scan(...any) error }) (*service.UsageLog, e
 		&accountStatsCost,
 		&mediaType,
 		&createdAt,
+		&billingStatus,
+		&billingError,
 	); err != nil {
 		return nil, err
 	}
@@ -6096,6 +6513,8 @@ func scanUsageLog(scanner interface{ Scan(...any) error }) (*service.UsageLog, e
 		ImageCount:                imageCount,
 		CacheTTLOverridden:        cacheTTLOverridden,
 		CreatedAt:                 createdAt,
+		BillingStatus:             coalesceTrimmedString(billingStatus, service.BillingSettlementApplied),
+		BillingError:              nullStringPtr(billingError),
 	}
 	// 先回填 legacy 字段，再基于 legacy + request_type 计算最终请求类型，保证历史数据兼容。
 	log.Stream = stream
@@ -6351,6 +6770,14 @@ func coalesceTrimmedString(v sql.NullString, fallback string) string {
 		return v.String
 	}
 	return fallback
+}
+
+func nullStringPtr(v sql.NullString) *string {
+	if !v.Valid {
+		return nil
+	}
+	value := v.String
+	return &value
 }
 
 func setToSlice(set map[int64]struct{}) []int64 {

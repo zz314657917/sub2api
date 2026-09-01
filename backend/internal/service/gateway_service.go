@@ -8694,8 +8694,11 @@ type postUsageBillingParams struct {
 	AccountShareOwnerRatePercent float64
 	AccountShareFreezeHours      int
 	NewUserTrial                 *NewUserTrialSession
-	SkipUsageCounters            bool
-	PrepaidBalanceCost           float64
+	// DeferSettlementFinalize is used for composite trial billing. The usage
+	// row stays pending until overage and trial-pool consumption both succeed.
+	DeferSettlementFinalize bool
+	SkipUsageCounters       bool
+	PrepaidBalanceCost      float64
 	// RequireBalanceCheck keeps known-amount reservations strict; ordinary
 	// post-response usage billing may record an overdraft.
 	RequireBalanceCheck bool
@@ -8887,8 +8890,14 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *postUsage
 		AccountID:          p.Account.ID,
 		AccountType:        p.Account.Type,
 		RequestPayloadHash: strings.TrimSpace(p.RequestPayloadHash),
+		FinalizeUsageLog:   !p.DeferSettlementFinalize,
+	}
+	if p.APIKey.GroupID != nil {
+		groupID := *p.APIKey.GroupID
+		cmd.GroupID = &groupID
 	}
 	if usageLog != nil {
+		cmd.UsageLogID = usageLog.ID
 		cmd.Model = usageLog.Model
 		cmd.BillingType = usageLog.BillingType
 		cmd.InputTokens = usageLog.InputTokens
@@ -8955,6 +8964,55 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *postUsage
 	return cmd
 }
 
+// buildUsageBillingSettlementPayload snapshots every local billing step needed
+// to replay a successful upstream response. It intentionally omits credentials
+// and request/response bodies.
+func buildUsageBillingSettlementPayload(requestID string, usageLog *UsageLog, p *postUsageBillingParams) (*UsageBillingSettlementPayload, error) {
+	primary := buildUsageBillingCommand(requestID, usageLog, p)
+	if primary == nil {
+		return nil, ErrUsageBillingCommandInvalid
+	}
+	payload := &UsageBillingSettlementPayload{Version: 1, Primary: *primary}
+	if p == nil || p.NewUserTrial == nil || p.Cost == nil {
+		return payload, nil
+	}
+	trialAmount := 0.0
+	if p != nil {
+		trialAmount = newUserTrialCoveredAmount(p.Cost, p.NewUserTrial)
+	}
+	if trialAmount > 0 {
+		model := ""
+		if usageLog != nil {
+			model = usageLog.Model
+		}
+		payload.Trial = &UsageBillingTrialPayload{
+			TrialID:        p.NewUserTrial.TrialID,
+			UserID:         p.NewUserTrial.UserID,
+			TrialRequestID: p.NewUserTrial.RequestID,
+			RequestID:      requestID,
+			Amount:         trialAmount,
+			Model:          model,
+			APIKeyID:       p.APIKey.ID,
+		}
+	}
+	overageCost := newUserTrialOverageCost(p.Cost, trialAmount)
+	if overageCost == nil || overageCost.ActualCost <= 0 {
+		return payload, nil
+	}
+	overageParams := *p
+	overageParams.Cost = overageCost
+	overageParams.NewUserTrial = nil
+	overageParams.SkipUsageCounters = true
+	overageParams.DeferSettlementFinalize = true
+	overageLog := usageLogWithBillingType(usageLog, p.IsSubscriptionBill)
+	overage := buildUsageBillingCommand(newUserTrialOverageRequestID(requestID), overageLog, &overageParams)
+	if overage == nil {
+		return nil, ErrUsageBillingCommandInvalid
+	}
+	payload.Overage = overage
+	return payload, nil
+}
+
 func (p *postUsageBillingParams) shouldCreateAccountShareLedger() bool {
 	if p == nil || !p.AccountShareEnabled || p.User == nil || p.Account == nil || p.Account.OwnerUserID == nil || p.Cost == nil {
 		return false
@@ -8999,7 +9057,9 @@ func applyUsageBilling(ctx context.Context, requestID string, usageLog *UsageLog
 	}
 
 	if result == nil || !result.Applied {
-		deps.deferredService.ScheduleLastUsedUpdate(p.Account.ID)
+		if !p.DeferSettlementFinalize {
+			deps.deferredService.ScheduleLastUsedUpdate(p.Account.ID)
+		}
 		return false, nil
 	}
 
@@ -9009,7 +9069,9 @@ func applyUsageBilling(ctx context.Context, requestID string, usageLog *UsageLog
 		}
 	}
 
-	finalizePostUsageBilling(billingCtx, p, deps, result)
+	if !p.DeferSettlementFinalize {
+		finalizePostUsageBilling(billingCtx, p, deps, result)
+	}
 	return true, nil
 }
 
@@ -9025,11 +9087,14 @@ func applyUsageBillingWithNewUserTrialOverage(ctx context.Context, requestID str
 	if repo == nil && welfareService != nil && requiresUnifiedWalletBilling(p) {
 		return false, ErrBillingServiceUnavailable
 	}
+	trialAmount := newUserTrialCoveredAmount(p.Cost, p.NewUserTrial)
+	if trialAmount > 0 && welfareService == nil {
+		return false, ErrWelfareNewUserTrialUnavailable
+	}
 	applied, err := applyUsageBilling(ctx, requestID, usageLog, p, deps, repo)
 	if err != nil || p == nil || p.NewUserTrial == nil || p.Cost == nil {
 		return applied, err
 	}
-	trialAmount := newUserTrialCoveredAmount(p.Cost, p.NewUserTrial)
 	overageCost := newUserTrialOverageCost(p.Cost, trialAmount)
 	if overageCost != nil && overageCost.ActualCost > 0 {
 		overageParams := *p
@@ -9042,7 +9107,7 @@ func applyUsageBillingWithNewUserTrialOverage(ctx context.Context, requestID str
 		}
 	}
 
-	if welfareService != nil && trialAmount > 0 {
+	if trialAmount > 0 {
 		apiKeyID := int64(0)
 		if p.APIKey != nil {
 			apiKeyID = p.APIKey.ID
@@ -9055,8 +9120,22 @@ func applyUsageBillingWithNewUserTrialOverage(ctx context.Context, requestID str
 			return applied, err
 		}
 	}
+	if p.NewUserTrial != nil {
+		if reconciler, ok := repo.(UsageBillingLedgerReconciler); ok && usageLog != nil {
+			payload, payloadErr := buildUsageBillingSettlementPayload(requestID, usageLog, p)
+			if payloadErr != nil {
+				return applied, payloadErr
+			}
+			if err := reconciler.ReconcileUsageBillingEntry(ctx, payload); err != nil {
+				return applied, err
+			}
+		}
+	}
 
-	return applied, nil
+	// A composite retry can observe all billing commands as deduplicated while
+	// completing a previously failed trial step. Its later outbox finalization,
+	// rather than the primary Apply result, owns post-settlement effects.
+	return true, nil
 }
 
 func requiresUnifiedWalletBilling(p *postUsageBillingParams) bool {
@@ -9168,6 +9247,28 @@ func finalizePostUsageBilling(ctx context.Context, p *postUsageBillingParams, de
 	// no dependency on the request context or upstream connection.
 	go notifyBalanceLow(p, deps, result)
 	go notifyAccountQuota(p, deps, result)
+}
+
+// finalizeNewUserTrialOverageCache refreshes only the cache state owned by the
+// separately billed trial overage. Rate limits, membership, last-used, and
+// notifications remain owned by the composite's single finalization.
+func finalizeNewUserTrialOverageCache(ctx context.Context, p *postUsageBillingParams, deps *billingDeps) {
+	if p == nil || p.Cost == nil || p.NewUserTrial == nil || deps == nil || deps.billingCacheService == nil {
+		return
+	}
+	overageCost := newUserTrialOverageCost(p.Cost, newUserTrialCoveredAmount(p.Cost, p.NewUserTrial))
+	if overageCost == nil || overageCost.ActualCost <= 0 {
+		return
+	}
+	if p.IsSubscriptionBill {
+		if p.User != nil && p.APIKey != nil && p.APIKey.GroupID != nil {
+			deps.billingCacheService.QueueUpdateSubscriptionUsage(p.User.ID, *p.APIKey.GroupID, overageCost.ActualCost)
+		}
+		return
+	}
+	if p.User != nil {
+		invalidateUsageBillingBalanceCache(ctx, p, deps, "successful new-user trial overage deduction")
+	}
 }
 
 func invalidateUsageBillingBalanceCache(ctx context.Context, p *postUsageBillingParams, deps *billingDeps, reason string) {
@@ -9343,6 +9444,90 @@ func writeUsageLogBestEffort(ctx context.Context, repo UsageLogRepository, usage
 	if _, err := repo.Create(usageCtx, usageLog); err != nil {
 		logger.LegacyPrintf(logKey, "Create usage log failed: %v", err)
 	}
+}
+
+// persistUsageLogForBilling creates the durable replay record before applying a
+// post-response charge. The real repository writes usage log and outbox in one
+// transaction. Lightweight test doubles keep the legacy write-at-end behavior.
+func persistUsageLogForBilling(ctx context.Context, repo UsageLogRepository, usageLog *UsageLog, requestID string, p *postUsageBillingParams) (bool, error) {
+	usageCtx, cancel := detachedBillingContext(ctx)
+	defer cancel()
+	if settlementRepo, ok := repo.(UsageBillingSettlementRepository); ok {
+		payload, err := buildUsageBillingSettlementPayload(requestID, usageLog, p)
+		if err != nil {
+			return false, err
+		}
+		if ownershipRepo, ok := repo.(UsageBillingSettlementOwnershipRepository); ok {
+			owned, _, err := ownershipRepo.CreatePendingPayloadWithOwnership(usageCtx, usageLog, payload)
+			if err == nil {
+				return owned, nil
+			}
+			retryCtx, retryCancel := detachedBillingContext(context.Background())
+			defer retryCancel()
+			owned, _, retryErr := ownershipRepo.CreatePendingPayloadWithOwnership(retryCtx, usageLog, payload)
+			if retryErr == nil {
+				return owned, nil
+			}
+			return false, fmt.Errorf("first attempt: %v; retry: %w", err, retryErr)
+		}
+		if err := settlementRepo.CreatePendingPayload(usageCtx, usageLog, payload); err == nil {
+			return true, nil
+		} else {
+			// A commit can be reported as a transient driver error after the
+			// database has accepted it. Retry with a fresh detached context so
+			// we do not leave a successful upstream call without its durable
+			// usage/outbox record. The repository's request/log uniqueness makes
+			// this retry safe if the first attempt actually committed.
+			retryCtx, retryCancel := detachedBillingContext(context.Background())
+			defer retryCancel()
+			if retryErr := settlementRepo.CreatePendingPayload(retryCtx, usageLog, payload); retryErr == nil {
+				return true, nil
+			} else {
+				return false, fmt.Errorf("first attempt: %v; retry: %w", err, retryErr)
+			}
+		}
+	}
+	return true, nil
+}
+
+func markUsageLogBillingPending(ctx context.Context, repo UsageLogRepository, usageLog *UsageLog, billingErr error, logKey string) {
+	if usageLog == nil {
+		return
+	}
+	message := "billing settlement failed"
+	if billingErr != nil {
+		message = billingErr.Error()
+	}
+	usageLog.BillingStatus = BillingSettlementPending
+	usageLog.BillingError = &message
+	if settlementRepo, ok := repo.(UsageBillingSettlementRepository); ok && usageLog.ID > 0 {
+		billingCtx, cancel := detachedBillingContext(ctx)
+		defer cancel()
+		if err := settlementRepo.MarkPendingError(billingCtx, usageLog.ID, billingErr); err != nil {
+			logger.LegacyPrintf(logKey, "mark pending billing error failed: %v", err)
+		}
+		return
+	}
+	writeUsageLogBestEffort(ctx, repo, usageLog, logKey)
+}
+
+func finalizeUsageLogSettlement(ctx context.Context, repo UsageLogRepository, usageLog *UsageLog, logKey string) error {
+	if usageLog == nil {
+		return nil
+	}
+	settlementRepo, ok := repo.(UsageBillingSettlementRepository)
+	if !ok || usageLog.ID <= 0 {
+		return nil
+	}
+	billingCtx, cancel := detachedBillingContext(ctx)
+	defer cancel()
+	if err := settlementRepo.MarkApplied(billingCtx, usageLog.ID); err != nil {
+		logger.LegacyPrintf(logKey, "mark applied billing settlement failed: %v", err)
+		return err
+	}
+	usageLog.BillingStatus = BillingSettlementApplied
+	usageLog.BillingError = nil
+	return nil
 }
 
 // recordUsageOpts 内部选项，参数化 RecordUsage 与 RecordUsageWithLongContext 的差异点。
@@ -9574,7 +9759,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 
 	requestID := usageLog.RequestID
 	accountShareSettings := resolveAccountShareBillingSettings(ctx, s.settingService)
-	applied, billingErr := applyUsageBillingWithNewUserTrialOverage(ctx, requestID, usageLog, &postUsageBillingParams{
+	billingParams := &postUsageBillingParams{
 		Cost:                         cost,
 		User:                         user,
 		APIKey:                       apiKey,
@@ -9588,15 +9773,44 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 		AccountShareOwnerRatePercent: accountShareSettings.OwnerRatePercent,
 		AccountShareFreezeHours:      accountShareSettings.FreezeHours,
 		NewUserTrial:                 trialSession,
+		DeferSettlementFinalize:      trialSession != nil,
 		PrepaidBalanceCost:           prepaidBalanceCost,
-	}, s.billingDeps(), s.usageBillingRepo, s.welfareService)
+	}
+	owned, err := persistUsageLogForBilling(ctx, s.usageLogRepo, usageLog, requestID, billingParams)
+	if err != nil {
+		return fmt.Errorf("persist pending usage billing: %w", err)
+	}
+	if !owned {
+		return nil
+	}
+	applied, billingErr := applyUsageBillingWithNewUserTrialOverage(ctx, requestID, usageLog, billingParams, s.billingDeps(), s.usageBillingRepo, s.welfareService)
 
 	if billingErr != nil {
 		// Preserve the measured cost when settlement fails. The upstream response
 		// has already been delivered, so recording zero would hide an uncollected
 		// charge and make the request look free in usage history.
-		writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.gateway")
+		markUsageLogBillingPending(ctx, s.usageLogRepo, usageLog, billingErr, "service.gateway")
 		return billingErr
+	}
+	// The production unified repository finalizes ordinary commands in the same
+	// transaction as the monetary effects. Only the legacy/degraded fallback
+	// (which has no repository transaction) and composite trial billing need an
+	// additional status transition here. Keeping ordinary unified billing out
+	// of this path prevents a post-charge status failure from replaying cache,
+	// rate-limit, or notification side effects on the worker retry.
+	if usageLog.ID > 0 && (s.usageBillingRepo == nil || billingParams.DeferSettlementFinalize) {
+		if err := finalizeUsageLogSettlement(ctx, s.usageLogRepo, usageLog, "service.gateway"); err != nil {
+			markUsageLogBillingPending(ctx, s.usageLogRepo, usageLog, err, "service.gateway")
+			return err
+		}
+		// Ordinary billing already performs its post-settlement cache and
+		// notification updates inside applyUsageBilling. Only composite trial
+		// billing defers those effects until its overage and trial-pool steps
+		// have all completed.
+		if billingParams.DeferSettlementFinalize {
+			finalizePostUsageBilling(ctx, billingParams, s.billingDeps(), nil)
+			finalizeNewUserTrialOverageCache(ctx, billingParams, s.billingDeps())
+		}
 	}
 	if applied && s.billingCacheService != nil {
 		s.billingCacheService.RecordMembershipTokenUsage(ctx, user.ID, usageLog.TotalTokens())

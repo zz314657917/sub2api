@@ -493,8 +493,11 @@
                 >
                   {{ formatOfficialReferenceCost(row.total_cost) }}
                 </span>
-                <span class="font-medium text-[#a9583e] dark:text-[#f0b89e]">
+                <span v-if="isBillingSettled(row)" class="font-medium text-[#a9583e] dark:text-[#f0b89e]">
                   {{ formatCostFixed(row.actual_cost) }}
+                </span>
+                <span v-else class="font-medium text-amber-700 dark:text-amber-300">
+                  {{ row.billing_status === 'failed' ? t('usage.billingFailed') : t('usage.billingPending') }}
                 </span>
               </div>
               <!-- Cost Detail Tooltip -->
@@ -807,7 +810,7 @@
           <div class="flex items-center justify-between gap-6 border-t border-[#d8cec2] pt-1.5 dark:border-gray-700">
             <span class="text-[#6c6a64] dark:text-gray-400">{{ t('usage.billed') }}</span>
             <span class="font-semibold text-[#a9583e] dark:text-[#f0b89e]"
-              >{{ formatCostFixed(tooltipData?.actual_cost) }}</span
+              >{{ isBillingSettled(tooltipData) ? formatCostFixed(tooltipData?.actual_cost) : (tooltipData?.billing_status === 'failed' ? t('usage.billingFailed') : t('usage.billingPending')) }}</span
             >
           </div>
         </div>
@@ -932,7 +935,7 @@
           <section class="space-y-3">
             <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('usage.costDetails') }}</h3>
             <div class="grid gap-3 rounded-lg border border-gray-200 p-4 text-sm dark:border-dark-700 md:grid-cols-2">
-              <div>{{ t('usage.billed') }}: <span class="font-medium text-[#a9583e] dark:text-[#f0b89e]">{{ formatCostFixed(selectedUsageLog.actual_cost) }}</span></div>
+              <div>{{ t('usage.billed') }}: <span class="font-medium text-[#a9583e] dark:text-[#f0b89e]">{{ isBillingSettled(selectedUsageLog) ? formatCostFixed(selectedUsageLog.actual_cost) : (selectedUsageLog.billing_status === 'failed' ? t('usage.billingFailed') : t('usage.billingPending')) }}</span></div>
               <div>{{ t('usage.officialReferenceCost') }}: <span class="font-medium">{{ formatOfficialReferenceCost(selectedUsageLog.total_cost) }}</span></div>
               <div>{{ t('admin.usage.inputCost') }}: <span class="font-medium">{{ formatOfficialReferenceCost(selectedUsageLog.input_cost) }}</span></div>
               <div>{{ t('admin.usage.outputCost') }}: <span class="font-medium">{{ formatOfficialReferenceCost(selectedUsageLog.output_cost) }}</span></div>
@@ -1363,6 +1366,11 @@ const formatCostFixed = (value: unknown, digits = 6): string =>
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   })
+
+// Rows created before the settlement migration may omit billing_status in
+// legacy/mocked responses; treat omission as the historical applied state.
+const isBillingSettled = (row: Pick<UsageLog, 'billing_status'> | null | undefined): boolean =>
+  !row?.billing_status || row.billing_status === 'applied'
 
 const formatOfficialReferenceCost = (value: unknown, digits = 6): string =>
   `$${formatCostNumberFixed(value, digits)}`
@@ -1923,6 +1931,7 @@ const exportToCSV = async () => {
       'Balance Conversion Multiplier',
       'Composite Rate Multiplier',
       'Billed Cost',
+      'Billing Status',
       'Original Cost',
       'First Token (ms)',
       'Duration (ms)',
@@ -1947,7 +1956,10 @@ const exportToCSV = async () => {
         pricingRateMultiplier(log),
         balanceConversionMultiplier(log),
         toFiniteNumber(log.rate_multiplier, 1),
-        formatCostNumberFixed(log.actual_cost, 8),
+        isBillingSettled(log)
+          ? formatCostNumberFixed(log.actual_cost, 8)
+          : (log.billing_status === 'failed' ? t('usage.billingFailed') : t('usage.billingPending')),
+        log.billing_status || 'applied',
         formatCostNumberFixed(log.total_cost, 8),
         log.first_token_ms ?? '',
         log.duration_ms ?? '',

@@ -48,12 +48,42 @@ func (r *usageBillingRepository) Apply(ctx context.Context, cmd *service.UsageBi
 		return nil, err
 	}
 	if !applied {
+		// A legacy or manually repaired dedup key can exist without its
+		// reconciliation ledger row. Recreate only the missing ledger row; do
+		// not re-run any monetary effects because the dedup key is authoritative
+		// for whether this request was already charged.
+		if cmd.UsageLogID > 0 {
+			if err := r.ensureUsageBillingEntry(ctx, tx, cmd); err != nil {
+				return nil, err
+			}
+		}
+		if cmd.UsageLogID > 0 && cmd.FinalizeUsageLog {
+			if err := r.markUsageBillingApplied(ctx, tx, cmd.UsageLogID); err != nil {
+				return nil, err
+			}
+		}
+		if err := tx.Commit(); err != nil {
+			return nil, err
+		}
+		tx = nil
 		return &service.UsageBillingApplyResult{Applied: false}, nil
+	}
+	if cmd.UsageLogID > 0 {
+		ledgerInserted, err := r.insertUsageBillingEntry(ctx, tx, cmd)
+		if err != nil {
+			return nil, err
+		}
+		_ = ledgerInserted // The request dedup row is authoritative for applying effects.
 	}
 
 	result := &service.UsageBillingApplyResult{Applied: true}
 	if err := r.applyUsageBillingEffects(ctx, tx, cmd, result); err != nil {
 		return nil, err
+	}
+	if cmd.UsageLogID > 0 && cmd.FinalizeUsageLog {
+		if err := r.markUsageBillingApplied(ctx, tx, cmd.UsageLogID); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -61,6 +91,106 @@ func (r *usageBillingRepository) Apply(ctx context.Context, cmd *service.UsageBi
 	}
 	tx = nil
 	return result, nil
+}
+
+func (r *usageBillingRepository) markUsageBillingApplied(ctx context.Context, tx *sql.Tx, usageLogID int64) error {
+	var log service.UsageLog
+	err := tx.QueryRowContext(ctx, `
+		UPDATE usage_logs
+		SET billing_status = 'applied', billing_error = NULL
+		WHERE id = $1 AND billing_status <> 'applied'
+		RETURNING user_id, created_at, actual_cost
+	`, usageLogID).Scan(&log.UserID, &log.CreatedAt, &log.ActualCost)
+	if errors.Is(err, sql.ErrNoRows) {
+		err = nil
+	} else if err != nil {
+		return err
+	} else if log.ActualCost != 0 {
+		if err := adjustUserUsageDailyActualCost(ctx, tx, &log, log.ActualCost); err != nil {
+			return err
+		}
+	}
+	_, err = tx.ExecContext(ctx, `
+		UPDATE usage_billing_settlement_outbox
+		SET status = 'applied', lease_until = NULL, last_error = NULL, updated_at = NOW()
+		WHERE usage_log_id = $1
+	`, usageLogID)
+	return err
+}
+
+func (r *usageBillingRepository) insertUsageBillingEntry(ctx context.Context, tx *sql.Tx, cmd *service.UsageBillingCommand) (bool, error) {
+	var id int64
+	err := tx.QueryRowContext(ctx, `
+		INSERT INTO billing_usage_entries (
+			usage_log_id, user_id, api_key_id, subscription_id, billing_type, applied, delta_usd
+		) VALUES ($1, $2, $3, $4, $5, TRUE, $6)
+		ON CONFLICT (usage_log_id) DO UPDATE
+		SET delta_usd = billing_usage_entries.delta_usd + EXCLUDED.delta_usd,
+			applied = TRUE
+		RETURNING id
+	`, cmd.UsageLogID, cmd.UserID, cmd.APIKeyID, cmd.SubscriptionID, cmd.BillingType,
+		cmd.BalanceCost+cmd.PrepaidBalanceCost+cmd.SubscriptionCost).Scan(&id)
+	return err == nil, err
+}
+
+func (r *usageBillingRepository) ensureUsageBillingEntry(ctx context.Context, tx *sql.Tx, cmd *service.UsageBillingCommand) error {
+	_, err := tx.ExecContext(ctx, `
+		INSERT INTO billing_usage_entries (
+			usage_log_id, user_id, api_key_id, subscription_id, billing_type, applied, delta_usd
+		) VALUES ($1, $2, $3, $4, $5, TRUE, $6)
+		ON CONFLICT (usage_log_id) DO NOTHING
+	`, cmd.UsageLogID, cmd.UserID, cmd.APIKeyID, cmd.SubscriptionID, cmd.BillingType,
+		cmd.BalanceCost+cmd.PrepaidBalanceCost+cmd.SubscriptionCost)
+	return err
+}
+
+// ReconcileUsageBillingEntry restores the one-row ledger invariant for a
+// complete settlement payload. Primary and trial-overage billing use separate
+// idempotency keys but intentionally share one usage_log_id ledger row. A
+// partial earlier attempt may therefore leave a dedup key without the full
+// ledger amount; set the row to the immutable payload total instead of adding
+// another delta on retry.
+func (r *usageBillingRepository) ReconcileUsageBillingEntry(ctx context.Context, payload *service.UsageBillingSettlementPayload) error {
+	if r == nil || r.db == nil || payload == nil {
+		return errors.New("usage billing ledger reconciler is not ready")
+	}
+	primary := payload.Primary
+	if primary.UsageLogID <= 0 || primary.UserID <= 0 || primary.APIKeyID <= 0 {
+		return service.ErrUsageBillingCommandInvalid
+	}
+	command := primary
+	expected := usageBillingLedgerDelta(&primary)
+	if payload.Overage != nil {
+		overage := *payload.Overage
+		if overage.UsageLogID == 0 {
+			overage.UsageLogID = primary.UsageLogID
+		}
+		expected += usageBillingLedgerDelta(&overage)
+		if usageBillingLedgerDelta(&overage) > 0 {
+			command = overage
+		}
+	}
+	expected = service.QuantizeUsageBillingAmount(expected)
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO billing_usage_entries (
+			usage_log_id, user_id, api_key_id, subscription_id, billing_type, applied, delta_usd
+		) VALUES ($1, $2, $3, $4, $5, TRUE, $6)
+		ON CONFLICT (usage_log_id) DO UPDATE
+		SET user_id = EXCLUDED.user_id,
+			api_key_id = EXCLUDED.api_key_id,
+			subscription_id = EXCLUDED.subscription_id,
+			billing_type = EXCLUDED.billing_type,
+			applied = TRUE,
+			delta_usd = EXCLUDED.delta_usd
+	`, primary.UsageLogID, command.UserID, command.APIKeyID, command.SubscriptionID, command.BillingType, expected)
+	return err
+}
+
+func usageBillingLedgerDelta(cmd *service.UsageBillingCommand) float64 {
+	if cmd == nil {
+		return 0
+	}
+	return cmd.BalanceCost + cmd.PrepaidBalanceCost + cmd.SubscriptionCost
 }
 
 func (r *usageBillingRepository) claimUsageBillingKey(ctx context.Context, tx *sql.Tx, cmd *service.UsageBillingCommand) (bool, error) {

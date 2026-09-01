@@ -24,7 +24,15 @@
           </div>
           <div class="text-right">
             <p class="text-sm font-semibold">
-              <span class="text-[#a9583e] dark:text-[#cc785c]" :title="t('dashboard.actual')">{{ formatCost(log.actual_cost) }}</span>
+              <span
+                v-if="isBillingSettled(log)"
+                class="text-[#a9583e] dark:text-[#cc785c]"
+                :title="t('dashboard.actual')"
+              >{{ formatCost(log.actual_cost) }}</span>
+              <span
+                v-else
+                class="text-amber-700 dark:text-amber-300"
+              >{{ log.billing_status === 'failed' ? t('usage.billingFailed') : t('usage.billingPending') }}</span>
               <span class="font-normal text-gray-400 dark:text-gray-500" :title="t('dashboard.standard')"> / {{ formatCost(log.total_cost) }}</span>
             </p>
             <p class="text-xs text-gray-500 dark:text-dark-400">{{ (log.input_tokens + log.output_tokens).toLocaleString() }} tokens</p>
@@ -56,4 +64,6 @@ defineProps<{
 }>()
 const { t } = useI18n()
 const formatCost = (c: number) => formatCreditAmount(c, { minimumFractionDigits: 4, maximumFractionDigits: 4 })
+const isBillingSettled = (log: Pick<UsageLog, 'billing_status'>): boolean =>
+  !log.billing_status || log.billing_status === 'applied'
 </script>

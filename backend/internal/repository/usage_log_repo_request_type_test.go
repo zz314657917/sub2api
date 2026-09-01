@@ -1238,6 +1238,8 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullFloat64{},
 			sql.NullString{},
 			now,
+			sql.NullString{Valid: true, String: service.BillingSettlementApplied},
+			sql.NullString{},
 		}})
 		require.NoError(t, err)
 		require.Equal(t, 2, log.ImageCount)
@@ -1313,6 +1315,8 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullFloat64{}, // account_stats_cost
 			sql.NullString{},  // media_type
 			now,
+			sql.NullString{Valid: true, String: service.BillingSettlementApplied},
+			sql.NullString{},
 		}})
 		require.NoError(t, err)
 		require.NotNil(t, log.ServiceTier)
@@ -1369,6 +1373,8 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullFloat64{}, // account_stats_cost
 			sql.NullString{},  // media_type
 			now,
+			sql.NullString{Valid: true, String: service.BillingSettlementApplied},
+			sql.NullString{},
 		}})
 		require.NoError(t, err)
 		require.NotNil(t, log.ServiceTier)
@@ -1425,6 +1431,8 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullFloat64{}, // account_stats_cost
 			sql.NullString{},  // media_type
 			now,
+			sql.NullString{Valid: true, String: service.BillingSettlementApplied},
+			sql.NullString{},
 		}})
 		require.NoError(t, err)
 		require.NotNil(t, log.ServiceTier)

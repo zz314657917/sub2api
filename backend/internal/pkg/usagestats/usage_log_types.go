@@ -392,6 +392,10 @@ type UserDashboardStats struct {
 	TodayTokens              int64   `json:"today_tokens"`
 	TodayCost                float64 `json:"today_cost"`        // 今日标准计费
 	TodayActualCost          float64 `json:"today_actual_cost"` // 今日实际扣除
+	PendingBillingCount      int64   `json:"pending_billing_count"`
+	FailedBillingCount       int64   `json:"failed_billing_count"`
+	PendingBillingCost       float64 `json:"pending_billing_cost"` // 已计算但尚未扣除
+	FailedBillingCost        float64 `json:"failed_billing_cost"`  // 结算失败待人工/重试处理
 
 	// 性能统计
 	AverageDurationMs float64 `json:"average_duration_ms"`

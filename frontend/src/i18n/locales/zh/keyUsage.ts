@@ -64,6 +64,8 @@ export default {
     totalCacheRead: '累计缓存读取',
     totalCost: '累计积分消耗',
     avgDuration: '平均耗时',
+    pendingBilling: '结算处理中',
+    failedBilling: '结算失败',
     // Messages
     enterApiKey: '请输入 API Key',
     querySuccess: '查询成功',

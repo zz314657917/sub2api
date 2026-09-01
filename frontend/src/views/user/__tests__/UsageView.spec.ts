@@ -83,6 +83,8 @@ const messages: Record<string, string> = {
   'usage.balanceConversion': 'Balance conversion',
   'usage.original': 'Original',
   'usage.billed': 'Billed',
+  'usage.billingPending': 'Settlement pending',
+  'usage.billingFailed': 'Settlement failed',
   'usage.totalRequests': 'Total Requests',
   'usage.totalTokens': 'Total Tokens',
   'usage.totalCost': 'Total Cost',
@@ -846,6 +848,20 @@ describe('user UsageView', () => {
     expect(costCell.text()).toContain('$0.013400')
     expect(costCell.text()).toContain('✪ 0.010720')
     expect(costCell.find('.line-through').text()).toContain('$0.013400')
+  })
+
+  it('does not present an unsettled cost as a completed charge', async () => {
+    const wrapper = await mountUsageView([
+      baseUsageLog({
+        billing_status: 'pending',
+        total_cost: 0.1234,
+        actual_cost: 0.1234,
+      }),
+    ])
+
+    const costCell = wrapper.find('.table-cell[data-column="cost"]')
+    expect(costCell.text()).toContain('Settlement pending')
+    expect(costCell.text()).not.toContain('✪ 0.123400')
   })
 
   it('renders compact scope totals without restoring duplicated stat cards', async () => {

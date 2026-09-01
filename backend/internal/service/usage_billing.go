@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"time"
 
 	"github.com/shopspring/decimal"
 )
@@ -18,6 +19,11 @@ var ErrUsageBillingCommandInvalid = errors.New("usage billing command is invalid
 
 // UsageBillingCommand describes one billable request that must be applied at most once.
 type UsageBillingCommand struct {
+	UsageLogID int64
+	// FinalizeUsageLog controls whether Apply may close the usage log/outbox.
+	// Composite trial settlement keeps this false until its overage and trial
+	// consumption steps have both completed.
+	FinalizeUsageLog   bool
 	RequestID          string
 	APIKeyID           int64
 	RequestFingerprint string
@@ -25,6 +31,7 @@ type UsageBillingCommand struct {
 
 	UserID              int64
 	AccountID           int64
+	GroupID             *int64
 	SubscriptionID      *int64
 	AccountType         string
 	Platform            string
@@ -170,4 +177,63 @@ type UsageBillingApplyResult struct {
 
 type UsageBillingRepository interface {
 	Apply(ctx context.Context, cmd *UsageBillingCommand) (*UsageBillingApplyResult, error)
+}
+
+// UsageBillingLedgerReconciler repairs the single usage-log ledger row from
+// the complete settlement payload. It is intentionally optional so existing
+// billing repository implementations and test doubles retain the base Apply
+// contract. This matters for trial billing, where primary and overage commands
+// have different request_id values but share one usage_log_id ledger row.
+type UsageBillingLedgerReconciler interface {
+	ReconcileUsageBillingEntry(ctx context.Context, payload *UsageBillingSettlementPayload) error
+}
+
+// UsageBillingSettlementTask is a durable, local-only replay of a billing command.
+// It deliberately contains no upstream credentials or request/response body.
+type UsageBillingSettlementTask struct {
+	ID         int64
+	UsageLogID int64
+	Command    UsageBillingCommand
+	Payload    UsageBillingSettlementPayload
+	Attempts   int
+}
+
+// UsageBillingSettlementPayload is the durable replay snapshot for a request.
+// Trial billing is deliberately represented as a composite: the primary
+// command, optional wallet/subscription overage, and the idempotent trial-pool
+// consumption must all finish before the usage log is marked applied.
+type UsageBillingSettlementPayload struct {
+	Version int                       `json:"version"`
+	Primary UsageBillingCommand       `json:"primary"`
+	Overage *UsageBillingCommand      `json:"overage,omitempty"`
+	Trial   *UsageBillingTrialPayload `json:"trial,omitempty"`
+}
+
+type UsageBillingTrialPayload struct {
+	TrialID        int64   `json:"trial_id"`
+	UserID         int64   `json:"user_id"`
+	TrialRequestID string  `json:"trial_request_id"`
+	RequestID      string  `json:"request_id"`
+	Amount         float64 `json:"amount"`
+	Model          string  `json:"model"`
+	APIKeyID       int64   `json:"api_key_id"`
+}
+
+// UsageBillingSettlementRepository is optional so existing billing test doubles
+// remain source compatible with UsageBillingRepository.
+type UsageBillingSettlementRepository interface {
+	CreatePending(ctx context.Context, log *UsageLog, cmd *UsageBillingCommand) error
+	CreatePendingPayload(ctx context.Context, log *UsageLog, payload *UsageBillingSettlementPayload) error
+	MarkPendingError(ctx context.Context, usageLogID int64, billingErr error) error
+	MarkApplied(ctx context.Context, usageLogID int64) error
+	ClaimPending(ctx context.Context, limit int, lease time.Duration) ([]UsageBillingSettlementTask, error)
+	MarkRetry(ctx context.Context, taskID int64, attempts int, billingErr error, nextAttempt time.Time, terminal bool) error
+}
+
+// UsageBillingSettlementOwnershipRepository is an optional extension for
+// callers that must not race an existing processing outbox lease. owned means
+// this caller may run the synchronous settlement; settled means an earlier
+// caller already completed it.
+type UsageBillingSettlementOwnershipRepository interface {
+	CreatePendingPayloadWithOwnership(ctx context.Context, log *UsageLog, payload *UsageBillingSettlementPayload) (owned bool, settled bool, err error)
 }

@@ -1060,10 +1060,10 @@ func (r *accountRepository) GetUsageSummary(ctx context.Context, ownerUserID int
 			SELECT
 				COALESCE(SUM(COALESCE(ul.account_stats_cost, ul.total_cost, 0) * COALESCE(ul.account_rate_multiplier, 1)) FILTER (WHERE ul.user_id = $1), 0)::double precision AS own_usage_cost,
 				COALESCE(COUNT(*) FILTER (WHERE ul.user_id = $1), 0)::bigint AS own_usage_requests,
-				COALESCE(SUM(COALESCE(ul.actual_cost, 0)) FILTER (WHERE ul.user_id <> $1), 0)::double precision AS shared_usage_cost,
+				COALESCE(SUM(CASE WHEN ul.billing_status = 'applied' THEN COALESCE(ul.actual_cost, 0) ELSE 0 END) FILTER (WHERE ul.user_id <> $1), 0)::double precision AS shared_usage_cost,
 				COALESCE(COUNT(*) FILTER (WHERE ul.user_id <> $1), 0)::bigint AS shared_usage_requests,
 				COALESCE(SUM(COALESCE(ul.account_stats_cost, ul.total_cost, 0) * COALESCE(ul.account_rate_multiplier, 1)), 0)::double precision AS account_cost,
-				COALESCE(SUM(COALESCE(ul.actual_cost, 0)) FILTER (
+				COALESCE(SUM(CASE WHEN ul.billing_status = 'applied' THEN COALESCE(ul.actual_cost, 0) ELSE 0 END) FILTER (
 					WHERE ul.user_id = $1
 						AND ul.billing_type = 0
 						AND COALESCE(oa.share_mode, 'private') <> 'private'

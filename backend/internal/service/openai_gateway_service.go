@@ -7762,28 +7762,38 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		quotaPlatform = PlatformFromAPIKey(apiKey)
 	}
 
+	accountShareSettings := resolveAccountShareBillingSettings(ctx, s.settingService)
+	billingParams := &postUsageBillingParams{
+		Cost:                         cost,
+		User:                         user,
+		APIKey:                       apiKey,
+		Account:                      account,
+		Subscription:                 subscription,
+		RequestPayloadHash:           resolveUsageBillingPayloadFingerprint(ctx, input.RequestPayloadHash),
+		IsSubscriptionBill:           isSubscriptionBilling,
+		AccountRateMultiplier:        accountRateMultiplier,
+		APIKeyService:                input.APIKeyService,
+		AccountShareEnabled:          accountShareSettings.Enabled,
+		AccountShareOwnerRatePercent: accountShareSettings.OwnerRatePercent,
+		AccountShareFreezeHours:      accountShareSettings.FreezeHours,
+		NewUserTrial:                 trialSession,
+		DeferSettlementFinalize:      trialSession != nil,
+		PrepaidBalanceCost:           prepaidBalanceCost,
+		RequireBalanceCheck:          input.RequireBalanceCheck,
+		Platform:                     quotaPlatform,
+	}
+	owned, err := persistUsageLogForBilling(ctx, s.usageLogRepo, usageLog, requestID, billingParams)
+	if err != nil {
+		return fmt.Errorf("persist pending usage billing: %w", err)
+	}
+	if !owned {
+		return nil
+	}
+
 	applied := false
 	billingErr := func() error {
-		accountShareSettings := resolveAccountShareBillingSettings(ctx, s.settingService)
 		var err error
-		applied, err = applyUsageBillingWithNewUserTrialOverage(ctx, requestID, usageLog, &postUsageBillingParams{
-			Cost:                         cost,
-			User:                         user,
-			APIKey:                       apiKey,
-			Account:                      account,
-			Subscription:                 subscription,
-			RequestPayloadHash:           resolveUsageBillingPayloadFingerprint(ctx, input.RequestPayloadHash),
-			IsSubscriptionBill:           isSubscriptionBilling,
-			AccountRateMultiplier:        accountRateMultiplier,
-			APIKeyService:                input.APIKeyService,
-			AccountShareEnabled:          accountShareSettings.Enabled,
-			AccountShareOwnerRatePercent: accountShareSettings.OwnerRatePercent,
-			AccountShareFreezeHours:      accountShareSettings.FreezeHours,
-			NewUserTrial:                 trialSession,
-			PrepaidBalanceCost:           prepaidBalanceCost,
-			RequireBalanceCheck:          input.RequireBalanceCheck,
-			Platform:                     quotaPlatform,
-		}, s.billingDeps(), s.usageBillingRepo, s.welfareService)
+		applied, err = applyUsageBillingWithNewUserTrialOverage(ctx, requestID, usageLog, billingParams, s.billingDeps(), s.usageBillingRepo, s.welfareService)
 		return err
 	}()
 
@@ -7791,8 +7801,28 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		// Preserve the measured cost when settlement fails. The upstream response
 		// has already been delivered, so recording zero would hide an uncollected
 		// charge and make the request look free in usage history.
-		writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.openai_gateway")
+		markUsageLogBillingPending(ctx, s.usageLogRepo, usageLog, billingErr, "service.openai_gateway")
 		return billingErr
+	}
+	// The production unified repository finalizes ordinary commands in the same
+	// transaction as the monetary effects. Only the legacy/degraded fallback
+	// (which has no repository transaction) and composite trial billing need an
+	// additional status transition here. Keeping ordinary unified billing out
+	// of this path prevents a post-charge status failure from replaying cache,
+	// rate-limit, or notification side effects on the worker retry.
+	if usageLog.ID > 0 && (s.usageBillingRepo == nil || billingParams.DeferSettlementFinalize) {
+		if err := finalizeUsageLogSettlement(ctx, s.usageLogRepo, usageLog, "service.openai_gateway"); err != nil {
+			markUsageLogBillingPending(ctx, s.usageLogRepo, usageLog, err, "service.openai_gateway")
+			return err
+		}
+		// Ordinary billing already performs its post-settlement cache and
+		// notification updates inside applyUsageBilling. Only composite trial
+		// billing defers those effects until its overage and trial-pool steps
+		// have all completed.
+		if billingParams.DeferSettlementFinalize {
+			finalizePostUsageBilling(ctx, billingParams, s.billingDeps(), nil)
+			finalizeNewUserTrialOverageCache(ctx, billingParams, s.billingDeps())
+		}
 	}
 	if applied && s.billingCacheService != nil {
 		s.billingCacheService.RecordMembershipTokenUsage(ctx, user.ID, usageLog.TotalTokens())

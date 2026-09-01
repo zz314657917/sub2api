@@ -663,6 +663,18 @@ const getRequestTypeLabel = (log: AdminUsageLog): string => {
   return t('usage.unknown')
 }
 
+// Legacy API responses may omit billing_status; those rows predate the
+// settlement migration and retain the historical applied interpretation.
+const isBillingSettled = (log: Pick<AdminUsageLog, 'billing_status'> | null | undefined): boolean =>
+  !log?.billing_status || log.billing_status === 'applied'
+
+const exportBilledCost = (log: AdminUsageLog): string => {
+  if (!isBillingSettled(log)) {
+    return log.billing_status === 'failed' ? t('usage.billingFailed') : t('usage.billingPending')
+  }
+  return log.actual_cost?.toFixed(6) || '0.000000'
+}
+
 const exportToExcel = async () => {
   if (exporting.value) return; exporting.value = true; exportProgress.show = true
   const c = new AbortController(); exportAbortController = c
@@ -697,7 +709,7 @@ const exportToExcel = async () => {
         log.input_cost?.toFixed(6) || '0.000000', log.output_cost?.toFixed(6) || '0.000000',
         log.cache_read_cost?.toFixed(6) || '0.000000', log.cache_creation_cost?.toFixed(6) || '0.000000',
         (log.pricing_rate_multiplier ?? log.rate_multiplier ?? 1).toPrecision(4), (log.balance_conversion_multiplier ?? 1).toPrecision(4), log.rate_multiplier?.toPrecision(4) || '1.00', (log.account_rate_multiplier ?? 1).toPrecision(4),
-        log.total_cost?.toFixed(6) || '0.000000', log.actual_cost?.toFixed(6) || '0.000000',
+        log.total_cost?.toFixed(6) || '0.000000', exportBilledCost(log),
         ((log.account_stats_cost ?? log.total_cost) * (log.account_rate_multiplier ?? 1)).toFixed(6), log.first_token_ms ?? '', log.duration_ms,
         log.request_id || '', log.user_agent || '', log.ip_address || ''
       ])

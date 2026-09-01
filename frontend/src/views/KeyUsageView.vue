@@ -167,6 +167,18 @@
             </div>
           </div>
 
+          <div
+            v-if="billingStatusInfo"
+            class="fade-up flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-md border px-4 py-3 text-sm"
+            :class="billingStatusInfo.failed > 0
+              ? 'border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300'
+              : 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300'"
+          >
+            <span class="font-medium">{{ billingStatusInfo.failed > 0 ? t('keyUsage.failedBilling') : t('keyUsage.pendingBilling') }}</span>
+            <span v-if="billingStatusInfo.pending > 0">{{ billingStatusInfo.pending }} / {{ usd(billingStatusInfo.pendingCost) }}</span>
+            <span v-if="billingStatusInfo.failed > 0">{{ billingStatusInfo.failed }} / {{ usd(billingStatusInfo.failedCost) }}</span>
+          </div>
+
           <!-- Ring Cards Grid -->
           <div v-if="ringItems.length > 0" :class="ringGridClass">
             <div
@@ -832,6 +844,20 @@ const usageStatCells = computed<StatCell[]>(() => {
     { label: t('keyUsage.totalCost'), value: usd(total.actual_cost) },
     { label: t('keyUsage.avgDuration'), value: usage.average_duration_ms ? `${Math.round(usage.average_duration_ms)} ms` : '-' },
   ]
+})
+
+const billingStatusInfo = computed(() => {
+  const usage = resultData.value?.usage
+  if (!usage) return null
+  const pending = Number(usage.pending_billing_count || 0)
+  const failed = Number(usage.failed_billing_count || 0)
+  if (pending <= 0 && failed <= 0) return null
+  return {
+    pending,
+    failed,
+    pendingCost: Number(usage.pending_billing_cost || 0),
+    failedCost: Number(usage.failed_billing_cost || 0),
+  }
 })
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
