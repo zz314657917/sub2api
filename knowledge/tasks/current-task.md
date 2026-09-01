@@ -1,27 +1,29 @@
 # 当前任务快照
 
-最后更新：2026-09-01 11:52 +08:00
+最后更新：2026-09-01 12:28 +08:00
 
 ## 背景
 
 - 用户要求继续检查并选择 `v0.1.179`--`v0.1.194` 中可安全合入本地的上游行为。
 - 上游最新实际 tag 是 `v0.1.184`；`v0.1.185`--`v0.1.194` 尚未发布。只读审计拒绝整体 merge/cherry-pick，并把剩余候选拆为 S277-S279。
-- S276、S277 已精确提交本地但未 push；当前启动 S278 的渠道定价归一化修复。
+- S276--S278 已精确提交本地但未 push；当前启动 S279 的分组限额部分更新修复。
 
 ## 当前目标
 
-- 审核并执行 `upstream-v0184-channel-pricing-s278` contract。
-- 按本地拓扑让带后缀的 OpenAI/Codex 模型在渠道字面查找失败后回退到已知归一化模型名，避免官方兜底价覆盖渠道价。
+- 审核并执行 `upstream-v0184-group-limit-partial-s279` contract。
+- 让管理员部分更新分组时保留省略的日/周/月限额，同时保留本地 room-managed 强制无限的约束。
 
 ## 当前状态
 
 - Workflow phase: `done`。
-- Contract: `docs/workflow/tasks/upstream-v0184-channel-pricing-s278.md`；contract review: `PASS`。
-- Base commit: `f81bb2a55`（S278 产品提交 `43d109581` 的实际父提交；并行 17 文件明确排除）。
-- 上游来源 `eb4237a2b` 已按本地 `ModelPricingResolver` 拓扑适配；没有整体 merge/cherry-pick。
+- Contract: `docs/workflow/tasks/upstream-v0184-group-limit-partial-s279.md`；contract review: `PASS`。
+- Base commit: `408916129`。
+- 上游来源 `9f1effd71` 属于 `v0.1.184`；上游 service owner 在本地已合并进 `admin_service.go`，必须手工适配。
 - S277 Developer report 首行为 `DONE`；独立 Terra QA report 首行为 `PASS`，并已提交为 `e5ff9b299`。
-- S278 产品提交 `43d109581` 的实际父提交是并行提交 `f81bb2a55`；后者 17 个文件不属于 S278。S278 只允许 resolver、定向计费回归、worker/QA 证据；当前 backend 其他脏改、锁文件、Pixel Cafe、knowledge、outputs 仍按基线保护。
-- Terra Developer 两次在模型接口层失败（HTTP 524、HTTP 503）；用户授权 S278 Developer 与独立 QA 改用 `gpt-5.6-sol`。Sol worker report 为 `DONE`，独立 QA 为 `PASS`：8 个定向用例 x10、完整 service 非缓存复跑、server 编译、格式、diff/conflict 和保护摘要均通过。
+- S278 已由产品提交 `43d109581` 与 closeout `5ad3d5e73` 完成，独立 QA PASS。
+- `admin_service.go` 当前有 Pixel Cafe 配额重置脏改；控制器已保存仓库外 SHA-256 基线。S279 只允许修改 `UpdateGroup` 限额块，不能吸收该脏改。
+- Terra Developer report 为 `DONE`；handler/service 定向 x10、完整受影响包、server 编译、格式与外部基线检查通过。Controller 复核确认 Cafe hunk 未变。
+- 独立 Terra QA report 为 `PASS`；合同完整 handler/service 命令、server 编译、格式、diff/conflict 与两份外部基线检查通过。
 
 ## 保护边界
 
@@ -31,9 +33,9 @@
 
 ## 下一步
 
-1. S278 已本地集成并独立 QA PASS；不 push。
-2. 如继续上游迁移，为 S279 新建 contract，评估分组部分更新限额，同时保护当前脏的 `admin_service.go` 与 API-key cache/auth 路径。
+1. 精确暂存并本地提交 S279；`admin_service.go` 只提交 UpdateGroup 限额 hunk，Pixel Cafe hunk继续留在工作区。
+2. 不 push；`v0.1.179`--`v0.1.184` 当前已批准的 S276--S279 队列完成，后续候选需新开 Planner 审计。
 
 ## 后续队列
 
-- S279：分组部分更新限额；必须额外保护当前脏的 `admin_service.go`。
+- S279：独立 QA PASS，精确本地集成收口中。

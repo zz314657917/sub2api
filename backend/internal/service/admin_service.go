@@ -2422,14 +2422,20 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	if group.AccessMode == GroupAccessModeRoomManaged && group.SubscriptionType != SubscriptionTypeSubscription {
 		return nil, errors.New("room_managed access mode requires a subscription group")
 	}
-	// 前端始终发送这三个字段；room_managed 必须在服务端再次强制清空，
-	// 防止旧客户端或直接调用 API 绕过界面约束。
-	group.DailyLimitUSD, group.WeeklyLimitUSD, group.MonthlyLimitUSD = normalizeGroupLimits(
-		group.AccessMode,
-		input.DailyLimitUSD,
-		input.WeeklyLimitUSD,
-		input.MonthlyLimitUSD,
-	)
+	// room_managed 必须在服务端再次强制清空，防止旧客户端或直接调用 API 绕过界面约束。
+	if group.AccessMode == GroupAccessModeRoomManaged {
+		group.DailyLimitUSD, group.WeeklyLimitUSD, group.MonthlyLimitUSD = nil, nil, nil
+	} else {
+		if input.DailyLimitUSD != nil {
+			group.DailyLimitUSD = normalizeLimit(input.DailyLimitUSD)
+		}
+		if input.WeeklyLimitUSD != nil {
+			group.WeeklyLimitUSD = normalizeLimit(input.WeeklyLimitUSD)
+		}
+		if input.MonthlyLimitUSD != nil {
+			group.MonthlyLimitUSD = normalizeLimit(input.MonthlyLimitUSD)
+		}
+	}
 	// 图片生成计费配置：负数表示清除（使用默认价格）
 	if input.AllowImageGeneration != nil {
 		group.AllowImageGeneration = *input.AllowImageGeneration

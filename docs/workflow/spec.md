@@ -54,6 +54,21 @@
   data, commit or push is part of this addendum. Contract:
   `docs/workflow/tasks/upstream-v0184-channel-pricing-s278.md`.
 
+## Upstream v0.1.184 Group Limit Partial Update Addendum (S279)
+
+- Adapt upstream `9f1effd71` so omitted daily/weekly/monthly group limit fields
+  preserve their current values. Explicit null clears only the named limit and
+  numeric values update only the named limit.
+- Preserve the local Room-managed invariant: a `room_managed` subscription
+  group always has unlimited group-level limits because its Room plan owns the
+  managed API-key quotas. Do not change the local `<=0` unlimited convention.
+- The local service owner is the currently dirty `admin_service.go`; only its
+  `UpdateGroup` limit block may change. Existing Pixel Cafe quota-reset work is
+  protected by an external baseline snapshot and exact no-index diff review.
+- No frontend, repository, schema, migration, billing, provider, container,
+  deployment, shared-data, commit or push action belongs to this addendum.
+  Contract: `docs/workflow/tasks/upstream-v0184-group-limit-partial-s279.md`.
+
 ## Usage Billing Multiplier Breakdown Addendum (S275)
 
 - Keep the persisted composite `usage_logs.rate_multiplier`, `total_cost`,
