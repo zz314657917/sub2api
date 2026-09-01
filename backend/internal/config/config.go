@@ -724,6 +724,10 @@ type ProxyProbeConfig struct {
 
 type BillingConfig struct {
 	CircuitBreaker CircuitBreakerConfig `mapstructure:"circuit_breaker"`
+	// MinimumBalanceReserve is the conservative preflight floor for balance billing.
+	// Requests in balance mode are rejected when the cached balance is below this
+	// amount, even if it is still positive. Set to 0 to keep the legacy balance > 0 gate.
+	MinimumBalanceReserve float64 `mapstructure:"minimum_balance_reserve"`
 }
 
 type CircuitBreakerConfig struct {
@@ -1804,6 +1808,7 @@ func setDefaults() {
 	viper.SetDefault("billing.circuit_breaker.failure_threshold", 5)
 	viper.SetDefault("billing.circuit_breaker.reset_timeout_seconds", 30)
 	viper.SetDefault("billing.circuit_breaker.half_open_requests", 3)
+	viper.SetDefault("billing.minimum_balance_reserve", 0.000001)
 
 	// Turnstile
 	viper.SetDefault("turnstile.required", false)
@@ -2534,6 +2539,9 @@ func (c *Config) Validate() error {
 		if c.Billing.CircuitBreaker.HalfOpenRequests <= 0 {
 			return fmt.Errorf("billing.circuit_breaker.half_open_requests must be positive")
 		}
+	}
+	if c.Billing.MinimumBalanceReserve < 0 {
+		return fmt.Errorf("billing.minimum_balance_reserve must be non-negative")
 	}
 	if c.Database.MaxOpenConns <= 0 {
 		return fmt.Errorf("database.max_open_conns must be positive")

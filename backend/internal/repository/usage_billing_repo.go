@@ -121,6 +121,7 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 			cmd.BalanceCost,
 			welfareVoucherOperationUsageBilling,
 			usageBillingVoucherOperationKey(cmd),
+			cmd.RequireBalanceCheck,
 		)
 		if err != nil {
 			return err
@@ -128,6 +129,7 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 		result.VoucherCost = deducted.VoucherAmount
 		result.BalanceCost = deducted.BalanceAmount
 		result.NewBalance = &deducted.BalanceAfter
+		result.BalanceOverdrafted = deducted.BalanceAfter < 0
 	}
 	if cmd.PrepaidBalanceCost > 0 {
 		result.PrepaidBalanceCost = cmd.PrepaidBalanceCost

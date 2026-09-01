@@ -41,8 +41,9 @@ type UsageBillingCommand struct {
 
 	BalanceCost        float64
 	PrepaidBalanceCost float64
-	// RequireBalanceCheck is retained for command compatibility; every wallet
-	// deduction is now guarded by the repository regardless of this flag.
+	// RequireBalanceCheck keeps known-amount reservations (images, videos and
+	// Studio Bridge) strict. Ordinary post-response usage billing may record an
+	// overdraft so a delivered upstream response cannot be billed as free.
 	RequireBalanceCheck bool
 	SubscriptionCost    float64
 	APIKeyQuotaCost     float64
@@ -63,9 +64,6 @@ func (c *UsageBillingCommand) Normalize() {
 		c.RequestFingerprint = buildUsageBillingFingerprint(c)
 	}
 	c.quantizeMonetaryFields()
-	if c.BalanceCost > 0 {
-		c.RequireBalanceCheck = true
-	}
 }
 
 // UsageBillingMonetaryScale aligns command amounts with PostgreSQL NUMERIC(20,8).
@@ -163,6 +161,7 @@ type UsageBillingApplyResult struct {
 	Applied              bool
 	APIKeyQuotaExhausted bool
 	NewBalance           *float64           // post-deduction balance (nil = no balance deduction)
+	BalanceOverdrafted   bool               // true when usage billing recorded a balance below zero
 	VoucherCost          float64            // voucher amount consumed before wallet balance
 	BalanceCost          float64            // wallet balance amount consumed after vouchers
 	PrepaidBalanceCost   float64            // balance cost already deducted before this billing application

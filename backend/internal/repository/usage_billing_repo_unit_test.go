@@ -1,0 +1,126 @@
+//go:build unit
+
+package repository
+
+import (
+	"context"
+	"database/sql"
+	"testing"
+
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/stretchr/testify/require"
+)
+
+const (
+	usageBillingUserBalanceSQL     = `(?s)SELECT balance::double precision\s+FROM users\s+WHERE id = \$1 AND deleted_at IS NULL\s+FOR UPDATE`
+	usageBillingVoucherSummarySQL  = `(?s)SELECT\s+u\.balance::double precision,\s+COALESCE\(voucher\.available_amount, 0\)::double precision,\s+voucher\.next_expires_at\s+FROM users u`
+	usageBillingVoucherRowsSQL     = `(?s)SELECT id, remaining_amount::double precision\s+FROM welfare_vouchers\s+WHERE user_id = \$1`
+	usageBillingOverdraftUpdateSQL = `(?s)UPDATE users\s+SET balance = balance - \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$2 AND deleted_at IS NULL\s+RETURNING balance::double precision`
+)
+
+func TestDeductWelfareVoucherThenBalance_AllowsUsageBillingOverdraft(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	mock.ExpectQuery(usageBillingUserBalanceSQL).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(0.0007))
+	mock.ExpectQuery(usageBillingVoucherRowsSQL).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "remaining_amount"}))
+	mock.ExpectQuery(usageBillingOverdraftUpdateSQL).
+		WithArgs(0.06, int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(-0.0593))
+	mock.ExpectCommit()
+
+	result, err := deductWelfareVoucherThenBalance(ctx, tx, 42, 0.06, welfareVoucherOperationUsageBilling, "req:42", false)
+	require.NoError(t, err)
+	require.InDelta(t, 0.06, result.BalanceAmount, 0.00000001)
+	require.InDelta(t, -0.0593, result.BalanceAfter, 0.00000001)
+	require.NoError(t, tx.Commit())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestApplyUsageBillingEffects_FlagsBalanceOverdraft(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	mock.ExpectQuery(usageBillingUserBalanceSQL).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(0.0007))
+	mock.ExpectQuery(usageBillingVoucherRowsSQL).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "remaining_amount"}))
+	mock.ExpectQuery(usageBillingOverdraftUpdateSQL).
+		WithArgs(0.06, int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(-0.0593))
+	mock.ExpectCommit()
+
+	result := &service.UsageBillingApplyResult{Applied: true}
+	err = (&usageBillingRepository{}).applyUsageBillingEffects(ctx, tx, &service.UsageBillingCommand{
+		RequestID:   "req-overdraft",
+		APIKeyID:    42,
+		UserID:      42,
+		BalanceCost: 0.06,
+	}, result)
+	require.NoError(t, err)
+	require.True(t, result.BalanceOverdrafted)
+	require.NotNil(t, result.NewBalance)
+	require.InDelta(t, -0.0593, *result.NewBalance, 0.00000001)
+	require.NoError(t, tx.Commit())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestDeductWelfareVoucherThenBalance_RejectsStrictReservation(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	mock.ExpectQuery(usageBillingUserBalanceSQL).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(0.0007))
+	mock.ExpectQuery(usageBillingVoucherSummarySQL).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance", "available_amount", "next_expires_at"}).AddRow(0.0007, 0, nil))
+	mock.ExpectRollback()
+
+	_, err = deductWelfareVoucherThenBalance(ctx, tx, 42, 0.06, welfareVoucherOperationUsageBilling, "req:42", true)
+	require.ErrorIs(t, err, service.ErrInsufficientBalance)
+	require.NoError(t, tx.Rollback())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestDeductWelfareVoucherThenBalance_ReturnsUserNotFound(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	mock.ExpectQuery(usageBillingUserBalanceSQL).
+		WithArgs(int64(42)).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectRollback()
+
+	_, err = deductWelfareVoucherThenBalance(ctx, tx, 42, 0.06, welfareVoucherOperationUsageBilling, "req:42", false)
+	require.ErrorIs(t, err, service.ErrUserNotFound)
+	require.NoError(t, tx.Rollback())
+	require.NoError(t, mock.ExpectationsWereMet())
+}

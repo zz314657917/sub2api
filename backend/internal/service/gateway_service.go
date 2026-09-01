@@ -8696,8 +8696,8 @@ type postUsageBillingParams struct {
 	NewUserTrial                 *NewUserTrialSession
 	SkipUsageCounters            bool
 	PrepaidBalanceCost           float64
-	// RequireBalanceCheck is retained for call-site compatibility; the billing
-	// repository always enforces sufficient wallet funds for positive charges.
+	// RequireBalanceCheck keeps known-amount reservations strict; ordinary
+	// post-response usage billing may record an overdraft.
 	RequireBalanceCheck bool
 	Platform            string
 }
@@ -9592,7 +9592,9 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	}, s.billingDeps(), s.usageBillingRepo, s.welfareService)
 
 	if billingErr != nil {
-		usageLog.ActualCost = 0
+		// Preserve the measured cost when settlement fails. The upstream response
+		// has already been delivered, so recording zero would hide an uncollected
+		// charge and make the request look free in usage history.
 		writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.gateway")
 		return billingErr
 	}

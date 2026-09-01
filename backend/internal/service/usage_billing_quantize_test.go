@@ -31,6 +31,16 @@ func TestUsageBillingCommandQuantizesBalanceAndQuotaIdentically(t *testing.T) {
 	require.LessOrEqual(t, usageBillingDecimalPlaces(cmd.BalanceCost), int32(UsageBillingMonetaryScale))
 }
 
+func TestUsageBillingCommandNormalizePreservesBalanceCheckPolicy(t *testing.T) {
+	cmd := &UsageBillingCommand{RequestID: "req-balance-policy", BalanceCost: 0.06}
+	cmd.Normalize()
+	require.False(t, cmd.RequireBalanceCheck, "ordinary post-response usage must be allowed to record debt")
+
+	cmd.RequireBalanceCheck = true
+	cmd.Normalize()
+	require.True(t, cmd.RequireBalanceCheck, "known-amount reservations must remain strict")
+}
+
 func TestQuantizeUsageBillingAmountBoundaries(t *testing.T) {
 	cases := []struct {
 		name string

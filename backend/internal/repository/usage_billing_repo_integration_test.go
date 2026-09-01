@@ -283,7 +283,7 @@ func TestUsageBillingRepositoryApply_RequireBalanceCheckRejectsInsufficientVouch
 	require.InDelta(t, 0.25, remaining, 0.000001)
 }
 
-func TestUsageBillingRepositoryApply_RejectsInsufficientBalanceByDefault(t *testing.T) {
+func TestUsageBillingRepositoryApply_RecordsOverdraftByDefault(t *testing.T) {
 	ctx := context.Background()
 	client := testEntClient(t)
 	repo := NewUsageBillingRepository(client, integrationDB)
@@ -308,17 +308,23 @@ func TestUsageBillingRepositoryApply_RejectsInsufficientBalanceByDefault(t *test
 		ExpiresAt:  &expiresAt,
 	}))
 
-	_, err := repo.Apply(ctx, &service.UsageBillingCommand{
+	result, err := repo.Apply(ctx, &service.UsageBillingCommand{
 		RequestID:   uuid.NewString(),
 		APIKeyID:    apiKey.ID,
 		UserID:      user.ID,
 		BalanceCost: 1.0,
 	})
-	require.ErrorIs(t, err, service.ErrInsufficientBalance)
+	require.NoError(t, err)
+	require.True(t, result.Applied)
+	require.InDelta(t, 0.25, result.VoucherCost, 0.000001)
+	require.InDelta(t, 0.75, result.BalanceCost, 0.000001)
+	require.NotNil(t, result.NewBalance)
+	require.InDelta(t, -0.25, *result.NewBalance, 0.000001)
+	require.True(t, result.BalanceOverdrafted)
 
 	var balance float64
 	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT balance FROM users WHERE id = $1", user.ID).Scan(&balance))
-	require.InDelta(t, 0.5, balance, 0.000001)
+	require.InDelta(t, -0.25, balance, 0.000001)
 
 	var remaining float64
 	require.NoError(t, integrationDB.QueryRowContext(ctx, `
@@ -326,7 +332,7 @@ func TestUsageBillingRepositoryApply_RejectsInsufficientBalanceByDefault(t *test
 		FROM welfare_vouchers
 		WHERE user_id = $1
 	`, user.ID).Scan(&remaining))
-	require.InDelta(t, 0.25, remaining, 0.000001)
+	require.InDelta(t, 0, remaining, 0.000001)
 }
 
 func TestUsageBillingRepositoryApply_RequestFingerprintConflict(t *testing.T) {

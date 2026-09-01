@@ -574,7 +574,7 @@ func scanStudioBridgeCharge(row *sql.Row) (*studioBridgeChargeRecord, error) {
 }
 
 func reserveStudioBridgeUserBalance(ctx context.Context, tx *sql.Tx, userID int64, amount float64, chargeKey string) (float64, error) {
-	result, err := deductWelfareVoucherThenBalance(ctx, tx, userID, amount, welfareVoucherOperationStudioBridge, chargeKey)
+	result, err := deductWelfareVoucherThenBalance(ctx, tx, userID, amount, welfareVoucherOperationStudioBridge, chargeKey, true)
 	if errors.Is(err, service.ErrInsufficientBalance) {
 		return 0, service.ErrStudioBridgeInsufficient
 	}

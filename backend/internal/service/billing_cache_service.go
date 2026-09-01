@@ -682,7 +682,7 @@ func (s *BillingCacheService) QueueUpdateAPIKeyRateLimitUsage(apiKeyID int64, co
 // ============================================
 
 // CheckBillingEligibility 检查用户是否有资格发起请求
-// 余额模式：检查缓存余额 > 0
+// 余额模式：检查缓存余额达到 minimum_balance_reserve（兼容配置为 0 时仍为 > 0）
 // 订阅模式：检查缓存用量未超过限额（Group限额从参数传入）
 func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user *User, apiKey *APIKey, group *Group, subscription *UserSubscription) error {
 	// 简易模式：跳过所有计费检查
@@ -875,7 +875,7 @@ func (s *BillingCacheService) checkBalanceEligibility(ctx context.Context, userI
 		s.circuitBreaker.OnSuccess()
 	}
 
-	if balance <= 0 {
+	if s.balanceBelowEligibilityThreshold(balance) {
 		if s.voucherProvider != nil {
 			available, voucherErr := s.voucherProvider.GetVoucherAvailableAmount(ctx, userID)
 			if voucherErr != nil {
@@ -888,6 +888,21 @@ func (s *BillingCacheService) checkBalanceEligibility(ctx context.Context, userI
 	}
 
 	return nil
+}
+
+func (s *BillingCacheService) minimumBalanceReserve() float64 {
+	if s == nil || s.cfg == nil || s.cfg.Billing.MinimumBalanceReserve <= 0 {
+		return 0
+	}
+	return s.cfg.Billing.MinimumBalanceReserve
+}
+
+func (s *BillingCacheService) balanceBelowEligibilityThreshold(balance float64) bool {
+	if balance <= 0 {
+		return true
+	}
+	minimumReserve := s.minimumBalanceReserve()
+	return minimumReserve > 0 && balance < minimumReserve
 }
 
 func (s *BillingCacheService) CheckBalanceAmountEligibility(ctx context.Context, userID int64, amount float64) error {

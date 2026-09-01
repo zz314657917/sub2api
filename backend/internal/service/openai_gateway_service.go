@@ -7778,7 +7778,9 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	}()
 
 	if billingErr != nil {
-		usageLog.ActualCost = 0
+		// Preserve the measured cost when settlement fails. The upstream response
+		// has already been delivered, so recording zero would hide an uncollected
+		// charge and make the request look free in usage history.
 		writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.openai_gateway")
 		return billingErr
 	}

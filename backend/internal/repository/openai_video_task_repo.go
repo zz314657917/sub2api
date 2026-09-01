@@ -133,7 +133,7 @@ func (r *openAIVideoTaskRepository) ReserveBalance(ctx context.Context, input *s
 			_ = tx.Rollback()
 		}
 	}()
-	if _, err := deductWelfareVoucherThenBalance(ctx, tx, input.UserID, amount, welfareVoucherOperationOpenAIVideo, input.TaskID); err != nil {
+	if _, err := deductWelfareVoucherThenBalance(ctx, tx, input.UserID, amount, welfareVoucherOperationOpenAIVideo, input.TaskID, true); err != nil {
 		return nil, err
 	}
 	task, err := upsertSubmittedOpenAIVideoTask(ctx, tx, input, service.OpenAIVideoTaskBillingReserved, amount, amount)
