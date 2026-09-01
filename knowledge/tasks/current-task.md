@@ -1,41 +1,51 @@
 # 当前任务快照
 
-最后更新：2026-09-01 12:28 +08:00
+最后更新：2026-09-01 12:39 +08:00
 
 ## 背景
 
 - 用户要求继续检查并选择 `v0.1.179`--`v0.1.194` 中可安全合入本地的上游行为。
-- 上游最新实际 tag 是 `v0.1.184`；`v0.1.185`--`v0.1.194` 尚未发布。只读审计拒绝整体 merge/cherry-pick，并把剩余候选拆为 S277-S279。
-- S276--S278 已精确提交本地但未 push；当前启动 S279 的分组限额部分更新修复。
+- 上游最新实际 tag 是 `v0.1.184`；`v0.1.185`--`v0.1.194` 尚未发布。全程拒绝整体 merge、rebase 或 cherry-pick，只做行为级选择性适配。
 
 ## 当前目标
 
-- 审核并执行 `upstream-v0184-group-limit-partial-s279` contract。
-- 让管理员部分更新分组时保留省略的日/周/月限额，同时保留本地 room-managed 强制无限的约束。
-
-## 当前状态
-
-- Workflow phase: `done`。
-- Contract: `docs/workflow/tasks/upstream-v0184-group-limit-partial-s279.md`；contract review: `PASS`。
-- Base commit: `408916129`。
-- 上游来源 `9f1effd71` 属于 `v0.1.184`；上游 service owner 在本地已合并进 `admin_service.go`，必须手工适配。
-- S277 Developer report 首行为 `DONE`；独立 Terra QA report 首行为 `PASS`，并已提交为 `e5ff9b299`。
-- S278 已由产品提交 `43d109581` 与 closeout `5ad3d5e73` 完成，独立 QA PASS。
-- `admin_service.go` 当前有 Pixel Cafe 配额重置脏改；控制器已保存仓库外 SHA-256 基线。S279 只允许修改 `UpdateGroup` 限额块，不能吸收该脏改。
-- Terra Developer report 为 `DONE`；handler/service 定向 x10、完整受影响包、server 编译、格式与外部基线检查通过。Controller 复核确认 Cafe hunk 未变。
-- 独立 Terra QA report 为 `PASS`；合同完整 handler/service 命令、server 编译、格式、diff/conflict 与两份外部基线检查通过。
-
-## 保护边界
-
-- 不整体 merge、rebase 或 cherry-pick `v0.1.184`。
-- 保留所有 `backend/**` 未提交 edits（包括不在 S277 的 apicompat）、`frontend/pnpm-lock.yaml`、API-key route breaker/auth、`backend/internal/service/admin_service.go`、Pixel Cafe 管理页和 `outputs/**`。
+- 当前 Sprint：`upstream-v0184-group-limit-partial-s279`，workflow phase 为 `done`。
+- 完成已批准的 S276--S279 本地集成队列，同时保留所有用户和并行任务脏改。
 - 不 push、不部署、不更新容器，不操作数据库、共享数据或真实 provider。
+
+## 本次已完成
+
+- S276 已提交为 `53484808e`。
+- S277 已提交为 `e5ff9b299`。
+- S278 产品行为提交为 `43d109581`，closeout 提交为 `5ad3d5e73`。
+- S279 已把上游 `9f1effd71` 适配到本地：handler 支持限额字段 omitted/null/number 三态，普通分组仅更新已提供字段，`room_managed` 始终清空三项分组限额。
+- S279 的 13 文件精确范围已提交为 `df4f4f511`，未 push。
+
+## 已确认事实
+
+- S279 Terra Developer 为 `DONE`，独立 Terra QA 为 `PASS`。
+- handler/service 定向测试各通过 10 轮，完整受影响包、server 编译、gofmt、diff/conflict、暂存快照和两份仓库外基线检查均通过。
+- S279 产品提交后索引为空；本地选择性集成提交均未 push。
+- `backend/internal/service/admin_service.go` 中 S279 仅提交 `UpdateGroup` 限额块；Pixel Cafe 配额重置 hunk 仍未暂存。
+- `backend/internal/pkg/apicompat/*.go`、`frontend/pnpm-lock.yaml`、`frontend/src/views/admin/pixelCafe/AdminCafeRoomsView.vue` 与 `outputs/**` 均未纳入 S279。
+
+## 待验证点
+
+- 当前没有额外获批的 `v0.1.179`--`v0.1.184` 候选；若继续寻找，需要先只读刷新上游 refs，并重新做 Planner 候选审计。
+- 未执行真实 provider、数据库并发、容器、部署或浏览器 smoke；这些均不属于 S279 contract。
+
+## 当前结论
+
+- `PASS`：S279 已完成精确本地提交，S276--S279 已批准队列全部收口；受保护脏改仍保留，未发生 push 或外部状态变更。
 
 ## 下一步
 
-1. 精确暂存并本地提交 S279；`admin_service.go` 只提交 UpdateGroup 限额 hunk，Pixel Cafe hunk继续留在工作区。
-2. 不 push；`v0.1.179`--`v0.1.184` 当前已批准的 S276--S279 队列完成，后续候选需新开 Planner 审计。
+1. 若用户要求继续合入：只读刷新上游 tag/main，按“等价 / 可独立移植 / 暂缓”重新分类候选；验证方式为 patch-id、`git apply --check`、本地 owner/topology 与聚焦测试设计。
+2. 若用户要求发布：先重新获取 `origin/main` 并复核 13 个本地提交及脏改边界，再走独立 pre-push review；未经明确授权不得 push。
 
-## 后续队列
+## 验证记录
 
-- S279：独立 QA PASS，精确本地集成收口中。
+- `node C:/Users/Administrator/.codex/scripts/codex-workflow.mjs pge-doctor --repo . --strict`：20/20，通过。
+- `git diff --cached --check`：通过；提交前暂存区正好 13 个 S279/workflow 文件。
+- `git commit -m "fix(admin): preserve group limits on partial updates"`：生成 `df4f4f5113ea6ad87dd324b96e78035a5efff57f`。
+- 提交后 `git diff --cached --exit-code`：通过；`git status --short --branch` 仅剩既有受保护脏改和 `outputs/`。
