@@ -254,24 +254,25 @@ type OpenAIForwardResult struct {
 	OpenAIWSMode    bool
 	// UpstreamTerminalEvent is set only for Responses WebSocket turns. An empty
 	// value preserves the legacy success behavior for non-WS forwarders.
-	UpstreamTerminalEvent string
-	ResponseHeaders       http.Header
-	Duration              time.Duration
-	FirstTokenMs          *int
-	ClientDisconnect      bool
-	ImageCount            int
-	ImageSize             string
-	ImageQuality          string
-	ImageInputSize        string
-	ImageOutputSize       string
-	ImageOutputSizes      []string
-	ImageSizeSource       string
-	ImageSizeBreakdown    map[string]int
-	CostOverride          *CostBreakdown
-	VideoTaskID           string
-	ResponseBody          []byte
-	wsReplayInput         []json.RawMessage
-	wsReplayInputExists   bool
+	UpstreamTerminalEvent        string
+	ResponseHeaders              http.Header
+	Duration                     time.Duration
+	FirstTokenMs                 *int
+	ClientDisconnect             bool
+	ImageCount                   int
+	ImageSize                    string
+	ImageQuality                 string
+	ImageInputSize               string
+	ImageOutputSize              string
+	ImageOutputSizes             []string
+	ImageSizeSource              string
+	ImageSizeBreakdown           map[string]int
+	CostOverride                 *CostBreakdown
+	VideoTaskID                  string
+	ResponseBody                 []byte
+	wsReplayInput                []json.RawMessage
+	wsReplayInputExists          bool
+	wsAccountFailoverReplayInput []json.RawMessage
 }
 
 func (r *OpenAIForwardResult) SucceededForScheduling() bool {
