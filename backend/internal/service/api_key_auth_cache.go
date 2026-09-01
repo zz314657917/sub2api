@@ -117,6 +117,10 @@ type APIKeyAuthGroupSnapshot struct {
 	PeakStart          string  `json:"peak_start"`
 	PeakEnd            string  `json:"peak_end"`
 	PeakRateMultiplier float64 `json:"peak_rate_multiplier"`
+
+	// LongContextPricingEnabled controls the group-level OpenAI long-context
+	// billing gate and must survive API-key auth cache round-trips.
+	LongContextPricingEnabled bool `json:"long_context_pricing_enabled"`
 }
 
 // APIKeyAuthCacheEntry 缓存条目，支持负缓存

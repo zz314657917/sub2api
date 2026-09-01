@@ -89,6 +89,34 @@ func TestAPIKeyService_PinnedSnapshotRoundTripAndRouteStaysOnBoundGroup(t *testi
 	}
 }
 
+func TestAPIKeyService_SnapshotRoundTripPreservesLongContextPricingEnabled(t *testing.T) {
+	groupID := int64(19)
+	svc := &APIKeyService{}
+	apiKey := &APIKey{
+		ID:      1,
+		UserID:  2,
+		Key:     "long-context-key",
+		GroupID: &groupID,
+		Status:  StatusAPIKeyActive,
+		User:    &User{ID: 2, Status: StatusActive, Role: RoleUser},
+		Group: &Group{
+			ID:                        groupID,
+			Platform:                  PlatformOpenAI,
+			Status:                    StatusActive,
+			LongContextPricingEnabled: true,
+		},
+	}
+
+	snapshot := svc.snapshotFromAPIKey(nil, apiKey)
+	if snapshot == nil || snapshot.Version != apiKeyAuthSnapshotVersion || snapshot.Group == nil || !snapshot.Group.LongContextPricingEnabled {
+		t.Fatalf("long-context setting missing from auth snapshot: %#v", snapshot)
+	}
+	restored := svc.snapshotToAPIKey(apiKey.Key, snapshot)
+	if restored == nil || restored.Group == nil || !restored.Group.LongContextPricingEnabled {
+		t.Fatalf("long-context setting lost after auth snapshot round-trip: %#v", restored)
+	}
+}
+
 func TestAuthCacheEntryExpired_RejectsCafePinWithoutBindingExpiry(t *testing.T) {
 	now := time.Now()
 	entry := &APIKeyAuthCacheEntry{Snapshot: &APIKeyAuthSnapshot{

@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 18 // v18: preserve Group.AccessMode in auth snapshots
+const apiKeyAuthSnapshotVersion = 19 // v19: preserve Group.LongContextPricingEnabled in auth snapshots
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -368,6 +368,7 @@ func apiKeyAuthGroupSnapshotFromGroup(group *Group) *APIKeyAuthGroupSnapshot {
 		PeakStart:                       group.PeakStart,
 		PeakEnd:                         group.PeakEnd,
 		PeakRateMultiplier:              group.PeakRateMultiplier,
+		LongContextPricingEnabled:       group.LongContextPricingEnabled,
 	}
 }
 
@@ -470,5 +471,6 @@ func groupFromAPIKeyAuthSnapshot(snapshot *APIKeyAuthGroupSnapshot) *Group {
 		PeakStart:                       snapshot.PeakStart,
 		PeakEnd:                         snapshot.PeakEnd,
 		PeakRateMultiplier:              snapshot.PeakRateMultiplier,
+		LongContextPricingEnabled:       snapshot.LongContextPricingEnabled,
 	}
 }
