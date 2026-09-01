@@ -471,7 +471,22 @@ func parseOpenAIWSErrorEventFields(message []byte) (code string, errType string,
 		return "", "", ""
 	}
 	values := gjson.GetManyBytes(message, "error.code", "error.type", "error.message")
-	return strings.TrimSpace(values[0].String()), strings.TrimSpace(values[1].String()), strings.TrimSpace(values[2].String())
+	code = strings.TrimSpace(values[0].String())
+	errType = strings.TrimSpace(values[1].String())
+	errMessage = strings.TrimSpace(values[2].String())
+	// response.failed carries its semantic error under response.error, while
+	// a bare error event uses the top-level error object. Read both shapes so
+	// terminal 429 handling does not miss the nested code/type/message.
+	if code == "" {
+		code = strings.TrimSpace(gjson.GetBytes(message, "response.error.code").String())
+	}
+	if errType == "" {
+		errType = strings.TrimSpace(gjson.GetBytes(message, "response.error.type").String())
+	}
+	if errMessage == "" {
+		errMessage = strings.TrimSpace(gjson.GetBytes(message, "response.error.message").String())
+	}
+	return code, errType, errMessage
 }
 
 func summarizeOpenAIWSErrorEventFieldsFromRaw(codeRaw, errTypeRaw, errMessageRaw string) (code string, errType string, errMessage string) {
@@ -4454,7 +4469,29 @@ func (s *OpenAIGatewayService) handleOpenAIWSTerminalTransientFailure(ctx contex
 	eventType, _, _ := parseOpenAIWSEventEnvelope(payload)
 	terminalEvent := normalizeOpenAIWSTerminalEvent(eventType)
 	if terminalEvent == "response.failed" {
-		if status := openAIWSPayloadTransientStatus(payload); status != 0 {
+		status := openAIWSPayloadTransientStatus(payload)
+		if status == 0 {
+			// A semantic response.failed 429 can expose only a nested numeric
+			// status_code, which openAIWSPayloadTransientStatus deliberately
+			// excludes from generic transient cooldowns.
+			status = int(gjson.GetBytes(payload, "response.error.status_code").Int())
+			if status == 0 {
+				status = int(gjson.GetBytes(payload, "error.status_code").Int())
+			}
+			if status != http.StatusTooManyRequests {
+				status = 0
+			}
+		}
+		if status == 0 {
+			codeRaw, errTypeRaw, msgRaw := parseOpenAIWSErrorEventFields(payload)
+			if isOpenAIWSRateLimitError(codeRaw, errTypeRaw, msgRaw) {
+				status = http.StatusTooManyRequests
+			}
+		}
+		if status != 0 {
+			if status == http.StatusTooManyRequests {
+				headers = openAIWSSemantic429Headers(account, model, headers)
+			}
 			s.handleOpenAIAccountUpstreamError(ctx, account, status, headers, payload, model)
 		}
 	}
@@ -4467,6 +4504,9 @@ func (s *OpenAIGatewayService) handleOpenAIWSErrorEventTransientFailure(ctx cont
 		return
 	}
 	if status := openAIWSPayloadTransientStatus(payload); status != 0 {
+		if status == http.StatusTooManyRequests {
+			headers = openAIWSSemantic429Headers(account, model, headers)
+		}
 		s.handleOpenAIAccountUpstreamError(ctx, account, status, headers, payload, model)
 	}
 }
@@ -4742,7 +4782,20 @@ func (s *OpenAIGatewayService) persistOpenAIWSRateLimitSignal(ctx context.Contex
 	if len(canonicalModel) > 0 {
 		model = strings.TrimSpace(canonicalModel[0])
 	}
+	// 非空 responseBody 表示已建立连接后收到的语义错误事件；握手响应头
+	// 可能只是成功连接时的全局快照，不能用于普通模型的 429 账号级限流。
+	// 实际拨号 HTTP 429 使用 nil responseBody，必须保留响应头。
+	if len(responseBody) > 0 {
+		headers = openAIWSSemantic429Headers(account, model, headers)
+	}
 	s.handleOpenAIAccountUpstreamError(ctx, account, http.StatusTooManyRequests, headers, responseBody, model)
+}
+
+func openAIWSSemantic429Headers(account *Account, model string, headers http.Header) http.Header {
+	if isCodexSparkModel(model) && isOpenAIOAuthAccount(account) {
+		return headers
+	}
+	return nil
 }
 
 func classifyOpenAIWSErrorEventFromRaw(codeRaw, errTypeRaw, msgRaw string) (string, bool) {
