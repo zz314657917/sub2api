@@ -22,6 +22,8 @@ func TestAccountRepositoryResetQuotaUsedResetsShareDisplayWindowBaseline(t *test
 	require.Contains(t, resetSQL, "share_display_5h_start")
 	require.Contains(t, resetSQL, "share_display_7d_used")
 	require.Contains(t, resetSQL, "share_display_7d_start")
+	require.Contains(t, resetSQL, "rate_limited_at = NULL")
+	require.Contains(t, resetSQL, "rate_limit_reset_at = NULL")
 	require.NotContains(t, resetSQL, "codex_5h_used_percent")
 	require.NotContains(t, resetSQL, "codex_7d_used_percent")
 
@@ -33,6 +35,7 @@ type recordingSQLExecutor struct {
 	queries []string
 	args    [][]any
 	err     error
+	result  sql.Result
 }
 
 func (e *recordingSQLExecutor) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
@@ -40,6 +43,9 @@ func (e *recordingSQLExecutor) ExecContext(ctx context.Context, query string, ar
 	e.args = append(e.args, append([]any(nil), args...))
 	if e.err != nil {
 		return nil, e.err
+	}
+	if e.result != nil {
+		return e.result, nil
 	}
 	return sqlmock.NewResult(1, 1), nil
 }
@@ -60,6 +66,15 @@ func TestAccountRepositoryResetQuotaUsedSucceeds(t *testing.T) {
 
 	require.NoError(t, repo.ResetQuotaUsed(context.Background(), 42))
 	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestAccountRepositoryResetQuotaUsedReturnsNotFoundWithoutOutbox(t *testing.T) {
+	exec := &recordingSQLExecutor{result: sqlmock.NewResult(0, 0)}
+	repo := &accountRepository{sql: exec}
+
+	require.ErrorIs(t, repo.ResetQuotaUsed(context.Background(), 42), service.ErrAccountNotFound)
+	require.Len(t, exec.queries, 1)
+	require.NotContains(t, exec.queries[0], "INSERT INTO scheduler_outbox")
 }
 
 func TestAccountRepositoryGetAccountUsageCostsSinceByWindowUsesPerWindowStarts(t *testing.T) {

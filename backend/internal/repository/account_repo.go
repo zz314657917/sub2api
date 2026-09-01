@@ -3506,11 +3506,11 @@ func (r *accountRepository) IncrementQuotaUsed(ctx context.Context, id int64, am
 	return nil
 }
 
-// ResetQuotaUsed 重置账号所有维度的配额用量为 0。
+// ResetQuotaUsed 重置账号所有维度的配额用量为 0，并原子清除账号级限流冷却。
 // 保留固定重置模式的配置字段（quota_daily_reset_mode 等）和真实上游窗口快照（codex_*），
-// 仅清零本地用量、伪装展示窗口基线用量和窗口起始时间。
+// 仅清零本地用量、伪装展示窗口基线用量和窗口起始时间；其他调度阻断状态保持不变。
 func (r *accountRepository) ResetQuotaUsed(ctx context.Context, id int64) error {
-	_, err := r.sql.ExecContext(ctx,
+	result, err := r.sql.ExecContext(ctx,
 		`UPDATE accounts SET extra = (
 			COALESCE(extra, '{}'::jsonb)
 			|| '{"quota_used": 0, "quota_daily_used": 0, "quota_weekly_used": 0, "quota_monthly_used": 0}'::jsonb
@@ -3524,16 +3524,25 @@ func (r *accountRepository) ResetQuotaUsed(ctx context.Context, id int64) error 
 				THEN jsonb_build_object('share_display_7d_used', 0, 'share_display_7d_start', `+nowUTC+`)
 				ELSE '{}'::jsonb
 			END
-		) - 'quota_daily_start' - 'quota_weekly_start' - 'quota_monthly_start' - 'quota_daily_reset_at' - 'quota_weekly_reset_at', updated_at = NOW()
+		) - 'quota_daily_start' - 'quota_weekly_start' - 'quota_monthly_start' - 'quota_daily_reset_at' - 'quota_weekly_reset_at',
+		rate_limited_at = NULL, rate_limit_reset_at = NULL, updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL`,
 		id)
 	if err != nil {
 		return err
 	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return service.ErrAccountNotFound
+	}
 	// 重置配额后触发调度快照刷新，使账号重新参与调度
 	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventAccountChanged, &id, nil, nil); err != nil {
 		logger.LegacyPrintf("repository.account", "[SchedulerOutbox] enqueue quota reset failed: account=%d err=%v", id, err)
 	}
+	r.syncSchedulerAccountSnapshot(ctx, id)
 	return nil
 }
 
