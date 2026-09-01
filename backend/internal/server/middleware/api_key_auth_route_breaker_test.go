@@ -18,6 +18,8 @@ type apiKeyRouteBreakerMiddlewareCacheStub struct {
 	failures  int
 	successes int
 	releases  int
+	acquires  int
+	lease     *service.APIKeyRouteBreakerLease
 }
 
 func (s *apiKeyRouteBreakerMiddlewareCacheStub) IsRouteGroupCooling(context.Context, int64, int64) (bool, error) {
@@ -25,7 +27,12 @@ func (s *apiKeyRouteBreakerMiddlewareCacheStub) IsRouteGroupCooling(context.Cont
 }
 
 func (s *apiKeyRouteBreakerMiddlewareCacheStub) AcquireAPIKeyRouteBreaker(context.Context, service.APIKeyRouteBreakerKey) (*service.APIKeyRouteBreakerLease, error) {
-	return nil, nil
+	s.acquires++
+	if s.lease == nil {
+		return nil, nil
+	}
+	lease := *s.lease
+	return &lease, nil
 }
 
 func (s *apiKeyRouteBreakerMiddlewareCacheStub) SetRouteGroupCooldown(context.Context, int64, int64, time.Duration) error {
@@ -134,4 +141,55 @@ func TestAPIKeyRouteBreakerUsesOriginalUpstreamStatus(t *testing.T) {
 			require.Equal(t, tc.wantReleases, cache.releases-beforeReleases)
 		})
 	}
+}
+
+func TestResolveAPIKeyForModelRequestReusesRequestRouteDecision(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	groupID := int64(14)
+	breakerKey, ok := service.NewAPIKeyRouteBreakerKey(groupID, service.GroupRoutingScopeInference, "gpt-5.6")
+	require.True(t, ok)
+	cache := &apiKeyRouteBreakerMiddlewareCacheStub{
+		lease: &service.APIKeyRouteBreakerLease{
+			Key:        breakerKey,
+			Generation: 3,
+			ProbeToken: 7,
+			HalfOpen:   true,
+		},
+	}
+	apiKeyService := service.NewAPIKeyService(nil, nil, nil, nil, nil, cache, nil)
+	key := &service.APIKey{
+		ID:      9,
+		Key:     "request-scoped-key",
+		Status:  service.StatusActive,
+		GroupID: &groupID,
+		Group: &service.Group{
+			ID:                 groupID,
+			Platform:           service.PlatformOpenAI,
+			Status:             service.StatusActive,
+			Hydrated:           true,
+			ModelMatchPatterns: []string{"gpt-*"},
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{{
+			GroupID:  groupID,
+			Enabled:  true,
+			Priority: 1,
+			Weight:   1,
+		}},
+	}
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+
+	first, firstOK := ResolveAPIKeyForModelRequest(c, apiKeyService, key, "gpt-5.6", false)
+	require.True(t, firstOK)
+	require.NotNil(t, first)
+	require.NotNil(t, first.RouteBreakerLease)
+
+	// Responses compact normalization may rewrite the path after the gateway
+	// wrapper has already selected a route; it must not trigger a second acquire.
+	c.Request.URL.Path = "/v1/responses/compact"
+	second, secondOK := ResolveAPIKeyForModelRequest(c, apiKeyService, first, "gpt-5.6", true)
+	require.True(t, secondOK)
+	require.Same(t, first, second)
+	require.Equal(t, 1, cache.acquires, "the same request must acquire one breaker lease")
 }

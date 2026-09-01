@@ -379,17 +379,22 @@ func setSubscriptionContext(c *gin.Context, subscription *service.UserSubscripti
 	c.Set(string(ContextKeySubscription), subscription)
 }
 
-// ResolveAPIKeyForModelRequest re-routes an API key after a handler has parsed
-// the request model/body. It updates gin.Context and reloads subscription
-// context when the effective group changes.
+// ResolveAPIKeyForModelRequest applies model-aware routing for a parsed request.
+// Gateway route wrappers and protocol handlers may both call this helper; the
+// first successful decision is memoized in gin.Context so breaker leases and
+// the effective platform remain stable for the whole request.
 func ResolveAPIKeyForModelRequest(c *gin.Context, apiKeyService *service.APIKeyService, apiKey *service.APIKey, requestedModel string, imageIntent bool) (*service.APIKey, bool) {
 	if c == nil || apiKeyService == nil || apiKey == nil {
 		return apiKey, true
+	}
+	if resolved, ok := cachedAPIKeyModelResolution(c, apiKey, requestedModel); ok {
+		return resolved, true
 	}
 	if !service.IsGroupContextValid(apiKey.Group) && len(apiKey.MultiGroupRoutes) == 0 && apiKey.PinnedAccountID <= 0 {
 		// Direct handler callers may carry the legacy, partially hydrated single
 		// group snapshot. Authentication owns availability validation; do not let
 		// this compatibility case bypass multi-group or pinned route resolution.
+		cacheAPIKeyModelResolution(c, apiKey, requestedModel)
 		return apiKey, true
 	}
 	forcePlatform, _ := GetForcePlatformFromContext(c)
@@ -412,7 +417,53 @@ func ResolveAPIKeyForModelRequest(c *gin.Context, apiKeyService *service.APIKeyS
 	if !deferredBilling && !refreshSubscriptionContextForResolvedAPIKey(c, resolved) {
 		return nil, false
 	}
+	cacheAPIKeyModelResolution(c, resolved, requestedModel)
 	return resolved, true
+}
+
+const contextKeyAPIKeyModelResolution = "api_key_model_resolution"
+
+type apiKeyModelResolution struct {
+	apiKeyID       int64
+	apiKey         string
+	requestedModel string
+	resolved       *service.APIKey
+}
+
+// cachedAPIKeyModelResolution returns the request's first successful
+// model-aware route selection. Gateway route wrappers and protocol handlers
+// both call ResolveAPIKeyForModelRequest after parsing the same body; reusing
+// that decision keeps breaker leases and platform dispatch request-scoped.
+func cachedAPIKeyModelResolution(c *gin.Context, apiKey *service.APIKey, requestedModel string) (*service.APIKey, bool) {
+	if c == nil || apiKey == nil {
+		return nil, false
+	}
+	value, exists := c.Get(contextKeyAPIKeyModelResolution)
+	if !exists {
+		return nil, false
+	}
+	entry, ok := value.(apiKeyModelResolution)
+	if !ok || entry.resolved == nil {
+		return nil, false
+	}
+	if entry.apiKeyID != apiKey.ID ||
+		entry.apiKey != apiKey.Key ||
+		entry.requestedModel != strings.TrimSpace(requestedModel) {
+		return nil, false
+	}
+	return entry.resolved, true
+}
+
+func cacheAPIKeyModelResolution(c *gin.Context, apiKey *service.APIKey, requestedModel string) {
+	if c == nil || apiKey == nil {
+		return
+	}
+	c.Set(contextKeyAPIKeyModelResolution, apiKeyModelResolution{
+		apiKeyID:       apiKey.ID,
+		apiKey:         apiKey.Key,
+		requestedModel: strings.TrimSpace(requestedModel),
+		resolved:       apiKey,
+	})
 }
 
 func refreshSubscriptionContextForResolvedAPIKey(c *gin.Context, apiKey *service.APIKey) bool {
