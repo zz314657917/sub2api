@@ -1,12 +1,12 @@
 ---
 phase: done
-current_sprint: upstream-v0184-frontend-compat-s277
-total_sprints: 277
-pending_action: S277 is committed locally after independent QA PASS. Preserve all other dirty paths and outputs; next legal action is a new Planner contract for S278 or S279. Do not push unless explicitly requested.
+current_sprint: upstream-v0184-channel-pricing-s278
+total_sprints: 278
+pending_action: S278 is locally integrated and independently QA PASS. Preserve unrelated commit f81bb2a55 and all dirty paths/outputs; the next selective-upstream action is a new S279 contract for group partial-update limits. Do not push unless explicitly requested.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-09-01 00:22 +08:00
+last_verified: 2026-09-01 11:52 +08:00
 ---
 
 # Upstream v0.1.184 Compatibility Fixes S276
@@ -87,6 +87,42 @@ last_verified: 2026-09-01 00:22 +08:00
 - `PASS / local-commit`: exact S277 product/test scope is committed locally;
   no backend, lockfile, Pixel Cafe, knowledge, outputs or external-state
   changes are included and no push was performed.
+
+# Upstream v0.1.184 Channel Pricing Normalization S278
+
+- `contract-draft`: adapt `eb4237a2b` so channel pricing lookup retries with
+  `normalizeKnownOpenAICodexModel` after a literal model miss. Literal and
+  exact-variant entries remain first; only known OpenAI/Codex aliases with a
+  changed normalized name are retried. Non-OpenAI models and unrelated channel
+  entries remain untouched.
+- The local owner is `backend/internal/service/model_pricing_resolver.go`; the
+  existing `admin_service.go`, gateway, billing-service, repository, schema,
+  migration and provider traffic changes are denied. Focused usage pricing
+  regressions use the existing in-memory channel cache and usage-log stub.
+- Contract: `docs/workflow/tasks/upstream-v0184-channel-pricing-s278.md`.
+- `BLOCKED / generator-dispatch`: the initial Terra Developer failed at the
+  model gateway with HTTP 524; a same-contract retry failed with HTTP 503.
+  Neither attempt produced a valid worker report or completed QA evidence.
+- `AUTHORIZED / model-exception`: the user explicitly approved
+  `gpt-5.6-sol` for both the S278 Developer Worker and independent QA. This
+  exception is limited to S278; the global Agent Matrix remains unchanged.
+- `DONE / generator`: the Sol Developer reviewed local S278 commit `43d109581`
+  and added missing unknown-OpenAI and non-OpenAI negative regressions without
+  changing the resolver. Eight focused cases x10, the complete default-tag
+  service package, server compile, format, diff and conflict gates passed.
+- `PASS / controller-review`: the implementation is literal-first and retries
+  only changed non-empty known OpenAI/Codex normalization results. The actual
+  S278 base is corrected to `f81bb2a55`; that concurrent 17-file commit is
+  excluded. Independent Sol QA is authorized against `43d109581` plus the
+  two-file allowlisted follow-up.
+- `PASS / final-qa`: independent `gpt-5.6-sol` QA passed eight focused cases
+  x10, an uncached complete service run, server compile, format, diff,
+  conflict, exact-scope and protected-hash gates. The concurrent parent scope
+  and all current dirty paths/outputs remained unchanged.
+- `PASS / local-integration`: S278 product behavior is in local commit
+  `43d109581`; the missing negative regressions and complete worker/QA/workflow
+  evidence are included in this closeout. No push or external-state action was
+  performed.
 
 # Usage Billing Multiplier Breakdown S275
 

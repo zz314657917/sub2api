@@ -35,6 +35,25 @@
   deployment, commit, push and `outputs/**` are excluded. Contract:
   `docs/workflow/tasks/upstream-v0184-frontend-compat-s277.md`.
 
+## Upstream v0.1.184 Channel Pricing Normalization Addendum (S278)
+
+- Adapt upstream `eb4237a2b` in the local `ModelPricingResolver`: after a
+  literal channel-pricing miss, normalize known OpenAI/Codex model aliases and
+  retry the channel lookup. This fixes requests such as
+  `gpt-5.6-luna-high` or a known date-suffixed variant when the channel only
+  prices `gpt-5.6-luna`.
+- Literal lookup always wins so explicit variant pricing is not shadowed by a
+  normalized base entry. Normalization is a no-op for non-OpenAI/unknown models
+  and must not match unrelated channel pricing or alter model mapping.
+- Prove the behavior through the existing usage-record path: exact model,
+  effort suffix, date suffix, subscription group, exact-variant precedence,
+  and unrelated-model fallback. Keep all persisted billing fields and costs
+  unchanged except for selecting the intended channel price.
+- No schema, migration, repository SQL, billing algorithm rewrite, provider
+  traffic, frontend, dependencies, VERSION, containers, deployment, shared
+  data, commit or push is part of this addendum. Contract:
+  `docs/workflow/tasks/upstream-v0184-channel-pricing-s278.md`.
+
 ## Usage Billing Multiplier Breakdown Addendum (S275)
 
 - Keep the persisted composite `usage_logs.rate_multiplier`, `total_cost`,

@@ -124,3 +124,23 @@ func TestChannelPricing_UnrelatedChannelModelNotMatched(t *testing.T) {
 	})
 	require.InDelta(t, channelPricingExpectedOfficialCost, log.InputCost, 1e-9)
 }
+
+func TestChannelPricing_UnknownOpenAIVariantDoesNotUseNormalizedBase(t *testing.T) {
+	const groupID = int64(777)
+	cs := newChannelServiceWithPricings(groupID, []ChannelModelPricing{
+		tokenPricingForModels([]string{"gpt-5.6-luna"}, channelPricingExpectedChannelCost),
+	})
+	resolver := NewModelPricingResolver(cs, nil)
+
+	require.Nil(t, resolver.lookupChannelPricingNormalized(context.Background(), groupID, "gpt-5.6-luna-ultra"))
+}
+
+func TestChannelPricing_NonOpenAIModelDoesNotUseSimilarBase(t *testing.T) {
+	const groupID = int64(777)
+	cs := newChannelServiceWithPricings(groupID, []ChannelModelPricing{
+		tokenPricingForModels([]string{"claude-5.6-luna"}, channelPricingExpectedChannelCost),
+	})
+	resolver := NewModelPricingResolver(cs, nil)
+
+	require.Nil(t, resolver.lookupChannelPricingNormalized(context.Background(), groupID, "claude-5.6-luna-high"))
+}

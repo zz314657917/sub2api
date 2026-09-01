@@ -1,26 +1,27 @@
 # 当前任务快照
 
-最后更新：2026-08-31 23:12 +08:00
+最后更新：2026-09-01 11:52 +08:00
 
 ## 背景
 
 - 用户要求继续检查并选择 `v0.1.179`--`v0.1.194` 中可安全合入本地的上游行为。
 - 上游最新实际 tag 是 `v0.1.184`；`v0.1.185`--`v0.1.194` 尚未发布。只读审计拒绝整体 merge/cherry-pick，并把剩余候选拆为 S277-S279。
-- S276 已精确提交本地但未 push；当前执行 S277 的三项前端兼容修复。
+- S276、S277 已精确提交本地但未 push；当前启动 S278 的渠道定价归一化修复。
 
 ## 当前目标
 
-- 审核并执行 `upstream-v0184-frontend-compat-s277` contract。
-- 按本地拓扑严格解析 `datetime-local`、让兑换码批量过期时间使用该解析器，并保留 Claude attribution headers。
+- 审核并执行 `upstream-v0184-channel-pricing-s278` contract。
+- 按本地拓扑让带后缀的 OpenAI/Codex 模型在渠道字面查找失败后回退到已知归一化模型名，避免官方兜底价覆盖渠道价。
 
 ## 当前状态
 
 - Workflow phase: `done`。
-- Contract: `docs/workflow/tasks/upstream-v0184-frontend-compat-s277.md`；contract review: `PASS`。
-- Base commit: `53484808e7b1cab0049c2066d1a53816848e8b3c`。
-- 上游来源 `81e461f65`、`b7aca87fd`、`5778739cd` 和 `c03776604` 均已映射到本地 frontend owner；原始 patch 在分叉拓扑中无法 `git apply --check`，必须手工保留行为。
-- S277 Developer report 首行为 `DONE`；独立 Terra QA report 首行为 `PASS`。定向 Vitest 31/31、typecheck、build、diff/conflict 和保护路径摘要哈希均通过。
-- 只有六个 S277 前端产品/测试文件和 workflow 证据会被精确提交；backend、锁文件、Pixel Cafe、knowledge、outputs 仍按基线保护。
+- Contract: `docs/workflow/tasks/upstream-v0184-channel-pricing-s278.md`；contract review: `PASS`。
+- Base commit: `f81bb2a55`（S278 产品提交 `43d109581` 的实际父提交；并行 17 文件明确排除）。
+- 上游来源 `eb4237a2b` 已按本地 `ModelPricingResolver` 拓扑适配；没有整体 merge/cherry-pick。
+- S277 Developer report 首行为 `DONE`；独立 Terra QA report 首行为 `PASS`，并已提交为 `e5ff9b299`。
+- S278 产品提交 `43d109581` 的实际父提交是并行提交 `f81bb2a55`；后者 17 个文件不属于 S278。S278 只允许 resolver、定向计费回归、worker/QA 证据；当前 backend 其他脏改、锁文件、Pixel Cafe、knowledge、outputs 仍按基线保护。
+- Terra Developer 两次在模型接口层失败（HTTP 524、HTTP 503）；用户授权 S278 Developer 与独立 QA 改用 `gpt-5.6-sol`。Sol worker report 为 `DONE`，独立 QA 为 `PASS`：8 个定向用例 x10、完整 service 非缓存复跑、server 编译、格式、diff/conflict 和保护摘要均通过。
 
 ## 保护边界
 
@@ -30,10 +31,9 @@
 
 ## 下一步
 
-1. S277 已经通过独立 QA，精确提交前端六文件和 workflow 证据；不 push。
-2. 如继续上游迁移，进入 S278 Planner：带后缀模型的渠道定价归一化。
+1. S278 已本地集成并独立 QA PASS；不 push。
+2. 如继续上游迁移，为 S279 新建 contract，评估分组部分更新限额，同时保护当前脏的 `admin_service.go` 与 API-key cache/auth 路径。
 
 ## 后续队列
 
-- S278：带后缀模型的渠道定价归一化。
 - S279：分组部分更新限额；必须额外保护当前脏的 `admin_service.go`。
