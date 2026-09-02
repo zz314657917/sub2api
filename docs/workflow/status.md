@@ -2,11 +2,11 @@
 phase: done
 current_sprint: upstream-v0200-group-pricing-layout-s290
 total_sprints: 290
-pending_action: S290 product commit 7cacdbab1 and its workflow evidence are locally accepted. The user authorized mainline integration and push; preserve all unrelated dirty paths/outputs while completing the approved branch merge.
+pending_action: S290 product/evidence commits and the S266 evidence-lineage merge are accepted. Final focused frontend/backend checks pass; the user authorized the pending origin/main push. Preserve all unrelated dirty paths/outputs.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-09-02 18:29 +08:00
+last_verified: 2026-09-02 23:56 +08:00
 ---
 
 # Upstream v0.2.0 Group Pricing Layout S290
@@ -44,6 +44,11 @@ last_verified: 2026-09-02 18:29 +08:00
   revised contract. The four allowed frontend files were committed locally as `7cacdbab1`;
   no save action, container change, deployment or push occurred. The enabled channel-pricing
   IntervalRow browser smoke remains a separate deferred task.
+- `S266 LINEAGE MERGE / equivalence`: `12e52216e` merges the completed
+  content-moderation evidence branch. `git cherry` confirms its product commits
+  `c2cd7a0a1` and `eeed2369f` already exist on main, so the merge adds only the
+  missing task/result/QA provenance and cannot replay or revert product code.
+  Fresh S266-focused backend and frontend checks pass with the S290 layout tests.
 
 ## Previous Sprint: S289
 
