@@ -3607,7 +3607,13 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 				if normalized, changed := normalizeOpenAIResponsesCustomToolNamespaces(upstreamMessage); changed {
 					upstreamMessage = normalized
 				}
-				if err := writeClientMessage(upstreamMessage); err != nil {
+				clientMessage := upstreamMessage
+				if eventType == "error" || eventType == "response.failed" {
+					if rewritten, changed := sanitizeOpenAICapacityShedErrorCodeForClient(clientMessage); changed {
+						clientMessage = rewritten
+					}
+				}
+				if err := writeClientMessage(clientMessage); err != nil {
 					if isOpenAIWSClientDisconnectError(err) {
 						clientDisconnected = true
 						closeStatus, closeReason := summarizeOpenAIWSReadCloseError(err)
@@ -4314,6 +4320,40 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		}
 		turn++
 	}
+}
+
+const openAICapacityShedRetryableClientCode = "server_error"
+
+// sanitizeOpenAICapacityShedErrorCodeForClient rewrites only the client-facing
+// copy of capacity-shed events. The original upstream payload must remain
+// available to account-state and monitoring logic, while Codex clients treat
+// server_is_overloaded/slow_down as terminal instead of retryable.
+func sanitizeOpenAICapacityShedErrorCodeForClient(payload []byte) ([]byte, bool) {
+	if len(payload) == 0 || !gjson.ValidBytes(payload) {
+		return payload, false
+	}
+	eventType := strings.TrimSpace(gjson.GetBytes(payload, "type").String())
+	if eventType != "error" && eventType != "response.failed" {
+		return payload, false
+	}
+	updated := payload
+	changed := false
+	for _, path := range []string{"response.error.code", "error.code"} {
+		if !gjson.GetBytes(updated, strings.TrimSuffix(path, ".code")).Exists() {
+			continue
+		}
+		code := strings.ToLower(strings.TrimSpace(gjson.GetBytes(updated, path).String()))
+		if code != "server_is_overloaded" && code != "slow_down" {
+			continue
+		}
+		next, err := sjson.SetBytes(updated, path, openAICapacityShedRetryableClientCode)
+		if err != nil {
+			return payload, false
+		}
+		updated = next
+		changed = true
+	}
+	return updated, changed
 }
 
 func (s *OpenAIGatewayService) isOpenAIWSGeneratePrewarmEnabled() bool {

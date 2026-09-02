@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 )
 
 func TestParseOpenAIWSEventEnvelope(t *testing.T) {
@@ -76,6 +77,47 @@ func TestOpenAIWSErrorEventHelpers_ConsistentWithWrapper(t *testing.T) {
 	require.Equal(t, wrappedCode, rawCode)
 	require.Equal(t, wrappedType, rawType)
 	require.Equal(t, wrappedMsg, rawMsg)
+}
+
+func TestSanitizeOpenAICapacityShedErrorCodeForClient(t *testing.T) {
+	tests := []struct {
+		name       string
+		payload    string
+		wantCode   string
+		wantChange bool
+	}{
+		{
+			name:       "bare error",
+			payload:    `{"type":"error","error":{"code":"server_is_overloaded","message":"busy"}}`,
+			wantCode:   "server_error",
+			wantChange: true,
+		},
+		{
+			name:       "response failed",
+			payload:    `{"type":"response.failed","response":{"error":{"code":"slow_down"}}}`,
+			wantCode:   "server_error",
+			wantChange: true,
+		},
+		{
+			name:       "other code unchanged",
+			payload:    `{"type":"error","error":{"code":"rate_limit_exceeded"}}`,
+			wantCode:   "rate_limit_exceeded",
+			wantChange: false,
+		},
+		{
+			name:       "non error event unchanged",
+			payload:    `{"type":"response.created","error":{"code":"slow_down"}}`,
+			wantCode:   "slow_down",
+			wantChange: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			updated, changed := sanitizeOpenAICapacityShedErrorCodeForClient([]byte(tt.payload))
+			require.Equal(t, tt.wantChange, changed)
+			require.Equal(t, tt.wantCode, gjson.GetBytes(updated, "response.error.code").String()+gjson.GetBytes(updated, "error.code").String())
+		})
+	}
 }
 
 func TestOpenAIWSMessageLikelyContainsToolCalls(t *testing.T) {
