@@ -2,11 +2,11 @@
 phase: done
 current_sprint: upstream-v0200-group-pricing-layout-s290
 total_sprints: 290
-pending_action: S290 product/evidence commits and the S266 evidence-lineage merge are accepted. Final focused frontend/backend checks pass; the user authorized the pending origin/main push. Preserve all unrelated dirty paths/outputs.
+pending_action: Published main is synchronized with origin. S266/S280/S281 merged branches and registered worktrees were removed; preserve all remaining dirty worktrees and outputs. The former S266 directory is an unregistered local dependency residue only and may be manually deleted when storage cleanup is desired.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-09-02 23:56 +08:00
+last_verified: 2026-09-03 00:00 +08:00
 ---
 
 # Upstream v0.2.0 Group Pricing Layout S290
@@ -49,6 +49,12 @@ last_verified: 2026-09-02 23:56 +08:00
   `c2cd7a0a1` and `eeed2369f` already exist on main, so the merge adds only the
   missing task/result/QA provenance and cannot replay or revert product code.
   Fresh S266-focused backend and frontend checks pass with the S290 layout tests.
+- `PUBLISHED / cleanup`: `origin/main` advanced from `6050139a3` to
+  `5b95e68dd`. The clean S266 PGE worktrees and branches plus merged S280/S281
+  branches were removed. Dirty Pixel Cafe, tutorial, S279 staging, candidate-scan
+  and S274 worktrees remain protected. Git deregistered the former S266 parent
+  worktree, but its task-owned dependency directory remains on disk because the
+  host refused recursive deletion; it has no Git registration or active process.
 
 ## Previous Sprint: S289
 
