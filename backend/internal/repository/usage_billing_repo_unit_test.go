@@ -125,7 +125,7 @@ func TestDeductWelfareVoucherThenBalance_ReturnsUserNotFound(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestUsageBillingRepository_InsertUsageBillingEntryUsesUsageLogUniqueness(t *testing.T) {
+func TestUsageBillingRepository_InsertUsageBillingEntryUsesCompositeLedgerKey(t *testing.T) {
 	ctx := context.Background()
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -134,8 +134,8 @@ func TestUsageBillingRepository_InsertUsageBillingEntryUsesUsageLogUniqueness(t 
 	mock.ExpectBegin()
 	tx, err := db.BeginTx(ctx, nil)
 	require.NoError(t, err)
-	mock.ExpectQuery(`(?s)INSERT INTO billing_usage_entries \(\s*usage_log_id, user_id, api_key_id, subscription_id, billing_type, applied, delta_usd\s*\).*ON CONFLICT \(usage_log_id\) DO UPDATE.*delta_usd = billing_usage_entries\.delta_usd \+ EXCLUDED\.delta_usd.*RETURNING id`).
-		WithArgs(int64(1001), int64(7), int64(8), nil, int8(2), 0.75).
+	mock.ExpectQuery(`(?s)INSERT INTO billing_usage_entries \(\s*usage_log_id, ledger_key, user_id, api_key_id, subscription_id, billing_type, applied, delta_usd\s*\).*ON CONFLICT \(usage_log_id, ledger_key\) DO NOTHING.*RETURNING id`).
+		WithArgs(int64(1001), "req-trial-overage", int64(7), int64(8), nil, int8(2), 0.75).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(int64(501)))
 	mock.ExpectCommit()
 
@@ -155,7 +155,7 @@ func TestUsageBillingRepository_InsertUsageBillingEntryUsesUsageLogUniqueness(t 
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestUsageBillingRepository_ExistingDedupRepairsMissingLedgerWithoutRededucting(t *testing.T) {
+func TestUsageBillingRepository_ExistingDedupDoesNotCreateDuplicateLedger(t *testing.T) {
 	ctx := context.Background()
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -168,9 +168,6 @@ func TestUsageBillingRepository_ExistingDedupRepairsMissingLedgerWithoutRededuct
 	mock.ExpectQuery(`SELECT request_fingerprint\s+FROM usage_billing_dedup\s+WHERE request_id = \$1 AND api_key_id = \$2`).
 		WithArgs("req-ledger-repair", int64(8)).
 		WillReturnRows(sqlmock.NewRows([]string{"request_fingerprint"}).AddRow("fingerprint"))
-	mock.ExpectExec(`(?s)INSERT INTO billing_usage_entries \(\s*usage_log_id, user_id, api_key_id, subscription_id, billing_type, applied, delta_usd\s*\).*ON CONFLICT \(usage_log_id\) DO NOTHING`).
-		WithArgs(int64(1002), int64(7), int64(8), nil, int8(0), 0.75).
-		WillReturnResult(sqlmock.NewResult(502, 1))
 	mock.ExpectCommit()
 
 	result, err := (&usageBillingRepository{db: db}).Apply(ctx, &service.UsageBillingCommand{

@@ -34,7 +34,15 @@ func TestUsageBillingSettlementConsistency(t *testing.T) {
 		}
 	}
 
-	if strings.Contains(sql, "ledger_key") || strings.Contains(sql, "DROP INDEX IF EXISTS billing_usage_entries_usage_log_id_unique") {
-		t.Fatal("migration 238 must preserve the existing usage_log_id ledger uniqueness")
+	ledgerAdd := strings.Index(sql, "ADD COLUMN IF NOT EXISTS ledger_key VARCHAR(255)")
+	ledgerBackfill := strings.Index(sql, "SET ledger_key = 'legacy:' || id::text")
+	ledgerRequired := strings.Index(sql, "ALTER COLUMN ledger_key SET NOT NULL")
+	ledgerDrop := strings.Index(sql, "DROP INDEX IF EXISTS billing_usage_entries_usage_log_id_unique")
+	ledgerUnique := strings.Index(sql, "CREATE UNIQUE INDEX IF NOT EXISTS billing_usage_entries_usage_log_id_ledger_key_unique")
+	if ledgerAdd < 0 || ledgerBackfill < 0 || ledgerRequired < 0 || ledgerDrop < 0 || ledgerUnique < 0 {
+		t.Fatal("migration 238 must add, backfill, require, and uniquely index ledger_key")
+	}
+	if !(ledgerAdd < ledgerBackfill && ledgerBackfill < ledgerRequired && ledgerRequired < ledgerDrop && ledgerDrop < ledgerUnique) {
+		t.Fatal("migration 238 ledger_key migration order is unsafe")
 	}
 }

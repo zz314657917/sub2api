@@ -14,6 +14,24 @@ ALTER TABLE usage_logs
 CREATE INDEX IF NOT EXISTS idx_usage_logs_billing_status_created_at
     ON usage_logs (billing_status, created_at);
 
+-- A trial settlement may have two durable charges for one usage log: the
+-- trial-covered primary request and a separately billed overage. Keep both
+-- rows while making each request key idempotent across retries.
+ALTER TABLE billing_usage_entries
+    ADD COLUMN IF NOT EXISTS ledger_key VARCHAR(255);
+
+UPDATE billing_usage_entries
+SET ledger_key = 'legacy:' || id::text
+WHERE ledger_key IS NULL OR btrim(ledger_key) = '';
+
+ALTER TABLE billing_usage_entries
+    ALTER COLUMN ledger_key SET NOT NULL;
+
+DROP INDEX IF EXISTS billing_usage_entries_usage_log_id_unique;
+
+CREATE UNIQUE INDEX IF NOT EXISTS billing_usage_entries_usage_log_id_ledger_key_unique
+    ON billing_usage_entries (usage_log_id, ledger_key);
+
 CREATE TABLE IF NOT EXISTS usage_billing_settlement_outbox (
     id BIGSERIAL PRIMARY KEY,
     usage_log_id BIGINT NOT NULL REFERENCES usage_logs(id) ON DELETE CASCADE,
