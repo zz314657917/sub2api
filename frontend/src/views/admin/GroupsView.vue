@@ -422,7 +422,7 @@
     <BaseDialog
       :show="showCreateModal"
       :title="t('admin.groups.createGroup')"
-      width="normal"
+      width="wide"
       @close="closeCreateModal"
     >
       <form
@@ -1898,12 +1898,12 @@
             {{ t('admin.channels.form.longContextPricingEnabled') }}
           </label>
           <div class="mt-3">
-            <div class="flex items-center justify-between gap-3">
-              <div>
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div class="min-w-0 flex-1">
                 <label class="input-label">{{ t('admin.channels.form.groupModelPricing') }}</label>
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.channels.form.groupModelPricingHint') }}</p>
               </div>
-              <button type="button" class="text-sm text-primary-600 hover:text-primary-700" @click="addCreateModelPricing">
+              <button type="button" class="shrink-0 whitespace-nowrap text-sm text-primary-600 hover:text-primary-700" @click="addCreateModelPricing">
                 + {{ t('admin.channels.form.addGroupModelPricing') }}
               </button>
             </div>
@@ -1968,7 +1968,7 @@
     <BaseDialog
       :show="showEditModal"
       :title="t('admin.groups.editGroup')"
-      width="normal"
+      width="wide"
       @close="closeEditModal"
     >
       <form
@@ -3441,12 +3441,12 @@
             {{ t('admin.channels.form.longContextPricingEnabled') }}
           </label>
           <div class="mt-3">
-            <div class="flex items-center justify-between gap-3">
-              <div>
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div class="min-w-0 flex-1">
                 <label class="input-label">{{ t('admin.channels.form.groupModelPricing') }}</label>
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.channels.form.groupModelPricingHint') }}</p>
               </div>
-              <button type="button" class="text-sm text-primary-600 hover:text-primary-700" @click="addEditModelPricing">
+              <button type="button" class="shrink-0 whitespace-nowrap text-sm text-primary-600 hover:text-primary-700" @click="addEditModelPricing">
                 + {{ t('admin.channels.form.addGroupModelPricing') }}
               </button>
             </div>
