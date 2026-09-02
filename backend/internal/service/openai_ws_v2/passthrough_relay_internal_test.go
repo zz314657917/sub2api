@@ -14,6 +14,19 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+type upstreamCloseFrameConn struct {
+	FrameConn
+	err error
+}
+
+func (c *upstreamCloseFrameConn) ReadFrame(ctx context.Context) (coderws.MessageType, []byte, error) {
+	msgType, payload, err := c.FrameConn.ReadFrame(ctx)
+	if errors.Is(err, io.EOF) {
+		return msgType, payload, c.err
+	}
+	return msgType, payload, err
+}
+
 func TestRunEntry_DelegatesRelay(t *testing.T) {
 	t.Parallel()
 
@@ -135,6 +148,40 @@ func TestRunUpstreamToClient_ErrorAndDropPaths(t *testing.T) {
 		sig := <-exitCh
 		require.Equal(t, "read_upstream", sig.stage)
 		require.True(t, sig.graceful)
+	})
+
+	t.Run("normal close before terminal event is failure", func(t *testing.T) {
+		t.Parallel()
+
+		exitCh := make(chan relayExitSignal, 1)
+		upstreamConn := &upstreamCloseFrameConn{
+			FrameConn: newPassthroughTestFrameConn([]passthroughTestFrame{
+				{msgType: coderws.MessageText, payload: []byte(`{"type":"response.created","response":{"id":"resp_incomplete","status":"in_progress"}}`)},
+			}, true),
+			err: coderws.CloseError{Code: coderws.StatusNormalClosure},
+		}
+		runUpstreamToClient(
+			context.Background(),
+			upstreamConn,
+			func(_ coderws.MessageType, _ []byte) error { return nil },
+			time.Now(),
+			time.Now,
+			&relayState{},
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			func() {},
+			nil,
+			exitCh,
+		)
+		sig := <-exitCh
+		require.Equal(t, "read_upstream", sig.stage)
+		require.False(t, sig.graceful)
+		require.ErrorContains(t, sig.err, "upstream websocket closed before terminal event")
 	})
 
 	t.Run("write client failed", func(t *testing.T) {

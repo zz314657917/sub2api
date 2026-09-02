@@ -440,17 +440,26 @@ func runUpstreamToClient(
 	for {
 		msgType, payload, err := upstreamConn.ReadFrame(ctx)
 		if err != nil {
+			graceful := isDisconnectError(err)
+			// WebSocket close only describes the transport handshake. Once a
+			// Responses turn has started, success still requires a terminal
+			// protocol event; otherwise the caller may incorrectly settle the
+			// request as a graceful relay completion.
+			if graceful && state != nil && state.activeTurn != nil {
+				graceful = false
+				err = errors.New("upstream websocket closed before terminal event: " + err.Error())
+			}
 			emitRelayTrace(onTrace, RelayTraceEvent{
 				Stage:           "read_upstream_failed",
 				Direction:       "upstream_to_client",
 				Error:           err.Error(),
-				Graceful:        isDisconnectError(err),
+				Graceful:        graceful,
 				WroteDownstream: wroteDownstream,
 			})
 			exitCh <- relayExitSignal{
 				stage:           "read_upstream",
 				err:             err,
-				graceful:        isDisconnectError(err),
+				graceful:        graceful,
 				wroteDownstream: wroteDownstream,
 			}
 			return
