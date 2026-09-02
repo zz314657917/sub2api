@@ -675,6 +675,14 @@ func sanitizeBedrockFieldsForBetaTokens(body []byte, betaTokens []string) []byte
 	if !containsBedrockBetaToken(betaTokens, bedrockContextManagementBetaToken) && gjson.GetBytes(body, "context_management").Exists() {
 		body, _ = sjson.DeleteBytes(body, "context_management")
 	}
+	// Bedrock's beta allowlist excludes server-side fallback tokens, so these
+	// Anthropic-only fields are never valid in the Bedrock request body.
+	if gjson.GetBytes(body, "fallbacks").Exists() {
+		body, _ = sjson.DeleteBytes(body, "fallbacks")
+	}
+	if gjson.GetBytes(body, "fallback_credit_token").Exists() {
+		body, _ = sjson.DeleteBytes(body, "fallback_credit_token")
+	}
 	return body
 }
 

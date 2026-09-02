@@ -13,6 +13,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -763,23 +764,32 @@ func sanitizeAnthropicBodyForBetaTokens(body []byte, anthropicBetaHeader string)
 	if len(body) == 0 {
 		return body, false
 	}
-	if !gjson.GetBytes(body, "context_management").Exists() {
-		return body, false
+
+	changed := false
+	strip := func(field string, requiredTokens ...string) {
+		if !gjson.GetBytes(body, field).Exists() {
+			return
+		}
+		for _, token := range requiredTokens {
+			if anthropicBetaTokensContains(anthropicBetaHeader, token) {
+				return
+			}
+		}
+		b, err := sjson.DeleteBytes(body, field)
+		if err != nil {
+			logger.LegacyPrintf("service.gateway",
+				"[BetaFieldSanitize] sjson.DeleteBytes(%s) failed: %v (body len=%d). "+
+					"body and final anthropic-beta header may be out of sync.", field, err, len(body))
+			return
+		}
+		body = b
+		changed = true
 	}
-	if anthropicBetaTokensContains(anthropicBetaHeader, anthropicBetaContextManagementToken) {
-		return body, false
-	}
-	if b, err := sjson.DeleteBytes(body, "context_management"); err == nil {
-		return b, true
-	} else {
-		// 不应发生：gjson 刚验证过字段存在 + body 是合法 JSON。如果 sjson 仍报错，
-		// 调用方会拿到 (body, false)，但此前 computeFinalAnthropicBeta 已按“strip 后”
-		// 计算了 finalBeta——两侧会不一致。记录 warning 最小限度提醒运维。
-		logger.LegacyPrintf("service.gateway",
-			"[CtxMgmtSanitize] sjson.DeleteBytes failed unexpectedly: %v (body len=%d). "+
-				"body and final anthropic-beta header may be out of sync.", err, len(body))
-	}
-	return body, false
+
+	strip("context_management", anthropicBetaContextManagementToken)
+	strip("fallbacks", claude.BetaServerSideFallback)
+	strip("fallback_credit_token", claude.BetaServerSideFallback, claude.BetaFallbackCredit, claude.BetaFallbackCreditLegacy)
+	return body, changed
 }
 
 // anthropicBetaTokensContains 检测逗号分隔的 anthropic-beta header 是否含指定 token。
