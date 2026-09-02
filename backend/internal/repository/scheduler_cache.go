@@ -565,6 +565,10 @@ func filterSchedulerExtra(extra map[string]any) map[string]any {
 		"openai_ws_force_http",
 		"openai_responses_mode",
 		"openai_responses_supported",
+		// 透传开关必须进入 scheduler 投影。候选过滤读取的是 sched:meta，
+		// Account.IsModelSupported 依赖这两个字段短路过期的 model_mapping 白名单。
+		"openai_passthrough",
+		"openai_oauth_passthrough",
 		"image_input_transport",
 		"image_upload_limit_bytes",
 		"image_url_fields_supported",
