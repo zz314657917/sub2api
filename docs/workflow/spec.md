@@ -1,3 +1,43 @@
+## Upstream v0.1.185 Quota Reset Cooldown Addendum (S281)
+
+- Adapt upstream `897faea33` in the local `accountRepository.ResetQuotaUsed`
+  owner. Keep the existing repository interface and local quota/share-display
+  SQL shape; make the single `UPDATE accounts` clear `rate_limited_at` and
+  `rate_limit_reset_at` atomically with quota usage reset.
+- Inspect `RowsAffected` and return `service.ErrAccountNotFound` for a missing
+  or deleted account before enqueueing scheduler outbox work. On success,
+  preserve local `model_rate_limits`, overload state, temporary-unschedulable
+  state, fixed-reset configuration and share-display behavior, then enqueue
+  the existing account-changed event and refresh the scheduler cache snapshot.
+- Do not rename `AccountRepository.ResetQuotaUsed` or import the upstream split
+  method: the local branch has many test doubles and service owners that would
+  create unnecessary topology churn. Do not clear overload/temp-unschedulable
+  fields; this fix is limited to account-level rate-limit cooldown.
+- Prove SQL/row-count behavior with the existing sqlmock/recording executor
+  tests and run repository/service compile gates. Real PostgreSQL integration,
+  provider traffic, containers, deployment, commit and push are outside the
+  worker scope. Contract:
+  `docs/workflow/tasks/upstream-v0185-quota-reset-cooldown-s281.md`.
+
+## Upstream v0.1.185 Gateway Pool Same-Account Retry Addendum (S280)
+
+- Adapt upstream `b1e60ba45` in the two Anthropic compatibility forwarding
+  paths. When a failover HTTP status is returned, preserve the result of local
+  rate-limit handling and mark the `UpstreamFailoverError` retryable on the
+  same account only when the account is in pool mode, the status is configured
+  as pool-retryable, and rate-limit handling did not disable/unschedule it.
+- Pass the mapped upstream model into `HandleUpstreamError` so existing
+  model-specific error handling receives the same context as other gateway
+  paths. Do not change status classification, retry counts, scheduler logic,
+  account configuration semantics, response conversion or billing.
+- Cover both Chat Completions and Responses compatibility entry points, plus
+  negative cases for non-pool accounts and an explicitly empty pool retry-code
+  list. Preserve every existing dirty path and `outputs/**`.
+- No schema, migration, repository, frontend, dependency, provider, container,
+  deployment, shared-data, commit or push action belongs to the worker scope.
+  Contract:
+  `docs/workflow/tasks/upstream-v0185-gateway-pool-retry-s280.md`.
+
 ## Upstream v0.1.184 Compatibility Fixes Addendum (S276)
 
 - Port four independently testable upstream fixes without merging or
@@ -655,3 +695,25 @@
 - 若继续做前端全量测试收口，应另开“前端稳定化”任务，不与上游 patch Sprint 混合。
 
 - Earlier spec addenda were archived by pge-compact at 20260831T062627697Z.
+## Upstream v0.2.0 Group Pricing Layout Addendum (S290)
+
+- Hand-adapt upstream `1a33dc8cc` only where its responsive layout intent maps
+  to the local six-field `PricingEntryCard` and flex-based `IntervalRow`.
+  Make group create/edit dialogs wide and their model-pricing headers able to
+  wrap without shrinking the add button. Preserve all inputs, emits, pricing
+  conversion and billing behavior.
+- The group create/edit callers intentionally pass `hide-token-intervals=true`.
+  Therefore their browser acceptance covers the actually rendered six default
+  Token-price inputs, not an unreachable `IntervalRow`. Keep the shared
+  interval-grid source assertion in S290; a browser smoke for the enabled
+  channel-pricing route is a separate follow-up and must not change group
+  pricing semantics merely to satisfy this layout task.
+- The component topology has diverged, so do not cherry-pick the four-file
+  patch. Use a responsive grid consistent with local fields and prove the
+  source-level layout sentinels, typecheck and production build. Browser
+  verification must use a task-owned profile; no production credentials or
+  shared data are permitted.
+- Backend, schema, migration, router, auth, billing, i18n, dependencies,
+  lockfile, Pixel Cafe, protected dirty files, containers, deployment, push and
+  `outputs/**` are excluded. Contract:
+  `docs/workflow/tasks/upstream-v0200-group-pricing-layout-s290.md`.
