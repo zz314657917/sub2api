@@ -1,8 +1,8 @@
 ---
-phase: build
-current_sprint: upstream-v0200-ops-proxy-attribution-s291d
+phase: qa
+current_sprint: upstream-v0200-ops-proxy-attribution-s291e
 total_sprints: 291
-pending_action: Complete S291-D local integration, then apply S291-E for three globally scanned missed call sites.
+pending_action: S291 proxy-attribution implementation is locally complete in S291-A through S291-E; run independent QA before final PASS, push decision remains separate.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true

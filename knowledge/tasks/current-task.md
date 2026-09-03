@@ -70,6 +70,9 @@
 - S291-C 合同和独立审查均为 PASS，当前补 OpenAI/Grok/WS 错误事件调用点。
 - S291-C build 已完成：OpenAI/Grok/WS 现有生产事件点和 WS fallback unknown
   语义已覆盖，定向及完整 service 测试、构建通过；Antigravity 单体逻辑另拆 S291-D。
+- S291-A 至 S291-E 已完成本地代理归因集成：核心 event/legacy/queue 边界、
+  Gateway/Gemini、OpenAI/WS/Grok、Antigravity 与最终遗漏点均已覆盖。完整 service
+  测试、`go build ./...`、diff/冲突检查和全局生产事件构造点扫描均通过；待独立 QA，未推送。
 
 ## 下一步
 
