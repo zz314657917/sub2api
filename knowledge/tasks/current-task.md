@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-09-03 10:00 +08:00
+最后更新：2026-09-04 10:00 +08:00
 
 ## 背景
 
@@ -9,7 +9,7 @@
 
 ## 当前目标
 
-- 当前 Sprint：`upstream-v0200-ops-proxy-attribution-s291a`。
+- 当前 Sprint：`upstream-v0200-ops-proxy-attribution-s291b`。
 - Workflow phase：`build`。
 - S290 已按修订合同完成独立 QA 和最终裁决；四个前端文件已提交为 `7cacdbab1`。S266 内容审核的产品提交已在主线等价存在，其任务、结果和 QA 证据已通过 `12e52216e` 合并回主线谱系；`origin/main` 已同步至 `5b95e68dd`。
 - 不 push、不部署、不更新容器，不操作数据库、共享数据或真实 provider。
@@ -62,6 +62,11 @@
 - S291-A build 已完成：定向测试、完整 `internal/service`、`go build ./...`、
   `git diff --check` 和未合并索引检查均通过；结果见
   `docs/workflow/worker-results/upstream-v0200-ops-proxy-attribution-s291a-result.md`。
+- S291-B 合同和独立审查均为 PASS，当前只补本地 Gateway/Gemini HTTP 调用点；
+  OpenAI/WS/provider 剩余调用点延后至 S291-C。
+- S291-B build 已完成：Gateway 单体 22 个事件点与 Gemini 兼容入口补齐代理归因，
+  定向测试和 `go build ./...` 通过；结果见
+  `docs/workflow/worker-results/upstream-v0200-ops-proxy-attribution-s291b-result.md`。
 
 ## 下一步
 

@@ -1,8 +1,8 @@
 ---
 phase: build
-current_sprint: upstream-v0200-ops-proxy-attribution-s291a
+current_sprint: upstream-v0200-ops-proxy-attribution-s291b
 total_sprints: 291
-pending_action: Implement S291-A core Ops event attribution and queued-event bounds within the approved allowlist; preserve all dirty paths and outputs. S291-B/C gateway call-site attribution remain separate future contracts.
+pending_action: Complete S291-B evidence and local integration; S291-C OpenAI/WS/provider call sites remain deferred.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
@@ -12,6 +12,14 @@ last_verified: 2026-09-03 00:00 +08:00
 # Upstream v0.2.0 Group Pricing Layout S290
 
 # Upstream v0.2.0 Ops Proxy Attribution S291-A
+
+# Upstream v0.2.0 Ops Proxy Attribution S291-B
+
+- `CONTRACT APPROVED`: local Gateway/Gemini HTTP error call-site attribution.
+- Contract: `docs/workflow/tasks/upstream-v0200-ops-proxy-attribution-s291b.md`.
+- Review: `docs/workflow/contract-reviews/upstream-v0200-ops-proxy-attribution-s291b-review.md` (`PASS`).
+- `BUILD DONE`: Gateway single-file HTTP and Gemini compatibility call sites
+  now stamp event-time proxy attribution; focused tests and build pass.
 
 - `CONTRACT APPROVED`: adapt the core event contract, legacy JSON normalization
   and queued-event bounds from upstream `e9e3c46cb`, `4c1f920d5` and
