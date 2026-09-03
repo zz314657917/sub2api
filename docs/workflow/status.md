@@ -1,8 +1,8 @@
 ---
 phase: build
-current_sprint: upstream-v0200-ops-proxy-attribution-s291b
+current_sprint: upstream-v0200-ops-proxy-attribution-s291c
 total_sprints: 291
-pending_action: Complete S291-B evidence and local integration; S291-C OpenAI/WS/provider call sites remain deferred.
+pending_action: Complete S291-C local integration, then define S291-D for local monolithic Antigravity gateway attribution.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
@@ -14,6 +14,14 @@ last_verified: 2026-09-03 00:00 +08:00
 # Upstream v0.2.0 Ops Proxy Attribution S291-A
 
 # Upstream v0.2.0 Ops Proxy Attribution S291-B
+
+# Upstream v0.2.0 Ops Proxy Attribution S291-C
+
+- `CONTRACT APPROVED`: OpenAI/Grok/WS production error call-site attribution.
+- Contract: `docs/workflow/tasks/upstream-v0200-ops-proxy-attribution-s291c.md`.
+- Review: `docs/workflow/contract-reviews/upstream-v0200-ops-proxy-attribution-s291c-review.md` (`PASS`).
+- `BUILD DONE`: local OpenAI/Grok/WS call sites now snapshot proxy attribution;
+  focused and complete service tests plus build pass. Antigravity remains separate.
 
 - `CONTRACT APPROVED`: local Gateway/Gemini HTTP error call-site attribution.
 - Contract: `docs/workflow/tasks/upstream-v0200-ops-proxy-attribution-s291b.md`.

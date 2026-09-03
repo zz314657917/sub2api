@@ -9,7 +9,7 @@
 
 ## 当前目标
 
-- 当前 Sprint：`upstream-v0200-ops-proxy-attribution-s291b`。
+- 当前 Sprint：`upstream-v0200-ops-proxy-attribution-s291c`。
 - Workflow phase：`build`。
 - S290 已按修订合同完成独立 QA 和最终裁决；四个前端文件已提交为 `7cacdbab1`。S266 内容审核的产品提交已在主线等价存在，其任务、结果和 QA 证据已通过 `12e52216e` 合并回主线谱系；`origin/main` 已同步至 `5b95e68dd`。
 - 不 push、不部署、不更新容器，不操作数据库、共享数据或真实 provider。
@@ -67,6 +67,9 @@
 - S291-B build 已完成：Gateway 单体 22 个事件点与 Gemini 兼容入口补齐代理归因，
   定向测试和 `go build ./...` 通过；结果见
   `docs/workflow/worker-results/upstream-v0200-ops-proxy-attribution-s291b-result.md`。
+- S291-C 合同和独立审查均为 PASS，当前补 OpenAI/Grok/WS 错误事件调用点。
+- S291-C build 已完成：OpenAI/Grok/WS 现有生产事件点和 WS fallback unknown
+  语义已覆盖，定向及完整 service 测试、构建通过；Antigravity 单体逻辑另拆 S291-D。
 
 ## 下一步
 
