@@ -1,8 +1,8 @@
 ---
-phase: done
-current_sprint: upstream-v0200-group-pricing-layout-s290
-total_sprints: 290
-pending_action: Published main is synchronized with origin. S266/S280/S281 merged branches and registered worktrees were removed; preserve all remaining dirty worktrees and outputs. The former S266 directory is an unregistered local dependency residue only and may be manually deleted when storage cleanup is desired.
+phase: build
+current_sprint: upstream-v0200-ops-proxy-attribution-s291a
+total_sprints: 291
+pending_action: Implement S291-A core Ops event attribution and queued-event bounds within the approved allowlist; preserve all dirty paths and outputs. S291-B/C gateway call-site attribution remain separate future contracts.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
@@ -10,6 +10,21 @@ last_verified: 2026-09-03 00:00 +08:00
 ---
 
 # Upstream v0.2.0 Group Pricing Layout S290
+
+# Upstream v0.2.0 Ops Proxy Attribution S291-A
+
+- `CONTRACT APPROVED`: adapt the core event contract, legacy JSON normalization
+  and queued-event bounds from upstream `e9e3c46cb`, `4c1f920d5` and
+  `abc07bb07`.
+- Gateway/provider call sites, protected dirty paths, frontend, dependencies,
+  schema, migrations, billing, deployment, containers and `outputs/**` are
+  denied. No merge, rebase or cherry-pick is permitted.
+- Contract: `docs/workflow/tasks/upstream-v0200-ops-proxy-attribution-s291a.md`.
+- Review: `docs/workflow/contract-reviews/upstream-v0200-ops-proxy-attribution-s291a-review.md` (`PASS`).
+- `BUILD DONE`: core Ops event attribution and queue bounds implemented in the
+  approved allowlist; focused tests, full service tests, `go build ./...`,
+  diff-check and unmerged-index checks pass. Gateway/provider call sites remain
+  deferred to S291-B/C.
 
 - `CONTRACT PASS / scope`: manually adapt upstream `1a33dc8cc` to the local
   six-field pricing layout. The only code owners are the two shared pricing
