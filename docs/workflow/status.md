@@ -1,8 +1,8 @@
 ---
 phase: build
-current_sprint: upstream-v0200-ops-proxy-attribution-s291c
+current_sprint: upstream-v0200-ops-proxy-attribution-s291d
 total_sprints: 291
-pending_action: Complete S291-C local integration, then define S291-D for local monolithic Antigravity gateway attribution.
+pending_action: Complete S291-D local integration, then apply S291-E for three globally scanned missed call sites.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true

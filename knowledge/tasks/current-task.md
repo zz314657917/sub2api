@@ -9,7 +9,7 @@
 
 ## 当前目标
 
-- 当前 Sprint：`upstream-v0200-ops-proxy-attribution-s291c`。
+- 当前 Sprint：`upstream-v0200-ops-proxy-attribution-s291d`。
 - Workflow phase：`build`。
 - S290 已按修订合同完成独立 QA 和最终裁决；四个前端文件已提交为 `7cacdbab1`。S266 内容审核的产品提交已在主线等价存在，其任务、结果和 QA 证据已通过 `12e52216e` 合并回主线谱系；`origin/main` 已同步至 `5b95e68dd`。
 - 不 push、不部署、不更新容器，不操作数据库、共享数据或真实 provider。
