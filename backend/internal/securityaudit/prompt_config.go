@@ -72,6 +72,7 @@ type storageConfig struct {
 	WorkerCount            int               `json:"worker_count"`
 	QueueCapacity          int               `json:"queue_capacity"`
 	Scanners               []string          `json:"scanners"`
+	Rules                  RiskActionRules   `json:"rules"`
 	AllGroups              bool              `json:"all_groups"`
 	GroupIDs               []int64           `json:"group_ids"`
 	Endpoints              []StorageEndpoint `json:"endpoints"`
@@ -108,6 +109,7 @@ type ActiveConfig struct {
 	WorkerCount            int
 	QueueCapacity          int
 	Scanners               []string
+	Rules                  RiskActionRules
 	AllGroups              bool
 	GroupIDs               []int64
 	Endpoints              []ActiveEndpoint
@@ -140,6 +142,7 @@ type PublicConfig struct {
 	WorkerCount            int              `json:"worker_count"`
 	QueueCapacity          int              `json:"queue_capacity"`
 	Scanners               []string         `json:"scanners"`
+	Rules                  RiskActionRules  `json:"rules"`
 	AllGroups              bool             `json:"all_groups"`
 	GroupIDs               []int64          `json:"group_ids"`
 	Endpoints              []PublicEndpoint `json:"endpoints"`
@@ -172,6 +175,7 @@ type UpdateConfigRequest struct {
 	WorkerCount            int              `json:"worker_count"`
 	QueueCapacity          int              `json:"queue_capacity"`
 	Scanners               []string         `json:"scanners"`
+	Rules                  *RiskActionRules `json:"rules,omitempty"`
 	AllGroups              bool             `json:"all_groups"`
 	GroupIDs               []int64          `json:"group_ids"`
 	Endpoints              []UpdateEndpoint `json:"endpoints"`
@@ -187,6 +191,7 @@ func DefaultStorageConfig() storageConfig {
 		WorkerCount:            DefaultWorkerCount,
 		QueueCapacity:          DefaultQueueCapacity,
 		Scanners:               append([]string(nil), AllScannerIDs...),
+		Rules:                  RiskActionRules{},
 		AllGroups:              true,
 		GroupIDs:               []int64{},
 		Endpoints:              []StorageEndpoint{},
@@ -230,6 +235,7 @@ func normalizeStorageConfig(cfg *storageConfig) {
 	}
 	cfg.Scanners = canonicalScannerIDs(cfg.Scanners)
 	cfg.GroupIDs = canonicalInt64s(cfg.GroupIDs)
+	normalizeRiskActionRules(&cfg.Rules)
 	// Preserve an invalid blocking-without-audit combination so validation can
 	// reject it instead of silently changing administrator intent.
 	for i := range cfg.Endpoints {
@@ -255,6 +261,9 @@ func normalizeStorageConfig(cfg *storageConfig) {
 }
 
 func validateStorageConfig(cfg storageConfig) error {
+	if err := validateRiskActionRules(cfg.Rules); err != nil {
+		return err
+	}
 	if cfg.BlockingEnabled && !cfg.Enabled {
 		return infraerrors.BadRequest(ErrorCodeRequiresEnabled, "开启同步阻止前必须先启用提示词审计")
 	}
@@ -321,6 +330,13 @@ func validateUpdateConfigRequest(req UpdateConfigRequest) error {
 	for _, scanner := range req.Scanners {
 		if _, ok := ScannerCatalog[NormalizeCategory(scanner)]; !ok {
 			return infraerrors.BadRequest("prompt_audit_invalid_scanner", "提示词审计风险分类无效")
+		}
+	}
+	if req.Rules != nil {
+		rules := cloneRiskActionRules(*req.Rules)
+		normalizeRiskActionRules(&rules)
+		if err := validateRiskActionRules(rules); err != nil {
+			return err
 		}
 	}
 	if !req.AllGroups {
@@ -414,7 +430,7 @@ func PublicFromStorage(cfg storageConfig, riskControlEnabled bool, invalidTokenE
 	return PublicConfig{
 		Enabled: cfg.Enabled, BlockingEnabled: cfg.BlockingEnabled, BlockingLatestTurnOnly: cfg.BlockingLatestTurnOnly, StorePassEvents: cfg.StorePassEvents,
 		EffectiveMode: active.EffectiveMode(), Strategy: cfg.Strategy, WorkerCount: cfg.WorkerCount,
-		QueueCapacity: cfg.QueueCapacity, Scanners: scanners, AllGroups: cfg.AllGroups,
+		QueueCapacity: cfg.QueueCapacity, Scanners: scanners, Rules: cloneRiskActionRules(cfg.Rules), AllGroups: cfg.AllGroups,
 		GroupIDs: groupIDs, Endpoints: endpoints, ConfigVersion: cfg.ConfigVersion,
 		UpdatedAt: cfg.UpdatedAt, UpdatedBy: cfg.UpdatedBy, ChangeSummary: cfg.ChangeSummary,
 	}
@@ -425,7 +441,7 @@ func ActiveFromStorage(cfg storageConfig, riskControlEnabled bool, encryptor Sec
 		RiskControlEnabled: riskControlEnabled, Enabled: cfg.Enabled, BlockingEnabled: cfg.BlockingEnabled,
 		BlockingLatestTurnOnly: cfg.BlockingLatestTurnOnly,
 		StorePassEvents:        cfg.StorePassEvents, Strategy: cfg.Strategy, WorkerCount: cfg.WorkerCount,
-		QueueCapacity: cfg.QueueCapacity, Scanners: append([]string(nil), cfg.Scanners...), AllGroups: cfg.AllGroups,
+		QueueCapacity: cfg.QueueCapacity, Scanners: append([]string(nil), cfg.Scanners...), Rules: cloneRiskActionRules(cfg.Rules), AllGroups: cfg.AllGroups,
 		GroupIDs: append([]int64(nil), cfg.GroupIDs...), ConfigVersion: cfg.ConfigVersion,
 		UpdatedAt: cfg.UpdatedAt, UpdatedBy: cfg.UpdatedBy, ChangeSummary: cfg.ChangeSummary,
 		Endpoints: make([]ActiveEndpoint, 0, len(cfg.Endpoints)),
@@ -469,10 +485,14 @@ func changeSummary(cfg storageConfig) string {
 		AllGroups              bool   `json:"all_groups"`
 		GroupCount             int    `json:"group_count"`
 		GroupHash              string `json:"group_hash"`
-	}{cfg.Enabled, cfg.BlockingEnabled, cfg.BlockingLatestTurnOnly, cfg.StorePassEvents, len(cfg.Endpoints), len(cfg.Scanners), cfg.AllGroups, len(cfg.GroupIDs), ""}
+		RuleHash               string `json:"rule_hash"`
+	}{cfg.Enabled, cfg.BlockingEnabled, cfg.BlockingLatestTurnOnly, cfg.StorePassEvents, len(cfg.Endpoints), len(cfg.Scanners), cfg.AllGroups, len(cfg.GroupIDs), "", ""}
 	rawGroups, _ := json.Marshal(cfg.GroupIDs)
 	digest := sha256.Sum256(rawGroups)
 	summary.GroupHash = hex.EncodeToString(digest[:])
+	rawRules, _ := json.Marshal(cfg.Rules)
+	ruleDigest := sha256.Sum256(rawRules)
+	summary.RuleHash = hex.EncodeToString(ruleDigest[:])
 	raw, _ := json.Marshal(summary)
 	return string(raw)
 }

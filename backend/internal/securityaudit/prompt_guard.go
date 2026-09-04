@@ -109,6 +109,7 @@ func (g *GuardEvaluator) Evaluate(ctx context.Context, cfg ActiveConfig, snapsho
 			logGuardFailure(snapshot, cfg, kind, code, "", g.clock.Now().Sub(start))
 			return nil, err
 		}
+		ApplyRiskActionRules(result, cfg.Rules)
 		result.ChunkTotal = len(chunks)
 		results = append(results, result)
 		LogInfo(EventChunkCompleted, mergeLogFields(baseFields, map[string]any{
@@ -151,7 +152,9 @@ func (g *GuardEvaluator) Evaluate(ctx context.Context, cfg ActiveConfig, snapsho
 		"status": "completed",
 	}))
 	if g.repo != nil {
-		if _, recordErr := g.repo.RecordBlocking(ctx, snapshot.Redacted(), cfg.ConfigVersion, aggregated, cfg.StorePassEvents); recordErr != nil {
+		// The repository keeps jobs and ordinary events redacted, while allowing
+		// bounded full prompt retention for critical findings only.
+		if _, recordErr := g.repo.RecordBlocking(ctx, snapshotForEventStorage(snapshot, aggregated), cfg.ConfigVersion, aggregated, cfg.StorePassEvents); recordErr != nil {
 			if g.metrics != nil {
 				g.metrics.IncRecordFailed()
 			}

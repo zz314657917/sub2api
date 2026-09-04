@@ -140,8 +140,8 @@ func (r *Runner) processJob(ctx context.Context, workerID int, cfg ActiveConfig,
 	if err != nil {
 		return r.finishFailure(ctx, job, &GuardError{Code: "payload_missing", Retryable: false, Cause: err})
 	}
-	// The transient payload is used only for Guard evaluation. Never copy its
-	// unredacted text into the PostgreSQL audit event.
+	// The transient payload is used for Guard evaluation. Keep it out of the job
+	// snapshot until the aggregated risk is known.
 	endpoints := cfg.EnabledEndpoints()
 	if len(endpoints) == 0 {
 		return r.finishFailure(ctx, job, &GuardError{Code: "no_enabled_endpoint", Retryable: true})
@@ -166,6 +166,7 @@ func (r *Runner) processJob(ctx context.Context, workerID int, cfg ActiveConfig,
 			r.observeAsyncFailure(scanErr, r.clock.Now().Sub(started))
 			return r.finishFailure(ctx, job, scanErr)
 		}
+		ApplyRiskActionRules(result, cfg.Rules)
 		results = append(results, result)
 		LogInfo(EventChunkCompleted, mergeLogFields(baseFields, map[string]any{"worker_id": workerID, "chunk_index": index + 1, "chunk_total": len(chunks), "guard_endpoint_id": result.GuardEndpointID, "action": result.Action, "latency_ms": r.clock.Now().Sub(chunkStarted).Milliseconds(), "status": "completed"}))
 		if result.Action == ActionBlock {
@@ -188,6 +189,11 @@ func (r *Runner) processJob(ctx context.Context, workerID int, cfg ActiveConfig,
 		"action": aggregated.Action, "chunk_total": aggregated.ChunkTotal,
 		"latency_ms": aggregated.LatencyMS, "guard_endpoint_id": aggregated.GuardEndpointID, "status": "completed",
 	}))
+	if aggregated.RiskLevel == RiskCritical {
+		// Only critical findings retain a bounded full prompt for administrator
+		// review; the repository clears it for every other risk level.
+		job.Snapshot.FullPrompt = FullPromptFromScanText(scanText)
+	}
 	event, err := r.repo.Complete(ctx, job, aggregated, cfg.StorePassEvents)
 	if err != nil {
 		return err

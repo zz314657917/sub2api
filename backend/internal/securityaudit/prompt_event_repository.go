@@ -86,7 +86,7 @@ func (r *PostgreSQLRepository) ListEvents(ctx context.Context, filter EventFilte
 	defer func() { _ = rows.Close() }()
 	items := make([]*Event, 0, pageSize)
 	for rows.Next() {
-		event, err := scanEvent(rows)
+		event, err := scanEvent(rows, false)
 		if err != nil {
 			return nil, err
 		}
@@ -103,10 +103,9 @@ func (r *PostgreSQLRepository) ListEvents(ctx context.Context, filter EventFilte
 }
 
 func (r *PostgreSQLRepository) GetEvent(ctx context.Context, id int64) (*Event, error) {
-	// Details expose the same redacted fields as list rows. Do not select the
-	// compatibility full_prompt column, including for legacy rows that may
-	// predate the redacted-only persistence boundary.
-	event, err := scanEvent(r.db.QueryRowContext(ctx, `SELECT `+eventColumns("e")+` FROM prompt_audit_events e WHERE e.id=$1`, id))
+	// Only the administrator detail endpoint loads the bounded full prompt.
+	// List pages intentionally stay lean and redacted.
+	event, err := scanEvent(r.db.QueryRowContext(ctx, `SELECT `+eventDetailColumns("e")+` FROM prompt_audit_events e WHERE e.id=$1`, id), true)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrEventNotFound
 	}
@@ -323,7 +322,11 @@ func eventColumns(alias string) string {
 		%[1]s.chunk_total,%[1]s.latency_ms,%[1]s.created_at`, alias)
 }
 
-func scanEvent(row rowScanner) (*Event, error) {
+func eventDetailColumns(alias string) string {
+	return eventColumns(alias) + fmt.Sprintf(",%[1]s.full_prompt", alias)
+}
+
+func scanEvent(row rowScanner, withFullPrompt bool) (*Event, error) {
 	event := &Event{}
 	var userID, apiKeyID, groupID sql.NullInt64
 	var categories, matched, scores, evidence []byte
@@ -335,6 +338,9 @@ func scanEvent(row rowScanner) (*Event, error) {
 		&event.RiskLevel, &event.Action, &categories, &matched, &scores, &evidence, &event.ScannerBackend,
 		&event.ScannerVersion, &event.GuardEndpointID, &event.PolicyID, &event.PolicyVersion,
 		&event.ConfigVersion, &event.ChunkTotal, &event.LatencyMS, &event.CreatedAt}
+	if withFullPrompt {
+		dest = append(dest, &event.Snapshot.FullPrompt)
+	}
 	err := row.Scan(dest...)
 	if err != nil {
 		return nil, err
@@ -342,7 +348,11 @@ func scanEvent(row rowScanner) (*Event, error) {
 	event.Snapshot.UserID = nullableInt64Value(userID)
 	event.Snapshot.APIKeyID = nullableInt64Value(apiKeyID)
 	event.Snapshot.GroupID = nullableInt64Ptr(groupID)
-	event.Snapshot.FullPrompt = ""
+	if !withFullPrompt || event.RiskLevel != RiskCritical || event.Snapshot.FullPrompt == event.Snapshot.RedactedPreview {
+		// Older builds copied the redacted preview into the compatibility column.
+		// Treat that value as unavailable instead of labelling it as a full prompt.
+		event.Snapshot.FullPrompt = ""
+	}
 	_ = json.Unmarshal(categories, &event.Categories)
 	_ = json.Unmarshal(matched, &event.MatchedScanners)
 	_ = json.Unmarshal(scores, &event.ScannerScores)

@@ -70,18 +70,19 @@ type fakeJobRepository struct {
 	retryErr    error
 	failErr     error
 
-	createdSnapshot PromptSnapshot
-	markedCode      string
-	completedResult *NormalizedResult
-	completedStore  bool
-	completeCount   int
-	eventCount      int
-	retryAt         time.Time
-	retryCode       string
-	retried         int
-	failedCode      string
-	failed          int
-	refreshes       int
+	createdSnapshot   PromptSnapshot
+	markedCode        string
+	completedSnapshot PromptSnapshot
+	completedResult   *NormalizedResult
+	completedStore    bool
+	completeCount     int
+	eventCount        int
+	retryAt           time.Time
+	retryCode         string
+	retried           int
+	failedCode        string
+	failed            int
+	refreshes         int
 
 	claimQueue []*Job
 
@@ -139,10 +140,13 @@ func (r *fakeJobRepository) RefreshLease(context.Context, int64, int64, time.Tim
 	r.refreshes++
 	return r.refreshErr
 }
-func (r *fakeJobRepository) Complete(_ context.Context, _ *Job, result *NormalizedResult, storePass bool) (*Event, error) {
+func (r *fakeJobRepository) Complete(_ context.Context, job *Job, result *NormalizedResult, storePass bool) (*Event, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.completeCount++
+	if job != nil {
+		r.completedSnapshot = job.Snapshot
+	}
 	r.completedResult, r.completedStore = result, storePass
 	if r.completeErr != nil {
 		return nil, r.completeErr
@@ -380,10 +384,39 @@ func TestWorkerCompletesPassWithoutEventRefreshesEveryChunkAndDeletesPayload(t *
 	require.Equal(t, 2, repo.refreshes)
 	require.NotNil(t, repo.completedResult)
 	require.Equal(t, EventPass, repo.completedResult.Decision)
+	require.Empty(t, repo.completedSnapshot.FullPrompt)
 	require.False(t, repo.completedStore)
 	require.Equal(t, []int64{51}, payload.deleted)
 	require.Equal(t, int64(1), metrics.Snapshot().Total)
 	require.Equal(t, int64(1), metrics.Snapshot().Allowed)
+}
+
+func TestWorkerRetainsFullPromptForCriticalEvent(t *testing.T) {
+	repo := &fakeJobRepository{}
+	payload := &fakePayloadStore{values: map[int64]string{51: "critical prompt body"}}
+	scanner := PromptScannerFunc(func(_ context.Context, endpoint ActiveEndpoint, _ string, _ []string) (*NormalizedResult, error) {
+		return &NormalizedResult{Decision: EventCritical, RiskLevel: RiskCritical, Action: ActionBlock, Safety: "Unsafe", Categories: []string{"pii"}, MatchedScanners: []string{"pii"}, ScannerScores: map[string]float64{"pii": 1}, ScannerEvidence: map[string]string{"pii": "redacted"}, GuardEndpointID: endpoint.ID}, nil
+	})
+	runner := NewRunner(&fakeConfigStore{cfg: asyncConfig(), active: true}, repo, payload, scanner, NewAtomicMetrics())
+	runner.clock = fixedClock{now: time.Unix(100, 0).UTC()}
+	require.NoError(t, runner.processJob(context.Background(), 0, asyncConfig(), workerJob(1, 3)))
+	require.Equal(t, "critical prompt body", repo.completedSnapshot.FullPrompt)
+}
+
+func TestWorkerAppliesConfiguredRiskActionRules(t *testing.T) {
+	repo := &fakeJobRepository{}
+	payload := &fakePayloadStore{values: map[int64]string{51: "controversial prompt"}}
+	cfg := asyncConfig()
+	cfg.Rules = RiskActionRules{Safety: map[string]Action{"controversial": ActionBlock}}
+	scanner := PromptScannerFunc(func(_ context.Context, endpoint ActiveEndpoint, _ string, _ []string) (*NormalizedResult, error) {
+		return &NormalizedResult{Decision: EventFlag, RiskLevel: RiskMedium, Action: ActionWarn, Safety: "Controversial", Categories: []string{"violent"}, MatchedScanners: []string{"violent"}, ScannerScores: map[string]float64{"violent": .5}, ScannerEvidence: map[string]string{"violent": "Violent"}, GuardEndpointID: endpoint.ID}, nil
+	})
+	runner := NewRunner(&fakeConfigStore{cfg: cfg, active: true}, repo, payload, scanner, NewAtomicMetrics())
+	runner.clock = fixedClock{now: time.Unix(100, 0).UTC()}
+	require.NoError(t, runner.processJob(context.Background(), 0, cfg, workerJob(1, 3)))
+	require.Equal(t, ActionBlock, repo.completedResult.Action)
+	require.Equal(t, EventCritical, repo.completedResult.Decision)
+	require.Equal(t, RiskCritical, repo.completedResult.RiskLevel)
 }
 
 func TestWorkerRetryBackoffTerminalFailureAndFailover(t *testing.T) {

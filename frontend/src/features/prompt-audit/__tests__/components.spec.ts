@@ -201,7 +201,7 @@ describe('Prompt Audit components', () => {
     expect(wrapper.get('[data-test="run-delete-preview"]').attributes()).not.toHaveProperty('disabled')
   })
 
-  it('shows only the redacted prompt and structured guard return on the risks tab', async () => {
+  it('shows the retained full prompt for critical risks and structured guard return', async () => {
     const event: PromptAuditEvent = {
       id: 1, job_id: 1, decision: 'critical', risk_level: 'critical', action: 'Block',
       categories: ['sexual_content_or_sexual_acts'], matched_scanners: ['sexual_content_or_sexual_acts'],
@@ -237,15 +237,15 @@ describe('Prompt Audit components', () => {
     expect(riskTab).toBeTruthy()
     await riskTab!.trigger('click')
     expect(wrapper.get('[data-test="event-detail-tab-panel"]').classes()).toContain('h-[min(62vh,36rem)]')
-    expect(wrapper.get('[data-test="risk-prompt-preview"]').text()).toContain('redacted prompt body')
-    expect(wrapper.get('[data-test="risk-prompt-preview"]').text()).not.toContain('complete unmasked prompt body')
+    expect(wrapper.get('[data-test="risk-prompt-preview"]').text()).toContain('complete unmasked prompt body')
+    expect(wrapper.get('[data-test="risk-prompt-preview"]').text()).not.toContain('redacted prompt body')
     expect(wrapper.get('[data-test="risk-prompt-full"]').classes()).toContain('overflow-auto')
     expect(wrapper.get('[data-test="risk-guard-return"]').text()).toContain('"decision": "admin.promptAudit.decisions.critical"')
     expect(wrapper.get('[data-test="risk-guard-return"]').text()).toContain('admin.promptAudit.scanners.sexual_content_or_sexual_acts')
     expect(wrapper.get('[data-test="risk-issue"]').text()).toContain('admin.promptAudit.scanners.sexual_content_or_sexual_acts')
   })
 
-  it('ignores a legacy full_prompt value and still shows the redacted preview', async () => {
+  it('keeps non-critical events redacted even when a legacy full_prompt value is present', async () => {
     const event: PromptAuditEvent = {
       id: 2, job_id: 2, decision: 'flag', risk_level: 'medium', action: 'Warn',
       categories: ['pii'], matched_scanners: ['pii'], scanner_scores: {}, scanner_evidence: {},

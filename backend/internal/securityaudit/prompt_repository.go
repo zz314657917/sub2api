@@ -187,7 +187,7 @@ func (r *PostgreSQLRepository) Complete(ctx context.Context, job *Job, result *N
 	}
 	var event *Event
 	if shouldStorePromptAuditEvent(result.Decision, storePassEvents) {
-		event, err = insertEvent(ctx, tx, job.ID, job.Snapshot.Redacted(), job.ConfigVersion, result)
+		event, err = insertEvent(ctx, tx, job.ID, snapshotForEventStorage(job.Snapshot, result), job.ConfigVersion, result)
 		if err != nil {
 			return nil, err
 		}
@@ -293,7 +293,7 @@ func (r *PostgreSQLRepository) RecordBlocking(ctx context.Context, snapshot Prom
 	}
 	var event *Event
 	if shouldStorePromptAuditEvent(result.Decision, storePassEvents) {
-		event, err = insertEvent(ctx, tx, job.ID, snapshot.Redacted(), configVersion, result)
+		event, err = insertEvent(ctx, tx, job.ID, snapshotForEventStorage(snapshot, result), configVersion, result)
 		if err != nil {
 			return nil, err
 		}
@@ -308,6 +308,19 @@ func (r *PostgreSQLRepository) RecordBlocking(ctx context.Context, snapshot Prom
 // Risk events are always persisted while prompt auditing itself is enabled.
 func shouldStorePromptAuditEvent(decision EventDecision, storePassEvents bool) bool {
 	return decision != EventPass || storePassEvents
+}
+
+func fullPromptForStorage(snapshot PromptSnapshot, result *NormalizedResult) string {
+	if result == nil || result.RiskLevel != RiskCritical {
+		return ""
+	}
+	return BuildFullPrompt(snapshot.FullPrompt, DefaultFullPromptMaxRunes)
+}
+
+func snapshotForEventStorage(snapshot PromptSnapshot, result *NormalizedResult) PromptSnapshot {
+	snapshot.FullPrompt = fullPromptForStorage(snapshot, result)
+	snapshot.ScanText = ""
+	return snapshot
 }
 
 type sqlQueryer interface {
@@ -352,15 +365,15 @@ func insertEvent(ctx context.Context, queryer sqlQueryer, jobID int64, snapshot 
 			full_prompt
 		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,
 			$20::jsonb,$21::jsonb,$22::jsonb,$23::jsonb,$24,$25,$26,$27,$28,$29,$30,$31,$32)
-		RETURNING `+eventColumns("prompt_audit_events"),
+		RETURNING `+eventDetailColumns("prompt_audit_events"),
 		jobID, snapshot.RequestID, nullableID(snapshot.UserID), snapshot.UsernameSnapshot, snapshot.UserEmailSnapshot,
 		nullableID(snapshot.APIKeyID), snapshot.APIKeyNameSnapshot, snapshot.GroupID, snapshot.GroupName,
 		snapshot.Provider, snapshot.Endpoint, snapshot.Protocol, snapshot.Model, snapshot.PromptHash,
 		snapshot.RedactedPreview, normalizeStage(snapshot.Stage), string(result.Decision), string(result.RiskLevel),
 		string(result.Action), categories, matched, scores, evidenceJSON, result.ScannerBackend, result.ScannerVersion,
 		result.GuardEndpointID, result.PolicyID, result.PolicyVersion, configVersion, result.ChunkTotal, result.LatencyMS,
-		snapshot.RedactedPreview)
-	return scanEvent(row)
+		fullPromptForStorage(snapshot, result))
+	return scanEvent(row, true)
 }
 
 type rowScanner interface{ Scan(...any) error }

@@ -1,7 +1,7 @@
 export default {
   promptAudit: {
     title: '提示词审计',
-    description: '通过 OpenAI 兼容 Qwen3Guard 节点异步复核或同步阻止用户输入；事件只保留有界的脱敏预览。',
+    description: '通过 OpenAI 兼容 Qwen3Guard 节点异步复核或同步阻止用户输入；严重风险事件会保留有界完整提示词供管理员复核。',
     configVersion: '配置版本 v{version}',
     tabs: { config: '配置', events: '事件' },
     actions: { refresh: '刷新运行态', retry: '重试', Allow: '放行', Warn: '警告', Block: '阻止' },
@@ -62,7 +62,7 @@ export default {
       confirm: '理解风险并开启',
     },
     events: {
-      title: '审计事件', description: '按身份、入口、风险、Hash 和时间复核事件，详情中只显示有界的脱敏预览。', decision: '判定', risk: '风险等级', endpoint: '入口', groupId: '分组 ID', userId: '用户 ID', apiKeyId: 'API Key ID', keyword: '关键词',
+      title: '审计事件', description: '按身份、入口、风险、Hash 和时间复核事件；严重风险详情会保留有界完整提示词供管理员复核。', decision: '判定', risk: '风险等级', endpoint: '入口', groupId: '分组 ID', userId: '用户 ID', apiKeyId: 'API Key ID', keyword: '关键词',
       startAt: '开始时间', endAt: '结束时间', deleteSelected: '删除选中项（{count}）', deleteByFilter: '按筛选删除',
       filterDeleteDialogTitle: '按筛选删除审计事件', filterDeleteDialogDesc: '选择删除的时间范围与风险条件后即可执行删除；删除不可恢复。如需提前查看匹配数量，可先获取删除预览。',
       filterTimeRange: '删除时间范围', filterTimeRangeHint: '将删除所选截止时间之前产生的事件；预览后新产生的事件不受影响。',
@@ -74,8 +74,11 @@ export default {
       selectAll: '选择当前页全部事件', selectEvent: '选择事件 {id}', time: '时间', identity: '用户 / 邮箱 / API Key', user: '用户名', email: '用户邮箱', apiKey: 'API Key 名称', group: '分组', route: '入口 / 模型', result: '判定 / 风险', preview: '脱敏预览', empty: '没有符合条件的事件。',
       passEventsDisabled: '当前未开启“保存安全事件”：安全请求仍会完成审计，但不会出现在事件列表中；Flag 和 Critical 风险事件仍会保存。', openConfiguration: '前往配置',
       detailTitle: '提示词审计事件详情', tabs: { summary: '审计摘要', risks: '具体风险', technical: '技术信息' },
-      promptFull: '脱敏提示词预览',
-      promptFullHint: '事件只保留有界的脱敏预览；原始提示词不会写入 PostgreSQL。',
+      promptPreview: '脱敏提示词预览',
+      promptPreviewHint: '仅展示有界的脱敏预览；原始提示词不会写入 PostgreSQL。',
+      promptFullCritical: '完整提示词（严重风险）',
+      promptFullCriticalHint: '严重风险事件会保留有界完整提示词，仅供管理员复核触发内容；请按敏感数据妥善处理，切勿外泄。',
+      promptFullCriticalUnavailableHint: '该严重风险事件没有可用的完整提示词，可能产生于启用保留策略前；当前仍显示脱敏预览。',
       guardReturn: '模型审计返回',
       guardReturnHint: '展示 Guard 归一化后的结构化结果（判定、分类、分数与脱敏证据），不含原始响应体。',
       riskSummaries: '风险摘要',

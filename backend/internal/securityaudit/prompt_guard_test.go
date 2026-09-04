@@ -255,12 +255,13 @@ func TestGuardEvaluatorRecordsExistingResultOnceAndRecordFailureDoesNotChangeDec
 			scannerCalls++
 			return &NormalizedResult{Decision: EventCritical, RiskLevel: RiskCritical, Action: ActionBlock, Safety: "Unsafe", Categories: []string{"pii"}, MatchedScanners: []string{"pii"}, ScannerScores: map[string]float64{"pii": 1}, ScannerEvidence: map[string]string{"pii": "PII"}}, nil
 		}), repo, metrics, 2, 2)
-		decision, err := evaluator.Evaluate(context.Background(), guardConfig(ActiveEndpoint{ID: "one", Enabled: true, TimeoutMS: 1000, InputLimit: 100}), PromptSnapshot{ScanText: "raw prompt", RedactedPreview: "raw***", PromptLength: 10})
+		decision, err := evaluator.Evaluate(context.Background(), guardConfig(ActiveEndpoint{ID: "one", Enabled: true, TimeoutMS: 1000, InputLimit: 100}), PromptSnapshot{ScanText: "raw prompt", FullPrompt: "raw prompt", RedactedPreview: "raw***", PromptLength: 10})
 		require.NoError(t, err)
 		require.Equal(t, DecisionBlock, decision.Kind)
 		require.Equal(t, 1, scannerCalls)
 		require.Equal(t, 1, repo.recordBlockingCalls)
 		require.Empty(t, repo.recordBlockingSnapshot.ScanText)
+		require.Equal(t, "raw prompt", repo.recordBlockingSnapshot.FullPrompt)
 		require.Same(t, decision.Result, repo.recordBlockingResult)
 		if recordErr != nil {
 			require.Equal(t, int64(1), metrics.Snapshot().RecordFailed)

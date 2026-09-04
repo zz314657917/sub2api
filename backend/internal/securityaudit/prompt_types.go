@@ -66,6 +66,13 @@ const (
 	ActionBlock Action = "Block"
 )
 
+func (r UpdateConfigRequest) RulesValue() RiskActionRules {
+	if r.Rules == nil {
+		return RiskActionRules{}
+	}
+	return *r.Rules
+}
+
 type Request struct {
 	RequestID  string
 	UserID     int64

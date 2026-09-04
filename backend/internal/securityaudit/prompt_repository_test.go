@@ -1,6 +1,10 @@
 package securityaudit
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 func TestShouldStorePromptAuditEvent(t *testing.T) {
 	tests := []struct {
@@ -22,4 +26,14 @@ func TestShouldStorePromptAuditEvent(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFullPromptForStorageOnlyRetainsCriticalRisk(t *testing.T) {
+	snapshot := PromptSnapshot{FullPrompt: "raw\x00critical prompt", ScanText: "transient scan text"}
+	require.Equal(t, "rawcritical prompt", fullPromptForStorage(snapshot, &NormalizedResult{RiskLevel: RiskCritical}))
+	require.Empty(t, fullPromptForStorage(snapshot, &NormalizedResult{RiskLevel: RiskHigh}))
+	require.Empty(t, fullPromptForStorage(snapshot, nil))
+	persisted := snapshotForEventStorage(snapshot, &NormalizedResult{RiskLevel: RiskCritical})
+	require.Equal(t, "rawcritical prompt", persisted.FullPrompt)
+	require.Empty(t, persisted.ScanText)
 }

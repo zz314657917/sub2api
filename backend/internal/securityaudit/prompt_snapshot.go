@@ -75,9 +75,8 @@ func extractPromptSnapshot(req Request, latestTurnOnly bool) (PromptSnapshot, er
 // considered before BuildPromptPreview withholds the majority for storage/UI.
 const DefaultPromptPreviewMaxRunes = 96
 
-// DefaultFullPromptMaxRunes bounds the transient full prompt assembled while
-// evaluating a request. Redacted() clears this field before persistence or
-// logging; PostgreSQL only receives the bounded redacted preview.
+// DefaultFullPromptMaxRunes bounds the full prompt assembled while evaluating
+// a request. Only critical audit events may persist this bounded value.
 const DefaultFullPromptMaxRunes = 65536
 
 func extractProtocolSegments(protocol string, document any) []promptSegment {
@@ -609,8 +608,8 @@ func BuildPromptPreview(value string, maxRunes int) string {
 	return preview
 }
 
-// BuildFullPrompt returns the transient prompt text after removing NUL bytes
-// and applying a rune bound. Callers must clear it before persistence.
+// BuildFullPrompt returns prompt text after removing NUL bytes and applying a
+// rune bound. Persistence callers must still enforce the critical-risk gate.
 func BuildFullPrompt(value string, maxRunes int) string {
 	if maxRunes <= 0 {
 		maxRunes = DefaultFullPromptMaxRunes

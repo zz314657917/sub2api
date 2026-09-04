@@ -1,5 +1,4 @@
--- Compatibility column for the admin detail contract. Runtime writes keep
--- this field redacted; unredacted prompt text remains in the short-lived Redis
--- payload only and is never persisted to PostgreSQL.
+-- Bounded full prompt retained only for critical-risk events and returned only
+-- from the administrator event-detail endpoint. Other events keep this empty.
 ALTER TABLE prompt_audit_events
     ADD COLUMN IF NOT EXISTS full_prompt TEXT NOT NULL DEFAULT '';

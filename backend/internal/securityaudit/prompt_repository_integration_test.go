@@ -77,7 +77,7 @@ func integrationSnapshot(seed string) PromptSnapshot {
 		UserEmailSnapshot: "user-" + seed + "@example.test", APIKeyNameSnapshot: "key-" + seed,
 		GroupName: "group-" + seed, Provider: "openai", Endpoint: "/v1/chat/completions",
 		Protocol: "openai_chat", Model: "gpt-test", PromptHash: strings.Repeat(seed[:1], 64),
-		RedactedPreview: "redacted-" + seed, PromptLength: len([]rune(seed)), MessageCount: 1,
+		RedactedPreview: "redacted-" + seed, FullPrompt: "full-" + seed, PromptLength: len([]rune(seed)), MessageCount: 1,
 	}
 }
 
@@ -151,7 +151,7 @@ func TestPromptAuditMigrationSchemaAndLeakageGate(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestPromptAuditDatabaseStoresOnlyRedactedPromptOnEvents(t *testing.T) {
+func TestPromptAuditDatabaseStoresFullPromptOnlyForCriticalAdminDetail(t *testing.T) {
 	db := openPromptAuditIntegrationDB(t)
 	repo := NewPostgreSQLRepository(db)
 	ctx := context.Background()
@@ -165,27 +165,45 @@ func TestPromptAuditDatabaseStoresOnlyRedactedPromptOnEvents(t *testing.T) {
 	require.NoError(t, err)
 	require.NotContains(t, snapshot.RedactedPreview, promptCanary)
 	require.Contains(t, snapshot.FullPrompt, promptCanary)
-	event, err := repo.RecordBlocking(ctx, snapshot.Redacted(), 1, integrationResult(EventCritical), true)
+	event, err := repo.RecordBlocking(ctx, snapshot, 1, integrationResult(EventCritical), true)
 	require.NoError(t, err)
-	// The event exposes only redacted data; the transient job row also never
-	// contains the unredacted prompt.
+	// Critical findings retain a bounded full prompt for the administrator detail
+	// endpoint; the redacted preview remains the list representation.
 	adminJSON, err := json.Marshal(event)
 	require.NoError(t, err)
-	require.NotContains(t, string(adminJSON), promptCanary)
+	require.Contains(t, string(adminJSON), promptCanary)
 	require.NotContains(t, event.Snapshot.RedactedPreview, promptCanary)
 
 	var storedFullPrompt string
 	require.NoError(t, db.QueryRow(`SELECT full_prompt FROM prompt_audit_events WHERE id=$1`, event.ID).Scan(&storedFullPrompt))
-	require.NotContains(t, storedFullPrompt, promptCanary)
-	require.Equal(t, event.Snapshot.RedactedPreview, storedFullPrompt)
+	require.Contains(t, storedFullPrompt, promptCanary)
 
 	detail, err := repo.GetEvent(ctx, event.ID)
 	require.NoError(t, err)
-	require.NotContains(t, detail.Snapshot.FullPrompt, promptCanary)
+	require.Contains(t, detail.Snapshot.FullPrompt, promptCanary)
+	page, err := repo.ListEvents(ctx, EventFilter{RiskLevel: string(RiskCritical)}, 1, 10)
+	require.NoError(t, err)
+	require.Len(t, page.Items, 1)
+	require.Empty(t, page.Items[0].Snapshot.FullPrompt, "list responses must stay redacted")
 
 	var jobJSON string
 	require.NoError(t, db.QueryRow(`SELECT row_to_json(j)::text FROM prompt_audit_jobs j WHERE id=$1`, event.JobID).Scan(&jobJSON))
 	require.NotContains(t, jobJSON, promptCanary)
+
+	nonCriticalSnapshot := snapshot
+	nonCriticalSnapshot.RequestID = "non-critical-request"
+	nonCriticalSnapshot.FullPrompt = "NON_CRITICAL_RAW_PROMPT"
+	nonCriticalResult := integrationResult(EventFlag)
+	nonCriticalResult.RiskLevel = RiskHigh
+	nonCriticalResult.Action = ActionWarn
+	nonCriticalEvent, err := repo.RecordBlocking(ctx, nonCriticalSnapshot, 1, nonCriticalResult, true)
+	require.NoError(t, err)
+	require.Empty(t, nonCriticalEvent.Snapshot.FullPrompt)
+	require.NoError(t, db.QueryRow(`SELECT full_prompt FROM prompt_audit_events WHERE id=$1`, nonCriticalEvent.ID).Scan(&storedFullPrompt))
+	require.Empty(t, storedFullPrompt, "only critical risks may retain a full prompt")
+	nonCriticalDetail, err := repo.GetEvent(ctx, nonCriticalEvent.ID)
+	require.NoError(t, err)
+	require.Empty(t, nonCriticalDetail.Snapshot.FullPrompt)
 
 	failedJob, err := repo.CreateStagingWithCapacity(ctx, integrationSnapshot("error"), 1, 3, 10)
 	require.NoError(t, err)
