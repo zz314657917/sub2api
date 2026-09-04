@@ -1,13 +1,27 @@
 ---
-phase: qa
+phase: done
 current_sprint: upstream-v0200-ops-proxy-attribution-s291e
 total_sprints: 291
-pending_action: S291 proxy-attribution implementation is locally complete in S291-A through S291-E; run independent QA before final PASS, push decision remains separate.
+pending_action: S291 proxy-attribution is locally accepted; push decision remains separate.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-09-03 00:00 +08:00
+last_verified: 2026-09-04 09:47 +08:00
 ---
+
+# Upstream v0.2.0 Ops Proxy Attribution S291
+
+- `FINAL EVALUATOR PASS / local acceptance`: independent Terra QA completed
+  `upstream-v0200-ops-proxy-attribution-s291-qa.md`. Its focused Gateway/Gemini/OpsUpstream
+  test, complete service suite, `go build ./...`, diff/conflict checks and S291 allowlist
+  audit passed. A scan of 100 non-test production event literals found `ProxyID` and
+  `ProxyName` on every direct event append; the sole non-event scanner match is the JSON
+  parser declaration. The protected six-file dirty diff hash remains
+  `0e467987fd7aec5fc451983bdb8f8216f97ba69c`.
+- `LOCAL STATE`: S291-A through S291-E remain the five local commits `2734fbbcc`,
+  `fd203d8bd`, `4a692587a`, `9a03e6735` and `983b0585a`. No push, provider, database,
+  container or deployment action occurred. Concurrent user dirty paths, including
+  `usage_log_repo*`, remain excluded.
 
 # Upstream v0.2.0 Group Pricing Layout S290
 

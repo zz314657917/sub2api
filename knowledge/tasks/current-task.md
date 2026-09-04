@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-09-04 10:00 +08:00
+最后更新：2026-09-04 09:47 +08:00
 
 ## 背景
 
@@ -9,8 +9,8 @@
 
 ## 当前目标
 
-- 当前 Sprint：`upstream-v0200-ops-proxy-attribution-s291d`。
-- Workflow phase：`build`。
+- 当前 Sprint：`upstream-v0200-ops-proxy-attribution-s291e`。
+- Workflow phase：`done`。
 - S290 已按修订合同完成独立 QA 和最终裁决；四个前端文件已提交为 `7cacdbab1`。S266 内容审核的产品提交已在主线等价存在，其任务、结果和 QA 证据已通过 `12e52216e` 合并回主线谱系；`origin/main` 已同步至 `5b95e68dd`。
 - 不 push、不部署、不更新容器，不操作数据库、共享数据或真实 provider。
 
@@ -18,7 +18,7 @@
 
 - S281--S285 已分别提交为 `c886cdcac`、`f48b4b77f`、`bb3d3bca6`、`65bf61f5a`、`b686353c3`。
 - S287 和 S289 已提交为 `e6845b4ea`、`6050139a3`，均有独立 QA PASS。
-- 刷新后 `upstream/main=5097b3145`（v0.2.0）；本地与上游历史仍大幅分叉，继续行为级筛选。
+- 刷新后 `upstream/main=b1748c4ea`；本地与上游历史仍大幅分叉，继续行为级筛选。
 
 ## 已确认事实
 
@@ -71,12 +71,12 @@
 - S291-C build 已完成：OpenAI/Grok/WS 现有生产事件点和 WS fallback unknown
   语义已覆盖，定向及完整 service 测试、构建通过；Antigravity 单体逻辑另拆 S291-D。
 - S291-A 至 S291-E 已完成本地代理归因集成：核心 event/legacy/queue 边界、
-  Gateway/Gemini、OpenAI/WS/Grok、Antigravity 与最终遗漏点均已覆盖。完整 service
-  测试、`go build ./...`、diff/冲突检查和全局生产事件构造点扫描均通过；待独立 QA，未推送。
+  Gateway/Gemini、OpenAI/WS/Grok、Antigravity 与最终遗漏点均已覆盖。独立 Terra QA 已通过定向、
+  完整 service、`go build ./...`、diff/冲突、allowlist 与 100 个生产事件构造点扫描；未推送。
 
 ## 下一步
 
-1. 若需释放空间，可手动删除已注销的 `E:/codex-worktrees/sub2api/upstream-content-moderation-parity-s266` 目录；该目录只含任务依赖残留，Git 已无注册。删除前验证其不重新出现在 `git worktree list`。
+1. S291 独立 QA 已完成；需发布时另行请求推送，不得夹带任何未提交的用户改动。
 2. 若继续前端定价验收，另开任务验证启用渠道定价入口的 `IntervalRow` 桌面/移动布局，不改变分组弹窗的计费语义。
 
 ## 验证记录
