@@ -744,7 +744,7 @@ function closeQuotaResetConfirm() {
 async function confirmQuotaReset() {
   const scope = quotaResetScope.value
   const room = quotaResetRoom.value
-  if (!scope || (scope === 'room' && !room)) return
+  if (!scope || quotaResetting.value !== null || (scope === 'room' && !room)) return
   quotaResetting.value = scope === 'all' ? 'all' : room!.id
   try {
     const response = scope === 'all'

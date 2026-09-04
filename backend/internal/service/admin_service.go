@@ -20,6 +20,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
+	"github.com/Wei-Shaw/sub2api/ent/caferoom"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -3238,9 +3239,21 @@ func (s *adminServiceImpl) AdminResetCafeRateLimitUsage(ctx context.Context, roo
 		return nil, fmt.Errorf("entClient is nil, cannot reset cafe quota usage")
 	}
 
+	now := time.Now()
+	if roomID != nil {
+		if _, err := s.entClient.CafeRoom.Query().Where(caferoom.IDEQ(*roomID), caferoom.DeletedAtIsNil()).Only(ctx); err != nil {
+			if dbent.IsNotFound(err) {
+				return nil, ErrCafeRoomNotFound
+			}
+			return nil, fmt.Errorf("validate cafe room: %w", err)
+		}
+	}
+
 	query := s.entClient.APIKeyAccountBinding.Query().Where(
 		apikeyaccountbinding.StatusEQ("active"),
 		apikeyaccountbinding.CafeRoomIDNEQ(0),
+		apikeyaccountbinding.StartsAtLTE(now),
+		apikeyaccountbinding.ExpiresAtGT(now),
 		apikeyaccountbinding.HasAPIKeyWith(
 			apikey.DeletedAtIsNil(),
 			apikey.ManagedSourceTypeIn(APIKeyManagedSourceCafeRoomSeat, APIKeyManagedSourceCafeRoomMembership),
@@ -3261,9 +3274,43 @@ func (s *adminServiceImpl) AdminResetCafeRateLimitUsage(ctx context.Context, roo
 			keyIDs[binding.APIKeyID] = struct{}{}
 		}
 	}
+	if len(keyIDs) == 0 {
+		scope := "all"
+		if roomID != nil {
+			scope = "room"
+		}
+		return &AdminCafeQuotaResetResult{Scope: scope, RoomID: roomID, AffectedKeys: 0}, nil
+	}
+
+	ids := make([]int64, 0, len(keyIDs))
 	for keyID := range keyIDs {
-		if _, err := s.AdminResetAPIKeyRateLimitUsage(ctx, keyID); err != nil {
-			return nil, fmt.Errorf("reset cafe managed key %d: %w", keyID, err)
+		ids = append(ids, keyID)
+	}
+	keys, err := s.entClient.APIKey.Query().Where(apikey.IDIn(ids...), apikey.DeletedAtIsNil()).All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("load cafe managed keys: %w", err)
+	}
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin cafe quota reset transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	updated, err := tx.APIKey.Update().Where(apikey.IDIn(ids...), apikey.DeletedAtIsNil()).
+		SetUsage5h(0).SetUsage1d(0).SetUsage7d(0).
+		ClearWindow5hStart().ClearWindow1dStart().ClearWindow7dStart().
+		SetUpdatedAt(now).Save(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("reset cafe managed keys: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit cafe quota reset: %w", err)
+	}
+	for _, key := range keys {
+		if s.authCacheInvalidator != nil {
+			s.authCacheInvalidator.InvalidateAuthCacheByKey(ctx, key.Key)
+		}
+		if s.billingCacheService != nil {
+			_ = s.billingCacheService.InvalidateAPIKeyRateLimit(ctx, key.ID)
 		}
 	}
 
@@ -3271,7 +3318,7 @@ func (s *adminServiceImpl) AdminResetCafeRateLimitUsage(ctx context.Context, roo
 	if roomID != nil {
 		scope = "room"
 	}
-	return &AdminCafeQuotaResetResult{Scope: scope, RoomID: roomID, AffectedKeys: len(keyIDs)}, nil
+	return &AdminCafeQuotaResetResult{Scope: scope, RoomID: roomID, AffectedKeys: updated}, nil
 }
 
 // ReplaceUserGroup 替换用户的专属分组
