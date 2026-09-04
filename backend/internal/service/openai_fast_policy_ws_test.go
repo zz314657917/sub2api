@@ -171,21 +171,13 @@ func runOpenAIWSUserScopedFastPolicyRelay(t *testing.T, passthrough bool, truste
 		settingService:            NewSettingService(repo, cfg),
 	}
 
-	account := &Account{
-		ID:          905,
-		Name:        "openai-ws-user-scope",
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
-		Credentials: map[string]any{"api_key": "sk-test"},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
-	}
-	if passthrough {
-		account.Extra["openai_apikey_responses_websockets_v2_mode"] = OpenAIWSIngressModePassthrough
+	for _, tier := range []string{"flex", "auto", "default", "scale", "fast", "priority", "ultrafast"} {
+		frame := []byte(`{"type":"response.create","model":"gpt-5.5","service_tier":"` + tier + `"}`)
+		updated, blocked, err := svc.applyOpenAIFastPolicyToWSResponseCreate(context.Background(), account, "gpt-5.5", frame)
+		require.NoError(t, err)
+		require.Nil(t, blocked)
+		require.Equal(t, OpenAIFastTierPriority, gjson.GetBytes(updated, "service_tier").String(),
+			"tier %q should be forced to priority", tier)
 	}
 
 	serverErrCh := make(chan error, 1)
