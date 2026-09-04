@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/stretchr/testify/require"
 )
@@ -86,4 +87,34 @@ func TestBuildUsageLogBestEffortStateQueryReturnsPerInputState(t *testing.T) {
 	require.Equal(t, 0, args[0])
 	require.Equal(t, prepared.args[0], args[1])
 	require.Equal(t, usageStatsTimezoneName(), args[len(args)-1])
+}
+
+func TestDashboardAggregatedStatsReadsSettledCostFromAggregateTable(t *testing.T) {
+	db, mock := newSQLMock(t)
+	repo := newUsageLogRepositoryWithSQL(nil, db)
+	stats := &DashboardStats{}
+	today := time.Date(2026, 9, 4, 0, 0, 0, 0, time.UTC)
+	now := today.Add(10 * time.Minute)
+
+	mock.ExpectQuery(`(?s)COALESCE\(SUM\(actual_cost\), 0\) as total_actual_cost,\s+COALESCE\(SUM\(account_cost\), 0\).*FROM usage_dashboard_daily`).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"total_requests", "total_input_tokens", "total_output_tokens",
+			"total_cache_creation_tokens", "total_cache_read_tokens", "total_cost",
+			"total_actual_cost", "total_account_cost", "total_duration_ms",
+		}).AddRow(2, 10, 20, 3, 4, 1.5, 1.2, 1.5, 100))
+	mock.ExpectQuery(`(?s)FROM usage_dashboard_daily\s+WHERE bucket_date = \$1::date`).
+		WithArgs(today).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"today_requests", "today_input_tokens", "today_output_tokens",
+			"today_cache_creation_tokens", "today_cache_read_tokens", "today_cost",
+			"today_actual_cost", "today_account_cost", "active_users",
+		}).AddRow(2, 10, 20, 3, 4, 1.5, 1.2, 1.5, 1))
+	mock.ExpectQuery(`(?s)SELECT active_users\s+FROM usage_dashboard_hourly`).
+		WithArgs(now.In(timezone.Location()).Truncate(time.Hour)).
+		WillReturnRows(sqlmock.NewRows([]string{"active_users"}).AddRow(1))
+
+	require.NoError(t, repo.fillDashboardUsageStatsAggregated(context.Background(), stats, today, now))
+	require.Equal(t, 1.2, stats.TotalActualCost)
+	require.Equal(t, 1.2, stats.TodayActualCost)
+	require.NoError(t, mock.ExpectationsWereMet())
 }

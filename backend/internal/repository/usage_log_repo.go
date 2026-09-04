@@ -118,6 +118,10 @@ const usageLogSuccessFilterUL = "ul.billing_status = 'applied' AND ul.actual_cos
 const usageLogAppliedActualCostExpr = "COALESCE(SUM(CASE WHEN billing_status = 'applied' THEN actual_cost ELSE 0 END), 0)"
 const usageLogAppliedActualCostExprUL = "COALESCE(SUM(CASE WHEN ul.billing_status = 'applied' THEN ul.actual_cost ELSE 0 END), 0)"
 
+// usageDashboardActualCostExpr reads the already-settled value persisted by the
+// dashboard aggregation job. Aggregation tables do not carry billing_status.
+const usageDashboardActualCostExpr = "COALESCE(SUM(actual_cost), 0)"
+
 // usageLogEffectivePlatformExpr 用于按"有效平台"维度聚合 usage_logs：
 // 优先取请求实际走的分组 platform，若分组未设置 platform 再 fallback 到 account.platform。
 // 配套要求查询里 LEFT JOIN groups g ON g.id = ul.group_id 与 LEFT JOIN accounts a ON a.id = ul.account_id。
@@ -2431,7 +2435,7 @@ func (r *usageLogRepository) fillDashboardUsageStatsAggregated(ctx context.Conte
 			COALESCE(SUM(cache_creation_tokens), 0) as total_cache_creation_tokens,
 			COALESCE(SUM(cache_read_tokens), 0) as total_cache_read_tokens,
 			COALESCE(SUM(total_cost), 0) as total_cost,
-			` + usageLogAppliedActualCostExpr + ` as total_actual_cost,
+			` + usageDashboardActualCostExpr + ` as total_actual_cost,
 			COALESCE(SUM(account_cost), 0) as total_account_cost,
 			COALESCE(SUM(total_duration_ms), 0) as total_duration_ms
 		FROM usage_dashboard_daily
