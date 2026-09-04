@@ -856,12 +856,11 @@ func ChatCompletionsResponseToResponses(resp *ChatCompletionsResponse, model str
 		id = generateResponsesID()
 	}
 
-	out := &ResponsesResponse{
-		ID:     id,
-		Object: "response",
-		Model:  model,
-		Status: "completed",
+	createdAt := time.Now().Unix()
+	if resp != nil && resp.Created > 0 {
+		createdAt = resp.Created
 	}
+	out := &ResponsesResponse{ID: id, Object: "response", CreatedAt: createdAt, Model: model, Status: "completed"}
 	if resp == nil {
 		out.Output = []ResponsesOutput{emptyResponsesMessageOutput()}
 		return out
