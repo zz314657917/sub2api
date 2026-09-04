@@ -15,17 +15,18 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-func TestNormalizeOpenAIReasoningEffortForGPT56Max(t *testing.T) {
+func TestNormalizeOpenAIReasoningEffortForMaxCapableModels(t *testing.T) {
 	tests := []struct {
 		name  string
 		model string
 		want  string
 	}{
-		{name: "sol", model: "gpt-5.6-sol", want: "max"},
-		{name: "provider terra", model: "openai/gpt-5.6-terra", want: "max"},
-		{name: "luna suffix", model: "gpt-5.6-luna-2026-07-09", want: "max"},
-		{name: "alias spelling", model: "GPT5.6 LUNA", want: "max"},
-		{name: "non gpt56", model: "gpt-5.4", want: "xhigh"},
+		{name: "Astra 保留 max", raw: "max", model: "gpt-6-astra", want: "max"},
+		{name: "Sol 保留 max", raw: "max", model: "gpt-5.6-sol", want: "max"},
+		{name: "Terra 保留 max", raw: "max", model: "openai/gpt-5.6-terra", want: "max"},
+		{name: "Luna 后缀保留 max", raw: "max", model: "gpt-5.6-luna-2026-07-09", want: "max"},
+		{name: "DeepSeek V4 保留 max", raw: "max", model: "deepseek-v4-pro", want: "max"},
+		{name: "旧 GPT 模型沿用 xhigh", raw: "max", model: "gpt-5.5", want: "xhigh"},
 	}
 
 	for _, tt := range tests {
