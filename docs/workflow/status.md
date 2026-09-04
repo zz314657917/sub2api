@@ -1,13 +1,31 @@
 ---
-phase: done
-current_sprint: upstream-v0200-ops-proxy-attribution-s291e
-total_sprints: 291
-pending_action: S291 proxy-attribution is locally accepted; push decision remains separate.
+phase: intake
+current_sprint: prompt-audit-policy-matrix-s293
+total_sprints: 293
+pending_action: Planner plan drafted; user confirmation and contract review are required before S293-A.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-09-04 09:47 +08:00
+last_verified: 2026-09-04 17:24 +08:00
 ---
+
+# Prompt Audit Policy Matrix S293
+
+- `PLANNER DRAFT`: four-stage plan is recorded in
+  `docs/workflow/plans/prompt-audit-policy-matrix-s293.md`.
+- Current stage is `intake`; `docs/workflow/tasks/prompt-audit-policy-matrix-s293.md`
+  is an unapproved umbrella draft only. No S293 child contract or business
+  implementation has started. S292 product code is committed locally as
+  `cc4acbcac`; existing user dirty paths remain unchanged and uncommitted.
+
+# Prompt Audit Qwen3Guard Rules S292
+
+- `FINAL EVALUATOR PASS / local acceptance`: optional `prompt_audit_config.rules`
+  is persisted and hot-reloaded with the existing version/Redis path; monotonic
+  validation prevents unsafe weakening. Both synchronous and asynchronous
+  audit paths apply the same rules. Focused securityaudit, handler/admin,
+  service tests and `go build ./...` pass. No frontend, migration, provider,
+  container, deployment or push action occurred.
 
 # Upstream v0.2.0 Ops Proxy Attribution S291
 

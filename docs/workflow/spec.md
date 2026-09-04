@@ -1,3 +1,16 @@
+## Prompt Audit Policy Matrix S293
+
+- 目标：将 Qwen3Guard 的 `Safety + Categories -> action/risk` 映射做成可
+  配置、可解释、可回滚的策略矩阵，后台发布后通过现有热加载链路实时生效。
+- 安全底线：`Unsafe` 必须 Block，未知分类不得静默 Allow，规则只允许升级
+  `Allow -> Warn -> Block`；策略失效时保持 blocking fail-closed。
+- 兼容边界：旧配置和 S292 `rules` Map 继续可读；不改变 Qwen3Guard 的
+  OpenAI-compatible 输出格式、有界脱敏预览和 critical-only full prompt 留存。
+- 实施拆分：S293-A 领域模型/求值、S293-B 持久化/发布/回滚、S293-C 管理
+  API/前端、S293-D shadow/灰度/runtime QA。详细计划见
+  `docs/workflow/plans/prompt-audit-policy-matrix-s293.md`。
+- 当前仅完成 Planner 计划，尚未批准任何 Generator contract，不修改业务代码。
+
 ## Upstream v0.1.185 Quota Reset Cooldown Addendum (S281)
 
 - Adapt upstream `897faea33` in the local `accountRepository.ResetQuotaUsed`

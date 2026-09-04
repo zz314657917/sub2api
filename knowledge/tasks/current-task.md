@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-09-04 09:47 +08:00
+最后更新：2026-09-04 17:24 +08:00
 
 ## 背景
 
@@ -9,10 +9,21 @@
 
 ## 当前目标
 
-- 当前 Sprint：`upstream-v0200-ops-proxy-attribution-s291e`。
-- Workflow phase：`done`。
+- 当前 Sprint：`prompt-audit-policy-matrix-s293`。
+- Workflow phase：`intake`。
 - S290 已按修订合同完成独立 QA 和最终裁决；四个前端文件已提交为 `7cacdbab1`。S266 内容审核的产品提交已在主线等价存在，其任务、结果和 QA 证据已通过 `12e52216e` 合并回主线谱系；`origin/main` 已同步至 `5b95e68dd`。
 - 不 push、不部署、不更新容器，不操作数据库、共享数据或真实 provider。
+
+## S292 已完成
+
+- 新增可选 `prompt_audit_config.rules`，与现有配置版本、Redis 失效通知和原子快照共用热加载路径。
+- `Safe` 只能 `Allow`，`Controversial` 只能 `Warn/Block`，`Unsafe` 固定 `Block`；分类规则只能升级到 `Warn/Block`，不能降级放行。
+- 同步 `GuardEvaluator` 与异步 `Runner` 均在聚合前应用同一规则；定向 securityaudit、handler/admin、service 测试和 `go build ./...` 通过；无前端规则编辑器、真实 Guard provider smoke 或推送；产品代码已本地提交为 `cc4acbcac`。
+
+## S293 规划中
+
+- 已写入 `docs/workflow/plans/prompt-audit-policy-matrix-s293.md`，拆为 A 纯求值核心、B 持久化发布回滚、C 管理 API/前端、D shadow/灰度/最终 QA。
+- 当前只有未批准的总合同草稿 `docs/workflow/tasks/prompt-audit-policy-matrix-s293.md`，等待用户确认后再拆分并评审 S293-A contract；没有开始 S293 业务实现。
 
 ## 本次已完成
 
