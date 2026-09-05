@@ -134,6 +134,7 @@
                 <span class="min-w-0 truncate">{{ item.label }}</span>
                 <span v-if="showWelfareClaimBadge(item)" class="sidebar-claim-badge">{{ t('nav.claimQuota') }}</span>
                 <span v-if="showInvoiceClaimBadge(item)" class="sidebar-claim-badge sidebar-invoice-claim-badge">{{ t('nav.claimInvoice') }}</span>
+                <span v-if="showCafeAvailableBadge(item)" class="sidebar-unread-badge sidebar-cafe-available-badge">可拼</span>
                 <span v-if="showTicketUnreadBadge(item)" class="sidebar-unread-badge">{{ ticketUnreadBadgeLabel }}</span>
                 <span v-if="showAdminTicketAttentionBadge(item)" class="sidebar-unread-badge sidebar-ticket-attention-badge">{{ adminTicketAttentionBadgeLabel }}</span>
               </span>
@@ -196,6 +197,7 @@
                     <span class="min-w-0 truncate">{{ child.label }}</span>
                     <span v-if="showWelfareClaimBadge(child)" class="sidebar-claim-badge">{{ t('nav.claimQuota') }}</span>
                     <span v-if="showInvoiceClaimBadge(child)" class="sidebar-claim-badge sidebar-invoice-claim-badge">{{ t('nav.claimInvoice') }}</span>
+                    <span v-if="showCafeAvailableBadge(child)" class="sidebar-unread-badge sidebar-cafe-available-badge">可拼</span>
                     <span v-if="showTicketUnreadBadge(child)" class="sidebar-unread-badge">{{ ticketUnreadBadgeLabel }}</span>
                     <span v-if="showAdminTicketAttentionBadge(child)" class="sidebar-unread-badge sidebar-ticket-attention-badge">{{ adminTicketAttentionBadgeLabel }}</span>
                   </span>
@@ -220,6 +222,7 @@
                 <span class="min-w-0 truncate">{{ item.label }}</span>
                 <span v-if="showWelfareClaimBadge(item)" class="sidebar-claim-badge">{{ t('nav.claimQuota') }}</span>
                 <span v-if="showInvoiceClaimBadge(item)" class="sidebar-claim-badge sidebar-invoice-claim-badge">{{ t('nav.claimInvoice') }}</span>
+                <span v-if="showCafeAvailableBadge(item)" class="sidebar-unread-badge sidebar-cafe-available-badge">可拼</span>
                 <span v-if="showTicketUnreadBadge(item)" class="sidebar-unread-badge">{{ ticketUnreadBadgeLabel }}</span>
                 <span v-if="showAdminTicketAttentionBadge(item)" class="sidebar-unread-badge sidebar-ticket-attention-badge">{{ adminTicketAttentionBadgeLabel }}</span>
               </span>
@@ -278,6 +281,7 @@
                     <span class="min-w-0 truncate">{{ child.label }}</span>
                     <span v-if="showWelfareClaimBadge(child)" class="sidebar-claim-badge">{{ t('nav.claimQuota') }}</span>
                     <span v-if="showInvoiceClaimBadge(child)" class="sidebar-claim-badge sidebar-invoice-claim-badge">{{ t('nav.claimInvoice') }}</span>
+                    <span v-if="showCafeAvailableBadge(child)" class="sidebar-unread-badge sidebar-cafe-available-badge">可拼</span>
                     <span v-if="showTicketUnreadBadge(child)" class="sidebar-unread-badge">{{ ticketUnreadBadgeLabel }}</span>
                     <span v-if="showAdminTicketAttentionBadge(child)" class="sidebar-unread-badge sidebar-ticket-attention-badge">{{ adminTicketAttentionBadgeLabel }}</span>
                   </span>
@@ -302,6 +306,7 @@
                 <span class="min-w-0 truncate">{{ item.label }}</span>
                 <span v-if="showWelfareClaimBadge(item)" class="sidebar-claim-badge">{{ t('nav.claimQuota') }}</span>
                 <span v-if="showInvoiceClaimBadge(item)" class="sidebar-claim-badge sidebar-invoice-claim-badge">{{ t('nav.claimInvoice') }}</span>
+                <span v-if="showCafeAvailableBadge(item)" class="sidebar-unread-badge sidebar-cafe-available-badge">可拼</span>
                 <span v-if="showTicketUnreadBadge(item)" class="sidebar-unread-badge">{{ ticketUnreadBadgeLabel }}</span>
                 <span v-if="showAdminTicketAttentionBadge(item)" class="sidebar-unread-badge sidebar-ticket-attention-badge">{{ adminTicketAttentionBadgeLabel }}</span>
               </span>
@@ -363,6 +368,7 @@ import { useAdminSettingsStore, useAppStore, useAuthStore, useOnboardingStore, u
 import VersionBadge from '@/components/common/VersionBadge.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { studioBridgeAPI } from '@/api'
+import { cafeAPI } from '@/api/cafe'
 import { ticketsAPI } from '@/api/tickets'
 import { paymentAPI } from '@/api/payment'
 import { adminTicketsAPI } from '@/api/admin/tickets'
@@ -509,6 +515,7 @@ const welfareClaimBadgeVisible = computed(() => welfareStore.hasClaimableReward)
 const ticketUnreadTotal = ref(0)
 const adminTicketUnreadTotal = ref(0)
 const invoiceClaimTotal = ref(0)
+const cafeAvailableRoomTotal = ref(0)
 const ticketUnreadBadgeLabel = computed(() => (ticketUnreadTotal.value > 99 ? '99+' : String(ticketUnreadTotal.value)))
 const adminTicketAttentionBadgeLabel = computed(() => (adminTicketUnreadTotal.value > 99 ? '99+' : String(adminTicketUnreadTotal.value)))
 const flagOpsMonitoring = () => adminSettingsStore.opsMonitoringEnabled
@@ -517,6 +524,7 @@ const flagGroupBuyUser = () => flagPayment() !== false && flagGroupBuy() !== fal
 const flagGroupBuyOrPixelCafe = () => pixelCafeEnabled.value ? flagPixelCafe() : flagGroupBuyUser()
 const WELFARE_BADGE_REFRESH_MS = 60_000
 const TICKET_UNREAD_BADGE_REFRESH_MS = 60_000
+const CAFE_AVAILABLE_BADGE_REFRESH_MS = 60_000
 const SIDEBAR_TOUR_TARGET_EVENT = 'sub2api:sidebar-tour-target'
 const TICKET_UNREAD_BADGE_REFRESH_EVENT = 'sub2api:ticket-unread-updated'
 const sidebarTourTargetGroups: Record<string, string[]> = {
@@ -830,6 +838,10 @@ function showTicketUnreadBadge(item: NavItem): boolean {
   return item.path === '/tickets' && ticketUnreadTotal.value > 0
 }
 
+function showCafeAvailableBadge(item: NavItem): boolean {
+  return item.path === '/group-buy' && cafeAvailableRoomTotal.value > 0
+}
+
 function showInvoiceClaimBadge(item: NavItem): boolean {
   return item.path === '/tickets' && invoiceClaimTotal.value > 0
 }
@@ -872,6 +884,7 @@ function refreshWelfareBadge(force = false): void {
 
 let welfareBadgeRefreshTimer: ReturnType<typeof setInterval> | null = null
 let ticketUnreadBadgeRefreshTimer: ReturnType<typeof setInterval> | null = null
+let cafeAvailableBadgeRefreshTimer: ReturnType<typeof setInterval> | null = null
 
 function startWelfareBadgeRefreshTimer(): void {
   if (welfareBadgeRefreshTimer) return
@@ -890,11 +903,29 @@ function handleWelfareBadgeVisibilityChange(): void {
   if (document.visibilityState === 'visible') {
     refreshWelfareBadge(true)
     void refreshTicketUnreadBadge()
+    void refreshCafeAvailableBadge()
   }
 }
 
 function canRefreshTicketUnreadBadge(): boolean {
   return authStore.isAuthenticated && !authStore.isAdmin && !authStore.isSimpleMode
+}
+
+function canRefreshCafeAvailableBadge(): boolean {
+  return authStore.isAuthenticated && !authStore.isAdmin && !authStore.isSimpleMode && pixelCafeEnabled.value && flagPixelCafe() !== false
+}
+
+async function refreshCafeAvailableBadge(): Promise<void> {
+  if (!canRefreshCafeAvailableBadge()) {
+    cafeAvailableRoomTotal.value = 0
+    return
+  }
+  try {
+    const response = await cafeAPI.overview({ room_limit: 100 })
+    cafeAvailableRoomTotal.value = response.data.rooms.filter((room) => room.purchase_state === 'available' || room.purchase_state === 'reserved').length
+  } catch {
+    cafeAvailableRoomTotal.value = 0
+  }
 }
 
 async function refreshInvoiceClaimBadge(): Promise<void> {
@@ -956,6 +987,19 @@ function stopTicketUnreadBadgeRefreshTimer(): void {
   if (!ticketUnreadBadgeRefreshTimer) return
   clearInterval(ticketUnreadBadgeRefreshTimer)
   ticketUnreadBadgeRefreshTimer = null
+}
+
+function startCafeAvailableBadgeRefreshTimer(): void {
+  if (cafeAvailableBadgeRefreshTimer) return
+  cafeAvailableBadgeRefreshTimer = setInterval(() => {
+    void refreshCafeAvailableBadge()
+  }, CAFE_AVAILABLE_BADGE_REFRESH_MS)
+}
+
+function stopCafeAvailableBadgeRefreshTimer(): void {
+  if (!cafeAvailableBadgeRefreshTimer) return
+  clearInterval(cafeAvailableBadgeRefreshTimer)
+  cafeAvailableBadgeRefreshTimer = null
 }
 
 function isActive(path: string, exact = false): boolean {
@@ -1044,12 +1088,21 @@ watch(
   { immediate: true }
 )
 
+watch(
+  () => [authStore.isAuthenticated, authStore.isAdmin, authStore.isSimpleMode, pixelCafeEnabled.value, flagPixelCafe()] as const,
+  () => {
+    void refreshCafeAvailableBadge()
+  },
+  { immediate: true },
+)
+
 onMounted(() => {
   if (isAdmin.value) {
     adminSettingsStore.fetch()
   }
   startWelfareBadgeRefreshTimer()
   startTicketUnreadBadgeRefreshTimer()
+  startCafeAvailableBadgeRefreshTimer()
   document.addEventListener('visibilitychange', handleWelfareBadgeVisibilityChange)
   window.addEventListener(SIDEBAR_TOUR_TARGET_EVENT, handleSidebarTourTarget)
   window.addEventListener(TICKET_UNREAD_BADGE_REFRESH_EVENT, refreshTicketUnreadBadge)
@@ -1058,6 +1111,7 @@ onMounted(() => {
 onUnmounted(() => {
   stopWelfareBadgeRefreshTimer()
   stopTicketUnreadBadgeRefreshTimer()
+  stopCafeAvailableBadgeRefreshTimer()
   document.removeEventListener('visibilitychange', handleWelfareBadgeVisibilityChange)
   window.removeEventListener(SIDEBAR_TOUR_TARGET_EVENT, handleSidebarTourTarget)
   window.removeEventListener(TICKET_UNREAD_BADGE_REFRESH_EVENT, refreshTicketUnreadBadge)
