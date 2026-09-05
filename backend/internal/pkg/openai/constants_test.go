@@ -18,11 +18,6 @@ func TestDefaultModelsIncludeBareGPT56Alias(t *testing.T) {
 	}
 }
 
-func TestDefaultModelsIncludeGPT6Astra(t *testing.T) {
-	require.Contains(t, DefaultModelIDs(), "gpt-6-astra")
-	require.Contains(t, DefaultModelIDs(), "gpt-6")
-}
-
 func TestDefaultModelsPreferConcreteGPT56SolForAccountTests(t *testing.T) {
 	if len(DefaultModels) == 0 {
 		t.Fatal("DefaultModels is empty")

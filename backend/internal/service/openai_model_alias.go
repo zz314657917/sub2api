@@ -68,22 +68,6 @@ func normalizeKnownOpenAICodexModel(model string) string {
 	}
 
 	switch {
-	case isOpenAIGPT6AstraModel(normalized):
-		return "gpt-6-astra"
-	case strings.Contains(normalized, "gpt-5.6-sol"):
-		return "gpt-5.6-sol"
-	case strings.Contains(normalized, "gpt-5.6-terra"):
-		return "gpt-5.6-terra"
-	case strings.Contains(normalized, "gpt-5.6-luna"):
-		return "gpt-5.6-luna"
-	case normalized == "gpt-5.6":
-		return "gpt-5.6-sol"
-	case strings.HasPrefix(normalized, "gpt-5.6-"):
-		suffix := strings.TrimPrefix(normalized, "gpt-5.6-")
-		if suffix == "max" || isKnownCodexModelSuffix(suffix) {
-			return "gpt-5.6-sol"
-		}
-		return ""
 	case strings.Contains(normalized, "gpt-5.5-pro"):
 		return "gpt-5.5-pro"
 	case strings.Contains(normalized, "gpt-5.5"):
@@ -111,7 +95,46 @@ func normalizeKnownOpenAICodexModel(model string) string {
 	}
 }
 
-// GPT-5.6 and GPT-6 Astra helpers are defined below.
+func normalizeOpenAIGPT56Alias(normalized string) (string, bool) {
+	const prefix = "gpt-5.6"
+	if normalized == prefix {
+		return "gpt-5.6-sol", true
+	}
+
+	suffix, ok := strings.CutPrefix(normalized, prefix+"-")
+	if !ok {
+		return "", false
+	}
+
+	variants := []struct {
+		name   string
+		target string
+	}{
+		{name: "sol", target: "gpt-5.6-sol"},
+		{name: "terra", target: "gpt-5.6-terra"},
+		{name: "luna", target: "gpt-5.6-luna"},
+	}
+	for _, variant := range variants {
+		if suffix == variant.name {
+			return variant.target, true
+		}
+		if variantSuffix, found := strings.CutPrefix(suffix, variant.name+"-"); found {
+			if isOpenAIGPT56Suffix(variantSuffix) {
+				return variant.target, true
+			}
+			return "", true
+		}
+	}
+
+	if isOpenAIGPT56Suffix(suffix) {
+		return "gpt-5.6-sol", true
+	}
+	return "", true
+}
+
+func isOpenAIGPT56Suffix(suffix string) bool {
+	return suffix == "max" || isKnownCodexModelSuffix(suffix)
+}
 
 func isOpenAIGPT56Model(model string) bool {
 	normalized := canonicalizeOpenAIModelAliasSpelling(model)
