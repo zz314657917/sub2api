@@ -111,53 +111,7 @@ func normalizeKnownOpenAICodexModel(model string) string {
 	}
 }
 
-func isOpenAIGPT6AstraModel(model string) bool {
-	normalized := canonicalizeOpenAIModelAliasSpelling(model)
-	return normalized == "gpt-6" || normalized == "gpt-6-astra"
-}
-
-// isOpenAIGPT56Model 判断是否 GPT-5.6 系列模型；入参可为原始模型名
-// （含大小写/路径/后缀变体）或已归一化的基名，两者均能正确识别。
-func isOpenAIGPT56Model(model string) bool {
-	normalized := canonicalizeOpenAIModelAliasSpelling(model)
-	if normalized == "gpt-5.6" {
-		return true
-	}
-
-	suffix, ok := strings.CutPrefix(normalized, prefix+"-")
-	if !ok {
-		return "", false
-	}
-
-	variants := []struct {
-		name   string
-		target string
-	}{
-		{name: "sol", target: "gpt-5.6-sol"},
-		{name: "terra", target: "gpt-5.6-terra"},
-		{name: "luna", target: "gpt-5.6-luna"},
-	}
-	for _, variant := range variants {
-		if suffix == variant.name {
-			return variant.target, true
-		}
-		if variantSuffix, found := strings.CutPrefix(suffix, variant.name+"-"); found {
-			if isOpenAIGPT56Suffix(variantSuffix) {
-				return variant.target, true
-			}
-			return "", true
-		}
-	}
-
-	if isOpenAIGPT56Suffix(suffix) {
-		return "gpt-5.6-sol", true
-	}
-	return "", true
-}
-
-func isOpenAIGPT56Suffix(suffix string) bool {
-	return suffix == "max" || isKnownCodexModelSuffix(suffix)
-}
+// GPT-5.6 and GPT-6 Astra helpers are defined below.
 
 func isOpenAIGPT56Model(model string) bool {
 	normalized := canonicalizeOpenAIModelAliasSpelling(model)
