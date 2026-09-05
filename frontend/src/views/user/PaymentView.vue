@@ -1,7 +1,7 @@
 <template>
   <AppLayout>
     <div class="purchase-pricing-page -m-4 min-h-[calc(100vh-4rem)] md:-m-[1.35rem] lg:-m-[1.6rem]">
-      <div class="relative z-10 mx-auto flex w-full max-w-[1500px] flex-col gap-10 px-4 py-8 sm:px-6 lg:px-8">
+      <div class="relative z-10 mx-auto flex w-full max-w-[1500px] flex-col gap-6 px-4 py-6 sm:px-6 lg:gap-8 lg:px-8 lg:py-8">
         <div v-if="loading" class="flex min-h-[28rem] items-center justify-center">
           <div class="h-8 w-8 animate-spin rounded-full border-4 border-[#cc785c] border-t-transparent"></div>
         </div>
@@ -40,7 +40,7 @@
               </div>
             </div>
 
-            <div class="pricing-main-grid grid items-start gap-6 xl:grid-cols-[minmax(0,1120px)_minmax(300px,340px)]">
+            <div class="pricing-main-grid grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(280px,320px)] 2xl:gap-6 2xl:grid-cols-[minmax(0,1120px)_minmax(300px,340px)]">
               <main class="min-w-0 space-y-6">
                 <section v-if="membershipStatus?.enabled" class="pricing-card rounded-3xl p-5 sm:p-6">
                   <div class="flex flex-wrap items-start justify-between gap-4">
@@ -106,7 +106,7 @@
                     <p class="pricing-muted">{{ t('payment.notAvailable') }}</p>
                   </div>
                   <div v-else class="pricing-card pricing-recharge-card rounded-3xl p-4 sm:p-5">
-                    <div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,360px)]">
+                    <div class="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)] xl:gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(300px,340px)]">
                       <div class="min-w-0 space-y-5">
                         <div>
                           <div class="flex flex-wrap items-center justify-between gap-3">
@@ -177,7 +177,7 @@
                         </div>
                       </div>
 
-                      <aside class="pricing-recharge-summary rounded-2xl p-5 lg:p-6">
+                      <aside class="pricing-recharge-summary rounded-2xl p-4 sm:p-5 lg:p-6">
                         <h3 class="pricing-strong text-sm font-black">{{ pt('orderSummary') }}</h3>
                         <div class="mt-6 space-y-4 text-sm">
                           <div class="flex items-center justify-between gap-4">
@@ -394,10 +394,22 @@
                     <p v-if="checkout.help_text" class="pricing-muted text-center text-sm">{{ checkout.help_text }}</p>
                   </div>
                 </section>
+
+                <button
+                  type="button"
+                  class="pricing-history-hint group flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left transition"
+                  @click="scrollToOrderHistory"
+                >
+                  <span class="flex min-w-0 items-center gap-2">
+                    <Icon name="arrowDown" size="sm" class="pricing-history-hint-icon shrink-0 transition-transform group-hover:translate-y-0.5" />
+                    <span class="pricing-history-hint-label truncate text-sm font-semibold">{{ pt('historyScrollHint') }}</span>
+                  </span>
+                  <Icon name="chevronDown" size="sm" class="pricing-history-hint-icon shrink-0" />
+                </button>
               </aside>
             </div>
 
-            <section class="pricing-card pricing-order-history overflow-hidden rounded-3xl">
+            <section id="payment-order-history" class="pricing-card pricing-order-history scroll-mt-6 overflow-hidden rounded-3xl">
               <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-5 sm:px-6">
                 <div>
                   <div class="flex items-center gap-2">
@@ -680,6 +692,7 @@ const pricingCatalog = {
     faqTitle: '常见问题',
     historyTitle: '交易历史',
     historySubtitle: '查看最近的充值和订阅订单',
+    historyScrollHint: '下滑查看交易记录',
     viewAllOrders: '全部订单',
     membership: {
       title: '会员权益',
@@ -765,6 +778,7 @@ const pricingCatalog = {
     faqTitle: 'FAQ',
     historyTitle: 'Transaction History',
     historySubtitle: 'Review recent credit and subscription orders.',
+    historyScrollHint: 'Scroll down to view transactions',
     viewAllOrders: 'All Orders',
     membership: {
       title: 'Membership',
@@ -988,6 +1002,10 @@ async function fetchRecentOrders() {
   } finally {
     ordersLoading.value = false
   }
+}
+
+function scrollToOrderHistory() {
+  document.getElementById('payment-order-history')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 async function handleInlineRedeem() {
@@ -2261,6 +2279,36 @@ onMounted(async () => {
 
 .pricing-side-stack {
   align-self: start;
+}
+
+.pricing-history-hint {
+  border: 1px solid rgba(204, 120, 92, 0.24);
+  background: rgba(204, 120, 92, 0.08);
+  color: #8f4c36;
+}
+
+.pricing-history-hint:hover {
+  border-color: rgba(204, 120, 92, 0.48);
+  background: rgba(204, 120, 92, 0.14);
+}
+
+.pricing-history-hint-icon {
+  color: #a9583e;
+}
+
+:global(.dark .pricing-history-hint) {
+  border-color: rgba(204, 120, 92, 0.34);
+  background: rgba(204, 120, 92, 0.12);
+  color: #f0b39c;
+}
+
+:global(.dark .pricing-history-hint:hover) {
+  border-color: rgba(204, 120, 92, 0.58);
+  background: rgba(204, 120, 92, 0.2);
+}
+
+:global(.dark .pricing-history-hint-icon) {
+  color: #f0b39c;
 }
 
 .pricing-inline-feedback--success {
