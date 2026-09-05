@@ -153,7 +153,7 @@ func (s *CafeRoomLifecycleService) expireUnfilledCafeRounds(ctx context.Context,
 	rounds, err := s.entClient.GroupBuyRound.Query().
 		Where(
 			groupbuyround.CafeRoomIDNotNil(),
-			groupbuyround.StatusEQ(GroupBuyRoundStatusOpen),
+			groupbuyround.StatusIn(GroupBuyRoundStatusOpen, CafeRoundStatusReserving, CafeRoundStatusAwaitingPayment),
 			groupbuyround.DeadlineAtLTE(now),
 		).
 		Order(dbent.Asc(groupbuyround.FieldDeadlineAt), dbent.Asc(groupbuyround.FieldID)).
@@ -229,6 +229,17 @@ func (s *CafeRoomLifecycleService) expireUnfilledCafeRound(ctx context.Context, 
 		SetUpdatedAt(now).
 		Save(txCtx); err != nil {
 		return false, fmt.Errorf("release cafe locked seats in round %d: %w", round.ID, err)
+	}
+	if round.CafeFulfillmentVersion == "membership_share" {
+		if _, err := tx.CafeRoundMembership.Update().Where(caferoundmembership.RoundIDEQ(round.ID), caferoundmembership.ReservedSharesGT(0)).SetReservedShares(0).SetUpdatedAt(now).Save(txCtx); err != nil {
+			return false, fmt.Errorf("clear cafe reserved membership shares in round %d: %w", round.ID, err)
+		}
+		if _, err := tx.CafeRoundMembership.Update().Where(caferoundmembership.RoundIDEQ(round.ID), caferoundmembership.PaidSharesEQ(0), caferoundmembership.StatusEQ(GroupBuySeatStatusLocked)).SetStatus(GroupBuySeatStatusReleased).SetUpdatedAt(now).Save(txCtx); err != nil {
+			return false, fmt.Errorf("release empty cafe memberships in round %d: %w", round.ID, err)
+		}
+	}
+	if _, err := tx.GroupBuyRound.UpdateOneID(round.ID).SetReservedShares(0).SetReservedSeats(0).SetUpdatedAt(now).Save(txCtx); err != nil {
+		return false, fmt.Errorf("clear reserved cafe round counters %d: %w", round.ID, err)
 	}
 	if err := s.groupBuy.createEventTxStrict(txCtx, tx.Client(), &groupBuyEventInput{
 		RoundID:   &round.ID,
@@ -575,7 +586,7 @@ func (s *CafeRoomLifecycleService) seatForUpdate(q *dbent.GroupBuySeatQuery) *db
 }
 
 func isCafeRoundTimedOutUnfilled(round *dbent.GroupBuyRound, now time.Time) bool {
-	if round == nil || round.CafeRoomID == nil || round.Status != GroupBuyRoundStatusOpen || round.DeadlineAt.After(now) {
+	if round == nil || round.CafeRoomID == nil || (round.Status != GroupBuyRoundStatusOpen && round.Status != CafeRoundStatusReserving && round.Status != CafeRoundStatusAwaitingPayment) || round.DeadlineAt.After(now) {
 		return false
 	}
 	return round.PaidSeats < cafeRoundSeatCount(round) || round.PaidShares < round.TotalShares
