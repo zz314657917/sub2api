@@ -134,6 +134,10 @@
                 <Icon name="edit" size="sm" class="mr-1" />
                 {{ t('admin.pixelCafe.actions.edit') }}
               </button>
+              <button type="button" class="btn btn-ghost btn-sm" @click="openCopyDialog(row)">
+                <Icon name="copy" size="sm" class="mr-1" />
+                复制
+              </button>
               <button
                 type="button"
                 class="btn btn-secondary btn-sm"
@@ -147,6 +151,7 @@
                 type="button"
                 class="btn btn-ghost btn-sm text-red-600 hover:text-red-700 dark:text-red-300"
                 :disabled="row.status === 'enabled' || deletingId === row.id"
+                :title="row.status === 'enabled' ? '请先停用房间后再删除' : (row.plan?.current_round_status ? '存在进行中的团次，暂时不能删除' : '删除房间')"
                 @click="askDelete(row)"
               >
                 <Icon name="trash" size="sm" class="mr-1" />
@@ -567,6 +572,48 @@ function openEditDialog(room: CafeRoom) {
     } : defaultPlanInput(),
     zone_key: room.zone_key, theme_key: room.theme_key, scene_slot_key: room.scene_slot_key,
     status: room.status, featured: room.featured, sort_order: room.sort_order,
+  })
+  roomDialogOpen.value = true
+}
+
+function planInputFromRoom(room: CafeRoom): CafeRoomPlanInput {
+  const plan = room.plan
+  if (!plan) return defaultPlanInput()
+  return {
+    subscription_tier: plan.subscription_tier || 'plus',
+    total_shares: plan.total_shares,
+    max_buyers: plan.max_buyers || Math.min(plan.total_shares, 4),
+    max_shares_per_user: plan.max_shares_per_user || plan.total_shares,
+    price_per_share: plan.price_per_share,
+    price_label: plan.price_label || '',
+    quota_per_share_label: plan.quota_per_share_label || '',
+    timeout_minutes: plan.timeout_minutes,
+    fulfillment_timeout_minutes: plan.fulfillment_timeout_minutes || 1440,
+    validity_days: plan.validity_days,
+    target_group_id: plan.target_group_id,
+    room_key_quota_usd: plan.room_key_quota_usd || 0,
+    room_key_rate_limit_5h: plan.room_key_rate_limit_5h || 0,
+    room_key_rate_limit_1d: plan.room_key_rate_limit_1d || 0,
+    room_key_rate_limit_7d: plan.room_key_rate_limit_7d || 0,
+    refund_mode: plan.refund_mode || 'balance_credit',
+    agreement_text: plan.agreement_text || '',
+  }
+}
+
+function openCopyDialog(room: CafeRoom) {
+  editingRoom.value = null
+  Object.assign(roomForm, {
+    code: '',
+    name: `${room.name} 副本`,
+    description: room.description || room.plan?.description || '',
+    plan_id: undefined,
+    plan: planInputFromRoom(room),
+    zone_key: room.zone_key,
+    theme_key: room.theme_key,
+    scene_slot_key: '',
+    status: 'draft',
+    featured: false,
+    sort_order: room.sort_order,
   })
   roomDialogOpen.value = true
 }

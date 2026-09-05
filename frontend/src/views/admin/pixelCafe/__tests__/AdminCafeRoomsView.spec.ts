@@ -367,6 +367,44 @@ describe('AdminCafeRoomsView', () => {
     expect(openRound).toHaveBeenCalledWith(7)
   })
 
+  it('copies a room into a new draft with an independent nested plan', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text().trim() === '复制')?.trigger('click')
+
+    expect(wrapper.find('#cafe-room-form').exists()).toBe(true)
+    const inputs = wrapper.find('#cafe-room-form').findAll('input')
+    expect((inputs[0].element as HTMLInputElement).value).toBe('')
+    expect((inputs[1].element as HTMLInputElement).value).toBe('OpenAI 七号房 副本')
+    expect(wrapper.find('#cafe-room-form').text()).toContain('ChatGPT Plus')
+
+    await wrapper.find('#cafe-room-form').trigger('submit')
+    await flushPromises()
+
+    expect(createRoom).toHaveBeenCalledWith(expect.objectContaining({
+      code: '',
+      name: 'OpenAI 七号房 副本',
+      status: 'draft',
+      plan: expect.objectContaining({
+        subscription_tier: 'plus',
+        total_shares: 5,
+        price_per_share: 12,
+        target_group_id: 5,
+      }),
+    }))
+    expect(createRoom.mock.calls[0][0]).not.toHaveProperty('plan_id')
+  })
+
+  it('explains why an enabled room cannot be deleted', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    const deleteButton = wrapper.findAll('button').find((button) => button.text().trim() === '删除')
+    expect(deleteButton?.attributes('disabled')).toBeDefined()
+    expect(deleteButton?.attributes('title')).toBe('请先停用房间后再删除')
+  })
+
   it('shows pause for an open round and display-only labels for later states', async () => {
     const openRoom = room()
     openRoom.plan.current_round_status = 'open'
