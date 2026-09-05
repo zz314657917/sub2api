@@ -172,6 +172,41 @@ describe('AccountUsageCell', () => {
     expect(wrapper.text()).toContain('admin.accounts.usageWindow.gemini3Image|70|2026-03-01T09:00:00Z')
   })
 
+  it('Antigravity Claude 汇总包含 Fable 5.1 配额', async () => {
+    getUsage.mockResolvedValue({
+      antigravity_quota: {
+        'claude-fable-5-1': {
+          utilization: 62,
+          reset_time: '2026-03-01T12:00:00Z'
+        }
+      }
+    })
+
+    const wrapper = mount(AccountUsageCell, {
+      props: {
+        account: makeAccount({
+          id: 1003,
+          platform: 'antigravity',
+          type: 'oauth',
+          extra: {}
+        })
+      },
+      global: {
+        stubs: {
+          UsageProgressBar: {
+            props: ['label', 'utilization', 'resetsAt', 'color'],
+            template: '<div class="usage-bar">{{ label }}|{{ utilization }}|{{ resetsAt }}</div>'
+          },
+          AccountQuotaInfo: true
+        }
+      }
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.claude|62|2026-03-01T12:00:00Z')
+  })
+
   it('Antigravity 会显示 AI Credits 余额信息', async () => {
     getUsage.mockResolvedValue({
       ai_credits: [
@@ -839,5 +874,64 @@ describe('AccountUsageCell', () => {
     expect(wrapper.findComponent({ name: 'CNProviderBalanceCell' }).exists()).toBe(true)
     expect(wrapper.text()).toContain('25%')
     expect(wrapper.text()).not.toContain('admin.accounts.cnProviders.noBalanceEndpoint')
+  })
+
+  it('Anthropic OAuth 会渲染 7d F (Fable) 进度条，且保留 7d S', async () => {
+    getUsage.mockResolvedValue({
+      source: 'passive',
+      five_hour: { utilization: 41, resets_at: '2026-07-03T10:00:00Z', remaining_seconds: 3600 },
+      seven_day: { utilization: 56, resets_at: '2026-07-06T22:00:00Z', remaining_seconds: 300000 },
+      seven_day_sonnet: { utilization: 30, resets_at: '2026-07-06T22:00:00Z', remaining_seconds: 300000 },
+      seven_day_fable: { utilization: 100, resets_at: '2026-07-06T22:00:00Z', remaining_seconds: 300000 }
+    })
+
+    const wrapper = mount(AccountUsageCell, {
+      props: { account: makeAccount({ id: 5001, platform: 'anthropic', type: 'oauth', extra: {} }) },
+      global: {
+        stubs: {
+          UsageProgressBar: {
+            props: ['label', 'utilization', 'resetsAt', 'color'],
+            template: '<div class="usage-bar">{{ label }}|{{ utilization }}</div>'
+          },
+          AccountQuotaInfo: true,
+          GrokQuotaProbeCell: true
+        }
+      }
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('5h|41')
+    expect(wrapper.text()).toContain('7d|56')
+    expect(wrapper.text()).toContain('7d S|30')
+    expect(wrapper.text()).toContain('7d F|100')
+  })
+
+  it('Anthropic OAuth 无 Fable 数据时不渲染 7d F 进度条', async () => {
+    getUsage.mockResolvedValue({
+      source: 'passive',
+      five_hour: { utilization: 41, resets_at: '2026-07-03T10:00:00Z', remaining_seconds: 3600 },
+      seven_day: { utilization: 56, resets_at: '2026-07-06T22:00:00Z', remaining_seconds: 300000 }
+    })
+
+    const wrapper = mount(AccountUsageCell, {
+      props: { account: makeAccount({ id: 5002, platform: 'anthropic', type: 'oauth', extra: {} }) },
+      global: {
+        stubs: {
+          UsageProgressBar: {
+            props: ['label', 'utilization', 'resetsAt', 'color'],
+            template: '<div class="usage-bar">{{ label }}|{{ utilization }}</div>'
+          },
+          AccountQuotaInfo: true,
+          GrokQuotaProbeCell: true
+        }
+      }
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('5h|41')
+    expect(wrapper.text()).toContain('7d|56')
+    expect(wrapper.text()).not.toContain('7d F')
   })
 })

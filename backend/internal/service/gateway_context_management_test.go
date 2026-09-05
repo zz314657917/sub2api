@@ -694,3 +694,20 @@ func TestBuildUpstreamRequest_APIKeyHaikuWithContextManagement_StripsField(t *te
 	require.False(t, gjson.GetBytes(outBody, "context_management").Exists(),
 		"API-key + haiku + 客户端未带 beta token → body 字段必须被 strip")
 }
+
+func TestRewriteSystemForNonClaudeCode_FableUsesReducedIdentityBlocks(t *testing.T) {
+	originalSystem := "You are an OpenCode coding assistant. Keep the repository instructions intact."
+	body := []byte(`{"model":"claude-fable-5-1","system":"` + originalSystem + `","messages":[{"role":"user","content":"hello"}]}`)
+
+	out := rewriteSystemForNonClaudeCode(body, originalSystem)
+	system := gjson.GetBytes(out, "system")
+	require.True(t, system.IsArray())
+	require.Len(t, system.Array(), 2, "Fable OAuth mimicry must keep only billing and Claude Code identity blocks")
+	require.Contains(t, system.Get("0.text").String(), "x-anthropic-billing-header")
+	require.Equal(t, claudeCodeSystemPrompt, system.Get("1.text").String())
+	require.NotContains(t, string(out), "expansion")
+
+	require.Equal(t, "user", gjson.GetBytes(out, "messages.0.role").String())
+	require.Contains(t, gjson.GetBytes(out, "messages.0.content.0.text").String(), originalSystem)
+	require.Equal(t, "assistant", gjson.GetBytes(out, "messages.1.role").String())
+}
