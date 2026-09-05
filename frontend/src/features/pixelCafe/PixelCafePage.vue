@@ -262,14 +262,14 @@
                 @settled="onPaymentSettled"
               />
             </template>
-            <template v-else-if="selectedRoom.purchase_state === 'available'">
+            <template v-else-if="selectedRoom.purchase_state === 'available' || selectedRoom.purchase_state === 'reserved' || selectedRoom.purchase_state === 'awaiting_payment'">
               <div class="pixel-cafe-seat-picker" aria-label="购买份额">
                 <button type="button" class="pixel-cafe-seat-button" :disabled="selectedShareCount <= 1" @click="selectedShareCount -= 1">−</button>
                 <strong class="pixel-cafe-share-count" data-testid="pixel-cafe-share-count">{{ selectedShareCount }} 份</strong>
                 <button type="button" class="pixel-cafe-seat-button" :disabled="selectedShareCount >= maxPurchasableShares(selectedRoom)" @click="selectedShareCount += 1">+</button>
               </div>
-              <p class="pixel-cafe-single-room-note">每份 {{ selectedRoom.plan.price_label || `${selectedRoom.plan.price_per_share} CNY` }}，合计 {{ selectedShareCount * selectedRoom.plan.price_per_share }} CNY。{{ selectedRoom.my_paid_shares ? ` 已持有 ${selectedRoom.my_paid_shares} 份，可在成团前补份。` : '' }}</p>
-              <label class="pixel-cafe-payment-label">
+              <p class="pixel-cafe-single-room-note">每份 {{ selectedRoom.plan.price_label || `${selectedRoom.plan.price_per_share} CNY` }}，合计 {{ selectedShareCount * selectedRoom.plan.price_per_share }} CNY。{{ selectedRoom.my_paid_shares ? ` 已持有 ${selectedRoom.my_paid_shares} 份` : '' }}{{ selectedRoom.my_reserved_shares ? `，已预约 ${selectedRoom.my_reserved_shares} 份` : '' }}</p>
+              <label v-if="selectedRoom.purchase_state === 'awaiting_payment' || !canReserveRooms()" class="pixel-cafe-payment-label">
                 支付方式
                 <select v-if="paymentMethods.length" v-model="selectedPaymentMethod" class="pixel-cafe-payment-select">
                   <option v-for="method in paymentMethods" :key="method" :value="method">{{ paymentMethodLabel(method) }}</option>
@@ -281,13 +281,21 @@
                 <span>我已确认加入该房间，具体开通时间以房间状态为准。</span>
               </label>
               <p v-if="orderError" class="pixel-cafe-inline-error" data-testid="pixel-cafe-order-error">{{ orderError }}</p>
-              <button
+              <button v-if="selectedRoom.purchase_state !== 'awaiting_payment' && canReserveRooms()"
+                type="button"
+                class="pixel-cafe-primary"
+                :disabled="isLocalDemoMode || submitting || selectedShareCount < 1 || !agreementAccepted"
+                @click="reserveShares"
+              >
+                {{ isLocalDemoMode ? '本地演示不创建订单' : submitting ? '正在提交预约' : '预约份额' }}
+              </button>
+              <button v-else
                 type="button"
                 class="pixel-cafe-primary"
                 :disabled="isLocalDemoMode || submitting || !paymentMethods.length || selectedShareCount < 1 || !agreementAccepted"
                 @click="submitOrder"
               >
-                {{ isLocalDemoMode ? '本地演示不创建订单' : submitting ? '正在创建订单' : '购买份额并付款' }}
+                {{ isLocalDemoMode ? '本地演示不创建订单' : submitting ? '正在创建订单' : '确认份额并付款' }}
               </button>
             </template>
             <p v-else class="pixel-cafe-muted">{{ roomUnavailableCopy(selectedRoom) }}</p>
@@ -516,6 +524,7 @@ function roomTone(room: CafePublicRoom): string {
 }
 
 function tierLabel(room: CafePublicRoom): string { return room.plan.subscription_tier === 'pro' ? 'PRO' : 'PLUS' }
+function canReserveRooms(): boolean { return typeof cafeAPI.reserveShares === 'function' }
 function formatPurchaseLimit(value?: number): string {
   if (value === undefined || value === null || !Number.isFinite(value)) return '暂未配置'
   if (value <= 0) return '不限'
@@ -630,16 +639,34 @@ function myRoomAccountCopy(membership: CafeMyRoom): string {
   return myRoomWaitingCopy(membership)
 }
 function maxPurchasableShares(room: CafePublicRoom): number {
+  if (room.purchase_state === 'awaiting_payment') return Math.max(1, room.my_reserved_shares ?? 0)
   const remaining = room.round?.remaining_shares ?? 0
-  const mine = room.my_paid_shares ?? 0
+  const mine = (room.my_paid_shares ?? 0) + (room.my_reserved_shares ?? 0)
   return Math.max(1, Math.min(remaining, room.plan.max_shares_per_user - mine))
 }
 function roomUnavailableCopy(room: CafePublicRoom): string {
+	if (room.round?.status === 'awaiting_payment') return room.my_reserved_shares ? '已成团，请选择支付方式完成付款。' : '该房间已成团，正在等待参与者付款。'
   if (room.round?.status === 'awaiting_account') return '已成团，管理员正在配号，预计 24 小时内开通。'
   if (room.round?.status === 'refunding') return '配号未在期限内完成，正在退款。'
   if (room.round?.status === 'refunded') return '该轮次已退款。'
   if (room.purchase_state === 'buyers_full') return '参与人数已满；已参与用户仍可在成团前补份。'
   return '当前房间暂不接受购买。'
+}
+
+async function reserveShares(): Promise<void> {
+  const room = selectedRoom.value
+  if (!room || selectedShareCount.value < 1 || !agreementAccepted.value || submitting.value) return
+  submitting.value = true
+  orderError.value = ''
+  try {
+    await cafeAPI.reserveShares(room.id, { share_count: selectedShareCount.value, agreement_accepted: true })
+    await Promise.all([loadOverview(), loadMyRooms()])
+    closeRoomDialog()
+  } catch (error) {
+    orderError.value = extractApiErrorMessage(error, '预约失败，请稍后重试')
+  } finally {
+    submitting.value = false
+  }
 }
 
 function openRoom(room: CafePublicRoom): void {
@@ -648,7 +675,7 @@ function openRoom(room: CafePublicRoom): void {
   selectedRoom.value = room
   roomDialogOpen.value = true
   if (!preservePayment) {
-    selectedShareCount.value = 1
+    selectedShareCount.value = room.purchase_state === 'awaiting_payment' ? Math.max(1, room.my_reserved_shares ?? 1) : 1
     agreementAccepted.value = false
     orderError.value = ''
     paymentPhase.value = 'selecting'

@@ -8,6 +8,8 @@ import type {
   CafeMyRoom,
   CreateCafeRoomOrderRequest,
   CreateCafeRoomOrderResult,
+  CafeRoomReservationRequest,
+  CafeRoomReservationResult,
 } from '@/types/pixelCafe'
 
 export interface CafeRoomListParams {
@@ -48,6 +50,10 @@ export const cafeAPI = {
     return apiClient.post<CreateCafeRoomOrderResult>(`/cafe/rooms/${id}/orders`, data, {
       headers: { 'Idempotency-Key': idempotencyKey },
     })
+  },
+
+  reserveShares(id: number, data: CafeRoomReservationRequest) {
+    return apiClient.post<CafeRoomReservationResult>(`/cafe/rooms/${id}/reservations`, data)
   },
 }
 

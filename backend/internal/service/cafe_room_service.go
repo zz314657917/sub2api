@@ -20,6 +20,8 @@ const (
 	CafeRoomGroupAccessMode        = "room_managed"
 	CafeDefaultManagedGroupMarker  = "pixel_cafe_default_room_managed_group_v1"
 	CafeRoundStatusOpen            = "open"
+	CafeRoundStatusReserving       = "reserving"
+	CafeRoundStatusAwaitingPayment = "awaiting_payment"
 	CafeRoundStatusAwaitingAccount = "awaiting_account"
 	CafeRoundStatusActivating      = "activating"
 	CafeRoundStatusActive          = "active"

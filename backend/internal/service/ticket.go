@@ -38,6 +38,7 @@ const (
 
 const (
 	SystemTicketEventGroupChanged                 = "group_changed"
+	SystemTicketEventCafeReservationChanged       = "cafe_reservation_changed"
 	SystemTicketEventPaymentCompleted             = "payment_completed"
 	SystemTicketEventInvoiceIssued                = "invoice_issued"
 	SystemTicketEventAffiliateFirstAPIReward      = "affiliate_first_api_reward"
@@ -403,6 +404,25 @@ func NewGroupChangedSystemTicketNotification(userID int64, source string, metada
 		EventType: SystemTicketEventGroupChanged,
 		EventKey:  fmt.Sprintf("%s:%d:%d", SystemTicketEventGroupChanged, userID, time.Now().UnixNano()),
 		Content:   buildGroupChangedSystemTicketContent(merged),
+		Metadata:  merged,
+	}
+}
+
+// NewCafeReservationChangedSystemTicketNotification creates an idempotent
+// system-ticket event for a Pixel Cafe reservation lifecycle change.
+func NewCafeReservationChangedSystemTicketNotification(userID int64, roundID int64, status string, metadata map[string]any) SystemTicketNotification {
+	merged := cloneTicketMetadata(metadata)
+	merged["action_type"] = SystemTicketEventCafeReservationChanged
+	merged["round_id"] = roundID
+	merged["status"] = strings.TrimSpace(status)
+	reservationKey := ""
+	if reserved, ok := merged["reserved_shares"]; ok {
+		reservationKey = fmt.Sprintf(":%v", reserved)
+	}
+	return SystemTicketNotification{
+		EventType: SystemTicketEventCafeReservationChanged,
+		EventKey:  fmt.Sprintf("%s:%d:%s%s", SystemTicketEventCafeReservationChanged, roundID, strings.TrimSpace(status), reservationKey),
+		Content:   fmt.Sprintf("像素网吧房间预约状态已更新为「%s」，请查看房间详情和付款时间。", strings.TrimSpace(status)),
 		Metadata:  merged,
 	}
 }

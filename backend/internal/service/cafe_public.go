@@ -121,6 +121,7 @@ type CafePublicRoom struct {
 	MemberAvatars []CafePublicMemberAvatar `json:"member_avatars"`
 	PurchaseState string                   `json:"purchase_state"`
 	MyPaidShares  int                      `json:"my_paid_shares,omitempty"`
+	MyReservedShares int                    `json:"my_reserved_shares,omitempty"`
 	SeatVisuals   []CafePublicSeatVisual   `json:"-"`
 }
 
@@ -494,7 +495,7 @@ func cafeMyRoomMembershipMatchesStatuses(membership *dbent.CafeRoundMembership, 
 	}
 	active := membership != nil && membership.Status == GroupBuySeatStatusActive && (membership.ExpiresAt == nil || membership.ExpiresAt.After(now))
 	waiting := membership != nil && membership.Edges.Round != nil && (membership.Status == GroupBuySeatStatusPaid || membership.Status == GroupBuySeatStatusLocked) &&
-		(membership.Edges.Round.Status == GroupBuyRoundStatusOpen || membership.Edges.Round.Status == GroupBuyRoundStatusAwaitingAccount || membership.Edges.Round.Status == GroupBuyRoundStatusActivating)
+		(membership.Edges.Round.Status == GroupBuyRoundStatusOpen || membership.Edges.Round.Status == CafeRoundStatusReserving || membership.Edges.Round.Status == CafeRoundStatusAwaitingPayment || membership.Edges.Round.Status == GroupBuyRoundStatusAwaitingAccount || membership.Edges.Round.Status == GroupBuyRoundStatusActivating)
 	for _, status := range statuses {
 		if status == CafeMyRoomStatusActive && active || status == CafeMyRoomStatusWaiting && waiting || status == CafeMyRoomStatusHistory && !active && !waiting {
 			return true
@@ -791,7 +792,7 @@ func (s *CafePublicService) requireEnabled(ctx context.Context) error {
 }
 
 func currentCafeRoundQuery(query *dbent.GroupBuyRoundQuery) {
-	query.Where(groupbuyround.StatusIn(CafeRoundStatusOpen, GroupBuyRoundStatusAwaitingAccount, GroupBuyRoundStatusActivating, GroupBuyRoundStatusActive, GroupBuyRoundStatusRefunding, GroupBuyRoundStatusRefunded)).
+	query.Where(groupbuyround.StatusIn(CafeRoundStatusOpen, CafeRoundStatusReserving, CafeRoundStatusAwaitingPayment, GroupBuyRoundStatusAwaitingAccount, GroupBuyRoundStatusActivating, GroupBuyRoundStatusActive, GroupBuyRoundStatusRefunding, GroupBuyRoundStatusRefunded)).
 		Order(dbent.Desc(groupbuyround.FieldCreatedAt), dbent.Desc(groupbuyround.FieldID)).
 		Limit(1).
 		WithSeats().
@@ -841,7 +842,7 @@ func publicCafeRoom(room *dbent.CafeRoom, userID int64, now time.Time) CafePubli
 	if remaining < 0 {
 		remaining = 0
 	}
-	joinedBuyers, myPaidShares, isParticipant := publicCafeMembershipCounts(round, userID, now)
+	joinedBuyers, myPaidShares, myReservedShares, isParticipant := publicCafeMembershipCounts(round, userID, now)
 	roundMaxBuyers := maxBuyers
 	if round.MaxBuyers != nil {
 		roundMaxBuyers = *round.MaxBuyers
@@ -854,13 +855,14 @@ func publicCafeRoom(room *dbent.CafeRoom, userID int64, now time.Time) CafePubli
 	result.MemberAvatars = publicCafeMemberAvatars(round)
 	result.SeatVisuals = publicCafeSeatVisuals(round, userID, now)
 	result.MyPaidShares = myPaidShares
+	result.MyReservedShares = myReservedShares
 	result.PurchaseState = publicCafePurchaseState(round, remaining, remainingBuyerSlots, isParticipant)
 	return result
 }
 
-func publicCafeMembershipCounts(round *dbent.GroupBuyRound, userID int64, now time.Time) (joinedBuyers, myPaidShares int, isParticipant bool) {
+func publicCafeMembershipCounts(round *dbent.GroupBuyRound, userID int64, now time.Time) (joinedBuyers, myPaidShares, myReservedShares int, isParticipant bool) {
 	if round == nil {
-		return 0, 0, false
+		return 0, 0, 0, false
 	}
 	if round.CafeFulfillmentVersion == "membership_share" {
 		for _, membership := range round.Edges.CafeMemberships {
@@ -869,10 +871,11 @@ func publicCafeMembershipCounts(round *dbent.GroupBuyRound, userID int64, now ti
 			}
 			if userID > 0 && membership.UserID == userID {
 				myPaidShares = membership.PaidShares
+				myReservedShares = membership.ReservedShares
 				isParticipant = membership.PaidShares > 0 || membership.ReservedShares > 0
 			}
 		}
-		return joinedBuyers, myPaidShares, isParticipant
+		return joinedBuyers, myPaidShares, myReservedShares, isParticipant
 	}
 	for _, seat := range round.Edges.Seats {
 		if publicCafeLegacySeatVisible(seat, now) {
@@ -883,7 +886,7 @@ func publicCafeMembershipCounts(round *dbent.GroupBuyRound, userID int64, now ti
 			}
 		}
 	}
-	return joinedBuyers, myPaidShares, isParticipant
+	return joinedBuyers, myPaidShares, myReservedShares, isParticipant
 }
 
 func publicCafeMemberAvatars(round *dbent.GroupBuyRound) []CafePublicMemberAvatar {
@@ -951,6 +954,16 @@ func publicCafePurchaseState(round *dbent.GroupBuyRound, remaining, remainingBuy
 		return "awaiting_account"
 	case GroupBuyRoundStatusAwaitingAccount:
 		return "awaiting_account"
+	case CafeRoundStatusReserving:
+		if isParticipant {
+			return "reserved"
+		}
+		if remaining > 0 && remainingBuyerSlots > 0 {
+			return "available"
+		}
+		return "buyers_full"
+	case CafeRoundStatusAwaitingPayment:
+		return "awaiting_payment"
 	case GroupBuyRoundStatusActivating:
 		return "activating"
 	case GroupBuyRoundStatusActive:

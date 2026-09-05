@@ -34,6 +34,17 @@ type createCafeRoomOrderRequest struct {
 	AgreementAccepted bool   `json:"agreement_accepted"`
 }
 
+type reserveCafeRoomRequest struct {
+	ShareCount        int  `json:"share_count" binding:"required"`
+	AgreementAccepted bool `json:"agreement_accepted"`
+}
+
+type cafeRoomReservationIdempotencyPayload struct {
+	UserID int64                 `json:"user_id"`
+	RoomID int64                 `json:"room_id"`
+	Input  reserveCafeRoomRequest `json:"input"`
+}
+
 type cafeRoomOrderIdempotencyPayload struct {
 	UserID int64                      `json:"user_id"`
 	RoomID int64                      `json:"room_id"`
@@ -200,6 +211,20 @@ func (h *CafeHandler) CreateOrder(c *gin.Context) {
 			PaymentSource:     req.PaymentSource,
 			AgreementAccepted: req.AgreementAccepted,
 		})
+	})
+}
+
+func (h *CafeHandler) ReserveShares(c *gin.Context) {
+	subject, ok := middleware.GetAuthSubjectFromContext(c)
+	if !ok { response.Unauthorized(c, "User not authenticated"); return }
+	if h.orderService == nil { response.ErrorFrom(c, infraerrors.InternalServer("CAFE_ORDER_SERVICE_UNAVAILABLE", "cafe room order service is unavailable")); return }
+	roomID, err := cafeRoomID(c.Param("id")); if err != nil { response.ErrorFrom(c, err); return }
+	var req reserveCafeRoomRequest
+	decoder := json.NewDecoder(c.Request.Body); decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil { response.BadRequest(c, "Invalid request: "+err.Error()); return }
+	if req.ShareCount <= 0 { response.BadRequest(c, "Invalid request: share_count is required"); return }
+	executeUserIdempotentJSON(c, "cafe_room_reservation", cafeRoomReservationIdempotencyPayload{UserID: subject.UserID, RoomID: roomID, Input: req}, 24*time.Hour, func(ctx context.Context) (any, error) {
+		return h.orderService.ReserveShares(ctx, service.CafeRoomReservationInput{UserID: subject.UserID, RoomID: roomID, ShareCount: req.ShareCount, AgreementAccepted: req.AgreementAccepted})
 	})
 }
 

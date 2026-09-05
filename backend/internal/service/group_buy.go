@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -36,7 +37,10 @@ const (
 	GroupBuyLaunchModeAuto   = "auto"
 	GroupBuyLaunchModeManual = "manual"
 
-	GroupBuyRoundStatusOpen            = "open"
+	GroupBuyRoundStatusOpen = "open"
+	// GroupBuyRoundStatusAwaitingPayment is used by Pixel Cafe rounds after
+	// reserved shares reach the configured target but before users pay.
+	GroupBuyRoundStatusAwaitingPayment = "awaiting_payment"
 	GroupBuyRoundStatusActivating      = "activating"
 	GroupBuyRoundStatusActive          = "active"
 	GroupBuyRoundStatusCompleted       = "completed"
@@ -618,6 +622,9 @@ func (s *GroupBuyService) CreateOrder(ctx context.Context, input GroupBuyCreateO
 	}
 	resp, err := s.paymentSvc.invokeProvider(ctx, order, req, cfg, orderAmount, payAmountStr, payAmount, nil, sel)
 	if err != nil {
+		if errors.Is(err, ErrPaymentProviderResponsePersist) {
+			return nil, err
+		}
 		_, _ = s.entClient.PaymentOrder.UpdateOneID(order.ID).SetStatus(OrderStatusFailed).Save(ctx)
 		_ = s.ReleaseGroupBuySeatForOrder(context.Background(), order.ID, "provider create failed")
 		return nil, err
@@ -928,6 +935,11 @@ func (s *GroupBuyService) releaseExpiredLockedSeatsForRoundTx(ctx context.Contex
 		if _, err := tx.GroupBuyRound.UpdateOneID(roundID).AddReservedSeats(-releasedShares).SetUpdatedAt(now).Save(ctx); err != nil {
 			return releasedShares, fmt.Errorf("decrement released legacy group buy seats: %w", err)
 		}
+		if round, err := tx.GroupBuyRound.Get(ctx, roundID); err == nil && round.CafeRoomID != nil && round.Status == GroupBuyRoundStatusAwaitingPayment && round.PaidShares+round.ReservedShares < round.TotalShares {
+			if _, err := tx.GroupBuyRound.UpdateOneID(roundID).SetStatus(CafeRoundStatusReserving).SetUpdatedAt(now).Save(ctx); err != nil {
+				return releasedShares, fmt.Errorf("reopen cafe reservation round: %w", err)
+			}
+		}
 	}
 	return releasedShares, nil
 }
@@ -1070,7 +1082,7 @@ func (s *GroupBuyService) markCafeRoundAwaitingAccount(ctx context.Context, roun
 	if err != nil {
 		return fmt.Errorf("lock cafe round for fulfillment: %w", err)
 	}
-	if round.CafeFulfillmentVersion != "membership_share" || round.CafeRoomID == nil || round.Status != GroupBuyRoundStatusOpen || round.PaidShares < round.TotalShares {
+	if round.CafeFulfillmentVersion != "membership_share" || round.CafeRoomID == nil || (round.Status != GroupBuyRoundStatusOpen && round.Status != GroupBuyRoundStatusAwaitingPayment) || round.PaidShares < round.TotalShares {
 		return tx.Commit()
 	}
 	timeout := 1440

@@ -18,6 +18,12 @@ import (
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
 
+// ErrPaymentProviderResponsePersist indicates that the provider accepted the
+// payment creation request but the local order could not persist its response.
+// Callers must keep the order pending so a webhook or expiry reconciler can
+// recover it; marking it failed would release the entitlement reservation.
+var ErrPaymentProviderResponsePersist = errors.New("payment provider response persistence failed")
+
 // --- Order Creation ---
 
 func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest) (*CreateOrderResponse, error) {
@@ -499,7 +505,7 @@ func (s *PaymentService) invokeProvider(ctx context.Context, order *dbent.Paymen
 		SetNillableProviderKey(psNilIfEmpty(sel.ProviderKey)).
 		Save(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("update order with payment details: %w", err)
+		return nil, fmt.Errorf("%w: %v", ErrPaymentProviderResponsePersist, err)
 	}
 	s.writeAuditLog(ctx, order.ID, "ORDER_CREATED", fmt.Sprintf("user:%d", req.UserID), map[string]any{
 		"paymentAmount":  req.Amount,

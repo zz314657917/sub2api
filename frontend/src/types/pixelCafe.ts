@@ -2,9 +2,9 @@ import type { GroupBuyPlan } from './groupBuy'
 import type { CreateOrderResult } from './payment'
 
 export type CafeRoomStatus = 'draft' | 'enabled' | 'maintenance' | 'disabled'
-export type CafeRoundStatus = 'open' | 'awaiting_account' | 'activating' | 'active' | 'completed' | 'refunding' | 'refunded' | 'failed' | 'cancelled'
+export type CafeRoundStatus = 'open' | 'reserving' | 'awaiting_payment' | 'awaiting_account' | 'activating' | 'active' | 'completed' | 'refunding' | 'refunded' | 'failed' | 'cancelled'
 export type CafeRoomUpdateInput = Partial<CafeRoomInput>
-export type CafePublicPurchaseState = 'available' | 'buyers_full' | 'awaiting_account' | 'activating' | 'active' | 'refunding' | 'refunded' | 'unavailable'
+export type CafePublicPurchaseState = 'available' | 'reserved' | 'buyers_full' | 'awaiting_payment' | 'awaiting_account' | 'activating' | 'active' | 'refunding' | 'refunded' | 'unavailable'
 export type CafeMyRoomFilter = 'active,waiting' | 'history'
 
 export interface CafeRoomPlan extends Pick<GroupBuyPlan, 'id' | 'title' | 'description' | 'target_group_id' | 'total_shares' | 'timeout_minutes' | 'validity_days' | 'price_per_share' | 'price_label' | 'quota_per_share_label' | 'room_key_quota_usd' | 'room_key_rate_limit_5h' | 'room_key_rate_limit_1d' | 'room_key_rate_limit_7d' | 'refund_mode' | 'agreement_text'> {
@@ -49,7 +49,7 @@ export interface CafeRoomBulkResult { created: Array<{ room?: CafeRoom; round?: 
 export interface CafePublicPlan { id: number; title: string; description: string; price_per_share: number; price_label: string; validity_days: number; subscription_tier: 'plus' | 'pro'; total_shares: number; max_buyers: number; max_shares_per_user: number; quota_per_share_label?: string; room_key_quota_usd?: number; room_key_rate_limit_5h?: number; room_key_rate_limit_1d?: number; room_key_rate_limit_7d?: number }
 export interface CafePublicRound { id: number; status: CafeRoundStatus | string; paid_shares: number; reserved_shares: number; remaining_shares: number; max_buyers: number; joined_buyers: number; remaining_buyer_slots: number; deadline_at: string; fulfillment_deadline_at?: string | null }
 export interface CafePublicMemberAvatar { avatar_seed: string }
-export interface CafePublicRoom { id: number; code: string; name: string; zone_key: string; theme_key: string; scene_slot_key: string; featured: boolean; plan: CafePublicPlan; round?: CafePublicRound | null; member_avatars: CafePublicMemberAvatar[]; purchase_state: CafePublicPurchaseState | string; my_paid_shares?: number }
+export interface CafePublicRoom { id: number; code: string; name: string; zone_key: string; theme_key: string; scene_slot_key: string; featured: boolean; plan: CafePublicPlan; round?: CafePublicRound | null; member_avatars: CafePublicMemberAvatar[]; purchase_state: CafePublicPurchaseState | string; my_paid_shares?: number; my_reserved_shares?: number }
 export interface CafePublicZone { key: string; name: string; room_count: number; open_share_count: number }
 export interface CafeLobbyAvatar { avatar_seed: string; seat_index: number; activity: 'recent' | 'today' | string }
 export interface CafeWorkstationPosition { id: number; x: number; y: number }
@@ -60,3 +60,5 @@ export interface CafeMyRoomManagedKey { id: number; name: string; status: string
 export interface CafeMyRoom { membership_id: number; status?: string; paid_shares: number; activated_at?: string; expires_at?: string; room: { id: number; code: string; name: string; zone_key: string; theme_key: string }; member_avatars: CafePublicMemberAvatar[]; account?: { name: string; platform: string; email_masked?: string; remaining_7d_percent?: number } | null; plan: { id: number; title: string; subscription_tier?: 'plus' | 'pro'; validity_days: number }; round: { id: number; status: CafeRoundStatus | string; paid_shares: number; total_shares: number }; managed_api_key: CafeMyRoomManagedKey | null }
 export interface CreateCafeRoomOrderRequest { share_count: number; payment_type: string; openid?: string; return_url?: string; payment_source?: string; is_mobile?: boolean; agreement_accepted: boolean }
 export interface CreateCafeRoomOrderResult extends CreateOrderResult { room_id: number; round_id: number; share_count: number; membership_id?: number }
+export interface CafeRoomReservationRequest { share_count: number; agreement_accepted: boolean }
+export interface CafeRoomReservationResult { room_id: number; round_id: number; reservation_id: number; share_count: number; status: string; total_shares: number; reserved_shares: number }

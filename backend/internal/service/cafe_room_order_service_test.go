@@ -59,6 +59,7 @@ func TestCafeRoomOrderAllowsExistingBuyerTopUpAtBuyerCap(t *testing.T) {
 	client := newGroupBuyTestClient(t, "cafe_room_order_buyer_cap")
 	now := time.Date(2026, 8, 3, 13, 30, 0, 0, time.UTC)
 	fixture := newCafeRoomOrderFixture(t, ctx, client, now, 10)
+	fixture.orderService.settings = cafePublicSettingsStub{enabled: true}
 	cfg := &PaymentConfig{MaxPendingOrders: 3, OrderTimeoutMin: 30}
 	users := []*User{fixture.user}
 	for index := 1; index < 4; index++ {
@@ -108,6 +109,32 @@ func TestCafeRoomOrderAllowsOneBuyerToPurchaseAllShares(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, memberships, 1)
 	require.Equal(t, 10, memberships[0].ReservedShares)
+}
+
+func TestCafeRoomReservationMovesRoundToAwaitingPayment(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "cafe_room_reservation_flow")
+	now := time.Date(2026, 8, 3, 14, 0, 0, 0, time.UTC)
+	fixture := newCafeRoomOrderFixture(t, ctx, client, now, 10)
+	fixture.orderService.settings = cafePublicSettingsStub{enabled: true}
+	first, err := fixture.orderService.ReserveShares(ctx, CafeRoomReservationInput{UserID: fixture.user.ID, RoomID: fixture.room.ID, ShareCount: 6, AgreementAccepted: true})
+	require.NoError(t, err)
+	require.Equal(t, CafeRoundStatusReserving, first.Status)
+	secondUser := createGroupBuyTestUser(t, ctx, client, "cafe-reserve-second@example.com")
+	second, err := fixture.orderService.ReserveShares(ctx, CafeRoomReservationInput{UserID: secondUser.ID, RoomID: fixture.room.ID, ShareCount: 4, AgreementAccepted: true})
+	require.NoError(t, err)
+	require.Equal(t, CafeRoundStatusAwaitingPayment, second.Status)
+	round, err := client.GroupBuyRound.Get(ctx, fixture.round.ID)
+	require.NoError(t, err)
+	require.Equal(t, CafeRoundStatusAwaitingPayment, round.Status)
+	require.Equal(t, 10, round.ReservedShares)
+	seats, err := client.GroupBuySeat.Query().Where(groupbuyseat.RoundIDEQ(round.ID)).All(ctx)
+	require.NoError(t, err)
+	require.Len(t, seats, 2)
+	for _, seat := range seats {
+		require.Nil(t, seat.OrderID)
+		require.Equal(t, GroupBuySeatStatusLocked, seat.Status)
+	}
 }
 
 func TestCafeRoomOrderCapsDistinctLiveRooms(t *testing.T) {
