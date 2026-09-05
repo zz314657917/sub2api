@@ -23,6 +23,8 @@
             <dt class="text-gray-500">{{ t('admin.promptAudit.events.group') }}</dt><dd>{{ event.snapshot.group_name || '—' }}</dd>
             <dt class="text-gray-500">{{ t('admin.promptAudit.events.model') }}</dt><dd>{{ event.snapshot.model || '—' }}</dd>
             <dt class="text-gray-500">{{ t('admin.promptAudit.events.categories') }}</dt><dd>{{ formatCategories(event.categories) }}</dd>
+            <dt v-if="event.matched_rule_id" class="text-gray-500">{{ t('admin.promptAudit.events.matchedRule') }}</dt><dd v-if="event.matched_rule_id" class="font-mono">{{ event.matched_rule_id }}</dd>
+            <dt v-if="event.owasp_tags?.length" class="text-gray-500">{{ t('admin.promptAudit.events.owaspTags') }}</dt><dd v-if="event.owasp_tags?.length">{{ event.owasp_tags.join(', ') }}</dd>
           </dl>
         </div>
 

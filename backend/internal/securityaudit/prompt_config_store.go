@@ -37,6 +37,9 @@ type ConfigManager struct {
 
 	snapshot atomic.Pointer[activeConfigSnapshot]
 	expected atomic.Int64
+	// snapshotMu makes snapshot, expected version and blocking intent one
+	// installation boundary. Reload can otherwise finish after a newer save.
+	snapshotMu sync.Mutex
 	// expectedBlocking records the last storage intent that could be decoded,
 	// independently of whether endpoint credentials or the full config could be
 	// activated. A config version alone cannot distinguish async from blocking.
@@ -123,8 +126,6 @@ func (m *ConfigManager) Reload(ctx context.Context) error {
 		m.markUntrustedIfNoActiveSnapshot()
 		return err
 	}
-	m.expected.Store(storage.ConfigVersion)
-	m.expectedBlocking.Store(values[SettingKeyRiskControl] == "true" && storage.Enabled && storage.BlockingEnabled)
 	active, err := ActiveFromStorage(storage, values[SettingKeyRiskControl] == "true", m.encryptor)
 	if err != nil {
 		m.recordLoadError(err)
@@ -132,9 +133,10 @@ func (m *ConfigManager) Reload(ctx context.Context) error {
 		m.markUntrustedIfNoActiveSnapshot()
 		return err
 	}
-	now := m.clock.Now()
-	previous := m.snapshot.Load()
-	m.snapshot.Store(&activeConfigSnapshot{storage: cloneStorageConfig(storage), active: cloneActiveConfig(active), loadedAt: now})
+	previous, installed := m.installConfigSnapshot(storage, active)
+	if !installed {
+		return nil
+	}
 	m.configUntrusted.Store(false)
 	recovered := m.clearLoadError()
 	m.logInvalidTokenEndpoints(previous, active)
@@ -146,6 +148,30 @@ func (m *ConfigManager) Reload(ctx context.Context) error {
 		})
 	}
 	return nil
+}
+
+// installConfigSnapshot keeps a completed older reload from replacing newer
+// local state. Equal versions are deliberately installable because the global
+// risk-control gate is stored separately from the configuration version.
+func (m *ConfigManager) installConfigSnapshot(storage storageConfig, active ActiveConfig) (*activeConfigSnapshot, bool) {
+	if m == nil {
+		return nil, false
+	}
+	m.snapshotMu.Lock()
+	defer m.snapshotMu.Unlock()
+
+	previous := m.snapshot.Load()
+	highest := m.expected.Load()
+	if previous != nil && previous.storage.ConfigVersion > highest {
+		highest = previous.storage.ConfigVersion
+	}
+	if storage.ConfigVersion < highest {
+		return previous, false
+	}
+	m.expected.Store(storage.ConfigVersion)
+	m.expectedBlocking.Store(active.RiskControlEnabled && storage.Enabled && storage.BlockingEnabled)
+	m.snapshot.Store(&activeConfigSnapshot{storage: cloneStorageConfig(storage), active: cloneActiveConfig(active), loadedAt: m.clock.Now()})
+	return previous, true
 }
 
 // shouldLogConfigLoaded reports whether a successful reload carries news: the
@@ -287,11 +313,23 @@ func (m *ConfigManager) Save(ctx context.Context, req UpdateConfigRequest, actor
 	if current.ConfigVersion != req.ExpectedConfigVersion {
 		return PublicConfig{}, infraerrors.Conflict(ErrorCodeConfigConflict, "提示词审计配置已被其他管理员更新")
 	}
+	history, err := readPolicyHistoryTx(ctx, tx)
+	if err != nil {
+		return PublicConfig{}, err
+	}
 	next, err := m.buildNextStorage(current, req, actorID)
 	if err != nil {
 		return PublicConfig{}, err
 	}
 	next.ConfigVersion = current.ConfigVersion + 1
+	if req.Rules != nil {
+		next.Rules.PolicyVersion = nextPolicyVersion(history, current.Rules)
+		if strings.TrimSpace(next.Rules.PolicyID) == "" {
+			next.Rules.PolicyID = current.Rules.PolicyID
+		}
+		normalizeRiskActionRules(&next.Rules)
+		history = appendPolicyVersion(history, next.Rules, next.ConfigVersion, actorID, m.clock.Now())
+	}
 	next.UpdatedAt = m.clock.Now()
 	next.UpdatedBy = actorID
 	next.ChangeSummary = changeSummary(next)
@@ -304,6 +342,11 @@ func (m *ConfigManager) Save(ctx context.Context, req UpdateConfigRequest, actor
 		ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=EXCLUDED.updated_at`,
 		SettingKeyPromptAuditConfig, string(rawNext)); err != nil {
 		return PublicConfig{}, err
+	}
+	if req.Rules != nil {
+		if err := writePolicyHistoryTx(ctx, tx, history); err != nil {
+			return PublicConfig{}, err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return PublicConfig{}, err
@@ -318,10 +361,10 @@ func (m *ConfigManager) Save(ctx context.Context, req UpdateConfigRequest, actor
 	if err != nil {
 		return PublicConfig{}, err
 	}
-	m.expected.Store(next.ConfigVersion)
-	m.expectedBlocking.Store(active.RiskControlEnabled && next.Enabled && next.BlockingEnabled)
-	previous := m.snapshot.Load()
-	m.snapshot.Store(&activeConfigSnapshot{storage: cloneStorageConfig(next), active: cloneActiveConfig(active), loadedAt: m.clock.Now()})
+	previous, installed := m.installConfigSnapshot(next, active)
+	if !installed {
+		return PublicFromStorage(next, active.RiskControlEnabled, active.InvalidTokenEndpointIDs()), nil
+	}
 	// A successful admin save installs a trustworthy snapshot; clear any prior
 	// fail-closed degradation so disabling audit actually takes effect.
 	m.configUntrusted.Store(false)
@@ -430,8 +473,7 @@ func (m *ConfigManager) observeExpectedState(raw string, riskControlEnabled bool
 		return
 	}
 	if strings.TrimSpace(raw) == "" {
-		m.expected.Store(1)
-		m.expectedBlocking.Store(false)
+		m.observeExpectedIntent(1, false, riskControlEnabled)
 		return
 	}
 	var intent struct {
@@ -444,14 +486,44 @@ func (m *ConfigManager) observeExpectedState(raw string, riskControlEnabled bool
 		// off/async configuration. When the global risk-control gate is on,
 		// retain a conservative blocking intent until an administrator saves a
 		// valid configuration or explicitly disables the gate.
-		m.expectedBlocking.Store(riskControlEnabled)
+		m.observeExpectedIntent(0, true, riskControlEnabled)
 		return
 	}
 	if intent.ConfigVersion < 1 {
 		intent.ConfigVersion = 1
 	}
-	m.expected.Store(intent.ConfigVersion)
-	m.expectedBlocking.Store(riskControlEnabled && intent.Enabled && intent.BlockingEnabled)
+	m.observeExpectedIntent(intent.ConfigVersion, intent.Enabled && intent.BlockingEnabled, riskControlEnabled)
+}
+
+// observeExpectedIntent records persisted intent without letting an older
+// setting read erase the version or strictness observed by a newer operation.
+// Version zero denotes malformed storage: it cannot advance or downgrade the
+// version, but still preserves fail-closed behavior while risk control is on.
+func (m *ConfigManager) observeExpectedIntent(version int64, blockingIntent, riskControlEnabled bool) {
+	if m == nil {
+		return
+	}
+	m.snapshotMu.Lock()
+	defer m.snapshotMu.Unlock()
+	current := m.expected.Load()
+	if version > 0 && version < current {
+		return
+	}
+	if version > 0 {
+		m.expected.Store(version)
+	}
+	m.expectedBlocking.Store(riskControlEnabled && blockingIntent)
+}
+
+func (m *ConfigManager) observeExpectedVersion(version int64) {
+	if m == nil || version < 1 {
+		return
+	}
+	m.snapshotMu.Lock()
+	defer m.snapshotMu.Unlock()
+	if version > m.expected.Load() {
+		m.expected.Store(version)
+	}
 }
 
 func (m *ConfigManager) refreshLoop(ctx context.Context) {
@@ -487,7 +559,7 @@ func (m *ConfigManager) subscribeLoop(ctx context.Context) {
 			if err != nil || version < 1 {
 				continue
 			}
-			m.expected.Store(version)
+			m.observeExpectedVersion(version)
 			if err := m.Reload(ctx); err != nil {
 				// A newer published version failed to activate. Until reload
 				// succeeds, do not keep serving a potentially stale weaker mode.

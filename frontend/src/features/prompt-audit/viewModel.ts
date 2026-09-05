@@ -4,6 +4,7 @@ import type {
   PromptAuditEndpointDraft,
   PromptAuditUpdateRequest,
   PromptEventFilters,
+  PromptRiskActionRules,
 } from './types'
 
 export const DEFAULT_GUARD_MODEL = 'sileader/qwen3guard:0.6b'
@@ -30,6 +31,7 @@ export function cloneData<T>(value: T): T {
 export function configToDraft(config: PromptAuditConfig): PromptAuditDraft {
   return {
     ...cloneData(config),
+    rules: cloneData(config.rules ?? {}),
     group_ids: [...(config.group_ids ?? [])],
     scanners: [...(config.scanners ?? [])],
     endpoints: (config.endpoints ?? []).map((endpoint) => ({
@@ -88,6 +90,10 @@ export function buildUpdateRequest(draft: PromptAuditDraft): PromptAuditUpdateRe
 export function draftFingerprint(draft: PromptAuditDraft | null): string {
   if (!draft) return ''
   return JSON.stringify(buildUpdateRequest(draft))
+}
+
+export function policyRulesFingerprint(rules: PromptRiskActionRules | null | undefined): string {
+  return JSON.stringify(rules ?? {})
 }
 
 export function emptyEventFilters(): PromptEventFilters {

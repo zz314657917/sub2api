@@ -21,7 +21,8 @@ func TestParseQwen3GuardStrictAndPolicy(t *testing.T) {
 		{"controversial pii escalates", "Safety: Controversial\nCategories: PII", AllScannerIDs, EventCritical, ActionBlock, false},
 		{"unsafe", "Safety: Unsafe\nCategories: Jailbreak", AllScannerIDs, EventCritical, ActionBlock, false},
 		{"unknown unsafe", "Safety: Unsafe\nCategories: Future Risk", AllScannerIDs, EventCritical, ActionBlock, false},
-		{"disabled unsafe warns", "Safety: Unsafe\nCategories: Violent", []string{"PII"}, EventFlag, ActionWarn, false},
+		{"unknown safe fails closed", "Safety: Safe\nCategories: Future Risk", AllScannerIDs, EventCritical, ActionBlock, false},
+		{"disabled unsafe blocks", "Safety: Unsafe\nCategories: Violent", []string{"PII"}, EventCritical, ActionBlock, false},
 		{"extra explanation", "Safety: Safe\nCategories: None\nThis is safe", AllScannerIDs, EventPass, ActionAllow, false},
 		{"duplicate", "Safety: Safe\nSafety: Safe", AllScannerIDs, "", "", true},
 		{"duplicate categories", "Safety: Safe\nCategories: None\nCategories: PII", AllScannerIDs, "", "", true},
@@ -121,6 +122,7 @@ func TestAggregateDeduplicatesFactsAndUsesMostSevereEndpointMetadata(t *testing.
 	require.Equal(t, "block-node", result.GuardEndpointID)
 	require.Equal(t, "block-version", result.ScannerVersion)
 	require.Equal(t, 2, result.PolicyVersion)
+	require.Empty(t, result.MatchedRuleID)
 	require.Equal(t, 7, result.LatencyMS)
 }
 

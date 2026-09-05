@@ -6,8 +6,9 @@ import (
 )
 
 const (
-	SettingKeyPromptAuditConfig = "prompt_audit_config"
-	SettingKeyRiskControl       = "risk_control_enabled"
+	SettingKeyPromptAuditConfig        = "prompt_audit_config"
+	SettingKeyPromptAuditPolicyHistory = "prompt_audit_policy_history"
+	SettingKeyRiskControl              = "risk_control_enabled"
 
 	ConfigInvalidationChannel = "sub2api:prompt_guard:config:invalidate"
 	PayloadKeyPrefix          = "sub2api:prompt_audit:payload:"
@@ -65,6 +66,87 @@ const (
 	ActionWarn  Action = "Warn"
 	ActionBlock Action = "Block"
 )
+
+// PolicyVersionRecord is a redacted, immutable policy snapshot. It contains
+// no prompt, endpoint credential, or event payload.
+type PolicyVersionRecord struct {
+	PolicyVersion int             `json:"policy_version"`
+	PolicyID      string          `json:"policy_id"`
+	Rules         RiskActionRules `json:"rules"`
+	ConfigVersion int64           `json:"config_version"`
+	CreatedAt     time.Time       `json:"created_at"`
+	CreatedBy     int64           `json:"created_by"`
+	RollbackCount int             `json:"rollback_count,omitempty"`
+}
+
+type PolicyDraft struct {
+	DraftVersion      int             `json:"draft_version"`
+	BaseConfigVersion int64           `json:"base_config_version"`
+	Rules             RiskActionRules `json:"rules"`
+	UpdatedAt         time.Time       `json:"updated_at"`
+	UpdatedBy         int64           `json:"updated_by"`
+}
+
+type PolicyHistory struct {
+	ActiveVersion int                   `json:"active_version"`
+	Draft         *PolicyDraft          `json:"draft,omitempty"`
+	Versions      []PolicyVersionRecord `json:"versions"`
+}
+
+type PolicyDraftRequest struct {
+	ExpectedConfigVersion int64           `json:"expected_config_version" binding:"required"`
+	ExpectedDraftVersion  int             `json:"expected_draft_version"`
+	Rules                 RiskActionRules `json:"rules" binding:"required"`
+}
+
+type PolicyPublishRequest struct {
+	ExpectedConfigVersion int64 `json:"expected_config_version" binding:"required"`
+	ExpectedDraftVersion  int   `json:"expected_draft_version" binding:"required"`
+}
+
+type PolicyPreview struct {
+	PolicyID          string                 `json:"policy_id"`
+	RuleCount         int                    `json:"rule_count"`
+	CategoryCount     int                    `json:"category_count"`
+	ScopedRuleCount   int                    `json:"scoped_rule_count"`
+	BlockingRuleCount int                    `json:"blocking_rule_count"`
+	WarningRuleCount  int                    `json:"warning_rule_count"`
+	AffectedScopes    []string               `json:"affected_scopes"`
+	Examples          []PolicyPreviewExample `json:"examples"`
+}
+
+type PolicyPreviewExample struct {
+	Name               string    `json:"name"`
+	Safety             string    `json:"safety"`
+	Categories         []string  `json:"categories"`
+	CurrentAction      Action    `json:"current_action"`
+	CurrentRiskLevel   RiskLevel `json:"current_risk_level"`
+	CandidateAction    Action    `json:"candidate_action"`
+	CandidateRiskLevel RiskLevel `json:"candidate_risk_level"`
+	MatchedRuleID      string    `json:"matched_rule_id,omitempty"`
+	OWASPTags          []string  `json:"owasp_tags,omitempty"`
+	WouldEscalate      bool      `json:"would_escalate"`
+}
+
+type PolicyRollbackRequest struct {
+	PolicyVersion         int   `json:"policy_version" binding:"required"`
+	ExpectedConfigVersion int64 `json:"expected_config_version" binding:"required"`
+}
+
+type PolicyShadowRequest struct {
+	CurrentResult NormalizedResult   `json:"current_result"`
+	GuardOutput   *string            `json:"guard_output,omitempty"`
+	Rules         RiskActionRules    `json:"rules" binding:"required"`
+	Context       PolicyMatchContext `json:"context,omitempty"`
+}
+
+type PolicyShadowResult struct {
+	Current       NormalizedResult `json:"current"`
+	Candidate     NormalizedResult `json:"candidate"`
+	ActionChanged bool             `json:"action_changed"`
+	RiskChanged   bool             `json:"risk_changed"`
+	WouldEscalate bool             `json:"would_escalate"`
+}
 
 func (r UpdateConfigRequest) RulesValue() RiskActionRules {
 	if r.Rules == nil {
@@ -129,22 +211,25 @@ func (s PromptSnapshot) Redacted() PromptSnapshot {
 }
 
 type NormalizedResult struct {
-	Decision          EventDecision      `json:"decision"`
-	RiskLevel         RiskLevel          `json:"risk_level"`
-	Action            Action             `json:"action"`
-	Safety            string             `json:"safety"`
-	Categories        []string           `json:"categories"`
-	MatchedScanners   []string           `json:"matched_scanners"`
-	ScannerScores     map[string]float64 `json:"scanner_scores"`
-	ScannerEvidence   map[string]string  `json:"scanner_evidence"`
-	ScannerBackend    string             `json:"scanner_backend"`
-	ScannerVersion    string             `json:"scanner_version"`
-	GuardEndpointID   string             `json:"guard_endpoint_id"`
-	PolicyID          string             `json:"policy_id"`
-	PolicyVersion     int                `json:"policy_version"`
-	ChunkTotal        int                `json:"chunk_total"`
-	LatencyMS         int                `json:"latency_ms"`
-	UnknownCategories []string           `json:"unknown_categories,omitempty"`
+	Decision            EventDecision      `json:"decision"`
+	RiskLevel           RiskLevel          `json:"risk_level"`
+	Action              Action             `json:"action"`
+	Safety              string             `json:"safety"`
+	Categories          []string           `json:"categories"`
+	MatchedScanners     []string           `json:"matched_scanners"`
+	ScannerScores       map[string]float64 `json:"scanner_scores"`
+	ScannerEvidence     map[string]string  `json:"scanner_evidence"`
+	ScannerBackend      string             `json:"scanner_backend"`
+	ScannerVersion      string             `json:"scanner_version"`
+	GuardEndpointID     string             `json:"guard_endpoint_id"`
+	PolicyID            string             `json:"policy_id"`
+	PolicyVersion       int                `json:"policy_version"`
+	MatchedRuleID       string             `json:"matched_rule_id,omitempty"`
+	OWASPTags           []string           `json:"owasp_tags,omitempty"`
+	ChunkTotal          int                `json:"chunk_total"`
+	LatencyMS           int                `json:"latency_ms"`
+	UnknownCategories   []string           `json:"unknown_categories,omitempty"`
+	matchedRulePriority int
 }
 
 type PromptDecision struct {
@@ -204,22 +289,24 @@ type ProbeResult struct {
 }
 
 type GuardMetricsSnapshot struct {
-	Total        int64 `json:"total"`
-	Allowed      int64 `json:"allowed"`
-	Flagged      int64 `json:"flagged"`
-	Blocked      int64 `json:"blocked"`
-	Unavailable  int64 `json:"unavailable"`
-	Invalid      int64 `json:"invalid"`
-	Timeouts     int64 `json:"timeouts"`
-	Failovers    int64 `json:"failovers"`
-	BulkheadFull int64 `json:"bulkhead_full"`
-	RecordFailed int64 `json:"record_failed"`
-	LatencyCount int64 `json:"latency_count"`
-	LatencyAvgMS int64 `json:"latency_avg_ms"`
-	LatencyP50MS int64 `json:"latency_p50_ms"`
-	LatencyP95MS int64 `json:"latency_p95_ms"`
-	LatencyP99MS int64 `json:"latency_p99_ms"`
-	LatencyMaxMS int64 `json:"latency_max_ms"`
+	Total         int64 `json:"total"`
+	Allowed       int64 `json:"allowed"`
+	Flagged       int64 `json:"flagged"`
+	Blocked       int64 `json:"blocked"`
+	Unavailable   int64 `json:"unavailable"`
+	Invalid       int64 `json:"invalid"`
+	Timeouts      int64 `json:"timeouts"`
+	Failovers     int64 `json:"failovers"`
+	BulkheadFull  int64 `json:"bulkhead_full"`
+	RecordFailed  int64 `json:"record_failed"`
+	LatencyCount  int64 `json:"latency_count"`
+	LatencyAvgMS  int64 `json:"latency_avg_ms"`
+	LatencyP50MS  int64 `json:"latency_p50_ms"`
+	LatencyP95MS  int64 `json:"latency_p95_ms"`
+	LatencyP99MS  int64 `json:"latency_p99_ms"`
+	LatencyMaxMS  int64 `json:"latency_max_ms"`
+	ShadowRuns    int64 `json:"shadow_runs"`
+	ShadowChanges int64 `json:"shadow_changes"`
 }
 
 type AuditMetricsSnapshot struct {

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
 
 type PromptService struct {
@@ -105,6 +107,67 @@ func (s *PromptService) EffectiveMode() Mode {
 		return ModeOff
 	}
 	return s.config.EffectiveMode()
+}
+
+func (s *PromptService) ListPolicyVersions(ctx context.Context) (PolicyHistory, error) {
+	manager, ok := s.config.(*ConfigManager)
+	if !ok || manager == nil {
+		return PolicyHistory{}, errors.New("prompt audit policy history unavailable")
+	}
+	return manager.ListPolicyVersions(ctx)
+}
+
+func (s *PromptService) PreviewPolicy(ctx context.Context, rules RiskActionRules) (PolicyPreview, error) {
+	manager, ok := s.config.(*ConfigManager)
+	if !ok || manager == nil {
+		return PolicyPreview{}, errors.New("prompt audit policy preview unavailable")
+	}
+	return manager.PreviewPolicy(ctx, rules)
+}
+
+func (s *PromptService) ShadowPolicy(ctx context.Context, request PolicyShadowRequest) (PolicyShadowResult, error) {
+	var result PolicyShadowResult
+	var err error
+	if request.GuardOutput != nil {
+		if s == nil || s.config == nil {
+			return PolicyShadowResult{}, infraerrors.ServiceUnavailable(ErrorCodeConfigUnavailable, "prompt audit active policy unavailable")
+		}
+		active, ok := s.config.Active()
+		if !ok {
+			return PolicyShadowResult{}, infraerrors.ServiceUnavailable(ErrorCodeConfigUnavailable, "prompt audit active policy unavailable")
+		}
+		result, err = compareGuardPolicies(*request.GuardOutput, active, request.Rules, request.Context)
+	} else {
+		result, err = ShadowEvaluate(request.CurrentResult, request.Rules, request.Context)
+	}
+	if err == nil && s != nil && s.metrics != nil {
+		s.metrics.IncShadow(result.ActionChanged || result.RiskChanged)
+	}
+	return result, err
+}
+
+func (s *PromptService) SavePolicyDraft(ctx context.Context, req PolicyDraftRequest, actorID int64) (PolicyHistory, error) {
+	manager, ok := s.config.(*ConfigManager)
+	if !ok || manager == nil {
+		return PolicyHistory{}, errors.New("prompt audit policy draft unavailable")
+	}
+	return manager.SavePolicyDraft(ctx, req, actorID)
+}
+
+func (s *PromptService) PublishPolicyDraft(ctx context.Context, req PolicyPublishRequest, actorID int64) (PublicConfig, error) {
+	manager, ok := s.config.(*ConfigManager)
+	if !ok || manager == nil {
+		return PublicConfig{}, errors.New("prompt audit policy publish unavailable")
+	}
+	return manager.PublishPolicyDraft(ctx, req, actorID)
+}
+
+func (s *PromptService) RollbackPolicy(ctx context.Context, policyVersion int, expectedConfigVersion, actorID int64) (PublicConfig, error) {
+	manager, ok := s.config.(*ConfigManager)
+	if !ok || manager == nil {
+		return PublicConfig{}, errors.New("prompt audit policy rollback unavailable")
+	}
+	return manager.RollbackPolicy(ctx, policyVersion, expectedConfigVersion, actorID)
 }
 
 func (s *PromptService) Enqueue(_ context.Context, req Request) error {

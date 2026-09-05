@@ -84,6 +84,24 @@ describe('Prompt Audit components', () => {
     expect(emitted.worker_count).toBe(6)
   })
 
+  it('edits custom policy rules and preserves locked safety controls', async () => {
+    const draft: PromptAuditDraft = {
+      enabled: true, blocking_enabled: false, blocking_latest_turn_only: false, store_pass_events: false, effective_mode: 'async_audit', strategy: 'priority',
+      worker_count: 4, queue_capacity: 100, scanners: SCANNER_CATALOG.map((item) => item.id), all_groups: true, group_ids: [],
+      endpoints: [endpoint()], config_version: 1, updated_at: '', updated_by: 0, change_summary: '', rules: { rules: [] },
+    }
+    const wrapper = mount(PolicyPanel, { props: { draft, groups: [], rules: { rules: [] } } })
+    await wrapper.get('button').trigger('click')
+    expect(wrapper.text()).toContain('admin.promptAudit.policy.rules')
+    const emitted = wrapper.emitted('update:rules')?.at(-1)?.[0] as { rules: Array<{ action: string; owasp_tags: string[] }> }
+    expect(emitted.rules[0]).toMatchObject({ action: 'Block', owasp_tags: ['LLM01'] })
+    expect(wrapper.find('select[aria-label="admin.promptAudit.policy.safety.unsafe"]').attributes('disabled')).toBeDefined()
+    await wrapper.setProps({ rules: emitted })
+    await wrapper.get('[aria-label="admin.promptAudit.policy.ruleId groups 1"]').setValue('1, invalid')
+    expect(wrapper.emitted('validation-change')?.at(-1)?.[0]).toBe(true)
+    expect(wrapper.emitted('update:rules')?.at(-1)?.[0]).toEqual(emitted)
+  })
+
   it('keeps identity fields separate, supports selection, and opens filter deletion from the toolbar', async () => {
     const event: PromptAuditEvent = {
       id: 1, job_id: 1, decision: 'critical', risk_level: 'critical', action: 'Block', categories: ['pii'], matched_scanners: ['pii'], scanner_scores: { pii: 1 }, scanner_evidence: { pii: 'redacted' }, scanner_backend: 'qwen3guard-openai', scanner_version: '1', guard_endpoint_id: 'guard-1', policy_id: 'priority', policy_version: 1, config_version: 1, chunk_total: 1, latency_ms: 10, issue_summaries: [], created_at: '2026-07-16T00:00:00Z',

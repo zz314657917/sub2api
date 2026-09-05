@@ -200,7 +200,7 @@ func RegisterUserRoutes(
 			groupBuy.POST("/seats/:id/bind-key", h.GroupBuy.BindKey)
 		}
 
-		// Pixel Cafe Room discovery and fixed-seat payment orders. Runtime activation remains separate.
+		// Pixel Cafe room discovery, reservations, and post-formation payment orders.
 		cafe := authenticated.Group("/cafe")
 		{
 			cafe.GET("/overview", h.Cafe.Overview)
@@ -209,6 +209,7 @@ func RegisterUserRoutes(
 			cafe.GET("/rooms", h.Cafe.ListRooms)
 			cafe.GET("/rooms/:id", h.Cafe.GetRoom)
 			cafe.POST("/rooms/:id/orders", h.Cafe.CreateOrder)
+			cafe.POST("/rooms/:id/reservations", h.Cafe.ReserveShares)
 		}
 
 		// 使用记录

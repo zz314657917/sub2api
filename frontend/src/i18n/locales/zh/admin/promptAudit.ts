@@ -54,6 +54,10 @@ export default {
       title: '审计策略', description: '配置适用分组、九类输入风险、Worker 与队列边界。', scope: '适用范围', allGroups: '全部分组', selectedGroups: '指定分组',
       searchGroups: '搜索分组', noGroups: '没有匹配分组', missingGroups: '配置中包含已删除的分组 ID', selectedCount: '已选择 {count} 个分组',
       scanners: 'Qwen3Guard 输入风险分类', workerCount: 'Worker 数量', queueCapacity: '持久队列容量', strategy: '节点策略', strategyHint: '按配置顺序优先尝试，必要时故障切换。',
+      decisions: '安全等级动作', categoryActions: '分类升级动作', inherit: '继承默认', locked: '安全底线不可降低',
+      safety: { safe: 'Safe', controversial: 'Controversial', unsafe: 'Unsafe' },
+      rules: '自定义规则', addRule: '新增规则', ruleId: '规则 ID', priority: '优先级', ruleCategory: '规则分类', ruleAction: '规则动作', removeRule: '删除规则', anyCategory: '任意分类', owaspTags: 'OWASP 标签', owaspHint: '例如 LLM01，多个用逗号分隔', noRules: '暂无自定义规则。', ruleSafetyHint: '安全等级，多个用逗号分隔', ruleGroupsHint: '分组 ID，多个用逗号分隔', ruleModelsHint: '模型，多个用逗号分隔', ruleProvidersHint: '提供商，多个用逗号分隔', invalidGroupIds: '分组 ID 必须是以逗号分隔的正整数。',
+      lifecycleTitle: '策略版本与发布', lifecycleDescription: '先保存草稿并预览影响范围，再发布到运行态；历史版本可回滚。', preview: '预览策略', saveDraft: '保存草稿', publish: '发布草稿', rollback: '回滚', rollbackConfirm: '确认回滚到策略 v{version}？', version: '策略版本', createdAt: '创建时间', active: '当前生效', previewSummary: '策略 {policy_id}：{rule_count} 条规则，{category_count} 个分类覆盖，{blocking_rule_count} 条阻止，{warning_rule_count} 条警告。', shadowSample: '示例输入', shadowRun: '试运行策略', shadowResult: '试运行结果', shadowScope: '匹配上下文', shadowGroup: '分组 ID', shadowModel: '模型', shadowProvider: '提供商', draftConflict: '服务端草稿已变更。可查看或继续编辑，但需重新保存后才能发布。', shadowSamples: { safe: 'Safe / None', controversial: 'Controversial / Jailbreak', violent: 'Controversial / Violent', unsafe: 'Unsafe / PII' },
     },
     saveBar: { enabled: '启用提示词审计', blocking: '同步阻止', blockingLatestTurnOnly: '仅审最新输入和上一轮输出', storePass: '保存安全事件', dirty: '有未保存的更改', synced: '配置已同步' },
     blockingConfirm: {
@@ -84,7 +88,7 @@ export default {
       riskSummaries: '风险摘要',
       evidence: '脱敏证据',
       score: '分数',
-      categories: '分类', model: '模型', stage: '请求阶段', noRisks: '本事件没有派生风险摘要。',
+      categories: '分类', matchedRule: '命中规则', owaspTags: 'OWASP 标签', model: '模型', stage: '请求阶段', noRisks: '本事件没有派生风险摘要。',
       requestId: 'Request ID', promptHash: 'Prompt SHA-256',
       technical: {
         scanner: '扫描器', policy: '策略', guardEndpoint: 'Guard 节点', config: '配置版本',
@@ -92,10 +96,10 @@ export default {
       },
       deleteConfirmTitle: '删除审计事件？', deleteConfirmMessage: '将永久删除 {count} 条事件及符合条件的孤立任务。', filterDeleteCount: '服务端快照匹配 {count} 条事件。', snapshotMax: '快照最大事件 ID', filterHash: '筛选条件 SHA-256', expiresAt: '确认令牌过期时间', filterDeleteWarning: '只删除预览高水位内的事件；预览后产生的新事件会保留。筛选一旦变化，必须重新预览。', confirmFilterDelete: '确认永久删除',
     },
-    messages: { saved: '提示词审计配置已保存，明文 API Key 状态已清除。', probeSucceeded: '审计节点连接正常。', deleted: '已删除 {count} 条审计事件。' },
+    messages: { saved: '提示词审计配置已保存，明文 API Key 状态已清除。', probeSucceeded: '审计节点连接正常。', deleted: '已删除 {count} 条审计事件。', policyDraftSaved: '策略草稿已保存。', policyPublished: '策略已发布并热生效。', policyRolledBack: '策略已回滚并热生效。' },
     errors: {
       loadConfig: '无法加载提示词审计配置。', loadRuntime: '无法加载提示词审计运行态。', loadGroups: '无法加载分组列表。', loadEvents: '无法加载审计事件。', loadDetail: '无法加载事件详情。', saveConfig: '配置保存失败。', probe: '节点探测失败。', delete: '事件删除失败。', previewDelete: '无法生成删除预览，请检查时间范围。', deleteConfirmation: '删除确认无效或已过期，请重新预览。',
-      prompt_audit_config_conflict: '配置已被其他管理员更新。请重新加载服务端配置，再决定如何合并本地草稿。',
+      prompt_audit_config_conflict: '配置或策略草稿已被其他管理员更新。请重新加载服务端版本。', loadPolicyHistory: '无法加载策略历史。', policy: '策略操作失败。',
       prompt_audit_encryption_key_required: '未配置固定加密密钥，审计节点 API Key 将在服务重启后失效。请先设置 TOTP_ENCRYPTION_KEY 环境变量并重启服务。',
       prompt_guard_requires_audit_enabled: '开启同步阻止前必须先启用提示词审计。', prompt_audit_invalid_endpoint: '审计节点配置无效。', prompt_audit_endpoint_required: '启用审计前至少需要一个启用节点。', prompt_audit_groups_required: '指定分组模式至少需要选择一个分组。', prompt_audit_scanners_required: '至少需要启用一个风险分类。',
     },

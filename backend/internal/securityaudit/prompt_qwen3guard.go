@@ -162,11 +162,13 @@ func ParseQwen3Guard(content string, enabledScanners []string) (*NormalizedResul
 	}
 	if safety == "Unsafe" {
 		score = 1
-		if len(matched) > 0 || len(unknownList) > 0 || len(knownList) == 0 {
-			result.Decision, result.RiskLevel, result.Action = EventCritical, RiskCritical, ActionBlock
-		} else {
-			result.Decision, result.RiskLevel, result.Action = EventFlag, RiskHigh, ActionWarn
-		}
+		result.Decision, result.RiskLevel, result.Action = EventCritical, RiskCritical, ActionBlock
+	}
+	// A category that is not in the local catalog cannot be safely evaluated.
+	// Keep the raw value hashed in UnknownCategories, but fail closed instead of
+	// silently allowing a future or malformed Guard category.
+	if len(unknownList) > 0 {
+		result.Decision, result.RiskLevel, result.Action = EventCritical, RiskCritical, ActionBlock
 	}
 	for _, category := range matched {
 		result.ScannerScores[category] = score

@@ -54,6 +54,10 @@ export default {
       title: 'Audit policy', description: 'Configure group scope, nine input-risk categories, workers, and queue bounds.', scope: 'Scope', allGroups: 'All groups', selectedGroups: 'Selected groups',
       searchGroups: 'Search groups', noGroups: 'No matching groups', missingGroups: 'Configured IDs for groups that no longer exist', selectedCount: '{count} groups selected',
       scanners: 'Qwen3Guard input-risk categories', workerCount: 'Worker count', queueCapacity: 'Persistent queue capacity', strategy: 'Node strategy', strategyHint: 'Try nodes in configuration order and fail over when allowed.',
+      decisions: 'Safety-level actions', categoryActions: 'Category escalation actions', inherit: 'Inherit default', locked: 'Safety floor cannot be weakened',
+      safety: { safe: 'Safe', controversial: 'Controversial', unsafe: 'Unsafe' },
+      rules: 'Custom rules', addRule: 'Add rule', ruleId: 'Rule ID', priority: 'Priority', ruleCategory: 'Rule category', ruleAction: 'Rule action', removeRule: 'Remove rule', anyCategory: 'Any category', owaspTags: 'OWASP tags', owaspHint: 'For example LLM01; separate multiple tags with commas', noRules: 'No custom rules.', ruleSafetyHint: 'Safety values, comma-separated', ruleGroupsHint: 'Group IDs, comma-separated', ruleModelsHint: 'Models, comma-separated', ruleProvidersHint: 'Providers, comma-separated', invalidGroupIds: 'Group IDs must be positive integers separated by commas.',
+      lifecycleTitle: 'Policy versions and release', lifecycleDescription: 'Save and preview a draft before publishing it to runtime; previous versions can be rolled back.', preview: 'Preview policy', saveDraft: 'Save draft', publish: 'Publish draft', rollback: 'Rollback', rollbackConfirm: 'Rollback to policy v{version}?', version: 'Policy version', createdAt: 'Created', active: 'Active', previewSummary: 'Policy {policy_id}: {rule_count} rules, {category_count} category overrides, {blocking_rule_count} blocking rules, {warning_rule_count} warning rules.', shadowSample: 'Sample input', shadowRun: 'Dry-run policy', shadowResult: 'Dry-run result', shadowScope: 'Match context', shadowGroup: 'Group ID', shadowModel: 'Model', shadowProvider: 'Provider', draftConflict: 'The server draft changed. Review or edit it, then save again before publishing.', shadowSamples: { safe: 'Safe / None', controversial: 'Controversial / Jailbreak', violent: 'Controversial / Violent', unsafe: 'Unsafe / PII' },
     },
     saveBar: { enabled: 'Enable prompt audit', blocking: 'Synchronous blocking', blockingLatestTurnOnly: 'Only latest input and prior output', storePass: 'Store safe events', dirty: 'Unsaved changes', synced: 'Configuration synced' },
     blockingConfirm: {
@@ -84,7 +88,7 @@ export default {
       riskSummaries: 'Risk summaries',
       evidence: 'Redacted evidence',
       score: 'Score',
-      categories: 'Categories', model: 'Model', stage: 'Request stage', noRisks: 'No derived risk summaries for this event.',
+      categories: 'Categories', matchedRule: 'Matched rule', owaspTags: 'OWASP tags', model: 'Model', stage: 'Request stage', noRisks: 'No derived risk summaries for this event.',
       requestId: 'Request ID', promptHash: 'Prompt SHA-256',
       technical: {
         scanner: 'Scanner', policy: 'Policy', guardEndpoint: 'Guard endpoint', config: 'Config',
@@ -92,10 +96,10 @@ export default {
       },
       deleteConfirmTitle: 'Delete audit events?', deleteConfirmMessage: 'This permanently deletes {count} events and eligible orphan jobs.', filterDeleteCount: 'The server snapshot matches {count} events.', snapshotMax: 'Snapshot maximum event ID', filterHash: 'Filter SHA-256', expiresAt: 'Confirmation token expires', filterDeleteWarning: 'Only events at or below the preview high-water mark are deleted. Newer events survive. Any filter change requires a new preview.', confirmFilterDelete: 'Permanently delete',
     },
-    messages: { saved: 'Prompt Audit configuration saved; plaintext API Key state was cleared.', probeSucceeded: 'The audit node is reachable.', deleted: 'Deleted {count} audit events.' },
+    messages: { saved: 'Prompt Audit configuration saved; plaintext API Key state was cleared.', probeSucceeded: 'The audit node is reachable.', deleted: 'Deleted {count} audit events.', policyDraftSaved: 'Policy draft saved.', policyPublished: 'Policy published and hot-loaded.', policyRolledBack: 'Policy rolled back and hot-loaded.' },
     errors: {
       loadConfig: 'Unable to load Prompt Audit configuration.', loadRuntime: 'Unable to load Prompt Audit runtime.', loadGroups: 'Unable to load groups.', loadEvents: 'Unable to load audit events.', loadDetail: 'Unable to load event details.', saveConfig: 'Unable to save the configuration.', probe: 'Node probe failed.', delete: 'Unable to delete events.', previewDelete: 'Unable to create a deletion preview. Check the time range.', deleteConfirmation: 'The deletion confirmation is invalid or expired. Preview again.',
-      prompt_audit_config_conflict: 'Another administrator updated this configuration. Reload the server version before deciding how to merge your draft.',
+      prompt_audit_config_conflict: 'Another administrator updated this configuration or policy draft. Reload the server version.', loadPolicyHistory: 'Unable to load policy history.', policy: 'Policy operation failed.',
       prompt_audit_encryption_key_required: 'No fixed encryption key is configured, so audit node API Keys would be lost on restart. Set the TOTP_ENCRYPTION_KEY environment variable and restart the service first.',
       prompt_guard_requires_audit_enabled: 'Enable Prompt Audit before synchronous blocking.', prompt_audit_invalid_endpoint: 'The audit node configuration is invalid.', prompt_audit_endpoint_required: 'Enable at least one audit node before enabling Prompt Audit.', prompt_audit_groups_required: 'Select at least one group in selected-group mode.', prompt_audit_scanners_required: 'Enable at least one risk category.',
     },

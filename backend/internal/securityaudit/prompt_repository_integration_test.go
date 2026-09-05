@@ -43,7 +43,7 @@ func openPromptAuditIntegrationDB(t *testing.T) *sql.DB {
 		);
 	`)
 	require.NoError(t, err)
-	for _, name := range []string{"201_prompt_audit.sql", "202_prompt_audit_full_prompt.sql"} {
+	for _, name := range []string{"201_prompt_audit.sql", "202_prompt_audit_full_prompt.sql", "239_prompt_audit_policy_explanations.sql"} {
 		migration, err := os.ReadFile(filepath.Join("..", "..", "migrations", name))
 		require.NoError(t, err)
 		// The migration runner can retry an interrupted deployment; the migration
@@ -148,6 +148,68 @@ func TestPromptAuditMigrationSchemaAndLeakageGate(t *testing.T) {
 	var jobID int64
 	require.NoError(t, db.QueryRowContext(ctx, `INSERT INTO prompt_audit_jobs DEFAULT VALUES RETURNING id`).Scan(&jobID))
 	_, err = db.ExecContext(ctx, `INSERT INTO prompt_audit_events(job_id,chunk_total) VALUES ($1,-1)`, jobID)
+	require.Error(t, err)
+}
+
+func TestPromptAuditPolicyExplanationRoundTrip(t *testing.T) {
+	db := openPromptAuditIntegrationDB(t)
+	repo := NewPostgreSQLRepository(db)
+	ctx := context.Background()
+	for _, async := range []bool{false, true} {
+		for _, decision := range []EventDecision{EventPass, EventFlag, EventCritical} {
+			for _, withTags := range []bool{false, true} {
+				result := integrationResult(decision)
+				if decision == EventFlag {
+					result.Action, result.RiskLevel, result.Safety = ActionWarn, RiskHigh, "Controversial"
+				}
+				result.ChunkTotal, result.LatencyMS = 3, 57
+				if withTags {
+					result.MatchedRuleID = strings.Repeat("\u754c", 128)
+					result.OWASPTags = []string{"LLM01", "LLM02"}
+				}
+				snapshot := integrationSnapshot(fmt.Sprintf("policy-%v-%s-%v", async, decision, withTags))
+				var eventID int64
+				if async {
+					job, err := repo.CreateStagingWithCapacity(ctx, snapshot, 17, 3, 20)
+					require.NoError(t, err)
+					require.NoError(t, repo.PublishQueued(ctx, job.ID))
+					claimed, ok, err := repo.ClaimNextJob(ctx, time.Now().Add(time.Second))
+					require.NoError(t, err)
+					require.True(t, ok)
+					event, err := repo.Complete(ctx, claimed, result, true)
+					require.NoError(t, err)
+					require.NotNil(t, event)
+					eventID = event.ID
+				} else {
+					event, err := repo.RecordBlocking(ctx, snapshot, 17, result, true)
+					require.NoError(t, err)
+					require.NotNil(t, event)
+					eventID = event.ID
+				}
+				var ruleID, tagsJSON string
+				var configVersion int64
+				var chunks, latency int
+				require.NoError(t, db.QueryRowContext(ctx, `SELECT matched_rule_id,owasp_tags::text,config_version,chunk_total,latency_ms FROM prompt_audit_events WHERE id=$1`, eventID).Scan(&ruleID, &tagsJSON, &configVersion, &chunks, &latency))
+				require.Equal(t, result.MatchedRuleID, ruleID)
+				var tags []string
+				require.NoError(t, json.Unmarshal([]byte(tagsJSON), &tags))
+				require.ElementsMatch(t, result.OWASPTags, tags)
+				require.Equal(t, int64(17), configVersion)
+				require.Equal(t, 3, chunks)
+				require.Equal(t, 57, latency)
+				detail, err := repo.GetEvent(ctx, eventID)
+				require.NoError(t, err)
+				require.Equal(t, ruleID, detail.MatchedRuleID)
+				require.ElementsMatch(t, tags, detail.OWASPTags)
+				require.Equal(t, configVersion, detail.ConfigVersion)
+				require.Equal(t, chunks, detail.ChunkTotal)
+				require.Equal(t, latency, detail.LatencyMS)
+			}
+		}
+	}
+	tooLong := integrationResult(EventCritical)
+	tooLong.MatchedRuleID = strings.Repeat("x", 129)
+	_, err := repo.RecordBlocking(ctx, integrationSnapshot("policy-too-long"), 17, tooLong, true)
 	require.Error(t, err)
 }
 

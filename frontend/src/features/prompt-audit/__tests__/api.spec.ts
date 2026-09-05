@@ -41,4 +41,31 @@ describe('Prompt Audit API', () => {
       snapshot_max_id: 10, filter_hash: 'a'.repeat(64), confirmation_token: 'opaque-token', confirm: true,
     }))
   })
+
+  it('uses independent policy lifecycle endpoints', async () => {
+    client.get.mockResolvedValue({ data: { active_version: 1, versions: [] } })
+    await promptAuditAPI.listPolicyVersions()
+    expect(client.get).toHaveBeenCalledWith('/admin/prompt-audit/policy/versions')
+
+    client.post.mockResolvedValue({ data: { rule_count: 1 } })
+    await promptAuditAPI.previewPolicy({ rules: [] })
+    expect(client.post).toHaveBeenCalledWith('/admin/prompt-audit/policy/preview', { rules: [] })
+    await promptAuditAPI.shadowPolicy({ action: 'Allow' }, { rules: [] }, { model: 'qwen' })
+    expect(client.post).toHaveBeenCalledWith('/admin/prompt-audit/policy/shadow', { current_result: { action: 'Allow' }, rules: { rules: [] }, context: { model: 'qwen' } })
+    await promptAuditAPI.shadowPolicyGuardOutput('Safety: Safe\nCategories: None', { rules: [] }, { group_id: 7, model: 'qwen', provider: 'openai' })
+    expect(client.post).toHaveBeenCalledWith('/admin/prompt-audit/policy/shadow', {
+      guard_output: 'Safety: Safe\nCategories: None', rules: { rules: [] }, context: { group_id: 7, model: 'qwen', provider: 'openai' },
+    })
+
+    client.put.mockResolvedValue({ data: { active_version: 0, versions: [] } })
+    await promptAuditAPI.savePolicyDraft(3, 0, { rules: [] })
+    expect(client.put).toHaveBeenCalledWith('/admin/prompt-audit/policy/draft', expect.objectContaining({ expected_config_version: 3, expected_draft_version: 0 }))
+
+    client.post.mockResolvedValue({ data: { config_version: 4 } })
+    await promptAuditAPI.publishPolicyDraft(3, 1)
+    expect(client.post).toHaveBeenCalledWith('/admin/prompt-audit/policy/publish', { expected_config_version: 3, expected_draft_version: 1 })
+
+    await promptAuditAPI.rollbackPolicy(1, 4)
+    expect(client.post).toHaveBeenCalledWith('/admin/prompt-audit/policy/rollback', { policy_version: 1, expected_config_version: 4 })
+  })
 })

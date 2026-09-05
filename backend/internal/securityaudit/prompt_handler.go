@@ -25,10 +25,141 @@ type PromptAdminService interface {
 	DeleteByFilter(context.Context, DeleteByFilterRequest, int64) (*DeleteResult, error)
 }
 
+type PromptPolicyAdminService interface {
+	ListPolicyVersions(context.Context) (PolicyHistory, error)
+	PreviewPolicy(context.Context, RiskActionRules) (PolicyPreview, error)
+	ShadowPolicy(context.Context, PolicyShadowRequest) (PolicyShadowResult, error)
+	SavePolicyDraft(context.Context, PolicyDraftRequest, int64) (PolicyHistory, error)
+	PublishPolicyDraft(context.Context, PolicyPublishRequest, int64) (PublicConfig, error)
+	RollbackPolicy(context.Context, int, int64, int64) (PublicConfig, error)
+}
+
 type PromptAdminHandler struct{ service PromptAdminService }
 
 func NewPromptAdminHandler(service PromptAdminService) *PromptAdminHandler {
 	return &PromptAdminHandler{service: service}
+}
+
+func (h *PromptAdminHandler) ListPolicyVersions(c *gin.Context) {
+	service, ok := h.service.(PromptPolicyAdminService)
+	if !ok {
+		response.ErrorFrom(c, infraerrors.ServiceUnavailable(ErrorCodeConfigUnavailable, "提示词审计策略历史暂不可用"))
+		return
+	}
+	history, err := service.ListPolicyVersions(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, history)
+}
+
+func (h *PromptAdminHandler) PreviewPolicy(c *gin.Context) {
+	service, ok := h.service.(PromptPolicyAdminService)
+	if !ok {
+		response.ErrorFrom(c, infraerrors.ServiceUnavailable(ErrorCodeConfigUnavailable, "提示词审计策略暂不可用"))
+		return
+	}
+	var rules RiskActionRules
+	if err := c.ShouldBindJSON(&rules); err != nil {
+		response.ErrorFrom(c, infraerrors.BadRequest("prompt_audit_invalid_policy_preview", "策略预览请求无效"))
+		return
+	}
+	preview, err := service.PreviewPolicy(c.Request.Context(), rules)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, preview)
+}
+
+func (h *PromptAdminHandler) ShadowPolicy(c *gin.Context) {
+	service, ok := h.service.(PromptPolicyAdminService)
+	if !ok {
+		response.ErrorFrom(c, infraerrors.ServiceUnavailable(ErrorCodeConfigUnavailable, "提示词审计策略暂不可用"))
+		return
+	}
+	var request PolicyShadowRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		response.ErrorFrom(c, infraerrors.BadRequest("prompt_audit_invalid_policy_shadow", "策略试运行请求无效"))
+		return
+	}
+	result, err := service.ShadowPolicy(c.Request.Context(), request)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+func (h *PromptAdminHandler) SavePolicyDraft(c *gin.Context) {
+	service, ok := h.service.(PromptPolicyAdminService)
+	if !ok {
+		response.ErrorFrom(c, infraerrors.ServiceUnavailable(ErrorCodeConfigUnavailable, "提示词审计策略暂不可用"))
+		return
+	}
+	var request PolicyDraftRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		setPromptAdminAudit(c, "failed", "prompt_audit_invalid_policy_draft", nil)
+		response.ErrorFrom(c, infraerrors.BadRequest("prompt_audit_invalid_policy_draft", "策略草稿请求无效"))
+		return
+	}
+	history, err := service.SavePolicyDraft(c.Request.Context(), request, adminID(c))
+	if err != nil {
+		setPromptAdminAudit(c, "failed", infraerrors.Reason(err), map[string]any{"expected_config_version": request.ExpectedConfigVersion, "expected_draft_version": request.ExpectedDraftVersion})
+		response.ErrorFrom(c, err)
+		return
+	}
+	setPromptAdminAudit(c, "success", "", map[string]any{"draft_version": history.Draft.DraftVersion, "base_config_version": request.ExpectedConfigVersion})
+	response.Success(c, history)
+}
+
+func (h *PromptAdminHandler) PublishPolicyDraft(c *gin.Context) {
+	service, ok := h.service.(PromptPolicyAdminService)
+	if !ok {
+		response.ErrorFrom(c, infraerrors.ServiceUnavailable(ErrorCodeConfigUnavailable, "提示词审计策略暂不可用"))
+		return
+	}
+	var request PolicyPublishRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		setPromptAdminAudit(c, "failed", "prompt_audit_invalid_policy_publish", nil)
+		response.ErrorFrom(c, infraerrors.BadRequest("prompt_audit_invalid_policy_publish", "策略发布请求无效"))
+		return
+	}
+	config, err := service.PublishPolicyDraft(c.Request.Context(), request, adminID(c))
+	if err != nil {
+		setPromptAdminAudit(c, "failed", infraerrors.Reason(err), map[string]any{"expected_config_version": request.ExpectedConfigVersion, "expected_draft_version": request.ExpectedDraftVersion})
+		response.ErrorFrom(c, err)
+		return
+	}
+	setPromptAdminAudit(c, "success", "", map[string]any{"config_version": config.ConfigVersion, "policy_version": config.Rules.PolicyVersion})
+	response.Success(c, config)
+}
+
+func (h *PromptAdminHandler) RollbackPolicy(c *gin.Context) {
+	service, ok := h.service.(PromptPolicyAdminService)
+	if !ok {
+		response.ErrorFrom(c, infraerrors.ServiceUnavailable(ErrorCodeConfigUnavailable, "提示词审计策略历史暂不可用"))
+		return
+	}
+	var request PolicyRollbackRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		setPromptAdminAudit(c, "failed", "prompt_audit_invalid_policy_rollback", nil)
+		response.ErrorFrom(c, infraerrors.BadRequest("prompt_audit_invalid_policy_rollback", "策略回滚请求无效"))
+		return
+	}
+	config, err := service.RollbackPolicy(c.Request.Context(), request.PolicyVersion, request.ExpectedConfigVersion, adminID(c))
+	if err != nil {
+		setPromptAdminAudit(c, "failed", infraerrors.Reason(err), map[string]any{
+			"policy_version": request.PolicyVersion, "expected_config_version": request.ExpectedConfigVersion,
+		})
+		response.ErrorFrom(c, err)
+		return
+	}
+	setPromptAdminAudit(c, "success", "", map[string]any{
+		"policy_version": request.PolicyVersion, "config_version": config.ConfigVersion,
+	})
+	response.Success(c, config)
 }
 
 func (h *PromptAdminHandler) GetConfig(c *gin.Context) {

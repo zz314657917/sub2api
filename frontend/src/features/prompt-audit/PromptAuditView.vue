@@ -50,7 +50,58 @@
                 @probe="runProbe"
               />
               <div v-if="loadErrors.groups" role="alert" class="mt-5 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">{{ loadErrors.groups }}</div>
-              <PolicyPanel :draft="draft" :groups="groups" @update:draft="replaceDraft" />
+              <PolicyPanel :draft="draft" :groups="groups" :rules="policyRules" @update:draft="replaceDraft" @update:rules="updatePolicyRules" @validation-change="policyInvalid = $event" />
+              <section class="border-t border-gray-100 py-6 dark:border-dark-800" aria-labelledby="prompt-policy-lifecycle-title">
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <h2 id="prompt-policy-lifecycle-title" class="text-base font-semibold text-gray-950 dark:text-white">{{ t('admin.promptAudit.policy.lifecycleTitle') }}</h2>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-dark-300">{{ t('admin.promptAudit.policy.lifecycleDescription') }}</p>
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    <button type="button" class="btn btn-secondary btn-sm" :disabled="loading.policy || policyInvalid" @click="previewPolicyDraft">{{ t('admin.promptAudit.policy.preview') }}</button>
+                    <button type="button" class="btn btn-secondary btn-sm" :disabled="loading.policy || policyInvalid" @click="savePolicyDraft">{{ t('admin.promptAudit.policy.saveDraft') }}</button>
+                    <button type="button" class="btn btn-primary btn-sm" :disabled="loading.policy || !policyHistory?.draft || policyDirty || policyConflict || policyBaseStale || policyInvalid" @click="publishPolicyDraft">{{ t('admin.promptAudit.policy.publish') }}</button>
+                  </div>
+                </div>
+                <p v-if="policyConflict || policyBaseStale" role="alert" class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">{{ t('admin.promptAudit.policy.draftConflict') }}</p>
+                <div v-if="policyPreview" class="mt-4 rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-700 dark:bg-dark-900/50 dark:text-dark-200">
+                  {{ t('admin.promptAudit.policy.previewSummary', policyPreview) }}
+                  <div v-if="policyPreview.examples?.length" class="mt-3 grid gap-2 sm:grid-cols-3" data-test="policy-preview-examples">
+                    <div v-for="example in policyPreview.examples" :key="example.name" class="rounded-md border border-gray-200 bg-white px-3 py-2 dark:border-dark-700 dark:bg-dark-900/30">
+                      <p class="font-medium">{{ policyExampleLabel(example.name) }}</p>
+                      <p class="mt-1 text-xs">{{ example.current_action }} -> {{ example.candidate_action }} · {{ example.current_risk_level }} -> {{ example.candidate_risk_level }}</p>
+                      <p v-if="example.matched_rule_id" class="mt-1 break-words text-xs text-primary-700 dark:text-primary-300">{{ example.matched_rule_id }}</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="mt-4 flex flex-wrap items-end gap-3 rounded-lg border border-gray-200 px-4 py-3 dark:border-dark-700/60">
+                  <label class="min-w-52 flex-1 text-sm text-gray-700 dark:text-dark-200">
+                    <span>{{ t('admin.promptAudit.policy.shadowSample') }}</span>
+                    <select v-model="policyShadowSample" class="input mt-1.5 w-full" data-test="policy-shadow-sample" @change="invalidatePolicyResults">
+                      <option value="safe">{{ t('admin.promptAudit.policy.shadowSamples.safe') }}</option>
+                      <option value="controversial">{{ t('admin.promptAudit.policy.shadowSamples.controversial') }}</option>
+                      <option value="violent">{{ t('admin.promptAudit.policy.shadowSamples.violent') }}</option>
+                      <option value="unsafe">{{ t('admin.promptAudit.policy.shadowSamples.unsafe') }}</option>
+                    </select>
+                  </label>
+                  <label class="min-w-36 flex-1 text-sm text-gray-700 dark:text-dark-200"><span>{{ t('admin.promptAudit.policy.shadowGroup') }}</span><input v-model="policyShadowContext.group_id" data-test="policy-shadow-group" class="input mt-1.5 w-full" inputmode="numeric" @input="invalidatePolicyResults" /></label>
+                  <label class="min-w-36 flex-1 text-sm text-gray-700 dark:text-dark-200"><span>{{ t('admin.promptAudit.policy.shadowModel') }}</span><input v-model="policyShadowContext.model" data-test="policy-shadow-model" class="input mt-1.5 w-full" @input="invalidatePolicyResults" /></label>
+                  <label class="min-w-36 flex-1 text-sm text-gray-700 dark:text-dark-200"><span>{{ t('admin.promptAudit.policy.shadowProvider') }}</span><input v-model="policyShadowContext.provider" data-test="policy-shadow-provider" class="input mt-1.5 w-full" @input="invalidatePolicyResults" /></label>
+                  <button type="button" class="btn btn-secondary btn-sm" :disabled="loading.policy" data-test="policy-shadow" @click="runPolicyShadow">
+                    {{ t('admin.promptAudit.policy.shadowRun') }}
+                  </button>
+                  <div v-if="policyShadow" class="basis-full text-sm text-gray-700 dark:text-dark-200" data-test="policy-shadow-result">
+                    {{ t('admin.promptAudit.policy.shadowResult') }}: {{ policyShadow.current.action }} -> {{ policyShadow.candidate.action }} ·
+                    {{ policyShadow.current.risk_level }} -> {{ policyShadow.candidate.risk_level }}<span v-if="policyShadow.candidate.matched_rule_id"> · {{ policyShadow.candidate.matched_rule_id }}</span>
+                  </div>
+                </div>
+                <div v-if="policyHistory" class="mt-5 overflow-x-auto">
+                  <table class="min-w-full text-left text-sm">
+                    <thead class="text-xs uppercase text-gray-500 dark:text-dark-400"><tr><th class="px-2 py-2">{{ t('admin.promptAudit.policy.version') }}</th><th class="px-2 py-2">{{ t('admin.promptAudit.policy.createdAt') }}</th><th class="px-2 py-2">{{ t('admin.promptAudit.common.actions') }}</th></tr></thead>
+                    <tbody><tr v-for="version in policyHistory.versions" :key="version.policy_version" class="border-t border-gray-100 dark:border-dark-800"><td class="px-2 py-2">v{{ version.policy_version }}<span v-if="version.policy_version === policyHistory.active_version" class="ml-2 text-xs text-primary-600">{{ t('admin.promptAudit.policy.active') }}</span></td><td class="px-2 py-2">{{ formatDate(version.created_at) }}</td><td class="px-2 py-2"><button type="button" class="btn btn-secondary btn-sm" :disabled="loading.policy || version.policy_version === policyHistory.active_version" @click="rollbackPolicy(version.policy_version)">{{ t('admin.promptAudit.policy.rollback') }}</button></td></tr></tbody>
+                  </table>
+                </div>
+              </section>
             </template>
           </div>
 
@@ -168,8 +219,14 @@ import type {
   PromptEventPage,
   PromptLoadErrors,
   PromptProbeResult,
+  PromptPolicyHistory,
+  PromptPolicyPreview,
+  PromptPolicyShadowResult,
+  PromptPolicyShadowSample,
+  PromptPolicyMatchContext,
+  PromptRiskActionRules,
 } from './types'
-import { buildUpdateRequest, cloneData, configToDraft, draftFingerprint, emptyEventFilters } from './viewModel'
+import { buildUpdateRequest, cloneData, configToDraft, draftFingerprint, emptyEventFilters, policyRulesFingerprint } from './viewModel'
 
 const { t, locale } = useI18n()
 const appStore = useAppStore()
@@ -183,6 +240,16 @@ const serverConfig = ref<PromptAuditDraft | null>(null)
 const draft = ref<PromptAuditDraft | null>(null)
 const runtime = ref<PromptAuditRuntime | null>(null)
 const groups = ref<PromptAuditGroup[]>([])
+const policyRules = ref<PromptRiskActionRules>({})
+const policyHistory = ref<PromptPolicyHistory | null>(null)
+const policyPreview = ref<PromptPolicyPreview | null>(null)
+const policyShadowSample = ref<PromptPolicyShadowSample>('controversial')
+const policyShadow = ref<PromptPolicyShadowResult | null>(null)
+const savedPolicyFingerprint = ref('')
+const policyInvalid = ref(false)
+const policyConflict = ref(false)
+const policyRequestGeneration = ref(0)
+const policyShadowContext = reactive({ group_id: '', model: '', provider: '' })
 const events = reactive<PromptEventPage>({ items: [], total: 0, page: 1, page_size: 20, pages: 0 })
 const filters = ref<PromptEventFilters>(emptyEventFilters())
 const appliedFilters = ref<PromptEventFilters>(emptyEventFilters())
@@ -196,9 +263,11 @@ const deletePreview = ref<PromptDeletePreview | null>(null)
 const deletePreviewFilters = ref<PromptEventFilters | null>(null)
 const showBlockingConfirmation = ref(false)
 const deleteRequest = reactive<{ mode: '' | 'single' | 'batch'; ids: number[] }>({ mode: '', ids: [] })
-const loading = reactive({ config: false, runtime: false, groups: false, events: false, saving: false, detail: false, deleting: false, previewing: false })
+const loading = reactive({ config: false, runtime: false, groups: false, events: false, saving: false, detail: false, deleting: false, previewing: false, policy: false })
 const loadErrors = reactive<PromptLoadErrors>({ config: '', runtime: '', groups: '', events: '' })
 const dirty = computed(() => draftFingerprint(draft.value) !== draftFingerprint(serverConfig.value))
+const policyDirty = computed(() => Boolean(policyHistory.value?.draft) && policyRulesFingerprint(policyRules.value) !== savedPolicyFingerprint.value)
+const policyBaseStale = computed(() => Boolean(policyHistory.value?.draft && policyHistory.value.draft.base_config_version !== draft.value?.config_version))
 
 const SaveToggle = defineComponent({
   inheritAttrs: false,
@@ -252,11 +321,16 @@ async function loadConfig() {
     const config = await promptAuditAPI.getConfig()
     serverConfig.value = configToDraft(config)
     draft.value = configToDraft(config)
+    policyRules.value = cloneData(config.rules ?? {})
+    invalidatePolicyResults()
   } catch (error) {
     loadErrors.config = errorMessage(error, 'admin.promptAudit.errors.loadConfig')
   } finally {
     loading.config = false
   }
+}
+async function loadPolicyHistory() {
+  try { policyHistory.value = await promptAuditAPI.listPolicyVersions() } catch (error) { appStore.showError(errorMessage(error, 'admin.promptAudit.errors.loadPolicyHistory')) }
 }
 async function loadRuntime() {
   loading.runtime = true
@@ -286,7 +360,151 @@ async function loadEvents() {
   }
 }
 async function loadInitial() {
-  await Promise.allSettled([loadConfig(), loadRuntime(), loadGroups(), loadEvents()])
+  await Promise.allSettled([loadConfig(), loadRuntime(), loadGroups(), loadEvents(), loadPolicyHistory()])
+  reconcilePolicyState()
+}
+
+function reconcilePolicyState() {
+  if (!draft.value) return
+  const storedDraft = policyHistory.value?.draft
+  if (storedDraft) {
+    policyRules.value = cloneData(storedDraft.rules)
+  } else {
+    policyRules.value = cloneData(draft.value.rules ?? {})
+  }
+  savedPolicyFingerprint.value = policyRulesFingerprint(policyRules.value)
+  policyConflict.value = Boolean(storedDraft && storedDraft.base_config_version !== draft.value.config_version)
+  invalidatePolicyResults()
+}
+
+function updatePolicyRules(value: PromptRiskActionRules) {
+  policyRules.value = cloneData(value)
+  invalidatePolicyResults()
+}
+function invalidatePolicyResults() {
+  policyRequestGeneration.value++
+  policyPreview.value = null
+  policyShadow.value = null
+}
+
+function policyShadowMatchContext(): PromptPolicyMatchContext {
+  const group = policyShadowContext.group_id.trim()
+  const groupID = group ? Number(group) : undefined
+  return {
+    ...(Number.isInteger(groupID) && groupID! > 0 ? { group_id: groupID } : {}),
+    ...(policyShadowContext.model.trim() ? { model: policyShadowContext.model.trim() } : {}),
+    ...(policyShadowContext.provider.trim() ? { provider: policyShadowContext.provider.trim() } : {}),
+  }
+}
+function policyRequestIdentity(): string {
+  return JSON.stringify({ rules: policyRules.value, sample: policyShadowSample.value, context: policyShadowMatchContext(), active: draft.value?.config_version ?? 0, generation: policyRequestGeneration.value })
+}
+
+async function previewPolicyDraft() {
+  if (loading.policy || policyInvalid.value) return
+  const identity = policyRequestIdentity()
+  loading.policy = true
+  try {
+    const result = await promptAuditAPI.previewPolicy(cloneData(policyRules.value))
+    if (identity === policyRequestIdentity()) policyPreview.value = result
+  } catch (error) {
+    if (identity === policyRequestIdentity()) appStore.showError(errorMessage(error, 'admin.promptAudit.errors.policy'))
+  } finally { loading.policy = false }
+}
+function shadowSampleGuardOutput(sample: PromptPolicyShadowSample): string {
+  if (sample === 'safe') return 'Safety: Safe\nCategories: None'
+  if (sample === 'unsafe') return 'Safety: Unsafe\nCategories: PII'
+  if (sample === 'violent') return 'Safety: Controversial\nCategories: Violent'
+  return 'Safety: Controversial\nCategories: Jailbreak'
+}
+function policyExampleLabel(name: string): string {
+  if (name === 'safe') return t('admin.promptAudit.policy.shadowSamples.safe')
+  if (name === 'unsafe_pii') return t('admin.promptAudit.policy.shadowSamples.unsafe')
+  if (name === 'controversial_violent') return t('admin.promptAudit.policy.shadowSamples.violent')
+  return t('admin.promptAudit.policy.shadowSamples.controversial')
+}
+async function runPolicyShadow() {
+  if (loading.policy || policyInvalid.value) return
+  const identity = policyRequestIdentity()
+  loading.policy = true
+  try {
+    const result = await promptAuditAPI.shadowPolicyGuardOutput(shadowSampleGuardOutput(policyShadowSample.value), cloneData(policyRules.value), policyShadowMatchContext())
+    if (identity === policyRequestIdentity()) policyShadow.value = result
+  } catch (error) {
+    if (identity === policyRequestIdentity()) appStore.showError(errorMessage(error, 'admin.promptAudit.errors.policy'))
+  } finally { loading.policy = false }
+}
+async function savePolicyDraft() {
+  if (!draft.value || loading.policy || policyInvalid.value) return
+  const submittedRules = cloneData(policyRules.value)
+  const expectedConfigVersion = draft.value.config_version
+  const expectedDraftVersion = policyHistory.value?.draft?.draft_version ?? 0
+  loading.policy = true
+  try {
+    const history = await promptAuditAPI.savePolicyDraft(expectedConfigVersion, expectedDraftVersion, submittedRules)
+    policyHistory.value = history
+    savedPolicyFingerprint.value = policyRulesFingerprint(history.draft?.rules ?? submittedRules)
+    policyConflict.value = false
+    appStore.showSuccess(t('admin.promptAudit.messages.policyDraftSaved'))
+  } catch (error) {
+    policyConflict.value = extractApiErrorCode(error) === 'prompt_audit_config_conflict'
+    appStore.showError(errorMessage(error, 'admin.promptAudit.errors.policy'))
+  } finally { loading.policy = false }
+}
+async function publishPolicyDraft() {
+  if (!draft.value || !policyHistory.value?.draft || policyDirty.value || policyConflict.value || policyBaseStale.value || policyInvalid.value || loading.policy) return
+  const submittedRulesFingerprint = policyRulesFingerprint(policyRules.value)
+  const expectedConfigVersion = draft.value.config_version
+  const expectedDraftVersion = policyHistory.value.draft.draft_version
+  loading.policy = true
+  try {
+    const saved = await promptAuditAPI.publishPolicyDraft(expectedConfigVersion, expectedDraftVersion)
+    serverConfig.value = configToDraft(saved)
+    if (draft.value) {
+      draft.value = {
+        ...draft.value,
+        rules: cloneData(saved.rules ?? {}),
+        config_version: saved.config_version,
+        updated_at: saved.updated_at,
+        updated_by: saved.updated_by,
+        change_summary: saved.change_summary,
+      }
+    }
+    if (policyRulesFingerprint(policyRules.value) === submittedRulesFingerprint) policyRules.value = cloneData(saved.rules ?? {})
+    policyHistory.value = await promptAuditAPI.listPolicyVersions()
+    savedPolicyFingerprint.value = policyRulesFingerprint(saved.rules ?? {})
+    policyConflict.value = false
+    invalidatePolicyResults()
+    appStore.showSuccess(t('admin.promptAudit.messages.policyPublished'))
+    await loadRuntime()
+  } catch (error) { policyConflict.value = extractApiErrorCode(error) === 'prompt_audit_config_conflict'; appStore.showError(errorMessage(error, 'admin.promptAudit.errors.policy')) } finally { loading.policy = false }
+}
+async function rollbackPolicy(version: number) {
+  if (!draft.value || loading.policy || !window.confirm(t('admin.promptAudit.policy.rollbackConfirm', { version }))) return
+  const submittedRulesFingerprint = policyRulesFingerprint(policyRules.value)
+  const expectedConfigVersion = draft.value.config_version
+  loading.policy = true
+  try {
+    const saved = await promptAuditAPI.rollbackPolicy(version, expectedConfigVersion)
+    serverConfig.value = configToDraft(saved)
+    if (draft.value) {
+      draft.value = {
+        ...draft.value,
+        rules: cloneData(saved.rules ?? {}),
+        config_version: saved.config_version,
+        updated_at: saved.updated_at,
+        updated_by: saved.updated_by,
+        change_summary: saved.change_summary,
+      }
+    }
+    if (policyRulesFingerprint(policyRules.value) === submittedRulesFingerprint) policyRules.value = cloneData(saved.rules ?? {})
+    policyHistory.value = await promptAuditAPI.listPolicyVersions()
+    savedPolicyFingerprint.value = policyRulesFingerprint(saved.rules ?? {})
+    policyConflict.value = false
+    invalidatePolicyResults()
+    appStore.showSuccess(t('admin.promptAudit.messages.policyRolledBack'))
+    await loadRuntime()
+  } catch (error) { policyConflict.value = extractApiErrorCode(error) === 'prompt_audit_config_conflict'; appStore.showError(errorMessage(error, 'admin.promptAudit.errors.policy')) } finally { loading.policy = false }
 }
 
 function replaceDraft(value: PromptAuditDraft) { draft.value = cloneData(value) }
@@ -312,11 +530,15 @@ function resetDraft() {
 }
 async function saveConfig() {
   if (!draft.value || !dirty.value) return
+  const submittedDraft = cloneData(draft.value)
+  const submittedFingerprint = draftFingerprint(submittedDraft)
   loading.saving = true
   try {
-    const saved = await promptAuditAPI.updateConfig(buildUpdateRequest(draft.value))
+    const saved = await promptAuditAPI.updateConfig(buildUpdateRequest(submittedDraft))
     serverConfig.value = configToDraft(saved)
-    draft.value = configToDraft(saved)
+    if (draftFingerprint(draft.value) === submittedFingerprint) draft.value = configToDraft(saved)
+    else if (draft.value) draft.value = { ...draft.value, config_version: saved.config_version, updated_at: saved.updated_at, updated_by: saved.updated_by, change_summary: saved.change_summary }
+    invalidatePolicyResults()
     appStore.showSuccess(t('admin.promptAudit.messages.saved'))
     await loadRuntime()
   } catch (error) {

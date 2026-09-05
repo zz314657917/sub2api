@@ -10,23 +10,25 @@ import (
 const latencySampleCapacity = 2048
 
 type AtomicMetrics struct {
-	total        atomic.Int64
-	allowed      atomic.Int64
-	flagged      atomic.Int64
-	blocked      atomic.Int64
-	unavailable  atomic.Int64
-	invalid      atomic.Int64
-	timeouts     atomic.Int64
-	failovers    atomic.Int64
-	bulkheadFull atomic.Int64
-	recordFailed atomic.Int64
-	latencyTotal atomic.Int64
-	latencyMax   atomic.Int64
-	enqueued     atomic.Int64
-	dropped      atomic.Int64
-	latencyMu    sync.RWMutex
-	latencies    []int64
-	latencyNext  int
+	total         atomic.Int64
+	allowed       atomic.Int64
+	flagged       atomic.Int64
+	blocked       atomic.Int64
+	unavailable   atomic.Int64
+	invalid       atomic.Int64
+	timeouts      atomic.Int64
+	failovers     atomic.Int64
+	bulkheadFull  atomic.Int64
+	recordFailed  atomic.Int64
+	latencyTotal  atomic.Int64
+	latencyMax    atomic.Int64
+	enqueued      atomic.Int64
+	dropped       atomic.Int64
+	shadowRuns    atomic.Int64
+	shadowChanges atomic.Int64
+	latencyMu     sync.RWMutex
+	latencies     []int64
+	latencyNext   int
 }
 
 func NewAtomicMetrics() *AtomicMetrics { return &AtomicMetrics{} }
@@ -40,6 +42,7 @@ func (m *AtomicMetrics) Snapshot() GuardMetricsSnapshot {
 		Blocked: m.blocked.Load(), Unavailable: m.unavailable.Load(), Invalid: m.invalid.Load(),
 		Timeouts: m.timeouts.Load(), Failovers: m.failovers.Load(), BulkheadFull: m.bulkheadFull.Load(),
 		RecordFailed: m.recordFailed.Load(), LatencyCount: m.total.Load(), LatencyMaxMS: m.latencyMax.Load(),
+		ShadowRuns: m.shadowRuns.Load(), ShadowChanges: m.shadowChanges.Load(),
 	}
 	if snapshot.LatencyCount > 0 {
 		snapshot.LatencyAvgMS = m.latencyTotal.Load() / snapshot.LatencyCount
@@ -54,6 +57,16 @@ func (m *AtomicMetrics) Snapshot() GuardMetricsSnapshot {
 		snapshot.LatencyP99MS = percentile(samples, 0.99)
 	}
 	return snapshot
+}
+
+func (m *AtomicMetrics) IncShadow(changed bool) {
+	if m == nil {
+		return
+	}
+	m.shadowRuns.Add(1)
+	if changed {
+		m.shadowChanges.Add(1)
+	}
 }
 
 func (m *AtomicMetrics) AuditSnapshot() AuditMetricsSnapshot {

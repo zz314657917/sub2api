@@ -109,7 +109,7 @@ func (g *GuardEvaluator) Evaluate(ctx context.Context, cfg ActiveConfig, snapsho
 			logGuardFailure(snapshot, cfg, kind, code, "", g.clock.Now().Sub(start))
 			return nil, err
 		}
-		ApplyRiskActionRules(result, cfg.Rules)
+		ApplyRiskPolicy(result, cfg.Rules, PolicyMatchContext{GroupID: snapshot.GroupID, Model: snapshot.Model, Provider: snapshot.Provider})
 		result.ChunkTotal = len(chunks)
 		results = append(results, result)
 		LogInfo(EventChunkCompleted, mergeLogFields(baseFields, map[string]any{

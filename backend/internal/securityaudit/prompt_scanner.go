@@ -39,11 +39,12 @@ func AggregateResults(results []*NormalizedResult, latency time.Duration) (*Norm
 	categories := map[string]struct{}{}
 	matched := map[string]struct{}{}
 	unknown := map[string]struct{}{}
+	owasp := map[string]struct{}{}
 	for _, result := range results {
 		if result == nil {
 			return nil, errors.New("prompt guard partial result is not allowed")
 		}
-		if resultSeverity(result.Decision) > resultSeverity(aggregated.Decision) {
+		if aggregateResultStronger(result, aggregated) {
 			aggregated.Decision = result.Decision
 			aggregated.RiskLevel = result.RiskLevel
 			aggregated.Action = result.Action
@@ -52,6 +53,8 @@ func AggregateResults(results []*NormalizedResult, latency time.Duration) (*Norm
 			aggregated.ScannerVersion = result.ScannerVersion
 			aggregated.PolicyID = result.PolicyID
 			aggregated.PolicyVersion = result.PolicyVersion
+			aggregated.MatchedRuleID = result.MatchedRuleID
+			aggregated.matchedRulePriority = result.matchedRulePriority
 		}
 		if aggregated.GuardEndpointID == "" {
 			aggregated.GuardEndpointID = result.GuardEndpointID
@@ -78,11 +81,37 @@ func AggregateResults(results []*NormalizedResult, latency time.Duration) (*Norm
 		for _, category := range result.UnknownCategories {
 			unknown[category] = struct{}{}
 		}
+		for _, tag := range result.OWASPTags {
+			owasp[tag] = struct{}{}
+		}
 	}
 	aggregated.Categories = orderedScannerKeys(categories)
 	aggregated.MatchedScanners = orderedScannerKeys(matched)
 	aggregated.UnknownCategories = sortedKeys(unknown)
+	aggregated.OWASPTags = sortedKeys(owasp)
 	return aggregated, nil
+}
+
+func aggregateResultStronger(candidate, current *NormalizedResult) bool {
+	if actionRank(candidate.Action) != actionRank(current.Action) {
+		return actionRank(candidate.Action) > actionRank(current.Action)
+	}
+	if riskRank(candidate.RiskLevel) != riskRank(current.RiskLevel) {
+		return riskRank(candidate.RiskLevel) > riskRank(current.RiskLevel)
+	}
+	if resultSeverity(candidate.Decision) != resultSeverity(current.Decision) {
+		return resultSeverity(candidate.Decision) > resultSeverity(current.Decision)
+	}
+	if candidate.MatchedRuleID == "" {
+		return false
+	}
+	if current.MatchedRuleID == "" {
+		return true
+	}
+	if candidate.matchedRulePriority != current.matchedRulePriority {
+		return candidate.matchedRulePriority > current.matchedRulePriority
+	}
+	return candidate.MatchedRuleID < current.MatchedRuleID
 }
 
 func resultSeverity(decision EventDecision) int {

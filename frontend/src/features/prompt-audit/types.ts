@@ -1,6 +1,35 @@
 export type PromptAuditMode = 'off' | 'async_audit' | 'blocking'
 export type PromptDecision = 'pass' | 'flag' | 'critical'
 export type PromptRiskLevel = 'low' | 'medium' | 'high' | 'critical'
+export type PromptPolicyAction = 'Allow' | 'Warn' | 'Block'
+
+export interface PromptRiskPolicyAction {
+  action: PromptPolicyAction | string
+  risk_level?: PromptRiskLevel | string
+}
+
+export interface PromptRiskPolicyRule {
+  id: string
+  priority: number
+  safety?: string[]
+  categories?: string[]
+  groups?: number[]
+  models?: string[]
+  providers?: string[]
+  action: PromptPolicyAction | string
+  risk_level?: PromptRiskLevel | string
+  message_code?: string
+  owasp_tags?: string[]
+}
+
+export interface PromptRiskActionRules {
+  policy_id?: string
+  policy_version?: number
+  defaults?: Record<string, PromptRiskPolicyAction>
+  rules?: PromptRiskPolicyRule[]
+  safety?: Record<string, PromptPolicyAction | string>
+  categories?: Record<string, PromptPolicyAction | string>
+}
 
 export interface PromptAuditEndpoint {
   id: string
@@ -30,6 +59,7 @@ export interface PromptAuditConfig {
   worker_count: number
   queue_capacity: number
   scanners: string[]
+  rules?: PromptRiskActionRules
   all_groups: boolean
   group_ids: number[]
   endpoints: PromptAuditEndpoint[]
@@ -53,6 +83,7 @@ export interface PromptAuditUpdateRequest {
   worker_count: number
   queue_capacity: number
   scanners: string[]
+  rules?: PromptRiskActionRules
   all_groups: boolean
   group_ids: number[]
   endpoints: Array<{
@@ -67,6 +98,72 @@ export interface PromptAuditUpdateRequest {
     input_limit: number
     enabled: boolean
   }>
+}
+
+export interface PromptPolicyDraft {
+  draft_version: number
+  base_config_version: number
+  rules: PromptRiskActionRules
+  updated_at: string
+  updated_by: number
+}
+
+export interface PromptPolicyVersion {
+  policy_version: number
+  matched_rule_id?: string
+  owasp_tags?: string[]
+  policy_id: string
+  rules: PromptRiskActionRules
+  config_version: number
+  created_at: string
+  created_by: number
+  rollback_count?: number
+}
+
+export interface PromptPolicyHistory {
+  active_version: number
+  draft?: PromptPolicyDraft
+  versions: PromptPolicyVersion[]
+}
+
+export interface PromptPolicyPreviewExample {
+  name: string
+  safety: string
+  categories: string[]
+  current_action: PromptPolicyAction
+  current_risk_level: PromptRiskLevel
+  candidate_action: PromptPolicyAction
+  candidate_risk_level: PromptRiskLevel
+  matched_rule_id?: string
+  owasp_tags?: string[]
+  would_escalate: boolean
+}
+
+export interface PromptPolicyPreview {
+  policy_id: string
+  rule_count: number
+  category_count: number
+  scoped_rule_count: number
+  blocking_rule_count: number
+  warning_rule_count: number
+  affected_scopes: string[]
+  examples?: PromptPolicyPreviewExample[]
+}
+
+export type PromptPolicyShadowSample = 'safe' | 'controversial' | 'violent' | 'unsafe'
+
+export interface PromptPolicyMatchContext {
+  group_id?: number
+  model?: string
+  provider?: string
+}
+
+export interface PromptPolicyShadowResult {
+  current: Record<string, unknown>
+  candidate: Record<string, unknown>
+  action_changed: boolean
+  risk_changed: boolean
+  would_escalate: boolean
 }
 
 export interface PromptProbeResult {
@@ -188,6 +285,8 @@ export interface PromptAuditEvent {
   guard_endpoint_id: string
   policy_id: string
   policy_version: number
+  matched_rule_id?: string
+  owasp_tags?: string[]
   config_version: number
   chunk_total: number
   latency_ms: number

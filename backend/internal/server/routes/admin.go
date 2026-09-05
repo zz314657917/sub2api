@@ -145,6 +145,12 @@ func registerPromptAuditRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	{
 		promptAudit.GET("/config", h.Admin.PromptAudit.GetConfig)
 		promptAudit.PUT("/config", h.Admin.PromptAudit.UpdateConfig)
+		promptAudit.GET("/policy/versions", h.Admin.PromptAudit.ListPolicyVersions)
+		promptAudit.POST("/policy/preview", h.Admin.PromptAudit.PreviewPolicy)
+		promptAudit.POST("/policy/shadow", h.Admin.PromptAudit.ShadowPolicy)
+		promptAudit.PUT("/policy/draft", h.Admin.PromptAudit.SavePolicyDraft)
+		promptAudit.POST("/policy/publish", h.Admin.PromptAudit.PublishPolicyDraft)
+		promptAudit.POST("/policy/rollback", h.Admin.PromptAudit.RollbackPolicy)
 		promptAudit.POST("/endpoints/probe", h.Admin.PromptAudit.ProbeEndpoint)
 		promptAudit.GET("/runtime", h.Admin.PromptAudit.GetRuntime)
 		promptAudit.GET("/events", h.Admin.PromptAudit.ListEvents)

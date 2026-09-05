@@ -11,6 +11,11 @@ import type {
   PromptEventPage,
   PromptProbeResult,
   PromptAuditEndpointDraft,
+  PromptPolicyHistory,
+  PromptPolicyPreview,
+  PromptPolicyShadowResult,
+  PromptPolicyMatchContext,
+  PromptRiskActionRules,
 } from './types'
 import { eventFilterPayload, eventQueryParams } from './viewModel'
 
@@ -23,6 +28,57 @@ export async function getConfig(): Promise<PromptAuditConfig> {
 
 export async function updateConfig(payload: PromptAuditUpdateRequest): Promise<PromptAuditConfig> {
   const { data } = await apiClient.put<PromptAuditConfig>(`${basePath}/config`, payload)
+  return data
+}
+
+export async function listPolicyVersions(): Promise<PromptPolicyHistory> {
+  const { data } = await apiClient.get<PromptPolicyHistory>(`${basePath}/policy/versions`)
+  return data
+}
+
+export async function previewPolicy(rules: PromptRiskActionRules): Promise<PromptPolicyPreview> {
+  const { data } = await apiClient.post<PromptPolicyPreview>(`${basePath}/policy/preview`, rules)
+  return data
+}
+
+export async function shadowPolicy(currentResult: Record<string, unknown>, rules: PromptRiskActionRules, context: Record<string, unknown> = {}): Promise<PromptPolicyShadowResult> {
+  const { data } = await apiClient.post<PromptPolicyShadowResult>(`${basePath}/policy/shadow`, { current_result: currentResult, rules, context })
+  return data
+}
+
+// Keep the legacy normalized-result form above for older callers. New policy
+// previews send parser input so active and candidate rules share one baseline.
+export async function shadowPolicyGuardOutput(guardOutput: string, rules: PromptRiskActionRules, context: PromptPolicyMatchContext = {}): Promise<PromptPolicyShadowResult> {
+  const { data } = await apiClient.post<PromptPolicyShadowResult>(`${basePath}/policy/shadow`, { guard_output: guardOutput, rules, context })
+  return data
+}
+
+export async function savePolicyDraft(
+  expectedConfigVersion: number,
+  expectedDraftVersion: number,
+  rules: PromptRiskActionRules,
+): Promise<PromptPolicyHistory> {
+  const { data } = await apiClient.put<PromptPolicyHistory>(`${basePath}/policy/draft`, {
+    expected_config_version: expectedConfigVersion,
+    expected_draft_version: expectedDraftVersion,
+    rules,
+  })
+  return data
+}
+
+export async function publishPolicyDraft(expectedConfigVersion: number, expectedDraftVersion: number): Promise<PromptAuditConfig> {
+  const { data } = await apiClient.post<PromptAuditConfig>(`${basePath}/policy/publish`, {
+    expected_config_version: expectedConfigVersion,
+    expected_draft_version: expectedDraftVersion,
+  })
+  return data
+}
+
+export async function rollbackPolicy(policyVersion: number, expectedConfigVersion: number): Promise<PromptAuditConfig> {
+  const { data } = await apiClient.post<PromptAuditConfig>(`${basePath}/policy/rollback`, {
+    policy_version: policyVersion,
+    expected_config_version: expectedConfigVersion,
+  })
   return data
 }
 
@@ -106,6 +162,13 @@ export async function listGroups(): Promise<PromptAuditGroup[]> {
 export const promptAuditAPI = {
   getConfig,
   updateConfig,
+  listPolicyVersions,
+  previewPolicy,
+  shadowPolicy,
+  shadowPolicyGuardOutput,
+  savePolicyDraft,
+  publishPolicyDraft,
+  rollbackPolicy,
   probeEndpoint,
   getRuntime,
   listEvents,
