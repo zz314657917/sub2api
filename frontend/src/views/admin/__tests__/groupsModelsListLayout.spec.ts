@@ -42,4 +42,16 @@ describe("groups models list layout", () => {
       "repeat(auto-fit, minmax(7.5rem, 1fr))",
     );
   });
+
+  it("uses the Gemini-native models endpoint in Gemini group copy", () => {
+    expect(groupsViewSource).toContain(
+      'platform === "gemini" ? "/v1beta/models" : "/v1/models"',
+    );
+    expect(groupsViewSource).toContain(
+      "modelsListEndpoint(createForm.platform)",
+    );
+    expect(groupsViewSource).toContain(
+      "modelsListEndpoint(editForm.platform)",
+    );
+  });
 });
