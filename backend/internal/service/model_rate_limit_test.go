@@ -198,6 +198,30 @@ func TestIsModelRateLimited_Antigravity_ThinkingAffectsModelKey(t *testing.T) {
 	}
 }
 
+func TestIsModelRateLimited_AnthropicFableFamilyScope(t *testing.T) {
+	future := time.Now().Add(10 * time.Minute).Format(time.RFC3339)
+	account := &Account{
+		Platform: PlatformAnthropic,
+		Extra: map[string]any{
+			modelRateLimitsKey: map[string]any{
+				anthropicFableRateLimitKey: map[string]any{
+					"rate_limit_reset_at": future,
+				},
+			},
+		},
+	}
+
+	if !account.isModelRateLimitedWithContext(context.Background(), "claude-fable-5-1") {
+		t.Fatal("expected Fable 5.1 to use the Fable family limit")
+	}
+	if !account.isModelRateLimitedWithContext(context.Background(), "claude-fable-5[1m]") {
+		t.Fatal("expected Fable TTL variant to use the Fable family limit")
+	}
+	if account.isModelRateLimitedWithContext(context.Background(), "claude-sonnet-4-6") {
+		t.Fatal("non-Fable Anthropic models must not use the Fable family limit")
+	}
+}
+
 func TestGetModelRateLimitRemainingTime(t *testing.T) {
 	now := time.Now()
 	future10m := now.Add(10 * time.Minute).Format(time.RFC3339)

@@ -1335,6 +1335,24 @@ func TestGetModelPricingWithChannel_UnknownModelReturnsError(t *testing.T) {
 	require.Contains(t, err.Error(), "pricing not found")
 }
 
+func TestFableFallbackPricing(t *testing.T) {
+	svc := newTestBillingService()
+
+	fable5, err := svc.GetModelPricing("claude-fable-5")
+	require.NoError(t, err)
+	require.NotNil(t, fable5)
+	require.InDelta(t, 10e-6, fable5.InputPricePerToken, 1e-12)
+	require.InDelta(t, 50e-6, fable5.OutputPricePerToken, 1e-12)
+	require.InDelta(t, 1e-6, fable5.CacheReadPricePerToken, 1e-12)
+	require.InDelta(t, 20e-6, fable5.CacheCreation1hPrice, 1e-12)
+	require.True(t, fable5.SupportsCacheBreakdown)
+
+	fable51, err := svc.GetModelPricing("claude-fable-5-1-20260901")
+	require.NoError(t, err)
+	require.NotNil(t, fable51)
+	require.InDelta(t, 0.25e-6, fable51.CacheReadPricePerToken, 1e-12)
+}
+
 func TestGetModelPricingWithChannel_NilImageOutputPriceZerosAndMarksExplicit(t *testing.T) {
 	svc := newTestBillingService()
 
