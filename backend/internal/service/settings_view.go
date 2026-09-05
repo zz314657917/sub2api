@@ -587,9 +587,10 @@ func DefaultBetaPolicySettings() *BetaPolicySettings {
 // 本策略复用 BetaPolicyAction*/BetaPolicyScope* 常量语义，只是匹配键从
 // anthropic-beta header 换成 body 的 service_tier 字段。
 const (
-	OpenAIFastTierAny      = "all"      // 匹配任意已识别的 service_tier
-	OpenAIFastTierPriority = "priority" // 仅匹配 fast（priority）
-	OpenAIFastTierFlex     = "flex"     // 仅匹配 flex
+	OpenAIFastTierAny       = "all"       // 匹配任意已识别的 service_tier
+	OpenAIFastTierPriority  = "priority"  // 仅匹配 fast（priority）
+	OpenAIFastTierUltrafast = "ultrafast" // 仅匹配 ultrafast
+	OpenAIFastTierFlex      = "flex"      // 仅匹配 flex
 )
 
 // OpenAIFastPolicyRule 单条 OpenAI fast/flex 策略规则
