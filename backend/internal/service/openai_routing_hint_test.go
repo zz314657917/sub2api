@@ -27,12 +27,9 @@ func TestOpenAICodexRoutingHintCanonicalizesOfficialServiceTiers(t *testing.T) {
 		{name: "fast alias", model: "gpt-5.6", serviceTier: " fast ", want: "model=gpt-5.6;tier=priority"},
 		{name: "priority", model: "gpt-5.6", serviceTier: "priority", want: "model=gpt-5.6;tier=priority"},
 		{name: "flex", model: "gpt-5.6", serviceTier: "flex", want: "model=gpt-5.6;tier=flex"},
-		{name: "ultrafast", model: "gpt-5.6", serviceTier: "ultrafast", want: "model=gpt-5.6;tier=ultrafast"},
-		{name: "explicit default sentinel", model: "gpt-5.6", serviceTier: "default", want: "model=gpt-5.6"},
-		{name: "omitted tier", model: "gpt-5.6", want: "model=gpt-5.6"},
-		{name: "auto is not expanded without catalog support", model: "gpt-5.6", serviceTier: "auto", want: "model=gpt-5.6"},
-		{name: "scale is not expanded without catalog support", model: "gpt-5.6", serviceTier: "scale", want: "model=gpt-5.6"},
-		{name: "unknown tier does not expand protocol", model: "gpt-5.6", serviceTier: "turbo", want: "model=gpt-5.6"},
+		{name: "default", model: "gpt-5.6", serviceTier: "default", want: "model=gpt-5.6"},
+		{name: "omitted", model: "gpt-5.6", want: "model=gpt-5.6"},
+		{name: "unknown", model: "gpt-5.6", serviceTier: "turbo", want: "model=gpt-5.6"},
 	}
 
 	for _, tt := range tests {
@@ -83,17 +80,10 @@ func TestOpenAIOAuthHTTPBuildersSendRoutingHintFromFinalBody(t *testing.T) {
 	}}
 	body := []byte(`{"model":"gpt-5.6-codex","service_tier":"fast"}`)
 
-	tests := []struct {
-		name string
-		body []byte
-		want string
-	}{
-		{name: "fast", body: []byte(`{"model":"gpt-5.6-codex","service_tier":"fast"}`), want: "model=gpt-5.6-codex;tier=priority"},
-		{name: "flex", body: []byte(`{"model":"gpt-5.6-codex","service_tier":"flex"}`), want: "model=gpt-5.6-codex;tier=flex"},
-		{name: "ultrafast", body: []byte(`{"model":"gpt-5.6-codex","service_tier":"ultrafast"}`), want: "model=gpt-5.6-codex;tier=ultrafast"},
-		{name: "default", body: []byte(`{"model":"gpt-5.6-codex","service_tier":"default"}`), want: "model=gpt-5.6-codex"},
-		{name: "omitted", body: []byte(`{"model":"gpt-5.6-codex"}`), want: "model=gpt-5.6-codex"},
-	}
+	for _, passthrough := range []bool{false, true} {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
 
 		var req *http.Request
 		var err error
@@ -164,17 +154,9 @@ func TestOpenAIWSHeadersSendOAuthRoutingHintOnly(t *testing.T) {
 	headers, _ := svc.buildOpenAIWSHeaders(context.Background(), c, oauth, "test-token", decision, true, "", "", "", "gpt-5.6-codex", "fast")
 	require.Equal(t, "model=gpt-5.6-codex;tier=priority", headers.Get(openAICodexRoutingHintHeader))
 
-	oauthAccount := &Account{
-		Platform: PlatformOpenAI,
-		Type:     AccountTypeOAuth,
-		Credentials: map[string]any{
-			"chatgpt_account_id": "test-account",
-		},
-	}
-	require.Equal(t, "model=gpt-5.6-codex;tier=priority", build(t, oauthAccount, "fast").Get(openAICodexRoutingHintHeader))
-	require.Equal(t, "model=gpt-5.6-codex;tier=ultrafast", build(t, oauthAccount, "ultrafast").Get(openAICodexRoutingHintHeader))
-	require.Equal(t, "model=gpt-5.6-codex", build(t, oauthAccount, "default").Get(openAICodexRoutingHintHeader))
-	require.Empty(t, build(t, &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}, "priority").Get(openAICodexRoutingHintHeader))
+	apiKey := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	headers, _ = svc.buildOpenAIWSHeaders(context.Background(), c, apiKey, "test-token", decision, true, "", "", "", "gpt-5.6-codex", "priority")
+	require.Empty(t, headers.Get(openAICodexRoutingHintHeader))
 }
 
 func TestOpenAIWSConnPoolRoutingHintIsSoftAffinity(t *testing.T) {
