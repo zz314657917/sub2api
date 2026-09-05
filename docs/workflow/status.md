@@ -1,22 +1,77 @@
 ---
-phase: intake
-current_sprint: prompt-audit-policy-matrix-s293
-total_sprints: 293
-pending_action: Planner plan drafted; user confirmation and contract review are required before S293-A.
+phase: qa
+current_sprint: upstream-v0200-claude-fable-5-1-s294
+total_sprints: 294
+pending_action: Review the known unit-test fixture drift; S294 build/typecheck gates now pass.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-09-04 17:24 +08:00
+last_verified: 2026-09-05 23:00 +08:00
 ---
+
+# Current Sprint: Claude Fable 5.1 S294
+
+- `CONTRACT APPROVED`: upstream `b3f796972`, `32ac921f2` and `34b8bf1a6`
+  are adapted behavior-first to the local consolidated gateway/rate-limit
+  topology. Model catalogs, OAuth prompt compatibility, Fable 7d_oi
+  model-level limiting, passive usage and frontend display are in scope.
+- Migration 232, channel `cache_write_1h_price`, the absent account scheduling
+  threshold framework, provider smoke, deployment, push and existing dirty
+  paths are denied/deferred.
+- Contract: `docs/workflow/tasks/upstream-v0200-claude-fable-5-1-s294.md`.
+- Review: `docs/workflow/contract-reviews/upstream-v0200-claude-fable-5-1-s294-review.md` (`PASS`).
+- `BUILD DONE / FOCUSED PASS`: Fable catalogs, mappings, pricing, OAuth prompt shape, 7d_oi model scope, passive usage and frontend display are implemented; focused backend tests and frontend Vitest 47/47 pass. Antigravity Claude usage aggregation now includes `claude-fable-5-1`.
+- `INDEPENDENT QA UPDATE`: the previously recorded `mustJSON` and Prompt
+  Audit `owasp_tags` type errors are resolved; `go build ./...`, frontend
+  `typecheck` and production build now pass. `go test -tags unit ./...`
+  retains the known repository fixture/test drift. No Fable code defect was
+  found in focused evidence.
+- Worker result: `docs/workflow/worker-results/upstream-v0200-claude-fable-5-1-s294-result.md`.
+- QA report: `docs/workflow/qa-reports/upstream-v0200-claude-fable-5-1-s294-qa.md` (`BLOCKED`).
+- Local product commits: catalogs/usage `74a5d2c35`; pricing/rate-limit `a92afcde3`.
+- Provider smoke, database, container, deployment, push and upstream history integration remain denied/deferred.
 
 # Prompt Audit Policy Matrix S293
 
-- `PLANNER DRAFT`: four-stage plan is recorded in
-  `docs/workflow/plans/prompt-audit-policy-matrix-s293.md`.
-- Current stage is `intake`; `docs/workflow/tasks/prompt-audit-policy-matrix-s293.md`
-  is an unapproved umbrella draft only. No S293 child contract or business
-  implementation has started. S292 product code is committed locally as
-  `cc4acbcac`; existing user dirty paths remain unchanged and uncommitted.
+- `CONTINUATION / CODE CHECKS PASS, RELEASE BLOCKED` (2026-09-05): strict draft CAS,
+  monotonic snapshot installation, parser-based active/candidate comparisons,
+  editor lifecycle/version continuity and final history/attribution fixes have
+  focused regression and independent review evidence. Frontend 43/43, backend
+  focused checks and builds pass. PostgreSQL/Redis/Guard and real browser acceptance
+  remain unverified; see `qa-reports/prompt-audit-policy-matrix-s293-remediation-continuation-qa.md`.
+
+- `REMEDIATION CODE COMMITTED`: R1 core fixes, R2 draft-base CAS and R3 editor state
+  fixes are locally committed as `3281801e1`. Previous local-acceptance text below is historical
+  and must not be read as current release approval. R4 runtime acceptance remains
+  pending; real PostgreSQL/Redis/Qwen3Guard evidence is unavailable.
+
+- `HISTORICAL / superseded`: S293-A through S293-D were previously recorded as
+  implemented locally. The policy matrix supports scoped matching, monotonic
+  escalation, explainable `matched_rule_id`/OWASP metadata, bounded history,
+  CAS drafts, preview, publish, rollback, admin API/UI and copy-on-write
+  shadow evaluation. Synchronous and asynchronous audit paths share the same
+  evaluator; unknown Guard categories fail closed, and publication hot-reloads the atomic snapshot through the
+  existing PostgreSQL/Redis path without rebuilding sub2api.
+- Evidence: `docs/workflow/worker-results/prompt-audit-policy-matrix-s293b-result.md`,
+  `docs/workflow/worker-results/prompt-audit-policy-matrix-s293c-result.md`,
+  `docs/workflow/worker-results/prompt-audit-policy-matrix-s293d-result.md`,
+  `docs/workflow/qa-reports/prompt-audit-policy-matrix-s293b-qa.md`,
+  `docs/workflow/qa-reports/prompt-audit-policy-matrix-s293c-qa.md` and
+  `docs/workflow/qa-reports/prompt-audit-policy-matrix-s293d-qa.md`.
+- Local checks pass: securityaudit/routes/middleware/migrations tests,
+  `go build ./...`, Prompt Audit Vitest 31/31, `vue-tsc --noEmit`, frontend
+  production build, `git diff --check` and unmerged-index check.
+- Local implementation commit: `3281801e1`; no push or deployment was performed.
+- Migration `backend/migrations/239_prompt_audit_policy_explanations.sql` is
+  added but not executed. Live PostgreSQL/Redis multi-instance convergence,
+  authenticated browser lifecycle smoke and local Qwen3Guard `0.6b` provider
+  smoke remain unverified. Runtime probes found only the local
+  `qwen3-embedding:0.6b` Ollama model; PostgreSQL/Redis and Docker were
+  unavailable. Task-owned Playwright smoke using local mock API verified draft
+  preview, publish, rollback confirmation/toast and no horizontal overflow at
+  `1440x900` and `390x844`; screenshots are under `output/playwright/`.
+  The browser session, profile/daemon and Vite process were cleaned up. No
+  database, provider, deployment or push action was performed.
 
 # Prompt Audit Qwen3Guard Rules S292
 
