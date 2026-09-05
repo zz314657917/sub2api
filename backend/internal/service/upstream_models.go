@@ -25,16 +25,15 @@ const (
 )
 
 type UpstreamModelMetadata struct {
-	ID                       string                     `json:"id"`
-	DisplayName              string                     `json:"display_name,omitempty"`
-	Description              string                     `json:"description,omitempty"`
-	Reasoning                *bool                      `json:"reasoning,omitempty"`
-	DefaultReasoningLevel    string                     `json:"default_reasoning_level,omitempty"`
-	SupportedReasoningLevels []string                   `json:"supported_reasoning_levels,omitempty"`
-	InputModalities          []string                   `json:"input_modalities,omitempty"`
-	ContextWindow            int64                      `json:"context_window,omitempty"`
-	MaxOutputTokens          int64                      `json:"max_output_tokens,omitempty"`
-	CodexToolCapabilities    map[string]json.RawMessage `json:"codex_tool_capabilities,omitempty"`
+	ID                       string   `json:"id"`
+	DisplayName              string   `json:"display_name,omitempty"`
+	Description              string   `json:"description,omitempty"`
+	Reasoning                *bool    `json:"reasoning,omitempty"`
+	DefaultReasoningLevel    string   `json:"default_reasoning_level,omitempty"`
+	SupportedReasoningLevels []string `json:"supported_reasoning_levels,omitempty"`
+	InputModalities          []string `json:"input_modalities,omitempty"`
+	ContextWindow            int64    `json:"context_window,omitempty"`
+	MaxOutputTokens          int64    `json:"max_output_tokens,omitempty"`
 }
 
 type UpstreamModelMetadataSnapshot struct {
@@ -219,11 +218,18 @@ func (s *AccountTestService) SyncUpstreamModelCatalog(ctx context.Context, accou
 		}
 	}
 
-	capabilityModels := dedupeAndSortModelIDs(append(append([]string(nil), models...), configuredUpstreamModelsForCapabilitySync(account)...))
+	// Capability enrichment also covers concrete model_mapping targets. Admins may
+	// whitelist models that the live /models list omitted; those still need registry
+	// metadata so Codex catalogs can advertise reasoning and modalities.
+	enrichIDs := dedupeAndSortModelIDs(append(append([]string{}, models...), configuredUpstreamModelsForCapabilitySync(account)...))
+	// Dedicated image/video generators are not Codex agent catalog entries and often
+	// omit context windows in public registries. Keep them out of completeness checks
+	// so they do not mask successful agent-model capability sync.
+	capabilityIDs := capabilitySyncModelIDs(enrichIDs)
+
 	source := "upstream"
-	metadataIncomplete := upstreamCatalogNeedsRegistry(capabilityModels, catalog.Metadata)
-	if metadataIncomplete {
-		if registryMetadata, registryErr := s.fetchModelsDevMetadata(ctx, account, capabilityModels); registryErr == nil {
+	if upstreamCatalogNeedsRegistry(capabilityIDs, catalog.Metadata) {
+		if registryMetadata, registryErr := s.fetchModelsDevMetadata(ctx, account, enrichIDs); registryErr == nil {
 			for modelID, fallback := range registryMetadata {
 				current := catalog.Metadata[modelID]
 				merged, changed := mergeUpstreamModelMetadata(current, fallback)
@@ -241,54 +247,34 @@ func (s *AccountTestService) SyncUpstreamModelCatalog(ctx context.Context, accou
 		}
 	}
 
-	complete := make(map[string]UpstreamModelMetadata)
-	for _, modelID := range capabilityModels {
-		if entry, ok := catalog.Metadata[modelID]; ok && upstreamModelMetadataIsComplete(entry) {
-			complete[modelID] = entry
+	completeMetadata := completeUpstreamModelMetadataSubset(capabilityIDs, catalog.Metadata)
+	persistedCapabilities := false
+	if len(completeMetadata) > 0 && account != nil && account.ID > 0 && s.accountRepo != nil {
+		snapshot := UpstreamModelMetadataSnapshot{
+			Source:   source,
+			SyncedAt: time.Now().UTC().Format(time.RFC3339),
+			Models:   completeMetadata,
+		}
+		if err := s.accountRepo.UpdateExtra(ctx, account.ID, map[string]any{UpstreamModelMetadataExtraKey: snapshot}); err != nil {
+			return nil, newUpstreamModelSyncInternalError("Failed to save upstream model metadata", err)
+		}
+		account.SetUpstreamModelMetadataSnapshot(snapshot)
+		persistedCapabilities = true
+	}
+
+	if upstreamCatalogNeedsRegistry(capabilityIDs, catalog.Metadata) {
+		if persistedCapabilities {
+			catalog.Warnings = append(catalog.Warnings, UpstreamModelSyncWarning{
+				Code:    UpstreamModelMetadataPartialCode,
+				Message: "Some model capabilities were saved; remaining models are still incomplete.",
+			})
+		} else {
+			catalog.Warnings = append(catalog.Warnings, UpstreamModelSyncWarning{
+				Code:    UpstreamModelMetadataIncompleteCode,
+				Message: "Model IDs were synced, but capability metadata is incomplete.",
+			})
 		}
 	}
-	if upstreamCatalogNeedsRegistry(capabilityModels, catalog.Metadata) {
-		code := UpstreamModelMetadataIncompleteCode
-		message := "Model IDs were synced, but capability metadata is incomplete."
-		if len(complete) > 0 {
-			code = UpstreamModelMetadataPartialCode
-			message = "Complete model capabilities were synced; incomplete entries retain their previous metadata."
-		}
-		catalog.Warnings = append(catalog.Warnings, UpstreamModelSyncWarning{
-			Code: code, Message: message,
-		})
-	}
-	if len(complete) == 0 || account == nil || account.ID <= 0 || s.accountRepo == nil {
-		return catalog, nil
-	}
-	// A partial refresh must not erase still-listed models' last known capabilities.
-	// Models removed from both the live list and configured targets are not retained.
-	if previous := account.GetUpstreamModelMetadataSnapshot(); previous != nil {
-		for _, modelID := range capabilityModels {
-			old, exists := previous.Models[modelID]
-			if !exists {
-				continue
-			}
-			if entry, ok := complete[modelID]; ok {
-				if entry.CodexToolCapabilities == nil {
-					entry.CodexToolCapabilities = make(map[string]json.RawMessage)
-				}
-				applyCodexToolCapabilities(entry.CodexToolCapabilities, old.CodexToolCapabilities, false)
-				complete[modelID] = entry
-			} else {
-				complete[modelID] = old
-			}
-		}
-	}
-	snapshot := UpstreamModelMetadataSnapshot{
-		Source:   source,
-		SyncedAt: time.Now().UTC().Format(time.RFC3339),
-		Models:   complete,
-	}
-	if err := s.accountRepo.UpdateExtra(ctx, account.ID, map[string]any{UpstreamModelMetadataExtraKey: snapshot}); err != nil {
-		return nil, newUpstreamModelSyncInternalError("Failed to save upstream model metadata", err)
-	}
-	account.SetUpstreamModelMetadataSnapshot(snapshot)
 	return catalog, nil
 }
 
@@ -349,9 +335,6 @@ func upstreamModelSyncPlatform(account *Account) string {
 func upstreamCatalogNeedsRegistry(models []string, metadata map[string]UpstreamModelMetadata) bool {
 	for _, modelID := range models {
 		modelID = strings.TrimSpace(modelID)
-		if isCodexDedicatedMediaModel(modelID) {
-			continue
-		}
 		model, ok := metadata[modelID]
 		if !ok || !upstreamModelMetadataIsComplete(model) {
 			return true
@@ -360,18 +343,12 @@ func upstreamCatalogNeedsRegistry(models []string, metadata map[string]UpstreamM
 	return false
 }
 
-func upstreamModelMetadataIsComplete(model UpstreamModelMetadata) bool {
-	return model.Reasoning != nil && len(normalizeCodexInputModalities(model.InputModalities)) > 0 &&
-		model.ContextWindow > 0 && (!*model.Reasoning || len(normalizeReasoningLevels(model.SupportedReasoningLevels)) > 0)
-}
-
 func upstreamModelMetadataIsUseful(metadata UpstreamModelMetadata) bool {
 	return strings.TrimSpace(metadata.DisplayName) != "" ||
 		strings.TrimSpace(metadata.Description) != "" ||
 		metadata.Reasoning != nil ||
 		len(metadata.SupportedReasoningLevels) > 0 ||
 		len(metadata.InputModalities) > 0 ||
-		len(metadata.CodexToolCapabilities) > 0 ||
 		metadata.ContextWindow > 0 ||
 		metadata.MaxOutputTokens > 0
 }
@@ -645,16 +622,7 @@ func matchModelsDevProviderByAPIURL(registry map[string]modelsDevProvider, accou
 			bestScore = len(providerBaseURL)
 		}
 	}
-	if bestScore >= 0 {
-		return best, true
-	}
-	parsed, err := url.Parse(accountBaseURL)
-	if err == nil && (parsed.Hostname() == "api.openai.com" || parsed.Hostname() == "chatgpt.com") {
-		if provider, ok := registry["openai"]; ok && provider.API == "" && len(provider.Models) > 0 {
-			return provider, true
-		}
-	}
-	return modelsDevProvider{}, false
+	return best, bestScore >= 0
 }
 
 // matchModelsDevProviderByKnownHost covers first-party hosts whose models.dev
@@ -1130,179 +1098,6 @@ type upstreamModelEntry struct {
 }
 
 func extractUpstreamModelIDs(body []byte) ([]string, error) {
-	return extractUpstreamModelIDsWithSelector(body, upstreamModelEntryID)
-}
-
-func extractGrokUpstreamModelIDs(body []byte) ([]string, error) {
-	return extractUpstreamModelIDsWithSelector(body, grokUpstreamModelEntryID)
-}
-
-func extractUpstreamModelCatalog(body []byte, grok bool) ([]string, map[string]UpstreamModelMetadata, error) {
-	entries, err := extractUpstreamModelRawEntries(body)
-	if err != nil {
-		return nil, nil, err
-	}
-	selectID := upstreamModelEntryID
-	if grok {
-		selectID = grokUpstreamModelEntryID
-	}
-
-	models := make([]string, 0, len(entries))
-	metadata := make(map[string]UpstreamModelMetadata)
-	for _, raw := range entries {
-		var capability upstreamModelCapabilityEntry
-		if err := json.Unmarshal(raw, &capability); err != nil {
-			continue
-		}
-		modelID := strings.TrimSpace(selectID(capability.upstreamModelEntry))
-		if modelID == "" {
-			continue
-		}
-		models = append(models, modelID)
-		entry := upstreamMetadataFromCapabilityEntry(modelID, capability)
-		var fields map[string]json.RawMessage
-		if err := json.Unmarshal(raw, &fields); err == nil {
-			entry.CodexToolCapabilities = make(map[string]json.RawMessage)
-			applyCodexToolCapabilities(entry.CodexToolCapabilities, fields, true)
-		}
-		if upstreamModelMetadataIsUseful(entry) {
-			metadata[modelID] = entry
-		}
-	}
-	return dedupeAndSortModelIDs(models), metadata, nil
-}
-
-func extractUpstreamModelRawEntries(body []byte) ([]json.RawMessage, error) {
-	var response struct {
-		Data   []json.RawMessage `json:"data"`
-		Models []json.RawMessage `json:"models"`
-	}
-	if err := json.Unmarshal(body, &response); err == nil && (response.Data != nil || response.Models != nil) {
-		entries := make([]json.RawMessage, 0, len(response.Data)+len(response.Models))
-		entries = append(entries, response.Data...)
-		entries = append(entries, response.Models...)
-		return entries, nil
-	}
-	var entries []json.RawMessage
-	if err := json.Unmarshal(body, &entries); err != nil {
-		return nil, fmt.Errorf("parse upstream model catalog: %w", err)
-	}
-	return entries, nil
-}
-
-func upstreamMetadataFromCapabilityEntry(modelID string, entry upstreamModelCapabilityEntry) UpstreamModelMetadata {
-	levels := reasoningLevelsFromRawEntries(entry.SupportedReasoningLevels)
-	if len(levels) == 0 {
-		levels = reasoningLevelsFromModelsDevOptions(entry.ReasoningOptions)
-	}
-	reasoning := entry.Reasoning
-	if reasoning == nil && len(levels) > 0 {
-		inferred := len(levels) != 1 || levels[0] != "none"
-		reasoning = &inferred
-	}
-	modalities := entry.InputModalities
-	if len(modalities) == 0 {
-		modalities = entry.Modalities.Input
-	}
-	contextWindow := entry.ContextWindow
-	if contextWindow <= 0 {
-		contextWindow = entry.MaxContextWindow
-	}
-	if contextWindow <= 0 {
-		contextWindow = entry.Limit.Context
-	}
-	maxOutputTokens := entry.MaxOutputTokens
-	if maxOutputTokens <= 0 {
-		maxOutputTokens = entry.Limit.Output
-	}
-	defaultReasoningLevel := normalizeReasoningLevel(entry.DefaultReasoningLevel)
-	if defaultReasoningLevel == "" && len(levels) > 0 {
-		defaultReasoningLevel = levels[0]
-	}
-	displayName := strings.TrimSpace(entry.DisplayName)
-	if displayName == "" && strings.TrimSpace(entry.Name) != "" && strings.TrimSpace(entry.Name) != modelID {
-		displayName = strings.TrimSpace(entry.Name)
-	}
-	return UpstreamModelMetadata{
-		ID:                       modelID,
-		DisplayName:              displayName,
-		Description:              strings.TrimSpace(entry.Description),
-		Reasoning:                reasoning,
-		DefaultReasoningLevel:    defaultReasoningLevel,
-		SupportedReasoningLevels: levels,
-		InputModalities:          normalizeCodexInputModalities(modalities),
-		ContextWindow:            contextWindow,
-		MaxOutputTokens:          maxOutputTokens,
-	}
-}
-
-func reasoningLevelsFromRawEntries(entries []json.RawMessage) []string {
-	levels := make([]string, 0, len(entries))
-	for _, raw := range entries {
-		var effort string
-		if err := json.Unmarshal(raw, &effort); err == nil {
-			levels = append(levels, effort)
-			continue
-		}
-		var level struct {
-			Effort string `json:"effort"`
-		}
-		if err := json.Unmarshal(raw, &level); err == nil {
-			levels = append(levels, level.Effort)
-		}
-	}
-	return normalizeReasoningLevels(levels)
-}
-
-func normalizeReasoningLevels(levels []string) []string {
-	seen := make(map[string]struct{}, len(levels))
-	normalized := make([]string, 0, len(levels))
-	for _, level := range levels {
-		level = normalizeReasoningLevel(level)
-		if level == "" {
-			continue
-		}
-		if _, exists := seen[level]; exists {
-			continue
-		}
-		seen[level] = struct{}{}
-		normalized = append(normalized, level)
-	}
-	return normalized
-}
-
-func normalizeReasoningLevel(level string) string {
-	level = strings.ToLower(strings.TrimSpace(level))
-	switch level {
-	case "off", "disabled":
-		return "none"
-	case "extra-high", "extra_high":
-		return "xhigh"
-	case "none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra":
-		return level
-	default:
-		return ""
-	}
-}
-
-func normalizeCodexInputModalities(modalities []string) []string {
-	seen := make(map[string]struct{}, len(modalities))
-	normalized := make([]string, 0, len(modalities))
-	for _, modality := range modalities {
-		modality = strings.ToLower(strings.TrimSpace(modality))
-		if modality != "text" && modality != "image" {
-			continue
-		}
-		if _, exists := seen[modality]; exists {
-			continue
-		}
-		seen[modality] = struct{}{}
-		normalized = append(normalized, modality)
-	}
-	return normalized
-}
-
-func extractUpstreamModelIDsWithSelector(body []byte, selectID func(upstreamModelEntry) string) ([]string, error) {
 	var response struct {
 		Data   []upstreamModelEntry `json:"data"`
 		Models []upstreamModelEntry `json:"models"`

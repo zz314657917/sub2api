@@ -795,7 +795,7 @@ func buildCodexModelsManifest(
 	modelMetadata map[string]codexModelMetadataOverride,
 ) ([]byte, error) {
 	seen := make(map[string]struct{}, len(modelIDs))
-	models := make([]json.RawMessage, 0, len(modelIDs))
+	models := make([]configuredCodexModelDescriptor, 0, len(modelIDs))
 	for _, modelID := range modelIDs {
 		modelID = strings.TrimSpace(modelID)
 		if modelID == "" {
@@ -824,25 +824,10 @@ func buildCodexModelsManifest(
 			descriptor.DisplayName = modelID
 			descriptor.Description = configuredCodexCustomDescription
 		}
-		encoded, err := json.Marshal(descriptor)
-		if err != nil {
-			return nil, err
-		}
-		if capabilities := modelMetadata[modelID].CodexToolCapabilities; len(capabilities) > 0 {
-			var fields map[string]json.RawMessage
-			if err := json.Unmarshal(encoded, &fields); err != nil {
-				return nil, err
-			}
-			applyCodexToolCapabilities(fields, capabilities, true)
-			encoded, err = json.Marshal(fields)
-			if err != nil {
-				return nil, err
-			}
-		}
-		models = append(models, encoded)
+		models = append(models, descriptor)
 	}
 	return json.Marshal(struct {
-		Models []json.RawMessage `json:"models"`
+		Models []configuredCodexModelDescriptor `json:"models"`
 	}{Models: models})
 }
 
@@ -1653,23 +1638,7 @@ func (s *OpenAIGatewayService) fetchCodexModelsManifestUpstream(ctx context.Cont
 		}
 	}
 	if request.useAPIKeyUpstream {
-		body, err = completeAPIKeyCodexModelsManifestMetadata(
-			body,
-			false,
-			request.credentialAccount,
-		)
-		if err != nil {
-			return nil, &codexModelsManifestUpstreamError{
-				err: infraerrors.Newf(
-					http.StatusBadGateway,
-					"OPENAI_CODEX_MODELS_UPSTREAM_INVALID_MANIFEST",
-					"codex models manifest upstream metadata could not be completed: %v",
-					err,
-				),
-				retryable: true,
-			}
-		}
-		body, err = adjustAPIKeyCodexModelsManifest(body, request.credentialAccount)
+		body, err = adjustAPIKeyCodexModelsManifest(body)
 		if err != nil {
 			return nil, &codexModelsManifestUpstreamError{
 				err:       infraerrors.Newf(http.StatusBadGateway, "OPENAI_CODEX_MODELS_UPSTREAM_INVALID_MANIFEST", "Codex models manifest upstream could not be adjusted: %v", err),
@@ -1700,11 +1669,9 @@ var apiKeyCodexModelsWithoutResponsesLite = map[string]struct{}{
 	"gpt-5.6-luna":  {},
 }
 
-// adjustAPIKeyCodexModelsManifest prevents Codex from selecting Responses
-// Lite for custom API key providers. Those clients do not install web.run in
-// Lite mode, so the affected model manifests must advertise the full Responses
-// path. Return the original body when no targeted true value is present.
-func adjustAPIKeyCodexModelsManifest(body []byte, account *Account) ([]byte, error) {
+// adjustAPIKeyCodexModelsManifest disables Responses Lite only for the exact
+// GPT-5.6 API-key entries that need the web.run capability in custom providers.
+func adjustAPIKeyCodexModelsManifest(body []byte) ([]byte, error) {
 	var envelope map[string]json.RawMessage
 	if err := json.Unmarshal(body, &envelope); err != nil {
 		return nil, fmt.Errorf("decode JSON object: %w", err)
@@ -1723,14 +1690,7 @@ func adjustAPIKeyCodexModelsManifest(body []byte, account *Account) ([]byte, err
 		if err := json.Unmarshal(model["slug"], &slug); err != nil {
 			continue
 		}
-		target := slug
-		if account != nil {
-			target = account.GetMappedModel(slug)
-		}
-		if isOpenAIGPT6AstraModel(target) {
-			target = "gpt-6-astra"
-		}
-		if _, targeted := apiKeyCodexModelsWithoutResponsesLite[target]; !targeted {
+		if _, targeted := apiKeyCodexModelsWithoutResponsesLite[slug]; !targeted {
 			continue
 		}
 		var useResponsesLite bool
@@ -1771,365 +1731,26 @@ func convertOpenAIModelListToCodexManifest(body []byte) []byte {
 	if !ok {
 		return body
 	}
-	var entries []map[string]json.RawMessage
+	var entries []struct {
+		ID string `json:"id"`
+	}
 	if err := json.Unmarshal(data, &entries); err != nil {
 		return body
 	}
-	modelIDs := make([]string, 0, len(entries))
-	modelMetadata := make(map[string]codexModelMetadataOverride, len(entries))
-	metadataModels := make(map[string]string, len(entries))
+	models := make([]map[string]string, 0, len(entries))
 	for _, entry := range entries {
-		var id string
-		if err := json.Unmarshal(entry["id"], &id); err != nil {
-			continue
+		if id := strings.TrimSpace(entry.ID); id != "" {
+			models = append(models, map[string]string{"slug": id})
 		}
-		id = strings.TrimSpace(id)
-		if id == "" {
-			continue
-		}
-		modelIDs = append(modelIDs, id)
-		capabilityModel := id
-		if account != nil {
-			capabilityModel = account.GetMappedModel(id)
-		}
-		metadataModels[id] = capabilityModel
-		capabilities := accountCodexToolCapabilities(account, capabilityModel)
-		applyCodexToolCapabilities(capabilities, entry, true)
-		modelMetadata[id] = codexModelMetadataOverride{UpstreamModelMetadata: UpstreamModelMetadata{
-			CodexToolCapabilities: capabilities,
-		}}
 	}
 	if len(models) == 0 {
 		return body
 	}
-	imageInputModels := make(map[string]bool, len(modelIDs))
-	for _, modelID := range modelIDs {
-		if accountCodexModelSupportsImageInput(account, modelID) {
-			imageInputModels[modelID] = true
-		}
-	}
-	searchToolModels := make(map[string]bool, len(modelIDs))
-	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) {
-		for _, modelID := range modelIDs {
-			searchToolModels[modelID] = true
-		}
-	}
-	converted, err := buildCodexModelsManifest(modelIDs, imageInputModels, searchToolModels, metadataModels, modelMetadata)
+	converted, err := json.Marshal(map[string]any{"models": models})
 	if err != nil {
 		return body
 	}
 	return converted
-}
-
-// completeAPIKeyCodexModelsManifestMetadata fills fields omitted by standard
-// OpenAI-compatible /models endpoints. Existing provider metadata always wins;
-// only absent or null values are synthesized.
-// CompleteAPIKeyCodexModelsManifestForClient fills the complete ModelInfo
-// contract immediately before a group-specific API key manifest is returned.
-// The shared upstream cache remains independent from local group policy.
-func (s *OpenAIGatewayService) CompleteAPIKeyCodexModelsManifestForClient(manifest *CodexModelsManifest, account *Account) error {
-	if manifest == nil || account == nil || !account.IsOpenAIApiKey() || manifest.NotModified || len(manifest.Body) == 0 {
-		return nil
-	}
-	body := manifest.Body
-	if len(manifest.upstreamSourceBody) > 0 {
-		body = append([]byte(nil), manifest.upstreamSourceBody...)
-		if manifest.convertedFromOpenAIModelList {
-			body = convertOpenAIModelListToCodexManifestForAccount(body, account)
-		}
-	}
-	var err error
-	body, err = applySyncedAPIKeyCodexModelMetadata(body, account, manifest.convertedFromOpenAIModelList)
-	if err != nil {
-		return err
-	}
-	body, err = completeAPIKeyCodexModelsManifestMetadata(
-		body,
-		true,
-		account,
-	)
-	if err != nil {
-		return err
-	}
-	body, err = adjustAPIKeyCodexModelsManifest(body, account)
-	if err != nil {
-		return err
-	}
-	manifest.Body = body
-	manifest.ETag = codexModelsManifestBodyETag(manifest.Body)
-	return nil
-}
-
-func applySyncedAPIKeyCodexModelMetadata(body []byte, account *Account, overwriteLocalDefaults bool) ([]byte, error) {
-	snapshot := account.GetUpstreamModelMetadataSnapshot()
-	if snapshot == nil || len(snapshot.Models) == 0 {
-		return body, nil
-	}
-
-	var envelope map[string]json.RawMessage
-	if err := json.Unmarshal(body, &envelope); err != nil {
-		return nil, fmt.Errorf("decode JSON object: %w", err)
-	}
-	var models []json.RawMessage
-	if err := json.Unmarshal(envelope["models"], &models); err != nil {
-		return nil, fmt.Errorf("decode top-level models array: %w", err)
-	}
-
-	changed := false
-	for i, rawModel := range models {
-		var model map[string]json.RawMessage
-		if err := json.Unmarshal(rawModel, &model); err != nil || model == nil {
-			continue
-		}
-		var slug string
-		if err := json.Unmarshal(model["slug"], &slug); err != nil {
-			continue
-		}
-		slug = strings.TrimSpace(slug)
-		lookupModel := account.GetMappedModel(slug)
-		metadata, ok := snapshot.Models[lookupModel]
-		if !ok {
-			continue
-		}
-		if lookupModel != slug {
-			metadata.DisplayName = ""
-			metadata.Description = ""
-		}
-
-		descriptor := newConfiguredCodexModelDescriptor(slug)
-		applyUpstreamModelMetadataToCodexDescriptor(
-			&descriptor,
-			codexModelMetadataOverride{UpstreamModelMetadata: metadata},
-		)
-		descriptorBody, err := json.Marshal(descriptor)
-		if err != nil {
-			return nil, fmt.Errorf("encode synced model %q: %w", slug, err)
-		}
-		var syncedFields map[string]json.RawMessage
-		if err := json.Unmarshal(descriptorBody, &syncedFields); err != nil {
-			return nil, fmt.Errorf("decode synced model %q: %w", slug, err)
-		}
-
-		fields := make([]string, 0, 7)
-		if strings.TrimSpace(metadata.DisplayName) != "" {
-			fields = append(fields, "display_name")
-		}
-		if strings.TrimSpace(metadata.Description) != "" {
-			fields = append(fields, "description")
-		}
-		if metadata.Reasoning != nil {
-			fields = append(fields, "default_reasoning_level", "supported_reasoning_levels")
-		}
-		if len(normalizeCodexInputModalities(metadata.InputModalities)) > 0 {
-			fields = append(fields, "input_modalities")
-		}
-		if metadata.ContextWindow > 0 {
-			fields = append(fields, "context_window", "max_context_window")
-		}
-
-		// List conversion has already applied live fields over account capabilities.
-		modelChanged := applyCodexToolCapabilities(model, metadata.CodexToolCapabilities, false)
-		for _, field := range fields {
-			value, exists := syncedFields[field]
-			if !exists {
-				continue
-			}
-			current, currentExists := model[field]
-			current = bytes.TrimSpace(current)
-			if !overwriteLocalDefaults && currentExists && len(current) > 0 && !bytes.Equal(current, []byte("null")) {
-				continue
-			}
-			if bytes.Equal(current, bytes.TrimSpace(value)) {
-				continue
-			}
-			model[field] = value
-			modelChanged = true
-		}
-		if !modelChanged {
-			continue
-		}
-		encoded, err := json.Marshal(model)
-		if err != nil {
-			return nil, fmt.Errorf("encode model %q with synced metadata: %w", slug, err)
-		}
-		models[i] = encoded
-		changed = true
-	}
-	if !changed {
-		return body, nil
-	}
-
-	encodedModels, err := json.Marshal(models)
-	if err != nil {
-		return nil, fmt.Errorf("encode models with synced metadata: %w", err)
-	}
-	envelope["models"] = encodedModels
-	updated, err := json.Marshal(envelope)
-	if err != nil {
-		return nil, fmt.Errorf("encode manifest with synced metadata: %w", err)
-	}
-	return updated, nil
-}
-
-func completeAPIKeyCodexModelsManifestMetadata(body []byte, completeAll bool, account *Account) ([]byte, error) {
-	var envelope map[string]json.RawMessage
-	if err := json.Unmarshal(body, &envelope); err != nil {
-		return nil, fmt.Errorf("decode JSON object: %w", err)
-	}
-	var models []json.RawMessage
-	if err := json.Unmarshal(envelope["models"], &models); err != nil {
-		return nil, fmt.Errorf("decode top-level models array: %w", err)
-	}
-
-	officialOpenAI := account != nil && isOfficialOpenAIModelsBaseURL(account.GetOpenAIBaseURL())
-	changed := false
-	if officialOpenAI {
-		filtered := make([]json.RawMessage, 0, len(models))
-		for _, rawModel := range models {
-			var model struct {
-				Slug string `json:"slug"`
-			}
-			if err := json.Unmarshal(rawModel, &model); err != nil || strings.TrimSpace(model.Slug) == "" {
-				filtered = append(filtered, rawModel)
-				continue
-			}
-			if !isOfficialOpenAICodexCatalogModel(model.Slug) {
-				changed = true
-				continue
-			}
-			filtered = append(filtered, rawModel)
-		}
-		models = filtered
-	}
-	for i, rawModel := range models {
-		var model map[string]json.RawMessage
-		if err := json.Unmarshal(rawModel, &model); err != nil || model == nil {
-			continue
-		}
-		var slug string
-		if err := json.Unmarshal(model["slug"], &slug); err != nil {
-			continue
-		}
-		slug = strings.TrimSpace(slug)
-		if slug == "" {
-			continue
-		}
-
-		completeDescriptor := completeAll || isDeepSeekCodexModel(slug)
-		forceOfficialImage := officialOpenAI && isOpenAICodexImageInputModel(slug)
-		if !completeDescriptor && !forceOfficialImage {
-			continue
-		}
-
-		descriptor := newConfiguredCodexModelDescriptor(slug)
-		descriptor.SupportsSearchTool = shouldForwardOpenAIResponsesViaRawChatCompletions(account)
-		if accountCodexModelSupportsImageInput(account, slug) {
-			descriptor.InputModalities = []string{"text", "image"}
-		}
-		if forceOfficialImage {
-			descriptor.InputModalities = []string{"text", "image"}
-			descriptor.SupportsImageDetailOriginal = true
-		}
-		defaultBody, err := json.Marshal(descriptor)
-		if err != nil {
-			return nil, fmt.Errorf("encode default model %q: %w", slug, err)
-		}
-		var defaults map[string]json.RawMessage
-		if err := json.Unmarshal(defaultBody, &defaults); err != nil {
-			return nil, fmt.Errorf("decode default model %q: %w", slug, err)
-		}
-
-		capabilityModel := slug
-		if account != nil {
-			capabilityModel = account.GetMappedModel(slug)
-		}
-		capabilities := accountCodexToolCapabilities(account, capabilityModel)
-		modelChanged := applyCodexToolCapabilities(model, capabilities, false)
-		if completeDescriptor {
-			merged, err := mergeMissingCodexModelFields(model, defaults)
-			if err != nil {
-				return nil, fmt.Errorf("complete model %q: %w", slug, err)
-			}
-			modelChanged = merged || modelChanged
-		}
-		if forceOfficialImage {
-			modalities, err := json.Marshal([]string{"text", "image"})
-			if err != nil {
-				return nil, fmt.Errorf("encode input modalities for model %q: %w", slug, err)
-			}
-			if !bytes.Equal(bytes.TrimSpace(model["input_modalities"]), modalities) {
-				model["input_modalities"] = modalities
-				modelChanged = true
-			}
-			imageDetailOriginal := json.RawMessage("true")
-			if !bytes.Equal(bytes.TrimSpace(model["supports_image_detail_original"]), imageDetailOriginal) {
-				model["supports_image_detail_original"] = imageDetailOriginal
-				modelChanged = true
-			}
-		}
-		if !modelChanged {
-			continue
-		}
-		encoded, err := json.Marshal(model)
-		if err != nil {
-			return nil, fmt.Errorf("encode completed model %q: %w", slug, err)
-		}
-		models[i] = encoded
-		changed = true
-	}
-	if !changed {
-		return body, nil
-	}
-
-	encodedModels, err := json.Marshal(models)
-	if err != nil {
-		return nil, fmt.Errorf("encode top-level models array: %w", err)
-	}
-	envelope["models"] = encodedModels
-	completed, err := json.Marshal(envelope)
-	if err != nil {
-		return nil, fmt.Errorf("encode JSON object: %w", err)
-	}
-	return completed, nil
-}
-
-func mergeMissingCodexModelFields(current, defaults map[string]json.RawMessage) (bool, error) {
-	changed := false
-	for key, defaultValue := range defaults {
-		currentValue, exists := current[key]
-		if exists && stringSliceContains(codexToolCapabilityFields, key) {
-			continue
-		}
-		if !exists || (bytes.Equal(bytes.TrimSpace(currentValue), []byte("null")) &&
-			!bytes.Equal(bytes.TrimSpace(defaultValue), []byte("null"))) {
-			current[key] = defaultValue
-			changed = true
-			continue
-		}
-
-		var currentObject map[string]json.RawMessage
-		var defaultObject map[string]json.RawMessage
-		if err := json.Unmarshal(currentValue, &currentObject); err != nil || currentObject == nil {
-			continue
-		}
-		if err := json.Unmarshal(defaultValue, &defaultObject); err != nil || defaultObject == nil {
-			continue
-		}
-		nestedChanged, err := mergeMissingCodexModelFields(currentObject, defaultObject)
-		if err != nil {
-			return false, err
-		}
-		if !nestedChanged {
-			continue
-		}
-		mergedValue, err := json.Marshal(currentObject)
-		if err != nil {
-			return false, fmt.Errorf("encode field %q: %w", key, err)
-		}
-		current[key] = mergedValue
-		changed = true
-	}
-	return changed, nil
 }
 
 func validateCodexModelsManifestEnvelope(body []byte) error {

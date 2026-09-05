@@ -4485,7 +4485,7 @@ const submitCreateAccount = async (payload: CreateAccountRequest) => {
         const warnings = result.warnings ?? []
         if (warnings.some(warning => warning.code === 'upstream_model_metadata_incomplete')) {
           appStore.showWarning(t('admin.accounts.syncUpstreamModelsMetadataIncomplete'))
-        } else if (result.warnings?.some(warning => warning.code === 'upstream_model_metadata_partial')) {
+        } else if (warnings.some(warning => warning.code === 'upstream_model_metadata_partial')) {
           appStore.showWarning(t('admin.accounts.syncUpstreamModelsMetadataPartial'))
         }
       } catch {

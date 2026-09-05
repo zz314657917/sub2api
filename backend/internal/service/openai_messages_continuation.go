@@ -132,9 +132,7 @@ func isOpenAICompatPreviousResponseUnsupported(statusCode int, upstreamMsg strin
 		}
 		return strings.Contains(lower, "unsupported parameter") ||
 			strings.Contains(lower, "only supported on responses websocket") ||
-			strings.Contains(lower, "not supported") ||
-			strings.Contains(lower, "is not available for this user") ||
-			strings.Contains(lower, "requires an openai api-key account for http requests")
+			strings.Contains(lower, "not supported")
 	}
 	if check(upstreamMsg) || check(string(upstreamBody)) {
 		return true
