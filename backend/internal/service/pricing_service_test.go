@@ -69,6 +69,51 @@ func TestParsePricingData_ParsesPriorityAndServiceTierFields(t *testing.T) {
 	require.True(t, pricing.SupportsServiceTier)
 }
 
+func TestPricingServiceGPT6AstraFallbackAndAlias(t *testing.T) {
+	pricingService := &PricingService{pricingData: map[string]*LiteLLMModelPricing{}}
+	for _, model := range []string{"gpt-6-astra", "gpt-6", "openai/gpt-6"} {
+		t.Run(model, func(t *testing.T) {
+			pricing := pricingService.GetModelPricing(model)
+			require.NotNil(t, pricing)
+			require.InDelta(t, 10e-6, pricing.InputCostPerToken, 1e-12)
+			require.InDelta(t, 20e-6, pricing.InputCostPerTokenPriority, 1e-12)
+			require.InDelta(t, 50e-6, pricing.OutputCostPerToken, 1e-12)
+			require.InDelta(t, 100e-6, pricing.OutputCostPerTokenPriority, 1e-12)
+			require.InDelta(t, 12.5e-6, pricing.CacheCreationInputTokenCost, 1e-12)
+			require.InDelta(t, 25e-6, pricing.CacheCreationInputTokenCostPriority, 1e-12)
+			require.InDelta(t, 1e-6, pricing.CacheReadInputTokenCost, 1e-12)
+			require.InDelta(t, 2e-6, pricing.CacheReadInputTokenCostPriority, 1e-12)
+			require.Equal(t, 272_000, pricing.LongContextInputTokenThreshold)
+			require.InDelta(t, 2.0, pricing.LongContextInputCostMultiplier, 1e-12)
+			require.InDelta(t, 1.5, pricing.LongContextOutputCostMultiplier, 1e-12)
+			require.True(t, pricing.SupportsServiceTier)
+		})
+	}
+}
+
+func TestBillingServiceGPT6AstraUsesOfficialRatesAcrossTiers(t *testing.T) {
+	billing := NewBillingService(&config.Config{}, nil)
+	tokens := UsageTokens{InputTokens: 100_000, CacheCreationTokens: 100_000, CacheReadTokens: 73_000, OutputTokens: 10}
+
+	standard, err := billing.CalculateCostWithServiceTier("gpt-6-astra", tokens, 1, "")
+	require.NoError(t, err)
+	require.True(t, standard.LongContextBillingApplied)
+	require.InDelta(t, 100_000*10e-6*2, standard.InputCost, 1e-12)
+	require.InDelta(t, 100_000*12.5e-6*2, standard.CacheCreationCost, 1e-12)
+	require.InDelta(t, 73_000*1e-6*2, standard.CacheReadCost, 1e-12)
+	require.InDelta(t, 10*50e-6*1.5, standard.OutputCost, 1e-12)
+
+	priority, err := billing.CalculateCostWithServiceTier("gpt-6-astra", tokens, 1, "priority")
+	require.NoError(t, err)
+	require.InDelta(t, standard.InputCost*2, priority.InputCost, 1e-12)
+	require.InDelta(t, standard.OutputCost*2, priority.OutputCost, 1e-12)
+
+	flex, err := billing.CalculateCostWithServiceTier("gpt-6-astra", tokens, 1, "flex")
+	require.NoError(t, err)
+	require.InDelta(t, standard.InputCost*0.5, flex.InputCost, 1e-12)
+	require.InDelta(t, standard.OutputCost*0.5, flex.OutputCost, 1e-12)
+}
+
 func TestParsePricingData_ParsesPriorityCacheCreationField(t *testing.T) {
 	svc := &PricingService{}
 	data, err := svc.parsePricingData([]byte(`{
