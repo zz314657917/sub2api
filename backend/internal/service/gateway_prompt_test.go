@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 	"github.com/stretchr/testify/require"
 )
 
@@ -412,7 +413,7 @@ func TestRewriteSystemForNonClaudeCode(t *testing.T) {
 			require.True(t, ok)
 			require.Equal(t, "text", billingBlock["type"])
 			require.Contains(t, billingBlock["text"], "x-anthropic-billing-header:")
-			require.Contains(t, billingBlock["text"], "cc_version=")
+			require.Contains(t, billingBlock["text"], "cc_version="+claude.CLIVersion()+".")
 			require.Contains(t, billingBlock["text"], "cc_entrypoint=cli")
 			require.Contains(t, billingBlock["text"], "cch=00000")
 
