@@ -4,6 +4,9 @@ import { dirname, resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import enGroups from "@/i18n/locales/en/admin/groups";
+import zhGroups from "@/i18n/locales/zh/admin/groups";
+
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const groupsViewSource = readFileSync(
   resolve(currentDir, "../GroupsView.vue"),
@@ -53,5 +56,9 @@ describe("groups models list layout", () => {
     expect(groupsViewSource).toContain(
       "modelsListEndpoint(editForm.platform)",
     );
+    for (const locale of [enGroups, zhGroups]) {
+      expect(locale.modelsList.title).toContain("{endpoint}");
+      expect(locale.modelsList.hint).toContain("{endpoint}");
+    }
   });
 });
