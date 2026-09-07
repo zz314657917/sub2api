@@ -167,7 +167,7 @@ describe('UseKeyModal', () => {
     expect(codeBlock.text()).not.toContain('"name": "GPT-5.4 Nano"')
   })
 
-  it('generates OpenCode config for bare and explicit GPT-5.6 max variants', async () => {
+  it('generates OpenCode config for GPT-5.6 and GPT-6 Astra max variants', async () => {
     const wrapper = mount(UseKeyModal, {
       props: {
         show: true,
@@ -207,6 +207,18 @@ describe('UseKeyModal', () => {
       expect(models[model].limit).toEqual({ context: 1050000, output: 128000 })
       expect(Object.keys(models[model].variants)).toEqual(['low', 'medium', 'high', 'xhigh', 'max'])
     }
+    expect(models['gpt-6']).toEqual({
+      name: 'GPT-6 (Astra)',
+      limit: { context: 1050000, output: 128000 },
+      options: { store: false },
+      variants: { low: {}, medium: {}, high: {}, xhigh: {}, max: {} }
+    })
+    expect(models['gpt-6-astra']).toEqual({
+      name: 'GPT-6 Astra',
+      limit: { context: 1050000, output: 128000 },
+      options: { store: false },
+      variants: { low: {}, medium: {}, high: {}, xhigh: {}, max: {} }
+    })
   })
 
   it('renders OpenAI-compatible config for smart-routed keys without a group', () => {
