@@ -159,11 +159,11 @@ func TestGetOrCreateFingerprintMissingUserAgentKeepsDefault(t *testing.T) {
 }
 
 func TestDefaultFingerprintRetainsLocalDefaults(t *testing.T) {
-	require.Equal(t, "claude-cli/2.1.92 (external, cli)", defaultFingerprint.UserAgent)
+	require.Equal(t, "claude-cli/"+claude.CLICurrentVersion+" (external, cli)", defaultFingerprint.UserAgent)
 	require.Equal(t, "js", defaultFingerprint.StainlessLang)
-	require.Equal(t, "0.70.0", defaultFingerprint.StainlessPackageVersion)
+	require.Equal(t, "0.94.0", defaultFingerprint.StainlessPackageVersion)
 	require.Equal(t, "Linux", defaultFingerprint.StainlessOS)
 	require.Equal(t, "arm64", defaultFingerprint.StainlessArch)
 	require.Equal(t, "node", defaultFingerprint.StainlessRuntime)
-	require.Equal(t, "v24.13.0", defaultFingerprint.StainlessRuntimeVersion)
+	require.Equal(t, "v24.3.0", defaultFingerprint.StainlessRuntimeVersion)
 }
