@@ -1304,6 +1304,21 @@ func TestNormalizeGLMOpenAIReasoningEffort(t *testing.T) {
 			wantValue:   "high",
 		},
 		{
+			name:        "glm 5.2 low maps to high",
+			model:       "glm-5.2",
+			input:       `{"model":"glm-5.2","reasoning_effort":"low","messages":[]}`,
+			wantApplied: true,
+			wantPath:    "reasoning_effort",
+			wantValue:   "high",
+		},
+		{
+			name:          "glm 5.3 low stays low",
+			model:         "glm-5.3",
+			input:         `{"model":"glm-5.3","reasoning_effort":"low","messages":[]}`,
+			wantApplied:   false,
+			wantUnchanged: true,
+		},
+		{
 			name:        "nested high case-normalizes",
 			model:       "glm-5.2",
 			input:       `{"model":"glm-5.2","reasoning":{"effort":"HIGH"},"messages":[]}`,
@@ -1350,6 +1365,51 @@ func TestNormalizeGLMOpenAIReasoningEffort(t *testing.T) {
 				return
 			}
 			require.Equal(t, tt.wantValue, gjson.GetBytes(got, tt.wantPath).String())
+		})
+	}
+}
+
+func TestNormalizeGLM53AnthropicThinking(t *testing.T) {
+	tests := []struct {
+		name       string
+		model      string
+		input      string
+		wantApply  bool
+		wantType   string
+		wantEffort string
+	}{
+		{name: "disabled", input: `{"thinking":{"type":"disabled"}}`, wantApply: true, wantType: "enabled", wantEffort: "low"},
+		{name: "off", input: `{"thinking":{"type":"off"}}`, wantApply: true, wantType: "enabled", wantEffort: "low"},
+		{name: "none", input: `{"thinking":{"type":"none"}}`, wantApply: true, wantType: "enabled", wantEffort: "low"},
+		{name: "minimal effort", input: `{"output_config":{"effort":"minimal"}}`, wantApply: true, wantType: "enabled", wantEffort: "low"},
+		{name: "low effort", input: `{"output_config":{"effort":"low"}}`, wantApply: true, wantType: "enabled", wantEffort: "low"},
+		{name: "adaptive", input: `{"thinking":{"type":"adaptive"}}`, wantApply: true, wantType: "enabled", wantEffort: "high"},
+		{name: "medium effort", input: `{"output_config":{"effort":"medium"}}`, wantApply: true, wantType: "enabled", wantEffort: "high"},
+		{name: "high effort", input: `{"output_config":{"effort":"high"}}`, wantApply: true, wantType: "enabled", wantEffort: "high"},
+		{name: "xhigh effort", input: `{"output_config":{"effort":"xhigh"}}`, wantApply: true, wantType: "enabled", wantEffort: "max"},
+		{name: "max effort", input: `{"output_config":{"effort":"max"}}`, wantApply: true, wantType: "enabled", wantEffort: "max"},
+		{name: "ultra effort", input: `{"output_config":{"effort":"ultra"}}`, wantApply: true, wantType: "enabled", wantEffort: "max"},
+		{name: "output effort wins", input: `{"thinking":{"type":"adaptive"},"output_config":{"effort":"low"}}`, wantApply: true, wantType: "enabled", wantEffort: "low"},
+		{name: "unspecified", input: `{"model":"glm-5.3","messages":[]}`, wantApply: false},
+		{name: "unknown effort", input: `{"output_config":{"effort":"banana"}}`, wantApply: false},
+		{name: "glm 5.2 untouched", model: "glm-5.2", input: `{"thinking":{"type":"disabled"}}`, wantApply: false},
+		{name: "non glm untouched", model: "deepseek-v4-pro", input: `{"thinking":{"type":"adaptive"}}`, wantApply: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			model := tt.model
+			if model == "" {
+				model = "glm-5.3"
+			}
+			got, applied := NormalizeGLM53AnthropicThinking([]byte(tt.input), model)
+			require.Equal(t, tt.wantApply, applied)
+			if !tt.wantApply {
+				require.Equal(t, tt.input, string(got))
+				return
+			}
+			require.Equal(t, tt.wantType, gjson.GetBytes(got, "thinking.type").String())
+			require.Equal(t, tt.wantEffort, gjson.GetBytes(got, "output_config.effort").String())
 		})
 	}
 }

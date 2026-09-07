@@ -1,11 +1,14 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +16,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 )
 
 func newCNNativeGatewayTestService(upstream HTTPUpstream) *OpenAIGatewayService {
@@ -55,6 +59,92 @@ func TestCNProviderAnthropicNativeMessagesPassthrough(t *testing.T) {
 	require.Empty(t, getHeaderRaw(req.Header, "authorization"))
 	require.Equal(t, string(body), string(forwardedBody))
 	require.Equal(t, "test-client", req.Header.Get("User-Agent"))
+}
+
+func TestNormalizeGLMOpenAIReasoningEffortGLM53(t *testing.T) {
+	input := []byte(`{"model":"glm-5.3","reasoning_effort":"low","messages":[]}`)
+	got, applied := NormalizeGLMOpenAIReasoningEffort(input, "glm-5.3")
+	require.False(t, applied, "GLM-5.3 low is already in the native OpenAI scale")
+	require.Equal(t, string(input), string(got))
+}
+
+func TestNativeAnthropicPassthroughNormalizesGLM53Thinking(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tests := []struct {
+		name       string
+		stream     bool
+		preference string
+		wantEffort string
+	}{
+		{name: "low buffered", preference: `"thinking":{"type":"low"},`, wantEffort: "low"},
+		{name: "enabled streaming", stream: true, preference: `"thinking":{"type":"enabled"},`, wantEffort: "high"},
+		{name: "adaptive streaming", stream: true, preference: `"thinking":{"type":"adaptive"},`, wantEffort: "high"},
+		{name: "xhigh buffered", preference: `"output_config":{"effort":"xhigh"},`, wantEffort: "max"},
+		{name: "output effort wins", preference: `"thinking":{"type":"adaptive"},"output_config":{"effort":"low"},`, wantEffort: "low"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stream := "false"
+			responseBody := `{"id":"msg_1","type":"message","role":"assistant","content":[],"usage":{"input_tokens":1,"output_tokens":1}}`
+			contentType := "application/json"
+			if tt.stream {
+				stream = "true"
+				responseBody = miniAnthropicSSEStream()
+				contentType = "text/event-stream"
+			}
+			body := []byte(fmt.Sprintf(`{"model":"glm-5.3","max_tokens":32,"stream":%s,%s"messages":[{"role":"user","content":"hi"}]}`, stream, tt.preference))
+			upstream := &httpUpstreamRecorder{resp: &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{contentType}, "x-request-id": []string{"rid-glm53"}},
+				Body:       io.NopCloser(strings.NewReader(responseBody)),
+			}}
+			svc := newCNNativeGatewayTestService(upstream)
+			account := nativeAnthropicTestAccount(PlatformZhipu)
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(body))
+			c.Request.Header.Set("Content-Type", "application/json")
+
+			_, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", "")
+			require.NoError(t, err)
+			require.Equal(t, "enabled", gjson.GetBytes(upstream.lastBody, "thinking.type").String())
+			require.Equal(t, tt.wantEffort, gjson.GetBytes(upstream.lastBody, "output_config.effort").String())
+		})
+	}
+}
+
+func TestNativeAnthropicPassthroughLeavesOtherThinkingUntouched(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tests := []struct {
+		name string
+		body string
+	}{
+		{name: "glm 5.3 unspecified", body: `{"model":"glm-5.3","max_tokens":32,"stream":false,"messages":[]}`},
+		{name: "glm 5.2 disabled", body: `{"model":"glm-5.2","max_tokens":32,"stream":false,"thinking":{"type":"disabled"},"messages":[]}`},
+		{name: "non glm adaptive", body: `{"model":"deepseek-v4-pro","max_tokens":32,"stream":false,"thinking":{"type":"adaptive"},"messages":[]}`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := []byte(tt.body)
+			upstream := &httpUpstreamRecorder{resp: &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(`{"id":"msg_1","type":"message","role":"assistant","content":[],"usage":{"input_tokens":1,"output_tokens":1}}`)),
+			}}
+			svc := newCNNativeGatewayTestService(upstream)
+			account := nativeAnthropicTestAccount(PlatformZhipu)
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(body))
+			c.Request.Header.Set("Content-Type", "application/json")
+
+			_, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", "")
+			require.NoError(t, err)
+			require.JSONEq(t, tt.body, string(upstream.lastBody))
+		})
+	}
 }
 
 func TestCNProviderChatCompletionsAnthropicConversion(t *testing.T) {
