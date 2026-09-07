@@ -18,6 +18,24 @@ func TestDefaultModelsIncludeBareGPT56Alias(t *testing.T) {
 	}
 }
 
+func TestDefaultModelsIncludeGPT6Astra(t *testing.T) {
+	if !containsModelID(DefaultModelIDs(), "gpt-6-astra") {
+		t.Fatal("DefaultModels missing gpt-6-astra")
+	}
+	if !containsModelID(DefaultModelIDs(), "gpt-6") {
+		t.Fatal("DefaultModels missing gpt-6")
+	}
+}
+
+func containsModelID(models []string, want string) bool {
+	for _, model := range models {
+		if model == want {
+			return true
+		}
+	}
+	return false
+}
+
 func TestDefaultModelsPreferConcreteGPT56SolForAccountTests(t *testing.T) {
 	if len(DefaultModels) == 0 {
 		t.Fatal("DefaultModels is empty")
