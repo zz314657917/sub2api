@@ -82,7 +82,7 @@ func TestFetchCodexModelsManifestOAuthPassesThroughVerbatim(t *testing.T) {
 }
 
 func TestFetchCodexModelsManifestAPIKeyAdjustsOnlyTargetedModels(t *testing.T) {
-	upstream := &codexManifestHTTPStub{body: `{"models":[{"slug":"gpt-5.6-sol","use_responses_lite":true},{"slug":"gpt-5.5","use_responses_lite":true}]}`, etag: `"upstream"`}
+	upstream := &codexManifestHTTPStub{body: `{"models":[{"slug":"gpt-6-astra","use_responses_lite":true},{"slug":"gpt-5.6-sol","use_responses_lite":true},{"slug":"gpt-5.5","use_responses_lite":true}]}`, etag: `"upstream"`}
 	service := &OpenAIGatewayService{
 		cfg:          &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
 		httpUpstream: upstream,
@@ -92,6 +92,7 @@ func TestFetchCodexModelsManifestAPIKeyAdjustsOnlyTargetedModels(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(manifest.Body), `"slug":"gpt-5.6-sol"`)
 	require.Contains(t, string(manifest.Body), `"use_responses_lite":false`)
+	require.Contains(t, string(manifest.Body), `"slug":"gpt-6-astra"`)
 	require.Contains(t, string(manifest.Body), `"slug":"gpt-5.5","use_responses_lite":true`)
 	require.NotEqual(t, `"upstream"`, manifest.ETag)
 }

@@ -470,11 +470,13 @@ func codexModelsManifestBodyETag(body []byte) string {
 }
 
 var apiKeyCodexModelsWithoutResponsesLite = map[string]struct{}{
+	"gpt-6-astra": {},
 	"gpt-5.6-sol": {}, "gpt-5.6-terra": {}, "gpt-5.6-luna": {},
 }
 
 // adjustAPIKeyCodexModelsManifest disables Responses Lite only for the exact
-// GPT-5.6 API-key entries that need the web.run capability in custom providers.
+// GPT-6 Astra and GPT-5.6 API-key entries that need the web.run capability in
+// custom providers.
 func adjustAPIKeyCodexModelsManifest(body []byte) ([]byte, error) {
 	var envelope map[string]json.RawMessage
 	if err := json.Unmarshal(body, &envelope); err != nil {
