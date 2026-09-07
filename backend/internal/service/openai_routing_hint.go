@@ -30,9 +30,11 @@ func setOpenAICodexRoutingHint(headers http.Header, account *Account, model stri
 		return
 	}
 
+	// Fast follows the gateway's canonicalization and becomes "priority";
+	// flex and ultrafast stay as themselves.
 	canonicalTier := normalizedOpenAIServiceTierValue(serviceTier)
 	switch canonicalTier {
-	case OpenAIFastTierPriority, OpenAIFastTierFlex:
+	case OpenAIFastTierPriority, OpenAIFastTierFlex, OpenAIFastTierUltrafast:
 	default:
 		canonicalTier = ""
 	}

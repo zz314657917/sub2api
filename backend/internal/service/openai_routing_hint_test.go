@@ -27,6 +27,7 @@ func TestOpenAICodexRoutingHintCanonicalizesOfficialServiceTiers(t *testing.T) {
 		{name: "fast alias", model: "gpt-5.6", serviceTier: " fast ", want: "model=gpt-5.6;tier=priority"},
 		{name: "priority", model: "gpt-5.6", serviceTier: "priority", want: "model=gpt-5.6;tier=priority"},
 		{name: "flex", model: "gpt-5.6", serviceTier: "flex", want: "model=gpt-5.6;tier=flex"},
+		{name: "ultrafast", model: "gpt-5.6", serviceTier: "ultrafast", want: "model=gpt-5.6;tier=ultrafast"},
 		{name: "default", model: "gpt-5.6", serviceTier: "default", want: "model=gpt-5.6"},
 		{name: "omitted", model: "gpt-5.6", want: "model=gpt-5.6"},
 		{name: "unknown", model: "gpt-5.6", serviceTier: "turbo", want: "model=gpt-5.6"},
@@ -95,6 +96,23 @@ func TestOpenAIOAuthHTTPBuildersSendRoutingHintFromFinalBody(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "model=gpt-5.6-codex;tier=priority", req.Header.Get(openAICodexRoutingHintHeader))
 	}
+
+	ultrafastBody := []byte(`{"model":"gpt-5.6-codex","service_tier":"ultrafast"}`)
+	for _, passthrough := range []bool{false, true} {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(ultrafastBody))
+
+		var req *http.Request
+		var err error
+		if passthrough {
+			req, err = svc.buildUpstreamRequestOpenAIPassthrough(context.Background(), c, oauthAccount, ultrafastBody, "test-token")
+		} else {
+			req, err = svc.buildUpstreamRequest(context.Background(), c, oauthAccount, ultrafastBody, "test-token", false, "", true)
+		}
+		require.NoError(t, err)
+		require.Equal(t, "model=gpt-5.6-codex;tier=ultrafast", req.Header.Get(openAICodexRoutingHintHeader))
+	}
 }
 
 func TestOpenAIHTTPBuildersStripOnlyOAuthLegacyResponsesBeta(t *testing.T) {
@@ -153,6 +171,8 @@ func TestOpenAIWSHeadersSendOAuthRoutingHintOnly(t *testing.T) {
 	oauth := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}
 	headers, _ := svc.buildOpenAIWSHeaders(context.Background(), c, oauth, "test-token", decision, true, "", "", "", "gpt-5.6-codex", "fast")
 	require.Equal(t, "model=gpt-5.6-codex;tier=priority", headers.Get(openAICodexRoutingHintHeader))
+	headers, _ = svc.buildOpenAIWSHeaders(context.Background(), c, oauth, "test-token", decision, true, "", "", "", "gpt-5.6-codex", "ultrafast")
+	require.Equal(t, "model=gpt-5.6-codex;tier=ultrafast", headers.Get(openAICodexRoutingHintHeader))
 
 	apiKey := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
 	headers, _ = svc.buildOpenAIWSHeaders(context.Background(), c, apiKey, "test-token", decision, true, "", "", "", "gpt-5.6-codex", "priority")

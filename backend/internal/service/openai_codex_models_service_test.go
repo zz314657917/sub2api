@@ -60,7 +60,7 @@ func (s *codexManifestHTTPStub) DoWithTLS(req *http.Request, proxyURL string, ac
 }
 
 func TestFetchCodexModelsManifestOAuthPassesThroughVerbatim(t *testing.T) {
-	manifestBody := `{"models":[{"slug":"gpt-5.6-sol","use_responses_lite":true}]}`
+	manifestBody := `{"models":[{"slug":"gpt-5.6-sol","use_responses_lite":true,"service_tiers":[{"id":"priority","name":"Fast"},{"id":"ultrafast","name":"Ultrafast"}]}]}`
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "Bearer oauth-token", r.Header.Get("Authorization"))
 		require.Equal(t, openai.CodexDefaultOriginator, r.Header.Get("Originator"))
