@@ -70,6 +70,11 @@ var instructionsGPT52 string
 //go:embed instructions_gpt5_5.txt
 var instructionsGPT55 string
 
+// Source: upstream b939fa9d4, openai/codex models.json at 121f91fd5d9d.
+//
+//go:embed instructions_gpt6_astra.txt
+var instructionsGPT6Astra string
+
 func latestCodexInstructions() string {
 	if v := strings.TrimSpace(instructionsGPT55); v != "" {
 		return instructionsGPT55
@@ -83,7 +88,19 @@ func latestCodexInstructions() string {
 // latest known prompt.
 func CodexBaseInstructionsForModel(model string) string {
 	m := strings.ToLower(strings.TrimSpace(model))
+	if slash := strings.LastIndexByte(m, '/'); slash >= 0 {
+		m = strings.TrimSpace(m[slash+1:])
+	}
+	m = strings.ReplaceAll(m, "_", "-")
+	m = strings.Join(strings.Fields(m), "-")
+	for strings.Contains(m, "--") {
+		m = strings.ReplaceAll(m, "--", "-")
+	}
 	switch {
+	case m == "gpt-6" || m == "gpt-6-astra" || strings.HasPrefix(m, "gpt-6-astra-"):
+		if strings.TrimSpace(instructionsGPT6Astra) != "" {
+			return instructionsGPT6Astra
+		}
 	case strings.Contains(m, "codex"):
 		return DefaultInstructions
 	case strings.HasPrefix(m, "gpt-5.5"):

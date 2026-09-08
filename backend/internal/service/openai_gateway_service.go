@@ -2998,7 +2998,11 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	// 仅 OAuth/Codex 账号需要补齐 ChatGPT internal Codex 上游要求的默认指令。
 	// API Key 账号保持 Responses API 请求的 instructions 原样透传，不能根据 User-Agent 推断账号类型。
 	if account.Type == AccountTypeOAuth && isInstructionsEmpty(reqBody) && !compatMessagesBridge {
-		defaultInstructions := defaultCodexSynthInstructions(reqModel)
+		instructionModel := account.GetMappedModel(reqModel)
+		if isCompactRequest {
+			instructionModel = resolveOpenAICompactForwardModel(account, reqModel)
+		}
+		defaultInstructions := defaultCodexSynthInstructions(instructionModel)
 		reqBody["instructions"] = defaultInstructions
 		bodyModified = true
 		markPatchSet("instructions", defaultInstructions)
