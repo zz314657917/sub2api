@@ -25,6 +25,10 @@ func ResponsesToChatCompletionsRequest(req *ResponsesRequest) (*ChatCompletionsR
 		return nil, fmt.Errorf("responses request is nil")
 	}
 
+	effective, err := EffectiveResponsesTools(req)
+	if err != nil {
+		return nil, err
+	}
 	messages, err := responsesInputToChatMessages(req.Instructions, req.Input)
 	if err != nil {
 		return nil, err
@@ -43,8 +47,8 @@ func ResponsesToChatCompletionsRequest(req *ResponsesRequest) (*ChatCompletionsR
 	if req.Reasoning != nil {
 		out.ReasoningEffort = req.Reasoning.Effort
 	}
-	if len(req.Tools) > 0 {
-		tools, err := responsesToolsToChatTools(req.Tools)
+	if len(effective) > 0 {
+		tools, err := responsesToolsToChatTools(effective)
 		if err != nil {
 			return nil, err
 		}
@@ -237,6 +241,9 @@ func responsesInputToChatMessages(instructions string, inputRaw json.RawMessage)
 			continue
 		case "function_call_output", "custom_tool_call_output", "tool_search_output":
 			outputRaw := bytesTrimSpace(item["output"])
+			if itemType == "tool_search_output" && (len(outputRaw) == 0 || string(outputRaw) == "null") {
+				outputRaw = bytesTrimSpace(item["tools"])
+			}
 			callID := rawString(item["call_id"])
 			if callID == "" && invalidEmptyFunctionCallOutputs > 0 {
 				invalidEmptyFunctionCallOutputs--

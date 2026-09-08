@@ -57,6 +57,12 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 	// custom_tool_call 项，先记下名字集合；tool_search 工具同理，回程还原为
 	// tool_search_call 项；namespace 子工具（如 MCP 工具）摊平转发，回程按映射还原
 	// 为带 namespace 字段的 function_call 项。
+	effectiveTools, discoveryErr := apicompat.EffectiveResponsesTools(&responsesReq)
+	if discoveryErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"type": "invalid_request_error", "message": discoveryErr.Error()}})
+		return nil, discoveryErr
+	}
+	responsesReq.Tools = effectiveTools
 	customTools := apicompat.CustomToolNames(responsesReq.Tools)
 	toolSearch := apicompat.HasToolSearchTool(responsesReq.Tools)
 	namespaceTools := apicompat.NamespaceToolNames(responsesReq.Tools)
