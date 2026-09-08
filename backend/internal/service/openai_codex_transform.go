@@ -356,6 +356,11 @@ func normalizeCodexToolChoice(reqBody map[string]any) bool {
 	if choiceType == "" {
 		return false
 	}
+	if strings.EqualFold(choiceType, "allowed_tools") {
+		// allowed_tools is a selection policy; upstream validates its contents.
+		// Do not silently broaden it to auto when additional_tools are used.
+		return false
+	}
 	modified := false
 	if choiceType == "function" {
 		name := strings.TrimSpace(firstNonEmptyString(choiceMap["name"]))
