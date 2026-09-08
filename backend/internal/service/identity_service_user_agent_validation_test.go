@@ -86,17 +86,17 @@ func TestGetOrCreateFingerprintRejectsMalformedUserAgentOnCreate(t *testing.T) {
 }
 
 func TestGetOrCreateFingerprintRejectsSentinelVersionOnUpgrade(t *testing.T) {
-	cache := &userAgentValidationCache{fingerprint: &Fingerprint{UserAgent: "claude-cli/2.1.91", ClientID: "client-id", UpdatedAt: time.Now().Unix()}}
+	cache := &userAgentValidationCache{fingerprint: &Fingerprint{UserAgent: "claude-cli/" + claude.CLICurrentVersion + " (external, cli)", ClientID: "client-id", UpdatedAt: time.Now().Unix()}}
 	fp, err := NewIdentityService(cache).GetOrCreateFingerprint(context.Background(), 1, userAgentValidationHeaders("claude-cli/999.0.0"))
 
 	require.NoError(t, err)
-	require.Equal(t, "claude-cli/2.1.91", fp.UserAgent)
+	require.Equal(t, "claude-cli/"+claude.CLICurrentVersion+" (external, cli)", fp.UserAgent)
 	require.Zero(t, cache.setCalls)
 }
 
 func TestGetOrCreateFingerprintStillUpgradesOnValidNewerVersion(t *testing.T) {
-	cache := &userAgentValidationCache{fingerprint: &Fingerprint{UserAgent: "claude-cli/2.1.91", ClientID: "client-id", UpdatedAt: time.Now().Unix()}}
-	newUA := "claude-cli/2.1.93 (external, cli)"
+	cache := &userAgentValidationCache{fingerprint: &Fingerprint{UserAgent: "claude-cli/" + claude.CLICurrentVersion, ClientID: "client-id", UpdatedAt: time.Now().Unix()}}
+	newUA := "claude-cli/2.9.0 (external, cli)"
 	fp, err := NewIdentityService(cache).GetOrCreateFingerprint(context.Background(), 1, userAgentValidationHeaders(newUA))
 
 	require.NoError(t, err)
@@ -124,7 +124,8 @@ func TestGetOrCreateFingerprintHealsPoisonedCacheUsingValidClientUA(t *testing.T
 	fp, err := NewIdentityService(cache).GetOrCreateFingerprint(context.Background(), 1, userAgentValidationHeaders(realUA))
 
 	require.NoError(t, err)
-	require.Equal(t, realUA, fp.UserAgent)
+	require.Equal(t, "claude-cli/"+claude.CLICurrentVersion+" (external, cli)", fp.UserAgent)
+	require.Equal(t, fp.UserAgent, cache.lastSet.UserAgent)
 	require.Equal(t, "client-id", fp.ClientID)
 	require.Equal(t, "client-id", cache.lastSet.ClientID)
 	require.Equal(t, 1, cache.setCalls)
@@ -142,11 +143,11 @@ func TestGetOrCreateFingerprintHealsPoisonedCacheWithoutValidClientUA(t *testing
 }
 
 func TestGetOrCreateFingerprintDoesNotRewriteHealthyCache(t *testing.T) {
-	cache := &userAgentValidationCache{fingerprint: &Fingerprint{UserAgent: "claude-cli/2.1.93", ClientID: "client-id", UpdatedAt: time.Now().Unix()}}
+	cache := &userAgentValidationCache{fingerprint: &Fingerprint{UserAgent: "claude-cli/" + claude.CLICurrentVersion, ClientID: "client-id", UpdatedAt: time.Now().Unix()}}
 	fp, err := NewIdentityService(cache).GetOrCreateFingerprint(context.Background(), 1, userAgentValidationHeaders("claude-cli/2.1.92"))
 
 	require.NoError(t, err)
-	require.Equal(t, "claude-cli/2.1.93", fp.UserAgent)
+	require.Equal(t, "claude-cli/"+claude.CLICurrentVersion, fp.UserAgent)
 	require.Zero(t, cache.setCalls)
 }
 

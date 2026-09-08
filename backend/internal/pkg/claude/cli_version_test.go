@@ -9,7 +9,7 @@ func TestIsSupportedCLIVersion(t *testing.T) {
 		want    bool
 	}{
 		{"builtin", CLICurrentVersion, true},
-		{"higher patch", "2.1.251", true},
+		{"higher patch", "2.1.259", true},
 		{"higher minor", "2.2.0", true},
 		{"higher major", "3.0.0", true},
 		{"below builtin", "2.1.219", false},
@@ -40,8 +40,8 @@ func TestResolveCLIVersion(t *testing.T) {
 	}{
 		{"unset", "", CLICurrentVersion},
 		{"whitespace", "   ", CLICurrentVersion},
-		{"valid override", "2.1.251", "2.1.251"},
-		{"trimmed override", "  2.1.251  ", "2.1.251"},
+		{"valid override", "2.1.259", "2.1.259"},
+		{"trimmed override", "  2.1.259  ", "2.1.259"},
 		{"invalid fallback", "not-a-version", CLICurrentVersion},
 		{"lower fallback", "2.0.0", CLICurrentVersion},
 		{"prerelease fallback", "2.2.0-local", CLICurrentVersion},
