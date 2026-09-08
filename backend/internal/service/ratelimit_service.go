@@ -186,9 +186,20 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 	// Official Anthropic 5h / 7d window exhaustion is a hard account limit.
 	// Keep it before user temp-unsched rules so a broad 429 keyword rule cannot shorten it.
 	if statusCode == http.StatusTooManyRequests && account.Platform == PlatformAnthropic {
+		requested := ""
+		if len(requestedModel) > 0 {
+			requested = requestedModel[0]
+		}
+		fableCreditsRequired := s.persistAnthropicFableCreditsRequired(ctx, account, headers, responseBody, requested)
 		// 7d_oi is the Fable-only window. It must not pause the whole Anthropic
 		// account when the regular 5h/7d windows remain available.
 		fableLimited := s.persistAnthropicFableWindowLimit(ctx, account, headers)
+		if fableCreditsRequired {
+			if fableLimited && isAnthropicAccountWindowExhausted(headers) {
+				_ = s.persistAnthropicExhaustedWindowLimit(ctx, account, headers)
+			}
+			return false
+		}
 		if fableLimited {
 			// The legacy parser intentionally falls back to the sooner 5h/7d
 			// reset when neither account window is explicit. That fallback is
@@ -1174,7 +1185,44 @@ func (s *RateLimitService) persistAnthropicExhaustedWindowLimit(ctx context.Cont
 	return true
 }
 
-const anthropicFableWindowReason = "anthropic_7d_oi_window_exhausted"
+const (
+	anthropicFableWindowReason          = "anthropic_7d_oi_window_exhausted"
+	anthropicFableCreditsRequiredReason = "anthropic_fable_credits_required"
+)
+
+// persistAnthropicFableCreditsRequired records a Fable entitlement failure at
+// the family scope. Anthropic uses HTTP 429 for this response, but it must not
+// pause unrelated Claude models on the same account.
+func (s *RateLimitService) persistAnthropicFableCreditsRequired(ctx context.Context, account *Account, headers http.Header, responseBody []byte, requestedModel string) bool {
+	if s == nil || s.accountRepo == nil || account == nil {
+		return false
+	}
+	if !strings.EqualFold(strings.TrimSpace(gjson.GetBytes(responseBody, "error.details.error_code").String()), "credits_required") {
+		return false
+	}
+	model := strings.TrimSpace(gjson.GetBytes(responseBody, "error.details.model").String())
+	if model == "" {
+		model = strings.TrimSpace(requestedModel)
+	}
+	if !isAnthropicFableModel(model) {
+		return false
+	}
+	now := time.Now()
+	resetAt, ok := parseAnthropicResetTimestamp(headers.Get("anthropic-ratelimit-unified-reset"), now, 366*24*time.Hour)
+	if !ok {
+		cooldown, enabled := s.get429FallbackCooldown(ctx, account)
+		if !enabled {
+			slog.Info("anthropic_fable_credits_required_cooldown_ignored", "account_id", account.ID)
+			return true
+		}
+		resetAt = now.Add(cooldown)
+	}
+	if err := s.accountRepo.SetModelRateLimit(ctx, account.ID, anthropicFableRateLimitKey, resetAt); err != nil {
+		slog.Warn("anthropic_fable_credits_required_rate_limit_set_failed", "account_id", account.ID, "scope", anthropicFableRateLimitKey, "error", err)
+	}
+	slog.Info("anthropic_fable_credits_required_model_rate_limited", "account_id", account.ID, "scope", anthropicFableRateLimitKey, "reset_at", resetAt, "reason", anthropicFableCreditsRequiredReason)
+	return true
+}
 
 type anthropicWindowLimit struct {
 	window  string

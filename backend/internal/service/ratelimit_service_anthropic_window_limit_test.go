@@ -126,6 +126,37 @@ func TestHandleUpstreamError_Anthropic7dOiOnlyMarksModelRateLimit(t *testing.T) 
 	require.Equal(t, resetOI.Unix(), repo.lastExtraUpdates["passive_usage_7d_oi_reset"])
 }
 
+func TestHandleUpstreamError_AnthropicFableCreditsRequiredOnlyMarksModelRateLimit(t *testing.T) {
+	resetAt := time.Now().Add(29 * 24 * time.Hour).Truncate(time.Second)
+	headers := http.Header{}
+	headers.Set("anthropic-ratelimit-unified-reset", strconv.FormatInt(resetAt.Unix(), 10))
+	repo := &anthropicWindowLimitRepo{}
+	svc := NewRateLimitService(repo, nil, nil, nil, nil)
+	account := &Account{ID: 42, Type: AccountTypeOAuth, Platform: PlatformAnthropic}
+	body := []byte(`{"error":{"details":{"error_code":"credits_required","model":"claude-fable-5"}}}`)
+
+	require.False(t, svc.HandleUpstreamError(context.Background(), account, http.StatusTooManyRequests, headers, body, "claude-fable-5"))
+	require.Zero(t, repo.rateLimitCalls)
+	require.Equal(t, 1, repo.modelRateLimitCalls)
+	require.Equal(t, anthropicFableRateLimitKey, repo.lastModelRateLimitScope)
+	require.Equal(t, resetAt, repo.lastModelRateLimitReset)
+}
+
+func TestHandleUpstreamError_AnthropicNonFableCreditsRequiredKeepsAccountLimit(t *testing.T) {
+	resetAt := time.Now().Add(2 * time.Hour).Truncate(time.Second)
+	headers := http.Header{}
+	headers.Set("anthropic-ratelimit-unified-reset", strconv.FormatInt(resetAt.Unix(), 10))
+	repo := &anthropicWindowLimitRepo{}
+	svc := NewRateLimitService(repo, nil, nil, nil, nil)
+	account := &Account{ID: 42, Type: AccountTypeOAuth, Platform: PlatformAnthropic}
+	body := []byte(`{"error":{"details":{"error_code":"credits_required","model":"claude-opus-5"}}}`)
+
+	svc.HandleUpstreamError(context.Background(), account, http.StatusTooManyRequests, headers, body, "claude-opus-5")
+	require.Zero(t, repo.modelRateLimitCalls)
+	require.Equal(t, 1, repo.rateLimitCalls)
+	require.Equal(t, resetAt, repo.lastRateLimitReset)
+}
+
 func TestHandleUpstreamError_AnthropicAccountWindowStillWinsOver7dOi(t *testing.T) {
 	now := time.Now()
 	reset5h := now.Add(2 * time.Hour).Truncate(time.Second)
