@@ -497,7 +497,8 @@ func TestTransformClaudeToGeminiWithOptions_ReasoningModelOmitsInvalidArgs(t *te
 	t.Run("reasoning model without tools omits invalid args", func(t *testing.T) {
 		req := transform(t, "gemini-3.1-pro-high", nil)
 
-		require.Nil(t, req.Request.ToolConfig)
+		require.NotNil(t, req.Request.ToolConfig)
+		require.Equal(t, "VALIDATED", req.Request.ToolConfig.FunctionCallingConfig.Mode)
 		require.NotNil(t, req.Request.GenerationConfig)
 		require.Empty(t, req.Request.GenerationConfig.StopSequences)
 		require.Nil(t, req.Request.GenerationConfig.Temperature)
