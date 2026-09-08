@@ -787,6 +787,7 @@ func sanitizeAnthropicBodyForBetaTokens(body []byte, anthropicBetaHeader string)
 	}
 
 	strip("context_management", anthropicBetaContextManagementToken)
+	strip("thinking.block_binding", claude.BetaThinkingBindingControls)
 	strip("fallbacks", claude.BetaServerSideFallback)
 	strip("fallback_credit_token", claude.BetaServerSideFallback, claude.BetaFallbackCredit, claude.BetaFallbackCreditLegacy)
 	return body, changed
