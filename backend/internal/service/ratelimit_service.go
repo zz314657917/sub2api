@@ -195,7 +195,7 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 		// account when the regular 5h/7d windows remain available.
 		fableLimited := s.persistAnthropicFableWindowLimit(ctx, account, headers)
 		if fableCreditsRequired {
-			if fableLimited && isAnthropicAccountWindowExhausted(headers) {
+			if isAnthropicAccountWindowExhausted(headers) {
 				_ = s.persistAnthropicExhaustedWindowLimit(ctx, account, headers)
 			}
 			return false

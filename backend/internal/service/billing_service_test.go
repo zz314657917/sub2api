@@ -477,6 +477,8 @@ func TestGetFallbackPricing_FamilyMatching(t *testing.T) {
 		{name: "deepseek v4 flash", model: "deepseek-v4-flash", expectedInput: 1.4e-7, expectedOutput: floatPtr(2.8e-7), expectedCacheRead: floatPtr(2.8e-9)},
 		{name: "deepseek chat alias", model: "deepseek-chat", expectedInput: 1.4e-7, expectedOutput: floatPtr(2.8e-7), expectedCacheRead: floatPtr(2.8e-9)},
 		{name: "glm 5.1", model: "glm-5.1", expectedInput: 1.4e-6, expectedOutput: floatPtr(4.4e-6), expectedCacheRead: floatPtr(0.26e-6)},
+		{name: "glm 5.3", model: "glm-5.3", expectedInput: 1.4e-6, expectedOutput: floatPtr(4.4e-6), expectedCacheRead: floatPtr(0.26e-6)},
+		{name: "glm 5.3 flash", model: "glm-5.3-flash", expectedInput: 0.15e-6, expectedOutput: floatPtr(0.5e-6), expectedCacheRead: floatPtr(0.03e-6)},
 		{name: "glm 4.5 airx", model: "glm-4.5-airx", expectedInput: 1.1e-6, expectedOutput: floatPtr(4.5e-6), expectedCacheRead: floatPtr(0.22e-6)},
 		{name: "glm 4.7 flash free", model: "glm-4.7-flash", expectedInput: 0, expectedOutput: floatPtr(0)},
 		{name: "kimi k3", model: "kimi-k3", expectedInput: 3e-6, expectedOutput: floatPtr(15e-6), expectedCacheRead: floatPtr(0.30e-6)},

@@ -332,7 +332,9 @@ func (s *BillingService) initFallbackPricing() {
 		SupportsCacheBreakdown: false,
 	}
 
-	// GLM-5.2 与 GLM-5.1 使用同一官方 USD 价卡，单独登记避免被 glm-5 旧价抢先匹配。
+	// GLM-5.3 / GLM-5.2 / GLM-5.1 使用同一官方 USD 价卡，单独登记避免被 glm-5 旧价抢先匹配。
+	s.fallbackPrices["glm-5.3-flash"] = &ModelPricing{InputPricePerToken: 0.15e-6, OutputPricePerToken: 0.5e-6, CacheReadPricePerToken: 0.03e-6}
+	s.fallbackPrices["glm-5.3"] = &ModelPricing{InputPricePerToken: 1.4e-6, OutputPricePerToken: 4.4e-6, CacheReadPricePerToken: 0.26e-6}
 	s.fallbackPrices["glm-5.2"] = &ModelPricing{InputPricePerToken: 1.4e-6, OutputPricePerToken: 4.4e-6, CacheReadPricePerToken: 0.26e-6}
 	s.fallbackPrices["glm-5.1"] = &ModelPricing{InputPricePerToken: 1.4e-6, OutputPricePerToken: 4.4e-6, CacheReadPricePerToken: 0.26e-6}
 	s.fallbackPrices["glm-5"] = &ModelPricing{InputPricePerToken: 1e-6, OutputPricePerToken: 3.2e-6, CacheReadPricePerToken: 0.2e-6}
@@ -482,6 +484,12 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 		return s.fallbackPrices["deepseek-v4-flash"]
 	}
 
+	if strings.Contains(modelLower, "glm-5.3-flash") || strings.Contains(modelLower, "glm-5.3flash") {
+		return s.fallbackPrices["glm-5.3-flash"]
+	}
+	if strings.Contains(modelLower, "glm-5.3") {
+		return s.fallbackPrices["glm-5.3"]
+	}
 	if strings.Contains(modelLower, "glm-5.2") {
 		return s.fallbackPrices["glm-5.2"]
 	}
