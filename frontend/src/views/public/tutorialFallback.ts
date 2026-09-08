@@ -1,4 +1,5 @@
 import type { TutorialPage } from '@/types'
+import { codexTutorialConfig } from './tutorialQuickstart'
 
 const timestamp = '2026-05-21T00:00:00Z'
 
@@ -43,10 +44,10 @@ export const tutorialFallbackPages: TutorialPage[] = [
 
 ## Base URL
 
-OpenAI 兼容工具通常使用：
+Codex 使用根地址 https://ai.3zapi.com；其他要求 /v1 的 OpenAI 兼容工具使用：
 
 [[command title="OpenAI 兼容 Base URL"]]
-https://ai.3zapi.top/v1
+https://ai.3zapi.com/v1
 [[/command]]
 
 Claude Code 兼容工具通常使用：
@@ -154,19 +155,12 @@ nano ~/.codex/config.toml
 把下面内容完整粘进去，然后保存。
 
 [[command title="config.toml" lang="toml"]]
-model = "gpt-5.5"
-model_provider = "luoye"
-
-[model_providers.luoye]
-name = "luoye"
-base_url = "https://ai.3zapi.top/v1"
-env_key = "OPENAI_API_KEY"
-wire_api = "responses"
+${codexTutorialConfig()}
 [[/command]]
 
-- model_provider = "luoye" 表示 Codex 使用下面这个自定义服务商。
-- base_url 必须写成 \`https://ai.3zapi.top/v1\`，结尾带 \`/v1\`。
-- env_key = "OPENAI_API_KEY" 要和 auth.json 里的字段名保持一致；CLI 环境变量方案也使用这个名字。
+- model_provider = "OpenAI" 与 [model_providers.OpenAI] 对应，服务商显示名称为 3Z API。
+- Codex 的 base_url 使用根地址 \`https://ai.3zapi.com\`，无需追加 \`/v1\`。
+- requires_openai_auth = true 配合下方 auth.json 中的 OPENAI_API_KEY 使用。
 - wire_api = "responses" 表示使用 Responses 协议。
 
 ## 第三步：创建 auth.json
@@ -196,7 +190,7 @@ nano ~/.codex/auth.json
 关闭并重新打开 Codex App，进入一个项目后发送简单问题，确认模型能正常响应。
 
 [[callout type="warning" title="失败时先查这三项"]]
-1. Base URL 是否为 \`https://ai.3zapi.top/v1\`。
+1. Base URL 是否为 \`https://ai.3zapi.com\`。
 2. API Key 是否复制完整。
 3. 当前密钥是否能路由到可用套餐，账户是否有余额或试用额度。
 [[/callout]]
@@ -216,7 +210,7 @@ codex --version
 
 - 401 或 unauthorized：优先检查 Token 是否复制完整。
 - model not found：当前分组可能不支持配置里的模型，换成控制台可用模型后再试。
-- Base URL 报错：OpenAI 兼容地址必须写 \`https://ai.3zapi.top/v1\`，不要漏掉 \`/v1\`。
+- Base URL 报错：本页 Codex 配置使用 \`https://ai.3zapi.com\` 根地址。
 - 配置不生效：修改配置后重启 Codex App；如果是 CLI，关闭旧终端后重新打开。
 `.trim()
   },

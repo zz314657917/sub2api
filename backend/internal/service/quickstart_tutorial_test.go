@@ -70,7 +70,7 @@ func TestQuickstartTutorialConfig_DefaultAndPersistence(t *testing.T) {
 
 	defaults, err := service.GetQuickstartTutorialConfig(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, "https://ai.3zapi.top", defaults.Platforms[0].BaseURL)
+	require.Equal(t, "https://ai.3zapi.com", defaults.Platforms[0].BaseURL)
 
 	updated := *defaults
 	updated.Platforms = append([]QuickstartTutorialPlatform(nil), defaults.Platforms...)

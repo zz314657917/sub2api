@@ -10,16 +10,12 @@
       <section v-if="showQuickstart" class="tutorial-quickstart" aria-labelledby="tutorial-quickstart-title">
         <div class="tutorial-quickstart-head">
           <div>
-            <span class="tutorial-kicker">{{ quickstartConfig.header.kicker }}</span>
             <h1 id="tutorial-quickstart-title">{{ quickstartConfig.header.title }}</h1>
             <p>{{ quickstartConfig.header.description }}</p>
           </div>
           <div class="tutorial-actions">
             <router-link :to="{ path: '/tutorial', query: { view: 'library' } }" class="guide-action-link">
               {{ quickstartConfig.header.library_action_label }}
-            </router-link>
-            <router-link to="/keys" class="guide-action-link guide-action-link--ghost">
-              {{ quickstartConfig.header.keys_action_label }}
             </router-link>
           </div>
         </div>
@@ -58,27 +54,43 @@
           </div>
         </div>
 
-        <div class="tutorial-quickstart-facts">
-          <article v-for="fact in quickstartFacts" :key="fact.label" class="tutorial-quickstart-fact">
-            <span>{{ fact.label }}</span>
-            <strong>{{ fact.value }}</strong>
-            <p>{{ fact.description }}</p>
-          </article>
-        </div>
+        <details :key="quickstartPlatform" class="tutorial-disclosure tutorial-install">
+          <summary>尚未安装？</summary>
+          <div class="tutorial-disclosure-body">
+            <a v-if="quickstartPlatform === 'codex'" href="https://developers.openai.com/codex/app#getting-started" class="tutorial-quickstart-link" target="_blank" rel="noopener noreferrer">下载 Codex App</a>
+            <div class="tutorial-quickstart-code">
+              <div class="tutorial-quickstart-code-head">
+                <span>{{ quickstartPlatform === 'claude' ? 'Claude Code' : 'Codex CLI' }}</span>
+                <button type="button" @click="copyQuickstartCommand(quickstartInstallCommand, $event)">复制</button>
+              </div>
+              <pre><code>{{ quickstartInstallCommand }}</code></pre>
+            </div>
+          </div>
+        </details>
 
         <div class="tutorial-quickstart-steps">
           <article v-for="step in quickstartSteps" :key="step.number" class="tutorial-quickstart-step">
             <header>
               <span class="tutorial-quickstart-step-number">{{ step.number }}</span>
               <div>
-                <span v-if="step.kicker" class="tutorial-quickstart-step-kicker">{{ step.kicker }}</span>
                 <h3>{{ step.title }}</h3>
                 <p>{{ step.description }}</p>
               </div>
-              <span v-if="step.required" class="tutorial-quickstart-required">首次必做</span>
             </header>
 
-            <div v-if="step.notice" class="tutorial-quickstart-notice">{{ step.notice }}</div>
+            <details v-if="step.number === '02' && quickstartPlatform === 'codex'" class="tutorial-disclosure tutorial-directory">
+              <summary>找不到配置文件夹？</summary>
+              <div class="tutorial-disclosure-body">
+                <p>{{ quickstartConfigDirectoryDescription }}</p>
+                <div class="tutorial-quickstart-code">
+                  <div class="tutorial-quickstart-code-head">
+                    <span>{{ quickstartConfigDirectoryCommandLabel }}</span>
+                    <button type="button" @click="copyQuickstartCommand(quickstartConfigDirectoryCommand, $event)">复制</button>
+                  </div>
+                  <pre><code>{{ quickstartConfigDirectoryCommand }}</code></pre>
+                </div>
+              </div>
+            </details>
 
             <div v-if="step.command" class="tutorial-quickstart-code">
               <div class="tutorial-quickstart-code-head">
@@ -91,40 +103,13 @@
             <router-link v-if="step.link" :to="step.link.to" class="tutorial-quickstart-link">
               {{ step.link.label }}
             </router-link>
-            <a
-              v-if="step.externalLink"
-              :href="step.externalLink.href"
-              class="tutorial-quickstart-link"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {{ step.externalLink.label }}
-            </a>
           </article>
         </div>
 
         <div class="tutorial-quickstart-followup">
-          <section class="tutorial-quickstart-section">
-            <header>
-              <span class="tutorial-kicker">{{ quickstartConfig.desktop.kicker }}</span>
-              <h3>{{ quickstartConfig.desktop.title }}</h3>
-              <p>{{ quickstartConfig.desktop.description }}</p>
-            </header>
-            <div class="tutorial-quickstart-tile-grid">
-              <article v-for="tile in quickstartDesktopTiles" :key="tile.number" class="tutorial-quickstart-tile">
-                <span>{{ tile.number }}</span>
-                <strong>{{ tile.title }}</strong>
-                <p>{{ tile.description }}</p>
-              </article>
-            </div>
-          </section>
-
-          <section class="tutorial-quickstart-section">
-            <header>
-              <span class="tutorial-kicker">{{ quickstartConfig.api.kicker }}</span>
-              <h3>{{ quickstartConfig.api.title }}</h3>
-              <p>{{ quickstartConfig.api.description }}</p>
-            </header>
+          <details class="tutorial-disclosure tutorial-api">
+            <summary>{{ quickstartConfig.api.title }}</summary>
+            <div class="tutorial-disclosure-body">
             <div class="tutorial-quickstart-code tutorial-quickstart-code--large">
               <div class="tutorial-quickstart-code-head">
                 <span>{{ quickstartApiLabel }}</span>
@@ -133,14 +118,12 @@
               <pre><code>{{ quickstartApiExample }}</code></pre>
             </div>
             <p class="tutorial-quickstart-hint">{{ quickstartConfig.api_hint }}</p>
-          </section>
+            </div>
+          </details>
 
-          <section class="tutorial-quickstart-section">
-            <header>
-              <span class="tutorial-kicker">{{ quickstartConfig.troubleshooting.kicker }}</span>
-              <h3>{{ quickstartConfig.troubleshooting.title }}</h3>
-              <p>{{ quickstartConfig.troubleshooting.description }}</p>
-            </header>
+          <details class="tutorial-disclosure tutorial-troubleshooting">
+            <summary>连接失败？</summary>
+            <div class="tutorial-disclosure-body">
             <div class="tutorial-quickstart-error-grid">
               <article v-for="error in quickstartErrors" :key="error.code" class="tutorial-quickstart-error">
                 <span>{{ error.code }}</span>
@@ -148,7 +131,8 @@
                 <p>{{ error.description }}</p>
               </article>
             </div>
-          </section>
+            </div>
+          </details>
         </div>
       </section>
 
@@ -452,6 +436,7 @@ import PublicRevealBackdrop from './components/PublicRevealBackdrop.vue'
 import PublicTopNav from './components/PublicTopNav.vue'
 import { tutorialFallbackPages } from './tutorialFallback'
 import {
+  codexTutorialConfig,
   defaultQuickstartTutorialConfig,
   type QuickstartPlatformID,
   type QuickstartTutorialConfig
@@ -623,37 +608,11 @@ const quickstartClient = computed(() => {
   }
 })
 
-const quickstartFacts = computed(() => [
-  {
-    label: quickstartConfig.value.facts.base_url_label,
-    value: quickstartClient.value.baseUrl,
-    description: quickstartClient.value.baseUrlDescription
-  },
-  {
-    label: quickstartConfig.value.facts.auth_label,
-    value: quickstartClient.value.auth,
-    description: quickstartConfig.value.facts.auth_description
-  },
-  {
-    label: quickstartConfig.value.facts.protocol_label,
-    value: quickstartClient.value.protocol,
-    description: quickstartConfig.value.facts.protocol_description
-  },
-  {
-    label: quickstartConfig.value.facts.model_label,
-    value: quickstartClient.value.model,
-    description: quickstartConfig.value.facts.model_description
-  }
-])
-
 const quickstartInstallCommand = computed(() => {
   if (quickstartPlatform.value === 'claude') {
     return 'npm install -g @anthropic-ai/claude-code --registry=https://registry.npmmirror.com\nclaude --version'
   }
-  if (quickstartTerminal.value === 'unix') {
-    return 'npm install -g @openai/codex --registry=https://registry.npmmirror.com\ncodex --version'
-  }
-  return 'winget install --id OpenAI.Codex -e\ncodex --version'
+  return 'npm install -g @openai/codex --registry=https://registry.npmmirror.com\ncodex --version'
 })
 
 const quickstartConfigDirectoryCommand = computed(() => {
@@ -691,14 +650,14 @@ const quickstartConfigSnippet = computed(() => {
     }
     return `set ANTHROPIC_AUTH_TOKEN=你的 API Key\nset ANTHROPIC_BASE_URL=${quickstartClient.value.baseUrl}`
   }
-  return `model = "gpt-5.5"\nmodel_provider = "luoye"\n\n[model_providers.luoye]\nname = "luoye"\nbase_url = "${quickstartClient.value.baseUrl}"\nenv_key = "OPENAI_API_KEY"\nwire_api = "responses"`
+  return codexTutorialConfig(quickstartClient.value.baseUrl)
 })
 
 const quickstartAuthAndStartCommand = computed(() => {
   if (quickstartPlatform.value === 'claude') {
-    return `${quickstartConfigSnippet.value}\nclaude`
+    return 'claude'
   }
-  return '{\n  "OPENAI_API_KEY": "替换成你的 API Key"\n}\n\ncodex'
+  return '{\n  "OPENAI_API_KEY": "替换成你的 API Key"\n}'
 })
 
 const quickstartApiLabel = computed(() => {
@@ -720,72 +679,36 @@ const quickstartApiExample = computed(() => {
     'curl ' + quickstartClient.value.baseUrl + '/responses ' + continuation,
     '  -H "Authorization: Bearer 你的 API Key" ' + continuation,
     '  -H "Content-Type: application/json" ' + continuation,
-    "  -d '{\"model\":\"gpt-5.5\",\"input\":\"你好\"}'",
+    "  -d '{\"model\":\"gpt-6-astra\",\"input\":\"你好\"}'",
   ].join('\n')
 })
 
-const quickstartSteps = computed(() => {
-  return [
-    {
-      number: '01',
-      kicker: '准备信息',
-      title: '确认 API Key 和 Base URL',
-      description: `先从控制台复制 ${quickstartClient.value.name} 对应的 API Key。`,
-      commandLabel: '接入信息',
-      command: `${quickstartClient.value.baseUrl}\n${quickstartClient.value.auth}`,
-      required: true,
-      link: { to: '/keys', label: '打开 API 密钥页面' }
-    },
-    {
-      number: '02',
-      kicker: quickstartTerminalLabel.value,
-      title: quickstartPlatform.value === 'claude' ? '安装 Claude Code' : '安装 Codex CLI 或桌面端',
-      description: quickstartPlatform.value === 'claude' ? '需要 Node.js 18 或更高版本；桌面端用户可以跳过 CLI 安装。' : 'Codex App 不要求先安装 Node.js；只有使用 CLI 时才执行下面的安装命令。',
-      commandLabel: '安装命令',
-      command: quickstartInstallCommand.value,
-      required: true,
-      externalLink: quickstartPlatform.value === 'claude'
-        ? undefined
-        : {
-            href: 'https://developers.openai.com/codex/app#getting-started',
-            label: '下载 ChatGPT Desktop（Windows / macOS）'
-          }
-    },
-    {
-      number: '03',
-      kicker: '配置文件位置',
-      title: quickstartPlatform.value === 'claude' ? '确认 Claude 配置方式' : '找到或创建 config.toml',
-      description: quickstartConfigDirectoryDescription.value,
-      commandLabel: quickstartConfigDirectoryCommandLabel.value,
-      command: quickstartConfigDirectoryCommand.value,
-      required: true,
-      notice: quickstartPlatform.value === 'claude'
-        ? undefined
-        : '在打开的目录中新建或编辑 config.toml；确认 Windows 没有把文件保存成 config.toml.txt。'
-    },
-    {
-      number: '04',
-      kicker: quickstartPlatform.value === 'claude' ? '环境变量' : 'config.toml',
-      title: '填写接口配置',
-      description: quickstartPlatform.value === 'claude' ? '将环境变量写入当前终端或 settings.json。' : '将下面内容保存到 config.toml，并把模型替换为账号可用的模型 ID。',
-      commandLabel: quickstartPlatform.value === 'claude' ? quickstartTerminalLabel.value : 'config.toml',
-      command: quickstartConfigSnippet.value,
-      required: true
-    },
-    {
-      number: '05',
-      kicker: '最后一步',
-      title: '填写密钥并启动验证',
-      description: quickstartPlatform.value === 'claude' ? '保存 Token 后运行 claude，看到可交互提示即完成接入。' : '保存 auth.json 后启动 Codex，发送一句简单问题确认模型能正常响应。',
-      commandLabel: quickstartPlatform.value === 'claude' ? quickstartTerminalLabel.value : 'auth.json + 启动命令',
-      command: quickstartAuthAndStartCommand.value,
-      required: true,
-      notice: '真实 API Key 只粘贴到本地配置，不要提交到代码仓库。'
-    }
-  ]
-})
-
-const quickstartDesktopTiles = computed(() => quickstartConfig.value.desktop.tiles)
+const quickstartSteps = computed(() => [
+  {
+    number: '01',
+    title: '获取 API 密钥',
+    description: '登录控制台，复制已有密钥或创建一枚新密钥。',
+    link: { to: '/keys', label: '打开 API 密钥页面' }
+  },
+  {
+    number: '02',
+    title: quickstartPlatform.value === 'claude' ? '配置环境变量' : '填写 config.toml',
+    description: quickstartPlatform.value === 'claude'
+      ? '在当前终端设置环境变量，将“你的 API Key”替换为真实密钥。'
+      : `保存到 ${quickstartTerminal.value === 'unix' ? '~/.codex/config.toml' : '%USERPROFILE%\\.codex\\config.toml'}；已有文件请合并配置，保留其他设置。`,
+    commandLabel: quickstartPlatform.value === 'claude' ? quickstartTerminalLabel.value : 'config.toml',
+    command: quickstartConfigSnippet.value
+  },
+  {
+    number: '03',
+    title: quickstartPlatform.value === 'claude' ? '启动验证' : '填写 auth.json 并启动',
+    description: quickstartPlatform.value === 'claude'
+      ? '在同一个终端执行 claude，发送简单问题确认响应。'
+      : '将下方 JSON 保存到同目录的 auth.json，填入真实密钥；重启 Codex App 或执行 codex，发送简单问题验证。',
+    commandLabel: quickstartPlatform.value === 'claude' ? quickstartTerminalLabel.value : 'auth.json',
+    command: quickstartAuthAndStartCommand.value
+  }
+])
 
 function fallbackSummary(page: TutorialPage): TutorialPageSummary {
   const { content_md: _content, ...summary } = page
@@ -1720,10 +1643,9 @@ onUnmounted(() => {
   min-height: 10rem;
   align-content: start;
   gap: 0.45rem;
-  padding: 1rem;
-  border: 1px solid var(--tutorial-border);
-  border-radius: 8px;
-  background: rgba(250, 249, 245, 0.9);
+  min-width: 0;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--tutorial-border);
   color: var(--tutorial-text);
 }
 
@@ -2388,13 +2310,12 @@ onUnmounted(() => {
 .tutorial-quickstart {
   display: grid;
   gap: 1rem;
-  margin-bottom: 1rem;
-  padding: clamp(1rem, 2vw, 1.5rem);
-  border: 1px solid var(--tutorial-border);
-  border-radius: 8px;
-  background: rgba(250, 249, 245, 0.9);
-  box-shadow: 0 16px 36px rgba(20, 20, 19, 0.06);
-  backdrop-filter: blur(16px);
+  width: 100%;
+  max-width: 64rem;
+  margin: 0 auto 1rem;
+  padding: 1rem 0;
+  border: 0;
+  background: transparent;
 }
 
 .tutorial-quickstart-head {
@@ -2410,7 +2331,7 @@ onUnmounted(() => {
 .tutorial-quickstart-head h2 {
   margin: 0.15rem 0 0.35rem;
   font-family: var(--public-font-display);
-  font-size: clamp(2rem, 4vw, 3rem);
+  font-size: 2rem;
   font-weight: 400;
   line-height: 1.05;
 }
@@ -2527,15 +2448,14 @@ onUnmounted(() => {
 .tutorial-quickstart-step {
   display: grid;
   gap: 0.8rem;
-  padding: 1rem;
-  border: 1px solid var(--tutorial-border);
-  border-radius: 8px;
-  background: rgba(250, 249, 245, 0.9);
+  min-width: 0;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--tutorial-border);
 }
 
 .tutorial-quickstart-step > header {
   display: grid;
-  grid-template-columns: 2.15rem minmax(0, 1fr) auto;
+  grid-template-columns: 2.15rem minmax(0, 1fr);
   align-items: start;
   gap: 0.75rem;
 }
@@ -2784,5 +2704,53 @@ onUnmounted(() => {
   .tutorial-quickstart-code pre {
     font-size: 0.76rem;
   }
+}
+.tutorial-disclosure {
+  min-width: 0;
+  border-bottom: 1px solid var(--tutorial-border);
+}
+
+.tutorial-quickstart-head .guide-action-link {
+  min-height: 2rem;
+  padding: 0.25rem 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--public-accent-strong);
+  flex: 0 0 auto;
+}
+
+.tutorial-disclosure > summary {
+  padding: 0.8rem 0;
+  color: var(--tutorial-text);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.tutorial-disclosure > summary:focus-visible {
+  outline: 2px solid var(--public-accent);
+  outline-offset: 3px;
+}
+
+.tutorial-disclosure-body {
+  display: grid;
+  min-width: 0;
+  gap: 0.8rem;
+  padding-bottom: 1rem;
+}
+
+.tutorial-disclosure-body > p {
+  margin: 0;
+  color: var(--tutorial-muted);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.tutorial-quickstart-head > div,
+.tutorial-quickstart-step header p {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 </style>

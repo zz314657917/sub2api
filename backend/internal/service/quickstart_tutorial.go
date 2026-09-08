@@ -104,7 +104,7 @@ func DefaultQuickstartTutorialConfig() *QuickstartTutorialConfig {
 				ID:                 "codex",
 				Label:              "ChatGPT / Codex",
 				ClientName:         "ChatGPT / Codex",
-				BaseURL:            "https://ai.3zapi.top",
+				BaseURL:            "https://ai.3zapi.com",
 				BaseURLDescription: "ChatGPT / Codex 使用根地址，无需追加 /v1。",
 				AuthHint:           "Bearer / OPENAI_API_KEY",
 				Protocol:           "OpenAI Responses",

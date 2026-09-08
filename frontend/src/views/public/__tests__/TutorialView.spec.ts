@@ -213,7 +213,6 @@ describe('TutorialView reading flow', () => {
 
     const { wrapper } = await mountTutorial('/tutorial')
 
-    expect(wrapper.find('.tutorial-quickstart-facts').text()).toContain('https://ai.3zapi.cc')
     expect(wrapper.find('.tutorial-quickstart-steps').text()).toContain('base_url = "https://ai.3zapi.cc"')
     expect(wrapper.find('.tutorial-quickstart-code--large').text()).toContain('curl https://ai.3zapi.cc/responses')
   })
@@ -245,54 +244,44 @@ describe('TutorialView reading flow', () => {
     expect(cards[0].text()).toContain('进阶配置')
   })
 
-  it('renders the quick-start guide and updates platform and terminal variants', async () => {
+  it('keeps three primary steps and collapses optional help', async () => {
     const { wrapper } = await mountTutorial('/tutorial')
+    expect(wrapper.findAll('.tutorial-quickstart-step')).toHaveLength(3)
+    expect(wrapper.find('.tutorial-quickstart-facts').exists()).toBe(false)
+    expect(wrapper.find('.tutorial-quickstart-tile-grid').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('首次必做')
+    for (const selector of ['.tutorial-install', '.tutorial-directory', '.tutorial-api', '.tutorial-troubleshooting']) {
+      expect(wrapper.get<HTMLDetailsElement>(selector).element.open).toBe(false)
+    }
+    const config = wrapper.get('.tutorial-quickstart-step:nth-child(2) > .tutorial-quickstart-code pre code').text()
+    expect(config).toContain('model_provider = "OpenAI"')
+    expect(config).toContain('model = "gpt-6-astra"')
+    expect(config).toContain('review_model = "gpt-5.5"')
+    expect(config).toContain('base_url = "https://ai.3zapi.com"')
+    expect(config).toContain('requires_openai_auth = true')
+    expect(config).toContain('stream_max_retries = 1')
+    expect(config).not.toContain('env_key')
+    expect(JSON.parse(wrapper.get('.tutorial-quickstart-step:nth-child(3) pre code').text()))
+      .toEqual({ OPENAI_API_KEY: '替换成你的 API Key' })
+    expect(wrapper.get('.tutorial-install').text()).toContain('下载 Codex App')
+    expect(wrapper.get('.tutorial-install').text()).toContain('@openai/codex')
+    expect(wrapper.get('.tutorial-troubleshooting').text()).toContain('官方算力不足')
 
-    expect(wrapper.find('.tutorial-quickstart').exists()).toBe(true)
-    expect(wrapper.findAll('.tutorial-quickstart-step')).toHaveLength(5)
-    expect(wrapper.find('.tutorial-quickstart-fact').text()).toContain('https://ai.3zapi.top')
-    expect(wrapper.find('[aria-label="选择教程模式"]').exists()).toBe(false)
-    expect(wrapper.find('.tutorial-quickstart-error-grid').text()).toContain('官方算力不足')
-    expect(wrapper.find('.tutorial-quickstart-error-grid').text()).toContain('Selected model is at capacity. Please try a different model.')
-    expect(wrapper.find('.tutorial-quickstart-step:nth-child(3)').text()).toContain(
-      'C:\\Users\\你的用户名\\.codex\\config.toml'
-    )
-    expect(wrapper.find('.tutorial-quickstart-step:nth-child(3)').text()).toContain(
-      'explorer "%USERPROFILE%\\.codex"'
-    )
-
-    const desktopDownloadLink = wrapper.get<HTMLAnchorElement>(
-      'a.tutorial-quickstart-link[href="https://developers.openai.com/codex/app#getting-started"]'
-    )
-    expect(desktopDownloadLink.text()).toContain('下载 ChatGPT Desktop')
-    expect(desktopDownloadLink.attributes('target')).toBe('_blank')
-    expect(desktopDownloadLink.attributes('rel')).toBe('noopener noreferrer')
-
-    const claudeButton = wrapper
-      .findAll<HTMLButtonElement>('.tutorial-segmented-control button')
-      .find((button) => button.text() === 'Claude')
-    expect(claudeButton).toBeDefined()
-    await claudeButton!.trigger('click')
-    expect(wrapper.find('.tutorial-quickstart-facts').text()).toContain('Anthropic Messages')
-    expect(wrapper.find('.tutorial-quickstart-step:nth-child(3)').text()).toContain('Claude Code 不使用 config.toml')
-    expect(
-      wrapper.find('a.tutorial-quickstart-link[href="https://developers.openai.com/codex/app#getting-started"]').exists()
-    ).toBe(false)
-    expect(wrapper.find('.tutorial-quickstart-step:nth-child(2) .tutorial-quickstart-code').text()).toContain(
-      '@anthropic-ai/claude-code'
-    )
-
-    const unixButton = wrapper
-      .findAll<HTMLButtonElement>('.tutorial-segmented-control button')
-      .find((button) => button.text() === 'macOS / Linux')
-    expect(unixButton).toBeDefined()
-    await unixButton!.trigger('click')
-    expect(wrapper.find('.tutorial-quickstart-step:nth-child(3)').text()).toContain('当前终端设置环境变量')
+    const claude = wrapper.findAll('.tutorial-segmented-control button').find(button => button.text() === 'Claude')!
+    await claude.trigger('click')
+    expect(wrapper.findAll('.tutorial-quickstart-step')).toHaveLength(3)
+    expect(wrapper.find('.tutorial-directory').exists()).toBe(false)
+    expect(wrapper.get('.tutorial-install').text()).toContain('@anthropic-ai/claude-code')
+    expect(wrapper.get('.tutorial-quickstart-step:nth-child(2) pre code').text()).toContain('ANTHROPIC_AUTH_TOKEN')
+    expect(wrapper.get('.tutorial-quickstart-step:nth-child(3) pre code').text()).toBe('claude')
+    const unix = wrapper.findAll('.tutorial-segmented-control button').find(button => button.text() === 'macOS / Linux')!
+    await unix.trigger('click')
+    expect(wrapper.get('.tutorial-quickstart-step:nth-child(2) pre code').text()).toContain('export ANTHROPIC_AUTH_TOKEN')
   })
 
   it('copies quick-start commands and shows feedback', async () => {
     const { wrapper } = await mountTutorial('/tutorial')
-    const button = wrapper.find<HTMLButtonElement>('.tutorial-quickstart-code-head button')
+    const button = wrapper.find<HTMLButtonElement>('.tutorial-quickstart-step > .tutorial-quickstart-code .tutorial-quickstart-code-head button')
 
     await button.trigger('click')
     await flushPromises()

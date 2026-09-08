@@ -1,3 +1,21 @@
+export function codexTutorialConfig(baseUrl = 'https://ai.3zapi.com'): string {
+  return `model_provider = "OpenAI"
+model = "gpt-6-astra"
+review_model = "gpt-5.5"
+model_reasoning_effort = "xhigh"
+disable_response_storage = true
+network_access = "enabled"
+windows_wsl_setup_acknowledged = true
+
+[model_providers.OpenAI]
+name = "3Z API"
+base_url = ${JSON.stringify(baseUrl)}
+wire_api = "responses"
+requires_openai_auth = true
+request_max_retries = 0
+stream_max_retries = 1`
+}
+
 export type QuickstartPlatformID = 'codex' | 'claude'
 
 export interface QuickstartTutorialHeader {
@@ -71,7 +89,7 @@ export const defaultQuickstartTutorialConfig: QuickstartTutorialConfig = {
       id: 'codex',
       label: 'ChatGPT / Codex',
       client_name: 'ChatGPT / Codex',
-      base_url: 'https://ai.3zapi.top',
+      base_url: 'https://ai.3zapi.com',
       base_url_description: 'ChatGPT / Codex 使用根地址，无需追加 /v1。',
       auth_hint: 'Bearer / OPENAI_API_KEY',
       protocol: 'OpenAI Responses',
