@@ -1,12 +1,25 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestApplyCodexOAuthTransform_PreservesAllowedTools(t *testing.T) {
+	choice := map[string]any{"type": "allowed_tools", "mode": "required", "tools": []any{map[string]any{"type": "function", "name": "probe"}}}
+	req := map[string]any{"model": "gpt-6-astra", "tool_choice": choice, "tools": []any{map[string]any{"type": "function", "name": "probe"}}}
+	before, err := json.Marshal(choice)
+	require.NoError(t, err)
+	result := applyCodexOAuthTransform(req, true, false)
+	require.NoError(t, result.Error)
+	after, err := json.Marshal(req["tool_choice"])
+	require.NoError(t, err)
+	require.JSONEq(t, string(before), string(after))
+}
 
 func TestApplyCodexOAuthTransform_ToolContinuationPreservesInput(t *testing.T) {
 	// 续链场景：保留 item_reference 与 id，但不再强制 store=true。
