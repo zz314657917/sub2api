@@ -537,16 +537,22 @@ func convertOpenAIModelListToCodexManifest(body []byte) []byte {
 	if !ok {
 		return body
 	}
-	var entries []struct {
-		ID string `json:"id"`
-	}
+	var entries []map[string]json.RawMessage
 	if err := json.Unmarshal(data, &entries); err != nil {
 		return body
 	}
-	models := make([]map[string]string, 0, len(entries))
+	models := make([]map[string]json.RawMessage, 0, len(entries))
 	for _, entry := range entries {
-		if id := strings.TrimSpace(entry.ID); id != "" {
-			models = append(models, map[string]string{"slug": id})
+		var id string
+		if json.Unmarshal(entry["id"], &id) != nil {
+			continue
+		}
+		if id = strings.TrimSpace(id); id != "" {
+			// Preserve upstream capabilities, including explicit null workflow
+			// overrides, when adapting the OpenAI envelope to Codex.
+			entry["slug"], _ = json.Marshal(id)
+			delete(entry, "id")
+			models = append(models, entry)
 		}
 	}
 	if len(models) == 0 {
