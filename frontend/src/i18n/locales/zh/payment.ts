@@ -37,6 +37,7 @@ export default {
       faqTitle: '常见问题',
       historyTitle: '交易历史',
       historySubtitle: '查看最近的充值和订阅订单',
+      historyScrollHint: '查看最近 {count} 笔交易',
       viewAllOrders: '全部订单',
       feature: {
         weeklyQuota: '周额度 {amount}',

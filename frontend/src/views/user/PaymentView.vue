@@ -222,6 +222,17 @@
                   </div>
                 </section>
 
+                <button
+                  v-if="recentOrders.length > 0"
+                  type="button"
+                  aria-controls="payment-order-history"
+                  class="pricing-history-hint flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-sm font-semibold transition xl:hidden"
+                  @click="scrollToOrderHistory"
+                >
+                  <span>{{ pt('historyScrollHint', { count: recentOrders.length }) }}</span>
+                  <Icon name="arrowDown" size="sm" class="pricing-history-hint-icon shrink-0" aria-hidden="true" />
+                </button>
+
                 <section class="pricing-section-divider space-y-5 border-t pt-8">
                   <div class="flex flex-wrap items-center justify-between gap-3">
                     <div class="flex flex-wrap items-center gap-3">
@@ -326,6 +337,16 @@
               </main>
 
               <aside class="pricing-side-stack space-y-5 xl:sticky xl:top-6 xl:mt-[2.75rem]">
+                <button
+                  v-if="recentOrders.length > 0"
+                  type="button"
+                  aria-controls="payment-order-history"
+                  class="pricing-history-hint hidden w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-sm font-semibold transition xl:flex"
+                  @click="scrollToOrderHistory"
+                >
+                  <span>{{ pt('historyScrollHint', { count: recentOrders.length }) }}</span>
+                  <Icon name="arrowDown" size="sm" class="pricing-history-hint-icon shrink-0" aria-hidden="true" />
+                </button>
                 <section class="pricing-card rounded-3xl p-5">
                   <div class="flex items-start gap-3">
                     <Icon name="ticket" size="lg" class="mt-0.5 text-[#5f7f68] dark:text-[#9ab3a0]" />
@@ -395,17 +416,6 @@
                   </div>
                 </section>
 
-                <button
-                  type="button"
-                  class="pricing-history-hint group flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left transition"
-                  @click="scrollToOrderHistory"
-                >
-                  <span class="flex min-w-0 items-center gap-2">
-                    <Icon name="arrowDown" size="sm" class="pricing-history-hint-icon shrink-0 transition-transform group-hover:translate-y-0.5" />
-                    <span class="pricing-history-hint-label truncate text-sm font-semibold">{{ pt('historyScrollHint') }}</span>
-                  </span>
-                  <Icon name="chevronDown" size="sm" class="pricing-history-hint-icon shrink-0" />
-                </button>
               </aside>
             </div>
 
@@ -692,7 +702,7 @@ const pricingCatalog = {
     faqTitle: '常见问题',
     historyTitle: '交易历史',
     historySubtitle: '查看最近的充值和订阅订单',
-    historyScrollHint: '下滑查看交易记录',
+    historyScrollHint: '查看最近 {count} 笔交易',
     viewAllOrders: '全部订单',
     membership: {
       title: '会员权益',
@@ -778,7 +788,7 @@ const pricingCatalog = {
     faqTitle: 'FAQ',
     historyTitle: 'Transaction History',
     historySubtitle: 'Review recent credit and subscription orders.',
-    historyScrollHint: 'Scroll down to view transactions',
+    historyScrollHint: 'View {count} recent transactions',
     viewAllOrders: 'All Orders',
     membership: {
       title: 'Membership',
@@ -1005,7 +1015,8 @@ async function fetchRecentOrders() {
 }
 
 function scrollToOrderHistory() {
-  document.getElementById('payment-order-history')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  document.getElementById('payment-order-history')?.scrollIntoView({ behavior: reduceMotion ? 'instant' : 'smooth', block: 'start' })
 }
 
 async function handleInlineRedeem() {

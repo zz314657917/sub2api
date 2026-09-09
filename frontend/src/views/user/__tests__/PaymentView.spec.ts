@@ -238,6 +238,52 @@ describe('PaymentView WeChat JSAPI flow', () => {
     }
   })
 
+  it.each([false, true])('shows the loaded transaction count and scrolls with reduced motion=%s', async (reduceMotion) => {
+    routeState.query = {}
+    getMyOrders.mockResolvedValue({ data: { items: [{ id: 11 }, { id: 12 }], total: 42 } })
+    const matchMedia = vi.fn().mockReturnValue({ matches: reduceMotion })
+    vi.stubGlobal('matchMedia', matchMedia)
+    const wrapper = shallowMount(PaymentView, {
+      attachTo: document.body,
+      global: { stubs: { AppLayout: { template: '<div><slot /></div>' } } },
+    })
+    try {
+      await flushPromises()
+      const hints = wrapper.findAll('button[aria-controls="payment-order-history"]')
+      expect(hints).toHaveLength(2)
+      for (const hint of hints) {
+        expect(hint.text()).toMatch(/2/)
+        expect(hint.text()).not.toContain('42')
+        expect(hint.text()).not.toContain('{count}')
+      }
+      const target = wrapper.get('#payment-order-history').element as HTMLElement
+      target.scrollIntoView = vi.fn()
+      await hints[0].trigger('click')
+      expect(matchMedia).toHaveBeenCalledWith('(prefers-reduced-motion: reduce)')
+      expect(target.scrollIntoView).toHaveBeenCalledWith({
+        behavior: reduceMotion ? 'instant' : 'smooth', block: 'start',
+      })
+      expect(createOrder).not.toHaveBeenCalled()
+    } finally {
+      wrapper.unmount()
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('hides transaction shortcuts when there are no recent orders', async () => {
+    routeState.query = {}
+    const wrapper = shallowMount(PaymentView, {
+      global: { stubs: { AppLayout: { template: '<div><slot /></div>' } } },
+    })
+    try {
+      await flushPromises()
+      expect(wrapper.find('button[aria-controls="payment-order-history"]').exists()).toBe(false)
+      expect(wrapper.find('#payment-order-history').exists()).toBe(true)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
   it('resets payment state and redirects to /payment/result after JSAPI reports success', async () => {
     createOrder.mockResolvedValue(jsapiOrderFixture('resume-token-123'))
     bridgeInvoke.mockImplementation((_action, _payload, callback) => {

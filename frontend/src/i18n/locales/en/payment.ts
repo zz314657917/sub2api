@@ -37,6 +37,7 @@ export default {
       faqTitle: 'FAQ',
       historyTitle: 'Transaction History',
       historySubtitle: 'Review recent credit and subscription orders.',
+      historyScrollHint: 'View {count} recent transactions',
       viewAllOrders: 'All Orders',
       feature: {
         weeklyQuota: 'Weekly quota {amount}',
