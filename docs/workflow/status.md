@@ -1,15 +1,46 @@
 ---
 phase: qa
-current_sprint: upstream-v0200-claude-fable-5-1-s294
-total_sprints: 294
-pending_action: Review the known unit-test fixture drift; S294 build/typecheck gates now pass.
+current_sprint: upstream-v0200-gpt6-astra-s297
+total_sprints: 297
+pending_action: Complete isolated runtime acceptance for S296/S297; obtain explicit scope approval before S295-P1 schema/admin work; provision dedicated S293 R4 resources.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-09-05 23:00 +08:00
+last_verified: 2026-09-08
 ---
 
-# Current Sprint: Claude Fable 5.1 S294
+# Current Sprint: S297 Acceptance Recovery (2026-09-08)
+
+- Current inspected HEAD: `42ab6da534c2a26c4d30176f9228f76e51bae839`.
+- S296 backend/frontend commits `16453c445` / `e9120ee04` and S297
+  aliases/pricing/manifest/frontend commits `88e18f157`, `5e57a2722`,
+  `afd05ad49`, `22c83a31b` exist after earlier reverted implementations.
+  Independent Terra QA passed focused backend tests (S296: 25, S297: 28),
+  frontend tests (S296: 25, S297: 28), server compilation, backend build,
+  frontend typecheck and production build. Reports are
+  `qa-reports/upstream-v0200-codex-ultrafast-s296-qa.md` and
+  `qa-reports/upstream-v0200-gpt6-astra-s297-qa.md`.
+  Code checks pass; overall acceptance remains `BLOCKED` without runtime/API
+  evidence. Tests include the pre-existing dirty S297 test assertion and do not
+  establish a clean committed-tree result. S296's stale format command was
+  corrected without changing implementation scope; independent amendment review,
+  the exact 15-path format check and the omitted handler/admin gate now pass.
+  The handler package compiled but contained no matching tests.
+- S295 is `DEFERRED / replan complete`: `483de927c` and its Composite files
+  belong to an unintegrated feature chain, not a deletion from this branch.
+  The chain requires an Ent schema/migration, repository, admin API, resolver,
+  context propagation and gateway dispatch before selection can be safe. The
+  old service-only contract remains `BLOCKED`; see
+  `docs/workflow/plans/upstream-v0200-composite-gateway-selection-s295-replan.md`.
+- S293 R4 is still `BLOCKED`: no dedicated `PROMPT_AUDIT_TEST_POSTGRES_DSN`
+  is set; Docker Linux engine pipe is unavailable; no local 5432/6379 listener
+  was found. Ollama now lists `qwen3guard-gen:0.6b-q4km`, but model availability
+  does not prove Guard output correctness or application integration. No
+  database, provider, container or browser action was performed.
+- Cached `origin/main...HEAD` is `0 51`; no remote refresh or push performed.
+  Existing business/lockfile changes and untracked artifacts remain protected.
+
+# Previous Sprint: Claude Fable 5.1 S294
 
 - `CONTRACT APPROVED`: upstream `b3f796972`, `32ac921f2` and `34b8bf1a6`
   are adapted behavior-first to the local consolidated gateway/rate-limit

@@ -1,6 +1,31 @@
 # 当前任务快照
 
-最后更新：2026-09-05 23:00 +08:00
+最后更新：2026-09-09
+
+## 使用文档配置更新（2026-09-08，独立小修）
+
+- 后续精简：首页改为获取密钥、填写配置、启动验证三步；移除重复信息卡、桌面端说明及“首次必做”标记，安装、文件夹查找、API 示例、排障默认折叠。完整配置与后台自定义地址仍保留。
+- 精简验收：TutorialView 9/9、frontend typecheck 通过；Playwright 桌面 1440x1000、手机 390x844 截图、折叠开关及 Claude 切换通过，无横向溢出。截图位于 outputs/tutorial-compact-*.png。
+- 浏览器 session tutorial-compact-0908，daemon PID 52352，Chrome PID 54384，独立 profile playwright_chromiumdev_profile-K0zdjZ；已 close 且精确归属进程为零。其他任务浏览器未操作。
+
+- 按用户提供的模板更新 Codex：首页与完整教程共用 OpenAI / 3Z API 配置，主模型 gpt-6-astra，review_model gpt-5.5，默认地址 https://ai.3zapi.com；附加参数按用户模板保留，未完成真实客户端兼容验证。
+- auth.json 示例只包含 JSON，启动命令移至说明；后台默认配置与定向测试同步。新增 migration 240，只替换匹配旧默认值的教程内容及已保存的 Codex 教程地址，保留其他自定义内容。
+- 已执行：TutorialView Vitest 9/9、`public-pages` Vitest 10/10、frontend typecheck、Go TestQuickstart、git diff --check 均通过。`public-pages` 最初保留旧 `.top/v1` Codex 文案断言，已仅改为 `.com` 根地址的当前契约后重测通过。
+- 浏览器验收：任务会话 `codex-tutorial-20260908`、隔离 in-memory profile、初始 PID `53260`；在 `1440x900` 与 `390x844` 打开 `/tutorial`。配置区显示 `gpt-6-astra`、`review_model = "gpt-5.5"`、3Z API 根地址及独立 auth.json；移动端 `document/body scrollWidth == clientWidth == 390`。截图为 `output/playwright/codex-tutorial-20260908/.playwright-cli/page-2026-09-08T10-10-25-348Z.png` 和 `page-2026-09-08T10-11-20-345Z.png`。会话已 close，PID 已归零。
+- Vite PID `54088` 在验收前提供 HTTP 200，完成后按精确 PID 结束，`127.0.0.1:62080` 已拒绝连接；不操作其他任务资源。
+- 本地提交：d0820d4b9（fix(tutorial): refresh Codex config and simplify quickstart），仅含 8 个教程配置、页面、迁移及测试文件；提交前 19 项前端测试与暂存区 diff 检查通过。混有其他任务记录的本文件未纳入该提交。
+- 未执行：真实 PostgreSQL 迁移、真实客户端请求、推送和部署。原有 Sprint 状态及其他脏改保留；下方为原有恢复快照。
+
+## 当前恢复快照（优先于下方历史记录）
+
+- 当前 Sprint 为 `upstream-v0200-gpt6-astra-s297`，phase 为 `qa`；本轮补 S296/S297 独立 Terra 验收及状态记录，不推进发布。
+- 检查基线 `42ab6da534c2a26c4d30176f9228f76e51bae839`；相对本地缓存 `origin/main` 领先 51 个提交，未刷新远端。下方旧 HEAD、领先数和容器健康记录仅代表历史时点。
+- S296/S297 独立 Terra QA 已完成主体检查：后端定向 25/28 项、前端 25/28 项，以及共享 server 编译、后端 build、前端 typecheck/build 均通过。两份 QA 报告已落入 `docs/workflow/qa-reports/`；运行态/API 未验证，总体仍为 `BLOCKED`。测试基于含既有脏改的当前工作树，不代表干净提交快照。
+- S296 格式命令引用 4 个不存在路径，已更正为当前 owner 的只读检查；独立修订审查、精确 15 路径格式检查和 handler/admin 门禁均通过。handler 包无匹配测试，仅确认编译通过；未重复已通过的公共构建。
+- S295 原合同引用的是未并入当前分支的 Composite 功能链，而非本地误删文件。已获批准的 S295-P1 仅实现 Ent schema/migration、repository、后台 API 与静态 preview；定向 service/handler/routes、server 编译和 `go build ./...` 均通过，未执行迁移也未接入 Gateway。`go generate ./cmd/server` 被两个既有 provider 缺失阻断，完整 Ent 生成因 Windows 锁风险未重放；独立 Terra QA 未取得，P1 QA 为 `BLOCKED`。resolver、context 和 gateway dispatch 继续留给 P2/P3；主 Sprint 仍为 S297 QA，不能改 `status.md` 宣称 S295 完成。
+- S293 R4 仍阻断：专属 PostgreSQL DSN 未设置，Docker Linux engine pipe 不可用，未发现本地 5432/6379 监听。Ollama 已安装 `qwen3guard-gen:0.6b-q4km`，但尚未执行本轮 Guard smoke；不能继续沿用“仅安装 embedding”的旧环境结论。
+- S293 R4 资源复核（2026-09-09）：发现 `sub2api-s293-test-postgres`、`sub2api-s293-test-redis` 和配套测试服务均 healthy，专属网络/卷归属明确；但 Windows 宿主访问 Docker 内网地址 `172.18.0.3:5432`/`172.18.0.2:6379` 均超时，集成测试在连接初始化阶段失败，未执行 migration 239 或写入数据。需补宿主端口映射或同网运行测试；Guard 仍未做 runtime smoke。
+- 本轮不修改已有业务脏改，不 push、部署、更新容器或操作数据库；S293 真实 PG/Redis/双实例/认证浏览器验收仍需具备专属资源。
 
 ## 背景
 
