@@ -148,8 +148,11 @@ func ProvideGroupHandler(
 	dashboardService *service.DashboardService,
 	groupCapacityService *service.GroupCapacityService,
 	migration *repository.GroupModelMatchMigration,
+	compositeRouteAdmin service.CompositeRouteAdminService,
 ) *admin.GroupHandler {
-	return admin.NewGroupHandler(adminService, dashboardService, groupCapacityService, migration)
+	h := admin.NewGroupHandler(adminService, dashboardService, groupCapacityService, migration)
+	h.SetCompositeRouteAdminService(compositeRouteAdmin)
+	return h
 }
 
 // ProvideSystemHandler creates admin.SystemHandler with UpdateService

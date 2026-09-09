@@ -893,6 +893,7 @@ var ProviderSet = wire.NewSet(
 	ProvideAPIKeyService,
 	ProvideAPIKeyAuthCacheInvalidator,
 	NewGroupService,
+	ProvideCompositeRouteAdminService,
 	NewAccountService,
 	ProvideUserAccountService,
 	NewProxyService,

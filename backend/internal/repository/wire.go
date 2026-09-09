@@ -70,6 +70,7 @@ var ProviderSet = wire.NewSet(
 	NewGroupRepository,
 	NewAdminGroupRepository,
 	NewGroupModelMatchMigration,
+	NewCompositeModelRouteRepository,
 	NewAccountRepository,
 	NewCafeRoomRepository,
 	NewScheduledTestPlanRepository,   // 定时测试计划仓储

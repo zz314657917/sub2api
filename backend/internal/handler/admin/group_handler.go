@@ -26,6 +26,7 @@ type GroupHandler struct {
 	dashboardService     *service.DashboardService
 	groupCapacityService *service.GroupCapacityService
 	modelMatchMigration  *repository.GroupModelMatchMigration
+	compositeRouteAdmin  service.CompositeRouteAdminService
 }
 
 type optionalLimitField struct {
@@ -91,11 +92,19 @@ func NewGroupHandler(adminService service.AdminService, dashboardService *servic
 	}
 }
 
+// SetCompositeRouteAdminService attaches Composite route administration without
+// expanding the long-lived GroupHandler constructor used by existing tests.
+func (h *GroupHandler) SetCompositeRouteAdminService(routeAdmin service.CompositeRouteAdminService) {
+	if h != nil {
+		h.compositeRouteAdmin = routeAdmin
+	}
+}
+
 // CreateGroupRequest represents create group request
 type CreateGroupRequest struct {
 	Name                      string                        `json:"name" binding:"required"`
 	Description               string                        `json:"description"`
-	Platform                  string                        `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity grok kimi zhipu deepseek"`
+	Platform                  string                        `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity grok kimi zhipu deepseek composite"`
 	RateMultiplier            float64                       `json:"rate_multiplier"`
 	IsExclusive               bool                          `json:"is_exclusive"`
 	AccessMode                string                        `json:"access_mode" binding:"omitempty,oneof=normal room_managed"`
@@ -145,7 +154,7 @@ type CreateGroupRequest struct {
 type UpdateGroupRequest struct {
 	Name                      string                         `json:"name"`
 	Description               *string                        `json:"description"`
-	Platform                  string                         `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity grok kimi zhipu deepseek"`
+	Platform                  string                         `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity grok kimi zhipu deepseek composite"`
 	RateMultiplier            *float64                       `json:"rate_multiplier"`
 	IsExclusive               *bool                          `json:"is_exclusive"`
 	AccessMode                *string                        `json:"access_mode" binding:"omitempty,oneof=normal room_managed"`
@@ -190,6 +199,22 @@ type UpdateGroupRequest struct {
 	RPMLimit *int `json:"rpm_limit"`
 	// 从指定分组复制账号（同步操作：先清空当前分组的账号绑定，再绑定源分组的账号）
 	CopyAccountsFromGroupIDs []int64 `json:"copy_accounts_from_group_ids"`
+}
+
+type CompositeRouteRequest struct {
+	PublicModel    string `json:"public_model" binding:"required"`
+	MatchType      string `json:"match_type" binding:"omitempty,oneof=exact prefix"`
+	TargetPlatform string `json:"target_platform" binding:"required,oneof=anthropic openai gemini antigravity grok kimi zhipu deepseek"`
+	UpstreamModel  string `json:"upstream_model"`
+	Endpoint       string `json:"endpoint" binding:"omitempty,oneof=any messages count_tokens responses chat_completions embeddings images gemini"`
+	Priority       int    `json:"priority"`
+	Enabled        *bool  `json:"enabled"`
+	Notes          string `json:"notes"`
+}
+
+type CompositeRoutePreviewRequest struct {
+	Model    string `json:"model" binding:"required"`
+	Endpoint string `json:"endpoint" binding:"omitempty,oneof=any messages count_tokens responses chat_completions embeddings images gemini"`
 }
 
 // List handles listing all groups with pagination
@@ -297,6 +322,161 @@ func (h *GroupHandler) GetModelsListCandidates(c *gin.Context) {
 	}
 
 	response.Success(c, gin.H{"models": models})
+}
+
+// ListCompositeRoutes lists the registry records for one composite group.
+// GET /api/v1/admin/groups/:id/composite-routes
+func (h *GroupHandler) ListCompositeRoutes(c *gin.Context) {
+	groupID, ok := parsePositiveGroupID(c, "id")
+	if !ok {
+		return
+	}
+	routeAdmin, ok := h.compositeRouteAdminService(c)
+	if !ok {
+		return
+	}
+	routes, err := routeAdmin.List(c.Request.Context(), groupID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, routes)
+}
+
+// CreateCompositeRoute creates one registry record without changing Gateway routing.
+// POST /api/v1/admin/groups/:id/composite-routes
+func (h *GroupHandler) CreateCompositeRoute(c *gin.Context) {
+	groupID, ok := parsePositiveGroupID(c, "id")
+	if !ok {
+		return
+	}
+	var req CompositeRouteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request body: "+err.Error())
+		return
+	}
+	routeAdmin, ok := h.compositeRouteAdminService(c)
+	if !ok {
+		return
+	}
+	route, err := routeAdmin.Create(c.Request.Context(), groupID, compositeRouteRequestToInput(req))
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Created(c, route)
+}
+
+// UpdateCompositeRoute replaces one registry record without changing Gateway routing.
+// PUT /api/v1/admin/groups/:id/composite-routes/:route_id
+func (h *GroupHandler) UpdateCompositeRoute(c *gin.Context) {
+	groupID, ok := parsePositiveGroupID(c, "id")
+	if !ok {
+		return
+	}
+	routeID, ok := parsePositiveGroupID(c, "route_id")
+	if !ok {
+		return
+	}
+	var req CompositeRouteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request body: "+err.Error())
+		return
+	}
+	routeAdmin, ok := h.compositeRouteAdminService(c)
+	if !ok {
+		return
+	}
+	route, err := routeAdmin.Update(c.Request.Context(), groupID, routeID, compositeRouteRequestToInput(req))
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, route)
+}
+
+// DeleteCompositeRoute removes one registry record.
+// DELETE /api/v1/admin/groups/:id/composite-routes/:route_id
+func (h *GroupHandler) DeleteCompositeRoute(c *gin.Context) {
+	groupID, ok := parsePositiveGroupID(c, "id")
+	if !ok {
+		return
+	}
+	routeID, ok := parsePositiveGroupID(c, "route_id")
+	if !ok {
+		return
+	}
+	routeAdmin, ok := h.compositeRouteAdminService(c)
+	if !ok {
+		return
+	}
+	if err := routeAdmin.Delete(c.Request.Context(), groupID, routeID); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"message": "Composite route deleted"})
+}
+
+// PreviewCompositeRoute returns ordered static registry candidates only. It does
+// not read accounts or select a Gateway target; that is deferred to S295-P2/P3.
+// POST /api/v1/admin/groups/:id/composite-routes/preview
+func (h *GroupHandler) PreviewCompositeRoute(c *gin.Context) {
+	groupID, ok := parsePositiveGroupID(c, "id")
+	if !ok {
+		return
+	}
+	var req CompositeRoutePreviewRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request body: "+err.Error())
+		return
+	}
+	routeAdmin, ok := h.compositeRouteAdminService(c)
+	if !ok {
+		return
+	}
+	preview, err := routeAdmin.Preview(c.Request.Context(), groupID, service.CompositeRoutePreviewRequest{
+		Model:    req.Model,
+		Endpoint: req.Endpoint,
+	})
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, preview)
+}
+
+func (h *GroupHandler) compositeRouteAdminService(c *gin.Context) (service.CompositeRouteAdminService, bool) {
+	if h == nil || h.compositeRouteAdmin == nil {
+		response.InternalError(c, "Composite route administration is unavailable")
+		return nil, false
+	}
+	return h.compositeRouteAdmin, true
+}
+
+func compositeRouteRequestToInput(req CompositeRouteRequest) service.CompositeRouteInput {
+	enabled := true
+	if req.Enabled != nil {
+		enabled = *req.Enabled
+	}
+	return service.CompositeRouteInput{
+		PublicModel:    req.PublicModel,
+		MatchType:      req.MatchType,
+		TargetPlatform: req.TargetPlatform,
+		UpstreamModel:  req.UpstreamModel,
+		Endpoint:       req.Endpoint,
+		Priority:       req.Priority,
+		Enabled:        enabled,
+		Notes:          req.Notes,
+	}
+}
+
+func parsePositiveGroupID(c *gin.Context, name string) (int64, bool) {
+	id, err := strconv.ParseInt(c.Param(name), 10, 64)
+	if err != nil || id <= 0 {
+		response.BadRequest(c, "Invalid "+strings.ReplaceAll(name, "_", " "))
+		return 0, false
+	}
+	return id, true
 }
 
 // PreflightModelMatchMigration returns the audit list for the explicit S91
