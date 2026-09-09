@@ -262,6 +262,11 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	if err := validateOpenAIWSBearerToken(account, token); err != nil {
 		return err
 	}
+	if sanitized, changed, err := stripLegacyResponsesFunctionItemIDs(firstClientMessage); err != nil {
+		return NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket function item IDs", err)
+	} else if changed {
+		firstClientMessage = sanitized
+	}
 	if account.IsOpenAI() && isOpenAIResponsesLiteWebSocketPayload(firstClientMessage) {
 		liteFirstMessage, _, liteErr := normalizeOpenAIResponsesLitePayloadForAccount(firstClientMessage, account)
 		if liteErr != nil {
@@ -501,6 +506,13 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 				}
 				usageMeta.updateSessionRequestModel(payload)
 				return payload, nil, nil
+			}
+			if eventType == "response.create" {
+				if sanitized, changed, err := stripLegacyResponsesFunctionItemIDs(payload); err != nil {
+					return payload, nil, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket function item IDs", err)
+				} else if changed {
+					payload = sanitized
+				}
 			}
 			if eventType == "response.create" && account.IsOpenAI() && isOpenAIResponsesLiteWebSocketPayload(payload) {
 				litePayload, _, liteErr := normalizeOpenAIResponsesLitePayloadForAccount(payload, account)

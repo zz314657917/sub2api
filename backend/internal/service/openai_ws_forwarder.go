@@ -2867,6 +2867,12 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			normalized = litePayload
 		}
 
+		if sanitized, changed, err := stripLegacyResponsesFunctionItemIDs(normalized); err != nil {
+			return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket function item IDs", err)
+		} else if changed {
+			normalized = sanitized
+		}
+
 		originalModel := strings.TrimSpace(values[1].String())
 		modelMissing := originalModel == ""
 		if originalModel == "" {

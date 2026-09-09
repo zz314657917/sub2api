@@ -931,7 +931,7 @@ func chatMessageToResponsesOutput(message ChatMessage, customTools map[string]bo
 		if customTools[toolCall.Function.Name] {
 			outputs = append(outputs, ResponsesOutput{
 				Type:   "custom_tool_call",
-				ID:     generateItemID(),
+				ID:     generateToolItemID("custom_tool_call"),
 				CallID: toolCall.ID,
 				Name:   toolCall.Function.Name,
 				Input:  extractCustomToolCallInput(arguments),
@@ -942,7 +942,7 @@ func chatMessageToResponsesOutput(message ChatMessage, customTools map[string]bo
 		if toolSearch && toolCall.Function.Name == toolSearchProxyName {
 			outputs = append(outputs, ResponsesOutput{
 				Type:      "tool_search_call",
-				ID:        generateItemID(),
+				ID:        generateToolItemID("tool_search_call"),
 				CallID:    toolCall.ID,
 				Arguments: arguments,
 				Status:    "completed",
@@ -955,7 +955,7 @@ func chatMessageToResponsesOutput(message ChatMessage, customTools map[string]bo
 		if ns, ok := namespaceTools[toolCall.Function.Name]; ok {
 			outputs = append(outputs, ResponsesOutput{
 				Type:      "function_call",
-				ID:        generateItemID(),
+				ID:        generateToolItemID("function_call"),
 				CallID:    toolCall.ID,
 				Name:      ns.Name,
 				Namespace: ns.Namespace,
@@ -966,7 +966,7 @@ func chatMessageToResponsesOutput(message ChatMessage, customTools map[string]bo
 		}
 		outputs = append(outputs, ResponsesOutput{
 			Type:      "function_call",
-			ID:        generateItemID(),
+			ID:        generateToolItemID("function_call"),
 			CallID:    toolCall.ID,
 			Name:      toolCall.Function.Name,
 			Arguments: arguments,
@@ -1200,7 +1200,6 @@ func ChatCompletionsChunkToResponsesEvents(
 				copyCall.Function.Arguments = ""
 				state.ToolCalls[idx] = &copyCall
 				stored = &copyCall
-				state.ToolItemIDs[idx] = generateItemID()
 				state.ToolOutputIndex[idx] = state.allocOutputIndex()
 			} else {
 				if toolCall.ID != "" {
@@ -1463,6 +1462,7 @@ func announceChatToolItem(
 	} else if isToolSearch {
 		itemType = "tool_search_call"
 	}
+	state.ToolItemIDs[idx] = generateToolItemID(itemType)
 	itemName, itemNamespace := stored.Function.Name, ""
 	if namespace, ok := state.NamespaceTools[stored.Function.Name]; ok && !isCustom && !isToolSearch {
 		state.toolNamespace[idx] = namespace

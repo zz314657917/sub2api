@@ -58,7 +58,7 @@ func AnthropicToResponsesResponse(resp *AnthropicResponse) *ResponsesResponse {
 			}
 			outputs = append(outputs, ResponsesOutput{
 				Type:      "function_call",
-				ID:        generateItemID(),
+				ID:        generateToolItemID("function_call"),
 				CallID:    toResponsesCallID(block.ID),
 				Name:      block.Name,
 				Arguments: args,
@@ -309,8 +309,8 @@ func anthToResHandleContentBlockStart(evt *AnthropicStreamEvent, state *Anthropi
 		// Close previous item if any
 		events = append(events, closeCurrentResponsesItem(state)...)
 
-		state.CurrentItemID = generateItemID()
 		state.CurrentItemType = "function_call"
+		state.CurrentItemID = generateToolItemID(state.CurrentItemType)
 		state.CurrentCallID = toResponsesCallID(evt.ContentBlock.ID)
 		state.CurrentName = evt.ContentBlock.Name
 
@@ -588,4 +588,12 @@ func generateItemID() string {
 	b := make([]byte, 12)
 	_, _ = rand.Read(b)
 	return "item_" + hex.EncodeToString(b)
+}
+
+// Tool item IDs are replayed as Responses input and must use the type's
+// namespace. They are independent of call_id, which pairs calls with outputs.
+func generateToolItemID(itemType string) string {
+	b := make([]byte, 12)
+	_, _ = rand.Read(b)
+	return responsesToolCallItemIDPrefix(itemType) + hex.EncodeToString(b)
 }

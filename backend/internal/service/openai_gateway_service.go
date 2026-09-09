@@ -2780,6 +2780,12 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		body = sanitizedBody
 	}
 
+	if sanitizedBody, changed, sanitizeErr := stripLegacyResponsesFunctionItemIDs(body); sanitizeErr != nil {
+		return nil, fmt.Errorf("sanitize legacy Responses function item IDs: %w", sanitizeErr)
+	} else if changed {
+		body = sanitizedBody
+	}
+
 	normalizedBody, normalized, err := normalizeOpenAICodexCompactReasoningEffortForAccount(c, account, body)
 	if err != nil {
 		return nil, err
