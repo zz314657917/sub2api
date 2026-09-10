@@ -1,8 +1,8 @@
 ---
 phase: done
-current_sprint: upstream-v024-image25-oauth-s299
-total_sprints: 299
-pending_action: Continue upstream candidate screening; keep payment fulfillment isolation and backup or migration locking in separate contracts.
+current_sprint: upstream-v024-payment-fulfillment-isolation-s300
+total_sprints: 300
+pending_action: Continue upstream candidate screening; keep backup/migration advisory locking in a separate contract.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
@@ -41,6 +41,13 @@ last_verified: 2026-09-10
 - QA: `docs/workflow/qa-reports/upstream-v024-image25-oauth-s299-qa.md`.
   Real provider availability, container startup, deployment and push remain
   out of scope and unverified.
+
+# Current Sprint: Upstream v0.2.4 Payment Fulfillment Isolation S300 (2026-09-11)
+
+- Contract and review: `docs/workflow/tasks/upstream-v024-payment-fulfillment-isolation-s300.md` and `docs/workflow/contract-reviews/upstream-v024-payment-fulfillment-isolation-s300-review.md` (`PASS`).
+- Adapted upstream `7a70de401` without merge/rebase/cherry-pick. Public redeem rate limiting remains enforced; trusted payment/admin fulfillment bypasses only the public failure counter. Payment retries now fail closed on lookup errors and validate existing code ownership/type/amount/status before use.
+- Independent Sol QA `PASS`: focused service/admin tests, `go build ./...`, gofmt, exact diff and conflict checks passed. Real payment/database/deployment remain unverified.
+- QA: `docs/workflow/qa-reports/upstream-v024-payment-fulfillment-isolation-s300-qa.md`.
 
 # Previous Sprint: Upstream v0.2.4 Selective Reliability S298
 
