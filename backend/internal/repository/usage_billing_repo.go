@@ -225,15 +225,7 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 	}
 
 	if cmd.BalanceCost > 0 {
-		deducted, err := deductWelfareVoucherThenBalance(
-			ctx,
-			tx,
-			cmd.UserID,
-			cmd.BalanceCost,
-			welfareVoucherOperationUsageBilling,
-			usageBillingVoucherOperationKey(cmd),
-			cmd.RequireBalanceCheck,
-		)
+		deducted, err := deductBalanceOnly(ctx, tx, cmd.UserID, cmd.BalanceCost, cmd.RequireBalanceCheck)
 		if err != nil {
 			return err
 		}
@@ -276,6 +268,29 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 	}
 
 	return nil
+}
+
+// deductBalanceOnly is the billing path while welfare vouchers are disabled.
+// It deliberately touches only the users row, avoiding voucher locks and the
+// cross-table lock ordering that previously caused PostgreSQL deadlocks.
+func deductBalanceOnly(ctx context.Context, tx *sql.Tx, userID int64, amount float64, requireSufficient bool) (*welfareVoucherDeductResult, error) {
+	var balance float64
+	err := tx.QueryRowContext(ctx, `SELECT balance::double precision FROM users WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`, userID).Scan(&balance)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, service.ErrUserNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if requireSufficient && balance+1e-9 < amount {
+		return nil, service.ErrInsufficientBalance
+	}
+	var after float64
+	err = tx.QueryRowContext(ctx, `UPDATE users SET balance = balance - $1, updated_at = NOW() WHERE id = $2 AND deleted_at IS NULL RETURNING balance::double precision`, amount, userID).Scan(&after)
+	if err != nil {
+		return nil, err
+	}
+	return &welfareVoucherDeductResult{BalanceAmount: amount, BalanceAfter: after}, nil
 }
 
 func usageBillingVoucherOperationKey(cmd *service.UsageBillingCommand) string {
