@@ -179,7 +179,7 @@
     </div>
 
     <!-- Footer -->
-    <template v-if="!embedded && !backendModeEnabled" #footer>
+    <template v-if="!embedded && !backendModeEnabled && publicSettingsLoaded && registrationEnabled" #footer>
       <p class="text-[#6c6a64]">
         {{ t('auth.dontHaveAccount') }}
         <router-link
@@ -342,6 +342,8 @@ watch(validationToastMessage, (value, previousValue) => {
 
 // ==================== Lifecycle ====================
 
+const registrationEnabled = ref(false)
+
 onMounted(async () => {
   const expiredFlag = sessionStorage.getItem('auth_expired')
   if (expiredFlag) {
@@ -353,11 +355,13 @@ onMounted(async () => {
 
   try {
     const settings = await getPublicSettings()
+    registrationEnabled.value = settings.registration_enabled === true
     turnstileEnabled.value = settings.turnstile_enabled
     turnstileSiteKey.value = settings.turnstile_site_key || ''
     linuxdoOAuthEnabled.value = settings.linuxdo_oauth_enabled
     wechatOAuthEnabled.value = isWeChatWebOAuthEnabled(settings)
     backendModeEnabled.value = settings.backend_mode_enabled
+    publicSettingsLoaded.value = true
     oidcOAuthEnabled.value = settings.oidc_oauth_enabled
     oidcOAuthProviderName.value = settings.oidc_oauth_provider_name || 'OIDC'
     githubOAuthEnabled.value = settings.github_oauth_enabled
