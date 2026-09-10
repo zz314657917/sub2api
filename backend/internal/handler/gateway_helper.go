@@ -75,6 +75,9 @@ func claudeCodeBodyMapFromParsedRequest(parsedReq *service.ParsedRequest) map[st
 	bodyMap := map[string]any{
 		"model": parsedReq.Model,
 	}
+	if parsedReq.MaxTokens > 0 {
+		bodyMap["max_tokens"] = parsedReq.MaxTokens
+	}
 	if parsedReq.System != nil || parsedReq.HasSystem {
 		bodyMap["system"] = parsedReq.System
 	}
