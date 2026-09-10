@@ -346,7 +346,7 @@ func buildOpenAIImagesResponsesRequest(parsed *OpenAIImagesRequest, toolModel st
 	}
 
 	req := []byte(`{"instructions":"","stream":true,"reasoning":{"effort":"medium","summary":"auto"},"parallel_tool_calls":true,"include":["reasoning.encrypted_content"],"model":"","store":false,"tool_choice":{"type":"image_generation"}}`)
-	req, _ = sjson.SetBytes(req, "model", openAIImagesResponsesMainModel)
+	req, _ = sjson.SetBytes(req, "model", openAIImagesResponsesMainModelValue())
 	req, _ = sjson.SetBytes(req, "instructions", openAIImagesVerbatimPromptInstructions)
 
 	input := []byte(`[{"type":"message","role":"user","content":[{"type":"input_text","text":""}]}]`)
@@ -826,6 +826,32 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
 	return false
 }
 
+func isOpenAIImagesCodexPlanGatedModelError(statusCode int, body []byte, model string) bool {
+	if statusCode != http.StatusBadRequest || strings.TrimSpace(model) == "" {
+		return false
+	}
+	message := strings.ToLower(strings.TrimSpace(extractUpstreamErrorMessage(body)))
+	model = strings.ToLower(strings.TrimSpace(model))
+	return strings.Contains(message, "model is not supported when using codex") &&
+		strings.Contains(message, "'"+model+"'")
+}
+
+func (s *OpenAIGatewayService) handleOpenAIImagesPlanGatedImageModel(ctx context.Context, account *Account, statusCode int, body []byte, requestedModel string) bool {
+	if s == nil || s.rateLimitService == nil || s.rateLimitService.accountRepo == nil || account == nil || !account.IsOpenAIOAuth() ||
+		!isOpenAIImagesCodexPlanGatedModelError(statusCode, body, requestedModel) {
+		return false
+	}
+	modelKey := strings.TrimSpace(modelRateLimitKeyForUpstreamModelNotFound(ctx, account, requestedModel))
+	if modelKey == "" {
+		return false
+	}
+	resetAt := time.Now().Add(upstreamModelNotFoundCooldown)
+	if err := s.rateLimitService.accountRepo.SetModelRateLimit(ctx, account.ID, modelKey, resetAt); err != nil {
+		logger.LegacyPrintf("service.openai_gateway", "OpenAI images plan-gated model cooldown failed (account=%d model=%s): %v", account.ID, modelKey, err)
+	}
+	return true
+}
+
 // handleOpenAIImagesErrorResponse is the non-failover error handler for the
 // images endpoints (/v1/images/generations and /v1/images/edits). Unlike the
 // generic handleErrorResponse — which collapses every non-failover upstream
@@ -914,12 +940,24 @@ func (s *OpenAIGatewayService) handleOpenAIImagesErrorResponse(
 		return nil, upErr
 	}
 
+	// The Responses driver is independent from the image_generation tool model.
+	// A rejected driver must remain actionable and must not cool the image model.
+	mainModel := openAIImagesResponsesMainModelValue()
+	if account.IsOpenAIOAuth() && isOpenAIImagesCodexPlanGatedModelError(resp.StatusCode, body, mainModel) {
+		upErr := openAIImagesUpstreamErrorFromHTTP(resp.StatusCode, resp.Header, body)
+		writeOpenAIImagesUpstreamErrorResponse(c, upErr)
+		return nil, upErr
+	}
+
 	// Track rate limits / decide whether to disable the account (secondary failover).
 	var modelForCooldown string
 	if len(requestedModel) > 0 {
 		modelForCooldown = strings.TrimSpace(requestedModel[0])
 	}
-	shouldDisable := s.handleOpenAIAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, body, modelForCooldown)
+	shouldDisable := s.handleOpenAIImagesPlanGatedImageModel(ctx, account, resp.StatusCode, body, modelForCooldown)
+	if !shouldDisable {
+		shouldDisable = s.handleOpenAIAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, body, modelForCooldown)
+	}
 	kind := "http_error"
 	if shouldDisable {
 		kind = "failover"

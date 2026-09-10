@@ -30,6 +30,12 @@ describe('useModelWhitelist', () => {
     ]))
   })
 
+  it('openai 模型列表包含 GPT Image 2.5', () => {
+    const models = getModelsByPlatform('openai')
+    expect(models).toContain('gpt-image-2.5-flare')
+    expect(models).toContain('gpt-image-2.5-sunburst')
+  })
+
   it('exposes bare GPT-5.6 in whitelist and preset mappings without collapsing explicit variants', () => {
     const models = getModelsByPlatform('openai').filter((model) => model.startsWith('gpt-5.6'))
     expect(models).toEqual(['gpt-5.6', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna'])

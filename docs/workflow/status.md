@@ -1,15 +1,55 @@
 ---
 phase: done
-current_sprint: upstream-v024-selective-reliability-s298
-total_sprints: 298
-pending_action: Start a separate contract for the Image 2.5 and OAuth Images main-model adaptation; retain payment fulfillment and backup locking as later independent contracts.
+current_sprint: upstream-v024-image25-oauth-s299
+total_sprints: 299
+pending_action: Continue upstream candidate screening; keep payment fulfillment isolation and backup or migration locking in separate contracts.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
 last_verified: 2026-09-10
 ---
 
-# Current Sprint: Upstream v0.2.4 Selective Reliability S298 (2026-09-10)
+# Current Sprint: Upstream v0.2.4 Image 2.5 OAuth S299 (2026-09-10)
+
+- User approved continuing integration and explicitly authorized
+  `gpt-5.6-sol` when the default Terra route is unavailable. Contract and
+  independent review are approved for a behavior-level adaptation of upstream
+  `7ccc8a6f5`; no merge, rebase or cherry-pick is allowed.
+- Official OpenAI documentation currently lists
+  `gpt-image-2.5-flare` and `gpt-image-2.5-sunburst` for Image API and the
+  Responses image-generation tool. Official per-million-token rates match the
+  upstream patch: text input/cached `$5/$1.25`, image input/cached `$8/$2`, and
+  image output `$30`.
+- Port: model catalogs and whitelist, configurable OAuth Responses driver with
+  `gpt-5.6-luna` default, rejected-driver error attribution, OAuth test picker,
+  official fallback/static prices and compose environment pass-through.
+- Equivalent locally: image input-token parsing and billing fields already
+  exist and must not be duplicated. Skip: README-only release prose and any
+  unrelated image, billing or deployment changes.
+- Contract: `docs/workflow/tasks/upstream-v024-image25-oauth-s299.md`.
+  Review: `docs/workflow/contract-reviews/upstream-v024-image25-oauth-s299-review.md` (`PASS`).
+- Generator completed the approved local adaptation. Initial independent QA
+  found that the local generic rate-limit path did not cool a requested image
+  model for the Codex plan-gated 400 response. The Images owner was amended to
+  classify that exact response without changing the shared rate-limit service.
+- Final independent Sol QA is `PASS`: a rejected Responses driver returns the
+  actionable upstream error with zero model/temp cooldown writes, while a
+  rejected requested image model writes exactly one approximately 30-minute
+  model cooldown and returns `UpstreamFailoverError`. Focused backend tests,
+  `go build ./...`, whitelist Vitest 15/15, frontend typecheck, four Compose
+  config parses, JSON parse, gofmt, exact diff and conflict checks all passed.
+- QA: `docs/workflow/qa-reports/upstream-v024-image25-oauth-s299-qa.md`.
+  Real provider availability, container startup, deployment and push remain
+  out of scope and unverified.
+
+# Previous Sprint: Upstream v0.2.4 Selective Reliability S298
+
+- Final local-integration verdict `PASS`; committed as `a6993d902`. Sol QA
+  passed focused service regression, Go build, UsageView 31/31, frontend
+  typecheck, exact diff, gofmt and conflict checks. Real provider/deployment
+  remained out of scope.
+
+# Historical Detail: Upstream v0.2.4 Selective Reliability S298 (2026-09-10)
 
 - User approved continuing selective upstream integration after the refreshed
   `upstream/main` audit (`98d86915b`, v0.2.4). This sprint adapts only two

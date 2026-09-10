@@ -170,8 +170,32 @@ func TestFetchUpstreamSupportedModelsParsesOpenAIOAuthManifest(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, []string{"gpt-5.5-codex", "gpt-5.6-sol"}, models)
+	require.Contains(t, models, "gpt-5.5-codex")
+	require.Contains(t, models, "gpt-5.6-sol")
+	require.Contains(t, models, "gpt-image-2.5-flare")
+	require.Contains(t, models, "gpt-image-2.5-sunburst")
 	require.Equal(t, "Bearer openai-oauth-token", upstream.lastReq.Header.Get("Authorization"))
+}
+
+func TestFetchOpenAIAccountModelsOAuthRespectsImageAllowlist(t *testing.T) {
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"models":[{"slug":"gpt-5.6-sol"}]}`)),
+	}}
+	svc := &AccountTestService{httpUpstream: upstream, cfg: upstreamModelSyncTestConfig()}
+	account := &Account{
+		ID: 13, Platform: PlatformOpenAI, Type: AccountTypeOAuth,
+		Credentials: map[string]any{
+			"access_token":  "openai-oauth-token",
+			"model_mapping": map[string]any{"gpt-image-2.5-flare": "gpt-image-2.5-flare"},
+		},
+	}
+
+	models, err := svc.FetchUpstreamSupportedModels(context.Background(), account)
+	require.NoError(t, err)
+	require.Contains(t, models, "gpt-image-2.5-flare")
+	require.NotContains(t, models, "gpt-image-2.5-sunburst")
 }
 
 func TestFetchUpstreamSupportedModelsUsesConfiguredBodyLimit(t *testing.T) {

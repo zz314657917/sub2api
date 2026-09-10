@@ -123,6 +123,19 @@ func (s *AccountTestService) FetchUpstreamSupportedModels(ctx context.Context, a
 	if len(models) == 0 {
 		return nil, newUpstreamModelSyncUpstreamError("Upstream returned no supported models", nil)
 	}
+	if account.IsOpenAIOAuth() {
+		seen := make(map[string]bool, len(models))
+		for _, modelID := range models {
+			seen[modelID] = true
+		}
+		for _, model := range openai.DefaultModels {
+			if isOpenAIImageModel(model.ID) && account.IsModelSupported(model.ID) && !seen[model.ID] {
+				models = append(models, model.ID)
+				seen[model.ID] = true
+			}
+		}
+		sort.Strings(models)
+	}
 
 	return models, nil
 }

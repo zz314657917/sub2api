@@ -45,6 +45,19 @@ func TestDefaultModelsPreferConcreteGPT56SolForAccountTests(t *testing.T) {
 	}
 }
 
+func TestDefaultModelsIncludeGPTImage25(t *testing.T) {
+	ids := DefaultModelIDs()
+	for _, want := range []string{"gpt-image-2.5-flare", "gpt-image-2.5-sunburst"} {
+		found := false
+		for _, id := range ids {
+			found = found || id == want
+		}
+		if !found {
+			t.Fatalf("DefaultModels does not contain %q", want)
+		}
+	}
+}
+
 func TestDefaultModelsContainsCodexAutoReview(t *testing.T) {
 	for _, model := range DefaultModels {
 		if model.ID == "codex-auto-review" {
