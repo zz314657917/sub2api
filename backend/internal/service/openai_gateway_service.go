@@ -4963,6 +4963,11 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 					return resultWithUsage(),
 						s.newOpenAIStreamFailoverError(c, account, true, upstreamRequestID, dataBytes, failedMessage, resp.Header)
 				}
+				if openAIStreamClientOutputStarted(c, clientOutputStarted) {
+					// Semantic output has already committed, so replay is unsafe. Keep the
+					// terminal event and retain its upstream diagnostics for operations.
+					s.recordOpenAIStreamUpstreamError(c, account, true, upstreamRequestID, "stream_failed", dataBytes, failedMessage)
+				}
 				forceFlushFailedEvent = true
 				sawFailedEvent = true
 			}
@@ -5977,6 +5982,11 @@ func (s *OpenAIGatewayService) handleStreamingResponse(ctx context.Context, resp
 					sawFailedEvent = true
 					streamFailoverErr = s.newOpenAIStreamFailoverError(c, account, false, upstreamRequestID, dataBytes, failedMessage, resp.Header)
 					return
+				}
+				if openAIStreamClientOutputStarted(c, clientOutputStarted) {
+					// Semantic output has already committed, so replay is unsafe. Keep the
+					// terminal event and retain its upstream diagnostics for operations.
+					s.recordOpenAIStreamUpstreamError(c, account, false, upstreamRequestID, "stream_failed", dataBytes, failedMessage)
 				}
 				forceFlushFailedEvent = true
 				sawFailedEvent = true

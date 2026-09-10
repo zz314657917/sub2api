@@ -1,13 +1,40 @@
 ---
-phase: qa
-current_sprint: upstream-v0200-gpt6-astra-s297
-total_sprints: 297
-pending_action: Complete isolated runtime acceptance for S296/S297; obtain explicit scope approval before S295-P1 schema/admin work; provision dedicated S293 R4 resources.
+phase: done
+current_sprint: upstream-v024-selective-reliability-s298
+total_sprints: 298
+pending_action: Start a separate contract for the Image 2.5 and OAuth Images main-model adaptation; retain payment fulfillment and backup locking as later independent contracts.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-09-08
+last_verified: 2026-09-10
 ---
+
+# Current Sprint: Upstream v0.2.4 Selective Reliability S298 (2026-09-10)
+
+- User approved continuing selective upstream integration after the refreshed
+  `upstream/main` audit (`98d86915b`, v0.2.4). This sprint adapts only two
+  behaviorally independent fixes: paginating the user Usage API-key filter
+  beyond the first 100 records (`dc6b318c3`) and recording diagnostics when an
+  already-started OpenAI Responses stream emits `response.failed` (`6aabbdf54`).
+- Contract: `docs/workflow/tasks/upstream-v024-selective-reliability-s298.md`.
+  Contract review: `docs/workflow/contract-reviews/upstream-v024-selective-reliability-s298-review.md` (`PASS`).
+- Build completed by controller takeover after the required Terra Generator
+  returned `403 No available group route` before consuming tokens or touching
+  code. The four allowed code/test files contain only the approved two
+  behaviors. Controller checks passed: focused service regression, UsageView
+  Vitest 31/31, `go build ./...`, frontend typecheck and exact-path diff check.
+- User authorized `gpt-5.6-sol` as the alternate independent QA model after
+  Terra returned 403 twice. Sol QA passed the contract acceptance commands,
+  exact four-file diff and owner review. Final Evaluator verdict is `PASS` for
+  local integration; real provider, container, deployment and push remain out
+  of scope and unverified.
+- Existing S297 remains `BLOCKED` only for absent runtime/API evidence. Its
+  status is not a product-code failure and does not authorize rewriting or
+  claiming completion of S296/S297. S293 R4 and S295 also remain independently
+  blocked/deferred as recorded below.
+- Image 2.5, payment-fulfillment isolation, and backup/migration locking are
+  intentionally separate future contracts because they touch model catalogs,
+  money flow, or database concurrency boundaries.
 
 # Current Sprint: S297 Acceptance Recovery (2026-09-08)
 

@@ -1655,6 +1655,13 @@ func TestOpenAIStreamingResponseFailedAfterOutputSanitizesVerboseResponseForClie
 	require.NotContains(t, body, `"metadata"`)
 	require.NotContains(t, body, `"tools"`)
 	require.NotContains(t, body, `"max_output_tokens"`)
+	operations, ok := c.Get(OpsUpstreamErrorsKey)
+	require.True(t, ok)
+	events, ok := operations.([]*OpsUpstreamErrorEvent)
+	require.True(t, ok)
+	require.NotEmpty(t, events)
+	require.Equal(t, "stream_failed", events[len(events)-1].Kind)
+	require.Equal(t, "rid-sanitize-failed", events[len(events)-1].UpstreamRequestID)
 }
 
 func TestOpenAIStreamingPreambleOnlyMissingTerminalReturnsFailover(t *testing.T) {
@@ -2136,6 +2143,13 @@ func TestOpenAIStreamingPassthroughResponseFailedAfterOutputSanitizesVerboseResp
 	require.NotContains(t, body, `"metadata"`)
 	require.NotContains(t, body, `"tools"`)
 	require.NotContains(t, body, `"max_output_tokens"`)
+	operations, ok := c.Get(OpsUpstreamErrorsKey)
+	require.True(t, ok)
+	events, ok := operations.([]*OpsUpstreamErrorEvent)
+	require.True(t, ok)
+	require.NotEmpty(t, events)
+	require.Equal(t, "stream_failed", events[len(events)-1].Kind)
+	require.Equal(t, "rid-passthrough-sanitize-failed", events[len(events)-1].UpstreamRequestID)
 }
 
 func TestOpenAIStreamingPassthroughResponseDoneWithoutDoneMarkerStillSucceeds(t *testing.T) {

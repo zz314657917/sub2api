@@ -558,6 +558,19 @@ describe('user UsageView', () => {
     vi.restoreAllMocks()
   })
 
+  it('loads every API key page for the usage filter', async () => {
+    list
+      .mockResolvedValueOnce({ items: [{ id: 3, name: 'first-key' }], pages: 2 })
+      .mockResolvedValueOnce({ items: [{ id: 4, name: 'second-key' }], pages: 2 })
+
+    const wrapper = await mountUsageView()
+    const setupState = (wrapper.vm as any).$?.setupState
+
+    expect(list).toHaveBeenNthCalledWith(1, 1, 100)
+    expect(list).toHaveBeenNthCalledWith(2, 2, 100)
+    expect(setupState.apiKeys.map((key: { id: number }) => key.id)).toEqual([3, 4])
+  })
+
   it('propagates the complete user-safe filter set to table and analytics APIs', async () => {
     const wrapper = await mountUsageView()
     const setupState = (wrapper.vm as any).$?.setupState
