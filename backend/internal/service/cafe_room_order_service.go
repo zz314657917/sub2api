@@ -243,6 +243,12 @@ func (s *CafeRoomOrderService) ReserveShares(ctx context.Context, input CafeRoom
 		if round.MaxBuyers != nil && buyers >= *round.MaxBuyers { return nil, ErrCafeBuyerLimit }
 		membership, err = tx.CafeRoundMembership.Create().SetRoundID(round.ID).SetUserID(input.UserID).SetStatus(GroupBuySeatStatusLocked).Save(txCtx)
 		if err != nil { return nil, err }
+	} else if membership.PaidShares == 0 && membership.ReservedShares == 0 {
+		// A previously cancelled reservation leaves its membership as an audit
+		// anchor. It must not bypass the distinct-buyer limit on re-entry.
+		buyers, err := tx.CafeRoundMembership.Query().Where(caferoundmembership.RoundIDEQ(round.ID), caferoundmembership.Or(caferoundmembership.PaidSharesGT(0), caferoundmembership.ReservedSharesGT(0))).Count(txCtx)
+		if err != nil { return nil, err }
+		if round.MaxBuyers != nil && buyers >= *round.MaxBuyers { return nil, ErrCafeBuyerLimit }
 	}
 	maxPerUser := round.TotalShares; if round.MaxSharesPerUser != nil { maxPerUser = *round.MaxSharesPerUser }
 	if membership.PaidShares+membership.ReservedShares+input.ShareCount > maxPerUser { return nil, ErrCafeUserShareLimit }

@@ -55,6 +55,10 @@ export const cafeAPI = {
   reserveShares(id: number, data: CafeRoomReservationRequest) {
     return apiClient.post<CafeRoomReservationResult>(`/cafe/rooms/${id}/reservations`, data)
   },
+
+  cancelReservation(roomID: number, reservationID: number) {
+    return apiClient.delete(`/cafe/rooms/${roomID}/reservations/${reservationID}`)
+  },
 }
 
 export default cafeAPI

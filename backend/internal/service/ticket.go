@@ -416,8 +416,11 @@ func NewCafeReservationChangedSystemTicketNotification(userID int64, roundID int
 	merged["round_id"] = roundID
 	merged["status"] = strings.TrimSpace(status)
 	reservationKey := ""
+	if reservationID, ok := merged["reservation_id"]; ok {
+		reservationKey = fmt.Sprintf(":reservation:%v", reservationID)
+	}
 	if reserved, ok := merged["reserved_shares"]; ok {
-		reservationKey = fmt.Sprintf(":%v", reserved)
+		reservationKey += fmt.Sprintf(":%v", reserved)
 	}
 	return SystemTicketNotification{
 		EventType: SystemTicketEventCafeReservationChanged,

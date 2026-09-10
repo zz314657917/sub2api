@@ -176,6 +176,8 @@ type CafeMyRoom struct {
 	MembershipID  int64                    `json:"membership_id"`
 	Status        string                   `json:"status"`
 	PaidShares    int                      `json:"paid_shares"`
+	ReservedShares int                      `json:"reserved_shares"`
+	CancellableReservationID *int64         `json:"cancellable_reservation_id,omitempty"`
 	ActivatedAt   *time.Time               `json:"activated_at,omitempty"`
 	ExpiresAt     *time.Time               `json:"expires_at,omitempty"`
 	Room          CafeMyRoomRoom           `json:"room"`
@@ -399,6 +401,12 @@ func (s *CafePublicService) MyRooms(ctx context.Context, userID int64, params Ca
 		}
 	}
 	for _, membership := range memberships {
+		// Cancellation keeps a zero-share membership as an audit anchor and for
+		// buyer-cap re-entry checks, but it is not a room the user owns. Do not
+		// project it as a waiting/history "My Room" ghost card.
+		if membership.PaidShares <= 0 && membership.ReservedShares <= 0 {
+			continue
+		}
 		if !cafeMyRoomMembershipMatchesStatuses(membership, statuses, now) {
 			continue
 		}
@@ -529,6 +537,7 @@ func cafeMyRoomFromMembership(membership *dbent.CafeRoundMembership, keys map[in
 		MembershipID:  membership.ID,
 		Status:        membership.Status,
 		PaidShares:    membership.PaidShares,
+		ReservedShares: membership.ReservedShares,
 		ActivatedAt:   membership.ActivatedAt,
 		ExpiresAt:     membership.ExpiresAt,
 		Room:          CafeMyRoomRoom{ID: room.ID, Code: room.Code, Name: room.Name, ZoneKey: room.ZoneKey, ThemeKey: room.ThemeKey},
@@ -536,6 +545,7 @@ func cafeMyRoomFromMembership(membership *dbent.CafeRoundMembership, keys map[in
 		Plan:          CafeMyRoomPlan{ID: plan.ID, Title: plan.Title, SubscriptionTier: cafeRoundSubscriptionTier(round), ValidityDays: cafeRoundValidityDays(round, plan.ValidityDays)},
 		Round:         CafeMyRoomRound{ID: round.ID, Status: round.Status, PaidShares: round.PaidShares, TotalShares: round.TotalShares},
 	}
+	item.CancellableReservationID = cafeMyRoomCancellableReservationID(membership)
 	if round.Status == GroupBuyRoundStatusActive && membership.Status == GroupBuySeatStatusActive {
 		if assigned := round.Edges.AssignedAccount; assigned != nil {
 			item.Account = safeCafeMyRoomAccount(assigned, now)
@@ -547,6 +557,28 @@ func cafeMyRoomFromMembership(membership *dbent.CafeRoundMembership, keys map[in
 		}
 	}
 	return item, true
+}
+
+// cafeMyRoomCancellableReservationID exposes only the immutable ID of the
+// current user's live, orderless reservation batch. The handler still repeats
+// every authorization and state check under transaction locks before release.
+func cafeMyRoomCancellableReservationID(membership *dbent.CafeRoundMembership) *int64 {
+	if membership == nil || membership.Edges.Round == nil || membership.ReservedShares <= 0 {
+		return nil
+	}
+	round := membership.Edges.Round
+	if round.CafeFulfillmentVersion != "membership_share" ||
+		(round.Status != CafeRoundStatusOpen && round.Status != CafeRoundStatusReserving && round.Status != CafeRoundStatusAwaitingPayment) {
+		return nil
+	}
+	for _, seat := range round.Edges.Seats {
+		if seat != nil && seat.UserID == membership.UserID && seat.MembershipID != nil && *seat.MembershipID == membership.ID &&
+			seat.Status == GroupBuySeatStatusLocked && seat.OrderID == nil && seat.ShareCount > 0 {
+			id := seat.ID
+			return &id
+		}
+	}
+	return nil
 }
 
 func cafeMyRoomFromSeat(seat *dbent.GroupBuySeat, now time.Time) (CafeMyRoom, bool) {

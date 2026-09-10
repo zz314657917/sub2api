@@ -228,6 +228,17 @@ func (h *CafeHandler) ReserveShares(c *gin.Context) {
 	})
 }
 
+func (h *CafeHandler) CancelReservation(c *gin.Context) {
+	subject, ok := middleware.GetAuthSubjectFromContext(c)
+	if !ok { response.Unauthorized(c, "User not authenticated"); return }
+	if h.orderService == nil { response.ErrorFrom(c, infraerrors.InternalServer("CAFE_ORDER_SERVICE_UNAVAILABLE", "cafe room order service is unavailable")); return }
+	roomID, err := cafeRoomID(c.Param("id")); if err != nil { response.ErrorFrom(c, err); return }
+	reservationID, err := cafeReservationID(c.Param("reservation_id")); if err != nil { response.ErrorFrom(c, err); return }
+	result, err := h.orderService.CancelReservation(c.Request.Context(), service.CafeRoomReservationCancelInput{UserID: subject.UserID, RoomID: roomID, ReservationID: reservationID})
+	if err != nil { response.ErrorFrom(c, err); return }
+	response.Success(c, result)
+}
+
 func cafePositiveQuery(raw string, fallback int) (int, error) {
 	value := strings.TrimSpace(raw)
 	if value == "" {
@@ -258,4 +269,10 @@ func cafeRoomID(raw string) (int64, error) {
 		return 0, infraerrors.BadRequest("INVALID_ID", "id is invalid")
 	}
 	return roomID, nil
+}
+
+func cafeReservationID(raw string) (int64, error) {
+	id, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+	if err != nil || id <= 0 { return 0, infraerrors.BadRequest("INVALID_ID", "reservation_id is invalid") }
+	return id, nil
 }

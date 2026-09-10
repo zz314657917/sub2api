@@ -64,3 +64,22 @@ func TestCafeHandlerRejectsClientOwnedOrderFields(t *testing.T) {
 	router.ServeHTTP(recorder, recorderRequest)
 	require.Equal(t, http.StatusBadRequest, recorder.Code)
 }
+
+func TestCafeHandlerCancelReservationValidatesPathAndAuthentication(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 1})
+		c.Next()
+	})
+	router.DELETE("/rooms/:id/reservations/:reservation_id", NewCafeHandler(nil, &service.CafeRoomOrderService{}).CancelReservation)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodDelete, "/rooms/1/reservations/0", nil))
+	require.Equal(t, http.StatusBadRequest, recorder.Code)
+
+	unauthenticated := gin.New()
+	unauthenticated.DELETE("/rooms/:id/reservations/:reservation_id", NewCafeHandler(nil, &service.CafeRoomOrderService{}).CancelReservation)
+	recorder = httptest.NewRecorder()
+	unauthenticated.ServeHTTP(recorder, httptest.NewRequest(http.MethodDelete, "/rooms/1/reservations/1", nil))
+	require.Equal(t, http.StatusUnauthorized, recorder.Code)
+}

@@ -75,6 +75,10 @@
             </div>
             <span class="pixel-cafe-my-room-account">绑定账号：{{ myRoomAccountCopy(membership) }}</span>
             <span class="pixel-cafe-my-room-lifetime" data-testid="pixel-cafe-my-room-lifetime">{{ myRoomValidityCopy(membership) }}</span>
+            <div v-if="(membership.reserved_shares ?? 0) > 0 || ['open', 'reserving', 'awaiting_payment'].includes(membership.round.status)" class="pixel-cafe-reservation-row">
+              <span data-testid="pixel-cafe-my-shares">我的份额：已预约 {{ membership.reserved_shares ?? 0 }} 份 · 已付款 {{ membership.paid_shares }} 份</span>
+              <button v-if="membership.cancellable_reservation_id && !isLocalDemoMode" type="button" class="pixel-cafe-my-rooms-retry" data-testid="pixel-cafe-cancel-reservation" :disabled="cancellingReservation" @click="askCancelReservation(membership)">取消预约</button>
+            </div>
             <div
               v-if="membership.managed_api_key && myRoomHasActiveUsage(membership)"
               class="pixel-cafe-my-room-usage"
@@ -160,11 +164,12 @@
                   </span>
                 </span>
                 <span class="pixel-cafe-room-card-stats">
-                  <span>已售 {{ room.round?.paid_shares ?? 0 }}/{{ room.plan.total_shares }} 份</span>
+                  <span data-testid="pixel-cafe-room-shares">{{ roomSharesCopy(room) }}</span>
                   <span>{{ room.round?.joined_buyers ?? 0 }}/{{ room.plan.max_buyers }} 人</span>
                   <span>{{ room.plan.validity_days }} 天</span>
                   <span>{{ room.plan.price_label || `${room.plan.price_per_share} CNY` }}</span>
                 </span>
+                <span v-if="room.my_reserved_shares || room.my_paid_shares" class="pixel-cafe-room-card-stats" data-testid="pixel-cafe-room-own-shares">我的：已预约 {{ room.my_reserved_shares ?? 0 }} 份 · 已付款 {{ room.my_paid_shares ?? 0 }} 份</span>
                 <span
                   v-if="roomMemberCount(room) > 0"
                   class="pixel-cafe-room-card-members"
@@ -310,6 +315,16 @@
       </section>
 
     </div>
+    <ConfirmDialog
+      :show="Boolean(reservationToCancel)"
+      title="取消预约"
+      :message="reservationToCancel ? `确认取消「${reservationToCancel.room.name}」的未付款预约？份额会立即释放，已付款部分不受影响。` : ''"
+      :confirm-text="cancellingReservation ? '正在取消预约…' : '确认取消预约'"
+      @cancel="closeCancelReservation"
+      @confirm="cancelReservation"
+    >
+      <p v-if="cancelReservationError" role="alert" data-testid="pixel-cafe-cancel-error">{{ cancelReservationError }}</p>
+    </ConfirmDialog>
   </AppLayout>
 </template>
 
@@ -317,6 +332,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import PaymentStatusPanel from '@/components/payment/PaymentStatusPanel.vue'
 import CafeScene from './components/CafeScene.vue'
@@ -353,6 +369,9 @@ const myRooms = ref<CafeMyRoom[]>([])
 const myRoomsFilter = ref<CafeMyRoomFilter>('active,waiting')
 const myRoomsLoading = ref(false)
 const myRoomsError = ref('')
+const reservationToCancel = ref<CafeMyRoom | null>(null)
+const cancellingReservation = ref(false)
+const cancelReservationError = ref('')
 const selectedRoom = ref<CafePublicRoom | null>(null)
 const roomDialogOpen = ref(false)
 const roomDialogClose = ref<HTMLButtonElement>()
@@ -504,15 +523,52 @@ async function loadMyRooms(filter: CafeMyRoomFilter = myRoomsFilter.value): Prom
   }
 }
 
-function roomShareLabel(room: CafePublicRoom): string { return !room.round ? `${room.plan.total_shares} 份 · 暂未开放` : `已售 ${room.round.paid_shares}/${room.plan.total_shares} 份 · ${room.round.joined_buyers}/${room.plan.max_buyers} 人` }
+function roomSharesCopy(room: CafePublicRoom): string {
+  const reserved = room.round?.reserved_shares ?? 0
+  const paid = room.round?.paid_shares ?? 0
+  return reserved > 0 || ['open', 'reserving', 'awaiting_payment'].includes(room.round?.status || '')
+    ? `已预约 ${reserved}/${room.plan.total_shares} 份 · 已售 ${paid}/${room.plan.total_shares} 份`
+    : `已售 ${paid}/${room.plan.total_shares} 份`
+}
+
+function roomShareLabel(room: CafePublicRoom): string { return !room.round ? `${room.plan.total_shares} 份 · 暂未开放` : `${roomSharesCopy(room)} · ${room.round.joined_buyers}/${room.plan.max_buyers} 人` }
+
+function askCancelReservation(membership: CafeMyRoom): void {
+  if (cancellingReservation.value || isLocalDemoMode.value || !membership.cancellable_reservation_id) return
+  cancelReservationError.value = ''
+  reservationToCancel.value = membership
+}
+
+function closeCancelReservation(): void {
+  if (!cancellingReservation.value) reservationToCancel.value = null
+}
+
+async function cancelReservation(): Promise<void> {
+  const membership = reservationToCancel.value
+  if (!membership?.cancellable_reservation_id || cancellingReservation.value || isLocalDemoMode.value) return
+  cancellingReservation.value = true
+  cancelReservationError.value = ''
+  try {
+    await cafeAPI.cancelReservation(membership.room.id, membership.cancellable_reservation_id)
+    reservationToCancel.value = null
+    closeRoomDialog()
+    await Promise.all([loadOverview(), loadMyRooms()])
+  } catch (error) {
+    cancelReservationError.value = extractApiErrorMessage(error, '取消预约失败，请刷新房间状态后重试。')
+  } finally {
+    cancellingReservation.value = false
+  }
+}
 
 function roomProgressLabel(room: CafePublicRoom): string {
+  if (room.round?.status === 'awaiting_payment') return '待付款'
+  if (room.round?.status === 'reserving') return room.purchase_state === 'buyers_full' ? '人数已满' : '预约中'
   if (room.round?.status === 'awaiting_account') return '待配号'
   if (room.round?.status === 'activating') return '开通中'
   if (room.round?.status === 'active') return '已开通'
   if (room.round?.status === 'refunding') return '退款中'
   if (room.round?.status === 'refunded') return '已退款'
-  if (room.round?.status === 'open') return '可购买'
+  if (room.round?.status === 'open') return canReserveRooms() ? '可预约' : '可购买'
   return room.purchase_state === 'buyers_full' ? '人数已满' : '暂不可用'
 }
 
@@ -882,4 +938,12 @@ onUnmounted(() => {
 .pixel-cafe-purchase-limits dt { color: #9fb2c1; font-size: .68rem; }
 .pixel-cafe-purchase-limits dd { margin: 0; color: #eaf3fa; font: 700 .7rem/1.2 monospace; }
 @media (max-width: 420px) { .pixel-cafe-purchase-limits dl { grid-template-columns: 1fr; } }
+.pixel-cafe-reservation-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; color: #bfd0dc; font-size: .7rem; }
+.pixel-cafe-room-card-stats { flex-wrap: wrap; white-space: normal; }
+@media (max-width: 900px) {
+  .pixel-cafe-scene { min-height: 16rem; }
+  .pixel-cafe-room-list { top: 3rem; height: auto; }
+  .pixel-cafe-room-cards { flex: 1 1 auto; }
+  .pixel-cafe-room-card { height: auto; align-self: flex-start; align-content: start; }
+}
 </style>

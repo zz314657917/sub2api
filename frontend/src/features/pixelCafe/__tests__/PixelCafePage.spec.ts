@@ -7,6 +7,7 @@ const lobbyActivity = vi.hoisted(() => vi.fn())
 const listRooms = vi.hoisted(() => vi.fn())
 const listMyRooms = vi.hoisted(() => vi.fn())
 const createOrder = vi.hoisted(() => vi.fn())
+const cancelReservation = vi.hoisted(() => vi.fn())
 const getCheckoutInfo = vi.hoisted(() => vi.fn())
 const routeQuery = vi.hoisted(() => ({} as Record<string, string>))
 const cachedPublicSettings = vi.hoisted(() => ({
@@ -15,7 +16,11 @@ const cachedPublicSettings = vi.hoisted(() => ({
   pixel_cafe_header_visible: true,
 }))
 
-vi.mock('@/api/cafe', () => ({ cafeAPI: { overview, lobbyActivity, listRooms, listMyRooms, createOrder } }))
+vi.mock('@/api/cafe', () => ({ cafeAPI: { overview, lobbyActivity, listRooms, listMyRooms, createOrder, cancelReservation } }))
+vi.mock('@/components/common/ConfirmDialog.vue', () => ({ default: {
+  props: ['show', 'message', 'confirmText'], emits: ['confirm', 'cancel'],
+  template: '<div v-if="show" data-testid="cancel-confirm"><p>{{ message }}</p><slot/><button data-testid="cancel-confirm-no" @click="$emit(\'cancel\')">返回</button><button data-testid="cancel-confirm-yes" @click="$emit(\'confirm\')">{{ confirmText }}</button></div>',
+} }))
 vi.mock('@/api/payment', () => ({ paymentAPI: { getCheckoutInfo } }))
 vi.mock('@/stores', () => ({ useAppStore: () => ({ cachedPublicSettings }) }))
 vi.mock('vue-router', () => ({
@@ -98,6 +103,7 @@ describe('PixelCafePage', () => {
       value: vi.fn(() => ({ matches: false })),
     })
     overview.mockReset().mockResolvedValue(overviewPayload())
+    cancelReservation.mockReset().mockResolvedValue({ data: {} })
     lobbyActivity.mockReset().mockResolvedValue({ data: { available: true, date: '2026-08-03', timezone: 'Asia/Shanghai', label: '今日使用用户', unique_users: 2, successful_requests: 5, display_max: 50, avatars: [{ avatar_seed: 'abcdef1234567890', seat_index: 1, activity: 'recent' }] } })
     listRooms.mockReset().mockResolvedValue({ data: { items: [room], total: 1, page: 1, page_size: 24, pages: 1 } })
     listMyRooms.mockReset().mockResolvedValue({ data: { items: [myRoom], total: 1, page: 1, page_size: 20, pages: 1 } })
@@ -125,6 +131,74 @@ describe('PixelCafePage', () => {
         },
       },
     })
+  })
+
+  it('shows reserved and personal shares without counting them as paid', async () => {
+    overview.mockResolvedValue(overviewPayload([{ ...room, my_reserved_shares: 3, my_paid_shares: 0,
+      round: { ...room.round, status: 'reserving', reserved_shares: 3, paid_shares: 0 },
+    }]))
+    const wrapper = mountPage()
+    await flushPromises()
+    expect(wrapper.get('[data-testid="pixel-cafe-room-shares"]').text()).toBe('已预约 3/5 份 · 已售 0/5 份')
+    expect(wrapper.get('[data-testid="pixel-cafe-room-own-shares"]').text()).toContain('已预约 3 份')
+    expect(wrapper.get('.pixel-cafe-room-card-state').text()).toBe('预约中')
+    await wrapper.get('.pixel-cafe-room-card').trigger('click')
+    expect(wrapper.get('.pixel-cafe-stats').text()).toContain('已预约 3/5 份')
+    wrapper.unmount()
+  })
+
+  it('confirms cancellation, prevents duplicate requests, and refreshes both room lists', async () => {
+    listMyRooms.mockResolvedValue({ data: { items: [{ ...myRoom, paid_shares: 0, reserved_shares: 3, cancellable_reservation_id: 123 }] } })
+    const wrapper = mountPage()
+    await flushPromises()
+    expect(wrapper.get('[data-testid="pixel-cafe-my-shares"]').text()).toContain('已预约 3 份 · 已付款 0 份')
+    await wrapper.get('[data-testid="pixel-cafe-cancel-reservation"]').trigger('click')
+    expect(cancelReservation).not.toHaveBeenCalled()
+    await wrapper.get('[data-testid="cancel-confirm-no"]').trigger('click')
+    expect(wrapper.find('[data-testid="cancel-confirm"]').exists()).toBe(false)
+    await wrapper.get('[data-testid="pixel-cafe-cancel-reservation"]').trigger('click')
+    let finish!: (value: unknown) => void
+    cancelReservation.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    await wrapper.get('[data-testid="cancel-confirm-yes"]').trigger('click')
+    await wrapper.get('[data-testid="cancel-confirm-yes"]').trigger('click')
+    expect(cancelReservation).toHaveBeenCalledTimes(1)
+    expect(cancelReservation).toHaveBeenCalledWith(18, 123)
+    listMyRooms.mockResolvedValue({ data: { items: [] } })
+    finish({ data: {} })
+    await flushPromises()
+    expect(wrapper.find('[data-testid="cancel-confirm"]').exists()).toBe(false)
+    expect(overview).toHaveBeenCalledTimes(2)
+    expect(listMyRooms).toHaveBeenCalledTimes(2)
+    expect(wrapper.find('[data-testid="pixel-cafe-cancel-reservation"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('keeps cancellation errors visible without releasing the displayed shares', async () => {
+    listMyRooms.mockResolvedValue({ data: { items: [{ ...myRoom, reserved_shares: 3, cancellable_reservation_id: 123 }] } })
+    cancelReservation.mockRejectedValue(new Error('已进入付款流程，不能取消预约'))
+    const wrapper = mountPage()
+    await flushPromises()
+    await wrapper.get('[data-testid="pixel-cafe-cancel-reservation"]').trigger('click')
+    await wrapper.get('[data-testid="cancel-confirm-yes"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[data-testid="pixel-cafe-cancel-error"]').text()).toContain('不能取消预约')
+    expect(wrapper.get('[data-testid="pixel-cafe-my-shares"]').text()).toContain('已预约 3 份')
+    expect(overview).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
+  it('does not offer cancellation without backend eligibility or in demo mode', async () => {
+    const wrapper = mountPage()
+    await flushPromises()
+    expect(wrapper.find('[data-testid="pixel-cafe-cancel-reservation"]').exists()).toBe(false)
+    wrapper.unmount()
+    routeQuery.demo = '1'
+    listMyRooms.mockResolvedValue({ data: { items: [{ ...myRoom, reserved_shares: 3, cancellable_reservation_id: 123 }] } })
+    const demo = mountPage()
+    await flushPromises()
+    expect(demo.find('[data-testid="pixel-cafe-cancel-reservation"]').exists()).toBe(false)
+    expect(cancelReservation).not.toHaveBeenCalled()
+    demo.unmount()
   })
 
   it('renders the real overview room data and selected-room status', async () => {

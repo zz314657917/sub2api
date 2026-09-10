@@ -210,6 +210,7 @@ func RegisterUserRoutes(
 			cafe.GET("/rooms/:id", h.Cafe.GetRoom)
 			cafe.POST("/rooms/:id/orders", h.Cafe.CreateOrder)
 			cafe.POST("/rooms/:id/reservations", h.Cafe.ReserveShares)
+			cafe.DELETE("/rooms/:id/reservations/:reservation_id", h.Cafe.CancelReservation)
 		}
 
 		// 使用记录
