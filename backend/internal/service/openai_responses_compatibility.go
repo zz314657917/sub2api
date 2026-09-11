@@ -86,6 +86,13 @@ func normalizeOpenAIResponsesReasoningMode(body []byte) ([]byte, bool, error) {
 
 func normalizeOpenAIResponsesWebSocketCompatibilityBody(body []byte, account *Account) ([]byte, bool, error) {
 	normalized, changed := body, false
+	if account != nil && account.IsOpenAI() && account.Type == AccountTypeAPIKey {
+		if next, updated, err := normalizeOpenAIAPIKeyStoreFalseReasoningReplay(normalized, false); err != nil {
+			return body, false, err
+		} else if updated {
+			normalized, changed = next, true
+		}
+	}
 	if next, updated, err := sanitizeOpenAIResponsesInputItemIDs(normalized); err != nil {
 		return body, false, fmt.Errorf("sanitize websocket Responses input item IDs: %w", err)
 	} else if updated {

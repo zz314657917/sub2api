@@ -2837,6 +2837,15 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		return s.forwardResponsesViaNativeAnthropic(ctx, c, account, body, reqModel)
 	}
 
+	// Match upstream: normalize API-key replay before protocol/passthrough
+	// dispatch. Compact is stateless even when its store field was removed.
+	if account.IsOpenAI() && account.Type == AccountTypeAPIKey {
+		if normalized, changed, err := normalizeOpenAIAPIKeyStoreFalseReasoningReplay(body, isOpenAIResponsesCompactPath(c)); err != nil {
+			return nil, err
+		} else if changed {
+			body, originalBody = normalized, normalized
+		}
+	}
 	// Native remote compaction v2 must keep its Responses payload intact. The
 	// scheduler normally excludes force-chat and Responses-unsupported API keys,
 	// but direct callers must not silently convert a compaction trigger to chat.
