@@ -99,7 +99,6 @@
           <p class="input-hint">{{ t('admin.accounts.leaveEmptyToKeep') }}</p>
         </div>
 
-        <Teleport to="#edit-account-model-restriction-slot">
         <!-- Model Restriction Section (不适用于 Antigravity) -->
         <div v-if="account.platform !== 'antigravity'" class="border-t border-gray-200 pt-4 dark:border-dark-600">
           <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
@@ -435,12 +434,10 @@
             </div>
           </div>
         </div>
-        </Teleport>
 
       </div>
 
       <!-- OpenAI OAuth Model Mapping (OAuth 类型没有 apikey 容器，需要独立的模型映射区域) -->
-      <Teleport to="#edit-account-model-restriction-slot">
       <div
         v-if="account.platform === 'openai' && account.type === 'oauth'"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
@@ -575,7 +572,6 @@
           </div>
         </template>
       </div>
-      </Teleport>
 
       <!-- Upstream fields (only for upstream type) -->
       <div v-if="account.type === 'upstream'" class="space-y-4">
@@ -640,7 +636,6 @@
           </div>
         </div>
 
-        <Teleport to="#edit-account-model-restriction-slot">
         <!-- Model Restriction Section for Service Account -->
         <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
           <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
@@ -851,8 +846,6 @@
             <p class="input-hint">{{ t('admin.accounts.bedrockSessionTokenHint') }}</p>
           </div>
         </template>
-        </div>
-        </Teleport>
 
         <!-- API Key field -->
         <div v-if="isBedrockAPIKeyMode">
