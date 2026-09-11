@@ -685,6 +685,9 @@ func (s *BillingCacheService) QueueUpdateAPIKeyRateLimitUsage(apiKeyID int64, co
 // 余额模式：检查缓存余额达到 minimum_balance_reserve（兼容配置为 0 时仍为 > 0）
 // 订阅模式：检查缓存用量未超过限额（Group限额从参数传入）
 func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user *User, apiKey *APIKey, group *Group, subscription *UserSubscription) error {
+	if err := s.checkTokenMultiplierCap(ctx, user, apiKey, group); err != nil {
+		return err
+	}
 	// 简易模式：跳过所有计费检查
 	if s.cfg.RunMode == config.RunModeSimple {
 		return nil
@@ -721,6 +724,40 @@ func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user 
 		return err
 	}
 
+	return nil
+}
+
+// checkTokenMultiplierCap rejects expensive requests; it never changes billing prices.
+func (s *BillingCacheService) checkTokenMultiplierCap(ctx context.Context, user *User, key *APIKey, group *Group) error {
+	if key == nil || key.TokenMultiplierCap <= 0 {
+		return nil
+	}
+	if user == nil || group == nil {
+		return ErrBillingServiceUnavailable
+	}
+	rate := group.RateMultiplier
+	if s.userGroupRateRepo != nil {
+		override, err := s.userGroupRateRepo.GetByUserAndGroup(ctx, user.ID, group.ID)
+		if err != nil {
+			return ErrBillingServiceUnavailable
+		}
+		if override != nil {
+			rate = *override
+		}
+	}
+	if s.membershipResolver != nil {
+		benefits, err := s.membershipResolver.GetEffectiveBenefits(ctx, user.ID)
+		if err != nil {
+			return ErrBillingServiceUnavailable
+		}
+		if benefits.RateMultiplier > 0 && (rate <= 0 || benefits.RateMultiplier < rate) {
+			rate = benefits.RateMultiplier
+		}
+	}
+	rate *= group.PeakMultiplierAt(time.Now())
+	if rate > key.TokenMultiplierCap {
+		return infraerrors.Forbidden("API_KEY_TOKEN_MULTIPLIER_EXCEEDED", fmt.Sprintf("Token 倍率 %.8gx 超过密钥上限 %.8gx，请求已拒绝", rate, key.TokenMultiplierCap))
+	}
 	return nil
 }
 

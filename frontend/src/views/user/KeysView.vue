@@ -1146,7 +1146,7 @@
             <div class="flex items-center justify-between">
               <div>
                 <label class="input-label mb-0">Token 倍率上限保护</label>
-                <p class="input-hint">限制此密钥最终 Token 倍率，超过上限时按上限计费。</p>
+                <p class="input-hint">实际 Token 倍率超过上限时拒绝请求；允许的请求仍按实际倍率计费。</p>
               </div>
               <button type="button" @click="formData.enable_token_multiplier_cap = !formData.enable_token_multiplier_cap" :class="['relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent', formData.enable_token_multiplier_cap ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600']">
                 <span :class="['pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition', formData.enable_token_multiplier_cap ? 'translate-x-4' : 'translate-x-0']" />
