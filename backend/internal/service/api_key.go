@@ -63,15 +63,16 @@ type APIKey struct {
 	ExpiresAt *time.Time // Expiration time (nil = never expires)
 
 	// Rate limit fields
-	RateLimit5h   float64    // Rate limit in USD per 5h (0 = unlimited)
-	RateLimit1d   float64    // Rate limit in USD per 1d (0 = unlimited)
-	RateLimit7d   float64    // Rate limit in USD per 7d (0 = unlimited)
-	Usage5h       float64    // Used amount in current 5h window
-	Usage1d       float64    // Used amount in current 1d window
-	Usage7d       float64    // Used amount in current 7d window
-	Window5hStart *time.Time // Start of current 5h window
-	Window1dStart *time.Time // Start of current 1d window
-	Window7dStart *time.Time // Start of current 7d window
+	RateLimit5h        float64    // Rate limit in USD per 5h (0 = unlimited)
+	RateLimit1d        float64    // Rate limit in USD per 1d (0 = unlimited)
+	RateLimit7d        float64    // Rate limit in USD per 7d (0 = unlimited)
+	TokenMultiplierCap float64    // Maximum token billing multiplier (0 = unlimited)
+	Usage5h            float64    // Used amount in current 5h window
+	Usage1d            float64    // Used amount in current 1d window
+	Usage7d            float64    // Used amount in current 7d window
+	Window5hStart      *time.Time // Start of current 5h window
+	Window1dStart      *time.Time // Start of current 1d window
+	Window7dStart      *time.Time // Start of current 7d window
 
 	// ManagedSourceType/ID identify keys owned by a server-side entitlement.
 	// An empty type means the user owns all key policy fields.

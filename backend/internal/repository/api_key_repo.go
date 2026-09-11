@@ -80,7 +80,8 @@ func (r *apiKeyRepository) Create(ctx context.Context, key *service.APIKey) erro
 		SetNillableExpiresAt(key.ExpiresAt).
 		SetRateLimit5h(key.RateLimit5h).
 		SetRateLimit1d(key.RateLimit1d).
-		SetRateLimit7d(key.RateLimit7d)
+		SetRateLimit7d(key.RateLimit7d).
+		SetTokenMultiplierCap(key.TokenMultiplierCap)
 	if key.ManagedSourceType != "" {
 		builder.SetManagedSourceType(key.ManagedSourceType)
 	}
@@ -197,6 +198,7 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 			apikey.FieldRateLimit5h,
 			apikey.FieldRateLimit1d,
 			apikey.FieldRateLimit7d,
+			apikey.FieldTokenMultiplierCap,
 			apikey.FieldManagedSourceType,
 			apikey.FieldManagedSourceID,
 		).
@@ -357,6 +359,9 @@ func (r *apiKeyRepository) Update(ctx context.Context, key *service.APIKey, fiel
 	}
 	if fields.RateLimits {
 		builder.SetRateLimit5h(key.RateLimit5h).SetRateLimit1d(key.RateLimit1d).SetRateLimit7d(key.RateLimit7d)
+	}
+	if fields.TokenMultiplierCap {
+		builder.SetTokenMultiplierCap(key.TokenMultiplierCap)
 	}
 	if fields.RateLimitUsage {
 		builder.SetUsage5h(key.Usage5h).SetUsage1d(key.Usage1d).SetUsage7d(key.Usage7d)
@@ -1335,6 +1340,7 @@ func apiKeyEntityToService(m *dbent.APIKey) *service.APIKey {
 		RateLimit5h:         m.RateLimit5h,
 		RateLimit1d:         m.RateLimit1d,
 		RateLimit7d:         m.RateLimit7d,
+		TokenMultiplierCap:  m.TokenMultiplierCap,
 		Usage5h:             m.Usage5h,
 		Usage1d:             m.Usage1d,
 		Usage7d:             m.Usage7d,

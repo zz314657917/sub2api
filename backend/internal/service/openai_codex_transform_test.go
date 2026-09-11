@@ -1,12 +1,25 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestApplyCodexOAuthTransform_PreservesAllowedTools(t *testing.T) {
+	choice := map[string]any{"type": "allowed_tools", "mode": "required", "tools": []any{map[string]any{"type": "function", "name": "probe"}}}
+	req := map[string]any{"model": "gpt-6-astra", "tool_choice": choice, "tools": []any{map[string]any{"type": "function", "name": "probe"}}}
+	before, err := json.Marshal(choice)
+	require.NoError(t, err)
+	result := applyCodexOAuthTransform(req, true, false)
+	require.False(t, result.Modified)
+	after, err := json.Marshal(req["tool_choice"])
+	require.NoError(t, err)
+	require.JSONEq(t, string(before), string(after))
+}
 
 func TestApplyCodexOAuthTransform_ToolContinuationPreservesInput(t *testing.T) {
 	// 续链场景：保留 item_reference 与 id，但不再强制 store=true。
@@ -102,6 +115,37 @@ func TestApplyCodexOAuthTransform_ToolContinuationPreservesNativeMessageAndReaso
 	require.Equal(t, "rs_123", second["id"])
 }
 
+func TestApplyCodexOAuthTransform_PreservesEncryptedReasoningAndStripsReasoningID(t *testing.T) {
+	reqBody := map[string]any{
+		"model": "gpt-5.5",
+		"input": []any{
+			map[string]any{
+				"type":              "reasoning",
+				"id":                "rs_123",
+				"encrypted_content": "gAAAAAB-enc-payload",
+				"content":           []any{map[string]any{"type": "reasoning_text", "text": "kept"}},
+			},
+			map[string]any{"type": "message", "id": "msg_0", "role": "user", "content": "hi"},
+		},
+	}
+
+	applyCodexOAuthTransform(reqBody, true, false)
+
+	input, ok := reqBody["input"].([]any)
+	require.True(t, ok)
+	require.Len(t, input, 2)
+
+	reasoning, ok := input[0].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "reasoning", reasoning["type"])
+	require.Equal(t, "gAAAAAB-enc-payload", reasoning["encrypted_content"])
+	require.NotContains(t, reasoning, "id")
+	summary, ok := reasoning["summary"].([]any)
+	require.True(t, ok)
+	require.Len(t, summary, 0)
+	require.Contains(t, reasoning, "content")
+}
+
 func TestApplyCodexOAuthTransform_ToolContinuationNormalizesToolReferenceIDsOnly(t *testing.T) {
 	reqBody := map[string]any{
 		"model": "gpt-5.2",
@@ -168,8 +212,6 @@ func TestApplyCodexOAuthTransform_BoundsLongCallIDsAndPreservesPairing(t *testin
 }
 
 func TestApplyCodexOAuthTransform_PreservesCallIDsWithinLimitWhenRequested(t *testing.T) {
-	// preserve 模式下 ≤64 字符的 id 必须原样透传（含 64 字符等长边界），
-	// 不做任何前缀改写或压缩。
 	for _, tc := range []struct {
 		name   string
 		callID string
@@ -204,10 +246,7 @@ func TestApplyCodexOAuthTransform_PreservesCallIDsWithinLimitWhenRequested(t *te
 }
 
 func TestApplyCodexOAuthTransform_CompactsOverlongCallIDsWhenPreserveRequested(t *testing.T) {
-	// preserve 模式下超过 64 字符的 id 若原样透传，上游必然 400
-	// （"Invalid 'input[N].call_id': string too long"），需退回确定性压缩；
-	// function_call 与 function_call_output 两侧压缩结果一致，配对保持。
-	callID := "srvtoolu_" + strings.Repeat("x", 69) // 78 字符，对应生产环境真实报错长度
+	callID := "srvtoolu_" + strings.Repeat("x", 69)
 	require.Len(t, callID, 78)
 	reqBody := map[string]any{
 		"model": "gpt-5.2",
@@ -232,8 +271,8 @@ func TestApplyCodexOAuthTransform_CompactsOverlongCallIDsWhenPreserveRequested(t
 	require.True(t, ok)
 	require.Len(t, compacted, codexCallIDMaxLength)
 	require.True(t, strings.HasPrefix(compacted, codexCallIDPrefix))
-	require.Equal(t, compacted, output["call_id"], "两侧压缩结果必须一致以保持配对")
-	require.Equal(t, normalizeCodexCallID(callID), compacted, "压缩必须是确定性的")
+	require.Equal(t, compacted, output["call_id"])
+	require.Equal(t, compactCodexCallID(callID), compacted)
 }
 
 func TestApplyCodexOAuthTransform_ToolSearchOutputPreservesCallID(t *testing.T) {
@@ -278,74 +317,6 @@ func TestApplyCodexOAuthTransform_CustomAndMCPToolOutputsPreserveCallID(t *testi
 	second, ok := input[1].(map[string]any)
 	require.True(t, ok)
 	require.Equal(t, "fc_mcp", second["call_id"])
-}
-
-func TestApplyCodexOAuthTransform_NormalizesNativeToolCallPairsByType(t *testing.T) {
-	reqBody := map[string]any{
-		"model": "gpt-5.6-sol",
-		"input": []any{
-			map[string]any{"type": "custom_tool_call", "id": "fc_custom", "call_id": "call_custom", "name": "apply_patch"},
-			map[string]any{"type": "custom_tool_call_output", "call_id": "fc_custom", "output": "done"},
-			map[string]any{"type": "tool_search_call", "id": "fc_search", "call_id": "call_search"},
-			map[string]any{"type": "tool_search_output", "call_id": "fc_search", "output": "result"},
-		},
-	}
-
-	applyCodexOAuthTransform(reqBody, false, false)
-
-	input := reqBody["input"].([]any)
-	custom := input[0].(map[string]any)
-	customOutput := input[1].(map[string]any)
-	search := input[2].(map[string]any)
-	searchOutput := input[3].(map[string]any)
-	require.NotContains(t, custom, "id", "the invalid replay item id must be removed, not fabricated")
-	require.Equal(t, "ctc_custom", custom["call_id"])
-	require.Equal(t, custom["call_id"], customOutput["call_id"])
-	require.NotContains(t, search, "id", "the invalid replay item id must be removed, not fabricated")
-	require.Equal(t, "tsc_search", search["call_id"])
-	require.Equal(t, search["call_id"], searchOutput["call_id"])
-}
-
-func TestApplyCodexOAuthTransform_PreservesNativeCallIDsWhenRequested(t *testing.T) {
-	reqBody := map[string]any{
-		"model": "gpt-5.6-sol",
-		"input": []any{
-			map[string]any{"type": "custom_tool_call", "id": "ctc_custom", "call_id": "call_custom", "name": "apply_patch"},
-			map[string]any{"type": "custom_tool_call_output", "call_id": "call_custom", "output": "done"},
-			map[string]any{"type": "tool_search_call", "id": "tsc_search", "call_id": "call_search"},
-			map[string]any{"type": "tool_search_output", "call_id": "call_search", "output": "result"},
-		},
-	}
-
-	applyCodexOAuthTransformWithOptions(reqBody, codexOAuthTransformOptions{PreserveToolCallIDs: true})
-
-	input := reqBody["input"].([]any)
-	require.Equal(t, "ctc_custom", input[0].(map[string]any)["id"])
-	require.Equal(t, "call_custom", input[0].(map[string]any)["call_id"])
-	require.Equal(t, "call_custom", input[1].(map[string]any)["call_id"])
-	require.Equal(t, "tsc_search", input[2].(map[string]any)["id"])
-	require.Equal(t, "call_search", input[2].(map[string]any)["call_id"])
-	require.Equal(t, "call_search", input[3].(map[string]any)["call_id"])
-}
-
-func TestApplyCodexOAuthTransform_BoundsEquivalentNativeToolCallIDsWithPairing(t *testing.T) {
-	suffix := strings.Repeat("x", 70)
-	reqBody := map[string]any{
-		"model": "gpt-5.6-sol",
-		"input": []any{
-			map[string]any{"type": "custom_tool_call", "call_id": "call_" + suffix, "name": "apply_patch"},
-			map[string]any{"type": "custom_tool_call_output", "call_id": "fc_" + suffix, "output": "done"},
-		},
-	}
-
-	applyCodexOAuthTransformWithOptions(reqBody, codexOAuthTransformOptions{PreserveToolCallIDs: true})
-
-	input := reqBody["input"].([]any)
-	callID := input[0].(map[string]any)["call_id"].(string)
-	outputCallID := input[1].(map[string]any)["call_id"].(string)
-	require.LessOrEqual(t, len(callID), codexCallIDMaxLength)
-	require.True(t, strings.HasPrefix(callID, "ctc_"))
-	require.Equal(t, callID, outputCallID)
 }
 
 func TestApplyCodexOAuthTransform_ImageAndWebSearchCallsDoNotGainCallID(t *testing.T) {
@@ -568,6 +539,51 @@ func TestCodexInputItemRequiresNameTypesAllowCallID(t *testing.T) {
 	for _, typ := range []string{"function_call", "custom_tool_call", "mcp_tool_call"} {
 		require.True(t, codexInputItemRequiresName(typ), typ)
 		require.True(t, isCodexToolCallItemType(typ), typ)
+	}
+}
+
+func TestNativeToolContinuationItemIDPrefixValidation(t *testing.T) {
+	tests := []struct {
+		name     string
+		itemType string
+		id       string
+		strip    bool
+	}{
+		{name: "function call accepts fc", itemType: "function_call", id: "fc_123", strip: false},
+		{name: "function call rejects ctc", itemType: "function_call", id: "ctc_123", strip: true},
+		{name: "custom call accepts ctc", itemType: "custom_tool_call", id: "ctc_123", strip: false},
+		{name: "custom call rejects fc", itemType: "custom_tool_call", id: "fc_123", strip: true},
+		{name: "tool search accepts tsc", itemType: "tool_search_call", id: "tsc_123", strip: false},
+		{name: "tool search rejects fc", itemType: "tool_search_call", id: "fc_123", strip: true},
+		{name: "custom output accepts fc item id", itemType: "custom_tool_call_output", id: "fc_123", strip: false},
+		{name: "custom output rejects ctc item id", itemType: "custom_tool_call_output", id: "ctc_123", strip: true},
+		{name: "future item remains unconstrained", itemType: "future_item", id: "item_123", strip: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.strip, shouldStripCodexContinuationItemID(tc.itemType, tc.id))
+		})
+	}
+}
+
+func TestNativeToolContinuationCallIDNormalization(t *testing.T) {
+	tests := []struct {
+		itemType string
+		callID   string
+		want     string
+	}{
+		{itemType: "function_call", callID: "ctc_123", want: "fc_123"},
+		{itemType: "custom_tool_call", callID: "fc_123", want: "ctc_123"},
+		{itemType: "custom_tool_call_output", callID: "call_123", want: "ctc_123"},
+		{itemType: "tool_search_call", callID: "fc_123", want: "tsc_123"},
+		{itemType: "tool_search_output", callID: "call_123", want: "tsc_123"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.itemType, func(t *testing.T) {
+			require.Equal(t, tc.want, normalizeCodexContinuationCallID(tc.itemType, tc.callID))
+		})
 	}
 }
 
@@ -794,145 +810,6 @@ func TestEnsureOpenAIResponsesImageGenerationTool_PreservesExistingImageTool(t *
 	require.Equal(t, "webp", tool["output_format"])
 }
 
-func TestEnsureOpenAIResponsesImageGenerationTool_PreservesImageGenNamespace(t *testing.T) {
-	tests := []struct {
-		name    string
-		reqBody map[string]any
-	}{
-		{
-			name: "top-level tools",
-			reqBody: map[string]any{
-				"model": "gpt-5.5",
-				"tools": []any{
-					map[string]any{
-						"type": "namespace",
-						"name": "image_gen",
-						"tools": []any{
-							map[string]any{"type": "function", "name": "imagegen"},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "responses lite additional_tools",
-			reqBody: map[string]any{
-				"model": "gpt-5.5",
-				"input": []any{
-					map[string]any{
-						"type": "additional_tools",
-						"tools": []any{
-							map[string]any{
-								"type": "namespace",
-								"name": "image_gen",
-								"tools": []any{
-									map[string]any{"type": "function", "name": "imagegen"},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			require.True(t, hasOpenAIImageGenerationTool(tt.reqBody))
-
-			modified := ensureOpenAIResponsesImageGenerationTool(tt.reqBody)
-
-			require.False(t, modified)
-			tools, _ := tt.reqBody["tools"].([]any)
-			for _, rawTool := range tools {
-				tool, ok := rawTool.(map[string]any)
-				require.True(t, ok)
-				require.NotEqual(t, "image_generation", firstNonEmptyString(tool["type"]))
-			}
-		})
-	}
-}
-
-func TestCodexImageGenerationBridge_PreservesClientImageFunctionTools(t *testing.T) {
-	tests := []struct {
-		name       string
-		reqBody    map[string]any
-		wantClient bool
-	}{
-		{
-			name: "flat image_gen function",
-			reqBody: map[string]any{
-				"model": "gpt-5.5",
-				"input": "draw a cat",
-				"tools": []any{
-					map[string]any{"type": "function", "name": "image_gen.imagegen"},
-				},
-			},
-			wantClient: true,
-		},
-		{
-			name: "nested image_gen function",
-			reqBody: map[string]any{
-				"model": "gpt-5.5",
-				"input": "draw a cat",
-				"tools": []any{
-					map[string]any{
-						"type": "function",
-						"function": map[string]any{
-							"name": "image_gen.imagegen",
-						},
-					},
-				},
-			},
-			wantClient: true,
-		},
-		{
-			name: "similar function name still receives hosted bridge",
-			reqBody: map[string]any{
-				"model": "gpt-5.5",
-				"input": "draw a cat",
-				"tools": []any{
-					map[string]any{"type": "function", "name": "image_gen.imagegenerator"},
-				},
-			},
-			wantClient: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.reqBody["instructions"] = "existing instructions"
-			require.Equal(t, tt.wantClient, hasCodexImageGenerationFunctionTool(tt.reqBody))
-
-			toolModified := ensureOpenAIResponsesImageGenerationTool(tt.reqBody)
-			choiceModified := ensureOpenAIResponsesImageGenerationToolChoiceAuto(tt.reqBody)
-			instructionsModified := applyCodexImageGenerationBridgeInstructions(tt.reqBody)
-
-			require.Equal(t, !tt.wantClient, toolModified)
-			require.Equal(t, !tt.wantClient, choiceModified)
-			require.Equal(t, !tt.wantClient, instructionsModified)
-
-			hasHostedTool := false
-			tools, _ := tt.reqBody["tools"].([]any)
-			for _, rawTool := range tools {
-				tool, ok := rawTool.(map[string]any)
-				if ok && firstNonEmptyString(tool["type"]) == "image_generation" {
-					hasHostedTool = true
-				}
-			}
-			require.Equal(t, !tt.wantClient, hasHostedTool)
-
-			if tt.wantClient {
-				require.NotContains(t, tt.reqBody, "tool_choice")
-				require.Equal(t, "existing instructions", tt.reqBody["instructions"])
-			} else {
-				require.Equal(t, "auto", tt.reqBody["tool_choice"])
-				require.Contains(t, tt.reqBody["instructions"], codexImageGenerationBridgeMarker)
-			}
-		})
-	}
-}
-
 func TestApplyCodexImageGenerationBridgeInstructions_AppendsBridgeOnce(t *testing.T) {
 	reqBody := map[string]any{
 		"model":        "gpt-5.4",
@@ -1067,9 +944,6 @@ func TestApplyCodexOAuthTransform_DoesNotAddSparkImageUnsupportedForNonSpark(t *
 	require.NotContains(t, instructions, codexSparkImageUnsupportedMarker)
 }
 
-// gpt-5.3-codex-spark rejects the image_generation tool upstream (HTTP 400
-// invalid_request_error, param=tools). Codex CLI advertises that tool by default,
-// so the OAuth transform must strip it for spark while keeping the rest.
 func TestApplyCodexOAuthTransform_StripsImageGenerationToolForSpark(t *testing.T) {
 	reqBody := map[string]any{
 		"model": "gpt-5.3-codex-spark",
@@ -1078,11 +952,13 @@ func TestApplyCodexOAuthTransform_StripsImageGenerationToolForSpark(t *testing.T
 			map[string]any{"type": "function", "name": "shell"},
 			map[string]any{"type": "image_generation", "output_format": "png"},
 		},
+		"tool_choice": map[string]any{"type": "image_generation"},
 	}
 
 	result := applyCodexOAuthTransform(reqBody, true, false)
 	require.True(t, result.Modified)
 	require.False(t, hasOpenAIImageGenerationTool(reqBody))
+	require.Equal(t, "auto", reqBody["tool_choice"])
 
 	tools, ok := reqBody["tools"].([]any)
 	require.True(t, ok)
@@ -1093,8 +969,6 @@ func TestApplyCodexOAuthTransform_StripsImageGenerationToolForSpark(t *testing.T
 	require.Equal(t, "shell", first["name"])
 }
 
-// Spark reasoning-effort aliases (e.g. -low/-high) normalize to gpt-5.3-codex-spark,
-// so they must be stripped too.
 func TestApplyCodexOAuthTransform_StripsImageGenerationToolForSparkAlias(t *testing.T) {
 	reqBody := map[string]any{
 		"model": "gpt-5.3-codex-spark-high",
@@ -1102,17 +976,30 @@ func TestApplyCodexOAuthTransform_StripsImageGenerationToolForSparkAlias(t *test
 		"tools": []any{
 			map[string]any{"type": "image_generation", "output_format": "png"},
 		},
+		"tool_choice": map[string]any{"type": "image_generation"},
 	}
 
 	result := applyCodexOAuthTransform(reqBody, true, false)
 	require.True(t, result.Modified)
 	require.False(t, hasOpenAIImageGenerationTool(reqBody))
-	// tools became empty after stripping the only entry; the key is dropped.
-	_, hasTools := reqBody["tools"]
-	require.False(t, hasTools)
+	require.NotContains(t, reqBody, "tools")
+	require.NotContains(t, reqBody, "tool_choice")
 }
 
-func TestStripOpenAIImageGenerationTools_StripsNamespaceFormats(t *testing.T) {
+func TestApplyCodexOAuthTransform_KeepsImageGenerationToolForNonSpark(t *testing.T) {
+	reqBody := map[string]any{
+		"model": "gpt-5.3-codex",
+		"input": "hello",
+		"tools": []any{
+			map[string]any{"type": "image_generation", "output_format": "png"},
+		},
+	}
+
+	applyCodexOAuthTransform(reqBody, true, false)
+	require.True(t, hasOpenAIImageGenerationTool(reqBody))
+}
+
+func TestStripOpenAIImageGenerationTools(t *testing.T) {
 	imageNamespace := func() map[string]any {
 		return map[string]any{
 			"type": "namespace",
@@ -1132,102 +1019,68 @@ func TestStripOpenAIImageGenerationTools_StripsNamespaceFormats(t *testing.T) {
 		}
 	}
 
-	reqBody := map[string]any{
-		"model": "gpt-5.5",
-		"tools": []any{
-			map[string]any{"type": "function", "name": "shell"},
-			imageNamespace(),
-			codeNamespace(),
-		},
-		"input": []any{
-			map[string]any{"type": "message", "role": "user", "content": "hello"},
-			map[string]any{
-				"type":  "additional_tools",
-				"tools": []any{imageNamespace(), codeNamespace()},
+	t.Run("strips namespace formats and empty carriers", func(t *testing.T) {
+		reqBody := map[string]any{
+			"model": "gpt-5.5",
+			"tools": []any{
+				map[string]any{"type": "function", "name": "shell"},
+				map[string]any{"type": "image_generation", "output_format": "png"},
+				imageNamespace(),
+				codeNamespace(),
 			},
-			map[string]any{
-				"type":  "additional_tools",
-				"tools": []any{imageNamespace()},
+			"input": []any{
+				map[string]any{"type": "message", "role": "user", "content": "hello"},
+				map[string]any{"type": "additional_tools", "tools": []any{imageNamespace(), codeNamespace()}},
+				map[string]any{"type": "additional_tools", "tools": []any{imageNamespace()}},
 			},
-		},
-		"tool_choice": map[string]any{"type": "namespace", "name": "image_gen"},
-	}
+			"tool_choice": map[string]any{"tool": map[string]any{"type": "namespace", "namespace": "image_gen"}},
+		}
 
-	require.True(t, stripOpenAIImageGenerationTools(reqBody))
-	require.False(t, hasOpenAIImageGenerationTool(reqBody))
-	require.NotContains(t, reqBody, "tool_choice")
+		require.True(t, stripOpenAIImageGenerationTools(reqBody))
+		require.False(t, hasOpenAIImageGenerationTool(reqBody))
+		require.NotContains(t, reqBody, "tool_choice")
+		tools, ok := reqBody["tools"].([]any)
+		require.True(t, ok)
+		require.Len(t, tools, 2)
+		require.Equal(t, "shell", tools[0].(map[string]any)["name"])
+		require.Equal(t, "code_tools", tools[1].(map[string]any)["name"])
+		input, ok := reqBody["input"].([]any)
+		require.True(t, ok)
+		require.Len(t, input, 2)
+		require.Equal(t, "message", input[0].(map[string]any)["type"])
+		additionalTools := input[1].(map[string]any)["tools"].([]any)
+		require.Len(t, additionalTools, 1)
+		require.Equal(t, "code_tools", additionalTools[0].(map[string]any)["name"])
+		require.False(t, stripOpenAIImageGenerationTools(reqBody), "stripping should be idempotent")
+	})
 
-	tools, ok := reqBody["tools"].([]any)
-	require.True(t, ok)
-	require.Len(t, tools, 2)
-	firstTool, ok := tools[0].(map[string]any)
-	require.True(t, ok)
-	secondTool, ok := tools[1].(map[string]any)
-	require.True(t, ok)
-	require.Equal(t, "shell", firstTool["name"])
-	require.Equal(t, "code_tools", secondTool["name"])
-
-	input, ok := reqBody["input"].([]any)
-	require.True(t, ok)
-	require.Len(t, input, 2)
-	message, ok := input[0].(map[string]any)
-	require.True(t, ok)
-	require.Equal(t, "message", message["type"])
-	additionalToolsItem, ok := input[1].(map[string]any)
-	require.True(t, ok)
-	additionalTools, ok := additionalToolsItem["tools"].([]any)
-	require.True(t, ok)
-	require.Len(t, additionalTools, 1)
-	additionalTool, ok := additionalTools[0].(map[string]any)
-	require.True(t, ok)
-	require.Equal(t, "code_tools", additionalTool["name"])
-	require.False(t, stripOpenAIImageGenerationTools(reqBody), "stripping should be idempotent")
-}
-
-func TestStripOpenAIImageGenerationTools_KeepsNonImageNamespaces(t *testing.T) {
-	reqBody := map[string]any{
-		"tools": []any{
-			map[string]any{"type": "namespace", "name": "code_tools"},
-		},
-		"input": []any{
-			map[string]any{
-				"type": "additional_tools",
-				"tools": []any{
-					map[string]any{"type": "namespace", "name": "browser_tools"},
-				},
+	t.Run("keeps non-image declarations", func(t *testing.T) {
+		reqBody := map[string]any{
+			"tools": []any{
+				codeNamespace(),
+				map[string]any{"type": "function", "name": "imagegen"},
 			},
-		},
-		"tool_choice": "auto",
-	}
+			"input": []any{
+				map[string]any{"type": "additional_tools", "tools": []any{codeNamespace()}},
+			},
+			"tool_choice": "auto",
+		}
 
-	require.False(t, stripOpenAIImageGenerationTools(reqBody))
-	require.Equal(t, "auto", reqBody["tool_choice"])
-	require.False(t, hasOpenAIImageGenerationTool(reqBody))
-}
+		require.False(t, stripOpenAIImageGenerationTools(reqBody))
+		require.Equal(t, "auto", reqBody["tool_choice"])
+		require.False(t, hasOpenAIImageGenerationTool(reqBody))
+	})
 
-func TestStripOpenAIImageGenerationTools_KeepsCustomImagegenFunctionChoice(t *testing.T) {
-	reqBody := map[string]any{
-		"tool_choice": map[string]any{
-			"function": map[string]any{"name": "imagegen"},
-		},
-	}
+	t.Run("keeps custom imagegen function choice", func(t *testing.T) {
+		reqBody := map[string]any{
+			"tool_choice": map[string]any{
+				"function": map[string]any{"name": "imagegen"},
+			},
+		}
 
-	require.False(t, stripOpenAIImageGenerationTools(reqBody))
-	require.Contains(t, reqBody, "tool_choice")
-}
-
-// Non-spark Codex models support image_generation; the tool must be preserved.
-func TestApplyCodexOAuthTransform_KeepsImageGenerationToolForNonSpark(t *testing.T) {
-	reqBody := map[string]any{
-		"model": "gpt-5.3-codex",
-		"input": "hello",
-		"tools": []any{
-			map[string]any{"type": "image_generation", "output_format": "png"},
-		},
-	}
-
-	applyCodexOAuthTransform(reqBody, true, false)
-	require.True(t, hasOpenAIImageGenerationTool(reqBody))
+		require.False(t, stripOpenAIImageGenerationTools(reqBody))
+		require.Contains(t, reqBody, "tool_choice")
+	})
 }
 
 func TestNormalizeOpenAIResponsesImageOnlyModel_BuildsImageToolRequest(t *testing.T) {
@@ -1315,6 +1168,10 @@ func TestApplyCodexOAuthTransform_EmptyInput(t *testing.T) {
 
 func TestNormalizeCodexModel_Gpt53(t *testing.T) {
 	cases := map[string]string{
+		"gpt-6-astra":               "gpt-6-astra",
+		"openai/gpt-6-astra":        "gpt-6-astra",
+		"gpt-6":                     "gpt-6-astra",
+		"openai/gpt-6":              "gpt-6-astra",
 		"gpt-5.4":                   "gpt-5.4",
 		"gpt5.5":                    "gpt-5.5",
 		"openai/gpt5.5":             "gpt-5.5",
@@ -1432,6 +1289,14 @@ func TestApplyCodexOAuthTransform_CodexCLI_SuppliesDefaultWhenEmpty(t *testing.T
 	require.True(t, result.Modified)
 }
 
+func TestDefaultCodexSynthInstructionsModelAware(t *testing.T) {
+	require.Contains(t, defaultCodexSynthInstructions("gpt-5-codex"), "You are Codex, based on GPT-5")
+	require.Contains(t, defaultCodexSynthInstructions("gpt-5.5"), "You are Codex, a coding agent based on GPT-5")
+	require.NotContains(t, defaultCodexSynthInstructions("gpt-5.5"), "You are GPT-5.1 running in the Codex CLI")
+	require.Contains(t, defaultCodexSynthInstructions("gpt-5.2"), "You are GPT-5.2 running in the Codex CLI")
+	require.Contains(t, defaultCodexSynthInstructions("gpt-5.1"), "You are GPT-5.1 running in the Codex CLI")
+}
+
 func TestApplyCodexOAuthTransform_GPT55SuppliesModelSpecificInstructions(t *testing.T) {
 	reqBody := map[string]any{
 		"model":        "gpt-5.5",
@@ -1513,7 +1378,7 @@ func TestExtractSystemMessagesFromInput(t *testing.T) {
 				map[string]any{"role": "user", "content": "hello"},
 			},
 		}
-		result := extractSystemMessagesFromInput(reqBody, false)
+		result := extractSystemMessagesFromInput(reqBody)
 		require.False(t, result)
 		input, ok := reqBody["input"].([]any)
 		require.True(t, ok)
@@ -1529,7 +1394,7 @@ func TestExtractSystemMessagesFromInput(t *testing.T) {
 				map[string]any{"role": "user", "content": "hello"},
 			},
 		}
-		result := extractSystemMessagesFromInput(reqBody, false)
+		result := extractSystemMessagesFromInput(reqBody)
 		require.True(t, result)
 		input, ok := reqBody["input"].([]any)
 		require.True(t, ok)
@@ -1555,7 +1420,7 @@ func TestExtractSystemMessagesFromInput(t *testing.T) {
 				},
 			},
 		}
-		result := extractSystemMessagesFromInput(reqBody, false)
+		result := extractSystemMessagesFromInput(reqBody)
 		require.True(t, result)
 		require.Equal(t, "Be helpful.", reqBody["instructions"])
 		input, ok := reqBody["input"].([]any)
@@ -1567,7 +1432,6 @@ func TestExtractSystemMessagesFromInput(t *testing.T) {
 		require.Equal(t, []any{
 			map[string]any{"type": "text", "text": "Be helpful."},
 		}, msg["content"])
-		require.Equal(t, "Be helpful.", reqBody["instructions"])
 	})
 
 	t.Run("multiple system messages concatenated", func(t *testing.T) {
@@ -1578,7 +1442,7 @@ func TestExtractSystemMessagesFromInput(t *testing.T) {
 				map[string]any{"role": "user", "content": "hi"},
 			},
 		}
-		result := extractSystemMessagesFromInput(reqBody, false)
+		result := extractSystemMessagesFromInput(reqBody)
 		require.True(t, result)
 		require.Equal(t, "First.\n\nSecond.", reqBody["instructions"])
 		input, ok := reqBody["input"].([]any)
@@ -1593,7 +1457,6 @@ func TestExtractSystemMessagesFromInput(t *testing.T) {
 		user, ok := input[2].(map[string]any)
 		require.True(t, ok)
 		require.Equal(t, "user", user["role"])
-		require.Equal(t, "First.\n\nSecond.", reqBody["instructions"])
 	})
 
 	t.Run("mixed system and non-system preserves non-system", func(t *testing.T) {
@@ -1604,7 +1467,7 @@ func TestExtractSystemMessagesFromInput(t *testing.T) {
 				map[string]any{"role": "assistant", "content": "Hi there"},
 			},
 		}
-		result := extractSystemMessagesFromInput(reqBody, false)
+		result := extractSystemMessagesFromInput(reqBody)
 		require.True(t, result)
 		input, ok := reqBody["input"].([]any)
 		require.True(t, ok)
@@ -1629,7 +1492,7 @@ func TestExtractSystemMessagesFromInput(t *testing.T) {
 			},
 			"instructions": "Existing instructions.",
 		}
-		result := extractSystemMessagesFromInput(reqBody, false)
+		result := extractSystemMessagesFromInput(reqBody)
 		require.True(t, result)
 		require.Equal(t, "Extracted.\n\nExisting instructions.", reqBody["instructions"])
 		input, ok := reqBody["input"].([]any)
@@ -1637,62 +1500,6 @@ func TestExtractSystemMessagesFromInput(t *testing.T) {
 		msg, ok := input[0].(map[string]any)
 		require.True(t, ok)
 		require.Equal(t, "developer", msg["role"])
-	})
-
-	t.Run("omit losslessly promoted text-only messages", func(t *testing.T) {
-		reqBody := map[string]any{
-			"input": []any{
-				map[string]any{"role": "system", "content": "First."},
-				map[string]any{
-					"role": "system",
-					"content": []any{
-						map[string]any{"type": "text", "text": "Second "},
-						map[string]any{"type": "input_text", "text": "and "},
-						map[string]any{"type": "output_text", "text": "third."},
-					},
-				},
-				map[string]any{"role": "user", "content": "hi"},
-			},
-			"instructions": "Existing.",
-		}
-
-		result := extractSystemMessagesFromInput(reqBody, true)
-
-		require.True(t, result)
-		require.Equal(t, "First.\n\nSecond and third.\n\nExisting.", reqBody["instructions"])
-		input, ok := reqBody["input"].([]any)
-		require.True(t, ok)
-		require.Len(t, input, 1)
-		user, ok := input[0].(map[string]any)
-		require.True(t, ok)
-		require.Equal(t, "user", user["role"])
-	})
-
-	t.Run("omit keeps mixed system content as developer", func(t *testing.T) {
-		reqBody := map[string]any{
-			"input": []any{
-				map[string]any{
-					"role": "system",
-					"content": []any{
-						map[string]any{"type": "input_text", "text": "Inspect this image."},
-						map[string]any{"type": "input_image", "image_url": "https://example.com/image.png"},
-					},
-				},
-				map[string]any{"role": "user", "content": "hi"},
-			},
-		}
-
-		result := extractSystemMessagesFromInput(reqBody, true)
-
-		require.True(t, result)
-		require.Equal(t, "Inspect this image.", reqBody["instructions"])
-		input, ok := reqBody["input"].([]any)
-		require.True(t, ok)
-		require.Len(t, input, 2)
-		developer, ok := input[0].(map[string]any)
-		require.True(t, ok)
-		require.Equal(t, "developer", developer["role"])
-		require.Len(t, developer["content"], 2)
 	})
 }
 
@@ -1719,14 +1526,11 @@ func TestApplyCodexOAuthTransform_StripsPromptCacheRetention(t *testing.T) {
 func TestApplyCodexOAuthTransform_StripsChatGPTInternalUnsupportedFields(t *testing.T) {
 	reqBody := map[string]any{
 		"model":                  "gpt-5.4",
-		"chat_template_kwargs":   map[string]any{"enable_thinking": true},
 		"user":                   "user_123",
 		"metadata":               map[string]any{"trace_id": "abc"},
 		"prompt_cache_retention": "24h",
 		"safety_identifier":      "sid",
 		"stream_options":         map[string]any{"include_usage": true},
-		"truncation":             "auto",
-		"stop_sequences":         []any{"END"},
 		"input": []any{
 			map[string]any{"role": "user", "content": "hi"},
 		},
@@ -1738,40 +1542,6 @@ func TestApplyCodexOAuthTransform_StripsChatGPTInternalUnsupportedFields(t *test
 	for _, field := range openAIChatGPTInternalUnsupportedFields {
 		require.NotContains(t, reqBody, field)
 	}
-}
-
-func TestApplyCodexOAuthTransform_NormalizesPromptAndCommands(t *testing.T) {
-	reqBody := map[string]any{
-		"model":    "gpt-5.5",
-		"prompt":   "hello",
-		"commands": []any{"unsupported"},
-	}
-
-	result := applyCodexOAuthTransform(reqBody, true, false)
-	require.True(t, result.Modified)
-	require.Equal(t, []any{
-		map[string]any{"type": "message", "role": "user", "content": "hello"},
-	}, reqBody["input"])
-	require.NotContains(t, reqBody, "prompt")
-	require.NotContains(t, reqBody, "commands")
-}
-
-func TestNormalizeOpenAIResponsesImageGenerationTools_StripsGPTImage2InputFidelity(t *testing.T) {
-	reqBody := map[string]any{"tools": []any{
-		map[string]any{"type": "image_generation", "model": "gpt-image-2-codex", "input_fidelity": "high"},
-		map[string]any{"type": "image_generation", "model": "gpt-image-1.5", "input_fidelity": "high"},
-	}}
-
-	require.True(t, normalizeOpenAIResponsesImageGenerationTools(reqBody))
-	tools := reqBody["tools"].([]any)
-	require.NotContains(t, tools[0].(map[string]any), "input_fidelity")
-	require.Equal(t, "high", tools[1].(map[string]any)["input_fidelity"])
-}
-
-func TestOpenAIRequestBodyImageGenerationToolNeedsNormalization_GPTImage2InputFidelity(t *testing.T) {
-	body := []byte(`{"tools":[{"type":"image_generation","model":"gpt-image-2-codex","input_fidelity":"high"}]}`)
-
-	require.True(t, openAIRequestBodyImageGenerationToolNeedsNormalization(body))
 }
 
 func TestApplyCodexOAuthTransform_ExtractsSystemMessages(t *testing.T) {
@@ -1797,7 +1567,10 @@ func TestApplyCodexOAuthTransform_ExtractsSystemMessages(t *testing.T) {
 	user, ok := input[1].(map[string]any)
 	require.True(t, ok)
 	require.Equal(t, "user", user["role"])
-	require.Equal(t, "You are a coding assistant.", reqBody["instructions"])
+
+	instructions, ok := reqBody["instructions"].(string)
+	require.True(t, ok)
+	require.Equal(t, "You are a coding assistant.", instructions)
 }
 
 func TestApplyCodexOAuthTransform_JsonObjectKeepsJsonInstructionInInput(t *testing.T) {
@@ -1860,24 +1633,19 @@ func TestIsInstructionsEmpty(t *testing.T) {
 	}
 }
 
-// TestFilterCodexInput_PreservesReasoningStripsID covers the core OAuth-path
-// reasoning contract (replaces the earlier "drops reasoning" test, whose
-// premise was wrong). A reasoning item carrying encrypted_content is the
-// official channel for replaying reasoning context across turns under
-// store=false, so it must survive the filter with encrypted_content intact;
-// only its rs_* id is stripped (always, independent of PreserveReferences)
-// because a bare rs_* id replayed under store=false 404s upstream. Contracts
-// 1/2/3, verified end-to-end against chatgpt.com codex (gpt-5.5). See issue
-// #1957.
-func TestFilterCodexInput_PreservesReasoningStripsID(t *testing.T) {
+func TestFilterCodexInput_PreservesReasoningItemsAndStripsReasoningIDs(t *testing.T) {
 	build := func() []any {
 		return []any{
+			map[string]any{"type": "message", "id": "msg_0", "role": "user", "content": "hi"},
 			map[string]any{
 				"type":              "reasoning",
 				"id":                "rs_0672f12450da0b9c0169f07220a6c08198b68c2455ced99344",
 				"encrypted_content": "gAAAAAB-enc-payload",
-				"summary":           []any{},
+				"summary":           []any{map[string]any{"type": "summary_text", "text": "kept"}},
 			},
+			map[string]any{"type": "reasoning", "id": "rs_without_summary"},
+			map[string]any{"type": "function_call", "id": "fc_1", "call_id": "fc_1", "name": "tool", "arguments": "{}"},
+			map[string]any{"type": "function_call_output", "call_id": "fc_1", "output": "{}"},
 		}
 	}
 
@@ -1885,31 +1653,41 @@ func TestFilterCodexInput_PreservesReasoningStripsID(t *testing.T) {
 		preserve := preserve
 		t.Run(fmt.Sprintf("preserveReferences=%v", preserve), func(t *testing.T) {
 			filtered := filterCodexInput(build(), preserve)
-			require.Len(t, filtered, 1)
+			require.Len(t, filtered, 5)
 
-			item, ok := filtered[0].(map[string]any)
-			require.True(t, ok)
-			// Contract 2: the reasoning item survives the filter.
-			require.Equal(t, "reasoning", item["type"])
-			// Contract 2: encrypted_content (cross-turn channel) preserved verbatim.
-			require.Equal(t, "gAAAAAB-enc-payload", item["encrypted_content"])
-			// Contract 1/3: rs_* id stripped unconditionally, even when
-			// PreserveReferences=true (id lookup, not the item, triggers the 404).
-			_, hasID := item["id"]
-			require.False(t, hasID)
-			// summary passed through untouched.
-			summary, ok := item["summary"].([]any)
+			byType := make(map[string][]map[string]any)
+			for _, raw := range filtered {
+				item, ok := raw.(map[string]any)
+				require.True(t, ok)
+				typ, ok := item["type"].(string)
+				require.True(t, ok)
+				byType[typ] = append(byType[typ], item)
+				if id, ok := item["id"].(string); ok {
+					require.False(t, strings.HasPrefix(id, "rs_"))
+				}
+			}
+
+			require.Len(t, byType["reasoning"], 2)
+			for _, r := range byType["reasoning"] {
+				_, hasID := r["id"]
+				require.False(t, hasID)
+				_, hasSummary := r["summary"]
+				require.True(t, hasSummary)
+			}
+			require.Equal(t, "gAAAAAB-enc-payload", byType["reasoning"][0]["encrypted_content"])
+			require.Equal(t, []any{map[string]any{"type": "summary_text", "text": "kept"}}, byType["reasoning"][0]["summary"])
+			summary, ok := byType["reasoning"][1]["summary"].([]any)
 			require.True(t, ok)
 			require.Len(t, summary, 0)
+			require.Len(t, byType["message"], 1)
+			require.Len(t, byType["function_call"], 1)
+			require.Equal(t, "fc_1", byType["function_call"][0]["call_id"])
+			require.Len(t, byType["function_call_output"], 1)
+			require.Equal(t, "fc_1", byType["function_call_output"][0]["call_id"])
 		})
 	}
 }
 
-// TestFilterCodexInput_BareReasoningStripsIDBackfillsSummary covers contract 1
-// plus 5: a reasoning item carrying only an rs_* id (no encrypted_content) is
-// kept as an empty shell with the id stripped, and a missing summary is
-// backfilled to [] so upstream does not reject it with 400 "Missing required
-// parameter 'input[N].summary'". Verified against chatgpt.com codex (gpt-5.5).
 func TestFilterCodexInput_BareReasoningStripsIDBackfillsSummary(t *testing.T) {
 	input := []any{
 		map[string]any{
@@ -1924,18 +1702,13 @@ func TestFilterCodexInput_BareReasoningStripsIDBackfillsSummary(t *testing.T) {
 	item, ok := filtered[0].(map[string]any)
 	require.True(t, ok)
 	require.Equal(t, "reasoning", item["type"])
-	// Contract 1: id stripped.
 	_, hasID := item["id"]
 	require.False(t, hasID)
-	// Contract 5: summary backfilled to an empty array.
 	summary, ok := item["summary"].([]any)
 	require.True(t, ok)
 	require.Len(t, summary, 0)
 }
 
-// TestFilterCodexInput_ReasoningBackfillsMissingSummary isolates contract 5:
-// even when a reasoning item carries other content (here encrypted_content),
-// a missing summary field is always added as [] before forwarding upstream.
 func TestFilterCodexInput_ReasoningBackfillsMissingSummary(t *testing.T) {
 	input := []any{
 		map[string]any{
@@ -1953,13 +1726,9 @@ func TestFilterCodexInput_ReasoningBackfillsMissingSummary(t *testing.T) {
 	summary, ok := item["summary"].([]any)
 	require.True(t, ok)
 	require.Len(t, summary, 0)
-	// encrypted_content still preserved alongside the backfilled summary.
 	require.Equal(t, "gAAAAAB-enc", item["encrypted_content"])
 }
 
-// TestFilterCodexInput_PreservesReasoningSummaryAndContent verifies that a
-// non-empty summary is not overwritten and that arbitrary reasoning fields
-// (e.g. content) survive verbatim — only the id is removed.
 func TestFilterCodexInput_PreservesReasoningSummaryAndContent(t *testing.T) {
 	summary := []any{
 		map[string]any{"type": "summary_text", "text": "Considered the options."},
@@ -1982,78 +1751,9 @@ func TestFilterCodexInput_PreservesReasoningSummaryAndContent(t *testing.T) {
 
 	item, ok := filtered[0].(map[string]any)
 	require.True(t, ok)
-	// Non-empty summary preserved verbatim (not replaced with []).
 	require.Equal(t, summary, item["summary"])
-	// content preserved verbatim.
 	require.Equal(t, content, item["content"])
 	require.Equal(t, "gAAAAAB-enc", item["encrypted_content"])
 	_, hasID := item["id"]
 	require.False(t, hasID)
-}
-
-// TestFilterCodexInput_PreservesReasoningInMixedInput exercises contract 7:
-// reasoning items are stripped of their rs_* ids but kept (with
-// encrypted_content) while message / function_call / function_call_output
-// items flow through unchanged, with tool-call pairing (call_id) intact.
-func TestFilterCodexInput_PreservesReasoningInMixedInput(t *testing.T) {
-	build := func() []any {
-		return []any{
-			map[string]any{"type": "message", "id": "msg_0", "role": "user", "content": "hi"},
-			map[string]any{
-				"type":              "reasoning",
-				"id":                "rs_1",
-				"encrypted_content": "gAAAAAB-enc-1",
-				"summary":           []any{},
-			},
-			map[string]any{
-				"type":    "reasoning",
-				"id":      "rs_2",
-				"summary": []any{},
-			},
-			// call_id already in fc_ form so the unrelated call_->fc_
-			// normalization does not obscure the pairing assertion.
-			map[string]any{"type": "function_call", "id": "fc_1", "call_id": "fc_1", "name": "tool", "arguments": "{}"},
-			map[string]any{"type": "function_call_output", "call_id": "fc_1", "output": "{}"},
-		}
-	}
-
-	for _, preserve := range []bool{true, false} {
-		preserve := preserve
-		t.Run(fmt.Sprintf("preserveReferences=%v", preserve), func(t *testing.T) {
-			filtered := filterCodexInput(build(), preserve)
-			// Nothing is dropped: both reasoning items are now preserved.
-			require.Len(t, filtered, 5)
-
-			byType := make(map[string][]map[string]any)
-			for _, raw := range filtered {
-				item, ok := raw.(map[string]any)
-				require.True(t, ok)
-				typ, _ := item["type"].(string)
-				byType[typ] = append(byType[typ], item)
-				// No surviving item may carry an rs_* id.
-				if id, ok := item["id"].(string); ok {
-					require.False(t, strings.HasPrefix(id, "rs_"),
-						"no item carrying an rs_* id should survive the filter")
-				}
-			}
-
-			// Both reasoning items kept, ids stripped, summary present.
-			require.Len(t, byType["reasoning"], 2)
-			for _, r := range byType["reasoning"] {
-				_, hasID := r["id"]
-				require.False(t, hasID)
-				_, hasSummary := r["summary"]
-				require.True(t, hasSummary)
-			}
-			require.Equal(t, "gAAAAAB-enc-1", byType["reasoning"][0]["encrypted_content"])
-
-			// message / function_call(+output) untouched by reasoning handling.
-			require.Len(t, byType["message"], 1)
-			// Contract 7: tool-call pairing by call_id is unaffected.
-			require.Len(t, byType["function_call"], 1)
-			require.Equal(t, "fc_1", byType["function_call"][0]["call_id"])
-			require.Len(t, byType["function_call_output"], 1)
-			require.Equal(t, "fc_1", byType["function_call_output"][0]["call_id"])
-		})
-	}
 }

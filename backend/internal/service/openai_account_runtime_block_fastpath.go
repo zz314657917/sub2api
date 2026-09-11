@@ -127,6 +127,14 @@ func (s *OpenAIGatewayService) isOpenAIAccountRuntimeBlocked(account *Account) b
 	if s == nil || !isOpenAIAccountRuntimeManaged(account) || account.ID <= 0 {
 		return false
 	}
+	// Persisted cooldowns are authoritative. A local block must not be
+	// discarded while any account-level cooldown is still active.
+	now := time.Now()
+	if (account.TempUnschedulableUntil != nil && now.Before(*account.TempUnschedulableUntil)) ||
+		(account.RateLimitResetAt != nil && now.Before(*account.RateLimitResetAt)) ||
+		(account.OverloadUntil != nil && now.Before(*account.OverloadUntil)) {
+		return true
+	}
 	mu := s.openAIAccountRuntimeBlockLock(account.ID)
 	if mu == nil {
 		return false
@@ -229,13 +237,17 @@ func (s *OpenAIGatewayService) markOpenAIOAuth429RateLimited(_ context.Context, 
 	if disposition == openAIOAuth429Transient && s.openAIOAuth429RetryWindowActive(account) {
 		return
 	}
-	cooldownUntil := time.Now().Add(openAIOAuth429FallbackCooldown)
-	if resetAt != nil && resetAt.After(time.Now()) {
+	now := time.Now()
+	cooldownUntil := now.Add(openAIOAuth429FallbackCooldown)
+	if resetAt != nil && resetAt.After(now) {
 		cooldownUntil = *resetAt
 	} else if s.rateLimitService != nil {
-		if cooldown, ok := s.rateLimitService.get429FallbackCooldown(context.Background(), account); ok && cooldown > 0 {
-			cooldownUntil = time.Now().Add(cooldown)
+		cooldown, ok := s.rateLimitService.get429FallbackCooldown(context.Background(), account)
+		if !ok || cooldown <= 0 {
+			s.openaiOAuth429RetryStartedAt.Delete(account.ID)
+			return
 		}
+		cooldownUntil = now.Add(cooldown)
 	}
 	s.BlockAccountScheduling(account, cooldownUntil, "429")
 	s.openaiOAuth429RetryStartedAt.Delete(account.ID)

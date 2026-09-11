@@ -241,6 +241,20 @@ func (_c *APIKeyCreate) SetNillableRateLimit7d(v *float64) *APIKeyCreate {
 	return _c
 }
 
+// SetTokenMultiplierCap sets the "token_multiplier_cap" field.
+func (_c *APIKeyCreate) SetTokenMultiplierCap(v float64) *APIKeyCreate {
+	_c.mutation.SetTokenMultiplierCap(v)
+	return _c
+}
+
+// SetNillableTokenMultiplierCap sets the "token_multiplier_cap" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillableTokenMultiplierCap(v *float64) *APIKeyCreate {
+	if v != nil {
+		_c.SetTokenMultiplierCap(*v)
+	}
+	return _c
+}
+
 // SetUsage5h sets the "usage_5h" field.
 func (_c *APIKeyCreate) SetUsage5h(v float64) *APIKeyCreate {
 	_c.mutation.SetUsage5h(v)
@@ -508,6 +522,10 @@ func (_c *APIKeyCreate) defaults() error {
 		v := apikey.DefaultRateLimit7d
 		_c.mutation.SetRateLimit7d(v)
 	}
+	if _, ok := _c.mutation.TokenMultiplierCap(); !ok {
+		v := apikey.DefaultTokenMultiplierCap
+		_c.mutation.SetTokenMultiplierCap(v)
+	}
 	if _, ok := _c.mutation.Usage5h(); !ok {
 		v := apikey.DefaultUsage5h
 		_c.mutation.SetUsage5h(v)
@@ -584,6 +602,9 @@ func (_c *APIKeyCreate) check() error {
 	}
 	if _, ok := _c.mutation.RateLimit7d(); !ok {
 		return &ValidationError{Name: "rate_limit_7d", err: errors.New(`ent: missing required field "APIKey.rate_limit_7d"`)}
+	}
+	if _, ok := _c.mutation.TokenMultiplierCap(); !ok {
+		return &ValidationError{Name: "token_multiplier_cap", err: errors.New(`ent: missing required field "APIKey.token_multiplier_cap"`)}
 	}
 	if _, ok := _c.mutation.Usage5h(); !ok {
 		return &ValidationError{Name: "usage_5h", err: errors.New(`ent: missing required field "APIKey.usage_5h"`)}
@@ -695,6 +716,10 @@ func (_c *APIKeyCreate) createSpec() (*APIKey, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.RateLimit7d(); ok {
 		_spec.SetField(apikey.FieldRateLimit7d, field.TypeFloat64, value)
 		_node.RateLimit7d = value
+	}
+	if value, ok := _c.mutation.TokenMultiplierCap(); ok {
+		_spec.SetField(apikey.FieldTokenMultiplierCap, field.TypeFloat64, value)
+		_node.TokenMultiplierCap = value
 	}
 	if value, ok := _c.mutation.Usage5h(); ok {
 		_spec.SetField(apikey.FieldUsage5h, field.TypeFloat64, value)
@@ -1149,6 +1174,24 @@ func (u *APIKeyUpsert) UpdateRateLimit7d() *APIKeyUpsert {
 // AddRateLimit7d adds v to the "rate_limit_7d" field.
 func (u *APIKeyUpsert) AddRateLimit7d(v float64) *APIKeyUpsert {
 	u.Add(apikey.FieldRateLimit7d, v)
+	return u
+}
+
+// SetTokenMultiplierCap sets the "token_multiplier_cap" field.
+func (u *APIKeyUpsert) SetTokenMultiplierCap(v float64) *APIKeyUpsert {
+	u.Set(apikey.FieldTokenMultiplierCap, v)
+	return u
+}
+
+// UpdateTokenMultiplierCap sets the "token_multiplier_cap" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateTokenMultiplierCap() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldTokenMultiplierCap)
+	return u
+}
+
+// AddTokenMultiplierCap adds v to the "token_multiplier_cap" field.
+func (u *APIKeyUpsert) AddTokenMultiplierCap(v float64) *APIKeyUpsert {
+	u.Add(apikey.FieldTokenMultiplierCap, v)
 	return u
 }
 
@@ -1671,6 +1714,27 @@ func (u *APIKeyUpsertOne) AddRateLimit7d(v float64) *APIKeyUpsertOne {
 func (u *APIKeyUpsertOne) UpdateRateLimit7d() *APIKeyUpsertOne {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.UpdateRateLimit7d()
+	})
+}
+
+// SetTokenMultiplierCap sets the "token_multiplier_cap" field.
+func (u *APIKeyUpsertOne) SetTokenMultiplierCap(v float64) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetTokenMultiplierCap(v)
+	})
+}
+
+// AddTokenMultiplierCap adds v to the "token_multiplier_cap" field.
+func (u *APIKeyUpsertOne) AddTokenMultiplierCap(v float64) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.AddTokenMultiplierCap(v)
+	})
+}
+
+// UpdateTokenMultiplierCap sets the "token_multiplier_cap" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateTokenMultiplierCap() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateTokenMultiplierCap()
 	})
 }
 
@@ -2386,6 +2450,27 @@ func (u *APIKeyUpsertBulk) AddRateLimit7d(v float64) *APIKeyUpsertBulk {
 func (u *APIKeyUpsertBulk) UpdateRateLimit7d() *APIKeyUpsertBulk {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.UpdateRateLimit7d()
+	})
+}
+
+// SetTokenMultiplierCap sets the "token_multiplier_cap" field.
+func (u *APIKeyUpsertBulk) SetTokenMultiplierCap(v float64) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetTokenMultiplierCap(v)
+	})
+}
+
+// AddTokenMultiplierCap adds v to the "token_multiplier_cap" field.
+func (u *APIKeyUpsertBulk) AddTokenMultiplierCap(v float64) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.AddTokenMultiplierCap(v)
+	})
+}
+
+// UpdateTokenMultiplierCap sets the "token_multiplier_cap" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateTokenMultiplierCap() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateTokenMultiplierCap()
 	})
 }
 

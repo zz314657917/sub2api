@@ -183,6 +183,45 @@ func sanitizeGrokResponsesToolChoice(body []byte) ([]byte, error) {
 	return sjson.DeleteBytes(body, "tool_choice")
 }
 
+// sanitizeGrokUnsupportedFields removes provider-only fields rejected by Grok
+// from Chat Completions payloads, including nested tool/message structures.
+func sanitizeGrokUnsupportedFields(body []byte) ([]byte, error) {
+	if !bytes.Contains(body, []byte(`"external_web_access"`)) {
+		return body, nil
+	}
+	var payload any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil, err
+	}
+	if !deleteGrokUnsupportedFields(payload) {
+		return body, nil
+	}
+	return json.Marshal(payload)
+}
+
+func deleteGrokUnsupportedFields(value any) bool {
+	changed := false
+	switch typed := value.(type) {
+	case map[string]any:
+		if _, ok := typed["external_web_access"]; ok {
+			delete(typed, "external_web_access")
+			changed = true
+		}
+		for _, child := range typed {
+			if deleteGrokUnsupportedFields(child) {
+				changed = true
+			}
+		}
+	case []any:
+		for _, child := range typed {
+			if deleteGrokUnsupportedFields(child) {
+				changed = true
+			}
+		}
+	}
+	return changed
+}
+
 func sanitizeGrokResponsesModelCapabilities(body []byte, upstreamModel string) ([]byte, error) {
 	if !grokModelRejectsReasoningEffort(upstreamModel) {
 		return body, nil

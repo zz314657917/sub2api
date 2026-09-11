@@ -9721,6 +9721,9 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	// token 倍率叠加分时因子（token 计费含图片 token，图片按次倍率不受影响）。分时因子按请求开始时刻计算，
 	// 不并入上面的 getUserGroupRateMultiplier，以免污染 user:group 倍率缓存。
 	multiplier, imageMultiplier := computePeakAwareMultipliers(apiKey, multiplier, billingReferenceTime(input.RequestStartedAt))
+	if apiKey.TokenMultiplierCap > 0 && multiplier > apiKey.TokenMultiplierCap {
+		multiplier = apiKey.TokenMultiplierCap
+	}
 
 	// 确定计费模型
 	concreteBillingModel := forwardResultBillingModel(result.Model, result.UpstreamModel)

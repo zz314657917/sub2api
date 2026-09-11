@@ -9,6 +9,7 @@ export default {
     navHome: '首页',
     navTutorial: '教程',
     navModels: '模型广场',
+    navStore: '服务商店',
     navContact: '联系客服',
     getStarted: '立即开始',
     goToDashboard: '前往仪表盘',

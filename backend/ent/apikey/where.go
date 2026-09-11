@@ -135,6 +135,11 @@ func RateLimit7d(v float64) predicate.APIKey {
 	return predicate.APIKey(sql.FieldEQ(FieldRateLimit7d, v))
 }
 
+// TokenMultiplierCap applies equality check predicate on the "token_multiplier_cap" field. It's identical to TokenMultiplierCapEQ.
+func TokenMultiplierCap(v float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldTokenMultiplierCap, v))
+}
+
 // Usage5h applies equality check predicate on the "usage_5h" field. It's identical to Usage5hEQ.
 func Usage5h(v float64) predicate.APIKey {
 	return predicate.APIKey(sql.FieldEQ(FieldUsage5h, v))
@@ -933,6 +938,46 @@ func RateLimit7dLT(v float64) predicate.APIKey {
 // RateLimit7dLTE applies the LTE predicate on the "rate_limit_7d" field.
 func RateLimit7dLTE(v float64) predicate.APIKey {
 	return predicate.APIKey(sql.FieldLTE(FieldRateLimit7d, v))
+}
+
+// TokenMultiplierCapEQ applies the EQ predicate on the "token_multiplier_cap" field.
+func TokenMultiplierCapEQ(v float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldTokenMultiplierCap, v))
+}
+
+// TokenMultiplierCapNEQ applies the NEQ predicate on the "token_multiplier_cap" field.
+func TokenMultiplierCapNEQ(v float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNEQ(FieldTokenMultiplierCap, v))
+}
+
+// TokenMultiplierCapIn applies the In predicate on the "token_multiplier_cap" field.
+func TokenMultiplierCapIn(vs ...float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldIn(FieldTokenMultiplierCap, vs...))
+}
+
+// TokenMultiplierCapNotIn applies the NotIn predicate on the "token_multiplier_cap" field.
+func TokenMultiplierCapNotIn(vs ...float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotIn(FieldTokenMultiplierCap, vs...))
+}
+
+// TokenMultiplierCapGT applies the GT predicate on the "token_multiplier_cap" field.
+func TokenMultiplierCapGT(v float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGT(FieldTokenMultiplierCap, v))
+}
+
+// TokenMultiplierCapGTE applies the GTE predicate on the "token_multiplier_cap" field.
+func TokenMultiplierCapGTE(v float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGTE(FieldTokenMultiplierCap, v))
+}
+
+// TokenMultiplierCapLT applies the LT predicate on the "token_multiplier_cap" field.
+func TokenMultiplierCapLT(v float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLT(FieldTokenMultiplierCap, v))
+}
+
+// TokenMultiplierCapLTE applies the LTE predicate on the "token_multiplier_cap" field.
+func TokenMultiplierCapLTE(v float64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLTE(FieldTokenMultiplierCap, v))
 }
 
 // Usage5hEQ applies the EQ predicate on the "usage_5h" field.

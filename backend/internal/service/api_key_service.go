@@ -75,6 +75,7 @@ type apiKeyRouteCooldownKey struct {
 type APIKeyUpdateFields struct {
 	Name, Status, Quota, GroupID, ExpiresAt, QuotaUsed bool
 	RateLimits, RateLimitUsage, IPRules                bool
+	TokenMultiplierCap                                 bool
 	MultiGroupRoutes, AccountPoolStrategy              bool
 }
 
@@ -215,9 +216,10 @@ type CreateAPIKeyRequest struct {
 	ExpiresInDays *int    `json:"expires_in_days"` // Days until expiry (nil = never expires)
 
 	// Rate limit fields (0 = unlimited)
-	RateLimit5h float64 `json:"rate_limit_5h"`
-	RateLimit1d float64 `json:"rate_limit_1d"`
-	RateLimit7d float64 `json:"rate_limit_7d"`
+	RateLimit5h        float64 `json:"rate_limit_5h"`
+	RateLimit1d        float64 `json:"rate_limit_1d"`
+	RateLimit7d        float64 `json:"rate_limit_7d"`
+	TokenMultiplierCap float64 `json:"token_multiplier_cap"`
 }
 
 // UpdateAPIKeyRequest 更新API Key请求
@@ -240,6 +242,7 @@ type UpdateAPIKeyRequest struct {
 	RateLimit5h         *float64 `json:"rate_limit_5h"`
 	RateLimit1d         *float64 `json:"rate_limit_1d"`
 	RateLimit7d         *float64 `json:"rate_limit_7d"`
+	TokenMultiplierCap  *float64 `json:"token_multiplier_cap"`
 	ResetRateLimitUsage *bool    `json:"reset_rate_limit_usage"` // Reset all usage counters to 0
 }
 
@@ -251,7 +254,7 @@ func validateAPIKeyLimit(v float64) error {
 }
 
 func validateCreateAPIKeyRequest(req CreateAPIKeyRequest) error {
-	for _, v := range []float64{req.Quota, req.RateLimit5h, req.RateLimit1d, req.RateLimit7d} {
+	for _, v := range []float64{req.Quota, req.RateLimit5h, req.RateLimit1d, req.RateLimit7d, req.TokenMultiplierCap} {
 		if err := validateAPIKeyLimit(v); err != nil {
 			return err
 		}
@@ -263,7 +266,7 @@ func validateCreateAPIKeyRequest(req CreateAPIKeyRequest) error {
 }
 
 func validateUpdateAPIKeyRequest(req UpdateAPIKeyRequest) error {
-	for _, v := range []*float64{req.Quota, req.RateLimit5h, req.RateLimit1d, req.RateLimit7d} {
+	for _, v := range []*float64{req.Quota, req.RateLimit5h, req.RateLimit1d, req.RateLimit7d, req.TokenMultiplierCap} {
 		if v != nil {
 			if err := validateAPIKeyLimit(*v); err != nil {
 				return err
@@ -846,6 +849,7 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 		RateLimit5h:         req.RateLimit5h,
 		RateLimit1d:         req.RateLimit1d,
 		RateLimit7d:         req.RateLimit7d,
+		TokenMultiplierCap:  req.TokenMultiplierCap,
 	}
 
 	// Set expiration time if specified
@@ -1322,6 +1326,10 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 		apiKey.RateLimit7d = *req.RateLimit7d
 		fields.RateLimits = true
 	}
+	if req.TokenMultiplierCap != nil {
+		apiKey.TokenMultiplierCap = *req.TokenMultiplierCap
+		fields.TokenMultiplierCap = true
+	}
 	resetRateLimit := req.ResetRateLimitUsage != nil && *req.ResetRateLimitUsage
 	if resetRateLimit {
 		apiKey.Usage5h = 0
@@ -1458,7 +1466,7 @@ func isCafeManagedAPIKeySafeUpdate(req UpdateAPIKeyRequest) bool {
 		req.ResetQuota == nil &&
 		req.RateLimit5h == nil &&
 		req.RateLimit1d == nil &&
-		req.RateLimit7d == nil &&
+		req.RateLimit7d == nil && req.TokenMultiplierCap == nil &&
 		req.ResetRateLimitUsage == nil
 }
 

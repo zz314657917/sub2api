@@ -284,6 +284,7 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 		RateLimit5h:             apiKey.RateLimit5h,
 		RateLimit1d:             apiKey.RateLimit1d,
 		RateLimit7d:             apiKey.RateLimit7d,
+		TokenMultiplierCap:      apiKey.TokenMultiplierCap,
 		User: APIKeyAuthUserSnapshot{
 			ID:                         apiKey.User.ID,
 			Status:                     apiKey.User.Status,
@@ -398,6 +399,7 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 		RateLimit5h:             snapshot.RateLimit5h,
 		RateLimit1d:             snapshot.RateLimit1d,
 		RateLimit7d:             snapshot.RateLimit7d,
+		TokenMultiplierCap:      snapshot.TokenMultiplierCap,
 		User: &User{
 			ID:                         snapshot.User.ID,
 			Status:                     snapshot.User.Status,

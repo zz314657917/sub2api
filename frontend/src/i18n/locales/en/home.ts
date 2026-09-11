@@ -9,6 +9,7 @@ export default {
     navHome: 'Home',
     navTutorial: 'Tutorial',
     navModels: 'Model Plaza',
+    navStore: 'Service Store',
     navContact: 'Contact',
     getStarted: 'Get Started',
     goToDashboard: 'Go to Dashboard',

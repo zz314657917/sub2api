@@ -28,6 +28,7 @@ var (
 		{Name: "rate_limit_5h", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
 		{Name: "rate_limit_1d", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
 		{Name: "rate_limit_7d", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
+		{Name: "token_multiplier_cap", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
 		{Name: "usage_5h", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
 		{Name: "usage_1d", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
 		{Name: "usage_7d", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
@@ -48,13 +49,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "api_keys_groups_api_keys",
-				Columns:    []*schema.Column{APIKeysColumns[26]},
+				Columns:    []*schema.Column{APIKeysColumns[27]},
 				RefColumns: []*schema.Column{GroupsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "api_keys_users_api_keys",
-				Columns:    []*schema.Column{APIKeysColumns[27]},
+				Columns:    []*schema.Column{APIKeysColumns[28]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -63,12 +64,12 @@ var (
 			{
 				Name:    "apikey_user_id",
 				Unique:  false,
-				Columns: []*schema.Column{APIKeysColumns[27]},
+				Columns: []*schema.Column{APIKeysColumns[28]},
 			},
 			{
 				Name:    "apikey_group_id",
 				Unique:  false,
-				Columns: []*schema.Column{APIKeysColumns[26]},
+				Columns: []*schema.Column{APIKeysColumns[27]},
 			},
 			{
 				Name:    "apikey_status",
@@ -98,7 +99,7 @@ var (
 			{
 				Name:    "apikey_managed_source_type_managed_source_id",
 				Unique:  true,
-				Columns: []*schema.Column{APIKeysColumns[24], APIKeysColumns[25]},
+				Columns: []*schema.Column{APIKeysColumns[25], APIKeysColumns[26]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "managed_source_type <> '' AND managed_source_id IS NOT NULL AND deleted_at IS NULL",
 				},

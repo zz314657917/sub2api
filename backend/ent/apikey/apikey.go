@@ -51,6 +51,8 @@ const (
 	FieldRateLimit1d = "rate_limit_1d"
 	// FieldRateLimit7d holds the string denoting the rate_limit_7d field in the database.
 	FieldRateLimit7d = "rate_limit_7d"
+	// FieldTokenMultiplierCap holds the string denoting the token_multiplier_cap field in the database.
+	FieldTokenMultiplierCap = "token_multiplier_cap"
 	// FieldUsage5h holds the string denoting the usage_5h field in the database.
 	FieldUsage5h = "usage_5h"
 	// FieldUsage1d holds the string denoting the usage_1d field in the database.
@@ -148,6 +150,7 @@ var Columns = []string{
 	FieldRateLimit5h,
 	FieldRateLimit1d,
 	FieldRateLimit7d,
+	FieldTokenMultiplierCap,
 	FieldUsage5h,
 	FieldUsage1d,
 	FieldUsage7d,
@@ -205,6 +208,8 @@ var (
 	DefaultRateLimit1d float64
 	// DefaultRateLimit7d holds the default value on creation for the "rate_limit_7d" field.
 	DefaultRateLimit7d float64
+	// DefaultTokenMultiplierCap holds the default value on creation for the "token_multiplier_cap" field.
+	DefaultTokenMultiplierCap float64
 	// DefaultUsage5h holds the default value on creation for the "usage_5h" field.
 	DefaultUsage5h float64
 	// DefaultUsage1d holds the default value on creation for the "usage_1d" field.
@@ -303,6 +308,11 @@ func ByRateLimit1d(opts ...sql.OrderTermOption) OrderOption {
 // ByRateLimit7d orders the results by the rate_limit_7d field.
 func ByRateLimit7d(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRateLimit7d, opts...).ToFunc()
+}
+
+// ByTokenMultiplierCap orders the results by the token_multiplier_cap field.
+func ByTokenMultiplierCap(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTokenMultiplierCap, opts...).ToFunc()
 }
 
 // ByUsage5h orders the results by the usage_5h field.

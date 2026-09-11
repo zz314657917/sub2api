@@ -228,7 +228,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	adminTutorialPageHandler := admin.NewTutorialPageHandler(tutorialPageService)
 	dataManagementService := service.NewDataManagementService()
 	dataManagementHandler := admin.NewDataManagementHandler(dataManagementService)
-	dbDumper := repository.NewPgDumper(configConfig)
+	dbDumper := repository.NewPgDumper(configConfig, db)
 	backupService := service.ProvideBackupService(settingRepository, db, configConfig, secretEncryptor, backupObjectStoreFactory, dbDumper)
 	imageStorageFactory := repository.ProvideImageStorageFactory()
 	imageStorageSettingService := service.ProvideImageStorageSettingService(settingRepository, secretEncryptor, backupService, imageStorageFactory, configConfig)

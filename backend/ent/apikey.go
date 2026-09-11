@@ -57,6 +57,8 @@ type APIKey struct {
 	RateLimit1d float64 `json:"rate_limit_1d,omitempty"`
 	// Rate limit in USD per 7 days (0 = unlimited)
 	RateLimit7d float64 `json:"rate_limit_7d,omitempty"`
+	// Maximum token billing multiplier for this API key (0 = unlimited)
+	TokenMultiplierCap float64 `json:"token_multiplier_cap,omitempty"`
 	// Used amount in USD for the current 5h window
 	Usage5h float64 `json:"usage_5h,omitempty"`
 	// Used amount in USD for the current 1d window
@@ -165,7 +167,7 @@ func (*APIKey) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case apikey.FieldIPWhitelist, apikey.FieldIPBlacklist, apikey.FieldMultiGroupRoutes:
 			values[i] = new([]byte)
-		case apikey.FieldQuota, apikey.FieldQuotaUsed, apikey.FieldRateLimit5h, apikey.FieldRateLimit1d, apikey.FieldRateLimit7d, apikey.FieldUsage5h, apikey.FieldUsage1d, apikey.FieldUsage7d:
+		case apikey.FieldQuota, apikey.FieldQuotaUsed, apikey.FieldRateLimit5h, apikey.FieldRateLimit1d, apikey.FieldRateLimit7d, apikey.FieldTokenMultiplierCap, apikey.FieldUsage5h, apikey.FieldUsage1d, apikey.FieldUsage7d:
 			values[i] = new(sql.NullFloat64)
 		case apikey.FieldID, apikey.FieldUserID, apikey.FieldGroupID, apikey.FieldManagedSourceID:
 			values[i] = new(sql.NullInt64)
@@ -309,6 +311,12 @@ func (_m *APIKey) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field rate_limit_7d", values[i])
 			} else if value.Valid {
 				_m.RateLimit7d = value.Float64
+			}
+		case apikey.FieldTokenMultiplierCap:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field token_multiplier_cap", values[i])
+			} else if value.Valid {
+				_m.TokenMultiplierCap = value.Float64
 			}
 		case apikey.FieldUsage5h:
 			if value, ok := values[i].(*sql.NullFloat64); !ok {
@@ -497,6 +505,9 @@ func (_m *APIKey) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("rate_limit_7d=")
 	builder.WriteString(fmt.Sprintf("%v", _m.RateLimit7d))
+	builder.WriteString(", ")
+	builder.WriteString("token_multiplier_cap=")
+	builder.WriteString(fmt.Sprintf("%v", _m.TokenMultiplierCap))
 	builder.WriteString(", ")
 	builder.WriteString("usage_5h=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Usage5h))

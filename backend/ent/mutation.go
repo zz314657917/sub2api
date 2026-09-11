@@ -150,6 +150,8 @@ type APIKeyMutation struct {
 	addrate_limit_1d              *float64
 	rate_limit_7d                 *float64
 	addrate_limit_7d              *float64
+	token_multiplier_cap          *float64
+	addtoken_multiplier_cap       *float64
 	usage_5h                      *float64
 	addusage_5h                   *float64
 	usage_1d                      *float64
@@ -1142,6 +1144,62 @@ func (m *APIKeyMutation) ResetRateLimit7d() {
 	m.addrate_limit_7d = nil
 }
 
+// SetTokenMultiplierCap sets the "token_multiplier_cap" field.
+func (m *APIKeyMutation) SetTokenMultiplierCap(f float64) {
+	m.token_multiplier_cap = &f
+	m.addtoken_multiplier_cap = nil
+}
+
+// TokenMultiplierCap returns the value of the "token_multiplier_cap" field in the mutation.
+func (m *APIKeyMutation) TokenMultiplierCap() (r float64, exists bool) {
+	v := m.token_multiplier_cap
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTokenMultiplierCap returns the old "token_multiplier_cap" field's value of the APIKey entity.
+// If the APIKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyMutation) OldTokenMultiplierCap(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTokenMultiplierCap is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTokenMultiplierCap requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTokenMultiplierCap: %w", err)
+	}
+	return oldValue.TokenMultiplierCap, nil
+}
+
+// AddTokenMultiplierCap adds f to the "token_multiplier_cap" field.
+func (m *APIKeyMutation) AddTokenMultiplierCap(f float64) {
+	if m.addtoken_multiplier_cap != nil {
+		*m.addtoken_multiplier_cap += f
+	} else {
+		m.addtoken_multiplier_cap = &f
+	}
+}
+
+// AddedTokenMultiplierCap returns the value that was added to the "token_multiplier_cap" field in this mutation.
+func (m *APIKeyMutation) AddedTokenMultiplierCap() (r float64, exists bool) {
+	v := m.addtoken_multiplier_cap
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetTokenMultiplierCap resets all changes to the "token_multiplier_cap" field.
+func (m *APIKeyMutation) ResetTokenMultiplierCap() {
+	m.token_multiplier_cap = nil
+	m.addtoken_multiplier_cap = nil
+}
+
 // SetUsage5h sets the "usage_5h" field.
 func (m *APIKeyMutation) SetUsage5h(f float64) {
 	m.usage_5h = &f
@@ -1932,7 +1990,7 @@ func (m *APIKeyMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *APIKeyMutation) Fields() []string {
-	fields := make([]string, 0, 27)
+	fields := make([]string, 0, 28)
 	if m.created_at != nil {
 		fields = append(fields, apikey.FieldCreatedAt)
 	}
@@ -1986,6 +2044,9 @@ func (m *APIKeyMutation) Fields() []string {
 	}
 	if m.rate_limit_7d != nil {
 		fields = append(fields, apikey.FieldRateLimit7d)
+	}
+	if m.token_multiplier_cap != nil {
+		fields = append(fields, apikey.FieldTokenMultiplierCap)
 	}
 	if m.usage_5h != nil {
 		fields = append(fields, apikey.FieldUsage5h)
@@ -2058,6 +2119,8 @@ func (m *APIKeyMutation) Field(name string) (ent.Value, bool) {
 		return m.RateLimit1d()
 	case apikey.FieldRateLimit7d:
 		return m.RateLimit7d()
+	case apikey.FieldTokenMultiplierCap:
+		return m.TokenMultiplierCap()
 	case apikey.FieldUsage5h:
 		return m.Usage5h()
 	case apikey.FieldUsage1d:
@@ -2121,6 +2184,8 @@ func (m *APIKeyMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldRateLimit1d(ctx)
 	case apikey.FieldRateLimit7d:
 		return m.OldRateLimit7d(ctx)
+	case apikey.FieldTokenMultiplierCap:
+		return m.OldTokenMultiplierCap(ctx)
 	case apikey.FieldUsage5h:
 		return m.OldUsage5h(ctx)
 	case apikey.FieldUsage1d:
@@ -2274,6 +2339,13 @@ func (m *APIKeyMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetRateLimit7d(v)
 		return nil
+	case apikey.FieldTokenMultiplierCap:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTokenMultiplierCap(v)
+		return nil
 	case apikey.FieldUsage5h:
 		v, ok := value.(float64)
 		if !ok {
@@ -2360,6 +2432,9 @@ func (m *APIKeyMutation) AddedFields() []string {
 	if m.addrate_limit_7d != nil {
 		fields = append(fields, apikey.FieldRateLimit7d)
 	}
+	if m.addtoken_multiplier_cap != nil {
+		fields = append(fields, apikey.FieldTokenMultiplierCap)
+	}
 	if m.addusage_5h != nil {
 		fields = append(fields, apikey.FieldUsage5h)
 	}
@@ -2390,6 +2465,8 @@ func (m *APIKeyMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedRateLimit1d()
 	case apikey.FieldRateLimit7d:
 		return m.AddedRateLimit7d()
+	case apikey.FieldTokenMultiplierCap:
+		return m.AddedTokenMultiplierCap()
 	case apikey.FieldUsage5h:
 		return m.AddedUsage5h()
 	case apikey.FieldUsage1d:
@@ -2441,6 +2518,13 @@ func (m *APIKeyMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddRateLimit7d(v)
+		return nil
+	case apikey.FieldTokenMultiplierCap:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTokenMultiplierCap(v)
 		return nil
 	case apikey.FieldUsage5h:
 		v, ok := value.(float64)
@@ -2619,6 +2703,9 @@ func (m *APIKeyMutation) ResetField(name string) error {
 		return nil
 	case apikey.FieldRateLimit7d:
 		m.ResetRateLimit7d()
+		return nil
+	case apikey.FieldTokenMultiplierCap:
+		m.ResetTokenMultiplierCap()
 		return nil
 	case apikey.FieldUsage5h:
 		m.ResetUsage5h()

@@ -44,7 +44,14 @@ export async function list(
     },
     signal: options?.signal
   })
+  if (!data || !Array.isArray(data.items)) {
+    throw new Error('Invalid proxy list response')
+  }
   return data
+}
+
+function assertProxyArray(value: unknown): asserts value is Proxy[] {
+  if (!Array.isArray(value)) throw new Error('Invalid proxy list response')
 }
 
 /**
@@ -53,6 +60,7 @@ export async function list(
  */
 export async function getAll(): Promise<Proxy[]> {
   const { data } = await apiClient.get<Proxy[]>('/admin/proxies/all')
+  assertProxyArray(data)
   return data
 }
 
@@ -64,6 +72,7 @@ export async function getAllWithCount(): Promise<Proxy[]> {
   const { data } = await apiClient.get<Proxy[]>('/admin/proxies/all', {
     params: { with_count: 'true' }
   })
+  assertProxyArray(data)
   return data
 }
 

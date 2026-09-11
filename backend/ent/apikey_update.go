@@ -333,6 +333,27 @@ func (_u *APIKeyUpdate) AddRateLimit7d(v float64) *APIKeyUpdate {
 	return _u
 }
 
+// SetTokenMultiplierCap sets the "token_multiplier_cap" field.
+func (_u *APIKeyUpdate) SetTokenMultiplierCap(v float64) *APIKeyUpdate {
+	_u.mutation.ResetTokenMultiplierCap()
+	_u.mutation.SetTokenMultiplierCap(v)
+	return _u
+}
+
+// SetNillableTokenMultiplierCap sets the "token_multiplier_cap" field if the given value is not nil.
+func (_u *APIKeyUpdate) SetNillableTokenMultiplierCap(v *float64) *APIKeyUpdate {
+	if v != nil {
+		_u.SetTokenMultiplierCap(*v)
+	}
+	return _u
+}
+
+// AddTokenMultiplierCap adds value to the "token_multiplier_cap" field.
+func (_u *APIKeyUpdate) AddTokenMultiplierCap(v float64) *APIKeyUpdate {
+	_u.mutation.AddTokenMultiplierCap(v)
+	return _u
+}
+
 // SetUsage5h sets the "usage_5h" field.
 func (_u *APIKeyUpdate) SetUsage5h(v float64) *APIKeyUpdate {
 	_u.mutation.ResetUsage5h()
@@ -857,6 +878,12 @@ func (_u *APIKeyUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedRateLimit7d(); ok {
 		_spec.AddField(apikey.FieldRateLimit7d, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.TokenMultiplierCap(); ok {
+		_spec.SetField(apikey.FieldTokenMultiplierCap, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedTokenMultiplierCap(); ok {
+		_spec.AddField(apikey.FieldTokenMultiplierCap, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.Usage5h(); ok {
 		_spec.SetField(apikey.FieldUsage5h, field.TypeFloat64, value)
@@ -1472,6 +1499,27 @@ func (_u *APIKeyUpdateOne) AddRateLimit7d(v float64) *APIKeyUpdateOne {
 	return _u
 }
 
+// SetTokenMultiplierCap sets the "token_multiplier_cap" field.
+func (_u *APIKeyUpdateOne) SetTokenMultiplierCap(v float64) *APIKeyUpdateOne {
+	_u.mutation.ResetTokenMultiplierCap()
+	_u.mutation.SetTokenMultiplierCap(v)
+	return _u
+}
+
+// SetNillableTokenMultiplierCap sets the "token_multiplier_cap" field if the given value is not nil.
+func (_u *APIKeyUpdateOne) SetNillableTokenMultiplierCap(v *float64) *APIKeyUpdateOne {
+	if v != nil {
+		_u.SetTokenMultiplierCap(*v)
+	}
+	return _u
+}
+
+// AddTokenMultiplierCap adds value to the "token_multiplier_cap" field.
+func (_u *APIKeyUpdateOne) AddTokenMultiplierCap(v float64) *APIKeyUpdateOne {
+	_u.mutation.AddTokenMultiplierCap(v)
+	return _u
+}
+
 // SetUsage5h sets the "usage_5h" field.
 func (_u *APIKeyUpdateOne) SetUsage5h(v float64) *APIKeyUpdateOne {
 	_u.mutation.ResetUsage5h()
@@ -2026,6 +2074,12 @@ func (_u *APIKeyUpdateOne) sqlSave(ctx context.Context) (_node *APIKey, err erro
 	}
 	if value, ok := _u.mutation.AddedRateLimit7d(); ok {
 		_spec.AddField(apikey.FieldRateLimit7d, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.TokenMultiplierCap(); ok {
+		_spec.SetField(apikey.FieldTokenMultiplierCap, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedTokenMultiplierCap(); ok {
+		_spec.AddField(apikey.FieldTokenMultiplierCap, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.Usage5h(); ok {
 		_spec.SetField(apikey.FieldUsage5h, field.TypeFloat64, value)

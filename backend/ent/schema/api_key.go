@@ -93,6 +93,10 @@ func (APIKey) Fields() []ent.Field {
 			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}).
 			Default(0).
 			Comment("Rate limit in USD per 7 days (0 = unlimited)"),
+		field.Float("token_multiplier_cap").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}).
+			Default(0).
+			Comment("Maximum token billing multiplier for this API key (0 = unlimited)"),
 		// Rate limit usage tracking
 		field.Float("usage_5h").
 			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}).

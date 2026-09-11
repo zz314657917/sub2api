@@ -116,6 +116,7 @@ func APIKeyFromService(k *service.APIKey) *APIKey {
 		RateLimit5h:         k.RateLimit5h,
 		RateLimit1d:         k.RateLimit1d,
 		RateLimit7d:         k.RateLimit7d,
+		TokenMultiplierCap:  k.TokenMultiplierCap,
 		Usage5h:             k.EffectiveUsage5h(),
 		Usage1d:             k.EffectiveUsage1d(),
 		Usage7d:             k.EffectiveUsage7d(),

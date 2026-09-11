@@ -18,7 +18,7 @@
     </div>
     <div
       :class="[
-        'grid max-h-32 grid-cols-2 gap-1 overflow-y-auto p-2',
+        'grid max-h-64 grid-cols-2 gap-1 overflow-y-auto p-2',
         isSearchable
           ? 'rounded-b-lg border border-t-0 border-gray-200 bg-gray-50 dark:border-dark-600 dark:bg-dark-800'
           : 'rounded-lg border border-gray-200 bg-gray-50 dark:border-dark-600 dark:bg-dark-800'
@@ -101,6 +101,12 @@ const filteredGroups = computed(() => {
       result = result.filter((g) => g.platform === props.platform)
     }
   }
+  const known = new Set(result.map(group => group.id))
+  const selectedMissing = props.modelValue
+    .filter(id => !known.has(id))
+    .map(id => props.groups.find(group => group.id === id))
+    .filter((group): group is AdminGroup => Boolean(group))
+  if (selectedMissing.length > 0) result = [...selectedMissing, ...result]
   if (isSearchable.value && searchText.value) {
     const q = searchText.value.toLowerCase()
     result = result.filter(

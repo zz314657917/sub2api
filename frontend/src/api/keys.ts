@@ -76,7 +76,8 @@ export async function create(
   expiresInDays?: number,
   rateLimitData?: { rate_limit_5h?: number; rate_limit_1d?: number; rate_limit_7d?: number },
   multiGroupRoutes?: ApiKeyMultiGroupRoute[],
-  accountPoolStrategy?: AccountPoolStrategy
+  accountPoolStrategy?: AccountPoolStrategy,
+  tokenMultiplierCap?: number
 ): Promise<ApiKey> {
   const payload: CreateApiKeyRequest = { name }
   if (groupId !== undefined) {
@@ -112,6 +113,7 @@ export async function create(
   if (accountPoolStrategy) {
     payload.account_pool_strategy = accountPoolStrategy
   }
+  if (tokenMultiplierCap !== undefined) payload.token_multiplier_cap = tokenMultiplierCap
 
   const { data } = await apiClient.post<ApiKey>('/keys', payload)
   return data

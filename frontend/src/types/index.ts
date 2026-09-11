@@ -797,6 +797,7 @@ export interface ApiKey {
   rate_limit_5h: number
   rate_limit_1d: number
   rate_limit_7d: number
+  token_multiplier_cap: number
   usage_5h: number
   usage_1d: number
   usage_7d: number
@@ -836,6 +837,7 @@ export interface CreateApiKeyRequest {
   rate_limit_5h?: number
   rate_limit_1d?: number
   rate_limit_7d?: number
+  token_multiplier_cap?: number
 }
 
 export interface UpdateApiKeyRequest {
@@ -852,6 +854,7 @@ export interface UpdateApiKeyRequest {
   rate_limit_5h?: number
   rate_limit_1d?: number
   rate_limit_7d?: number
+  token_multiplier_cap?: number
   reset_rate_limit_usage?: boolean
 }
 

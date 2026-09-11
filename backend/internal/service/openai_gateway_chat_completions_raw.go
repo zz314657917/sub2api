@@ -91,6 +91,13 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	if normalizedBody, normalized := NormalizeGLMOpenAIReasoningEffort(upstreamBody, upstreamModel); normalized {
 		upstreamBody = normalizedBody
 	}
+	if account.Platform == PlatformGrok {
+		var sanitizeErr error
+		upstreamBody, sanitizeErr = sanitizeGrokUnsupportedFields(upstreamBody)
+		if sanitizeErr != nil {
+			return nil, fmt.Errorf("sanitize Grok unsupported fields: %w", sanitizeErr)
+		}
+	}
 
 	// 4. Apply OpenAI fast policy on the CC body
 	updatedBody, policyErr := s.applyOpenAIFastPolicyToBody(ctx, account, upstreamModel, upstreamBody)

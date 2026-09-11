@@ -1141,6 +1141,22 @@
               </button>
             </div>
           </div>
+
+          <div class="mt-5 border-t border-gray-200 pt-4 dark:border-dark-600">
+            <div class="flex items-center justify-between">
+              <div>
+                <label class="input-label mb-0">Token 倍率上限保护</label>
+                <p class="input-hint">限制此密钥最终 Token 倍率，超过上限时按上限计费。</p>
+              </div>
+              <button type="button" @click="formData.enable_token_multiplier_cap = !formData.enable_token_multiplier_cap" :class="['relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent', formData.enable_token_multiplier_cap ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600']">
+                <span :class="['pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition', formData.enable_token_multiplier_cap ? 'translate-x-4' : 'translate-x-0']" />
+              </button>
+            </div>
+            <div v-if="formData.enable_token_multiplier_cap" class="mt-3">
+              <input v-model.number="formData.token_multiplier_cap" type="number" min="0" step="0.01" class="input" placeholder="例如 0.15" />
+              <p class="input-hint">当前密钥最高 Token 倍率，建议填写大于 0 的数值。</p>
+            </div>
+          </div>
             </div>
 
             <!-- Expiration Section -->
@@ -1716,6 +1732,8 @@ const formData = ref({
   rate_limit_5h: null as number | null,
   rate_limit_1d: null as number | null,
   rate_limit_7d: null as number | null,
+  enable_token_multiplier_cap: false,
+  token_multiplier_cap: null as number | null,
   enable_expiration: false,
   expiration_preset: '30' as '7' | '30' | '90' | 'custom',
   expiration_date: ''
@@ -2145,6 +2163,8 @@ const editKey = (key: ApiKey) => {
     rate_limit_5h: key.rate_limit_5h || null,
     rate_limit_1d: key.rate_limit_1d || null,
     rate_limit_7d: key.rate_limit_7d || null,
+    enable_token_multiplier_cap: (key.token_multiplier_cap || 0) > 0,
+    token_multiplier_cap: key.token_multiplier_cap > 0 ? key.token_multiplier_cap : null,
     enable_expiration: hasExpiration,
     expiration_preset: 'custom',
     expiration_date: key.expires_at ? formatDateTimeLocal(key.expires_at) : ''
@@ -2317,6 +2337,7 @@ const handleSubmit = async () => {
         rate_limit_5h: rateLimitData.rate_limit_5h,
         rate_limit_1d: rateLimitData.rate_limit_1d,
         rate_limit_7d: rateLimitData.rate_limit_7d,
+        token_multiplier_cap: formData.value.enable_token_multiplier_cap && formData.value.token_multiplier_cap && formData.value.token_multiplier_cap > 0 ? formData.value.token_multiplier_cap : 0,
       })
       appStore.showSuccess(t('keys.keyUpdatedSuccess'))
     } else {
@@ -2331,7 +2352,8 @@ const handleSubmit = async () => {
         expiresInDays,
         rateLimitData,
         multiGroupRoutes,
-        formData.value.account_pool_strategy
+        formData.value.account_pool_strategy,
+        formData.value.enable_token_multiplier_cap && formData.value.token_multiplier_cap && formData.value.token_multiplier_cap > 0 ? formData.value.token_multiplier_cap : 0
       )
       appStore.showSuccess(t('keys.keyCreatedSuccess'))
       // Only advance tour if active, on submit step, and creation succeeded
@@ -2415,6 +2437,8 @@ const closeModals = () => {
     rate_limit_5h: null,
     rate_limit_1d: null,
     rate_limit_7d: null,
+    enable_token_multiplier_cap: false,
+    token_multiplier_cap: null,
     enable_expiration: false,
     expiration_preset: '30',
     expiration_date: ''
