@@ -2785,6 +2785,13 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	} else if changed {
 		body = sanitizedBody
 	}
+	if account != nil && account.Platform == PlatformOpenAI && account.Type == AccountTypeAPIKey {
+		if sanitizedBody, changed, sanitizeErr := sanitizeOpenAIResponsesInputItemIDs(body); sanitizeErr != nil {
+			return nil, fmt.Errorf("sanitize OpenAI Responses input item IDs: %w", sanitizeErr)
+		} else if changed {
+			body = sanitizedBody
+		}
+	}
 
 	normalizedBody, normalized, err := normalizeOpenAICodexCompactReasoningEffortForAccount(c, account, body)
 	if err != nil {
