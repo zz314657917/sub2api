@@ -7,6 +7,7 @@ export default {
     dashboard: '控制台',
     login: '登录',
     navHome: '首页',
+    navStore: '服务商店',
     navTutorial: '教程',
     navModels: '模型广场',
     navContact: '联系客服',

@@ -99,7 +99,8 @@ const showDashboardButton = computed(() => isAuthenticated.value && !isHomeRoute
 const navItems = computed<Array<{ to: string; label: string; activePaths: string[] }>>(() => {
   const items = [
     { to: '/home', label: t('home.navHome'), activePaths: ['/home', '/'] },
-    { to: '/tutorial', label: t('home.navTutorial'), activePaths: ['/tutorial'] }
+    { to: '/tutorial', label: t('home.navTutorial'), activePaths: ['/tutorial'] },
+    { to: '/store', label: t('home.navStore'), activePaths: ['/store'] }
   ]
   if (
     appStore.cachedPublicSettings?.model_plaza_enabled === true &&

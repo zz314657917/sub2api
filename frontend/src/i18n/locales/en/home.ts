@@ -7,6 +7,7 @@ export default {
     dashboard: 'Dashboard',
     login: 'Login',
     navHome: 'Home',
+    navStore: 'Service Store',
     navTutorial: 'Tutorial',
     navModels: 'Model Plaza',
     navContact: 'Contact',

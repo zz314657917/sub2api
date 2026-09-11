@@ -72,6 +72,15 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/store',
+    name: 'ServiceStore',
+    component: () => import('@/views/public/ServiceStoreView.vue'),
+    meta: {
+      requiresAuth: false,
+      title: 'Service Store'
+    }
+  },
+  {
     path: '/login',
     name: 'Login',
     component: () => import('@/views/HomeView.vue'),
@@ -930,7 +939,7 @@ let authInitialized = false
 const navigationLoading = useNavigationLoadingState()
 // 延迟初始化预加载，传入 router 实例
 let routePrefetch: ReturnType<typeof useRoutePrefetch> | null = null
-const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/setup', '/payment/result', '/payment/airwallex', '/legal', '/tutorial', '/studio-bridge/session-probe']
+const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/setup', '/payment/result', '/payment/airwallex', '/legal', '/tutorial', '/store', '/studio-bridge/session-probe']
 const BACKEND_MODE_CALLBACK_PATHS = [
   '/auth/callback',
   '/auth/linuxdo/callback',
