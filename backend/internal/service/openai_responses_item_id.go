@@ -8,46 +8,23 @@ import (
 	"github.com/tidwall/sjson"
 )
 
-func openAIResponsesInputItemIDPrefix(itemType string) (string, bool) {
-	switch strings.TrimSpace(itemType) {
-	case "message":
-		return "msg", true
-	case "reasoning":
-		return "rs", true
-	case "custom_tool_call":
-		return openAIResponsesToolCallIDPrefix(itemType), true
-	case "tool_search_call":
-		return openAIResponsesToolCallIDPrefix(itemType), true
-	default:
-		if isCodexToolCallInputType(itemType) {
-			return openAIResponsesToolCallIDPrefix(itemType), true
-		}
-		return "", false
-	}
-}
-
-func openAIResponsesToolCallIDPrefix(itemType string) string {
-	switch strings.TrimSpace(itemType) {
-	case "custom_tool_call", "custom_tool_call_output":
-		return "ctc"
-	case "tool_search_call", "tool_search_output":
-		return "tsc"
-	default:
-		return "fc"
-	}
-}
-
 // Invalid replayed IDs are removed rather than rewritten because a fabricated
 // ID may point at a different upstream object.
 func shouldStripOpenAIResponsesInputItemID(itemType, id string) bool {
+	itemType = strings.TrimSpace(itemType)
 	if id == "" {
 		return false
 	}
-	prefix, constrained := openAIResponsesInputItemIDPrefix(itemType)
-	if !constrained {
-		return false
+	if itemType == "message" {
+		return !strings.HasPrefix(id, "msg")
 	}
-	return !strings.HasPrefix(id, prefix)
+	if itemType == "reasoning" {
+		return !strings.HasPrefix(id, "rs")
+	}
+	if prefix, constrained := codexContinuationItemIDPrefix(itemType); constrained {
+		return !strings.HasPrefix(id, prefix)
+	}
+	return false
 }
 
 func sanitizeOpenAIResponsesInputItemIDs(body []byte) ([]byte, bool, error) {
