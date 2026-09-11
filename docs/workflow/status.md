@@ -1,15 +1,34 @@
 ---
 phase: done
-current_sprint: upstream-v024-payment-fulfillment-isolation-s300
+current_sprint: cf3577a3c-behavior-port
 total_sprints: 300
-pending_action: Continue upstream candidate screening; keep backup/migration advisory locking in a separate contract.
+pending_action: None for implementation and local QA; real-provider validation and deployment are outside this port.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
-last_verified: 2026-09-10
+last_verified: 2026-09-12
 ---
 
-# Current Sprint: Upstream v0.2.4 Image 2.5 OAuth S299 (2026-09-10)
+# Current Sprint: cf3577a3c Behavior Port (2026-09-12)
+
+- Reimplemented upstream `cf3577a3c5367afcda9e02bd08ba1f077074c7f4` on
+  baseline `c1833f66c5ca5777ae0d11c0645d5e433ba1502e` using the existing local
+  monolithic gateway; no wholesale split-file import or history rewrite.
+- Coverage: 41 upstream paths, 39 implemented/equivalent and 2 not applicable
+  because the local alpha/search route does not exist. Local Astra pro,
+  allowed_tools, continuation IDs, account controls and frontend are preserved.
+- Independent Terra contract review and final QA: PASS. Final build, actual
+  production-source focused service tests, handler tests, response headers,
+  formatting and scoped diff checks passed. Controller also reran the original
+  item-ID regression tests. Full tagged unit fixtures have baseline compile
+  drift; this is not a claim that the full tagged suite passes.
+- Review caught and fixed whitespace-sensitive null schema normalization and
+  cross-turn WebSocket alias collisions; published alias maps are copy-on-write.
+- Evidence: `docs/workflow/tasks/cf3577a3c-coverage.md` and
+  `docs/workflow/qa-reports/cf3577a3c-behavior-port-qa.md`.
+- Real provider, database, container and deployment are unverified/out of scope.
+
+# Previous Sprint: Upstream v0.2.4 Image 2.5 OAuth S299 (2026-09-10)
 
 - User approved continuing integration and explicitly authorized
   `gpt-5.6-sol` when the default Terra route is unavailable. Contract and

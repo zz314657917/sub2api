@@ -1,6 +1,8 @@
 package service
 
 import (
+	"bytes"
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -15,6 +17,50 @@ func MarkOpenAINativeCompactionV2(c *gin.Context) {
 	if c != nil {
 		c.Set(openAINativeCompactionV2Key, true)
 	}
+}
+
+// NormalizeCompactionTriggerInputOrder makes the sole trigger the final input
+// item required by the remote-compaction v2 wire format. Decoder.UseNumber is
+// intentional: request JSON may contain IDs larger than IEEE-754 precision.
+func NormalizeCompactionTriggerInputOrder(body []byte) ([]byte, bool, error) {
+	if len(body) == 0 {
+		return body, false, nil
+	}
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.UseNumber()
+	var payload map[string]any
+	if err := decoder.Decode(&payload); err != nil {
+		return body, false, err
+	}
+	input, ok := payload["input"].([]any)
+	if !ok || len(input) == 0 {
+		return body, false, nil
+	}
+	triggerCount := 0
+	normalized := make([]any, 0, len(input))
+	for _, raw := range input {
+		item, itemOK := raw.(map[string]any)
+		if itemOK && item["type"] == "compaction_trigger" {
+			triggerCount++
+			continue
+		}
+		normalized = append(normalized, raw)
+	}
+	if triggerCount == 0 {
+		return body, false, nil
+	}
+	if triggerCount == 1 {
+		if last, ok := input[len(input)-1].(map[string]any); ok && last["type"] == "compaction_trigger" {
+			return body, false, nil
+		}
+	}
+	normalized = append(normalized, map[string]any{"type": "compaction_trigger"})
+	payload["input"] = normalized
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return body, false, err
+	}
+	return encoded, true, nil
 }
 
 func isOpenAINativeCompactionV2(c *gin.Context) bool {

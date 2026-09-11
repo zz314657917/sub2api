@@ -15,16 +15,41 @@ func shouldStripOpenAIResponsesInputItemID(itemType, id string) bool {
 	if id == "" {
 		return false
 	}
-	if itemType == "message" {
-		return !strings.HasPrefix(id, "msg")
-	}
-	if itemType == "reasoning" {
-		return !strings.HasPrefix(id, "rs")
-	}
-	if prefix, constrained := codexContinuationItemIDPrefix(itemType); constrained {
+	if prefix, constrained := openAIResponsesInputItemIDPrefix(itemType); constrained {
 		return !strings.HasPrefix(id, prefix)
 	}
 	return false
+}
+
+func openAIResponsesInputItemIDPrefix(itemType string) (string, bool) {
+	switch strings.TrimSpace(itemType) {
+	case "message":
+		return "msg", true
+	case "reasoning":
+		return "rs", true
+	case "custom_tool_call", "tool_search_call":
+		return openAIResponsesToolCallIDPrefix(itemType), true
+	case "custom_tool_call_output":
+		// Local continuation output item IDs retain the generic fc namespace;
+		// only their paired call_id is ctc_.
+		return "fc", true
+	default:
+		if isCodexToolCallInputType(itemType) {
+			return openAIResponsesToolCallIDPrefix(itemType), true
+		}
+		return "", false
+	}
+}
+
+func openAIResponsesToolCallIDPrefix(itemType string) string {
+	switch strings.TrimSpace(itemType) {
+	case "custom_tool_call", "custom_tool_call_output":
+		return "ctc"
+	case "tool_search_call", "tool_search_output":
+		return "tsc"
+	default:
+		return "fc"
+	}
 }
 
 func sanitizeOpenAIResponsesInputItemIDs(body []byte) ([]byte, bool, error) {

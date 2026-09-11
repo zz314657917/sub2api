@@ -252,6 +252,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 			h.errorResponse(c, http.StatusRequestEntityTooLarge, "invalid_request_error", buildBodyTooLargeMessage(maxErr.Limit))
 			return
 		}
+		logRequestBodyReadFailure(reqLog, c.Request, err)
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Failed to read request body")
 		return
 	}
@@ -769,6 +770,11 @@ func isOpenAIRemoteCompactionV2Request(body []byte) bool {
 func (h *OpenAIGatewayHandler) normalizeOpenAIResponsesCompactRequest(c *gin.Context, reqLog *zap.Logger, body []byte) ([]byte, bool) {
 	isCompactRequest := isOpenAILegacyCompactPath(c)
 	if !isCompactRequest && isBareOpenAIResponsesPath(c) && service.HasCompactionTriggerInInput(body) {
+		if normalized, changed, err := service.NormalizeCompactionTriggerInputOrder(body); err != nil {
+			reqLog.Warn("codex.remote_compact.trigger_order_normalization_failed", zap.Error(err))
+		} else if changed {
+			body = normalized
+		}
 		if isOpenAIRemoteCompactionV2Request(body) {
 			return body, true
 		}
@@ -2078,7 +2084,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				zap.Int("excluded_account_count", len(failedAccountIDs)),
 			)
 			if lastFailoverErr != nil {
-				closeOpenAIWSFailoverExhausted(wsConn, lastFailoverErr)
+				closeOpenAIWSFailoverExhausted(c, wsConn, lastFailoverErr)
 			} else {
 				closeOpenAIClientWS(wsConn, coderws.StatusTryAgainLater, "no available account")
 			}
@@ -2086,7 +2092,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		}
 		if selection == nil || selection.Account == nil {
 			if lastFailoverErr != nil {
-				closeOpenAIWSFailoverExhausted(wsConn, lastFailoverErr)
+				closeOpenAIWSFailoverExhausted(c, wsConn, lastFailoverErr)
 			} else {
 				closeOpenAIClientWS(wsConn, coderws.StatusTryAgainLater, "no available account")
 			}
@@ -2290,7 +2296,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				retryPayload, retryCurrentTurn := service.OpenAIWSCurrentTurnRetryPayload(err)
 				nextAttemptMessage, retrySafe := openAIWSNextAttemptMessage(wsAttemptMessage, retryPayload, retryCurrentTurn)
 				if !retrySafe {
-					closeOpenAIWSFailoverExhausted(wsConn, failoverErr)
+					closeOpenAIWSFailoverExhausted(c, wsConn, failoverErr)
 					return
 				}
 				wsAttemptMessage = nextAttemptMessage
@@ -2307,12 +2313,12 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				failedAccountIDs[account.ID] = struct{}{}
 				lastFailoverErr = failoverErr
 				if switchCount >= maxAccountSwitches {
-					closeOpenAIWSFailoverExhausted(wsConn, failoverErr)
+					closeOpenAIWSFailoverExhausted(c, wsConn, failoverErr)
 					return
 				}
 				switchCount++
 				if h.gatewayService.ShouldStopOpenAIOAuth429Failover(account, failoverErr.StatusCode, switchCount) {
-					closeOpenAIWSFailoverExhausted(wsConn, failoverErr)
+					closeOpenAIWSFailoverExhausted(c, wsConn, failoverErr)
 					return
 				}
 				h.gatewayService.RecordOpenAIAccountSwitch()
@@ -2875,21 +2881,22 @@ func openAIWSNextAttemptMessage(current, retryPayload []byte, retryCurrentTurn b
 	return append([]byte(nil), retryPayload...), true
 }
 
-func closeOpenAIWSFailoverExhausted(conn *coderws.Conn, failoverErr *service.UpstreamFailoverError) {
-	if failoverErr == nil {
-		closeOpenAIClientWS(conn, coderws.StatusInternalError, "upstream websocket proxy failed")
-		return
+func closeOpenAIWSFailoverExhausted(c *gin.Context, conn *coderws.Conn, failoverErr *service.UpstreamFailoverError) {
+	intendedStatus, errorType, errorCode := http.StatusBadGateway, "upstream_error", "upstream_ws_failover_exhausted"
+	message, closeStatus := "upstream websocket proxy failed", coderws.StatusInternalError
+	if failoverErr != nil {
+		switch failoverErr.StatusCode {
+		case http.StatusTooManyRequests:
+			intendedStatus, errorType, message, closeStatus = http.StatusTooManyRequests, "rate_limit_error", "upstream rate limit exceeded, please retry later", coderws.StatusTryAgainLater
+		case 529, http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+			intendedStatus, message, closeStatus = failoverErr.StatusCode, "upstream service temporarily unavailable", coderws.StatusTryAgainLater
+		case http.StatusUnauthorized, http.StatusForbidden:
+			intendedStatus, errorType, message, closeStatus = failoverErr.StatusCode, "authentication_error", "upstream websocket authentication failed", coderws.StatusPolicyViolation
+		}
 	}
-	switch failoverErr.StatusCode {
-	case http.StatusTooManyRequests:
-		closeOpenAIClientWS(conn, coderws.StatusTryAgainLater, "upstream rate limit exceeded, please retry later")
-	case 529, http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
-		closeOpenAIClientWS(conn, coderws.StatusTryAgainLater, "upstream service temporarily unavailable")
-	case http.StatusUnauthorized, http.StatusForbidden:
-		closeOpenAIClientWS(conn, coderws.StatusPolicyViolation, "upstream websocket authentication failed")
-	default:
-		closeOpenAIClientWS(conn, coderws.StatusInternalError, "upstream websocket proxy failed")
-	}
+	_ = errorCode // local failure type carries no structured reason yet.
+	service.MarkOpsStreamError(c, errorType, message, intendedStatus)
+	closeOpenAIClientWS(conn, closeStatus, message)
 }
 
 func writeContentModerationWSError(ctx context.Context, conn *coderws.Conn, decision *service.ContentModerationDecision) {

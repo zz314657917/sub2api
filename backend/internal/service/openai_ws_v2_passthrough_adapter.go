@@ -19,7 +19,9 @@ import (
 )
 
 type openAIWSClientFrameConn struct {
-	conn *coderws.Conn
+	conn                 *coderws.Conn
+	restoreResponseModel func([]byte) []byte
+	restoreToolNames     func([]byte) []byte
 }
 
 // openAIWSPolicyEnforcingFrameConn wraps a client-side FrameConn and runs
@@ -128,6 +130,8 @@ func openAIWSPassthroughPolicyModelFromSessionFrame(account *Account, payload []
 type openAIWSPassthroughUsageMeta struct {
 	serviceTier     atomic.Pointer[string]
 	reasoningEffort atomic.Pointer[string]
+	requestModel    atomic.Pointer[string]
+	upstreamModel   atomic.Pointer[string]
 
 	// 仅在 client->upstream filter goroutine 中读写；Load 侧通过上方原子指针同步。
 	sessionRequestModel string
@@ -149,6 +153,7 @@ func (m *openAIWSPassthroughUsageMeta) initFromFirstFrame(policyOutput []byte, m
 	}
 	m.serviceTier.Store(extractOpenAIServiceTierFromBody(policyOutput))
 	m.reasoningEffort.Store(extractOpenAIReasoningEffortFromBody(policyOutput, mappedModel, m.sessionRequestModel))
+	m.setTurnModels(m.sessionRequestModel, mappedModel)
 }
 
 func (m *openAIWSPassthroughUsageMeta) updateSessionRequestModel(payload []byte) {
@@ -176,6 +181,34 @@ func (m *openAIWSPassthroughUsageMeta) updateFromResponseCreate(policyOutput []b
 	}
 	m.serviceTier.Store(extractOpenAIServiceTierFromBody(policyOutput))
 	m.reasoningEffort.Store(extractOpenAIReasoningEffortFromBody(policyOutput, mappedModel, requestModelForFrame))
+	m.setTurnModels(requestModelForFrame, mappedModel)
+}
+
+func (m *openAIWSPassthroughUsageMeta) setTurnModels(requestModel string, upstreamModel string) {
+	if m == nil {
+		return
+	}
+	if requestModel = strings.TrimSpace(requestModel); requestModel != "" {
+		m.requestModel.Store(&requestModel)
+	}
+	if upstreamModel = strings.TrimSpace(upstreamModel); upstreamModel != "" {
+		m.upstreamModel.Store(&upstreamModel)
+	}
+}
+
+func (m *openAIWSPassthroughUsageMeta) turnModels(fallbackUpstreamModel string) (string, string) {
+	if m == nil {
+		return "", strings.TrimSpace(fallbackUpstreamModel)
+	}
+	requestModel := ""
+	if current := m.requestModel.Load(); current != nil {
+		requestModel = strings.TrimSpace(*current)
+	}
+	upstreamModel := strings.TrimSpace(fallbackUpstreamModel)
+	if current := m.upstreamModel.Load(); current != nil {
+		upstreamModel = strings.TrimSpace(*current)
+	}
+	return requestModel, upstreamModel
 }
 
 func openAIWSPassthroughRequestModelForFrame(payload []byte) string {
@@ -228,6 +261,14 @@ func (c *openAIWSClientFrameConn) WriteFrame(ctx context.Context, msgType coderw
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	if msgType == coderws.MessageText || msgType == coderws.MessageBinary {
+		if c.restoreResponseModel != nil {
+			payload = c.restoreResponseModel(payload)
+		}
+		if c.restoreToolNames != nil {
+			payload = c.restoreToolNames(payload)
+		}
+	}
 	return c.conn.Write(ctx, msgType, payload)
 }
 
@@ -258,6 +299,10 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	}
 	if account == nil {
 		return errors.New("account is nil")
+	}
+	setCodexToolNameReverse(c, nil)
+	if c != nil {
+		c.Set(codexWSToolNameOwnersKey, nil)
 	}
 	if err := validateOpenAIWSBearerToken(account, token); err != nil {
 		return err
@@ -302,6 +347,26 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 		return fmt.Errorf("strip image generation tools from first ws frame: %w", stripErr)
 	}
 	firstClientMessage = strippedFirst
+	if account.IsOpenAIOAuth() {
+		if err := registerCodexWSToolNameOwners(c, firstClientMessage); err != nil {
+			return NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, err.Error(), err)
+		}
+		aliasedBody, reverse, aliased, aliasErr := aliasOpenAIOAuthReservedToolNamesBody(firstClientMessage)
+		if aliasErr != nil {
+			return aliasErr
+		}
+		if err := mergeCodexToolNameReverse(c, reverse); err != nil {
+			return NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, err.Error(), err)
+		}
+		if aliased {
+			firstClientMessage = aliasedBody
+		}
+	}
+	if normalized, compatibilityChanged, normalizeErr := normalizeOpenAIResponsesWebSocketCompatibilityBody(firstClientMessage, account); normalizeErr != nil {
+		return fmt.Errorf("normalize first websocket response.create: %w", normalizeErr)
+	} else if compatibilityChanged {
+		firstClientMessage = normalized
+	}
 	requestModel := strings.TrimSpace(gjson.GetBytes(firstClientMessage, "model").String())
 	requestPreviousResponseID := strings.TrimSpace(gjson.GetBytes(firstClientMessage, "previous_response_id").String())
 	clientPromptCacheKey := strings.TrimSpace(gjson.GetBytes(firstClientMessage, "prompt_cache_key").String())
@@ -487,7 +552,16 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 
 	completedTurns := atomic.Int32{}
 	policyClientConn := &openAIWSPolicyEnforcingFrameConn{
-		inner: &openAIWSClientFrameConn{conn: clientConn},
+		inner: &openAIWSClientFrameConn{
+			conn: clientConn,
+			restoreResponseModel: func(payload []byte) []byte {
+				requestModel, upstreamModel := usageMeta.turnModels("")
+				return replaceOpenAIWSMessageModel(payload, upstreamModel, requestModel)
+			},
+			restoreToolNames: func(payload []byte) []byte {
+				return restoreCodexToolNamesFromContext(c, payload)
+			},
+		},
 		// 注意线程安全：filter 仅在 runClientToUpstream 这一条
 		// goroutine 中被调用（passthrough_relay.go: ReadFrame loop），
 		// capturedSessionModel 的读写都发生在该 goroutine 内，因此无需
@@ -520,6 +594,28 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 					return payload, nil, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, liteErr.Error(), liteErr)
 				}
 				payload = litePayload
+			}
+			if eventType == "response.create" && account.IsOpenAIOAuth() {
+				if err := registerCodexWSToolNameOwners(c, payload); err != nil {
+					return payload, nil, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, err.Error(), err)
+				}
+				aliasedBody, reverse, aliased, aliasErr := aliasOpenAIOAuthReservedToolNamesBody(payload)
+				if aliasErr != nil {
+					return payload, nil, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, aliasErr.Error(), aliasErr)
+				}
+				if err := mergeCodexToolNameReverse(c, reverse); err != nil {
+					return payload, nil, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, err.Error(), err)
+				}
+				if aliased {
+					payload = aliasedBody
+				}
+			}
+			if eventType == "response.create" {
+				if normalized, compatibilityChanged, normalizeErr := normalizeOpenAIResponsesWebSocketCompatibilityBody(payload, account); normalizeErr != nil {
+					return payload, nil, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", normalizeErr)
+				} else if compatibilityChanged {
+					payload = normalized
+				}
 			}
 			if eventType == "response.create" || eventType == "session.update" {
 				accountScopedPayload, accountScoped, scopeErr := applyCodexAccountIdentityClientMetadataRaw(payload, codexAccountIdentitySource(c, account), getAPIKeyIDFromContext(c))

@@ -2321,6 +2321,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		if clientDisconnected {
 			return
 		}
+		message = restoreCodexToolNamesFromContext(c, message)
 		frame := make([]byte, 0, len(message)+8)
 		frame = append(frame, "data: "...)
 		frame = append(frame, message...)
@@ -2602,6 +2603,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 			finalResponse = s.replaceModelInResponseBody(finalResponse, mappedModel, originalModel)
 		}
 		finalResponse = s.correctToolCallsInResponseBody(finalResponse)
+		finalResponse = restoreCodexToolNamesFromContext(c, finalResponse)
 		populateOpenAIUsageFromResponseJSON(finalResponse, usage)
 		if responseID == "" {
 			responseID = strings.TrimSpace(gjson.GetBytes(finalResponse, "id").String())
@@ -2681,6 +2683,65 @@ func stripCodexSparkImageGenerationToolFromRawPayload(payload []byte, model stri
 	return rebuilt, true, nil
 }
 
+const codexWSToolNameOwnersKey = "openai_codex_ws_tool_name_owners"
+
+// registerCodexWSToolNameOwners reserves each normalized name for the whole
+// connection. This includes a client-native reserved alias: it has no reverse
+// entry, but a later `python` must still be rejected rather than causing old
+// delayed output to be restored to the wrong name.
+func registerCodexWSToolNameOwners(c *gin.Context, body []byte) error {
+	if c == nil || len(body) == 0 {
+		return nil
+	}
+	var request map[string]any
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.UseNumber()
+	if err := decoder.Decode(&request); err != nil {
+		return fmt.Errorf("decode websocket tool names: %w", err)
+	}
+	owners, _ := c.Get(codexWSToolNameOwnersKey)
+	existing, _ := owners.(map[string]string)
+	registered := make(map[string]string, len(existing)+4)
+	for alias, original := range existing {
+		registered[alias] = original
+	}
+	for _, field := range collectOpenAIResponsesToolNameFields(request) {
+		original := strings.TrimSpace(field.name)
+		if original == "" {
+			continue
+		}
+		alias := aliasOpenAIOAuthReservedToolName(original)
+		if previous, exists := registered[alias]; exists && previous != original {
+			return fmt.Errorf("websocket tool names %q and %q both normalize to %q", previous, original, alias)
+		}
+		registered[alias] = original
+	}
+	c.Set(codexWSToolNameOwnersKey, registered)
+	return nil
+}
+
+// mergeCodexToolNameReverse keeps aliases from earlier turns available while a
+// later response.create introduces another reserved tool name. A buffered
+// response or a late event can still refer to an earlier turn's alias.
+func mergeCodexToolNameReverse(c *gin.Context, reverse map[string]string) error {
+	if c == nil || len(reverse) == 0 {
+		return nil
+	}
+	existing := codexToolNameReverseFromContext(c)
+	merged := make(map[string]string, len(existing)+len(reverse))
+	for alias, original := range existing {
+		merged[alias] = original
+	}
+	for alias, original := range reverse {
+		if previous, exists := merged[alias]; exists && previous != original {
+			return fmt.Errorf("websocket tool aliases %q and %q both map to %q", previous, original, alias)
+		}
+		merged[alias] = original
+	}
+	setCodexToolNameReverse(c, merged)
+	return nil
+}
+
 func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	ctx context.Context,
 	c *gin.Context,
@@ -2696,6 +2757,8 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	if c == nil {
 		return errors.New("gin context is nil")
 	}
+	setCodexToolNameReverse(c, nil)
+	c.Set(codexWSToolNameOwnersKey, nil)
 	if clientConn == nil {
 		return errors.New("client websocket is nil")
 	}
@@ -2866,6 +2929,26 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			}
 			normalized = litePayload
 		}
+		if compatibilityBody, compatibilityChanged, compatibilityErr := normalizeOpenAIResponsesWebSocketCompatibilityBody(normalized, account); compatibilityErr != nil {
+			return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", compatibilityErr)
+		} else if compatibilityChanged {
+			normalized = compatibilityBody
+		}
+		if account.IsOpenAIOAuth() && !forceHTTPBridge {
+			if err := registerCodexWSToolNameOwners(c, normalized); err != nil {
+				return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, err.Error(), err)
+			}
+			aliasedBody, reverse, aliased, aliasErr := aliasOpenAIOAuthReservedToolNamesBody(normalized)
+			if aliasErr != nil {
+				return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, aliasErr.Error(), aliasErr)
+			}
+			if err := mergeCodexToolNameReverse(c, reverse); err != nil {
+				return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, err.Error(), err)
+			}
+			if aliased {
+				normalized = aliasedBody
+			}
+		}
 
 		if sanitized, changed, err := stripLegacyResponsesFunctionItemIDs(normalized); err != nil {
 			return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket function item IDs", err)
@@ -3022,6 +3105,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	writeClientMessage := func(message []byte) error {
 		writeCtx, cancel := context.WithTimeout(ctx, s.openAIWSWriteTimeout())
 		defer cancel()
+		message = restoreCodexToolNamesFromContext(c, message)
 		return clientConn.Write(writeCtx, coderws.MessageText, message)
 	}
 

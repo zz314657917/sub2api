@@ -1344,7 +1344,10 @@ func isOpenAITransientProcessingError(upstreamStatusCode int, upstreamMsg string
 	if match(gjson.GetBytes(upstreamBody, "error.message").String()) {
 		return true
 	}
-	return match(string(upstreamBody))
+	if match(gjson.GetBytes(upstreamBody, "response.error.message").String()) || match(gjson.GetBytes(upstreamBody, "message").String()) {
+		return true
+	}
+	return !gjson.ValidBytes(upstreamBody) && match(string(upstreamBody))
 }
 
 func isOpenAIContextWindowError(upstreamMsg string, upstreamBody []byte) bool {
@@ -1389,7 +1392,8 @@ func isOpenAIContextWindowError(upstreamMsg string, upstreamBody []byte) bool {
 			return true
 		}
 	}
-	return match(string(upstreamBody))
+	// JSON errors may echo request content outside their authoritative fields.
+	return !gjson.ValidBytes(upstreamBody) && match(string(upstreamBody))
 }
 
 // ExtractSessionID extracts the raw session ID from headers or body without hashing.
@@ -2745,6 +2749,7 @@ func (s *OpenAIGatewayService) handleFailoverSideEffects(ctx context.Context, re
 // Forward forwards request to OpenAI API
 func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, account *Account, body []byte) (*OpenAIForwardResult, error) {
 	startTime := time.Now()
+	setCodexToolNameReverse(c, nil)
 	ClearActualOpenAIUpstreamEndpoint(c)
 	if account != nil {
 		switch {
@@ -2838,6 +2843,14 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	if account.Type == AccountTypeAPIKey && !isOpenAINativeCompactionV2(c) && !openai_compat.ShouldUseResponsesAPI(account.Extra) {
 		return s.forwardResponsesViaRawChatCompletions(ctx, c, account, body)
 	}
+	if normalized, changed, normalizeErr := normalizeOpenAIResponsesWebSocketCompatibilityBody(body, account); normalizeErr != nil {
+		return nil, fmt.Errorf("normalize OpenAI Responses compatibility: %w", normalizeErr)
+	} else if changed {
+		body = normalized
+		originalBody = normalized
+		reqModel, reqStream, promptCacheKey = extractOpenAIRequestMetaFromBody(body)
+		originalModel = reqModel
+	}
 
 	compatMessagesBridge := isOpenAICompatMessagesBridgeBody(body)
 	setOpenAICompatMessagesBridgeContext(c, compatMessagesBridge)
@@ -2881,6 +2894,17 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}
 	passthroughEnabled := account.IsOpenAIPassthroughEnabled()
 	if passthroughEnabled {
+		if account.IsOpenAIOAuth() {
+			aliasedBody, reverse, aliased, aliasErr := aliasOpenAIOAuthReservedToolNamesBody(body)
+			if aliasErr != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"type": "invalid_request_error", "message": aliasErr.Error()}})
+				return nil, aliasErr
+			}
+			setCodexToolNameReverse(c, reverse)
+			if aliased {
+				body, originalBody = aliasedBody, aliasedBody
+			}
+		}
 		if isCodexCLI && codexImageGenerationExplicitToolPolicy == codexImageGenerationExplicitToolPolicyStrip {
 			strippedBody, changed, stripErr := stripOpenAIImageGenerationToolsFromRawPayload(body)
 			if stripErr != nil {
@@ -3162,6 +3186,11 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		} else {
 			codexResult = applyCodexOAuthTransform(reqBody, isCodexCLI, isCompactRequest)
 		}
+		if codexResult.Error != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"type": "invalid_request_error", "message": codexResult.Error.Error()}})
+			return nil, codexResult.Error
+		}
+		setCodexToolNameReverse(c, codexResult.ToolNameReverse)
 		if codexResult.Modified {
 			bodyModified = true
 			disablePatch()
@@ -3343,6 +3372,17 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		imageSizeTier = imageCfg.SizeTier
 		imageInputSize = imageCfg.InputSize
 		imageQuality = imageCfg.Quality
+	}
+
+	if account.IsOpenAIOAuth() {
+		if input, ok := reqBody["input"].([]any); ok && sanitizeOpenAIResponsesOrphanToolOutputs(reqBody, input, strings.TrimSpace(firstNonEmptyString(reqBody["previous_response_id"])) != "") {
+			bodyModified = true
+			patchDisabled = true
+		}
+	}
+	if truncateOpenAIResponsesInputText(reqBody) {
+		bodyModified = true
+		patchDisabled = true
 	}
 
 	// Re-serialize body only if modified
@@ -4050,6 +4090,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 
 	agentTaskRecoveryTried := false
 	var resp *http.Response
+	rejectedFieldRetryState := openAIResponsesRejectedFieldRetryStateForRequest(c, body)
 	for {
 		clearOpenAIResponsesClientToolMapping(c)
 		setOpenAIResponsesClientToolMapping(c, clientToolMapping)
@@ -4076,6 +4117,13 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 			return nil, fmt.Errorf("read Agent Identity error response: %w", readErr)
 		}
 		resp.Body = io.NopCloser(bytes.NewReader(probeBody))
+		if retryBody, _, changed, retryErr := normalizeOpenAIResponsesRejectedFieldRetryBody(resp.StatusCode, body, probeBody); retryErr != nil {
+			return nil, retryErr
+		} else if changed && rejectedFieldRetryState.Allow(retryBody) {
+			body = retryBody
+			setOpsUpstreamRequestBody(c, body)
+			continue
+		}
 		if !agentTaskRecoveryTried && s.isAgentIdentityAccount(ctx, account) && isAgentIdentityTaskInvalidHTTPResponse(resp.StatusCode, probeBody) {
 			agentTaskRecoveryTried = true
 			expectedTaskID := account.GetCredential("task_id")
@@ -4935,6 +4983,11 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 		forceFlushFailedEvent := false
 		if data, ok := extractOpenAISSEDataLine(line); ok {
 			dataBytes := []byte(data)
+			if restored := restoreCodexToolNamesFromContext(c, dataBytes); !bytes.Equal(restored, dataBytes) {
+				dataBytes = restored
+				data = string(restored)
+				line = "data: " + data
+			}
 			trimmedData := strings.TrimSpace(data)
 			if needModelReplace && strings.Contains(data, mappedModel) {
 				line = s.replaceModelInSSELine(line, mappedModel, originalModel)
@@ -5133,6 +5186,7 @@ func (s *OpenAIGatewayService) handleNonStreamingResponsePassthrough(
 		}
 		body = restored
 	}
+	body = restoreCodexToolNamesFromContext(c, body)
 	if !writeOpenAICompactSSEBridge(c, resp.StatusCode, body) {
 		c.Data(resp.StatusCode, contentType, body)
 	}
@@ -5175,6 +5229,7 @@ func (s *OpenAIGatewayService) handlePassthroughSSEToJSON(resp *http.Response, c
 		}
 		// Correct tool calls in final response
 		body = s.correctToolCallsInResponseBody(body)
+		body = restoreCodexToolNamesFromContext(c, body)
 		if mapping, ok := openAIResponsesClientToolMapping(c); ok && json.Valid(body) {
 			restored, _, restoreErr := apicompat.RestoreResponsesClientToolPayload(body, mapping)
 			if restoreErr != nil {
@@ -5965,6 +6020,11 @@ func (s *OpenAIGatewayService) handleStreamingResponse(ctx context.Context, resp
 		// Extract data from SSE line (supports both "data: " and "data:" formats)
 		if data, ok := extractOpenAISSEDataLine(line); ok {
 			dataBytes := []byte(data)
+			if restored := restoreCodexToolNamesFromContext(c, dataBytes); !bytes.Equal(restored, dataBytes) {
+				dataBytes = restored
+				data = string(restored)
+				line = "data: " + data
+			}
 			if openAIStreamEventIsTerminal(data) {
 				sawTerminalEvent = true
 			}
@@ -6464,21 +6524,42 @@ func (s *OpenAIGatewayService) parseSSEUsage(data string, usage *OpenAIUsage) {
 }
 
 func (s *OpenAIGatewayService) parseSSEUsageBytes(data []byte, usage *OpenAIUsage) {
-	if usage == nil || len(data) == 0 || bytes.Equal(data, []byte("[DONE]")) {
+	if usage == nil || len(data) == 0 || bytes.Equal(bytes.TrimSpace(data), []byte("[DONE]")) {
 		return
 	}
-	// 选择性解析：仅在数据中包含终止事件标识时才进入字段提取。
-	if len(data) < 72 {
+	parsedUsage, ok := extractOpenAIUsageFromJSONBytes(data)
+	if !ok {
 		return
 	}
-	eventType := gjson.GetBytes(data, "type").String()
-	if eventType != "response.completed" && eventType != "response.done" && eventType != "response.failed" &&
-		eventType != "response.incomplete" && eventType != "response.cancelled" && eventType != "response.canceled" {
-		return
-	}
-
-	if parsedUsage, ok := extractOpenAIUsageFromJSONBytes(data); ok {
+	if openAIStreamEventIsTerminal(string(data)) {
 		*usage = parsedUsage
+		return
+	}
+	mergeOpenAIUsageNonZero(usage, parsedUsage)
+}
+
+// Earlier usage is fallback only; terminal usage remains authoritative.
+func mergeOpenAIUsageNonZero(dst *OpenAIUsage, src OpenAIUsage) {
+	if dst == nil {
+		return
+	}
+	if src.InputTokens > 0 {
+		dst.InputTokens = src.InputTokens
+	}
+	if src.OutputTokens > 0 {
+		dst.OutputTokens = src.OutputTokens
+	}
+	if src.ImageInputTokens > 0 {
+		dst.ImageInputTokens = src.ImageInputTokens
+	}
+	if src.ImageOutputTokens > 0 {
+		dst.ImageOutputTokens = src.ImageOutputTokens
+	}
+	if src.CacheCreationInputTokens > 0 {
+		dst.CacheCreationInputTokens = src.CacheCreationInputTokens
+	}
+	if src.CacheReadInputTokens > 0 {
+		dst.CacheReadInputTokens = src.CacheReadInputTokens
 	}
 }
 
@@ -6654,6 +6735,7 @@ func (s *OpenAIGatewayService) handleNonStreamingResponse(ctx context.Context, r
 		body = normalized
 	}
 
+	body = restoreCodexToolNamesFromContext(c, body)
 	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 	turnState := stageOpenAICodexTurnState(c.Writer.Header(), resp.Header)
 
@@ -6725,6 +6807,7 @@ func (s *OpenAIGatewayService) handleSSEToJSON(resp *http.Response, c *gin.Conte
 		}
 		// Correct tool calls in final response
 		body = s.correctToolCallsInResponseBody(body)
+		body = restoreCodexToolNamesFromContext(c, body)
 	} else {
 		terminalType, terminalPayload, terminalOK := extractOpenAISSETerminalEvent(bodyText)
 		if terminalOK && (terminalType == "response.failed" || terminalType == "error") {
@@ -8509,8 +8592,20 @@ func normalizeOpenAIPassthroughOAuthBody(body []byte, compact bool) ([]byte, boo
 		return body, false, nil
 	}
 
-	normalized := body
-	changed := false
+	normalized, changed, err := normalizeOpenAIOAuthResponsesCompatibilityBody(body)
+	if err != nil {
+		return body, false, err
+	}
+	if next, modeChanged, modeErr := normalizeOpenAIResponsesReasoningMode(normalized); modeErr != nil {
+		return body, false, modeErr
+	} else if modeChanged {
+		normalized, changed = next, true
+	}
+	if next, schemaChanged, schemaErr := normalizeOpenAIResponseFormatSchemasBody(normalized); schemaErr != nil {
+		return body, false, schemaErr
+	} else if schemaChanged {
+		normalized, changed = next, true
+	}
 
 	for _, field := range openAIChatGPTInternalUnsupportedFields {
 		if value := gjson.GetBytes(normalized, field); !value.Exists() {
