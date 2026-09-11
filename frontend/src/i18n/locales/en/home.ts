@@ -9,7 +9,6 @@ export default {
     navHome: 'Home',
     navTutorial: 'Tutorial',
     navModels: 'Model Plaza',
-    navStore: 'Service Store',
     navContact: 'Contact',
     getStarted: 'Get Started',
     goToDashboard: 'Go to Dashboard',
@@ -27,6 +26,20 @@ export default {
     apiEntryAriaLabel: 'OpenAI-compatible API entry URL',
     copyApiEntry: 'Copy URL',
     apiEntryCopied: 'API URL copied',
+    integrationPreview: {
+      ariaLabel: 'Developer integration preview',
+      title: 'Quick integration',
+      status: 'Ready',
+      baseUrl: 'Base URL',
+      apiKey: 'API Key',
+      protocols: 'Compatible with OpenAI Responses, Chat Completions, and Anthropic Messages'
+    },
+    modelUseCases: {
+      codex: { title: 'Codex / OpenAI', description: 'For code generation, repo work, and long tasks' },
+      claude: { title: 'Claude', description: 'For long-context analysis and complex workflows' },
+      general: { title: 'Gemini / Qwen / DeepSeek', description: 'For everyday calls and cost control' }
+    },
+    pricingSummary: 'Model rates, balance, and usage details follow live dashboard configuration and can be reviewed by model and time.',
     trustSignalsLabel: 'Integration assurances',
     trustSignals: {
       compatible: 'OpenAI-compatible API',

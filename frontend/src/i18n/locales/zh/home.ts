@@ -9,7 +9,6 @@ export default {
     navHome: '首页',
     navTutorial: '教程',
     navModels: '模型广场',
-    navStore: '服务商店',
     navContact: '联系客服',
     getStarted: '立即开始',
     goToDashboard: '前往仪表盘',
@@ -27,6 +26,20 @@ export default {
     apiEntryAriaLabel: '兼容 OpenAI 的 API 入口网址',
     copyApiEntry: '复制地址',
     apiEntryCopied: 'API 地址已复制',
+    integrationPreview: {
+      ariaLabel: '开发者接入配置预览',
+      title: '快速接入配置',
+      status: '可用',
+      baseUrl: 'Base URL',
+      apiKey: 'API Key',
+      protocols: '兼容 OpenAI Responses、Chat Completions 与 Anthropic Messages'
+    },
+    modelUseCases: {
+      codex: { title: 'Codex / OpenAI', description: '适合代码生成、仓库级开发与长任务' },
+      claude: { title: 'Claude', description: '适合长上下文分析与复杂工作流' },
+      general: { title: 'Gemini / Qwen / DeepSeek', description: '适合日常调用与成本控制' }
+    },
+    pricingSummary: '模型倍率、余额和用量明细以后台实时配置为准，账单可按模型与时间核对。',
     trustSignalsLabel: '接入保障',
     trustSignals: {
       compatible: '兼容 OpenAI 接口',

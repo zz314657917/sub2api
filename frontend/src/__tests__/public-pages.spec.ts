@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const router = readFileSync(resolve(process.cwd(), 'src/router/index.ts'), 'utf8')
@@ -22,6 +22,14 @@ const publicCss = readFileSync(resolve(process.cwd(), 'src/views/public/public-p
 const sourceSiteBrandPattern = /LMUAI|lmuai|lmu\.ai|TiMi|TIMICC|timicc/i
 
 describe('public tutorial CMS and model plaza pages', () => {
+  it('resolves every lazy-loaded route component', () => {
+    const imports = [...router.matchAll(/import\(['"]@\/([^'"]+\.vue)['"]\)/g)]
+    expect(imports.length).toBeGreaterThan(0)
+    for (const [, path] of imports) {
+      expect(existsSync(resolve(process.cwd(), 'src', path)), path).toBe(true)
+    }
+  })
+
   it('registers tutorial list/detail and model plaza publicly', () => {
     expect(router).toContain("path: '/tutorial'")
     expect(router).toContain("name: 'Tutorial'")

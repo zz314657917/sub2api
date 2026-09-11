@@ -1,6 +1,16 @@
 # 当前任务快照
 
-最后更新：2026-09-09
+最后更新：2026-09-12
+
+## Store 分支拆分与提交整理（本轮快照，优先于下方历史）
+
+- `main` 移除 `/store` 路由、backend-mode 白名单、公共导航和中英文商店标签；页面原样保存到 `codex/store` 的独立工作区 `E:/codex-worktrees/sub2api/store`，该分支基于整理后的 main 单独恢复 store 入口。
+- 主线保留首页接入预览、模型用途和计费说明；备份锁测试改用 Go 测试子进程，不依赖 Windows cmd.exe。临时 HTML、outputs 和 sub2api 二进制不提交。
+- 完整前端 build 曾暴露 `6c1ee39e1` 遗留的账户编辑页错误 Teleport 包装（目标不存在且嵌套错误）；只撤去该提交引入的包装，恢复原表单结构后 build 通过。
+- 已执行：公共页面/home-theme/public-smoke 36/36；账户编辑/批量编辑 68/68；Go TestPgDumper 定向通过；frontend production build、diff check 通过。新增路由 import 文件存在性回归。
+- 浏览器：`http://127.0.0.1:62080/home`，1366x900 与 390x844 截图；手机 scrollWidth=clientWidth=390，导航无商店入口。截图 `output/playwright/store-split-desktop.png`、`store-split-mobile.png`。
+- Playwright session `store-split-0912`、daemon 66384、Chrome 41708、独立 profile `playwright_chromiumdev_profile-OO7HgA` 已关闭；任务 Vite 28360 已停止。未操作数据库、真实 provider 或容器；未验证真实账户保存与支付流程。
+
 
 ## 使用文档配置更新（2026-09-08，独立小修）
 

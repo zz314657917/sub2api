@@ -49,6 +49,22 @@
             </span>
           </button>
 
+          <div class="home-integration-preview" :aria-label="t('home.integrationPreview.ariaLabel')">
+            <div class="home-integration-preview-header">
+              <span>{{ t('home.integrationPreview.title') }}</span>
+              <span class="home-integration-preview-status">{{ t('home.integrationPreview.status') }}</span>
+            </div>
+            <div class="home-integration-preview-row">
+              <span>{{ t('home.integrationPreview.baseUrl') }}</span>
+              <code>{{ publicApiEntryUrl }}/v1</code>
+            </div>
+            <div class="home-integration-preview-row">
+              <span>{{ t('home.integrationPreview.apiKey') }}</span>
+              <code>sk-••••••••••••</code>
+            </div>
+            <p>{{ t('home.integrationPreview.protocols') }}</p>
+          </div>
+
           <div class="home-mimo-actions">
             <router-link v-if="isAuthenticated" :to="dashboardPath" class="home-action-button is-primary">
               <span class="home-button-inner">
@@ -200,6 +216,13 @@
             </div>
           </div>
         </div>
+        <div class="home-model-use-cases">
+          <article v-for="item in modelUseCases" :key="item.title" class="home-model-use-case">
+            <strong>{{ item.title }}</strong>
+            <span>{{ item.description }}</span>
+          </article>
+        </div>
+        <p class="home-pricing-summary">{{ t('home.pricingSummary') }}</p>
         <router-link to="/models" class="home-model-carousel-link">
           <span>{{ t('home.modelCarousel.viewAll') }}</span>
           <Icon name="arrowRight" size="xs" aria-hidden="true" />
@@ -395,6 +418,11 @@ const trustSignals = computed(() => [
   t('home.trustSignals.compatible'),
   t('home.trustSignals.routing'),
   t('home.trustSignals.traceable')
+])
+const modelUseCases = computed(() => [
+  { title: t('home.modelUseCases.codex.title'), description: t('home.modelUseCases.codex.description') },
+  { title: t('home.modelUseCases.claude.title'), description: t('home.modelUseCases.claude.description') },
+  { title: t('home.modelUseCases.general.title'), description: t('home.modelUseCases.general.description') }
 ])
 
 // Site settings - directly from appStore (already initialized from injected config)
@@ -835,6 +863,32 @@ onBeforeUnmount(() => {
   font-weight: 650;
   white-space: nowrap;
 }
+
+.home-integration-preview {
+  display: grid;
+  gap: 0.65rem;
+  width: min(100%, 36rem);
+  margin-top: 1rem;
+  border: 1px solid #e6dfd8;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.46);
+  padding: 0.9rem 1rem;
+  box-shadow: 0 10px 24px rgba(20, 20, 19, 0.035);
+}
+
+.home-integration-preview-header,
+.home-integration-preview-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.home-integration-preview-header { color: #504f49; font-size: 0.76rem; font-weight: 650; }
+.home-integration-preview-status { color: #4e8b59; font-size: 0.7rem; }
+.home-integration-preview-row span { flex: 0 0 auto; color: #8e8b82; font-size: 0.72rem; }
+.home-integration-preview-row code { min-width: 0; overflow: hidden; color: #25231f; font-family: var(--public-font-mono); font-size: 0.76rem; text-overflow: ellipsis; white-space: nowrap; }
+.home-integration-preview p { margin: 0; color: #6c6a64; font-size: 0.72rem; line-height: 1.5; }
 
 .home-mimo-actions {
   display: flex;
@@ -1382,6 +1436,34 @@ onBeforeUnmount(() => {
   text-underline-offset: 0.24em;
 }
 
+.home-model-use-cases {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+  max-width: 62rem;
+  margin: 1.1rem auto 0;
+}
+
+.home-model-use-case {
+  display: grid;
+  gap: 0.28rem;
+  border: 1px solid rgba(216, 206, 194, 0.72);
+  border-radius: 13px;
+  background: rgba(250, 249, 245, 0.48);
+  padding: 0.8rem 0.9rem;
+  text-align: left;
+}
+
+.home-model-use-case strong { color: #2a2924; font-size: 0.78rem; }
+.home-model-use-case span { color: rgba(61, 61, 58, 0.7); font-size: 0.72rem; line-height: 1.5; }
+
+.home-pricing-summary {
+  margin: 1rem auto 0;
+  color: rgba(61, 61, 58, 0.68);
+  font-size: 0.76rem;
+  line-height: 1.6;
+}
+
 .home-model-carousel-link:hover {
   color: #a9583e;
 }
@@ -1844,6 +1926,11 @@ onBeforeUnmount(() => {
     width: 100%;
     max-width: 100%;
     border-radius: 18px;
+  }
+
+  .home-model-use-cases {
+    grid-template-columns: 1fr;
+    max-width: calc(100vw - 2rem);
   }
 
   .home-model-carousel-shell,
