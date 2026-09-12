@@ -96,4 +96,18 @@ describe('UsageProgressBar', () => {
     expect(wrapper.text()).toContain('usage.resetNow')
     expect(wrapper.text()).not.toContain('usage.resetPending')
   })
+
+  it('按账号计费除以已使用百分比估算窗口总额度', () => {
+    const wrapper = mount(UsageProgressBar, {
+      props: {
+        label: '5h',
+        utilization: 73,
+        color: 'indigo',
+        windowStats: { requests: 1, tokens: 10, cost: 1237.77 }
+      }
+    })
+
+    expect(wrapper.text()).toContain('usage.estimatedQuota $1695.58')
+    expect(wrapper.get('[title="usage.estimatedQuotaDetail"]').exists()).toBe(true)
+  })
 })

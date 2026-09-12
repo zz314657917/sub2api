@@ -22,6 +22,8 @@ export default {
     accountCost: '成本',
     userBilled: '用户扣费',
     accountBilled: '账号计费',
+    estimatedQuota: '预估额度',
+    estimatedQuotaDetail: '账号计费 ${used} / 已使用 ${percent}%',
     resetNow: '现在',
     resetPending: '待刷新',
     accountMultiplier: '账号倍率',

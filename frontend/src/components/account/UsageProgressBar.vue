@@ -16,6 +16,13 @@
           A ${{ formatAccountCost }}
         </span>
         <span
+          v-if="estimatedQuota !== null"
+          class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800"
+          :title="t('usage.estimatedQuotaDetail', { used: formatAccountCost, percent: props.utilization })"
+        >
+          {{ t('usage.estimatedQuota') }} ${{ estimatedQuota }}
+        </span>
+        <span
           v-if="windowStats?.user_cost != null"
           class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800"
           :title="t('usage.userBilled')"
@@ -190,6 +197,11 @@ const formatTokens = computed(() => {
 const formatAccountCost = computed(() => {
   if (!props.windowStats) return '0.00'
   return props.windowStats.cost.toFixed(2)
+})
+
+const estimatedQuota = computed(() => {
+  if (!props.windowStats || props.utilization <= 0 || props.windowStats.cost <= 0) return null
+  return (props.windowStats.cost / (props.utilization / 100)).toFixed(2)
 })
 
 const formatUserCost = computed(() => {

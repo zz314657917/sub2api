@@ -22,6 +22,8 @@ export default {
     accountCost: 'Cost',
     userBilled: 'User billed',
     accountBilled: 'Account billed',
+    estimatedQuota: 'Est. quota',
+    estimatedQuotaDetail: 'Account billed ${used} / ${percent}% used',
     resetNow: 'Now',
     resetPending: 'Pending refresh',
     accountMultiplier: 'Account rate',
