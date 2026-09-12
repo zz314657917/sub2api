@@ -8605,6 +8605,13 @@ func normalizeOpenAIPassthroughOAuthBody(body []byte, compact bool) ([]byte, boo
 	if err != nil {
 		return body, false, err
 	}
+	// OAuth passthrough is also stateless upstream: replay reasoning by its
+	// encrypted content instead of sending an rs_* item lookup reference.
+	if next, replayChanged, replayErr := normalizeOpenAIAPIKeyStoreFalseReasoningReplay(normalized, compact); replayErr != nil {
+		return body, false, replayErr
+	} else if replayChanged {
+		normalized, changed = next, true
+	}
 	if next, modeChanged, modeErr := normalizeOpenAIResponsesReasoningMode(normalized); modeErr != nil {
 		return body, false, modeErr
 	} else if modeChanged {

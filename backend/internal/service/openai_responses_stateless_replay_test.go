@@ -86,3 +86,13 @@ func TestStatelessReasoningReplayWebSocketCompatibility(t *testing.T) {
 		require.Equal(t, "opaque", gjson.GetBytes(out, "input.0.encrypted_content").String())
 	}
 }
+
+func TestStatelessReasoningReplayOAuthPassthrough(t *testing.T) {
+	body := []byte(`{"store":false,"input":[{"type":"reasoning","id":"rs_oauth_missing","encrypted_content":"opaque"},{"type":"item_reference","id":"rs_oauth_missing"}]}`)
+	out, changed, err := normalizeOpenAIPassthroughOAuthBody(body, false)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.False(t, gjson.GetBytes(out, "input.0.id").Exists())
+	require.False(t, gjson.GetBytes(out, "input.1").Exists())
+	require.Equal(t, "opaque", gjson.GetBytes(out, "input.0.encrypted_content").String())
+}
