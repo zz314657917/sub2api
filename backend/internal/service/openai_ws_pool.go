@@ -1736,7 +1736,6 @@ func (p *openAIWSConnPool) effectiveMaxConnsByAccount(account *Account) int {
 		if account.Concurrency <= 0 {
 			return 0
 		}
-		return account.Concurrency
 	}
 	if account == nil || !p.dynamicMaxConnsEnabled() {
 		return hardCap
