@@ -1,8 +1,8 @@
 ---
-phase: done
-current_sprint: cf3577a3c-behavior-port
+phase: contract-approved
+current_sprint: upstream-main-ws-cap-s302
 total_sprints: 300
-pending_action: None for implementation and local QA; real-provider validation and deployment are outside this port.
+pending_action: S302 contract approved; create isolated worktree and implement, then independent QA.
 project_type: fullstack
 qa_mode: runtime
 approval_required: true
@@ -385,3 +385,6 @@ last_verified: 2026-09-12
 - QA: `docs/workflow/qa-reports/upstream-v0184-group-limit-partial-s279-qa.md`.
 
 - Earlier workflow status was archived by pge-compact at 20260901T043512271Z.
+
+
+
