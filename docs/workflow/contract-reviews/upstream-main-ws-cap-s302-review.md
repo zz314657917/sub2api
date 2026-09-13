@@ -4,7 +4,7 @@ scope: repository
 status: approved
 task_id: upstream-main-ws-cap-s302
 verdict: PASS
-base_commit: 2d0144ffc
+base_commit: cc5951896
 reviewer: final-evaluator
 last_verified: 2026-09-13
 ---

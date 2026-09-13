@@ -3,7 +3,7 @@ status: approved
 review_verdict: PASS
 task_id: upstream-main-ws-cap-s302
 worker_model: gpt-5.6-terra
-base_commit: 2d0144ffc
+base_commit: cc5951896
 spec_ref: docs/workflow/plans/upstream-main-selective-integration-20260913.md
 ---
 
@@ -81,4 +81,3 @@ runtime/provider risks.
 Stop and report `BLOCKED` if implementation requires schema/migration, changes
 routing/retry/scheduler semantics, touches denied paths, or the local owner
 cannot preserve legacy behavior without an architecture decision.
-
