@@ -41,7 +41,7 @@ func (s *userHandlerRepoStub) GetFirstAdmin(context.Context) (*service.User, err
 	cloned := *s.user
 	return &cloned, nil
 }
-func (s *userHandlerRepoStub) Update(_ context.Context, user *service.User) error {
+func (s *userHandlerRepoStub) Update(_ context.Context, user *service.User, _ service.UserUpdateFields) error {
 	cloned := *user
 	s.user = &cloned
 	return nil
@@ -89,6 +89,16 @@ func (s *userHandlerRepoStub) ListWithFilters(context.Context, pagination.Pagina
 }
 func (s *userHandlerRepoStub) UpdateBalance(context.Context, int64, float64) error { return nil }
 func (s *userHandlerRepoStub) DeductBalance(context.Context, int64, float64) error { return nil }
+func (s *userHandlerRepoStub) AdjustBalance(_ context.Context, _ int64, delta float64) (service.BalanceChange, error) {
+	oldBalance := s.user.Balance
+	s.user.Balance += delta
+	return service.BalanceChange{Old: oldBalance, New: s.user.Balance}, nil
+}
+func (s *userHandlerRepoStub) SetBalance(_ context.Context, _ int64, balance float64) (service.BalanceChange, error) {
+	oldBalance := s.user.Balance
+	s.user.Balance = balance
+	return service.BalanceChange{Old: oldBalance, New: s.user.Balance}, nil
+}
 func (s *userHandlerRepoStub) UpdateConcurrency(context.Context, int64, int) error { return nil }
 func (s *userHandlerRepoStub) BatchSetConcurrency(context.Context, []int64, int) (int, error) {
 	return 0, nil
