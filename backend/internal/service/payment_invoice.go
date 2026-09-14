@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"log/slog"
 	"math"
 	"os"
 	"path/filepath"
@@ -215,6 +216,9 @@ func (s *PaymentService) CreateInvoiceRequest(ctx context.Context, input Invoice
 		return nil, fmt.Errorf("create invoice request: %w", err)
 	}
 	view := invoiceRequestView(req)
+	// Keep an explicit admin-visible audit signal for newly submitted requests.
+	// The admin console can surface this log through the existing operations log.
+	slog.InfoContext(ctx, "new invoice request submitted", "invoice_request_id", view.ID, "user_id", view.UserID, "amount", view.Amount, "currency", view.Currency)
 	return &view, nil
 }
 
