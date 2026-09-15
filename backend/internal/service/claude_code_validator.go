@@ -102,7 +102,7 @@ func (v *ClaudeCodeValidator) Validate(r *http.Request, body map[string]any) boo
 	if isMaxTokensOneHaiku, ok := IsMaxTokensOneHaikuRequestFromContext(r.Context()); ok && isMaxTokensOneHaiku {
 		return true // 绕过 system prompt 检查，UA 已在 Step 1 验证
 	}
-	if isMaxTokensOneBody(body) && !isClaudeHaikuModel(body) {
+	if isMaxTokensOneBody(body) {
 		return true
 	}
 
