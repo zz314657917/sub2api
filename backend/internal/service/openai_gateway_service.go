@@ -220,6 +220,7 @@ func (s *OpenAICodexUsageSnapshot) Normalize() *NormalizedCodexLimits {
 type OpenAIUsage struct {
 	InputTokens              int `json:"input_tokens"`
 	ImageInputTokens         int `json:"image_input_tokens,omitempty"`
+	ImageCacheReadTokens     int `json:"image_cache_read_tokens,omitempty"`
 	OutputTokens             int `json:"output_tokens"`
 	CacheCreationInputTokens int `json:"cache_creation_input_tokens,omitempty"`
 	CacheReadInputTokens     int `json:"cache_read_input_tokens,omitempty"`
@@ -6639,6 +6640,7 @@ func openAIUsageFromGJSON(value gjson.Result) (OpenAIUsage, bool) {
 	cacheReadTokens := openAICacheReadTokensFromUsage(value)
 	cacheCreationTokens := openAICacheCreationTokensFromUsage(value)
 	imageInputTokens := firstPositiveBoundedGJSONInt(value.Get("input_tokens_details.image_tokens"), value.Get("prompt_tokens_details.image_tokens"))
+	imageCacheReadTokens := firstPositiveBoundedGJSONInt(value.Get("input_tokens_details.image_cache_read_tokens"), value.Get("prompt_tokens_details.image_cache_read_tokens"))
 	imageOutputTokens := firstPositiveBoundedGJSONInt(value.Get("output_tokens_details.image_tokens"), value.Get("completion_tokens_details.image_tokens"))
 	return OpenAIUsage{
 		InputTokens:              inputTokens,
@@ -6646,6 +6648,7 @@ func openAIUsageFromGJSON(value gjson.Result) (OpenAIUsage, bool) {
 		CacheCreationInputTokens: cacheCreationTokens,
 		CacheReadInputTokens:     cacheReadTokens,
 		ImageInputTokens:         min(imageInputTokens, inputTokens),
+		ImageCacheReadTokens:     min(imageCacheReadTokens, cacheReadTokens),
 		ImageOutputTokens:        min(imageOutputTokens, outputTokens),
 	}, true
 }
@@ -7680,12 +7683,13 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 
 	// Calculate cost
 	tokens := UsageTokens{
-		InputTokens:         actualInputTokens,
-		ImageInputTokens:    result.Usage.ImageInputTokens,
-		OutputTokens:        result.Usage.OutputTokens,
-		CacheCreationTokens: result.Usage.CacheCreationInputTokens,
-		CacheReadTokens:     result.Usage.CacheReadInputTokens,
-		ImageOutputTokens:   result.Usage.ImageOutputTokens,
+		InputTokens:          actualInputTokens,
+		ImageInputTokens:     result.Usage.ImageInputTokens,
+		ImageCacheReadTokens: result.Usage.ImageCacheReadTokens,
+		OutputTokens:         result.Usage.OutputTokens,
+		CacheCreationTokens:  result.Usage.CacheCreationInputTokens,
+		CacheReadTokens:      result.Usage.CacheReadInputTokens,
+		ImageOutputTokens:    result.Usage.ImageOutputTokens,
 	}
 
 	// Get rate multiplier

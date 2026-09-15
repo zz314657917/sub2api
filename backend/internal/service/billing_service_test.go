@@ -621,6 +621,13 @@ func TestComputeTokenBreakdown_GptImage2ImageEditIssue4386(t *testing.T) {
 	require.InDelta(t, 0.016081, cost.TotalCost, 1e-9)
 }
 
+func TestComputeTokenBreakdown_ImageCacheReadUsesImagePrice(t *testing.T) {
+	svc := newTestBillingService()
+	pricing := &ModelPricing{CacheReadPricePerToken: 1e-6, ImageCacheReadPricePerToken: 2e-6}
+	cost := svc.computeTokenBreakdown(pricing, UsageTokens{CacheReadTokens: 100, ImageCacheReadTokens: 40}, 1.0, "", false)
+	require.InDelta(t, float64(60)*1e-6+float64(40)*2e-6, cost.CacheReadCost, 1e-15)
+}
+
 func TestCalculateCostWithLongContext_BelowThreshold(t *testing.T) {
 	svc := newTestBillingService()
 
