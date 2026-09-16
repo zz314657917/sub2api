@@ -30,6 +30,11 @@ func RegisterUserRoutes(
 	authenticated.Use(middleware.BackendModeUserGuard(settingService))
 	authenticated.Use(gin.HandlerFunc(auditLog))
 	{
+		if h.PelicanTest != nil {
+			authenticated.GET("/pelican-tests", h.PelicanTest.List)
+			authenticated.GET("/pelican-tests/history", h.PelicanTest.History)
+			authenticated.GET("/pelican-tests/results/:id", h.PelicanTest.Result)
+		}
 		// 用户接口
 		user := authenticated.Group("/user")
 		{

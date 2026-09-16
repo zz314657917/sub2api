@@ -344,7 +344,10 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	asyncImageHandler := handler.NewAsyncImageHandler(imageTaskService, openAIGatewayHandler)
 	idempotencyCoordinator := service.ProvideIdempotencyCoordinator(idempotencyRepository, configConfig)
 	idempotencyCleanupService := service.ProvideIdempotencyCleanupService(idempotencyRepository, configConfig)
-	handlers := handler.ProvideHandlers(authHandler, userHandler, userAccountHandler, userProxyHandler, apiKeyHandler, usageHandler, redeemHandler, subscriptionHandler, announcementHandler, tutorialPageHandler, channelMonitorUserHandler, imageCreatorHandler, canvasHandler, promptFavoriteHandler, ticketHandler, studioBridgeHandler, welfareHandler, adminHandlers, gatewayHandler, openAIGatewayHandler, handlerSettingHandler, totpHandler, passkeyHandler, handlerPaymentHandler, handlerGroupBuyHandler, cafeHandler, paymentWebhookHandler, membershipHandler, availableChannelHandler, asyncImageHandler, idempotencyCoordinator, idempotencyCleanupService)
+	pelicanRepository := repository.NewPelicanTestRepository(db)
+	pelicanService := service.ProvidePelicanTestService(pelicanRepository, accountRepository, groupRepository, accountTestService)
+	pelicanHandler := handler.NewPelicanTestHandler(pelicanService, apiKeyService)
+	handlers := handler.ProvideHandlers(authHandler, userHandler, userAccountHandler, userProxyHandler, apiKeyHandler, usageHandler, redeemHandler, subscriptionHandler, announcementHandler, tutorialPageHandler, channelMonitorUserHandler, imageCreatorHandler, canvasHandler, promptFavoriteHandler, ticketHandler, studioBridgeHandler, welfareHandler, adminHandlers, gatewayHandler, openAIGatewayHandler, handlerSettingHandler, totpHandler, passkeyHandler, handlerPaymentHandler, handlerGroupBuyHandler, cafeHandler, paymentWebhookHandler, membershipHandler, availableChannelHandler, asyncImageHandler, pelicanHandler, idempotencyCoordinator, idempotencyCleanupService)
 	jwtAuthMiddleware := middleware.NewJWTAuthMiddlewareWithSessionBinding(authService, userService, settingService, auditLogService)
 	optionalJWTAuthMiddleware := middleware.NewOptionalJWTAuthMiddleware(authService, userService, settingService, auditLogService)
 	adminAuthMiddleware := middleware.NewAdminAuthMiddlewareWithSessionBinding(authService, userService, settingService, auditLogService)
@@ -369,7 +372,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	cafeRoomLifecycleService := service.ProvideCafeRoomLifecycleService(client, groupBuyService, cafeRoomActivationService, cafeRoomExpiryService)
 	groupBuyLifecycleService := service.ProvideGroupBuyLifecycleService(groupBuyService, cafeRoomLifecycleService)
 	channelMonitorRunner := service.ProvideChannelMonitorRunner(channelMonitorService, settingService)
-	v2 := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, affiliateRiskScannerService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, schedulerSnapshotService, tokenRefreshService, accountExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, auditLogService, leaderboardLotteryRunner, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, openAIGatewayService, imageCreatorService, scheduledTestRunnerService, backupService, paymentOrderExpiryService, groupBuyLifecycleService, channelMonitorRunner, promptService, upstreamBillingProbeService, cnProviderBalanceCheckService, usageBillingSettlementService)
+	v2 := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, affiliateRiskScannerService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, schedulerSnapshotService, tokenRefreshService, accountExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, auditLogService, leaderboardLotteryRunner, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, openAIGatewayService, imageCreatorService, scheduledTestRunnerService, pelicanService, backupService, paymentOrderExpiryService, groupBuyLifecycleService, channelMonitorRunner, promptService, upstreamBillingProbeService, cnProviderBalanceCheckService, usageBillingSettlementService)
 	application := &Application{
 		Server:            httpServer,
 		PromptAudit:       promptService,
@@ -430,6 +433,7 @@ func provideCleanup(
 	openAIGateway *service.OpenAIGatewayService,
 	imageCreator *service.ImageCreatorService,
 	scheduledTestRunner *service.ScheduledTestRunnerService,
+	pelicanTests *service.PelicanTestService,
 	backupSvc *service.BackupService,
 	paymentOrderExpiry *service.PaymentOrderExpiryService,
 	groupBuyLifecycle *service.GroupBuyLifecycleService,
@@ -449,6 +453,12 @@ func provideCleanup(
 		}
 
 		parallelSteps := []cleanupStep{
+			{"PelicanTestService", func() error {
+				if pelicanTests != nil {
+					return pelicanTests.Stop(ctx)
+				}
+				return nil
+			}},
 			{"UsageBillingSettlementService", func() error {
 				if billingSettlement != nil {
 					billingSettlement.Stop()

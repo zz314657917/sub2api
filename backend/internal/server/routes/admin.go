@@ -20,6 +20,14 @@ func RegisterAdminRoutes(
 	admin.Use(gin.HandlerFunc(adminAuth))
 	admin.Use(gin.HandlerFunc(auditLog))
 	{
+		if h.PelicanTest != nil {
+			plans := admin.Group("/pelican-test-plans")
+			plans.GET("", h.PelicanTest.ListPlans)
+			plans.POST("", h.PelicanTest.SavePlan)
+			plans.PUT("/:id", h.PelicanTest.SavePlan)
+			plans.DELETE("/:id", h.PelicanTest.DeletePlan)
+			plans.POST("/:id/run", h.PelicanTest.RunPlan)
+		}
 		// 仪表盘
 		registerDashboardRoutes(admin, h)
 

@@ -104,6 +104,7 @@ func provideCleanup(
 	openAIGateway *service.OpenAIGatewayService,
 	imageCreator *service.ImageCreatorService,
 	scheduledTestRunner *service.ScheduledTestRunnerService,
+	pelicanTests *service.PelicanTestService,
 	backupSvc *service.BackupService,
 	paymentOrderExpiry *service.PaymentOrderExpiryService,
 	groupBuyLifecycle *service.GroupBuyLifecycleService,
@@ -124,6 +125,12 @@ func provideCleanup(
 
 		// 应用层清理步骤可并行执行，基础设施资源（Redis/Ent）最后按顺序关闭。
 		parallelSteps := []cleanupStep{
+			{"PelicanTestService", func() error {
+				if pelicanTests != nil {
+					return pelicanTests.Stop(ctx)
+				}
+				return nil
+			}},
 			{"UsageBillingSettlementService", func() error {
 				if billingSettlement != nil {
 					billingSettlement.Stop()

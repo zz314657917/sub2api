@@ -80,6 +80,7 @@ type Handlers struct {
 	Membership       *MembershipHandler
 	AvailableChannel *AvailableChannelHandler
 	AsyncImage       *AsyncImageHandler
+	PelicanTest      *PelicanTestHandler
 }
 
 // BuildInfo contains build-time information

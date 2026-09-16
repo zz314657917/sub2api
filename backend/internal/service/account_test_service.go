@@ -594,7 +594,7 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 	c.Writer.Flush()
 
 	// Create OpenAI Responses API payload
-	payload := createOpenAITestPayload(testModelID, isOAuth)
+	payload := createOpenAITestPayloadWithPrompt(testModelID, isOAuth, prompt)
 	payloadBytes, _ := json.Marshal(payload)
 
 	if !agentIdentityTaskRecoveryWasTried(ctx) {
@@ -1431,6 +1431,17 @@ func (s *AccountTestService) processGeminiStream(c *gin.Context, body io.Reader)
 
 // createOpenAITestPayload creates a test payload for OpenAI Responses API
 func createOpenAITestPayload(modelID string, isOAuth bool) map[string]any {
+	return createOpenAITestPayloadWithPrompt(modelID, isOAuth, "")
+}
+
+// createOpenAITestPayloadWithPrompt preserves the historic "hi" probe when no
+// prompt is supplied, while allowing bounded callers such as Pelican to test
+// the exact Responses prompt.
+func createOpenAITestPayloadWithPrompt(modelID string, isOAuth bool, prompt string) map[string]any {
+	testPrompt := strings.TrimSpace(prompt)
+	if testPrompt == "" {
+		testPrompt = "hi"
+	}
 	payload := map[string]any{
 		"model": modelID,
 		"input": []map[string]any{
@@ -1439,7 +1450,7 @@ func createOpenAITestPayload(modelID string, isOAuth bool) map[string]any {
 				"content": []map[string]any{
 					{
 						"type": "input_text",
-						"text": "hi",
+						"text": testPrompt,
 					},
 				},
 			},
@@ -1932,6 +1943,9 @@ func (s *AccountTestService) sendEvent(c *gin.Context, event TestEvent) {
 
 // sendErrorAndEnd sends an error event and ends the stream
 func (s *AccountTestService) sendErrorAndEnd(c *gin.Context, errorMsg string) error {
+	if c.GetBool("pelican_test") {
+		errorMsg = "Pelican provider request failed"
+	}
 	log.Printf("Account test error: %s", errorMsg)
 	s.sendEvent(c, TestEvent{Type: "error", Error: errorMsg})
 	return fmt.Errorf("%s", errorMsg)

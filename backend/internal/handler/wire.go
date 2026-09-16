@@ -217,6 +217,7 @@ func ProvideHandlers(
 	membershipHandler *MembershipHandler,
 	availableChannelHandler *AvailableChannelHandler,
 	asyncImageHandler *AsyncImageHandler,
+	pelicanTestHandler *PelicanTestHandler,
 	_ *service.IdempotencyCoordinator,
 	_ *service.IdempotencyCleanupService,
 ) *Handlers {
@@ -251,6 +252,7 @@ func ProvideHandlers(
 		Membership:       membershipHandler,
 		AvailableChannel: availableChannelHandler,
 		AsyncImage:       asyncImageHandler,
+		PelicanTest:      pelicanTestHandler,
 	}
 }
 
@@ -286,6 +288,7 @@ var ProviderSet = wire.NewSet(
 	NewMembershipHandler,
 	NewAvailableChannelHandler,
 	NewAsyncImageHandler,
+	NewPelicanTestHandler,
 
 	// Admin handlers
 	admin.NewDashboardHandler,
