@@ -1,5 +1,46 @@
 # Sub2API 上游选择性迁移总计划
 
+## 当前核对快照（2026-09-16，优先于下方历史阶段）
+
+核对主线 `1e0ce5878`；未刷新远端，不将下方旧 upstream SHA 称为最新。
+
+| 项目 | 当前证据 | 剩余门禁 |
+| --- | --- | --- |
+| S302 WS cap | `8a35e9540` 已提交 | 不重复迁移 |
+| S303 会话保留 | 后端 `b675e7f3c`、前端 `ed91196f8`、专项回归 `1e0ce5878`；独立 QA PASS | 真实 DB/认证浏览器仍未验证 |
+| Accept-Encoding | `d7a08661f` 已提交 | 不重复迁移 |
+| Proxy list malformed | `frontend/src/api/admin/proxies.ts` 已有数组校验 | 不重复实现同等校验 |
+| Claude max_tokens probe | `bb3dde9e4` 已提交 | 已知旧 strict-validator fixture 失败须单独归因 |
+| MiniMax allowlist | 本地没有匹配 adapter，不能仅加名单 | 新平台范围另行批准 |
+| Image cached billing / aliases | `23ddcc8d6` / `568fd9ced` | 真实 provider 验收未完成 |
+| Native Images / account parity | `dc851ea3f` / `6ed89efe2`；独立 scoped QA | 真实图片生成/编辑与结算验收缺专用资源确认 |
+| Claude message output_config | `d48fca7d3`；独立 scoped QA | 真实 provider 未验证，不阻止已批准本地合入 |
+| Gemini finishReason | 缺上游 signal owner；本地未知结束原因默认 end_turn | 特定上游错误归因缺陷不适用，不导入另一套框架 |
+| Firefox / CF challenge | `9eb120dd4` 尚未迁入；本地 privacy factory 仍为 Chrome | 独立设计及真实账号/测试环境确认后执行 |
+| OpenCode | 长期新平台专项 | 架构、跨协议范围待明确批准 |
+| Composite | P1 registry 已存在，提交 `b25cc223a` | 核对 P1 独立验收/真实 DB；P2/P3 不视为已授权 |
+
+Image account / Claude 两项完整 service 回归均保留真实 `FAIL`：四个旧失败
+已在干净 `dc851ea3f` 复现并取得精确例外审查。完整 JSON `Action=fail`
+枚举替代截断日志判断；该结论不是全量测试绿，也不是发布批准。证据分别位于
+`docs/workflow/integrations/image2-account-parity-20260916/` 与
+`docs/workflow/integrations/claude-mid-output-config-20260916/`。
+
+当前安全下一步：复核 Composite P1 已批准范围中的独立本地 QA 缺口；等待真实
+provider/DB/认证浏览器测试资源及允许操作范围，不调用用户现有账号、不操作数据库/容器。
+S303 本地验收证据：`docs/workflow/integrations/s303-regression-closure-20260916/`。
+Firefox 资源设计：`docs/workflow/plans/openai-privacy-cf-resource-plan-20260916.md`。
+下方“当前下一步”为初建计划时的历史文本，不再调度已完成的 S302/S303 业务迁移。
+
+OpenCode 源码审计补充：缓存上游初始功能 `242907854` 连同后续
+`7c008bd8c`、`981279c99`、`efcc2252e`、`22dffa1bb` 涉及平台、三协议
+dispatch/model mapping、计费、session、402 与 quota。初始提交包含 Ent
+schema/迁移和前后端管理入口；本地未找到 PlatformOpenCode/PlatformOpencode。
+因此它不是可直接补齐的 allowlist，不能将“平台不存在”视为小修授权。
+初始功能实际触达 104 个路径；上游迁移编号 238 与本地已有的
+`238_usage_billing_settlement_consistency.sql` 冲突，必须重新设计本地迁移编号，
+不得覆盖既有账务迁移文件。
+
 ## 总目标
 
 在本地长期分叉且主工作树存在用户改动的前提下，持续从
