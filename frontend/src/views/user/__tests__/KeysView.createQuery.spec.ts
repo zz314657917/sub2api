@@ -376,6 +376,72 @@ describe('KeysView create query', () => {
     ))).toBe(true)
   })
 
+  it('preserves mixed first-response timeouts, applies bulk changes, and gives new routes the bulk value', async () => {
+    availableGroups.mockResolvedValue([
+      groupFixture(1, 'A', 1),
+      groupFixture(2, 'B', 1),
+      groupFixture(3, 'C', 1),
+    ])
+    const wrapper = mountView()
+    await flushPromises()
+
+    const setupState = (wrapper.vm as any).$?.setupState
+    setupState.editKey({
+      id: 18,
+      name: 'Timeout Key',
+      group_id: 1,
+      multi_group_routes: [
+        { group_id: 1, priority: 1, weight: 1, cooldown_seconds: 30, first_response_timeout_seconds: 15, enabled: true },
+        { group_id: 2, priority: 2, weight: 1, cooldown_seconds: 30, enabled: true },
+      ],
+      account_pool_strategy: 'shared_only', status: 'active', ip_whitelist: [], ip_blacklist: [],
+      quota: 0, quota_used: 0, rate_limit_5h: 0, rate_limit_1d: 0, rate_limit_7d: 0, expires_at: null,
+    })
+
+    expect(setupState.formData.multi_group_routes.map((route: { first_response_timeout_seconds: number }) => route.first_response_timeout_seconds)).toEqual([15, 0])
+    setupState.handleRouteOrderChanged()
+    expect(setupState.formData.multi_group_routes.map((route: { first_response_timeout_seconds: number }) => route.first_response_timeout_seconds)).toEqual([15, 0])
+
+    setupState.formData.first_response_timeout_seconds = 30
+    setupState.applyFirstResponseTimeoutToRoutes()
+    setupState.addMultiGroupRoute()
+    expect(setupState.formData.multi_group_routes.map((route: { first_response_timeout_seconds: number }) => route.first_response_timeout_seconds)).toEqual([30, 30, 30])
+
+    await setupState.handleSubmit()
+    expect(keysUpdate.mock.calls[0][1].multi_group_routes.map((route: { first_response_timeout_seconds?: number }) => route.first_response_timeout_seconds)).toEqual([30, 30, 30])
+  })
+
+  it('rejects invalid first-response timeout values before saving', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const setupState = (wrapper.vm as any).$?.setupState
+    setupState.openCreateModal()
+    setupState.formData.group_id = 1
+    setupState.formData.enable_multi_group_routing = true
+    setupState.formData.multi_group_routes = [{ ...routeFormFixture('invalid-timeout', 1), first_response_timeout_seconds: 601 }]
+
+    await setupState.handleSubmit()
+    expect(keysCreate).not.toHaveBeenCalled()
+  })
+
+  it.each([0, 601, 1.5, ''])('does not change routes when bulk timeout %p is invalid', async (seconds) => {
+    const wrapper = mountView()
+    await flushPromises()
+    const setupState = (wrapper.vm as any).$?.setupState
+    setupState.openCreateModal()
+    setupState.formData.enable_multi_group_routing = true
+    setupState.formData.multi_group_routes = [
+      { ...routeFormFixture('first', 1), first_response_timeout_seconds: 15 },
+      { ...routeFormFixture('second', 2), first_response_timeout_seconds: 45 },
+    ]
+    const before = setupState.formData.multi_group_routes.map((route: { first_response_timeout_seconds: number }) => route.first_response_timeout_seconds)
+    setupState.formData.first_response_timeout_seconds = seconds
+
+    setupState.applyFirstResponseTimeoutToRoutes()
+
+    expect(setupState.formData.multi_group_routes.map((route: { first_response_timeout_seconds: number }) => route.first_response_timeout_seconds)).toEqual(before)
+  })
+
   it('does not overwrite a touched default group when rates load after the dialog opens', async () => {
     let resolveRates!: (rates: Record<number, number>) => void
     userGroupRates.mockReturnValue(new Promise((resolve) => {
@@ -505,6 +571,7 @@ function routeFormFixture(
     image_only: boolean
     text_only: boolean
     model_patterns: string[]
+    first_response_timeout_seconds: number
   }> = {},
 ) {
   return {
@@ -517,6 +584,7 @@ function routeFormFixture(
     image_only: overrides.image_only ?? false,
     text_only: overrides.text_only ?? false,
     model_patterns: overrides.model_patterns ?? [],
+    first_response_timeout_seconds: overrides.first_response_timeout_seconds ?? 0,
   }
 }
 

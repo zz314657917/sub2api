@@ -665,6 +665,51 @@
           </div>
 
           <div v-if="formData.enable_multi_group_routing" class="mt-3 min-h-0">
+            <div class="mb-3 rounded-lg border border-gray-200 bg-white p-3 dark:border-dark-700 dark:bg-dark-900/40">
+              <div class="flex flex-wrap items-center gap-2">
+                <label class="inline-flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+                  <input
+                    type="checkbox"
+                    :checked="hasFirstResponseTimeout"
+                    :aria-label="t('keys.firstResponseTimeoutEnable')"
+                    @change="toggleFirstResponseTimeout"
+                  />
+                  {{ t('keys.firstResponseTimeoutEnable') }}
+                </label>
+                <label class="inline-flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300">
+                  <span class="sr-only">{{ t('keys.firstResponseTimeoutBulkSeconds') }}</span>
+                  <input
+                    v-model.number="formData.first_response_timeout_seconds"
+                    type="number"
+                    min="1"
+                    max="600"
+                    step="1"
+                    :disabled="!hasFirstResponseTimeout"
+                    class="h-8 w-16 rounded-md border border-gray-300 bg-white px-2 text-center tabular-nums dark:border-dark-600 dark:bg-dark-800"
+                    :aria-label="t('keys.firstResponseTimeoutBulkSeconds')"
+                  />
+                  <span>{{ t('keys.seconds') }}</span>
+                </label>
+                <button
+                  type="button"
+                  :disabled="!hasFirstResponseTimeout"
+                  class="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-dark-600 dark:text-gray-300 dark:hover:bg-dark-700"
+                  @click="applyFirstResponseTimeoutToRoutes"
+                >
+                  {{ t('keys.firstResponseTimeoutApplyAll') }}
+                </button>
+              </div>
+              <p class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                {{ t('keys.firstResponseTimeoutHint') }}
+              </p>
+              <details class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                <summary class="w-fit cursor-pointer rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500">
+                  {{ t('keys.firstResponseTimeoutRules') }}
+                </summary>
+                <p class="mt-1">{{ t('keys.firstResponseTimeoutLimitHint') }}</p>
+                <p class="mt-1">{{ t('keys.firstResponseTimeoutScopeHint') }}</p>
+              </details>
+            </div>
             <VueDraggable
               v-model="formData.multi_group_routes"
               :animation="200"
@@ -675,7 +720,7 @@
               <div
                 v-for="(route, index) in formData.multi_group_routes"
                 :key="route.client_id"
-                class="key-route-row flex flex-wrap items-center gap-2 p-2.5 transition-colors hover:bg-gray-50 dark:hover:bg-dark-800/70 sm:flex-nowrap"
+                class="key-route-row flex flex-wrap items-center gap-2 p-2.5 transition-colors hover:bg-gray-50 dark:hover:bg-dark-800/70"
               >
                 <button
                   type="button"
@@ -688,7 +733,7 @@
                   {{ index + 1 }}
                 </span>
 
-                <div class="min-w-0 flex-1 sm:min-w-[12rem]">
+                <div class="min-w-[12rem] flex-1">
                   <Select
                     :model-value="route.group_id"
                     :options="getRouteGroupOptions(route)"
@@ -745,6 +790,21 @@
                     </template>
                   </Select>
                 </div>
+
+                <label class="flex flex-shrink-0 items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                  <span class="sr-only">{{ t('keys.firstResponseTimeoutRouteSeconds') }}</span>
+                  <span>{{ t('keys.firstResponseTimeoutPrefix') }}</span>
+                  <input
+                    v-model.number="route.first_response_timeout_seconds"
+                    type="number"
+                    min="0"
+                    max="600"
+                    step="1"
+                    class="h-8 w-14 rounded-md border border-gray-300 bg-white px-1 text-center tabular-nums dark:border-dark-600 dark:bg-dark-800"
+                    :aria-label="t('keys.firstResponseTimeoutRouteSeconds')"
+                  />
+                  <span>{{ route.first_response_timeout_seconds === 0 ? t('keys.firstResponseTimeoutDisabled') : t('keys.firstResponseTimeoutSuffix') }}</span>
+                </label>
 
                 <label
                   class="inline-flex h-8 w-8 flex-shrink-0 cursor-pointer items-center justify-center rounded-lg border border-gray-200 text-gray-300 transition-colors hover:bg-gray-50 focus-within:ring-2 focus-within:ring-primary-500/30 dark:border-dark-600 dark:text-dark-500 dark:hover:bg-dark-700"
@@ -1571,6 +1631,7 @@ interface ApiKeyMultiGroupRouteForm {
   group_id: number | null
   priority: number
   enabled: boolean
+  first_response_timeout_seconds: number
 }
 
 const appStore = useAppStore()
@@ -1717,6 +1778,7 @@ const formData = ref({
   group_id: null as number | null,
   enable_multi_group_routing: false,
   multi_group_routes: [] as ApiKeyMultiGroupRouteForm[],
+  first_response_timeout_seconds: 30,
   account_pool_strategy: 'shared_only' as AccountPoolStrategy,
   status: 'active' as 'active' | 'inactive',
   use_custom_key: false,
@@ -1774,8 +1836,44 @@ const createDefaultRoute = (
   client_id: createRouteClientId(),
   group_id: groupId,
   priority: formData.value.multi_group_routes.length + 1,
-  enabled: true
+  enabled: true,
+  first_response_timeout_seconds: hasFirstResponseTimeout.value
+    ? suggestedFirstResponseTimeout(formData.value.first_response_timeout_seconds)
+    : 0
 })
+
+const isValidFirstResponseTimeout = (value: unknown): value is number => (
+  typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 600
+)
+
+const suggestedFirstResponseTimeout = (value: unknown) => (
+  isValidFirstResponseTimeout(value) ? value : 30
+)
+
+const hasFirstResponseTimeout = computed(() => formData.value.multi_group_routes.some(
+  (route) => route.first_response_timeout_seconds > 0
+))
+
+const applyFirstResponseTimeoutToRoutes = () => {
+  const seconds = formData.value.first_response_timeout_seconds
+  if (!isValidFirstResponseTimeout(seconds)) {
+    appStore.showError(t('keys.firstResponseTimeoutInvalid'))
+    return
+  }
+  formData.value.multi_group_routes.forEach((route) => {
+    route.first_response_timeout_seconds = seconds
+  })
+}
+
+const toggleFirstResponseTimeout = () => {
+  if (hasFirstResponseTimeout.value) {
+    formData.value.multi_group_routes.forEach((route) => {
+      route.first_response_timeout_seconds = 0
+    })
+    return
+  }
+  applyFirstResponseTimeoutToRoutes()
+}
 
 const getNextRouteGroupId = () => {
   const used = new Set(
@@ -1822,7 +1920,8 @@ const normalizeRouteForm = (route: ApiKeyMultiGroupRoute): ApiKeyMultiGroupRoute
   client_id: createRouteClientId(),
   group_id: route.group_id,
   priority: route.priority || 100,
-  enabled: route.enabled
+  enabled: route.enabled,
+  first_response_timeout_seconds: route.first_response_timeout_seconds || 0
 })
 
 const normalizeRouteForms = (routes: ApiKeyMultiGroupRoute[]): ApiKeyMultiGroupRouteForm[] => {
@@ -1842,12 +1941,16 @@ const normalizeRouteForms = (routes: ApiKeyMultiGroupRoute[]): ApiKeyMultiGroupR
 
 const buildMultiGroupRoutes = (): ApiKeyMultiGroupRoute[] => {
   return formData.value.multi_group_routes.map((route, index) => {
+    const firstResponseTimeoutSeconds = route.first_response_timeout_seconds
     return {
       group_id: route.group_id as number,
       priority: index + 1,
       weight: 1,
       cooldown_seconds: 30,
-      enabled: Boolean(route.enabled)
+      enabled: Boolean(route.enabled),
+      ...(firstResponseTimeoutSeconds > 0
+        ? { first_response_timeout_seconds: firstResponseTimeoutSeconds }
+        : {})
     }
   })
 }
@@ -1862,6 +1965,14 @@ const validateMultiGroupRoutes = (): ApiKeyMultiGroupRoute[] | null => {
   }
   if (formData.value.multi_group_routes.some((route) => route.group_id === null)) {
     appStore.showError(t('keys.routeGroupRequired'))
+    return null
+  }
+  if (formData.value.multi_group_routes.some((route) => (
+    !Number.isInteger(route.first_response_timeout_seconds) ||
+    route.first_response_timeout_seconds < 0 ||
+    route.first_response_timeout_seconds > 600
+  ))) {
+    appStore.showError(t('keys.firstResponseTimeoutInvalid'))
     return null
   }
   const routeGroupIds = formData.value.multi_group_routes.map((route) => route.group_id)
@@ -2150,6 +2261,7 @@ const editKey = (key: ApiKey) => {
     group_id: key.group_id,
     enable_multi_group_routing: multiGroupRoutes.length > 0,
     multi_group_routes: multiGroupRoutes,
+    first_response_timeout_seconds: multiGroupRoutes.find((route) => route.first_response_timeout_seconds > 0)?.first_response_timeout_seconds || 30,
     account_pool_strategy: key.account_pool_strategy || 'shared_only',
     status: key.status === 'quota_exhausted' || key.status === 'expired' ? 'inactive' : key.status,
     use_custom_key: false,
@@ -2424,6 +2536,7 @@ const closeModals = () => {
     group_id: null,
     enable_multi_group_routing: false,
     multi_group_routes: [],
+    first_response_timeout_seconds: 30,
     account_pool_strategy: 'shared_only',
     status: 'active',
     use_custom_key: false,

@@ -253,6 +253,15 @@ func validateAPIKeyLimit(v float64) error {
 	return nil
 }
 
+func validateAPIKeyFirstResponseTimeouts(routes []domain.APIKeyMultiGroupRoute) error {
+	for _, route := range routes {
+		if route.FirstResponseTimeoutSeconds < 0 || route.FirstResponseTimeoutSeconds > 600 {
+			return infraerrors.BadRequest("API_KEY_ROUTE_INVALID", "first_response_timeout_seconds must be between 1 and 600 when enabled")
+		}
+	}
+	return nil
+}
+
 func validateCreateAPIKeyRequest(req CreateAPIKeyRequest) error {
 	for _, v := range []float64{req.Quota, req.RateLimit5h, req.RateLimit1d, req.RateLimit7d, req.TokenMultiplierCap} {
 		if err := validateAPIKeyLimit(v); err != nil {
@@ -262,7 +271,7 @@ func validateCreateAPIKeyRequest(req CreateAPIKeyRequest) error {
 	if req.ExpiresInDays != nil && *req.ExpiresInDays <= 0 {
 		return infraerrors.BadRequest("API_KEY_EXPIRY_INVALID", "expires_in_days must be greater than zero")
 	}
-	return nil
+	return validateAPIKeyFirstResponseTimeouts(req.MultiGroupRoutes)
 }
 
 func validateUpdateAPIKeyRequest(req UpdateAPIKeyRequest) error {
@@ -273,7 +282,7 @@ func validateUpdateAPIKeyRequest(req UpdateAPIKeyRequest) error {
 			}
 		}
 	}
-	return nil
+	return validateAPIKeyFirstResponseTimeouts(req.MultiGroupRoutes)
 }
 
 // APIKeyService API Key服务

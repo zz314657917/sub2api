@@ -818,6 +818,7 @@ export interface ApiKeyMultiGroupRoute {
   priority: number
   weight: number
   cooldown_seconds: number
+  first_response_timeout_seconds?: number
   enabled: boolean
   model_patterns?: string[]
   image_only?: boolean

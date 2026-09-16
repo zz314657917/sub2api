@@ -92,14 +92,16 @@ func RegisterGatewayRoutes(
 	{
 		// /v1/messages: auto-route based on group platform
 		gateway.POST("/messages", func(c *gin.Context) {
-			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/messages", false) {
-				return
-			}
-			if isOpenAIResponsesCompatibleGatewayPlatform(c) {
-				h.OpenAIGateway.Messages(c)
-				return
-			}
-			h.Gateway.Messages(c)
+			withKeyRouteFirstResponse(c, apiKeyService, func(c *gin.Context) {
+				if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/messages", false) {
+					return
+				}
+				if isOpenAIResponsesCompatibleGatewayPlatform(c) {
+					h.OpenAIGateway.Messages(c)
+					return
+				}
+				h.Gateway.Messages(c)
+			})
 		})
 		// /v1/messages/count_tokens: OpenAI groups use an Anthropic-compat bridge.
 		gateway.POST("/messages/count_tokens", func(c *gin.Context) {
@@ -130,14 +132,16 @@ func RegisterGatewayRoutes(
 		gateway.GET("/live/:call_id", h.OpenAIGateway.LiveSideband)
 		// OpenAI Responses API: auto-route based on group platform
 		gateway.POST("/responses", func(c *gin.Context) {
-			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/responses", false) {
-				return
-			}
-			if isOpenAIResponsesCompatibleGatewayPlatform(c) {
-				h.OpenAIGateway.Responses(c)
-				return
-			}
-			h.Gateway.Responses(c)
+			withKeyRouteFirstResponse(c, apiKeyService, func(c *gin.Context) {
+				if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/responses", false) {
+					return
+				}
+				if isOpenAIResponsesCompatibleGatewayPlatform(c) {
+					h.OpenAIGateway.Responses(c)
+					return
+				}
+				h.Gateway.Responses(c)
+			})
 		})
 		gateway.POST("/responses/*subpath", guardResponsesSubpath(func(c *gin.Context) {
 			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/responses", false) {
@@ -152,14 +156,16 @@ func RegisterGatewayRoutes(
 		gateway.GET("/responses", h.OpenAIGateway.ResponsesWebSocket)
 		// OpenAI Chat Completions API: auto-route based on group platform
 		gateway.POST("/chat/completions", func(c *gin.Context) {
-			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/chat/completions", false) {
-				return
-			}
-			if isOpenAIResponsesCompatibleGatewayPlatform(c) {
-				h.OpenAIGateway.ChatCompletions(c)
-				return
-			}
-			h.Gateway.ChatCompletions(c)
+			withKeyRouteFirstResponse(c, apiKeyService, func(c *gin.Context) {
+				if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/chat/completions", false) {
+					return
+				}
+				if isOpenAIResponsesCompatibleGatewayPlatform(c) {
+					h.OpenAIGateway.ChatCompletions(c)
+					return
+				}
+				h.Gateway.ChatCompletions(c)
+			})
 		})
 		gateway.POST("/embeddings", func(c *gin.Context) {
 			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/embeddings", false) {
@@ -271,14 +277,16 @@ func RegisterGatewayRoutes(
 
 	// OpenAI Responses API（不带v1前缀的别名）— auto-route based on group platform
 	responsesHandler := func(c *gin.Context) {
-		if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/responses", false) {
-			return
-		}
-		if isOpenAIResponsesCompatibleGatewayPlatform(c) {
-			h.OpenAIGateway.Responses(c)
-			return
-		}
-		h.Gateway.Responses(c)
+		withKeyRouteFirstResponse(c, apiKeyService, func(c *gin.Context) {
+			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/responses", false) {
+				return
+			}
+			if isOpenAIResponsesCompatibleGatewayPlatform(c) {
+				h.OpenAIGateway.Responses(c)
+				return
+			}
+			h.Gateway.Responses(c)
+		})
 	}
 	r.POST("/responses", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, responsesHandler)
 	r.POST("/responses/*subpath", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, guardResponsesSubpath(responsesHandler))
@@ -319,14 +327,16 @@ func RegisterGatewayRoutes(
 	r.GET("/models", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, modelsHandler)
 	// OpenAI Chat Completions API（不带v1前缀的别名）— auto-route based on group platform
 	r.POST("/chat/completions", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, func(c *gin.Context) {
-		if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/chat/completions", false) {
-			return
-		}
-		if isOpenAIResponsesCompatibleGatewayPlatform(c) {
-			h.OpenAIGateway.ChatCompletions(c)
-			return
-		}
-		h.Gateway.ChatCompletions(c)
+		withKeyRouteFirstResponse(c, apiKeyService, func(c *gin.Context) {
+			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/chat/completions", false) {
+				return
+			}
+			if isOpenAIResponsesCompatibleGatewayPlatform(c) {
+				h.OpenAIGateway.ChatCompletions(c)
+				return
+			}
+			h.Gateway.ChatCompletions(c)
+		})
 	})
 	r.POST("/embeddings", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, func(c *gin.Context) {
 		if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/embeddings", false) {
