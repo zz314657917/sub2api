@@ -22,6 +22,31 @@ import (
 
 const nativeTestPNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9dwAAAABJRU5ErkJggg=="
 
+func TestCodexDirectImagesJSONParserOutputFormatPriorityAndMalformedInput(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		body    string
+		format  string
+		wantErr bool
+	}{
+		{"item", `{"output_format":"webp","data":[{"b64_json":"aGVsbG8=","output_format":"png"}]}`, "png", false},
+		{"root", `{"output_format":"webp","data":[{"b64_json":"aGVsbG8="}]}`, "webp", false},
+		{"default", `{"data":[{"b64_json":"aGVsbG8="}]}`, "jpeg", false},
+		{"malformed", `{"data":[{"b64_json":"aGVsbG8="}]`, "", true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			results, err := parseCodexDirectImagesJSONResult([]byte(tt.body), "jpeg")
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Len(t, results, 1)
+			require.Equal(t, tt.format, results[0].OutputFormat)
+		})
+	}
+}
+
 type nativeImagesTestErrorReader struct{ err error }
 
 func (r nativeImagesTestErrorReader) Read([]byte) (int, error) { return 0, r.err }

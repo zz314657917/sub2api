@@ -150,29 +150,64 @@ func isOpenAIImagesMainModelError(status int, body []byte) bool {
 	return isOpenAIImagesCodexPlanGatedModelError(status, body, openAIImagesResponsesMainModelValue()) && (strings.Contains(message, "'"+openAIImagesResponsesMainModelValue()+"'") || strings.Contains(message, `"`+openAIImagesResponsesMainModelValue()+`"`))
 }
 
+// parseCodexDirectImagesJSONResult parses the non-stream native Images result
+// shape shared by the public forwarder and account connection tests. Native
+// output_format is item-scoped when available, otherwise response-scoped, then
+// falls back to the requested output format.
+func parseCodexDirectImagesJSONResult(body []byte, defaultOutputFormat string) ([]openAIResponsesImageResult, error) {
+	if !gjson.ValidBytes(body) {
+		return nil, &OpenAIImagesUpstreamError{StatusCode: http.StatusBadGateway, ErrorType: "upstream_error", Message: "Images API returned malformed JSON"}
+	}
+	if upstreamErr := openAIImagesUpstreamErrorFromSSEPayload(body); upstreamErr != nil {
+		return nil, upstreamErr
+	}
+	items := gjson.GetBytes(body, "data").Array()
+	rootOutputFormat := strings.TrimSpace(gjson.GetBytes(body, "output_format").String())
+	results := make([]openAIResponsesImageResult, 0, len(items))
+	for _, item := range items {
+		result := strings.TrimSpace(item.Get("b64_json").String())
+		if result == "" {
+			continue
+		}
+		outputFormat := strings.TrimSpace(item.Get("output_format").String())
+		if outputFormat == "" {
+			outputFormat = rootOutputFormat
+		}
+		if outputFormat == "" {
+			outputFormat = strings.TrimSpace(defaultOutputFormat)
+		}
+		results = append(results, openAIResponsesImageResult{
+			Result:        result,
+			RevisedPrompt: strings.TrimSpace(item.Get("revised_prompt").String()),
+			OutputFormat:  outputFormat,
+		})
+	}
+	if len(results) == 0 {
+		return nil, &OpenAIImagesUpstreamError{StatusCode: http.StatusBadGateway, ErrorType: "upstream_error", Message: "Images API returned no image output"}
+	}
+	return results, nil
+}
+
 func (s *OpenAIGatewayService) handleCodexDirectImagesNonStreamingResponse(resp *http.Response, c *gin.Context, parsed *OpenAIImagesRequest) (OpenAIUsage, int, []string, error) {
 	body, err := ReadUpstreamResponseBody(resp.Body, s.cfg, c, openAITooLargeError)
 	if err != nil {
 		return OpenAIUsage{}, 0, nil, newCodexDirectImagesPreOutputReadFailover(err, c)
 	}
-	if upstreamErr := openAIImagesUpstreamErrorFromSSEPayload(body); upstreamErr != nil {
-		return OpenAIUsage{}, 0, nil, upstreamErr
-	}
 	items := gjson.GetBytes(body, "data").Array()
-	if len(items) == 0 {
-		return OpenAIUsage{}, 0, nil, &OpenAIImagesUpstreamError{StatusCode: http.StatusBadGateway, ErrorType: "upstream_error", Message: "Images API returned no image output"}
+	results, err := parseCodexDirectImagesJSONResult(body, parsed.OutputFormat)
+	if err != nil {
+		return OpenAIUsage{}, 0, nil, err
 	}
 	count := 0
 	sizes := make([]string, 0, len(items))
-	// Native Images responses may put output_format only at the response root.
-	// Capture it before the per-item rewrites below so URL conversion does not
-	// accidentally fall back to the request format.
-	rootOutputFormat := strings.TrimSpace(gjson.GetBytes(body, "output_format").String())
+	resultIndex := 0
 	for i, item := range items {
-		b64 := strings.TrimSpace(item.Get("b64_json").String())
-		if b64 == "" {
+		if strings.TrimSpace(item.Get("b64_json").String()) == "" {
 			continue
 		}
+		result := results[resultIndex]
+		resultIndex++
+		b64 := result.Result
 		count++
 		body, _ = sjson.SetBytes(body, fmt.Sprintf("data.%d.model", i), parsed.Model)
 		if size := detectOpenAIImageResultSize(b64); size != "" {
@@ -180,14 +215,7 @@ func (s *OpenAIGatewayService) handleCodexDirectImagesNonStreamingResponse(resp 
 			sizes = append(sizes, size)
 		}
 		if parsed.ResponseFormat == "url" {
-			format := item.Get("output_format").String()
-			if format == "" {
-				format = rootOutputFormat
-			}
-			if format == "" {
-				format = parsed.OutputFormat
-			}
-			body, _ = sjson.SetBytes(body, fmt.Sprintf("data.%d.url", i), "data:"+openAIImageOutputMIMEType(format)+";base64,"+b64)
+			body, _ = sjson.SetBytes(body, fmt.Sprintf("data.%d.url", i), "data:"+openAIImageOutputMIMEType(result.OutputFormat)+";base64,"+b64)
 			body, _ = sjson.DeleteBytes(body, fmt.Sprintf("data.%d.b64_json", i))
 		}
 	}
