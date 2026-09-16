@@ -493,6 +493,7 @@ const SignalIcon: IconName = 'sync'
 const ShieldIcon: IconName = 'shield'
 const PriceTagIcon: IconName = 'tag'
 const ContentIcon: IconName = 'book'
+const PelicanIcon: IconName = 'beaker'
 
 // Public-settings flags go through the registry in utils/featureFlags.ts,
 // which handles the opt-in vs opt-out fallback when settings haven't loaded
@@ -559,6 +560,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
     { path: '/purchase', label: t('nav.buySubscription'), icon: RechargeSubscriptionIcon, hideInSimpleMode: true, featureFlag: flagPayment },
     { path: '/group-buy', label: groupBuyNavigationLabel.value, icon: CafeIcon, hideInSimpleMode: true, featureFlag: flagGroupBuyOrPixelCafe },
     { path: '/affiliate', label: t('nav.affiliate'), icon: TeamIcon, hideInSimpleMode: true, featureFlag: flagAffiliate },
+    { path: '/pelican-tests', label: '鹈鹕测试', icon: PelicanIcon },
     welfareItem,
   ]
 
