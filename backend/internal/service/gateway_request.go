@@ -790,6 +790,10 @@ func sanitizeAnthropicBodyForBetaTokens(body []byte, anthropicBetaHeader string)
 	strip("thinking.block_binding", claude.BetaThinkingBindingControls)
 	strip("fallbacks", claude.BetaServerSideFallback)
 	strip("fallback_credit_token", claude.BetaServerSideFallback, claude.BetaFallbackCredit, claude.BetaFallbackCreditLegacy)
+	if sanitized, deleted := stripAnthropicMessageOutputConfigUnlessBeta(body, anthropicBetaHeader); deleted {
+		body = sanitized
+		changed = true
+	}
 	return body, changed
 }
 
@@ -805,6 +809,87 @@ func anthropicBetaTokensContains(header, token string) bool {
 		}
 	}
 	return false
+}
+
+// stripAnthropicMessageOutputConfigUnlessBeta keeps message-level output_config
+// symmetric with the final beta header. Top-level output_config is deliberately
+// outside this rule.
+func stripAnthropicMessageOutputConfigUnlessBeta(body []byte, anthropicBetaHeader string) ([]byte, bool) {
+	if anthropicBetaTokensContains(anthropicBetaHeader, claude.BetaMidConversationOutputConfig) ||
+		!bytes.Contains(body, []byte("output_config")) {
+		return body, false
+	}
+	if !json.Valid(body) {
+		return body, false
+	}
+
+	messagesResult := gjson.GetBytes(body, "messages")
+	if !messagesResult.Exists() || !messagesResult.IsArray() {
+		return body, false
+	}
+
+	var messages []json.RawMessage
+	if err := json.Unmarshal([]byte(messagesResult.Raw), &messages); err != nil {
+		return body, false
+	}
+
+	changed := false
+	rebuilt := make([]json.RawMessage, 0, len(messages))
+	for _, message := range messages {
+		if !gjson.GetBytes(message, "output_config").Exists() {
+			rebuilt = append(rebuilt, message)
+			continue
+		}
+		changed = true
+		if gjson.GetBytes(message, "role").String() == "system" &&
+			!anthropicMessageContentHasBody(gjson.GetBytes(message, "content")) {
+			continue
+		}
+		stripped, err := sjson.DeleteBytes(message, "output_config")
+		if err != nil {
+			return body, false
+		}
+		rebuilt = append(rebuilt, json.RawMessage(stripped))
+	}
+	if !changed {
+		return body, false
+	}
+
+	rebuiltBytes, err := json.Marshal(rebuilt)
+	if err != nil {
+		return body, false
+	}
+	out, err := sjson.SetRawBytes(body, "messages", rebuiltBytes)
+	if err != nil {
+		return body, false
+	}
+	return out, true
+}
+
+func anthropicMessageContentHasBody(content gjson.Result) bool {
+	switch {
+	case !content.Exists(), content.Type == gjson.Null:
+		return false
+	case content.Type == gjson.String:
+		return content.String() != ""
+	case content.IsArray():
+		blocks := content.Array()
+		if len(blocks) == 0 {
+			return false
+		}
+		for _, block := range blocks {
+			if block.Type != gjson.JSON || block.Get("type").String() != "text" {
+				return true
+			}
+			text := block.Get("text")
+			if !text.Exists() || text.Type != gjson.String || text.String() != "" {
+				return true
+			}
+		}
+		return false
+	default:
+		return true
+	}
 }
 
 // FilterSignatureSensitiveBlocksForRetry is a stronger retry filter for cases where upstream errors indicate
