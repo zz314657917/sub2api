@@ -288,6 +288,34 @@ func (r *OpenAIForwardResult) SucceededForScheduling() bool {
 	}
 }
 
+func cloneImageSizeBreakdown(input map[string]int) map[string]int {
+	if len(input) == 0 {
+		return nil
+	}
+	output := make(map[string]int, len(input))
+	for key, value := range input {
+		output[key] = value
+	}
+	return output
+}
+
+const imageCacheReadTokensUsageMetadataKey = "image_cache_read_tokens"
+
+func imageSizeBreakdownWithCacheReadTokens(input map[string]int, imageCacheReadTokens int) map[string]int {
+	breakdown := cloneImageSizeBreakdown(input)
+	if imageCacheReadTokens <= 0 {
+		if breakdown != nil {
+			delete(breakdown, imageCacheReadTokensUsageMetadataKey)
+		}
+		return breakdown
+	}
+	if breakdown == nil {
+		breakdown = make(map[string]int, 1)
+	}
+	breakdown[imageCacheReadTokensUsageMetadataKey] = imageCacheReadTokens
+	return breakdown
+}
+
 type OpenAIWSRetryMetricsSnapshot struct {
 	RetryAttemptsTotal            int64 `json:"retry_attempts_total"`
 	RetryBackoffMsTotal           int64 `json:"retry_backoff_ms_total"`
@@ -7736,9 +7764,21 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	if result.ServiceTier != nil {
 		serviceTier = strings.TrimSpace(*result.ServiceTier)
 	}
-	// The completed upstream result is authoritative. The input override is the
-	// preflight estimate and must only be used when the result has no measured cost.
-	if overrideSource := firstNonNilCostBreakdown(result.CostOverride, input.CostOverride); overrideSource != nil {
+	previewOnlyImage := IsImageGenerationEndpoint(input.InboundEndpoint) && result.ImageCount == 0
+	previewImageBillingMode := ""
+	if previewOnlyImage {
+		previewImageBillingMode = s.openAIImagePreviewBillingMode(ctx, apiKey, billingModels)
+	}
+	if previewImageBillingMode == string(BillingModeImage) || previewImageBillingMode == string(BillingModePerRequest) {
+		// An image endpoint may produce progress/preview events without completing
+		// an image. Per-image/per-request estimates (including a result override)
+		// are not a completed-image charge. Keep the measured usage row, but make
+		// the image-priced settlement explicitly free.
+		cost = &CostBreakdown{BillingMode: previewImageBillingMode}
+	} else if !previewOnlyImage && firstNonNilCostBreakdown(result.CostOverride, input.CostOverride) != nil {
+		// The completed upstream result is authoritative. The input override is the
+		// preflight estimate and must only be used when the result has no measured cost.
+		overrideSource := firstNonNilCostBreakdown(result.CostOverride, input.CostOverride)
 		override := *overrideSource
 		if override.BillingMode == "" {
 			override.BillingMode = string(BillingModeToken)
@@ -7827,7 +7867,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		ImageInputSize:      optionalTrimmedStringPtr(result.ImageInputSize),
 		ImageOutputSize:     optionalTrimmedStringPtr(result.ImageOutputSize),
 		ImageSizeSource:     optionalTrimmedStringPtr(result.ImageSizeSource),
-		ImageSizeBreakdown:  result.ImageSizeBreakdown,
+		ImageSizeBreakdown:  imageSizeBreakdownWithCacheReadTokens(result.ImageSizeBreakdown, result.Usage.ImageCacheReadTokens),
 		MediaType:           optionalTrimmedStringPtr(input.MediaType),
 	}
 	if cost != nil {
@@ -8143,6 +8183,23 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 		lastErr = fmt.Errorf("%w: no non-empty billing model candidates", ErrModelPricingUnavailable)
 	}
 	return nil, fmt.Errorf("calculate OpenAI usage cost failed for billing models %s: %w", strings.Join(billingModels, ","), lastErr)
+}
+
+func (s *OpenAIGatewayService) openAIImagePreviewBillingMode(ctx context.Context, apiKey *APIKey, billingModels []string) string {
+	for _, billingModel := range billingModels {
+		resolved := s.resolveOpenAIChannelPricing(ctx, billingModel, apiKey)
+		if resolved == nil {
+			continue
+		}
+		// Match the normal candidate order. A token-priced primary model must
+		// keep billing from its measured tokens even if a later alias is image
+		// priced.
+		return string(resolved.Mode)
+	}
+	// Dedicated Images endpoints otherwise use the local image-price fallback
+	// for completed results. A preview without a completed image must not reach
+	// that fallback's implicit one-request minimum.
+	return string(BillingModeImage)
 }
 
 func isUsagePricingUnavailableError(err error) bool {

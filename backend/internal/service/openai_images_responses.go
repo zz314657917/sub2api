@@ -5,9 +5,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -1771,6 +1773,11 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesOAuth(
 	if err := validateOpenAIImagesModel(requestModel); err != nil {
 		return nil, err
 	}
+	upstreamModel := account.GetMappedModel(requestModel)
+	if err := validateOpenAIImagesModel(upstreamModel); err != nil {
+		return nil, err
+	}
+	direct := usesCodexDirectImages(upstreamModel) && !isOpenAIImagesForceResponses(ctx)
 	logger.LegacyPrintf(
 		"service.openai_gateway",
 		"[OpenAI] Images request routing request_model=%s endpoint=%s account_type=%s uploads=%d",
@@ -1803,11 +1810,17 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesOAuth(
 		forwardParsed = &cloned
 	}
 
-	if shouldSplitOpenAIImagesRequests(forwardParsed, requestModel) {
-		return s.forwardSplitOpenAIImagesOAuth(upstreamCtx, c, account, forwardParsed, token, requestModel, startTime)
+	if !direct && shouldSplitOpenAIImagesRequests(forwardParsed, upstreamModel) {
+		return s.forwardSplitOpenAIImagesOAuth(upstreamCtx, c, account, forwardParsed, token, upstreamModel, startTime)
 	}
 
-	responsesBody, err := buildOpenAIImagesResponsesRequest(forwardParsed, requestModel)
+	var responsesBody []byte
+	targetURL := chatgptCodexURL
+	if direct {
+		responsesBody, targetURL, err = buildOpenAIImagesOAuthPayload(forwardParsed, upstreamModel)
+	} else {
+		responsesBody, err = buildOpenAIImagesResponsesRequest(forwardParsed, upstreamModel)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -1817,8 +1830,19 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesOAuth(
 	if err != nil {
 		return nil, err
 	}
+	if direct {
+		upstreamReq.URL, err = url.Parse(targetURL)
+		if err != nil {
+			return nil, err
+		}
+	}
 	upstreamReq.Header.Set("Content-Type", "application/json")
-	upstreamReq.Header.Set("Accept", "text/event-stream")
+	if direct && !forwardParsed.Stream {
+		upstreamReq.Header.Set("Accept", "application/json")
+		upstreamReq.Header.Del("OpenAI-Beta")
+	} else {
+		upstreamReq.Header.Set("Accept", "text/event-stream")
+	}
 
 	proxyURL := ""
 	if account.ProxyID != nil && account.Proxy != nil {
@@ -1847,6 +1871,9 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesOAuth(
 		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
 		_ = resp.Body.Close()
 		respBody = s.redactAgentIdentitySensitiveBody(upstreamCtx, account, respBody)
+		if direct && (resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusMethodNotAllowed) {
+			return s.forwardOpenAIImagesOAuth(withOpenAIImagesForceResponses(ctx), c, account, parsed, channelMappedModel)
+		}
 		if !agentIdentityTaskRecoveryWasTried(ctx) && s.isAgentIdentityAccount(ctx, account) && isAgentIdentityTaskInvalidHTTPResponse(resp.StatusCode, respBody) {
 			expectedTaskID := account.GetCredential("task_id")
 			if err := s.recoverAgentIdentityTask(ctx, account, expectedTaskID); err != nil {
@@ -1881,7 +1908,7 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesOAuth(
 			}
 			return nil, s.applyOpenAIOAuth429Retry(account, resp.StatusCode, false, resp.Header, respBody, failoverErr)
 		}
-		return s.handleOpenAIImagesErrorResponse(upstreamCtx, resp, c, account, requestModel)
+		return s.handleOpenAIImagesErrorResponse(upstreamCtx, resp, c, account, upstreamModel)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -1890,11 +1917,23 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesOAuth(
 		imageCount       int
 		imageOutputSizes []string
 		firstTokenMs     *int
+		partialOnly      bool
 	)
 	if forwardParsed.Stream {
-		usage, imageCount, imageOutputSizes, firstTokenMs, err = s.handleOpenAIImagesOAuthStreamingResponse(resp, c, startTime, forwardParsed.ResponseFormat, openAIImagesStreamPrefix(forwardParsed), requestModel)
+		if direct {
+			usage, imageCount, imageOutputSizes, firstTokenMs, err = s.handleCodexDirectImagesStreamingResponse(resp, c, startTime, forwardParsed)
+		} else {
+			usage, imageCount, imageOutputSizes, firstTokenMs, err = s.handleOpenAIImagesOAuthStreamingResponse(resp, c, startTime, forwardParsed.ResponseFormat, openAIImagesStreamPrefix(forwardParsed), requestModel)
+		}
 		if err != nil {
-			if imageCount > 0 {
+			var outputWrittenErr *codexDirectImagesOutputWrittenError
+			if errors.As(err, &outputWrittenErr) {
+				// A downstream response has started, so this error must never be
+				// classified as retryable. Preserve actual usage/count and do not
+				// synthesize a successful image for an incomplete stream.
+				err = nil
+				partialOnly = true
+			} else if imageCount > 0 {
 				return &OpenAIForwardResult{
 					RequestID:        resp.Header.Get("x-request-id"),
 					Usage:            usage,
@@ -1910,23 +1949,29 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesOAuth(
 					ImageInputSize:   forwardParsed.Size,
 					ImageOutputSizes: imageOutputSizes,
 				}, err
+			} else {
+				return nil, err
 			}
-			return nil, err
 		}
 	} else {
-		usage, imageCount, imageOutputSizes, err = s.handleOpenAIImagesOAuthNonStreamingResponse(resp, c, forwardParsed.ResponseFormat, requestModel)
+		if direct {
+			usage, imageCount, imageOutputSizes, err = s.handleCodexDirectImagesNonStreamingResponse(resp, c, forwardParsed)
+		} else {
+			usage, imageCount, imageOutputSizes, err = s.handleOpenAIImagesOAuthNonStreamingResponse(resp, c, forwardParsed.ResponseFormat, requestModel)
+		}
 		if err != nil {
 			return nil, err
 		}
 	}
-	if imageCount <= 0 {
+	if imageCount <= 0 && !partialOnly {
 		imageCount = forwardParsed.N
 	}
 	return &OpenAIForwardResult{
 		RequestID:        resp.Header.Get("x-request-id"),
 		Usage:            usage,
 		Model:            requestModel,
-		UpstreamModel:    requestModel,
+		UpstreamModel:    upstreamModel,
+		UpstreamEndpoint: upstreamReq.URL.Path,
 		Stream:           forwardParsed.Stream,
 		ResponseHeaders:  resp.Header.Clone(),
 		Duration:         time.Since(startTime),

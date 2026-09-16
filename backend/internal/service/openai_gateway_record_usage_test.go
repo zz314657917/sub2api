@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -38,6 +39,31 @@ type openAIRecordUsageBillingRepoStub struct {
 	lastCmd    *UsageBillingCommand
 	commands   []*UsageBillingCommand
 	lastCtxErr error
+}
+
+type openAIRecordUsageDedupeBillingRepoStub struct {
+	appliedByRequestID map[string]bool
+	calls              int
+	appliedCalls       int
+	appliedBalanceCost float64
+	appliedSubCost     float64
+	commands           []*UsageBillingCommand
+}
+
+func (s *openAIRecordUsageDedupeBillingRepoStub) Apply(_ context.Context, cmd *UsageBillingCommand) (*UsageBillingApplyResult, error) {
+	s.calls++
+	s.commands = append(s.commands, cmd)
+	if s.appliedByRequestID == nil {
+		s.appliedByRequestID = make(map[string]bool)
+	}
+	if s.appliedByRequestID[cmd.RequestID] {
+		return &UsageBillingApplyResult{Applied: false}, nil
+	}
+	s.appliedByRequestID[cmd.RequestID] = true
+	s.appliedCalls++
+	s.appliedBalanceCost += cmd.BalanceCost
+	s.appliedSubCost += cmd.SubscriptionCost
+	return &UsageBillingApplyResult{Applied: true}, nil
 }
 
 func (s *openAIRecordUsageBillingRepoStub) Apply(ctx context.Context, cmd *UsageBillingCommand) (*UsageBillingApplyResult, error) {
@@ -2328,6 +2354,298 @@ func newOpenAIImageChannelPricingResolverForTest(t *testing.T, groupID int64, mo
 	cs := &ChannelService{}
 	cs.cache.Store(cache)
 	return NewModelPricingResolver(cs, NewBillingService(&config.Config{}, nil))
+}
+
+func newOpenAIImagePreviewPricingResolverForTest(t *testing.T, groupID int64, model string, mode BillingMode, price float64) *ModelPricingResolver {
+	t.Helper()
+	pricing := &ChannelModelPricing{BillingMode: mode}
+	if mode == BillingModeToken {
+		imageInputPrice := 3e-6
+		cacheReadPrice := 2e-6
+		pricing.ImageInputPrice = &imageInputPrice
+		pricing.CacheReadPrice = &cacheReadPrice
+	} else {
+		pricing.PerRequestPrice = &price
+	}
+	cache := newEmptyChannelCache()
+	cache.pricingByGroupModel[channelModelKey{groupID: groupID, model: model}] = pricing
+	cache.channelByGroupID[groupID] = &Channel{ID: groupID, Status: StatusActive}
+	cache.groupPlatform[groupID] = ""
+	cache.loadedAt = time.Now()
+	cs := &ChannelService{}
+	cs.cache.Store(cache)
+	return NewModelPricingResolver(cs, NewBillingService(&config.Config{}, nil))
+}
+
+func TestOpenAIGatewayServiceRecordUsage_ImageCacheReadTokensPersistedAndDeduplicated(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		breakdown map[string]int
+	}{
+		{name: "nil breakdown"},
+		{name: "empty breakdown", breakdown: map[string]int{}},
+		{name: "populated breakdown", breakdown: map[string]int{ImageBillingSize1K: 2}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+			billingRepo := &openAIRecordUsageDedupeBillingRepoStub{}
+			userRepo := &openAIRecordUsageUserRepoStub{}
+			subRepo := &openAIRecordUsageSubRepoStub{}
+			svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo, nil)
+			svc.cfg.Default.RateMultiplier = 1
+			svc.resolver = nil
+			svc.billingService.fallbackPrices["gpt-5.4"] = &ModelPricing{
+				CacheReadPricePerToken:      2e-6,
+				ImageCacheReadPricePerToken: 7e-6,
+			}
+			callerBreakdown := tc.breakdown
+			if callerBreakdown != nil {
+				callerBreakdown = make(map[string]int, len(tc.breakdown))
+				for key, value := range tc.breakdown {
+					callerBreakdown[key] = value
+				}
+			}
+			result := &OpenAIForwardResult{
+				RequestID:          "resp_image_cache_" + strings.ReplaceAll(tc.name, " ", "_"),
+				Model:              "gpt-5.4",
+				Usage:              OpenAIUsage{InputTokens: 40, CacheReadInputTokens: 40, ImageInputTokens: 30, ImageCacheReadTokens: 30},
+				ImageSizeBreakdown: callerBreakdown,
+				Duration:           time.Second,
+			}
+			input := &OpenAIRecordUsageInput{
+				Result:  result,
+				APIKey:  &APIKey{ID: 4801, Group: &Group{RateMultiplier: 1}},
+				User:    &User{ID: 5801},
+				Account: &Account{ID: 6801, Platform: PlatformOpenAI},
+			}
+
+			require.NoError(t, svc.RecordUsage(context.Background(), input))
+			require.NoError(t, svc.RecordUsage(context.Background(), input))
+
+			wantCost := 10*2e-6 + 30*7e-6
+			require.Equal(t, 2, usageRepo.calls)
+			require.Equal(t, 2, billingRepo.calls)
+			require.Equal(t, 1, billingRepo.appliedCalls, "same request ID must not charge twice")
+			require.Len(t, billingRepo.commands, 2)
+			require.InDelta(t, wantCost, billingRepo.commands[0].BalanceCost, 1e-12)
+			require.InDelta(t, wantCost, billingRepo.appliedBalanceCost, 1e-12)
+			require.InDelta(t, wantCost, usageRepo.lastLog.TotalCost, 1e-12)
+			require.InDelta(t, wantCost, usageRepo.lastLog.ActualCost, 1e-12)
+			require.Equal(t, 40, usageRepo.lastLog.CacheReadTokens)
+			require.Equal(t, 30, usageRepo.lastLog.ImageSizeBreakdown[imageCacheReadTokensUsageMetadataKey])
+			wantBreakdown := make(map[string]int, len(tc.breakdown)+1)
+			for key, value := range tc.breakdown {
+				wantBreakdown[key] = value
+			}
+			wantBreakdown[imageCacheReadTokensUsageMetadataKey] = 30
+			wantJSON, err := json.Marshal(wantBreakdown)
+			require.NoError(t, err)
+			gotJSON, err := json.Marshal(usageRepo.lastLog.ImageSizeBreakdown)
+			require.NoError(t, err)
+			require.JSONEq(t, string(wantJSON), string(gotJSON))
+			if tc.breakdown != nil {
+				require.Equal(t, tc.breakdown, callerBreakdown, "usage log metadata must not mutate the caller map")
+			}
+			if tc.name == "populated breakdown" {
+				require.Equal(t, 2, usageRepo.lastLog.ImageSizeBreakdown[ImageBillingSize1K])
+			}
+		})
+	}
+}
+
+func TestOpenAIGatewayServiceRecordUsage_ImageCacheReadMetadataAbsentWithoutCachedTokens(t *testing.T) {
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	billingRepo := &openAIRecordUsageDedupeBillingRepoStub{}
+	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+	svc.cfg.Default.RateMultiplier = 1
+	callerBreakdown := map[string]int{ImageBillingSize1K: 1, imageCacheReadTokensUsageMetadataKey: 999}
+	require.NoError(t, svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result:  &OpenAIForwardResult{RequestID: "resp_no_image_cache", Model: "gpt-5.1", ImageSizeBreakdown: callerBreakdown, Duration: time.Second},
+		APIKey:  &APIKey{ID: 4802, Group: &Group{RateMultiplier: 1}},
+		User:    &User{ID: 5802},
+		Account: &Account{ID: 6802, Platform: PlatformOpenAI},
+	}))
+	require.Equal(t, map[string]int{ImageBillingSize1K: 1, imageCacheReadTokensUsageMetadataKey: 999}, callerBreakdown)
+	require.Equal(t, map[string]int{ImageBillingSize1K: 1}, usageRepo.lastLog.ImageSizeBreakdown)
+	require.NotContains(t, usageRepo.lastLog.ImageSizeBreakdown, imageCacheReadTokensUsageMetadataKey)
+	wantJSON, err := json.Marshal(map[string]int{ImageBillingSize1K: 1})
+	require.NoError(t, err)
+	gotJSON, err := json.Marshal(usageRepo.lastLog.ImageSizeBreakdown)
+	require.NoError(t, err)
+	require.JSONEq(t, string(wantJSON), string(gotJSON))
+}
+
+func TestOpenAIGatewayServiceRecordUsage_ImageCacheReadTokensSubscriptionChargeDeduplicated(t *testing.T) {
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	billingRepo := &openAIRecordUsageDedupeBillingRepoStub{}
+	userRepo := &openAIRecordUsageUserRepoStub{}
+	subRepo := &openAIRecordUsageSubRepoStub{}
+	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo, nil)
+	svc.cfg.Default.RateMultiplier = 1
+	svc.resolver = nil
+	svc.billingService.fallbackPrices["gpt-5.4"] = &ModelPricing{
+		CacheReadPricePerToken:      2e-6,
+		ImageCacheReadPricePerToken: 7e-6,
+	}
+	groupID := int64(4810)
+	input := &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID: "resp_image_cache_subscription",
+			Model:     "gpt-5.4",
+			Usage:     OpenAIUsage{InputTokens: 40, CacheReadInputTokens: 40, ImageInputTokens: 30, ImageCacheReadTokens: 30},
+			Duration:  time.Second,
+		},
+		APIKey:       &APIKey{ID: 4810, GroupID: &groupID, Group: &Group{ID: groupID, RateMultiplier: 1, SubscriptionType: SubscriptionTypeSubscription}},
+		User:         &User{ID: 5810},
+		Account:      &Account{ID: 6810, Platform: PlatformOpenAI},
+		Subscription: &UserSubscription{ID: 7810},
+	}
+	require.NoError(t, svc.RecordUsage(context.Background(), input))
+	require.NoError(t, svc.RecordUsage(context.Background(), input))
+
+	wantCost := 10*2e-6 + 30*7e-6
+	require.Equal(t, 2, billingRepo.calls)
+	require.Equal(t, 1, billingRepo.appliedCalls)
+	require.Len(t, billingRepo.commands, 2)
+	require.NotNil(t, billingRepo.commands[0].SubscriptionID)
+	require.Equal(t, int64(7810), *billingRepo.commands[0].SubscriptionID)
+	require.Zero(t, billingRepo.commands[0].BalanceCost)
+	require.InDelta(t, wantCost, billingRepo.commands[0].SubscriptionCost, 1e-12)
+	require.InDelta(t, wantCost, billingRepo.appliedSubCost, 1e-12)
+	require.Zero(t, userRepo.deductCalls)
+	require.Zero(t, subRepo.incrementCalls)
+}
+
+func TestOpenAIGatewayServiceRecordUsage_PreviewOnlyImagesIgnorePreflightCost(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		mode     BillingMode
+		resolver bool
+		wantCost float64
+	}{
+		{name: "token", mode: BillingModeToken, resolver: true, wantCost: 32e-6},
+		{name: "per request", mode: BillingModePerRequest, resolver: true},
+		{name: "image", mode: BillingModeImage, resolver: true},
+		{name: "fallback image", mode: BillingModeImage},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			groupID := int64(4900)
+			usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+			billingRepo := &openAIRecordUsageDedupeBillingRepoStub{}
+			svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+			svc.cfg.Default.RateMultiplier = 1
+			model := "preview-" + strings.ReplaceAll(tc.name, " ", "-")
+			if tc.resolver {
+				svc.resolver = newOpenAIImagePreviewPricingResolverForTest(t, groupID, model, tc.mode, 0.9)
+			} else if tc.mode == BillingModeToken {
+				svc.billingService.fallbackPrices[model] = &ModelPricing{
+					ImageInputPricePerToken:     3e-6,
+					CacheReadPricePerToken:      2e-6,
+					ImageCacheReadPricePerToken: 7e-6,
+				}
+			}
+			input := &OpenAIRecordUsageInput{
+				Result: &OpenAIForwardResult{
+					RequestID:          "resp_preview_" + strings.ReplaceAll(tc.name, " ", "_"),
+					Model:              model,
+					Usage:              OpenAIUsage{InputTokens: 14, CacheReadInputTokens: 10, ImageInputTokens: 12, ImageCacheReadTokens: 8},
+					ImageSizeBreakdown: map[string]int{ImageBillingSize1K: 1},
+					CostOverride:       &CostBreakdown{TotalCost: 88, ActualCost: 88, BillingMode: string(BillingModeImage)},
+					Duration:           time.Second,
+				},
+				APIKey:          &APIKey{ID: 4901, GroupID: i64p(groupID), Group: &Group{ID: groupID, RateMultiplier: 1}},
+				User:            &User{ID: 5901},
+				Account:         &Account{ID: 6901, Platform: PlatformOpenAI},
+				InboundEndpoint: "/v1/images/generations",
+				CostOverride:    &CostBreakdown{TotalCost: 99, ActualCost: 99, BillingMode: string(BillingModePerRequest)},
+			}
+
+			require.NoError(t, svc.RecordUsage(context.Background(), input))
+			require.NoError(t, svc.RecordUsage(context.Background(), input))
+
+			require.Equal(t, 2, usageRepo.calls)
+			require.Equal(t, 2, billingRepo.calls)
+			require.Equal(t, 1, billingRepo.appliedCalls, "dedupe must suppress a second settlement")
+			require.Equal(t, 0, usageRepo.lastLog.ImageCount)
+			require.Equal(t, 10, usageRepo.lastLog.CacheReadTokens)
+			require.Equal(t, 8, usageRepo.lastLog.ImageSizeBreakdown[imageCacheReadTokensUsageMetadataKey])
+			require.NotNil(t, usageRepo.lastLog.BillingMode)
+			require.Equal(t, string(tc.mode), *usageRepo.lastLog.BillingMode)
+			require.InDelta(t, tc.wantCost, usageRepo.lastLog.TotalCost, 1e-12)
+			require.InDelta(t, tc.wantCost, usageRepo.lastLog.ActualCost, 1e-12)
+			require.InDelta(t, tc.wantCost, billingRepo.commands[0].BalanceCost, 1e-12)
+		})
+	}
+}
+
+func TestOpenAIGatewayServiceRecordUsage_PreviewOnlyImagesHonorFirstResolvedTokenCandidate(t *testing.T) {
+	groupID := int64(4920)
+	primaryModel := "preview-token-primary"
+	imageAlias := "preview-image-alias"
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	billingRepo := &openAIRecordUsageDedupeBillingRepoStub{}
+	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+	svc.cfg.Default.RateMultiplier = 1
+	cache := newEmptyChannelCache()
+	imageInputPrice := 3e-6
+	cacheReadPrice := 2e-6
+	imagePrice := 0.9
+	cache.pricingByGroupModel[channelModelKey{groupID: groupID, model: primaryModel}] = &ChannelModelPricing{
+		BillingMode:     BillingModeToken,
+		ImageInputPrice: &imageInputPrice,
+		CacheReadPrice:  &cacheReadPrice,
+	}
+	cache.pricingByGroupModel[channelModelKey{groupID: groupID, model: imageAlias}] = &ChannelModelPricing{
+		BillingMode:     BillingModeImage,
+		PerRequestPrice: &imagePrice,
+	}
+	cache.channelByGroupID[groupID] = &Channel{ID: groupID, Status: StatusActive}
+	cache.loadedAt = time.Now()
+	channelService := &ChannelService{}
+	channelService.cache.Store(cache)
+	svc.resolver = NewModelPricingResolver(channelService, NewBillingService(&config.Config{}, nil))
+
+	require.NoError(t, svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID:     "resp_preview_token_primary",
+			Model:         primaryModel,
+			UpstreamModel: imageAlias,
+			Usage:         OpenAIUsage{InputTokens: 14, CacheReadInputTokens: 10, ImageInputTokens: 12, ImageCacheReadTokens: 8},
+			CostOverride:  &CostBreakdown{TotalCost: 88, ActualCost: 88, BillingMode: string(BillingModeImage)},
+			Duration:      time.Second,
+		},
+		APIKey:          &APIKey{ID: 4920, GroupID: &groupID, Group: &Group{ID: groupID, RateMultiplier: 1}},
+		User:            &User{ID: 5920},
+		Account:         &Account{ID: 6920, Platform: PlatformOpenAI},
+		InboundEndpoint: "/v1/images/generations",
+		CostOverride:    &CostBreakdown{TotalCost: 99, ActualCost: 99, BillingMode: string(BillingModePerRequest)},
+	}))
+	require.NotNil(t, usageRepo.lastLog.BillingMode)
+	require.Equal(t, string(BillingModeToken), *usageRepo.lastLog.BillingMode)
+	require.InDelta(t, 32e-6, usageRepo.lastLog.ActualCost, 1e-12)
+	require.InDelta(t, 32e-6, billingRepo.commands[0].BalanceCost, 1e-12)
+}
+
+func TestOpenAIGatewayServiceRecordUsage_NonImagesKeepsCostOverride(t *testing.T) {
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	billingRepo := &openAIRecordUsageDedupeBillingRepoStub{}
+	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+	override := &CostBreakdown{TotalCost: 0.42, ActualCost: 0.42, BillingMode: string(BillingModePerRequest)}
+	require.NoError(t, svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID: "resp_non_images_override",
+			Model:     "gpt-5.1",
+			Duration:  time.Second,
+		},
+		APIKey:          &APIKey{ID: 4930, Group: &Group{RateMultiplier: 1}},
+		User:            &User{ID: 5930},
+		Account:         &Account{ID: 6930, Platform: PlatformOpenAI},
+		InboundEndpoint: "/v1/responses",
+		CostOverride:    override,
+	}))
+	require.InDelta(t, override.TotalCost, usageRepo.lastLog.TotalCost, 1e-12)
+	require.InDelta(t, override.ActualCost, usageRepo.lastLog.ActualCost, 1e-12)
+	require.InDelta(t, override.ActualCost, billingRepo.commands[0].BalanceCost, 1e-12)
 }
 
 func newOpenAITokenImageChannelPricingResolverForTest(t *testing.T, groupID int64, model string) *ModelPricingResolver {
