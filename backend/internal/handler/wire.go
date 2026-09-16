@@ -134,10 +134,12 @@ func ProvideOpenAIGatewayHandler(
 	contentModerationService *service.ContentModerationService,
 	cfg *config.Config,
 	coordinator *securityaudit.Coordinator,
+	opsService *service.OpsService,
 ) *OpenAIGatewayHandler {
 	h := NewOpenAIGatewayHandler(gatewayService, concurrencyService, billingCacheService, welfareService,
 		apiKeyService, usageRecordWorkerPool, errorPassthroughService, contentModerationService, cfg)
 	h.securityAuditCoordinator = coordinator
+	h.SetOpsService(opsService)
 	return h
 }
 
@@ -325,7 +327,7 @@ var ProviderSet = wire.NewSet(
 	admin.NewPaymentHandler,
 	admin.NewAffiliateHandler,
 	admin.NewGroupBuyHandler,
-	admin.NewCafeRoomHandlerWithActivation,
+	admin.ProvideCafeRoomHandler,
 	admin.NewImageCreatorStorageGovernanceHandler,
 	admin.NewTicketHandler,
 	admin.NewAuditLogHandler,

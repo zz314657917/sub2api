@@ -18,7 +18,7 @@
 | Gemini finishReason | 缺上游 signal owner；本地未知结束原因默认 end_turn | 特定上游错误归因缺陷不适用，不导入另一套框架 |
 | Firefox / CF challenge | `9eb120dd4` 尚未迁入；本地 privacy factory 仍为 Chrome | 独立设计及真实账号/测试环境确认后执行 |
 | OpenCode | 长期新平台专项 | 架构、跨协议范围待明确批准 |
-| Composite | P1 registry 已存在，提交 `b25cc223a`；独立 Terra QA 已补，定向测试/build/Ent 重放通过 | Wire 生成缺两个既有 provider，local QA BLOCKED；真实 DB、P2/P3 仍未通过/未授权 |
+| Composite | P1 registry 已存在，提交 `b25cc223a`；独立 QA 已补，Ent 重放及后续 Wire 修复/当前基线独立 QA PASS | 本地生成门禁已关闭；真实 DB、P2/P3 仍未通过/未授权 |
 
 Image account / Claude 两项完整 service 回归均保留真实 `FAIL`：四个旧失败
 已在干净 `dc851ea3f` 复现并取得精确例外审查。完整 JSON `Action=fail`
@@ -26,13 +26,15 @@ Image account / Claude 两项完整 service 回归均保留真实 `FAIL`：四�
 `docs/workflow/integrations/image2-account-parity-20260916/` 与
 `docs/workflow/integrations/claude-mid-output-config-20260916/`。
 
-Composite P1 独立审计已完成：`go generate ./ent` exit 0 且没有生成漂移；
-`go generate ./cmd/server` exit 1，缺 `[]service.ProxyRepository` 与
-`service.newUserTrialConsumer`。定向 service/handler/routes 测试与 backend build
-通过，但不能用编译成功替代 Wire 可重现生成。证据：
-`docs/workflow/integrations/composite-p1-audit-20260916/`。未修改业务或生成代码。
+Composite P1 历史审计发现的两个 Wire provider 缺口已修复：固定参数 moderation
+adapter 与 Welfare 接口绑定；生成过程中暴露的既有 Cafe quota-reset / OpenAI Ops
+setter 已进入 provider 定义，避免生成时丢失。当前 `ce316421c` 基线上的独立 Terra
+QA PASS：双次 Wire 生成 SHA 相同、完整 cmd/server 测试、build、Wire/Composite/
+PelicanReview/KeyRouteFirstResponse 回归通过。并行 Pelican 清理测试补齐一个 nil
+参数，原断言未变。历史审计证据保留，最新证据在
+`docs/workflow/integrations/wire-baseline-repair-20260916/`。
 
-当前下一步：单独确认 Wire 基线修复范围，不能在 P1 QA 合同中顺手修补；等待真实
+当前下一步：Wire 修复已经用户确认并完成本地验收；继续等待真实
 provider/DB/认证浏览器测试资源及允许操作范围，不调用用户现有账号、不操作数据库/容器。
 S303 本地验收证据：`docs/workflow/integrations/s303-regression-closure-20260916/`。
 Firefox 资源设计：`docs/workflow/plans/openai-privacy-cf-resource-plan-20260916.md`。

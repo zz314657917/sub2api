@@ -79,6 +79,7 @@ func TestProvideCleanup_WithMinimalDependencies_NoPanic(t *testing.T) {
 		nil, // openAIGateway
 		nil, // imageCreator
 		nil, // scheduledTestRunner
+		nil, // pelicanTests
 		nil, // backupSvc
 		nil, // paymentOrderExpiry
 		nil, // groupBuyLifecycle
