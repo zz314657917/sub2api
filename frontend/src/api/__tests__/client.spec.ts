@@ -9,9 +9,30 @@ vi.mock('@/i18n', () => ({
 
 describe('API Client', () => {
   let apiClient: AxiosInstance
+  let originalNavigatorLocks: PropertyDescriptor | undefined
+  let originalWindowLocation: PropertyDescriptor | undefined
+
+  const installLocationMock = (): ReturnType<typeof vi.fn> => {
+    let href = 'http://localhost/'
+    const setHref = vi.fn((value: string) => {
+      href = value
+    })
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        get href() { return href },
+        set href(value: string) { setHref(value) },
+        get pathname() { return '/' },
+      },
+    })
+    return setHref
+  }
 
   beforeEach(async () => {
     localStorage.clear()
+    sessionStorage.clear()
+    originalNavigatorLocks = Object.getOwnPropertyDescriptor(navigator, 'locks')
+    originalWindowLocation = Object.getOwnPropertyDescriptor(window, 'location')
     // 每次测试重新导入以获取干净的模块状态
     vi.resetModules()
     const mod = await import('@/api/client')
@@ -21,6 +42,14 @@ describe('API Client', () => {
   afterEach(() => {
     vi.restoreAllMocks()
     vi.unstubAllEnvs()
+    if (originalNavigatorLocks) {
+      Object.defineProperty(navigator, 'locks', originalNavigatorLocks)
+    } else {
+      Reflect.deleteProperty(navigator, 'locks')
+    }
+    if (originalWindowLocation) {
+      Object.defineProperty(window, 'location', originalWindowLocation)
+    }
   })
 
   // --- 请求拦截器 ---
@@ -213,6 +242,7 @@ describe('API Client', () => {
       localStorage.setItem('refresh_token', 'user-a-refresh')
       localStorage.setItem('token_expires_at', String(Date.now() - 1))
       localStorage.setItem('auth_user', JSON.stringify({ id: 7 }))
+      const setHref = installLocationMock()
 
       apiClient.defaults.adapter = vi.fn().mockRejectedValueOnce({
         response: {
@@ -246,19 +276,14 @@ describe('API Client', () => {
       expect(localStorage.getItem('auth_token')).toBe('user-b-access')
       expect(localStorage.getItem('refresh_token')).toBe('user-b-refresh')
       expect(localStorage.getItem('auth_user')).toBe(JSON.stringify({ id: 8 }))
-      expect(window.location.pathname).toBe('/')
+      expect(setHref).not.toHaveBeenCalled()
     })
 
     it('无 refresh_token 时 401 清除 localStorage', async () => {
       localStorage.setItem('auth_token', 'expired-token')
       // 不设置 refresh_token
 
-      // Mock window.location
-      const originalLocation = window.location
-      Object.defineProperty(window, 'location', {
-        value: { ...originalLocation, pathname: '/dashboard', href: '/dashboard' },
-        writable: true,
-      })
+      const setHref = installLocationMock()
 
       const adapter = vi.fn().mockRejectedValue({
         response: {
@@ -276,12 +301,134 @@ describe('API Client', () => {
       await expect(apiClient.get('/test')).rejects.toBeDefined()
 
       expect(localStorage.getItem('auth_token')).toBeNull()
+      expect(setHref).toHaveBeenCalledWith('/login')
+    })
 
-      // 恢复 location
-      Object.defineProperty(window, 'location', {
-        value: originalLocation,
-        writable: true,
+    it.each([
+      ['network', undefined, 0],
+      ['rate_limited', 429, 429],
+      ['server_error', 500, 500],
+      ['service_unavailable', 503, 503],
+    ])('刷新暂时不可用时保留会话：%s', async (_name, refreshStatus, expectedStatus) => {
+      localStorage.setItem('auth_token', 'old-access')
+      localStorage.setItem('refresh_token', 'old-refresh')
+      localStorage.setItem('auth_user', JSON.stringify({ id: 7 }))
+      const expiresAt = String(Date.now() - 1)
+      localStorage.setItem('token_expires_at', expiresAt)
+      sessionStorage.setItem('keep_me', 'present')
+      const setHref = installLocationMock()
+      Object.defineProperty(navigator, 'locks', {
+        configurable: true,
+        value: { request: async (_lock: string, callback: () => Promise<unknown>) => callback() },
       })
+
+      apiClient.defaults.adapter = vi.fn().mockRejectedValue({
+        response: { status: 401, data: { code: 'TOKEN_EXPIRED' } },
+        config: { url: '/protected', headers: { Authorization: 'Bearer old-access' } },
+      })
+      const refreshError = new axios.AxiosError('refresh unavailable', 'ERR_NETWORK')
+      if (refreshStatus !== undefined) {
+        Object.assign(refreshError, { response: { status: refreshStatus, data: { message: 'retry later' } } })
+      }
+      vi.spyOn(axios, 'post').mockRejectedValueOnce(refreshError)
+
+      await expect(apiClient.get('/protected')).rejects.toMatchObject({
+        code: 'TOKEN_REFRESH_UNAVAILABLE',
+        status: expectedStatus,
+      })
+      expect(localStorage.getItem('auth_token')).toBe('old-access')
+      expect(localStorage.getItem('refresh_token')).toBe('old-refresh')
+      expect(localStorage.getItem('auth_user')).toBe(JSON.stringify({ id: 7 }))
+      expect(localStorage.getItem('token_expires_at')).toBe(expiresAt)
+      expect(sessionStorage.getItem('keep_me')).toBe('present')
+      expect(sessionStorage.getItem('auth_expired')).toBeNull()
+      expect(setHref).not.toHaveBeenCalled()
+    })
+
+    it.each([401, 403])('刷新返回 %i 时清理无效会话并返回 TOKEN_REFRESH_FAILED', async (refreshStatus) => {
+      localStorage.setItem('auth_token', 'old-access')
+      localStorage.setItem('refresh_token', 'old-refresh')
+      localStorage.setItem('auth_user', JSON.stringify({ id: 7 }))
+      localStorage.setItem('token_expires_at', String(Date.now() - 1))
+      const setHref = installLocationMock()
+      Object.defineProperty(navigator, 'locks', {
+        configurable: true,
+        value: { request: async (_lock: string, callback: () => Promise<unknown>) => callback() },
+      })
+      apiClient.defaults.adapter = vi.fn().mockRejectedValue({
+        response: { status: 401, data: { code: 'TOKEN_EXPIRED' } },
+        config: { url: '/protected', headers: { Authorization: 'Bearer old-access' } },
+      })
+      const refreshError = new axios.AxiosError('refresh rejected', 'ERR_BAD_REQUEST')
+      Object.assign(refreshError, { response: { status: refreshStatus, data: {} } })
+      vi.spyOn(axios, 'post').mockRejectedValueOnce(refreshError)
+
+      await expect(apiClient.get('/protected')).rejects.toMatchObject({ code: 'TOKEN_REFRESH_FAILED' })
+      expect(localStorage.getItem('auth_token')).toBeNull()
+      expect(localStorage.getItem('refresh_token')).toBeNull()
+      expect(localStorage.getItem('auth_user')).toBeNull()
+      expect(localStorage.getItem('token_expires_at')).toBeNull()
+      expect(sessionStorage.getItem('auth_expired')).toBe('1')
+      expect(setHref).toHaveBeenCalledWith('/login')
+    })
+
+    it('刷新响应格式错误时清理无效会话并返回 TOKEN_REFRESH_FAILED', async () => {
+      localStorage.setItem('auth_token', 'old-access')
+      localStorage.setItem('refresh_token', 'old-refresh')
+      localStorage.setItem('auth_user', JSON.stringify({ id: 7 }))
+      localStorage.setItem('token_expires_at', String(Date.now() - 1))
+      const setHref = installLocationMock()
+      Object.defineProperty(navigator, 'locks', {
+        configurable: true,
+        value: { request: async (_lock: string, callback: () => Promise<unknown>) => callback() },
+      })
+      apiClient.defaults.adapter = vi.fn().mockRejectedValue({
+        response: { status: 401, data: { code: 'TOKEN_EXPIRED' } },
+        config: { url: '/protected', headers: { Authorization: 'Bearer old-access' } },
+      })
+      vi.spyOn(axios, 'post').mockResolvedValueOnce({ data: { code: 0, data: null } })
+
+      await expect(apiClient.get('/protected')).rejects.toMatchObject({ code: 'TOKEN_REFRESH_FAILED' })
+      expect(localStorage.getItem('auth_token')).toBeNull()
+      expect(localStorage.getItem('refresh_token')).toBeNull()
+      expect(localStorage.getItem('auth_user')).toBeNull()
+      expect(localStorage.getItem('token_expires_at')).toBeNull()
+      expect(setHref).toHaveBeenCalledWith('/login')
+    })
+
+    it('切换会话后的 Axios 网络刷新失败优先返回 AUTH_SESSION_CHANGED 并保留新会话', async () => {
+      localStorage.setItem('auth_token', 'user-a-access')
+      localStorage.setItem('refresh_token', 'user-a-refresh')
+      localStorage.setItem('auth_user', JSON.stringify({ id: 7 }))
+      localStorage.setItem('token_expires_at', String(Date.now() - 1))
+      const setHref = installLocationMock()
+      Object.defineProperty(navigator, 'locks', {
+        configurable: true,
+        value: { request: async (_lock: string, callback: () => Promise<unknown>) => callback() },
+      })
+      apiClient.defaults.adapter = vi.fn().mockRejectedValue({
+        response: { status: 401, data: { code: 'TOKEN_EXPIRED' } },
+        config: { url: '/protected', headers: { Authorization: 'Bearer user-a-access' } },
+      })
+      let rejectRefresh!: (error: Error) => void
+      vi.spyOn(axios, 'post').mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectRefresh = reject }))
+
+      const request = apiClient.get('/protected')
+      await vi.waitFor(() => expect(axios.post).toHaveBeenCalledTimes(1))
+      localStorage.setItem('auth_token', 'user-b-access')
+      localStorage.setItem('refresh_token', 'user-b-refresh')
+      localStorage.setItem('auth_user', JSON.stringify({ id: 8 }))
+      const newExpiresAt = String(Date.now() + 3600_000)
+      localStorage.setItem('token_expires_at', newExpiresAt)
+      rejectRefresh(new axios.AxiosError('offline', 'ERR_NETWORK'))
+
+      await expect(request).rejects.toMatchObject({ code: 'AUTH_SESSION_CHANGED', status: 401 })
+      expect(localStorage.getItem('auth_token')).toBe('user-b-access')
+      expect(localStorage.getItem('refresh_token')).toBe('user-b-refresh')
+      expect(localStorage.getItem('auth_user')).toBe(JSON.stringify({ id: 8 }))
+      expect(localStorage.getItem('token_expires_at')).toBe(newExpiresAt)
+      expect(sessionStorage.getItem('auth_expired')).toBeNull()
+      expect(setHref).not.toHaveBeenCalled()
     })
   })
 
