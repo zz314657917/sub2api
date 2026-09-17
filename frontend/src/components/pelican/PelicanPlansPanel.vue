@@ -99,7 +99,7 @@ onBeforeUnmount(() => { modelsRequestVersion++; modelsAbort?.abort() })
   --console-muted: #6c6a64;
   color-scheme: light;
 }
-:global(.dark) .pelican-plans {
+.dark .pelican-plans {
   --console-border: #334155;
   --console-surface: #111c2e;
   --console-text: #e2e8f0;
@@ -110,7 +110,7 @@ onBeforeUnmount(() => { modelsRequestVersion++; modelsAbort?.abort() })
 .pelican-plans input::placeholder { color: var(--console-muted); }
 .pelican-plans button:not(:disabled):hover { border-color: #818cf8; }
 .pelican-plans :is(input, select, button):focus-visible { outline: 2px solid #818cf8; outline-offset: 2px; }
-:global(.dark) .pelican-plans .error { color: #fca5a5; }
+.dark .pelican-plans .error { color: #fca5a5; }
 .pelican-plans { margin-bottom: 18px; padding: 16px; border: 1px solid var(--console-border,#ddd); border-radius: 12px; background: var(--console-surface); color: var(--console-text); }
 .pelican-plans header p, .plan span, .model-status, .retention-note { color: var(--console-muted,#666); font-size: 12px; }
 .plan-form, .plan { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-top: 1px solid var(--console-border,#ddd); flex-wrap: wrap; }
