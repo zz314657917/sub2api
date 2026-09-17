@@ -46,7 +46,19 @@
                 <td class="whitespace-nowrap px-4 py-3 font-medium">{{ formatInvoiceAmount(item.amount, item.currency) }}</td>
                 <td class="whitespace-nowrap px-4 py-3">{{ invoiceTypeLabel(item.invoice_type) }}</td>
                 <td class="max-w-[220px] truncate px-4 py-3">{{ item.title }}</td>
-                <td class="whitespace-nowrap px-4 py-3"><span :class="invoiceStatusClass(item.status)">{{ invoiceStatusLabel(item.status) }}</span></td>
+                <td class="whitespace-nowrap px-4 py-3">
+                  <div class="flex flex-col items-start gap-1">
+                    <span :class="invoiceStatusClass(item.status)">{{ invoiceStatusLabel(item.status) }}</span>
+                    <span
+                      v-if="item.downloaded_at"
+                      class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                      :title="`${t('payment.invoices.downloadedAt')}: ${formatDateTime(item.downloaded_at)}`"
+                    >
+                      <Icon name="check" size="sm" />
+                      {{ t('payment.invoices.userDownloaded') }}
+                    </span>
+                  </div>
+                </td>
                 <td class="whitespace-nowrap px-4 py-3 text-gray-500 dark:text-gray-400">{{ formatDateTime(item.created_at) }}</td>
                 <td class="whitespace-nowrap px-4 py-3 text-right">
                   <div class="flex justify-end gap-1">
@@ -98,6 +110,7 @@
         <InfoRow class="sm:col-span-2" :label="t('payment.invoices.adminNote')" :value="detailTarget.admin_note || '-'" />
         <InfoRow :label="t('payment.invoices.fileName')" :value="detailTarget.file_name || '-'" />
         <InfoRow :label="t('payment.invoices.issuedAt')" :value="detailTarget.issued_at ? formatDateTime(detailTarget.issued_at) : '-'" />
+        <InfoRow v-if="detailTarget.downloaded_at" :label="t('payment.invoices.downloadedAt')" :value="formatDateTime(detailTarget.downloaded_at)" />
       </div>
     </BaseDialog>
 

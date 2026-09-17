@@ -157,6 +157,8 @@ export default {
       emptyAvailable: 'No invoiceable amount',
       download: 'Download',
       downloaded: 'Claimed',
+      userDownloaded: 'Downloaded by user',
+      downloadedAt: 'First downloaded at',
       noFile: 'No file',
       submitSuccess: 'Invoice request submitted',
       requestId: 'Request ID',
