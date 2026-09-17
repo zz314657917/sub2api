@@ -1,0 +1,23 @@
+# upstream-v025-compat-fixes controller evidence
+
+- Base: `a022d9a3457457463ed06dd025370ad57936e668`.
+- Branch: `codex/upstream-v025-compat-fixes`; isolated worktree on E:.
+- Scope: four approved behavior ports only; no upstream merge/rebase/cherry-pick.
+- Independent Terra contract review: initial FAIL for underspecified validation, revised PASS before Developer dispatch.
+- Developer: independent Terra; QA: separate independent Terra; controller reviewed production diff.
+- `pge-doctor --strict`: PASS after copying ignored repository agent matrix to isolated worktree. Existing historical-doc warnings remain.
+- Baseline: `go build ./...` and apicompat suite PASS; tagged service fixture compilation drift and untagged old call-ID hash assertion failure reproduced before production edits. These unrelated tests were not repaired.
+- Main worktree remains actively edited by another task. No original dirt was copied, staged, reset or overwritten. Main preservation snapshot stored outside repo; final preservation comparison must be captured immediately before/after integration to account for legitimate concurrent changes.
+- Task-only Redis: `sub2api-v025-compat-redis`, label `codex.task=upstream-v025-compat-fixes`, loopback random port. No shared cache or existing container modified.
+- QA review requested executable Gemini non-data/heartbeat and nonzero WS sequence coverage; Developer remediation completed and controller tests passed.
+- Workflow status transitions occurred only in isolated worktree. Shared main status/main-log/spec/current-task have unrelated active edits; final evidence is stored in task-specific artifacts instead of importing stale shared workflow snapshots.
+- Code commits: `ac5fce6f6` cache isolation; `745a1021f` Gemini SSE; `8fb44b12e` OAuth metadata; `c589b7689` Responses sequence numbers.
+- Controller executed final service focused tests with actual dedicated Redis (14 top-level cases), both Responses failure handler cases, full apicompat tests, and `go build ./...`: PASS. No `no tests to run` was counted as success.
+- Controller production diff review, allowlist check, gofmt check and staged diff checks: PASS.
+- Independent QA suffered transport failures (request IDs `520d4fd2-d0b6-454a-af6c-f03cf8094fe6`, `bcb8d85a-4ded-4b3a-801c-f52b9bb5c116`, `7ea3aea1-d681-438e-ab94-5902fb0f877b`). User resumed task; the same independent Terra QA was retried. Controller checks do not replace independent QA.
+- Final independent Terra QA: PASS on `9608870be`; report: `docs/workflow/qa-reports/upstream-v025-compat-fixes-qa.md`. Full specified Redis-backed service set, handler cases, apicompat suite and build were rerun successfully.
+- Resumed independent Terra QA executed all required focused runtime checks and build successfully, but returned FAIL for insufficient compact zero-field presence assertions and fallback JSON decoding evidence. Original Terra Developer is correcting tests only; no demonstrated production defect was reported. Four behavior commits are preserved, with follow-up validation correction to be committed separately rather than rewriting history.
+- Resolution: original Terra Developer added strict `*int` JSON presence/type/value checks and executable parsing of the actual production fallback literal; follow-up test commit `9608870be`. Independent Terra QA verified and passed. The unreachable marshal-error branch itself was not artificially executed.
+- Task Redis cleanup: verified exact container ID and `codex.task` label, removed only `sub2api-v025-compat-redis`, confirmed no matching container remains.
+- Shared workflow status was restored only in the isolated worktree to its original tracked content; no stale shared status/spec/main-log/current-task snapshot is included in this delivery. Main worktree remains untouched before integration.
+- Controller recommendation: PASS for local integration after a fresh main HEAD/index/path-intersection check. Real provider acceptance, broad baseline-broken suites, deployment and push remain outside this PASS.
