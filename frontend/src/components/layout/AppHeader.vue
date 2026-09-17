@@ -182,7 +182,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useAppStore, useAuthStore, useOnboardingStore } from '@/stores'
+import { useAppStore, useAuthStore, useOnboardingStore, usePelicanMetadataStore } from '@/stores'
 import { useAdminSettingsStore } from '@/stores/adminSettings'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import SubscriptionProgressMini from '@/components/common/SubscriptionProgressMini.vue'
@@ -204,6 +204,7 @@ const authStore = useAuthStore()
 const adminSettingsStore = useAdminSettingsStore()
 const onboardingStore = useOnboardingStore()
 const announcementStore = useAnnouncementStore()
+const pelicanMetadata = usePelicanMetadataStore()
 
 const user = computed(() => authStore.user)
 const dropdownOpen = ref(false)
@@ -246,6 +247,7 @@ const displayName = computed(() => {
 })
 
 const pageTitle = computed(() => {
+  if (route.name === 'PelicanTests') return pelicanMetadata.displayName
   if (route.name === 'CustomPage') {
     const id = route.params.id as string
     const publicItems = appStore.cachedPublicSettings?.custom_menu_items ?? []
@@ -314,6 +316,7 @@ function handleClickOutside(event: MouseEvent) {
 }
 
 onMounted(() => {
+  void pelicanMetadata.load().catch(() => {})
   document.addEventListener('click', handleClickOutside)
 })
 

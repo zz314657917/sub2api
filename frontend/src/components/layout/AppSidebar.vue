@@ -364,7 +364,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useAdminSettingsStore, useAppStore, useAuthStore, useOnboardingStore, useWelfareStore } from '@/stores'
+import { useAdminSettingsStore, useAppStore, useAuthStore, useOnboardingStore, usePelicanMetadataStore, useWelfareStore } from '@/stores'
 import VersionBadge from '@/components/common/VersionBadge.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { studioBridgeAPI } from '@/api'
@@ -445,6 +445,7 @@ const authStore = useAuthStore()
 const onboardingStore = useOnboardingStore()
 const adminSettingsStore = useAdminSettingsStore()
 const welfareStore = useWelfareStore()
+const pelicanMetadata = usePelicanMetadataStore()
 
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
 const mobileOpen = computed(() => appStore.mobileOpen)
@@ -560,7 +561,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
     { path: '/purchase', label: t('nav.buySubscription'), icon: RechargeSubscriptionIcon, hideInSimpleMode: true, featureFlag: flagPayment },
     { path: '/group-buy', label: groupBuyNavigationLabel.value, icon: CafeIcon, hideInSimpleMode: true, featureFlag: flagGroupBuyOrPixelCafe },
     { path: '/affiliate', label: t('nav.affiliate'), icon: TeamIcon, hideInSimpleMode: true, featureFlag: flagAffiliate },
-    { path: '/pelican-tests', label: '鹈鹕测试', icon: PelicanIcon },
+    ...(isAdmin.value || pelicanMetadata.enabled ? [{ path: '/pelican-tests', label: pelicanMetadata.displayName, icon: PelicanIcon }] : []),
     welfareItem,
   ]
 
@@ -1097,6 +1098,11 @@ watch(
   },
   { immediate: true },
 )
+
+watch(() => [authStore.user?.id, authStore.isAuthenticated, authStore.isAdmin] as const, () => {
+  pelicanMetadata.reset()
+  if (authStore.isAuthenticated) void pelicanMetadata.load(true).catch(() => {})
+}, { immediate: true })
 
 onMounted(() => {
   if (isAdmin.value) {

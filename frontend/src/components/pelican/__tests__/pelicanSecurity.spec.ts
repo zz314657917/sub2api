@@ -41,6 +41,16 @@ describe('Pelican untrusted artwork boundary', () => {
     const wrapper = mount(PelicanSandboxFrame, { props: { html: '<svg><circle /></svg>', replayKey: 1 } })
     const frame = wrapper.get('iframe')
     expect(frame.attributes('sandbox')).toBe('')
+    expect(frame.attributes('tabindex')).toBe('-1')
     expect(frame.attributes('srcdoc')).toContain("default-src 'none'")
+  })
+
+  it('keeps the enlarged artwork frame usable without relaxing the sandbox', () => {
+    const wrapper = mount(PelicanSandboxFrame, { props: { html: '<svg><circle /></svg>', replayKey: 1, interactive: true } })
+    const frame = wrapper.get('iframe')
+
+    expect(frame.attributes('sandbox')).toBe('')
+    expect(frame.attributes('tabindex')).toBeUndefined()
+    expect(frame.attributes('aria-hidden')).toBeUndefined()
   })
 })

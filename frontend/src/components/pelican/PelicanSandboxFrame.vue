@@ -1,10 +1,10 @@
-<template><iframe :key="replayKey" class="pelican-frame" sandbox="" :srcdoc="safeDocument" title="鹈鹕测试作品" /></template>
+<template><iframe :key="replayKey" class="pelican-frame" sandbox="" :tabindex="interactive ? undefined : -1" :aria-hidden="interactive ? undefined : 'true'" :srcdoc="safeDocument" title="鹈鹕测试作品" /></template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { toPelicanSrcdoc } from './sanitizePelicanHtml'
 
-const props = defineProps<{ html: string; replayKey: number }>()
+const props = withDefaults(defineProps<{ html: string; replayKey: number; interactive?: boolean }>(), { interactive: false })
 const safeDocument = computed(() => toPelicanSrcdoc(props.html))
 </script>
 

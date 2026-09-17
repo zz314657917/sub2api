@@ -1,5 +1,5 @@
 <template>
-  <div class="console-shell" :class="{ 'console-shell-dashboard': isUserDashboard }">
+  <div class="console-shell" :class="{ 'console-shell-dashboard': isUserDashboard, 'console-shell-viewport': viewport }">
 
     <!-- Sidebar -->
     <AppSidebar />
@@ -7,7 +7,7 @@
     <!-- Main Content Area -->
     <div
       class="console-main min-h-screen transition-all duration-300"
-      :class="[sidebarCollapsed ? 'lg:ml-[72px]' : 'lg:ml-64']"
+      :class="[sidebarCollapsed ? 'lg:ml-[72px]' : 'lg:ml-64', { 'console-main-viewport': viewport }]"
     >
       <!-- Header -->
       <AppHeader />
@@ -17,7 +17,8 @@
         class="console-content"
         :class="{
           'console-content-dense': route.meta.denseWorkspace,
-          'console-content-dashboard': isUserDashboard
+          'console-content-dashboard': isUserDashboard,
+          'console-content-viewport': viewport
         }"
       >
         <slot />
@@ -36,6 +37,8 @@ import { useOnboardingTour } from '@/composables/useOnboardingTour'
 import { useOnboardingStore } from '@/stores/onboarding'
 import AppSidebar from './AppSidebar.vue'
 import AppHeader from './AppHeader.vue'
+
+withDefaults(defineProps<{ viewport?: boolean }>(), { viewport: false })
 
 const appStore = useAppStore()
 const authStore = useAuthStore()
@@ -57,3 +60,10 @@ onMounted(() => {
 
 defineExpose({ replayTour })
 </script>
+
+<style>
+.console-shell-viewport { height: 100dvh; min-height: 0; overflow: hidden; }
+.console-main-viewport { display: flex; min-height: 0; height: 100%; flex-direction: column; }
+.console-content-viewport { display: flex; min-height: 0; flex: 1 1 auto; overflow: hidden; }
+.console-content-viewport > * { min-height: 0; width: 100%; }
+</style>

@@ -6,6 +6,7 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
+import { usePelicanMetadataStore } from '@/stores/pelicanMetadata'
 import { useAdminSettingsStore } from '@/stores/adminSettings'
 import { useNavigationLoadingState } from '@/composables/useNavigationLoading'
 import { useRoutePrefetch } from '@/composables/useRoutePrefetch'
@@ -1005,6 +1006,12 @@ router.beforeEach(async (to, _from, next) => {
     } else {
       document.title = resolveDocumentTitle(to.meta.title, appStore.siteName, to.meta.titleKey as string, appStore.cachedPublicSettings)
     }
+  } else if (to.name === 'PelicanTests') {
+    const pelicanMetadata = usePelicanMetadataStore()
+    if (authStore.isAuthenticated) {
+      try { await pelicanMetadata.load(true) } catch { /* unavailable metadata fails closed below for ordinary users */ }
+    }
+    document.title = `${pelicanMetadata.displayName} - ${appStore.siteName || 'Sub2API'}`
   } else {
     document.title = resolveDocumentTitle(to.meta.title, appStore.siteName, to.meta.titleKey as string, appStore.cachedPublicSettings)
   }
@@ -1094,6 +1101,14 @@ router.beforeEach(async (to, _from, next) => {
     // User is authenticated but not admin, redirect to user dashboard
     next('/dashboard')
     return
+  }
+
+  if (to.name === 'PelicanTests' && !authStore.isAdmin) {
+    const pelicanMetadata = usePelicanMetadataStore()
+    if (!pelicanMetadata.loaded || !pelicanMetadata.enabled) {
+      next('/dashboard')
+      return
+    }
   }
 
   const leaderboardMinimumAccountAgeDays = appStore.cachedPublicSettings?.leaderboard_min_account_age_days

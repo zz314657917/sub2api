@@ -11,6 +11,7 @@ export { useOnboardingStore } from './onboarding'
 export { useAnnouncementStore } from './announcements'
 export { usePaymentStore } from './payment'
 export { useWelfareStore } from './welfare'
+export { usePelicanMetadataStore } from './pelicanMetadata'
 
 // Re-export types for convenience
 export type { User, LoginRequest, RegisterRequest, AuthResponse } from '@/types'
