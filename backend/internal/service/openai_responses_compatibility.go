@@ -27,10 +27,21 @@ func normalizeOpenAIOAuthResponsesCompatibilityFields(reqBody map[string]any) bo
 		delete(reqBody, "commands")
 		changed = true
 	}
+	input, _ := reqBody["input"].([]any)
+	for _, value := range input {
+		item, ok := value.(map[string]any)
+		if !ok {
+			continue
+		}
+		if _, exists := item["internal_chat_message_metadata_passthrough"]; exists {
+			delete(item, "internal_chat_message_metadata_passthrough")
+			changed = true
+		}
+	}
 	return changed
 }
 func normalizeOpenAIOAuthResponsesCompatibilityBody(body []byte) ([]byte, bool, error) {
-	if len(body) == 0 || (!gjson.GetBytes(body, "prompt").Exists() && !gjson.GetBytes(body, "commands").Exists()) {
+	if len(body) == 0 || (!gjson.GetBytes(body, "prompt").Exists() && !gjson.GetBytes(body, "commands").Exists() && !gjson.GetBytes(body, "input").Exists()) {
 		return body, false, nil
 	}
 	var request map[string]any
