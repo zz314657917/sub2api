@@ -122,6 +122,7 @@ export async function getStats(params: {
   start_date?: string
   end_date?: string
   timezone?: string
+  upstream_model_mismatch?: boolean
 }): Promise<AdminUsageStatsResponse> {
   const { data } = await apiClient.get<AdminUsageStatsResponse>('/admin/usage/stats', {
     params
