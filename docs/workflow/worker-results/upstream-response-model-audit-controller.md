@@ -36,3 +36,11 @@
 - Controller review: allowlist, migration numbers, Admin-only DTO exposure, nullable filtering/cache keys, generated schema offsets, model-only observation and WS regression diff checked. No remaining blocking finding. Staged whitespace checks passed.
 - Backend commit: 91e9fde20. Frontend commit: f9434b081. Task evidence is committed separately. The isolated branch is accepted for safe fast-forward integration; recheck main HEAD, index and dirty overlap immediately before merging. Shared workflow/current-task files are intentionally excluded because they belong to concurrent tasks.
 - Recovery: revert this batch's frontend/backend commits in reverse order; do not rewrite history. No push or deployment is authorized by this delivery.
+
+## Final integration status: BLOCKED by concurrent dirty path
+
+- Final pre-merge gate stopped before `git merge` was invoked. Main HEAD remains ebd3db125c52c16496465c7697b4b110f94e4774 and its index remains empty.
+- New concurrent main change: frontend/src/types/index.ts adds `service_store_enabled?: boolean` to PublicSettings. This path overlaps the accepted batch's AdminUsageLog type additions, although the hunks are different. The approved integration boundary requires retaining the accepted branch when a business path overlaps dirty work; no stash, overwrite or forced integration was performed.
+- Accepted commits: 91e9fde20 (backend), f9434b081 (frontend), 9acd9bab2 (contract/review/QA evidence). This final status is a separate documentation commit. Branch codex/upstream-response-model-audit and its isolated worktree are retained.
+- Concurrent tasks also changed their workflow/sidebar/router files during this review window. The controller made no main worktree writes and did not absorb those changes.
+- Resume after the owner resolves/commits the overlapping main change: recheck HEAD and all dirty intersections; if main advanced, incorporate that committed main state in this isolated branch and rerun affected validation before a safe fast-forward. Source implementation and isolated acceptance are complete; integration, push, migration on the business database and deployment have not occurred.
