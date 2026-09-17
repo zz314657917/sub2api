@@ -595,6 +595,12 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 
 	// Create OpenAI Responses API payload
 	payload := createOpenAITestPayloadWithPrompt(testModelID, isOAuth, prompt)
+	if c.GetBool("pelican_test") {
+		payload = createOpenAITestPayloadWithExactPrompt(testModelID, isOAuth, prompt)
+		if effort := c.GetString("pelican_reasoning_effort"); effort != "" {
+			payload["reasoning"] = map[string]any{"effort": effort}
+		}
+	}
 	payloadBytes, _ := json.Marshal(payload)
 
 	if !agentIdentityTaskRecoveryWasTried(ctx) {
@@ -794,6 +800,12 @@ func (s *AccountTestService) testOpenAIChatCompletionsConnection(
 	c.Writer.Flush()
 
 	payload := createOpenAIChatCompletionsTestPayload(testModelID, prompt)
+	if c.GetBool("pelican_test") {
+		payload = createOpenAIChatCompletionsTestPayloadWithExactPrompt(testModelID, prompt)
+		if effort := c.GetString("pelican_reasoning_effort"); effort != "" {
+			payload["reasoning_effort"] = effort
+		}
+	}
 	payloadBytes, _ := json.Marshal(payload)
 
 	s.sendEvent(c, TestEvent{Type: "test_start", Model: testModelID})
@@ -1442,6 +1454,14 @@ func createOpenAITestPayloadWithPrompt(modelID string, isOAuth bool, prompt stri
 	if testPrompt == "" {
 		testPrompt = "hi"
 	}
+	return createOpenAITestPayloadForPrompt(modelID, isOAuth, testPrompt)
+}
+
+func createOpenAITestPayloadWithExactPrompt(modelID string, isOAuth bool, prompt string) map[string]any {
+	return createOpenAITestPayloadForPrompt(modelID, isOAuth, prompt)
+}
+
+func createOpenAITestPayloadForPrompt(modelID string, isOAuth bool, prompt string) map[string]any {
 	payload := map[string]any{
 		"model": modelID,
 		"input": []map[string]any{
@@ -1450,7 +1470,7 @@ func createOpenAITestPayloadWithPrompt(modelID string, isOAuth bool, prompt stri
 				"content": []map[string]any{
 					{
 						"type": "input_text",
-						"text": testPrompt,
+						"text": prompt,
 					},
 				},
 			},
@@ -1475,12 +1495,16 @@ func createOpenAIChatCompletionsTestPayload(modelID string, prompt string) map[s
 		testPrompt = "hi"
 	}
 
+	return createOpenAIChatCompletionsTestPayloadWithExactPrompt(modelID, testPrompt)
+}
+
+func createOpenAIChatCompletionsTestPayloadWithExactPrompt(modelID string, prompt string) map[string]any {
 	return map[string]any{
 		"model": modelID,
 		"messages": []map[string]any{
 			{
 				"role":    "user",
-				"content": testPrompt,
+				"content": prompt,
 			},
 		},
 		"stream": true,

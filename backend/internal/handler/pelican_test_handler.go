@@ -17,10 +17,16 @@ type pelicanAPI interface {
 	ListHistory(context.Context, service.PelicanAuthorization, int64, int64) ([]service.PelicanResult, error)
 	GetResult(context.Context, service.PelicanAuthorization, int64) (*service.PelicanResult, error)
 	ListPlans(context.Context) ([]service.PelicanPlan, error)
+	Models(context.Context, int64) ([]string, error)
 	CreatePlan(context.Context, service.PelicanPlanInput) (*service.PelicanPlan, error)
 	UpdatePlan(context.Context, int64, service.PelicanPlanInput) (*service.PelicanPlan, error)
 	DeletePlan(context.Context, int64) error
 	RunNow(context.Context, int64) error
+	Resume(context.Context, int64) (*service.PelicanPlan, error)
+	Cleanup(context.Context, int64, string) (int64, error)
+	GetSettings(context.Context) (service.PelicanTestSettings, error)
+	UpdateSettings(context.Context, service.PelicanTestSettingsUpdate) (service.PelicanTestSettings, error)
+	Metadata(context.Context) (service.PelicanTestMetadata, error)
 }
 
 type pelicanGroupAccess interface {
@@ -35,6 +41,12 @@ func pelicanError(c *gin.Context, err error) {
 		response.Error(c, http.StatusConflict, "Test plan is already running")
 	case errors.Is(err, service.ErrPelicanInvalid):
 		response.BadRequest(c, "Invalid or unsupported test plan")
+	case errors.Is(err, service.ErrPelicanPaused):
+		response.Error(c, http.StatusConflict, "计划已因连续失败自动暂停，请先显式恢复")
+	case errors.Is(err, service.ErrPelicanQuota):
+		response.Error(c, http.StatusTooManyRequests, "计划今日调用额度已用完（UTC+8 午夜重置）")
+	case errors.Is(err, service.ErrPelicanDisabled):
+		response.Forbidden(c, "鹈鹕广场当前已关闭")
 	default:
 		response.InternalError(c, "Unable to process pelican test request")
 	}
@@ -125,6 +137,48 @@ func (h *PelicanTestHandler) List(c *gin.Context) {
 	response.Success(c, result)
 }
 
+func (h *PelicanTestHandler) Metadata(c *gin.Context) {
+	if _, ok := h.authorization(c); !ok {
+		return
+	}
+	metadata, err := h.svc.Metadata(c.Request.Context())
+	if err != nil {
+		pelicanError(c, err)
+		return
+	}
+	response.Success(c, metadata)
+}
+
+func (h *PelicanTestHandler) GetSettings(c *gin.Context) {
+	if !pelicanAdmin(c) {
+		return
+	}
+	settings, err := h.svc.GetSettings(c.Request.Context())
+	if err != nil {
+		pelicanError(c, err)
+		return
+	}
+	response.Success(c, settings)
+}
+
+func (h *PelicanTestHandler) UpdateSettings(c *gin.Context) {
+	if !pelicanAdmin(c) {
+		return
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 256<<10)
+	var settings service.PelicanTestSettingsUpdate
+	if err := c.ShouldBindJSON(&settings); err != nil {
+		response.BadRequest(c, "Invalid pelican test settings")
+		return
+	}
+	updated, err := h.svc.UpdateSettings(c.Request.Context(), settings)
+	if err != nil {
+		pelicanError(c, err)
+		return
+	}
+	response.Success(c, updated)
+}
+
 func (h *PelicanTestHandler) History(c *gin.Context) {
 	auth, ok := h.authorization(c)
 	if !ok {
@@ -134,7 +188,7 @@ func (h *PelicanTestHandler) History(c *gin.Context) {
 	if !ok {
 		return
 	}
-	accountID, ok := pelicanPositiveID(c, c.Query("account_id"), false)
+	accountID, ok := pelicanPositiveID(c, c.Query("account_id"), true)
 	if !ok {
 		return
 	}
@@ -174,6 +228,22 @@ func (h *PelicanTestHandler) ListPlans(c *gin.Context) {
 		return
 	}
 	response.Success(c, plans)
+}
+
+func (h *PelicanTestHandler) Models(c *gin.Context) {
+	if !pelicanAdmin(c) {
+		return
+	}
+	groupID, ok := pelicanPositiveID(c, c.Query("group_id"), false)
+	if !ok {
+		return
+	}
+	models, err := h.svc.Models(c.Request.Context(), groupID)
+	if err != nil {
+		pelicanError(c, err)
+		return
+	}
+	response.Success(c, gin.H{"models": models})
 }
 
 func (h *PelicanTestHandler) SavePlan(c *gin.Context) {
@@ -235,4 +305,44 @@ func (h *PelicanTestHandler) RunPlan(c *gin.Context) {
 		return
 	}
 	response.Accepted(c, gin.H{"queued": true})
+}
+
+func (h *PelicanTestHandler) ResumePlan(c *gin.Context) {
+	if !pelicanAdmin(c) {
+		return
+	}
+	id, ok := pelicanPositiveID(c, c.Param("id"), false)
+	if !ok {
+		return
+	}
+	plan, err := h.svc.Resume(c.Request.Context(), id)
+	if err != nil {
+		pelicanError(c, err)
+		return
+	}
+	response.Success(c, plan)
+}
+
+func (h *PelicanTestHandler) CleanupPlan(c *gin.Context) {
+	if !pelicanAdmin(c) {
+		return
+	}
+	id, ok := pelicanPositiveID(c, c.Param("id"), false)
+	if !ok {
+		return
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1024)
+	var input struct {
+		Scope string `json:"scope"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		response.BadRequest(c, "Invalid cleanup request")
+		return
+	}
+	count, err := h.svc.Cleanup(c.Request.Context(), id, input.Scope)
+	if err != nil {
+		pelicanError(c, err)
+		return
+	}
+	response.Success(c, gin.H{"deleted_count": count})
 }

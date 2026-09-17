@@ -22,7 +22,8 @@ func TestPelicanReviewSaveResultCommitsFenceInsertAndRetention(t *testing.T) {
 	mock.ExpectExec("INSERT INTO pelican_test_results").WithArgs(
 		int64(1), int64(2), int64(4), "gpt-test", "pelican-v1", "success", "", int64(8), 120, 100, int64(3), now, now, "<html>x</html>",
 	).WillReturnResult(sqlmock.NewResult(1, 1))
-	mock.ExpectExec("DELETE FROM pelican_test_results").WithArgs(int64(1), int64(4), int64(2), 20).WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("UPDATE pelican_test_plans SET round_successes").WithArgs(int64(1), int64(3)).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("DELETE FROM pelican_test_results").WithArgs(int64(1), int64(2), 20).WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectCommit()
 	result := &service.PelicanResult{PlanID: 1, GroupID: 2, AccountID: 4, ModelID: "gpt-test", PromptVersion: "pelican-v1", Status: "success", LatencyMS: 8, CharCount: 120, MinChars: 100, StartedAt: now, FinishedAt: &now, HTML: "<html>x</html>"}
 	if err := NewPelicanTestRepository(db).SaveResult(context.Background(), result, 20, 3); err != nil {
@@ -33,9 +34,9 @@ func TestPelicanReviewSaveResultCommitsFenceInsertAndRetention(t *testing.T) {
 	}
 }
 
-func TestPelicanReviewResultDetailUsesAllowedGroupsAndCurrentMembership(t *testing.T) {
+func TestPelicanReviewResultDetailUsesAllowedGroups(t *testing.T) {
 	matcher := sqlmock.QueryMatcherFunc(func(_ string, actual string) error {
-		for _, required := range []string{"JOIN account_groups", "g.status='active'", "a.status='active'", "r.group_id=ANY($2)"} {
+		for _, required := range []string{"p.group_id=r.group_id", "g.deleted_at IS NULL", "g.status='active'", "r.group_id=ANY($2)"} {
 			if !strings.Contains(actual, required) {
 				return &pelicanSQLRequirementError{required: required}
 			}

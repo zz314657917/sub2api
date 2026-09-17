@@ -21,12 +21,17 @@ func RegisterAdminRoutes(
 	admin.Use(gin.HandlerFunc(auditLog))
 	{
 		if h.PelicanTest != nil {
+			admin.GET("/pelican-test-settings", h.PelicanTest.GetSettings)
+			admin.PUT("/pelican-test-settings", h.PelicanTest.UpdateSettings)
 			plans := admin.Group("/pelican-test-plans")
 			plans.GET("", h.PelicanTest.ListPlans)
+			plans.GET("/models", h.PelicanTest.Models)
 			plans.POST("", h.PelicanTest.SavePlan)
 			plans.PUT("/:id", h.PelicanTest.SavePlan)
 			plans.DELETE("/:id", h.PelicanTest.DeletePlan)
 			plans.POST("/:id/run", h.PelicanTest.RunPlan)
+			plans.POST("/:id/resume", h.PelicanTest.ResumePlan)
+			plans.POST("/:id/cleanup", h.PelicanTest.CleanupPlan)
 		}
 		// 仪表盘
 		registerDashboardRoutes(admin, h)

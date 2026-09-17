@@ -19,10 +19,12 @@ func (r *pelicanRunnerRepo) Claim(context.Context, int64, bool, time.Time) (*Pel
 	}
 	return &PelicanPlan{ID: 1, GroupID: 1, ModelID: "m", MinChars: 100, MaxResults: 1, RunGeneration: 1}, nil
 }
-func (r *pelicanRunnerRepo) Release(context.Context, int64, int64) error {
+func (r *pelicanRunnerRepo) Finalize(context.Context, int64, int64) error {
 	r.release <- struct{}{}
 	return nil
 }
+func (r *pelicanRunnerRepo) ReserveAttempt(context.Context, int64, int64) error           { return nil }
+func (r *pelicanRunnerRepo) CleanupDue(context.Context) error                             { return nil }
 func (r *pelicanRunnerRepo) SaveResult(context.Context, *PelicanResult, int, int64) error { return nil }
 
 type pelicanRunnerAccounts struct {
@@ -41,7 +43,13 @@ func (a pelicanRunnerAccounts) ListByGroup(ctx context.Context, _ int64) ([]Acco
 
 type pelicanRunnerTester struct{}
 
-func (pelicanRunnerTester) RunPelicanTest(context.Context, int64, string) (*PelicanResult, error) {
+type pelicanSelectorFunc func(context.Context, int64, string) (*AccountSelectionResult, error)
+
+func (f pelicanSelectorFunc) SelectPelicanAccount(ctx context.Context, groupID int64, model string) (*AccountSelectionResult, error) {
+	return f(ctx, groupID, model)
+}
+
+func (pelicanRunnerTester) RunPelicanTest(context.Context, int64, string, string, string) (*PelicanResult, error) {
 	return nil, nil
 }
 
@@ -49,6 +57,14 @@ func TestPelicanRunnerRejectsOverlappingManualRun(t *testing.T) {
 	r := &pelicanRunnerRepo{claim: make(chan struct{}, 2), release: make(chan struct{}, 2)}
 	block := make(chan struct{})
 	s := NewPelicanTestService(r, pelicanRunnerAccounts{block: block}, nil, pelicanRunnerTester{})
+	s.SetSettingsRepository(pelicanDefaultSettingsRepo{})
+	s.SetAccountSelector(pelicanSelectorFunc(func(ctx context.Context, _ int64, _ string) (*AccountSelectionResult, error) {
+		select {
+		case <-block:
+		case <-ctx.Done():
+		}
+		return nil, nil
+	}))
 	s.Start(context.Background())
 	defer s.Stop(context.Background())
 	if err := s.RunNow(context.Background(), 1); err != nil {

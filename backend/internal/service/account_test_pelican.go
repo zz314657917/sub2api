@@ -109,7 +109,7 @@ func parsePelicanEvents(body string) (string, error) {
 // RunPelicanTest is the narrow provider adapter used by the scheduled runner.
 // It deliberately reuses the account test path so TLS profile, proxy and OAuth
 // authentication stay identical to the validated administrative probe path.
-func (s *AccountTestService) RunPelicanTest(ctx context.Context, accountID int64, model string) (*PelicanResult, error) {
+func (s *AccountTestService) RunPelicanTest(ctx context.Context, accountID int64, model, prompt, reasoningEffort string) (*PelicanResult, error) {
 	if s == nil || s.accountRepo == nil || s.httpUpstream == nil {
 		return nil, errors.New("pelican provider unavailable")
 	}
@@ -127,11 +127,12 @@ func (s *AccountTestService) RunPelicanTest(ctx context.Context, accountID int64
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = req
 	c.Set("pelican_test", true)
+	c.Set("pelican_reasoning_effort", reasoningEffort)
 	c.Writer = &cappedPelicanWriter{ResponseWriter: c.Writer, remaining: 4 << 20, cancel: cancel}
 	started := time.Now()
 	// Use the established proxy/TLS/auth path without copying its mutex fields.
 	probe := &AccountTestService{accountRepo: s.accountRepo, httpUpstream: pelicanUpstream{s.httpUpstream}, cfg: s.cfg, tlsFPProfileService: s.tlsFPProfileService}
-	err = probe.testOpenAIAccountConnection(c, account, model, PelicanPrompt, AccountTestModeDefault)
+	err = probe.testOpenAIAccountConnection(c, account, model, prompt, AccountTestModeDefault)
 	if c.Writer.(*cappedPelicanWriter).overflow {
 		return nil, errors.New("pelican response exceeds limit")
 	}

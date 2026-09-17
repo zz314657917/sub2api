@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql/driver"
 	"errors"
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -11,19 +12,21 @@ import (
 )
 
 func TestPelicanClaimUsesDueFenceAndGeneration(t *testing.T) {
-	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherFunc(func(_, actual string) error {
-		if !strings.Contains(actual, "next_run_at <= $2") || !strings.Contains(actual, "run_generation=run_generation+1") {
-			return errors.New("missing fence")
-		}
-		return nil
-	})))
+	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
 	now := time.Now()
 	cols := strings.Split(planCols, ",")
-	mock.ExpectQuery(".*").WithArgs(int64(7), sqlmock.AnyArg(), true).WillReturnRows(sqlmock.NewRows(cols).AddRow(int64(7), int64(3), "openai", "m", 15, true, 20, 100, nil, now, nil, int64(4), now, now))
+	row := []driver.Value{int64(7), int64(3), "openai", "m", 15, true, 20, 100, nil, now, nil, int64(3), 0, 0, 0, nil, 0, 0, "", 0, "", now, now}
+	updatedRow := append([]driver.Value(nil), row...)
+	updatedRow[11] = int64(4)
+	mock.ExpectBegin()
+	mock.ExpectQuery("SELECT " + planCols).WithArgs(int64(7)).WillReturnRows(sqlmock.NewRows(cols).AddRow(row...))
+	mock.ExpectQuery("SELECT COALESCE").WithArgs(int64(7)).WillReturnRows(sqlmock.NewRows([]string{"exhausted"}).AddRow(false))
+	mock.ExpectQuery("UPDATE pelican_test_plans SET running_until").WithArgs(int64(7), now).WillReturnRows(sqlmock.NewRows(cols).AddRow(updatedRow...))
+	mock.ExpectCommit()
 	p, err := NewPelicanTestRepository(db).Claim(context.Background(), 7, true, now)
 	if err != nil {
 		t.Fatal(err)

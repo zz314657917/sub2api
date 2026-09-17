@@ -24,6 +24,24 @@ type pelicanAPIStub struct {
 	id   int64
 }
 
+type pelicanSettingsAPIStub struct{ pelicanAPI }
+
+type pelicanModelsAPIStub struct{ pelicanAPI }
+
+type pelicanDisabledAPIStub struct{ pelicanAPI }
+
+func (pelicanDisabledAPIStub) ListGallery(context.Context, service.PelicanAuthorization, int64, int64, int, int) (*service.PelicanListResponse, error) {
+	return nil, service.ErrPelicanDisabled
+}
+
+func (pelicanSettingsAPIStub) Metadata(context.Context) (service.PelicanTestMetadata, error) {
+	return service.PelicanTestMetadata{DisplayName: "自定义测试"}, nil
+}
+
+func (pelicanModelsAPIStub) Models(context.Context, int64) ([]string, error) {
+	return []string{"gpt-5.2"}, nil
+}
+
 func (s *pelicanAPIStub) GetResult(_ context.Context, auth service.PelicanAuthorization, id int64) (*service.PelicanResult, error) {
 	s.auth, s.id = auth, id
 	return nil, service.ErrPelicanNotFound
@@ -105,11 +123,39 @@ func TestPelicanErrorMappingRedactsDetails(t *testing.T) {
 
 func TestPelicanAdminHandlersRejectOrdinaryUser(t *testing.T) {
 	h := &PelicanTestHandler{}
-	for _, run := range []func(*gin.Context){h.ListPlans, h.SavePlan, h.DeletePlan, h.RunPlan} {
+	for _, run := range []func(*gin.Context){h.ListPlans, h.SavePlan, h.DeletePlan, h.RunPlan, h.ResumePlan, h.CleanupPlan, h.GetSettings, h.UpdateSettings} {
 		c, w := pelicanContext("user", true)
 		run(c)
 		if w.Code != 403 {
 			t.Fatalf("got %d", w.Code)
 		}
+	}
+}
+
+func TestPelicanMetadataRedactsPromptForOrdinaryUser(t *testing.T) {
+	h := &PelicanTestHandler{svc: pelicanSettingsAPIStub{}, groups: pelicanAccessStub{}}
+	c, w := pelicanContext("user", true)
+	h.Metadata(c)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), "自定义测试") || strings.Contains(w.Body.String(), "prompt") {
+		t.Fatalf("metadata response=%d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestPelicanDisabledGalleryRejectsOrdinaryUser(t *testing.T) {
+	h := &PelicanTestHandler{svc: pelicanDisabledAPIStub{}, groups: pelicanAccessStub{groups: []service.Group{{ID: 12}}}}
+	c, w := pelicanContext("user", true)
+	h.List(c)
+	if w.Code != 403 || !strings.Contains(w.Body.String(), "鹈鹕广场当前已关闭") {
+		t.Fatalf("response=%d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestPelicanModelsRequiresAdminAndUsesStableDTO(t *testing.T) {
+	h := &PelicanTestHandler{svc: pelicanModelsAPIStub{}}
+	c, w := pelicanContext(service.RoleAdmin, true)
+	c.Request = httptest.NewRequest("GET", "/admin/pelican-test-plans/models?group_id=9", nil)
+	h.Models(c)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"models":["gpt-5.2"]`) {
+		t.Fatalf("response=%d %s", w.Code, w.Body.String())
 	}
 }

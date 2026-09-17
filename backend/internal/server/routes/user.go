@@ -32,6 +32,7 @@ func RegisterUserRoutes(
 	{
 		if h.PelicanTest != nil {
 			authenticated.GET("/pelican-tests", h.PelicanTest.List)
+			authenticated.GET("/pelican-tests/metadata", h.PelicanTest.Metadata)
 			authenticated.GET("/pelican-tests/history", h.PelicanTest.History)
 			authenticated.GET("/pelican-tests/results/:id", h.PelicanTest.Result)
 		}

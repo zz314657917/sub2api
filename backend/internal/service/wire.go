@@ -455,8 +455,10 @@ func ProvideIdempotencyCleanupService(repo IdempotencyRepository, cfg *config.Co
 	return svc
 }
 
-func ProvidePelicanTestService(repo PelicanTestRepository, accounts AccountRepository, groups GroupRepository, tester *AccountTestService) *PelicanTestService {
+func ProvidePelicanTestService(repo PelicanTestRepository, accounts AccountRepository, groups GroupRepository, tester *AccountTestService, settings SettingRepository, gateway *OpenAIGatewayService) *PelicanTestService {
 	svc := NewPelicanTestService(repo, accounts, groups, tester)
+	svc.SetAccountSelector(pelicanGatewaySelector{gateway: gateway})
+	svc.SetSettingsRepository(settings)
 	svc.Start(context.Background())
 	return svc
 }

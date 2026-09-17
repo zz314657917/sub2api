@@ -337,7 +337,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	imageTaskService := service.ProvideImageTaskService(imageTaskStore, imageStorageSettingService)
 	asyncImageHandler := handler.NewAsyncImageHandler(imageTaskService, openAIGatewayHandler)
 	pelicanTestRepository := repository.NewPelicanTestRepository(db)
-	pelicanTestService := service.ProvidePelicanTestService(pelicanTestRepository, accountRepository, groupRepository, accountTestService)
+	pelicanTestService := service.ProvidePelicanTestService(pelicanTestRepository, accountRepository, groupRepository, accountTestService, settingRepository, openAIGatewayService)
 	pelicanTestHandler := handler.NewPelicanTestHandler(pelicanTestService, apiKeyService)
 	idempotencyCoordinator := service.ProvideIdempotencyCoordinator(idempotencyRepository, configConfig)
 	idempotencyCleanupService := service.ProvideIdempotencyCleanupService(idempotencyRepository, configConfig)
