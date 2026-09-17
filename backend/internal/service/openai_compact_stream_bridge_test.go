@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
+
+type compactSequenceWire struct {
+	SequenceNumber *int `json:"sequence_number"`
+}
 
 func newCompactBridgeTestContext(t *testing.T, clientStream bool) (*gin.Context, *httptest.ResponseRecorder) {
 	t.Helper()
@@ -115,7 +120,10 @@ func TestBuildOpenAICompactSSEPayloadNumbersSynthesizedFramesFromZero(t *testing
 	events := parseCompactBridgeEvents(t, string(payload))
 	require.Len(t, events, 3)
 	for i, event := range events {
-		require.EqualValues(t, i, gjson.Get(event[1], "sequence_number").Int())
+		var wire compactSequenceWire
+		require.NoError(t, json.Unmarshal([]byte(event[1]), &wire))
+		require.NotNil(t, wire.SequenceNumber, "event %d must serialize sequence_number", i)
+		require.Equal(t, i, *wire.SequenceNumber)
 	}
 }
 
@@ -124,7 +132,10 @@ func TestWriteOpenAICompactSSEFailureMessageIncludesZeroSequenceNumber(t *testin
 	writeOpenAICompactSSEFailureMessage(c, http.StatusBadGateway, "upstream_error", "boom")
 	events := parseCompactBridgeEvents(t, rec.Body.String())
 	require.Len(t, events, 1)
-	require.EqualValues(t, 0, gjson.Get(events[0][1], "sequence_number").Int())
+	var wire compactSequenceWire
+	require.NoError(t, json.Unmarshal([]byte(events[0][1]), &wire))
+	require.NotNil(t, wire.SequenceNumber)
+	require.Equal(t, 0, *wire.SequenceNumber)
 }
 
 func TestRemoteCompactSSEToJSONRawItemBridgesToClientStream(t *testing.T) {

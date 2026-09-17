@@ -3,10 +3,17 @@ package service
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +25,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
+
+type wsBridgeErrorWire struct {
+	SequenceNumber *int `json:"sequence_number"`
+}
 
 func TestResolveOpenAIWSClientFirstMessageTimeout(t *testing.T) {
 	defaultTimeout := time.Duration(config.DefaultOpenAIWSClientFirstMessageTimeoutSeconds) * time.Second
@@ -43,8 +54,54 @@ func TestPrepareOpenAIWSHTTPBridgeBodyStripsWSFields(t *testing.T) {
 
 func TestBuildOpenAIWSHTTPBridgeErrorEventIncludesZeroSequenceNumber(t *testing.T) {
 	event := buildOpenAIWSHTTPBridgeErrorEvent(http.StatusBadGateway, "boom")
-	require.True(t, gjson.GetBytes(event, "sequence_number").Exists())
-	require.EqualValues(t, 0, gjson.GetBytes(event, "sequence_number").Int())
+	var normal wsBridgeErrorWire
+	require.NoError(t, json.Unmarshal(event, &normal))
+	require.NotNil(t, normal.SequenceNumber)
+	require.Equal(t, 0, *normal.SequenceNumber)
+
+	_, testFile, _, ok := runtime.Caller(0)
+	require.True(t, ok)
+	parsed, err := parser.ParseFile(token.NewFileSet(), filepath.Join(filepath.Dir(testFile), "openai_ws_http_bridge.go"), nil, 0)
+	require.NoError(t, err)
+	fallback := wsHTTPBridgeFallbackJSON(t, parsed)
+	var fallbackWire wsBridgeErrorWire
+	require.NoError(t, json.Unmarshal(fallback, &fallbackWire))
+	require.NotNil(t, fallbackWire.SequenceNumber)
+	require.Equal(t, 0, *fallbackWire.SequenceNumber)
+}
+
+func wsHTTPBridgeFallbackJSON(t *testing.T, file *ast.File) []byte {
+	t.Helper()
+	var fallback []byte
+	ast.Inspect(file, func(node ast.Node) bool {
+		decl, ok := node.(*ast.FuncDecl)
+		if !ok || decl.Name.Name != "buildOpenAIWSHTTPBridgeErrorEvent" {
+			return true
+		}
+		ast.Inspect(decl.Body, func(inner ast.Node) bool {
+			returnStmt, ok := inner.(*ast.ReturnStmt)
+			if !ok || len(returnStmt.Results) != 1 {
+				return true
+			}
+			call, ok := returnStmt.Results[0].(*ast.CallExpr)
+			if !ok || len(call.Args) != 1 {
+				return true
+			}
+			literal, ok := call.Args[0].(*ast.BasicLit)
+			if !ok || literal.Kind != token.STRING {
+				return true
+			}
+			value, err := strconv.Unquote(literal.Value)
+			require.NoError(t, err)
+			if gjson.Get(value, "type").String() == "error" && gjson.Get(value, "error.type").String() == "upstream_error" {
+				fallback = []byte(value)
+			}
+			return true
+		})
+		return false
+	})
+	require.NotEmpty(t, fallback, "production fallback literal must remain present")
+	return fallback
 }
 
 func TestOpenAIWSHTTPBridgeClientToolsInheritAcrossFollowup(t *testing.T) {
