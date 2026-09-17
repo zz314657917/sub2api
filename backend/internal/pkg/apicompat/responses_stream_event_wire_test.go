@@ -131,3 +131,15 @@ func TestWire_UnknownEventFallsBackToDefault(t *testing.T) {
 	})
 	require.Contains(t, m, "response")
 }
+
+func TestWire_SequenceNumberPresentAtZero(t *testing.T) {
+	for _, event := range []ResponsesStreamEvent{
+		{Type: "response.created", Response: &ResponsesResponse{ID: "resp_1", Object: "response", Status: "in_progress"}},
+		{Type: "response.completed", Response: &ResponsesResponse{ID: "resp_1", Object: "response", Status: "completed"}},
+		{Type: "response.output_text.delta", OutputIndex: 0, ContentIndex: 0, ItemID: "msg_1", Delta: "hi"},
+	} {
+		m := marshalEvent(t, event)
+		require.Contains(t, m, "sequence_number")
+		require.EqualValues(t, 0, m["sequence_number"])
+	}
+}

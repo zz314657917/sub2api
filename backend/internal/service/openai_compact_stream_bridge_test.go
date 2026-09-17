@@ -109,6 +109,24 @@ func TestRemoteCompactSSEBridgeWritesDoneAndCompleted(t *testing.T) {
 	require.Equal(t, "resp_bridge", gjson.Get(events[1][1], "response.id").String())
 }
 
+func TestBuildOpenAICompactSSEPayloadNumbersSynthesizedFramesFromZero(t *testing.T) {
+	payload, ok := buildOpenAICompactSSEPayload([]byte(`{"id":"resp_seq","output":[{"id":"msg_1","type":"message"},{"id":"msg_2","type":"message"}]}`))
+	require.True(t, ok)
+	events := parseCompactBridgeEvents(t, string(payload))
+	require.Len(t, events, 3)
+	for i, event := range events {
+		require.EqualValues(t, i, gjson.Get(event[1], "sequence_number").Int())
+	}
+}
+
+func TestWriteOpenAICompactSSEFailureMessageIncludesZeroSequenceNumber(t *testing.T) {
+	c, rec := newCompactBridgeTestContext(t, true)
+	writeOpenAICompactSSEFailureMessage(c, http.StatusBadGateway, "upstream_error", "boom")
+	events := parseCompactBridgeEvents(t, rec.Body.String())
+	require.Len(t, events, 1)
+	require.EqualValues(t, 0, gjson.Get(events[0][1], "sequence_number").Int())
+}
+
 func TestRemoteCompactSSEToJSONRawItemBridgesToClientStream(t *testing.T) {
 	c, rec := newCompactBridgeTestContext(t, true)
 	upstreamSSE := strings.Join([]string{

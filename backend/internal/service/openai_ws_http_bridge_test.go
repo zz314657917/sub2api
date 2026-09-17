@@ -41,6 +41,12 @@ func TestPrepareOpenAIWSHTTPBridgeBodyStripsWSFields(t *testing.T) {
 	require.Equal(t, "hi", gjson.GetBytes(body, "input").String())
 }
 
+func TestBuildOpenAIWSHTTPBridgeErrorEventIncludesZeroSequenceNumber(t *testing.T) {
+	event := buildOpenAIWSHTTPBridgeErrorEvent(http.StatusBadGateway, "boom")
+	require.True(t, gjson.GetBytes(event, "sequence_number").Exists())
+	require.EqualValues(t, 0, gjson.GetBytes(event, "sequence_number").Int())
+}
+
 func TestOpenAIWSHTTPBridgeClientToolsInheritAcrossFollowup(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	upstream := &httpUpstreamRecorder{responses: []*http.Response{
@@ -106,11 +112,11 @@ func TestOpenAIWSHTTPBridgeRelaysSSEFramesAsWebSocketMessages(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	sseBody := strings.Join([]string{
-		`data: {"type":"response.created","response":{"id":"resp_bridge","model":"gpt-5"}}`,
+		`data: {"type":"response.created","sequence_number":41,"response":{"id":"resp_bridge","model":"gpt-5"}}`,
 		"",
-		`data: {"type":"response.output_text.delta","response":{"id":"resp_bridge"},"delta":"ok"}`,
+		`data: {"type":"response.output_text.delta","sequence_number":42,"response":{"id":"resp_bridge"},"delta":"ok"}`,
 		"",
-		`data: {"type":"response.completed","response":{"id":"resp_bridge","model":"gpt-5","usage":{"input_tokens":3,"output_tokens":2}}}`,
+		`data: {"type":"response.completed","sequence_number":43,"response":{"id":"resp_bridge","model":"gpt-5","usage":{"input_tokens":3,"output_tokens":2}}}`,
 		"",
 	}, "\n")
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
@@ -209,6 +215,9 @@ func TestOpenAIWSHTTPBridgeRelaysSSEFramesAsWebSocketMessages(t *testing.T) {
 	require.Equal(t, "response.created", gjson.GetBytes(created, "type").String())
 	require.Equal(t, "response.output_text.delta", gjson.GetBytes(delta, "type").String())
 	require.Equal(t, "response.completed", gjson.GetBytes(completed, "type").String())
+	require.EqualValues(t, 41, gjson.GetBytes(created, "sequence_number").Int())
+	require.EqualValues(t, 42, gjson.GetBytes(delta, "sequence_number").Int())
+	require.EqualValues(t, 43, gjson.GetBytes(completed, "sequence_number").Int())
 
 	select {
 	case bridge := <-resultCh:

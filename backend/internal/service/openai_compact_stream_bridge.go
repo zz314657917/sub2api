@@ -125,7 +125,8 @@ func writeOpenAICompactSSEFailureMessage(c *gin.Context, statusCode int, errType
 	}
 	MarkOpsStreamError(c, errType, message, statusCode)
 	payload, err := json.Marshal(map[string]any{
-		"type": "response.failed",
+		"type":            "response.failed",
+		"sequence_number": 0,
 		"response": map[string]any{
 			"id":     "resp_" + strings.ReplaceAll(uuid.NewString(), "-", ""),
 			"object": "response",
@@ -185,12 +186,19 @@ func buildOpenAICompactSSEPayload(finalResponse []byte) ([]byte, bool) {
 	}
 
 	var buf bytes.Buffer
-	appendEvent := func(eventType string, data []byte) {
+	sequenceNumber := 0
+	appendEvent := func(eventType string, data []byte) bool {
+		numbered, err := sjson.SetBytes(data, "sequence_number", sequenceNumber)
+		if err != nil {
+			return false
+		}
+		sequenceNumber++
 		_, _ = buf.WriteString("event: ")
 		_, _ = buf.WriteString(eventType)
 		_, _ = buf.WriteString("\ndata: ")
-		_, _ = buf.Write(data)
+		_, _ = buf.Write(numbered)
 		_, _ = buf.WriteString("\n\n")
+		return true
 	}
 	outputIndex := 0
 	for _, item := range gjson.GetBytes(response, "output").Array() {
@@ -205,14 +213,18 @@ func buildOpenAICompactSSEPayload(finalResponse []byte) ([]byte, bool) {
 		if err != nil {
 			return nil, false
 		}
-		appendEvent("response.output_item.done", event)
+		if !appendEvent("response.output_item.done", event) {
+			return nil, false
+		}
 		outputIndex++
 	}
 	completed, err := sjson.SetRawBytes([]byte(`{"type":"response.completed"}`), "response", response)
 	if err != nil {
 		return nil, false
 	}
-	appendEvent("response.completed", completed)
+	if !appendEvent("response.completed", completed) {
+		return nil, false
+	}
 	return buf.Bytes(), true
 }
 
