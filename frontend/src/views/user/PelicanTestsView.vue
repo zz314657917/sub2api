@@ -75,17 +75,20 @@
       <BaseDialog v-if="dialogMode && selectedEntry" :show="true" :title="dialogTitle" width="wide" :close-on-click-outside="true" @close="closeDialog">
         <div ref="dialogContent" class="dialog-content">
           <template v-if="dialogMode === 'history'">
-            <p class="dialog-note">历史记录</p><p v-if="historyLoading" class="dialog-note">加载中…</p><p v-else-if="historyError" class="dialog-note">{{ historyError }}</p>
+            <p v-if="historyLoading" class="dialog-note">加载中…</p><p v-else-if="historyError" class="dialog-note" role="alert">{{ historyError }}</p>
+            <p v-else-if="!history.length" class="dialog-note">暂无历史记录</p>
             <div class="history-grid">
-              <article v-for="revision in history" :key="revision.id" class="history-record">
+              <article v-for="revision in visibleHistory" :key="revision.id" class="history-record">
                 <div class="result-row"><span :class="statusClass(revision.status)">● {{ statusText(revision.status) }}</span><span>{{ formatDate(revision.finished_at) }}</span></div>
                 <p class="dialog-note">{{ revision.model_id }} · {{ formatDuration(revision.latency_ms) }}</p>
-                <div class="history-actions">
-                  <button :disabled="revision.status !== 'success'" type="button" @click="openRevision(revision, $event)">放大播放</button>
-                </div>
-                <p class="html-meta">HTML {{ formatChars(revision.char_count) }} 字符 · 阈值 {{ formatChars(revision.min_chars) }}</p><p v-if="revision.error_message" class="html-meta">{{ planReasonText(revision.error_message) }}</p>
+                <PelicanHistoryPreview v-if="revision.status === 'success'" :result-id="revision.id" @enlarge="openRevision(revision, $event)" />
+                <div v-else class="history-unavailable">{{ revision.status === 'failed' ? '本轮生成失败，没有可播放的作品' : '本轮未执行，没有生成作品' }}<p v-if="revision.error_message">{{ planReasonText(revision.error_message) }}</p></div>
               </article>
             </div>
+            <footer v-if="history.length" class="history-pagination">
+              <span>显示 {{ (historyPage - 1) * 6 + 1 }}–{{ Math.min(historyPage * 6, history.length) }}，共 {{ history.length }} 条</span>
+              <div class="page-controls"><button type="button" :disabled="historyPage === 1" @click="historyPage--">上一页</button><span>{{ historyPage }} / {{ historyPages }}</span><button type="button" :disabled="historyPage >= historyPages" @click="historyPage++">下一页</button></div>
+            </footer>
           </template>
           <template v-else-if="selectedRevision">
             <button v-if="fromHistory" class="back-button" type="button" @click="backToHistory">← 返回历史记录</button>
@@ -105,6 +108,7 @@ import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import PelicanSandboxFrame from '@/components/pelican/PelicanSandboxFrame.vue'
 import PelicanPlansPanel from '@/components/pelican/PelicanPlansPanel.vue'
+import PelicanHistoryPreview from '@/components/pelican/PelicanHistoryPreview.vue'
 import { buildPelicanListParams, cleanupPelicanPlan, createPelicanPlan, deletePelicanPlan, getPelicanResult, getPelicanTestSettings, listPelicanHistory, listPelicanPlans, listPelicanTests, resumePelicanPlan, runPelicanPlan, updatePelicanPlan, updatePelicanTestSettings, type PelicanEntry, type PelicanPlan, type PelicanPlanInput, type PelicanResult, type PelicanTestSettings } from '@/api/pelicanTests'
 import { getAll as getAllAdminGroups } from '@/api/admin/groups'
 import { useAuthStore } from '@/stores/auth'
@@ -132,6 +136,10 @@ const total = ref(0)
 const loading = ref(false)
 const error = ref('')
 const history = ref<PelicanResult[]>([])
+const historyPage = ref(1)
+const historyPages = computed(() => Math.max(1, Math.ceil(history.value.length / 6)))
+const visibleHistory = computed(() => history.value.slice((historyPage.value - 1) * 6, historyPage.value * 6))
+watch(historyPages, pages => { historyPage.value = Math.min(historyPage.value, pages) })
 const historyLoading = ref(false)
 const historyError = ref('')
 const cardHtml = ref<Record<number, string>>({})
@@ -193,7 +201,6 @@ onBeforeUnmount(() => {
 function formatNow(): string {
   return new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date())
 }
-function formatChars(value: number): string { return value.toLocaleString('zh-CN') }
 function statusText(status: PelicanEntry['status']): string { return status === 'success' ? '成功' : status === 'failed' ? '失败' : '本轮已跳过（未执行）' }
 function statusClass(status: PelicanEntry['status']): string { return status === 'success' ? 'success' : status === 'failed' ? 'failed' : 'skipped' }
 function formatDate(value?: string | null): string { const date = value ? new Date(value) : null; return date && !Number.isNaN(date.getTime()) ? new Intl.DateTimeFormat('zh-CN', { dateStyle: 'short', timeStyle: 'short' }).format(date) : '时间未知' }
@@ -246,7 +253,7 @@ async function openHistory(entry: PelicanEntry, event: MouseEvent): Promise<void
   fromHistory.value = false
   dialogMode.value = 'history'
   const version = ++historyRequestVersion
-  history.value = []; historyLoading.value = true; historyError.value = ''
+  historyPage.value = 1; history.value = []; historyLoading.value = true; historyError.value = ''
   try { const result = await listPelicanHistory({ plan_id: entry.plan_id }, dialogAbort.signal); if (version === historyRequestVersion) history.value = result } catch (reason) { if (version === historyRequestVersion) historyError.value = messageOf(reason) } finally { if (version === historyRequestVersion) historyLoading.value = false }
 }
 async function openArtwork(entry: PelicanEntry, event: MouseEvent | KeyboardEvent): Promise<void> {
@@ -414,6 +421,9 @@ select { font: inherit; color: inherit; padding: 8px 30px 8px 12px; min-width: 1
 .dialog-note { font-size: 11px; color: var(--pelican-muted); margin: 0 0 12px; }
 .history-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .history-record { min-width: 0; }
+.history-unavailable { min-height: 120px; padding: 20px; border-radius: 10px; background: var(--pelican-input); color: var(--pelican-muted); font-size: 13px; }
+.history-unavailable p { margin-top: 8px; }
+.history-pagination { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 0 4px; background: var(--pelican-input); color: var(--pelican-text); font-size: 12px; }
 .history-record .result-row { margin-bottom: 7px; }
 .history-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 12px; font-size: 12px; }
 .enlarged-art { max-width: 560px; margin: auto; }

@@ -119,7 +119,7 @@ describe('PelicanTestsView', () => {
     await wrapper.get('[role="dialog"] button:not([aria-label="close"])').trigger('click'); await flushPromises()
     expect(wrapper.text()).toContain('返回历史记录')
     await wrapper.get('.back-button').trigger('click')
-    expect(wrapper.text()).toContain('历史记录')
+    expect(wrapper.find('.history-grid').exists()).toBe(true)
   })
 
   it('keeps the settings draft after a failed save and propagates a successful name', async () => {
@@ -152,6 +152,9 @@ describe('PelicanTestsView', () => {
     expect(wrapper.text()).toContain('调用额度预留失败，已安全跳过本次测试')
     expect(wrapper.text()).toContain('本轮模型配置检查未通过，已跳过；请检查账号的模型配置')
     expect(wrapper.text()).toContain('该账号未配置此模型，已跳过')
+    expect(wrapper.findAll('.history-record')).toHaveLength(6)
+    expect(wrapper.find('.history-grid button').exists()).toBe(false)
+    await wrapper.get('.history-pagination').findAll('button').find(button => button.text() === '下一页')!.trigger('click')
     expect(wrapper.text()).toContain('该账号映射后的模型不适合生成HTML，已跳过')
   })
 
