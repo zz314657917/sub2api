@@ -42,6 +42,66 @@ func newAntigravityTestService(cfg *config.Config) *AntigravityGatewayService {
 	}
 }
 
+func TestHandleGeminiStreamingResponse_EventSeparatorIsExactlyOneBlankLine(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := newAntigravityTestService(&config.Config{Gateway: config.GatewayConfig{MaxLineSize: defaultMaxLineSize}})
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", nil)
+
+	first := `{"candidates":[{"content":{"role":"model","parts":[{"text":"Hello"}]}}]}`
+	second := `{"candidates":[{"content":{"role":"model","parts":[{"text":"World"}]}}]}`
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = fmt.Fprintf(w, "data: %s\n\n", first)
+		_, _ = fmt.Fprint(w, "event: notice\n: upstream-heartbeat\n\n")
+		_, _ = fmt.Fprintf(w, "data: %s\r\n\r\n", second)
+	}))
+	defer upstream.Close()
+	resp, err := http.Get(upstream.URL)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	result, err := svc.handleGeminiStreamingResponse(c, resp, time.Now())
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	body := rec.Body.String()
+	require.Equal(t, "data: "+first+"\n\nevent: notice\n: upstream-heartbeat\ndata: "+second+"\n\n", body)
+	require.NotContains(t, body, "\n\n\n")
+	require.Contains(t, body, "event: notice\n: upstream-heartbeat\n")
+	for _, frame := range strings.Split(strings.TrimSuffix(body, "\n\n"), "\n\n") {
+		if strings.HasPrefix(frame, "event: notice") {
+			require.Contains(t, frame, ": upstream-heartbeat\ndata: "+second)
+			continue
+		}
+		require.True(t, strings.HasPrefix(frame, "data: "), "unexpected SSE frame %q", frame)
+	}
+}
+
+func TestHandleGeminiStreamingResponse_EmitsKeepaliveWhileUpstreamIsIdle(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := newAntigravityTestService(&config.Config{Gateway: config.GatewayConfig{
+		MaxLineSize:             defaultMaxLineSize,
+		StreamKeepaliveInterval: 1,
+	}})
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", nil)
+	pr, pw := io.Pipe()
+	resp := &http.Response{StatusCode: http.StatusOK, Body: pr, Header: http.Header{}}
+	go func() {
+		time.Sleep(1100 * time.Millisecond)
+		_ = pw.Close()
+	}()
+
+	result, err := svc.handleGeminiStreamingResponse(c, resp, time.Now())
+	_ = pr.Close()
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.False(t, result.clientDisconnect)
+	require.Contains(t, rec.Body.String(), ":\n\n")
+}
+
 func TestStripSignatureSensitiveBlocksFromClaudeRequest(t *testing.T) {
 	req := &antigravity.ClaudeRequest{
 		Model: "claude-sonnet-4-5",

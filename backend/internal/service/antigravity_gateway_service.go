@@ -3250,6 +3250,11 @@ func (s *AntigravityGatewayService) handleGeminiStreamingResponse(c *gin.Context
 				cw.Fprintf("data: %s\n\n", payload)
 				continue
 			}
+			// data 分支已经写出 SSE 事件分隔符。跳过上游的空分隔行，避免
+			// 下游得到 "\n\n\n" 并使下一帧以额外换行开头。
+			if trimmed == "" {
+				continue
+			}
 
 			cw.Fprintf("%s\n", line)
 
