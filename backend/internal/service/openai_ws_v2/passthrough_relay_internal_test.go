@@ -532,3 +532,103 @@ func TestObserveUpstreamMessage_ResponseIDFallbackPolicy(t *testing.T) {
 	require.True(t, observed.terminal)
 	require.Equal(t, "resp_fallback", observed.responseID)
 }
+
+func TestObserveUpstreamMessage_ResponseModelAuditTurnIsolation(t *testing.T) {
+	start := time.Unix(0, 0)
+	now := func() time.Time { return start.Add(time.Millisecond) }
+	state := &relayState{}
+	first := observeUpstreamMessage(state, []byte(`{"type":"response.created","response":{"id":"resp_a","model":"model-a"}}`), start, now, nil)
+	require.Equal(t, "resp_a", first.responseID)
+	auditOwner := state.auditActiveTurn
+	require.Same(t, state.activeTurn, auditOwner)
+	require.Equal(t, "model-a", relayTurnResponseModel(auditOwner))
+
+	foreign := observeUpstreamMessage(state, []byte(`{"type":"response.created","response":{"id":"resp_foreign","model":"foreign"}}`), start, now, nil)
+	require.Equal(t, "resp_foreign", foreign.responseID)
+	require.NotSame(t, auditOwner, state.activeTurn) // preserves timing semantics
+	require.Same(t, auditOwner, state.auditActiveTurn)
+	require.Equal(t, "model-a", relayTurnResponseModel(auditOwner))
+	require.Equal(t, "foreign", relayTurnResponseModel(state.turnTimingByID["resp_foreign"]))
+
+	// The id-less terminal exposes audit data only; it must not alter request
+	// correlation, duration, usage, or the timing map.
+	activeBeforeTerminal := state.activeTurn
+	lastResponseIDBeforeTerminal := state.lastResponseID
+	state.usage = Usage{InputTokens: 7, OutputTokens: 3}
+	usageBeforeTerminal := state.usage
+	idless := observeUpstreamMessage(state, []byte(`{"type":"response.completed","model":"model-final"}`), start, now, nil)
+	require.True(t, idless.terminal)
+	require.Empty(t, idless.responseID)
+	require.Equal(t, "model-final", idless.responseModel)
+	require.True(t, idless.responseConflict)
+	require.Equal(t, lastResponseIDBeforeTerminal, state.lastResponseID)
+	require.Equal(t, usageBeforeTerminal, state.usage)
+	require.Zero(t, idless.duration)
+	require.Len(t, state.turnTimingByID, 2)
+	require.Same(t, activeBeforeTerminal, state.activeTurn)
+	require.Nil(t, state.auditActiveTurn)
+	require.Equal(t, "model-final", state.lastResponseModel)
+	require.Empty(t, state.lastResponseModelResponseID)
+	require.Equal(t, "foreign", relayTurnResponseModel(state.turnTimingByID["resp_foreign"]))
+
+	// An id-less model cannot be paired with a previous response ID at relay
+	// fallback. Preserve the ID lifecycle and emit an unknown audit value.
+	state.lastResponseID = "resp_previous"
+	result := &RelayResult{}
+	enrichResult(result, state, time.Millisecond)
+	require.Equal(t, "resp_previous", result.RequestID)
+	require.Empty(t, result.ResponseModel)
+	require.False(t, result.ResponseModelConflict)
+
+	// A new audit turn clears the prior id-less final. An id-less terminal that
+	// has no model keeps that turn's first provider declaration.
+	next := observeUpstreamMessage(state, []byte(`{"type":"response.created","response":{"id":"resp_next","model":"next"}}`), start, now, nil)
+	require.Equal(t, "resp_next", next.responseID)
+	require.NotNil(t, state.auditActiveTurn)
+	require.Empty(t, state.lastResponseModel)
+	noModel := observeUpstreamMessage(state, []byte(`{"type":"response.completed"}`), start, now, nil)
+	require.Equal(t, "next", noModel.responseModel)
+	require.Empty(t, noModel.responseID)
+
+	// Late id-less deltas after the audit owner ended are ignored.
+	late := observeUpstreamMessage(state, []byte(`{"type":"response.output_text.delta","model":"late"}`), start, now, nil)
+	require.False(t, late.terminal)
+	require.Equal(t, "foreign", relayTurnResponseModel(state.turnTimingByID["resp_foreign"]))
+	noActiveState := &relayState{lastResponseID: "resp_existing", lastResponseModel: "stale", responseConflict: true, lastResponseModelResponseID: "resp_existing"}
+	noActive := observeUpstreamMessage(noActiveState, []byte(`{"type":"response.completed","model":"none"}`), start, now, nil)
+	require.Empty(t, noActive.responseModel)
+	noActiveFallback := &RelayResult{}
+	enrichResult(noActiveFallback, noActiveState, time.Millisecond)
+	require.Equal(t, "resp_existing", noActiveFallback.RequestID)
+	require.Empty(t, noActiveFallback.ResponseModel)
+	require.False(t, noActiveFallback.ResponseModelConflict)
+}
+
+func TestRelay_ResponseModelAuditDoesNotOverwriteCompletedTurnCallback(t *testing.T) {
+	clientConn := newPassthroughTestFrameConn(nil, false)
+	upstreamConn := newPassthroughTestFrameConn([]passthroughTestFrame{
+		{msgType: coderws.MessageText, payload: []byte(`{"type":"response.created","response":{"id":"resp_completed","model":"model-a"}}`)},
+		{msgType: coderws.MessageText, payload: []byte(`{"type":"response.completed","response":{"id":"resp_completed","model":"model-a","usage":{"input_tokens":2,"output_tokens":1}}}`)},
+		// This id-less terminal arrives after the completed callback. It has no
+		// safe request ID and must not change that callback or final fallback.
+		{msgType: coderws.MessageText, payload: []byte(`{"type":"response.completed","model":"model-late"}`)},
+		{msgType: coderws.MessageText, payload: []byte(`{"type":"response.output_text.delta","model":"model-later"}`)},
+	}, true)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	var turns []RelayTurnResult
+	result, relayExit := Relay(ctx, clientConn, upstreamConn, []byte(`{"type":"response.create","model":"requested","input":[]}`), RelayOptions{
+		OnTurnComplete: func(turn RelayTurnResult) { turns = append(turns, turn) },
+	})
+	require.Nil(t, relayExit)
+	require.Len(t, turns, 1)
+	require.Equal(t, "resp_completed", turns[0].RequestID)
+	require.Equal(t, "model-a", turns[0].ResponseModel)
+	require.False(t, turns[0].ResponseModelConflict)
+	require.Equal(t, "resp_completed", result.RequestID)
+	require.Empty(t, result.ResponseModel)
+	require.False(t, result.ResponseModelConflict)
+	require.Equal(t, 2, result.Usage.InputTokens)
+	require.Equal(t, 1, result.Usage.OutputTokens)
+}

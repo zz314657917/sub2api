@@ -166,6 +166,8 @@ func TestOpenAIGatewayService_Forward_WSv2_SuccessAndBindSticky(t *testing.T) {
 	require.Equal(t, 7, result.Usage.OutputTokens)
 	require.Equal(t, 3, result.Usage.CacheReadInputTokens)
 	require.Equal(t, "resp_new_1", result.RequestID)
+	require.Equal(t, "gpt-5.1", result.UpstreamResponseModel)
+	require.False(t, result.UpstreamResponseModelConflict)
 	require.True(t, result.OpenAIWSMode)
 	require.False(t, gjson.GetBytes(upstream.lastBody, "model").Exists(), "WSv2 成功时不应回落 HTTP 上游")
 
@@ -395,6 +397,8 @@ func TestOpenAIGatewayService_Forward_WSv2_RewriteModelAndToolCallsOnCompletedEv
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Equal(t, "resp_model_tool_1", result.RequestID)
+	require.Equal(t, "gpt-5.1", result.UpstreamResponseModel, "审计模型必须在客户端模型回写前从原始上游事件捕获")
+	require.False(t, result.UpstreamResponseModelConflict)
 	require.Equal(t, "custom-original-model", gjson.GetBytes(rec.Body.Bytes(), "model").String(), "响应模型应回写为原始请求模型")
 	require.Equal(t, "edit", gjson.GetBytes(rec.Body.Bytes(), "tool_calls.0.function.name").String(), "工具名称应被修正为 OpenCode 规范")
 }

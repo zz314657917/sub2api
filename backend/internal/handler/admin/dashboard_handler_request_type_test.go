@@ -17,11 +17,24 @@ type dashboardUsageRepoCapture struct {
 	service.UsageLogRepository
 	trendRequestType *int16
 	trendStream      *bool
+	trendMismatch    *bool
 	modelRequestType *int16
 	modelStream      *bool
 	rankingLimit     int
 	ranking          []usagestats.UserSpendingRankingItem
 	rankingTotal     float64
+}
+
+func (s *dashboardUsageRepoCapture) GetUsageTrendWithUsageFilters(
+	ctx context.Context,
+	startTime, endTime time.Time,
+	granularity string,
+	filters usagestats.UsageLogFilters,
+) ([]usagestats.TrendDataPoint, error) {
+	s.trendRequestType = filters.RequestType
+	s.trendStream = filters.Stream
+	s.trendMismatch = filters.UpstreamModelMismatch
+	return []usagestats.TrendDataPoint{}, nil
 }
 
 func (s *dashboardUsageRepoCapture) GetUsageTrendWithFilters(
@@ -111,6 +124,37 @@ func TestDashboardTrendInvalidStream(t *testing.T) {
 	router.ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestDashboardTrendPropagatesUpstreamModelMismatch(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		path       string
+		wantStatus int
+		want       *bool
+	}{
+		{name: "true", path: "/admin/dashboard/trend?upstream_model_mismatch=true", wantStatus: http.StatusOK, want: boolPtr(true)},
+		{name: "false", path: "/admin/dashboard/trend?upstream_model_mismatch=false", wantStatus: http.StatusOK, want: boolPtr(false)},
+		{name: "unset", path: "/admin/dashboard/trend", wantStatus: http.StatusOK},
+		{name: "invalid", path: "/admin/dashboard/trend?upstream_model_mismatch=invalid", wantStatus: http.StatusBadRequest},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &dashboardUsageRepoCapture{}
+			router := newDashboardRequestTypeTestRouter(repo)
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, tc.path, nil))
+			require.Equal(t, tc.wantStatus, rec.Code)
+			if tc.wantStatus != http.StatusOK {
+				return
+			}
+			if tc.want == nil {
+				require.Nil(t, repo.trendMismatch)
+				return
+			}
+			require.NotNil(t, repo.trendMismatch)
+			require.Equal(t, *tc.want, *repo.trendMismatch)
+		})
+	}
 }
 
 func TestDashboardModelStatsRequestTypePriority(t *testing.T) {
