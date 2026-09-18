@@ -57,6 +57,19 @@ export default {
     nameLabel: '名称',
     namePlaceholder: '我的 API 密钥',
     groupLabel: '分组',
+    providerLabel: '厂商',
+    providers: {
+      anthropic: 'Anthropic',
+      openai: 'OpenAI',
+      domestic: '国产模型',
+      other: '其他'
+    },
+    providerHints: {
+      anthropic: '选择 Anthropic / Claude 的可用分组',
+      openai: '选择 OpenAI / GPT 的可用分组',
+      domestic: '包含 DeepSeek、Kimi 和智谱 GLM',
+      other: '包含 Gemini、Grok 和 Antigravity 分组'
+    },
     defaultGroupLabel: '默认分组（兜底）',
     defaultGroupHint: '开启多分组路由后，请求优先按下方路由配置选择分组；没有匹配或可用路由时，才使用这个默认分组。',
     selectGroup: '选择分组',

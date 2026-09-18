@@ -57,6 +57,19 @@ export default {
     nameLabel: 'Name',
     namePlaceholder: 'My API Key',
     groupLabel: 'Group',
+    providerLabel: 'Provider',
+    providers: {
+      anthropic: 'Anthropic',
+      openai: 'OpenAI',
+      domestic: 'Chinese AI',
+      other: 'Other'
+    },
+    providerHints: {
+      anthropic: 'Choose an available Anthropic / Claude group',
+      openai: 'Choose an available OpenAI / GPT group',
+      domestic: 'Includes DeepSeek, Kimi and Zhipu GLM',
+      other: 'Includes Gemini, Grok and Antigravity groups'
+    },
     defaultGroupLabel: 'Default Group (Fallback)',
     defaultGroupHint: 'When multi-group routing is enabled, requests use the route rules below first. This default group is used only when no route matches or no route is available.',
     selectGroup: 'Select a group',
