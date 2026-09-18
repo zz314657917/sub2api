@@ -72,7 +72,7 @@ func NewClaudeCodeValidator() *ClaudeCodeValidator {
 //
 //	Step 1: User-Agent 检查 (必需) - 必须是 claude-cli/x.x.x
 //	Step 2: 对于非 messages 路径和 /messages/count_tokens，只要 UA 匹配就通过
-//	Step 3: 检查 max_tokens=1 + haiku 探测请求绕过（UA 已验证）
+//	Step 3: 检查 max_tokens=1 探测请求绕过（UA 已验证）
 //	Step 4: 对于 messages 路径，进行严格验证：
 //	        - System prompt 相似度检查
 //	        - X-App header 检查
@@ -97,7 +97,7 @@ func (v *ClaudeCodeValidator) Validate(r *http.Request, body map[string]any) boo
 		return true
 	}
 
-	// Step 3: 检查 max_tokens=1 + haiku 探测请求绕过
+	// Step 3: 检查 max_tokens=1 探测请求绕过
 	// 这类请求用于 Claude Code 验证 API 连通性，不携带 system prompt
 	if isMaxTokensOneHaiku, ok := IsMaxTokensOneHaikuRequestFromContext(r.Context()); ok && isMaxTokensOneHaiku {
 		return true // 绕过 system prompt 检查，UA 已在 Step 1 验证
@@ -174,6 +174,24 @@ func isClaudeHaikuModel(body map[string]any) bool {
 
 func isMessagesCountTokensPath(path string) bool {
 	return strings.HasSuffix(path, "/messages/count_tokens")
+}
+
+// isMaxTokensOneBody 判断请求体是否显式声明 max_tokens=1。
+// 兼容 JSON 反序列化出的 float64 与 ParsedRequest 复用时的 int。
+func isMaxTokensOneBody(body map[string]any) bool {
+	if body == nil {
+		return false
+	}
+	switch v := body["max_tokens"].(type) {
+	case float64:
+		return v == 1
+	case int:
+		return v == 1
+	case int64:
+		return v == 1
+	default:
+		return false
+	}
 }
 
 // hasClaudeCodeSystemPrompt 检查请求是否包含 Claude Code 系统提示词
