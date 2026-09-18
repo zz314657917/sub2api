@@ -30,6 +30,8 @@ type Usage struct {
 
 type RelayResult struct {
 	RequestModel            string
+	ResponseModel           string
+	ResponseModelConflict   bool
 	Usage                   Usage
 	RequestID               string
 	TerminalEventType       string
@@ -41,12 +43,14 @@ type RelayResult struct {
 }
 
 type RelayTurnResult struct {
-	RequestModel      string
-	Usage             Usage
-	RequestID         string
-	TerminalEventType string
-	Duration          time.Duration
-	FirstTokenMs      *int
+	RequestModel          string
+	ResponseModel         string
+	ResponseModelConflict bool
+	Usage                 Usage
+	RequestID             string
+	TerminalEventType     string
+	Duration              time.Duration
+	FirstTokenMs          *int
 }
 
 type RelayExit struct {
@@ -88,6 +92,12 @@ type relayState struct {
 	firstTokenMs      *int
 	turnTimingByID    map[string]*relayTurnTiming
 	activeTurn        *relayTurnTiming
+	auditActiveTurn   *relayTurnTiming
+	lastResponseModel string
+	responseConflict  bool
+	// lastResponseModelResponseID is deliberately separate from lastResponseID:
+	// an id-less terminal has no safe billing/request correlation.
+	lastResponseModelResponseID string
 }
 
 type relayExitSignal struct {
@@ -98,17 +108,22 @@ type relayExitSignal struct {
 }
 
 type observedUpstreamEvent struct {
-	terminal   bool
-	eventType  string
-	responseID string
-	usage      Usage
-	duration   time.Duration
-	firstToken *int
+	terminal         bool
+	eventType        string
+	responseID       string
+	usage            Usage
+	duration         time.Duration
+	firstToken       *int
+	responseModel    string
+	responseConflict bool
 }
 
 type relayTurnTiming struct {
-	startAt      time.Time
-	firstTokenMs *int
+	startAt               time.Time
+	firstTokenMs          *int
+	firstResponseModel    string
+	terminalResponseModel string
+	responseModelConflict bool
 }
 
 func Relay(
@@ -655,23 +670,55 @@ func observeUpstreamMessage(
 		responseID: responseID,
 		usage:      parsedUsage,
 	}
+	var turnTiming *relayTurnTiming
 	if responseID != "" {
-		turnTiming := openAIWSRelayGetOrInitTurnTiming(state, responseID, now)
+		turnTiming = openAIWSRelayGetOrInitTurnTiming(state, responseID, now)
 		if turnTiming != nil && turnTiming.firstTokenMs == nil && isTokenEvent(eventType) {
 			ms := int(now.Sub(turnTiming.startAt).Milliseconds())
 			if ms >= 0 {
 				turnTiming.firstTokenMs = &ms
 			}
 		}
+		// Explicit IDs retain the relay's established per-ID lifecycle. They can
+		// observe their own model, but never replace the id-less audit owner.
+		observeRelayTurnResponseModel(turnTiming, firstRelayResponseModel(message), isTerminalEvent(eventType))
+	} else if state.auditActiveTurn != nil {
+		// Id-less events have no safe timing/billing ID. Restrict observation to
+		// the dedicated audit owner so a foreign explicit ID cannot receive it.
+		observeRelayTurnResponseModel(state.auditActiveTurn, firstRelayResponseModel(message), isTerminalEvent(eventType))
 	}
 	if !isTerminalEvent(eventType) {
 		return observed
 	}
 	observed.terminal = true
 	state.terminalEventType = eventType
+	if responseID == "" {
+		if state.auditActiveTurn != nil {
+			// Keep audit data for an id-less terminal associated with the one active
+			// turn. Do not synthesize an ID or alter timing/usage lifecycle: those
+			// remain owned by the pre-existing relay correlation logic.
+			observed.responseModel = relayTurnResponseModel(state.auditActiveTurn)
+			observed.responseConflict = state.auditActiveTurn.responseModelConflict
+			state.lastResponseModel = observed.responseModel
+			state.responseConflict = observed.responseConflict
+			state.lastResponseModelResponseID = ""
+			state.auditActiveTurn = nil
+		} else {
+			// A terminal without an ID or audit owner cannot be attributed safely.
+			// Clear any prior final rather than letting fallback pair it with an old ID.
+			state.lastResponseModel = ""
+			state.responseConflict = false
+			state.lastResponseModelResponseID = ""
+		}
+	}
 	if responseID != "" {
 		state.lastResponseID = responseID
 		if turnTiming, ok := openAIWSRelayDeleteTurnTiming(state, responseID); ok {
+			observed.responseModel = relayTurnResponseModel(&turnTiming)
+			observed.responseConflict = turnTiming.responseModelConflict
+			state.lastResponseModel = observed.responseModel
+			state.responseConflict = observed.responseConflict
+			state.lastResponseModelResponseID = responseID
 			duration := now.Sub(turnTiming.startAt)
 			if duration < 0 {
 				duration = 0
@@ -700,13 +747,62 @@ func emitTurnComplete(
 		requestModel = state.requestModel
 	}
 	onTurnComplete(RelayTurnResult{
-		RequestModel:      requestModel,
-		Usage:             observed.usage,
-		RequestID:         responseID,
-		TerminalEventType: observed.eventType,
-		Duration:          observed.duration,
-		FirstTokenMs:      openAIWSRelayCloneIntPtr(observed.firstToken),
+		RequestModel:          requestModel,
+		ResponseModel:         observed.responseModel,
+		ResponseModelConflict: observed.responseConflict,
+		Usage:                 observed.usage,
+		RequestID:             responseID,
+		TerminalEventType:     observed.eventType,
+		Duration:              observed.duration,
+		FirstTokenMs:          openAIWSRelayCloneIntPtr(observed.firstToken),
 	})
+}
+
+func firstRelayResponseModel(message []byte) string {
+	if len(message) == 0 || !gjson.ValidBytes(message) {
+		return ""
+	}
+	for _, value := range gjson.GetManyBytes(message, "response.model", "model") {
+		if value.Type == gjson.String {
+			if model := strings.TrimSpace(value.String()); model != "" {
+				return normalizeRelayResponseModel(model)
+			}
+		}
+	}
+	return ""
+}
+
+func normalizeRelayResponseModel(model string) string {
+	runes := []rune(strings.TrimSpace(model))
+	if len(runes) > 200 {
+		return string(runes[:200])
+	}
+	return string(runes)
+}
+
+func observeRelayTurnResponseModel(turn *relayTurnTiming, model string, terminal bool) {
+	if turn == nil || model == "" {
+		return
+	}
+	if current := relayTurnResponseModel(turn); current != "" && !strings.EqualFold(current, model) {
+		turn.responseModelConflict = true
+	}
+	if terminal {
+		turn.terminalResponseModel = model
+		return
+	}
+	if turn.firstResponseModel == "" {
+		turn.firstResponseModel = model
+	}
+}
+func relayTurnResponseModel(turn *relayTurnTiming) string {
+	if turn == nil {
+		return ""
+	}
+	if turn.terminalResponseModel != "" {
+		return turn.terminalResponseModel
+	}
+	return turn.firstResponseModel
 }
 
 func openAIWSRelayGetOrInitTurnTiming(state *relayState, responseID string, now time.Time) *relayTurnTiming {
@@ -720,9 +816,16 @@ func openAIWSRelayGetOrInitTurnTiming(state *relayState, responseID string, now 
 	if !ok || timing == nil || timing.startAt.IsZero() {
 		timing = &relayTurnTiming{startAt: now}
 		state.turnTimingByID[responseID] = timing
-		state.activeTurn = timing
-		return timing
+		if state.auditActiveTurn == nil {
+			state.auditActiveTurn = timing
+			state.lastResponseModel = ""
+			state.responseConflict = false
+			state.lastResponseModelResponseID = ""
+		}
 	}
+	// Keep the original timing lifecycle: every explicit response ID becomes
+	// active, including an ID already present in the timing map.
+	state.activeTurn = timing
 	return timing
 }
 
@@ -737,6 +840,9 @@ func openAIWSRelayDeleteTurnTiming(state *relayState, responseID string) (relayT
 	delete(state.turnTimingByID, responseID)
 	if state.activeTurn == timing {
 		state.activeTurn = nil
+	}
+	if state.auditActiveTurn == timing {
+		state.auditActiveTurn = nil
 	}
 	return *timing, true
 }
@@ -863,6 +969,12 @@ func enrichResult(result *RelayResult, state *relayState, duration time.Duration
 	result.RequestID = state.lastResponseID
 	result.TerminalEventType = state.terminalEventType
 	result.FirstTokenMs = state.firstTokenMs
+	// Do not pair an id-less audit terminal with a previous explicit response
+	// ID. Unknown association is intentionally emitted as NULL/empty.
+	if state.lastResponseModelResponseID == result.RequestID {
+		result.ResponseModel = state.lastResponseModel
+		result.ResponseModelConflict = state.responseConflict
+	}
 }
 
 func isDisconnectError(err error) bool {

@@ -51,6 +51,15 @@
             </div>
           </div>
           <span v-else class="font-medium text-gray-900 dark:text-white">{{ displayModelWithReasoningEffort(row.model, row.reasoning_effort) }}</span>
+          <div v-if="row.upstream_response_model" class="mt-0.5 flex flex-wrap items-center gap-1 text-xs" :class="row.upstream_model_mismatch === true ? 'text-amber-700 dark:text-amber-300' : 'text-gray-500 dark:text-gray-400'" data-testid="upstream-response-model">
+            <span class="break-all"><span class="mr-0.5">↳</span>{{ t('usage.responseModel') }}: {{ row.upstream_response_model }}</span>
+            <span
+              v-if="row.upstream_model_mismatch === true"
+              class="inline-flex cursor-help items-center rounded bg-amber-100 px-1.5 py-px text-[10px] font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+              :title="responseModelAuditTooltip(row)"
+              data-testid="upstream-response-model-badge"
+            >{{ isLikelyResponseModelVariant(row) ? t('usage.modelLikelyVariant') : t('usage.modelMismatch') }}</span>
+          </div>
         </template>
 
         <template #cell-reasoning_effort="{ row }">
@@ -569,6 +578,38 @@ defineEmits<{
   sort: [key: string, order: 'asc' | 'desc']
 }>()
 const { t } = useI18n()
+
+const normalizeLikelyResponseModelVariant = (model: string): string => model
+  .trim()
+  .toLowerCase()
+  .replace(/(?:-latest|-\d{4}(?:-?\d{2}){2})+$/, '')
+
+const GROK_RESPONSE_MODEL_ALIAS_GROUPS = [
+  new Set(['grok-4.5', 'grok-4.5-latest', 'grok-4.5-build']),
+  new Set(['grok-4.6', 'grok-4.6-latest', 'grok-4.6-build']),
+]
+
+const isKnownGrokResponseModelAlias = (sentModel: string, responseModel: string): boolean => {
+  const sent = sentModel.trim().toLowerCase()
+  const response = responseModel.trim().toLowerCase()
+  return GROK_RESPONSE_MODEL_ALIAS_GROUPS.some((aliases) => aliases.has(sent) && aliases.has(response))
+}
+
+const isLikelyResponseModelVariant = (row: Pick<AdminUsageLog, 'upstream_model' | 'upstream_response_model' | 'upstream_model_mismatch' | 'model'>): boolean => {
+  if (row.upstream_model_mismatch !== true || !row.upstream_response_model) return false
+  const sentModel = getSentModel(row)
+  if (!sentModel || sentModel.trim().toLowerCase() === row.upstream_response_model.trim().toLowerCase()) return false
+  return isKnownGrokResponseModelAlias(sentModel, row.upstream_response_model)
+    || normalizeLikelyResponseModelVariant(sentModel) === normalizeLikelyResponseModelVariant(row.upstream_response_model)
+}
+
+const getSentModel = (row: Pick<AdminUsageLog, 'model' | 'upstream_model'>): string => row.upstream_model?.trim() || row.model?.trim() || ''
+
+const responseModelAuditTooltip = (row: Pick<AdminUsageLog, 'model' | 'upstream_model' | 'upstream_response_model'>): string => [
+  `${t('usage.requestedModel')}: ${row.model || '-'}`,
+  `${t('usage.sentModel')}: ${getSentModel(row) || '-'}`,
+  `${t('usage.responseModel')}: ${row.upstream_response_model || '-'}`,
+].join('\n')
 
 // Legacy API responses may omit billing_status; those rows predate the
 // settlement migration and retain the historical applied interpretation.

@@ -665,6 +665,79 @@ func TestAntigravityGatewayService_ForwardGemini_BillsWithMappedModel(t *testing
 	require.Equal(t, mappedModel, result.UpstreamModel)
 }
 
+// TestUpstreamResponseModelAntigravityProductionForwardPaths
+// verifies the public forwarding entry points retain the provider-declared
+// model before their protocol-specific response rewrites.
+func TestUpstreamResponseModelAntigravityProductionForwardPaths(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	newService := func(responseBody string) *AntigravityGatewayService {
+		return &AntigravityGatewayService{
+			settingService: NewSettingService(&antigravitySettingRepoStub{}, &config.Config{
+				Gateway: config.GatewayConfig{MaxLineSize: defaultMaxLineSize},
+			}),
+			tokenProvider: &AntigravityTokenProvider{},
+			httpUpstream: &httpUpstreamStub{resp: &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+				Body:       io.NopCloser(strings.NewReader(responseBody)),
+			}},
+		}
+	}
+	newOAuthAccount := func(mapping map[string]any) *Account {
+		return &Account{
+			ID: 1, Name: "response-model", Platform: PlatformAntigravity,
+			Type: AccountTypeOAuth, Status: StatusActive, Concurrency: 1,
+			Credentials: map[string]any{"access_token": "token", "model_mapping": mapping},
+		}
+	}
+
+	t.Run("Gemini stream collected as JSON", func(t *testing.T) {
+		writer := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(writer)
+		body := []byte(`{"contents":[{"role":"user","parts":[{"text":"hello"}]}]}`)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1beta/models/alias:generateContent", bytes.NewReader(body))
+		beginUpstreamResponseModelObservation(c).Observe("stale-model", true)
+
+		svc := newService(`data: {"response":{"modelVersion":"gemini-produced","candidates":[{"content":{"parts":[{"text":"ok"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":2,"candidatesTokenCount":1}}}` + "\n\n")
+		result, err := svc.ForwardGemini(context.Background(), c, newOAuthAccount(map[string]any{"alias": "gemini-sent"}), "alias", "generateContent", false, body, false)
+		require.NoError(t, err)
+		require.Equal(t, "gemini-produced", result.UpstreamResponseModel)
+		require.False(t, result.UpstreamResponseModelConflict)
+		require.NotContains(t, writer.Body.String(), "stale-model")
+	})
+
+	t.Run("Claude stream converted from Gemini", func(t *testing.T) {
+		writer := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(writer)
+		body := []byte(`{"model":"claude-alias","messages":[{"role":"user","content":"hello"}],"max_tokens":16,"stream":true}`)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(body))
+
+		svc := newService(`data: {"response":{"modelVersion":"gemini-for-claude","candidates":[{"content":{"parts":[{"text":"ok"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":2,"candidatesTokenCount":1}}}` + "\n\n")
+		result, err := svc.Forward(context.Background(), c, newOAuthAccount(map[string]any{"claude-alias": "gemini-sent"}), body, false)
+		require.NoError(t, err)
+		require.Equal(t, "gemini-for-claude", result.UpstreamResponseModel)
+		require.False(t, result.UpstreamResponseModelConflict)
+	})
+
+	t.Run("direct Anthropic passthrough", func(t *testing.T) {
+		writer := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(writer)
+		body := []byte(`{"model":"claude-alias","messages":[{"role":"user","content":"hello"}],"max_tokens":16}`)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(body))
+
+		svc := newService(`{"model":"claude-produced","usage":{"input_tokens":2,"output_tokens":1}}`)
+		account := &Account{
+			ID: 2, Name: "direct", Platform: PlatformAntigravity, Type: AccountTypeUpstream,
+			Status: StatusActive, Concurrency: 1,
+			Credentials: map[string]any{"base_url": "https://upstream.invalid", "api_key": "key"},
+		}
+		result, err := svc.ForwardUpstream(context.Background(), c, account, body)
+		require.NoError(t, err)
+		require.Equal(t, "claude-produced", result.UpstreamResponseModel)
+		require.False(t, result.UpstreamResponseModelConflict)
+	})
+}
+
 func TestAntigravityGatewayService_ForwardGemini_FallbackReportsActualUpstreamModel(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	writer := httptest.NewRecorder()

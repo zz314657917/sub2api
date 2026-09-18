@@ -40,6 +40,10 @@ const messages: Record<string, string> = {
   'admin.usage.billingModeToken': 'Token',
   'admin.usage.billingModePerRequest': 'Per Request',
   'admin.usage.billingModeImage': 'Image',
+  'admin.usage.responseModelAudit': 'Response Model Audit',
+  'admin.usage.allResponseModelAudits': 'All Response Model States',
+  'admin.usage.responseModelMismatch': 'Model Mismatch',
+  'admin.usage.responseModelMatch': 'Model Match',
   'usage.ws': 'WS',
   'usage.stream': 'Stream',
   'usage.sync': 'Sync',
@@ -201,5 +205,19 @@ describe('UsageFilters dropdown visibility', () => {
     expect(wrapper.text()).not.toContain('Billing Mode')
     expect(wrapper.text()).not.toContain('Cleanup')
     expect(wrapper.text()).not.toContain('Export')
+  })
+
+  it('shows the nullable-aware response-model audit filter only for usage rows', async () => {
+    const usageWrapper = mountFilters('usage')
+    const errorsWrapper = mountFilters('errors')
+    await flushPromises()
+
+    expect(usageWrapper.get('[data-testid="response-model-audit-filter"]').text()).toContain('Response Model Audit')
+    expect((usageWrapper.vm as any).responseModelAuditOptions).toEqual([
+      { value: null, label: 'All Response Model States' },
+      { value: true, label: 'Model Mismatch' },
+      { value: false, label: 'Model Match' },
+    ])
+    expect(errorsWrapper.find('[data-testid="response-model-audit-filter"]').exists()).toBe(false)
   })
 })

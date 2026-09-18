@@ -4,7 +4,7 @@ import { defineComponent, ref } from 'vue'
 
 import UsageView from '../UsageView.vue'
 
-const { list, listErrorLogs, getStats, getSnapshotV2, getModelStats, getById, routeQuery } = vi.hoisted(() => {
+const { list, exportList, listErrorLogs, getStats, getSnapshotV2, getModelStats, getById, aoaToSheet, sheetAddAoa, routeQuery } = vi.hoisted(() => {
   vi.stubGlobal('localStorage', {
     getItem: vi.fn(() => null),
     setItem: vi.fn(),
@@ -13,11 +13,14 @@ const { list, listErrorLogs, getStats, getSnapshotV2, getModelStats, getById, ro
 
   return {
     list: vi.fn(),
+    exportList: vi.fn(),
     listErrorLogs: vi.fn(),
     getStats: vi.fn(),
     getSnapshotV2: vi.fn(),
     getModelStats: vi.fn(),
     getById: vi.fn(),
+    aoaToSheet: vi.fn(),
+    sheetAddAoa: vi.fn(),
     routeQuery: {} as Record<string, string>,
   }
 })
@@ -28,6 +31,8 @@ const messages: Record<string, string> = {
   'admin.dashboard.hour': 'Hour',
   'admin.usage.failedToLoadUser': 'Failed to load user',
   'usage.latency': 'Latency Health',
+  'common.yes': 'Yes',
+  'common.no': 'No',
 }
 
 const formatLocalDate = (date: Date): string => {
@@ -55,8 +60,22 @@ vi.mock('@/api/admin', () => ({
 
 vi.mock('@/api/admin/usage', () => ({
   adminUsageAPI: {
-    list: vi.fn(),
+    list: exportList,
   },
+}))
+
+vi.mock('file-saver', () => ({
+  saveAs: vi.fn(),
+}))
+
+vi.mock('xlsx', () => ({
+  utils: {
+    aoa_to_sheet: aoaToSheet.mockImplementation(() => ({})),
+    sheet_add_aoa: sheetAddAoa,
+    book_new: vi.fn(() => ({})),
+    book_append_sheet: vi.fn(),
+  },
+  write: vi.fn(() => new Uint8Array()),
 }))
 
 vi.mock('@/api/admin/ops', () => ({
@@ -94,6 +113,7 @@ vi.mock('vue-router', () => ({
 
 const AppLayoutStub = { template: '<div><slot /></div>' }
 const UsageFiltersStub = defineComponent({
+  emits: ['change'],
   setup(_, { expose }) {
     const userKeyword = ref('')
     let userSearchRevision = 0
@@ -186,6 +206,7 @@ describe('admin UsageView route filters', () => {
     vi.useFakeTimers()
     Object.keys(routeQuery).forEach((key) => delete routeQuery[key])
     list.mockReset().mockResolvedValue({ items: [], total: 0, pages: 0 })
+    exportList.mockReset()
     listErrorLogs.mockReset().mockResolvedValue({ items: [], total: 0, pages: 0 })
     getStats.mockReset().mockResolvedValue({
       total_requests: 0,
@@ -383,6 +404,59 @@ describe('admin UsageView distribution metric toggles', () => {
 
     await wrapper.get('[data-test="usage-column-settings"]').trigger('click')
     expect(filterSurface.classes()).not.toContain('z-[221]')
+  })
+
+  it('exports requested, sent, response, and mismatch audit fields without false or null assertions', async () => {
+    exportList.mockResolvedValue({
+      total: 3,
+      items: [
+        { created_at: '2026-09-17T00:00:00Z', model: 'gpt-5.2', upstream_model: 'gpt-5.2-latest', upstream_response_model: 'gpt-5.3', upstream_model_mismatch: true },
+        { created_at: '2026-09-17T00:01:00Z', model: 'gpt-5.2', upstream_model: null, upstream_response_model: null, upstream_model_mismatch: false },
+        { created_at: '2026-09-17T00:02:00Z', model: 'gpt-5.2', upstream_model: null, upstream_response_model: null, upstream_model_mismatch: null },
+      ],
+    })
+    const wrapper = mountRouteFilteredUsageView()
+    await flushPromises()
+
+    await (wrapper.vm as any).exportToExcel()
+
+    expect(aoaToSheet).toHaveBeenCalledTimes(1)
+    expect(sheetAddAoa).toHaveBeenCalledTimes(1)
+    const header = aoaToSheet.mock.calls[0][0][0] as string[]
+    const rows = sheetAddAoa.mock.calls[0][1] as unknown[][]
+    const firstRow = rows[0]
+    const secondRow = rows[1]
+    const thirdRow = rows[2]
+    const requestedIndex = header.indexOf('usage.requestedModel')
+    const sentIndex = header.indexOf('usage.sentModel')
+    const responseIndex = header.indexOf('usage.responseModel')
+    const mismatchIndex = header.indexOf('usage.responseModelMismatch')
+
+    expect([requestedIndex, sentIndex, responseIndex, mismatchIndex]).not.toContain(-1)
+    expect(firstRow[requestedIndex]).toBe('gpt-5.2')
+    expect(firstRow[sentIndex]).toBe('gpt-5.2-latest')
+    expect(firstRow[responseIndex]).toBe('gpt-5.3')
+    expect(firstRow[mismatchIndex]).toBe('Yes')
+    expect(secondRow[sentIndex]).toBe('gpt-5.2')
+    expect(secondRow[responseIndex]).toBe('')
+    expect(secondRow[mismatchIndex]).toBe('No')
+    expect(thirdRow[responseIndex]).toBe('')
+    expect(thirdRow[mismatchIndex]).toBe('')
+  })
+
+  it('propagates response-model mismatch filtering to list, stats, model charts, and snapshots', async () => {
+    const wrapper = mountRouteFilteredUsageView()
+    await flushPromises()
+    ;(wrapper.vm as any).filters.upstream_model_mismatch = false
+    ;(wrapper.vm as any).applyFilters()
+    await flushPromises()
+
+    expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ upstream_model_mismatch: false }), expect.anything())
+    expect(getStats).toHaveBeenLastCalledWith(expect.objectContaining({ upstream_model_mismatch: false }))
+    expect(getModelStats).toHaveBeenLastCalledWith(expect.objectContaining({ upstream_model_mismatch: false, model_source: 'requested' }))
+    vi.advanceTimersByTime(120)
+    await flushPromises()
+    expect(getSnapshotV2).toHaveBeenLastCalledWith(expect.objectContaining({ upstream_model_mismatch: false }))
   })
 })
 

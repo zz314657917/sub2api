@@ -31,6 +31,11 @@ const messages: Record<string, string> = {
   'usage.original': 'Original',
   'usage.userBilled': 'User billed',
   'usage.accountBilled': 'Account billed',
+  'usage.requestedModel': 'Requested',
+  'usage.sentModel': 'Sent',
+  'usage.responseModel': 'Upstream response',
+  'usage.modelMismatch': 'Model mismatch',
+  'usage.modelLikelyVariant': 'Model variant',
   'usage.latencyFirstToken': 'First',
   'usage.latencyDuration': 'Total',
   'usage.imageUnit': ' images',
@@ -409,6 +414,63 @@ describe('admin UsageTable tooltip', () => {
     expect(text).toContain('grok-imagine-1.5')
     expect(text).not.toMatch(/apimart/i)
     expect(text.match(/\(High\)/g)).toHaveLength(1)
+  })
+
+  it('shows the raw response model and an exact mismatch audit tooltip', () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{ ...baseImageRow, request_id: 'req-response-mismatch', model: 'gpt-5.2', upstream_model: ' gpt-5.2 ', upstream_response_model: 'gpt-5.3', upstream_model_mismatch: true }],
+        loading: false,
+        columns: [],
+      },
+      global: { stubs: { DataTable: DataTableStub, EmptyState: true, Icon: true, Teleport: true } },
+    })
+
+    expect(wrapper.get('[data-testid="upstream-response-model"]').text()).toContain('Upstream response: gpt-5.3')
+    const badge = wrapper.get('[data-testid="upstream-response-model-badge"]')
+    expect(badge.text()).toBe('Model mismatch')
+    expect(badge.attributes('title')).toBe('Requested: gpt-5.2\nSent: gpt-5.2\nUpstream response: gpt-5.3')
+    expect(wrapper.get('[data-testid="upstream-response-model"]').classes()).toContain('text-amber-700')
+  })
+
+  it('classifies matching date-only response model changes as likely variants', () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{ ...baseImageRow, request_id: 'req-response-variant', model: 'claude-sonnet-4', upstream_model: 'claude-sonnet-4', upstream_response_model: 'claude-sonnet-4-20250514', upstream_model_mismatch: true }],
+        loading: false,
+        columns: [],
+      },
+      global: { stubs: { DataTable: DataTableStub, EmptyState: true, Icon: true, Teleport: true } },
+    })
+
+    expect(wrapper.get('[data-testid="upstream-response-model-badge"]').text()).toBe('Model variant')
+  })
+
+  it('does not show a Grok variant badge when the backend recorded a match', () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{ ...baseImageRow, request_id: 'req-response-grok-alias', model: 'grok-4.5', upstream_model: 'grok-4.5-latest', upstream_response_model: 'grok-4.5-build', upstream_model_mismatch: false }],
+        loading: false,
+        columns: [],
+      },
+      global: { stubs: { DataTable: DataTableStub, EmptyState: true, Icon: true, Teleport: true } },
+    })
+
+    expect(wrapper.find('[data-testid="upstream-response-model-badge"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="upstream-response-model"]').classes()).toContain('text-gray-500')
+  })
+
+  it('does not assert a mismatch when no response model was declared', () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{ ...baseImageRow, request_id: 'req-response-missing', model: 'gpt-5.2', upstream_model: 'gpt-5.2', upstream_response_model: null, upstream_model_mismatch: null }],
+        loading: false,
+        columns: [],
+      },
+      global: { stubs: { DataTable: DataTableStub, EmptyState: true, Icon: true, Teleport: true } },
+    })
+
+    expect(wrapper.find('[data-testid="upstream-response-model-badge"]').exists()).toBe(false)
   })
 
   it.each([

@@ -18,6 +18,18 @@ type dashboardUsageRepoCacheProbe struct {
 	service.UsageLogRepository
 	trendCalls      atomic.Int32
 	usersTrendCalls atomic.Int32
+	trendMismatch   []*bool
+}
+
+func (r *dashboardUsageRepoCacheProbe) GetUsageTrendWithUsageFilters(
+	ctx context.Context,
+	startTime, endTime time.Time,
+	granularity string,
+	filters usagestats.UsageLogFilters,
+) ([]usagestats.TrendDataPoint, error) {
+	r.trendCalls.Add(1)
+	r.trendMismatch = append(r.trendMismatch, filters.UpstreamModelMismatch)
+	return []usagestats.TrendDataPoint{{Date: "2026-03-11", Requests: 1}}, nil
 }
 
 func (r *dashboardUsageRepoCacheProbe) GetUsageTrendWithFilters(
@@ -115,4 +127,32 @@ func TestDashboardHandler_GetUserUsageTrend_UsesCache(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec2.Code)
 	require.Equal(t, "hit", rec2.Header().Get("X-Snapshot-Cache"))
 	require.Equal(t, int32(1), repo.usersTrendCalls.Load())
+}
+
+func TestDashboardTrendCacheSeparatesUpstreamModelMismatchTriState(t *testing.T) {
+	t.Cleanup(resetDashboardReadCachesForTest)
+	resetDashboardReadCachesForTest()
+	repo := &dashboardUsageRepoCacheProbe{}
+	handler := NewDashboardHandler(service.NewDashboardService(repo, nil, nil, nil), nil)
+	start := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	end := start.Add(24 * time.Hour)
+	trueValue, falseValue := true, false
+
+	_, hit, err := handler.getUsageTrendCached(context.Background(), start, end, "day", 0, 0, 0, 0, "", nil, nil, nil, nil)
+	require.NoError(t, err)
+	require.False(t, hit)
+	_, hit, err = handler.getUsageTrendCached(context.Background(), start, end, "day", 0, 0, 0, 0, "", nil, nil, nil, &trueValue)
+	require.NoError(t, err)
+	require.False(t, hit)
+	_, hit, err = handler.getUsageTrendCached(context.Background(), start, end, "day", 0, 0, 0, 0, "", nil, nil, nil, &falseValue)
+	require.NoError(t, err)
+	require.False(t, hit)
+	_, hit, err = handler.getUsageTrendCached(context.Background(), start, end, "day", 0, 0, 0, 0, "", nil, nil, nil, &trueValue)
+	require.NoError(t, err)
+	require.True(t, hit)
+	require.Equal(t, int32(3), repo.trendCalls.Load())
+	require.Len(t, repo.trendMismatch, 3)
+	require.Nil(t, repo.trendMismatch[0])
+	require.True(t, *repo.trendMismatch[1])
+	require.False(t, *repo.trendMismatch[2])
 }

@@ -133,6 +133,23 @@ func TestUsageLogFromService_UsesRequestedModelAndKeepsUpstreamAdminOnly(t *test
 	require.Contains(t, string(adminJSON), `"upstream_model":"claude-sonnet-4-20250514"`)
 }
 
+func TestUsageLogFromService_ResponseModelAuditIsAdminOnly(t *testing.T) {
+	t.Parallel()
+	responseModel := "gpt-5-upstream"
+	mismatch := true
+	log := &service.UsageLog{Model: "gpt-5", UpstreamResponseModel: &responseModel, UpstreamModelMismatch: &mismatch}
+
+	userJSON, err := json.Marshal(UsageLogFromService(log))
+	require.NoError(t, err)
+	require.NotContains(t, string(userJSON), "upstream_response_model")
+	require.NotContains(t, string(userJSON), "upstream_model_mismatch")
+
+	adminJSON, err := json.Marshal(UsageLogFromServiceAdmin(log))
+	require.NoError(t, err)
+	require.Contains(t, string(adminJSON), `"upstream_response_model":"gpt-5-upstream"`)
+	require.Contains(t, string(adminJSON), `"upstream_model_mismatch":true`)
+}
+
 func TestUsageLogFromService_FallsBackToLegacyModelWhenRequestedModelMissing(t *testing.T) {
 	t.Parallel()
 

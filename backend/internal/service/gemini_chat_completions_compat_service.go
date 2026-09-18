@@ -28,6 +28,7 @@ func (s *GeminiMessagesCompatService) ForwardAsChatCompletions(
 	account *Account,
 	body []byte,
 ) (*ForwardResult, error) {
+	beginUpstreamResponseModelObservation(c)
 	startTime := time.Now()
 
 	var ccReq apicompat.ChatCompletionsRequest
@@ -115,6 +116,9 @@ func (s *GeminiMessagesCompatService) forwardClaudeBodyAsChatCompletions(
 	var resp *http.Response
 	errorPolicy := ErrorPolicyNone
 	for attempt := 1; attempt <= geminiMaxRetries; attempt++ {
+		// Each upstream attempt owns a fresh observation. A retry must not carry
+		// a response model declared by an earlier failed attempt into billing.
+		beginUpstreamResponseModelObservation(c)
 		upstreamReq, idHeader, err := buildReq(ctx)
 		if err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
@@ -269,6 +273,7 @@ func (s *GeminiMessagesCompatService) forwardClaudeBodyAsChatCompletions(
 			return nil, s.writeChatCompletionsError(c, http.StatusBadGateway, "upstream_error", "Failed to read upstream stream")
 		}
 		collectedBytes, _ := json.Marshal(collected)
+		observeGeminiChatCompletionsResponseModel(c, collectedBytes)
 		chatResp, usageObj2, err := geminiResponseToChatCompletions(collected, originalModel, collectedBytes, usageObj)
 		if err != nil {
 			return nil, s.writeChatCompletionsError(c, http.StatusBadGateway, "upstream_error", "Failed to parse upstream response")
@@ -295,18 +300,20 @@ func (s *GeminiMessagesCompatService) forwardClaudeBodyAsChatCompletions(
 	}
 
 	return &ForwardResult{
-		RequestID:        requestID,
-		Usage:            *usage,
-		Model:            originalModel,
-		UpstreamModel:    mappedModel,
-		Stream:           clientStream,
-		Duration:         time.Since(startTime),
-		FirstTokenMs:     firstTokenMs,
-		ReasoningEffort:  reasoningEffort,
-		ImageCount:       imageCount,
-		ImageSize:        imageSize,
-		ImageInputSize:   imageInputSize,
-		ClientDisconnect: false,
+		RequestID:                     requestID,
+		Usage:                         *usage,
+		Model:                         originalModel,
+		UpstreamModel:                 mappedModel,
+		UpstreamResponseModel:         observedUpstreamResponseModel(c),
+		UpstreamResponseModelConflict: observedUpstreamResponseModelConflict(c),
+		Stream:                        clientStream,
+		Duration:                      time.Since(startTime),
+		FirstTokenMs:                  firstTokenMs,
+		ReasoningEffort:               reasoningEffort,
+		ImageCount:                    imageCount,
+		ImageSize:                     imageSize,
+		ImageInputSize:                imageInputSize,
+		ClientDisconnect:              false,
 	}, nil
 }
 
@@ -468,6 +475,7 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsNonStreamingResponseF
 			respBody = unwrappedBody
 		}
 	}
+	observeGeminiChatCompletionsResponseModel(c, respBody)
 
 	var geminiResp map[string]any
 	if err := json.Unmarshal(respBody, &geminiResp); err != nil {
@@ -628,6 +636,7 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
 							rawBytes = innerBytes
 						}
 					}
+					observeGeminiChatCompletionsResponseModel(c, rawBytes)
 
 					var geminiResp map[string]any
 					if err := json.Unmarshal(rawBytes, &geminiResp); err == nil {
@@ -808,6 +817,14 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
 	flusher.Flush()
 
 	return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
+}
+
+func observeGeminiChatCompletionsResponseModel(c *gin.Context, payload []byte) {
+	observer := upstreamResponseModelObserverFromContext(c)
+	if observer == nil {
+		observer = beginUpstreamResponseModelObservation(c)
+	}
+	observer.ObserveGemini(payload)
 }
 
 func (s *GeminiMessagesCompatService) writeGeminiChatCompletionsMappedError(

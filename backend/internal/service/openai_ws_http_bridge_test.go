@@ -281,6 +281,8 @@ func TestOpenAIWSHTTPBridgeRelaysSSEFramesAsWebSocketMessages(t *testing.T) {
 		require.NoError(t, bridge.err)
 		require.NotNil(t, bridge.result)
 		require.Equal(t, "resp_bridge", bridge.result.RequestID)
+		require.Equal(t, "gpt-5", bridge.result.UpstreamResponseModel)
+		require.False(t, bridge.result.UpstreamResponseModelConflict)
 		require.Equal(t, 3, bridge.result.Usage.InputTokens)
 		require.Equal(t, 2, bridge.result.Usage.OutputTokens)
 		require.True(t, bridge.result.OpenAIWSMode)
