@@ -15,6 +15,12 @@ import type {
   AdminDataImportResult
 } from '@/types'
 
+function assertProxyArray(value: unknown): asserts value is Proxy[] {
+  if (!Array.isArray(value)) {
+    throw new Error('Invalid proxy list response')
+  }
+}
+
 /**
  * List all proxies with pagination
  * @param page - Page number (default: 1)
@@ -44,14 +50,8 @@ export async function list(
     },
     signal: options?.signal
   })
-  if (!data || !Array.isArray(data.items)) {
-    throw new Error('Invalid proxy list response')
-  }
+  assertProxyArray(data?.items)
   return data
-}
-
-function assertProxyArray(value: unknown): asserts value is Proxy[] {
-  if (!Array.isArray(value)) throw new Error('Invalid proxy list response')
 }
 
 /**
