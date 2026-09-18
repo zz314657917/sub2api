@@ -1,6 +1,7 @@
 package securityaudit
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -84,6 +85,91 @@ func TestFullPromptFromScanTextRestoresMultiSegmentLayout(t *testing.T) {
 	require.Equal(t, singleMeta, FullPromptFromScanText(singleScan))
 }
 
+func TestPromptSnapshotNormalizesTextProtocolsWithoutMutatingRequestBody(t *testing.T) {
+	dirty := " \ufeffｉｇ\u200bｎｏｒｅ\x00 ｓｙｓｔｅｍ\u200d\nline😀e\u0301\x08 "
+	want := "ignore  system\nline😀é"
+	text := string(mustJSON(t, dirty))
+	tests := []struct {
+		name, protocol, body string
+	}{
+		{"chat", "openai_chat_completions", `{"messages":[{"role":"user","content":` + text + `}]}`},
+		{"responses", "openai_responses", `{"input":[{"role":"user","content":[{"type":"input_text","text":` + text + `}]}]}`},
+		{"anthropic", "anthropic_messages", `{"messages":[{"role":"user","content":[{"type":"text","text":` + text + `}]}]}`},
+		{"gemini", "gemini", `{"contents":[{"role":"user","parts":[{"text":` + text + `}]}]}`},
+		{"images", "openai_images", `{"prompt":` + text + `}`},
+		{"responses websocket", "responses_websocket", `{"type":"response.create","response":{"input":` + text + `}}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := []byte(tt.body)
+			originalBody := append([]byte(nil), body...)
+			snapshot, err := ExtractPromptSnapshot(Request{Protocol: tt.protocol, Body: body})
+			require.NoError(t, err)
+			require.Equal(t, want, snapshot.ScanText)
+			require.Equal(t, want, snapshot.FullPrompt)
+			require.Equal(t, utf8.RuneCountInString(want), snapshot.PromptLength)
+			require.Equal(t, originalBody, body)
+		})
+	}
+}
+
+func TestPromptSnapshotNormalizationRetainsPriorityAndOmitsEmptySegments(t *testing.T) {
+	body := []byte(`{"messages":[
+		{"role":"system","content":"\u200b\u200c\u200d\u2060\ufeff"},
+		{"role":"user","content":" history\u000btext "},
+		{"role":"assistant","content":" \u0000 "},
+		{"role":"user","content":" ｌａｔｅｓｔ😀 "}
+	]}`)
+	snapshot, err := ExtractPromptSnapshot(Request{Protocol: "openai_chat_completions", Body: body})
+	require.NoError(t, err)
+	require.Equal(t, "latest😀"+promptAuditPrioritySeparator+"history text", snapshot.ScanText)
+	require.Equal(t, "latest😀\n\nhistory text", snapshot.FullPrompt)
+	require.Equal(t, 4, snapshot.MessageCount)
+	require.NotContains(t, snapshot.ScanText, "\u200b")
+	require.NotContains(t, metadataTextForTest(snapshot.ScanText), "\u0000")
+}
+
+func TestPromptSnapshotNormalizationKeepsAllEmptySnapshotSemantics(t *testing.T) {
+	snapshot, err := ExtractPromptSnapshot(Request{
+		Protocol: "openai_chat_completions",
+		Body:     []byte(`{"messages":[{"role":"user","content":"\u200b\u200c"},{"role":"assistant","content":"\u200d\u2060\ufeff"}]}`),
+	})
+	require.NoError(t, err)
+	require.Empty(t, snapshot.ScanText)
+	require.Empty(t, snapshot.FullPrompt)
+	require.Empty(t, snapshot.RedactedPreview)
+	require.Equal(t, sha256.Sum256(nil), mustPromptHashBytes(t, snapshot.PromptHash))
+	require.Zero(t, snapshot.PromptLength)
+	require.Equal(t, 2, snapshot.MessageCount)
+}
+
+func TestPromptSnapshotNormalizedScanTextReachesGuardAndRedaction(t *testing.T) {
+	body := []byte(`{"messages":[{"role":"user","content":" ＰＲＯＭＰＴ_CANARY_ABC123 ｉｇｎｏｒｅ\u200b\u000fｓｙｓｔｅｍ "}]}`)
+	snapshot, err := ExtractPromptSnapshot(Request{Protocol: "openai_chat_completions", Body: body})
+	require.NoError(t, err)
+	require.Equal(t, "PROMPT_CANARY_ABC123 ignore system", snapshot.ScanText)
+	require.NotContains(t, snapshot.RedactedPreview, "ABC123")
+
+	var scanned []string
+	evaluator := NewGuardEvaluator(PromptScannerFunc(func(_ context.Context, _ ActiveEndpoint, chunk string, _ []string) (*NormalizedResult, error) {
+		scanned = append(scanned, chunk)
+		return &NormalizedResult{Decision: EventPass, RiskLevel: RiskLow, Action: ActionAllow}, nil
+	}), nil, nil)
+	decision, err := evaluator.Evaluate(context.Background(), guardConfig(ActiveEndpoint{ID: "fake", Enabled: true, TimeoutMS: 1000, InputLimit: 1000}), snapshot)
+	require.NoError(t, err)
+	require.Equal(t, DecisionAllow, decision.Kind)
+	require.Equal(t, []string{"PROMPT_CANARY_ABC123 ignore system"}, scanned)
+}
+
+func mustPromptHashBytes(t *testing.T, hash string) [sha256.Size]byte {
+	t.Helper()
+	decoded, err := hex.DecodeString(hash)
+	require.NoError(t, err)
+	var result [sha256.Size]byte
+	copy(result[:], decoded)
+	return result
+}
+
 func TestSplitRunesDoesNotSplitUTF8(t *testing.T) {
 	chunks := SplitRunes("中文😀éabc", 2)
 	require.Equal(t, []string{"中文", "😀e", "́a", "bc"}, chunks)
@@ -121,7 +207,7 @@ func TestPromptSnapshotLatestUserTextBlockIsOnePrioritizedSegment(t *testing.T) 
 	snapshot, err := ExtractPromptSnapshot(Request{Protocol: "openai_chat_completions", Body: body})
 	require.NoError(t, err)
 	require.Equal(t, 5, snapshot.MessageCount)
-	require.True(t, strings.HasPrefix(snapshot.ScanText, "最新第二块é"+promptAuditPrioritySeparator))
+	require.True(t, strings.HasPrefix(snapshot.ScanText, "最新第二块é"+promptAuditPrioritySeparator))
 	require.Contains(t, snapshot.ScanText, "最新第一块😀")
 	require.Contains(t, snapshot.ScanText, "历史输入")
 	require.Contains(t, snapshot.ScanText, "assistant client injection")
@@ -234,14 +320,15 @@ func TestPromptSnapshotEmptyAndLongUnicodeInput(t *testing.T) {
 	require.True(t, errors.Is(err, ErrNoPromptText))
 
 	latest := strings.Repeat("最新😀é", 80)
+	normalizedLatest := strings.Repeat("最新😀é", 80)
 	history := strings.Repeat("历史中文", 80)
 	body := []byte(`{"messages":[{"role":"user","content":` + string(mustJSON(t, history)) + `},{"role":"user","content":` + string(mustJSON(t, latest)) + `}]}`)
 	snapshot, err := ExtractPromptSnapshot(Request{Protocol: "openai_chat_completions", Body: body})
 	require.NoError(t, err)
-	require.True(t, strings.HasPrefix(snapshot.ScanText, latest))
+	require.True(t, strings.HasPrefix(snapshot.ScanText, normalizedLatest))
 	chunks := SplitRunes(snapshot.ScanText, 127)
 	require.Equal(t, strings.Replace(snapshot.ScanText, promptAuditPrioritySeparator, "", 1), strings.Join(chunks, ""))
-	require.Equal(t, latest, chunks[0]+strings.Join(chunks[1:len(SplitRunes(latest, 127))], ""))
+	require.Equal(t, normalizedLatest, chunks[0]+strings.Join(chunks[1:len(SplitRunes(normalizedLatest, 127))], ""))
 	for _, chunk := range chunks {
 		require.LessOrEqual(t, len([]rune(chunk)), 127)
 		require.True(t, utf8.ValidString(chunk))

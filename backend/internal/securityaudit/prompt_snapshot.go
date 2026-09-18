@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"unicode/utf8"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 var (
@@ -530,11 +532,39 @@ func promptSegmentTexts(values []promptSegment) []string {
 }
 
 func buildPrioritizedScanText(segments []string) (scanText string, metadataText string) {
-	metadataText = strings.Join(segments, "\n\n")
-	if len(segments) <= 1 {
+	normalized := make([]string, 0, len(segments))
+	for _, segment := range segments {
+		if value := normalizePromptSecurityText(segment); value != "" {
+			normalized = append(normalized, value)
+		}
+	}
+	metadataText = strings.Join(normalized, "\n\n")
+	if len(normalized) <= 1 {
 		return metadataText, metadataText
 	}
-	return segments[0] + promptAuditPrioritySeparator + strings.Join(segments[1:], "\n\n"), metadataText
+	return normalized[0] + promptAuditPrioritySeparator + strings.Join(normalized[1:], "\n\n"), metadataText
+}
+
+// normalizePromptSecurityText reduces representation-level bypasses before
+// keyword and Guard evaluation while preserving readable line breaks.
+func normalizePromptSecurityText(input string) string {
+	if input == "" {
+		return ""
+	}
+	input = norm.NFKC.String(input)
+	var builder strings.Builder
+	builder.Grow(len(input))
+	for _, r := range input {
+		switch r {
+		case '\u200b', '\u200c', '\u200d', '\u2060', '\ufeff':
+			continue
+		case '\u0000', '\u0008', '\u000b', '\u000c', '\u000e', '\u000f':
+			builder.WriteRune(' ')
+		default:
+			builder.WriteRune(r)
+		}
+	}
+	return strings.TrimSpace(builder.String())
 }
 
 func promptSegmentsForRole(texts []string, role string) []promptSegment {
