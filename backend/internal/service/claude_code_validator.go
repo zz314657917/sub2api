@@ -176,24 +176,6 @@ func isMessagesCountTokensPath(path string) bool {
 	return strings.HasSuffix(path, "/messages/count_tokens")
 }
 
-// isMaxTokensOneBody 判断请求体是否显式声明 max_tokens=1。
-// 兼容 JSON 反序列化出的 float64 与 ParsedRequest 复用时的 int。
-func isMaxTokensOneBody(body map[string]any) bool {
-	if body == nil {
-		return false
-	}
-	switch v := body["max_tokens"].(type) {
-	case float64:
-		return v == 1
-	case int:
-		return v == 1
-	case int64:
-		return v == 1
-	default:
-		return false
-	}
-}
-
 // hasClaudeCodeSystemPrompt 检查请求是否包含 Claude Code 系统提示词
 // 使用字符串相似度匹配（Dice coefficient）
 func (v *ClaudeCodeValidator) hasClaudeCodeSystemPrompt(body map[string]any) bool {
