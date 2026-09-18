@@ -56,7 +56,7 @@
             <button :disabled="!cardHtml[item.result_id]" type="button" aria-label="放大播放" title="放大播放" @click="openArtwork(item, $event)"><Icon name="eye" size="sm" /></button>
             <button :disabled="!item.artwork_result_id" type="button" aria-label="重新播放" title="重新播放" @click="replay(`card-${item.result_id}`)"><Icon name="refresh" size="sm" /></button>
           </div>
-          <p class="html-meta">{{ item.model_id }}</p>
+          <p class="html-meta">{{ item.model_id }} · {{ effortText(item.reasoning_effort) }}</p>
           <p class="last-success">{{ item.status === 'success' ? '生成于' : '测试于' }} {{ formatDate(item.finished_at) }}</p>
         </article>
       </div>
@@ -80,7 +80,7 @@
             <div class="history-grid">
               <article v-for="revision in visibleHistory" :key="revision.id" class="history-record">
                 <div class="result-row"><span :class="statusClass(revision.status)">● {{ statusText(revision.status) }}</span><span>{{ formatDate(revision.finished_at) }}</span></div>
-                <p class="dialog-note">{{ revision.model_id }} · {{ formatDuration(revision.latency_ms) }}</p>
+                <p class="dialog-note">{{ revision.model_id }} · {{ effortText(revision.reasoning_effort) }} · {{ formatDuration(revision.latency_ms) }}</p>
                 <PelicanHistoryPreview v-if="revision.status === 'success'" :result-id="revision.id" @enlarge="openRevision(revision, $event)" />
                 <div v-else class="history-unavailable">{{ revision.status === 'failed' ? '本轮生成失败，没有可播放的作品' : '本轮未执行，没有生成作品' }}<p v-if="revision.error_message">{{ planReasonText(revision.error_message) }}</p></div>
               </article>
@@ -200,6 +200,11 @@ onBeforeUnmount(() => {
 
 function formatNow(): string {
   return new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date())
+}
+function effortText(effort?: string | null): string {
+  if (effort == null) return '强度未记录'
+  const labels: Record<string, string> = { '': '默认', none: '无', minimal: '最低', low: '低', medium: '中', high: '高', xhigh: '极高' }
+  return labels[effort] ?? effort
 }
 function statusText(status: PelicanEntry['status']): string { return status === 'success' ? '成功' : status === 'failed' ? '失败' : '本轮已跳过（未执行）' }
 function statusClass(status: PelicanEntry['status']): string { return status === 'success' ? 'success' : status === 'failed' ? 'failed' : 'skipped' }

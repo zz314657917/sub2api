@@ -2,11 +2,13 @@ import { apiClient } from './client'
 
 export interface PelicanGroup { id: number; name: string }
 export interface PelicanEntry {
+  reasoning_effort?: string | null
   plan_id: number; group_id: number; group_name: string; account_id: number; model_id: string
   status: 'success' | 'failed' | 'skipped'; latency_ms: number; char_count: number; min_chars: number
   finished_at: string; history_count: number; result_id: number; artwork_result_id: number | null; error_message?: string
 }
 export interface PelicanResult {
+  reasoning_effort?: string | null
   id: number; plan_id: number; group_id: number; account_id: number; model_id: string; prompt_version: string
   status: 'success' | 'failed' | 'skipped'; error_message?: string; latency_ms: number; char_count: number; min_chars: number
   started_at: string; finished_at: string; html?: string

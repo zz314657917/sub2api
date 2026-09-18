@@ -320,6 +320,9 @@ func TestPelicanReviewRunnerPassesClaimedReasoningEffortToProvider(t *testing.T)
 	if len(executor.efforts) != 1 || executor.efforts[0] != "high" {
 		t.Fatalf("provider efforts=%#v", executor.efforts)
 	}
+	if len(repo.saved) != 1 || repo.saved[0].ReasoningEffort == nil || *repo.saved[0].ReasoningEffort != "high" {
+		t.Fatalf("saved effort snapshot=%+v", repo.saved)
+	}
 }
 
 func TestPelicanReviewStopCancelsProviderAndReturns(t *testing.T) {

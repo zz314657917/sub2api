@@ -97,22 +97,24 @@ type PelicanPlanInput struct {
 	ReasoningEffort       string `json:"reasoning_effort"`
 }
 type PelicanResult struct {
-	ID            int64      `json:"id"`
-	PlanID        int64      `json:"plan_id"`
-	GroupID       int64      `json:"group_id"`
-	AccountID     int64      `json:"account_id"`
-	ModelID       string     `json:"model_id"`
-	PromptVersion string     `json:"prompt_version"`
-	Status        string     `json:"status"`
-	ErrorMessage  string     `json:"error_message"`
-	LatencyMS     int64      `json:"latency_ms"`
-	CharCount     int        `json:"char_count"`
-	MinChars      int        `json:"min_chars"`
-	StartedAt     time.Time  `json:"started_at"`
-	FinishedAt    *time.Time `json:"finished_at,omitempty"`
-	HTML          string     `json:"html,omitempty"`
+	ReasoningEffort *string    `json:"reasoning_effort"`
+	ID              int64      `json:"id"`
+	PlanID          int64      `json:"plan_id"`
+	GroupID         int64      `json:"group_id"`
+	AccountID       int64      `json:"account_id"`
+	ModelID         string     `json:"model_id"`
+	PromptVersion   string     `json:"prompt_version"`
+	Status          string     `json:"status"`
+	ErrorMessage    string     `json:"error_message"`
+	LatencyMS       int64      `json:"latency_ms"`
+	CharCount       int        `json:"char_count"`
+	MinChars        int        `json:"min_chars"`
+	StartedAt       time.Time  `json:"started_at"`
+	FinishedAt      *time.Time `json:"finished_at,omitempty"`
+	HTML            string     `json:"html,omitempty"`
 }
 type PelicanEntry struct {
+	ReasoningEffort *string    `json:"reasoning_effort"`
 	PlanID          int64      `json:"plan_id"`
 	GroupID         int64      `json:"group_id"`
 	GroupName       string     `json:"group_name"`
@@ -672,6 +674,7 @@ func pelicanAccountAvailable(account *Account) bool {
 func (s *PelicanTestService) save(c context.Context, p *PelicanPlan, id int64, x *PelicanResult, status, msg string, started time.Time, snapshot pelicanPromptSnapshot) {
 	r := PelicanResult{PlanID: p.ID, GroupID: p.GroupID, AccountID: id, ModelID: p.ModelID, PromptVersion: snapshot.version, Status: status, ErrorMessage: msg, MinChars: p.MinChars, StartedAt: started, LatencyMS: time.Since(started).Milliseconds()}
 	finished := time.Now()
+	r.ReasoningEffort = &p.ReasoningEffort
 	r.FinishedAt = &finished
 	if x != nil {
 		r.HTML = x.HTML

@@ -33,6 +33,20 @@ describe('PelicanTestsView', () => {
   })
   async function view() { const wrapper = mount(PelicanTestsView, { global: { stubs } }); await flushPromises(); return wrapper }
 
+  it('shows the recorded effort after the model without a label prefix', async () => {
+    api.list.mockResolvedValue({ items: [{ ...item(1), reasoning_effort: 'high' }], total: 1, page: 1, page_size: 24, groups: [] })
+    api.history.mockResolvedValue([{ ...result(1), reasoning_effort: 'low' }, { ...result(2), reasoning_effort: '' }, { ...result(3), reasoning_effort: null }])
+    const wrapper = await view()
+    expect(wrapper.get('.pelican-card .html-meta').text()).toBe('gpt-test · 高')
+    await wrapper.get('.history-count').trigger('click'); await flushPromises()
+    const history = wrapper.get('.history-grid')
+    expect(history.text()).toContain('gpt-test · 低')
+    expect(history.text()).toContain('gpt-test · 默认')
+    expect(history.text()).toContain('gpt-test · 强度未记录')
+    expect(history.text()).not.toContain('思考强度：')
+    wrapper.unmount()
+  })
+
   it('requests page two and resets to page one when filtering', async () => {
     api.list.mockImplementation(async (params: { page: number; page_size: number }) => ({ items: [item(27130 + params.page)], total: 12, page: params.page, page_size: params.page_size, groups: [{ id: 3, name: '授权组' }] }))
     const wrapper = await view()
