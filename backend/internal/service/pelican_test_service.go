@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"sort"
 	"strings"
@@ -46,12 +47,16 @@ type pelicanPromptSnapshot struct {
 }
 
 var (
-	ErrPelicanConflict = errors.New("pelican test is already running")
-	ErrPelicanNotFound = errors.New("pelican test not found")
-	ErrPelicanInvalid  = errors.New("invalid pelican test request")
-	ErrPelicanPaused   = errors.New("pelican plan is paused after consecutive failures")
-	ErrPelicanQuota    = errors.New("pelican plan daily call limit reached")
-	ErrPelicanDisabled = errors.New("pelican tests are disabled")
+	ErrPelicanConflict        = errors.New("pelican test is already running")
+	ErrPelicanNotFound        = errors.New("pelican test not found")
+	ErrPelicanInvalid         = errors.New("invalid pelican test request")
+	ErrPelicanPaused          = errors.New("pelican plan is paused after consecutive failures")
+	ErrPelicanQuota           = errors.New("pelican plan daily call limit reached")
+	ErrPelicanDisabled        = errors.New("pelican tests are disabled")
+	ErrPelicanUpstreamClosed  = errors.New("pelican upstream stream closed")
+	ErrPelicanUpstreamRequest = errors.New("pelican upstream request failed")
+	ErrPelicanUpstreamTimeout = errors.New("pelican upstream timeout")
+	ErrPelicanIncompleteHTML  = errors.New("pelican incomplete html")
 )
 
 type PelicanAuthorization struct {
@@ -99,38 +104,42 @@ type PelicanPlanInput struct {
 	ReasoningEffort       string `json:"reasoning_effort"`
 }
 type PelicanResult struct {
-	ReasoningEffort *string    `json:"reasoning_effort"`
-	ID              int64      `json:"id"`
-	PlanID          int64      `json:"plan_id"`
-	GroupID         int64      `json:"group_id"`
-	AccountID       int64      `json:"account_id"`
-	ModelID         string     `json:"model_id"`
-	PromptVersion   string     `json:"prompt_version"`
-	Status          string     `json:"status"`
-	ErrorMessage    string     `json:"error_message"`
-	LatencyMS       int64      `json:"latency_ms"`
-	CharCount       int        `json:"char_count"`
-	MinChars        int        `json:"min_chars"`
-	StartedAt       time.Time  `json:"started_at"`
-	FinishedAt      *time.Time `json:"finished_at,omitempty"`
-	HTML            string     `json:"html,omitempty"`
+	ReasoningEffort  *string    `json:"reasoning_effort"`
+	ID               int64      `json:"id"`
+	PlanID           int64      `json:"plan_id"`
+	GroupID          int64      `json:"group_id"`
+	AccountID        int64      `json:"account_id"`
+	ModelID          string     `json:"model_id"`
+	PromptVersion    string     `json:"prompt_version"`
+	Status           string     `json:"status"`
+	ErrorMessage     string     `json:"error_message"`
+	ErrorCode        string     `json:"error_code"`
+	ErrorMessageSafe string     `json:"error_message_safe"`
+	LatencyMS        int64      `json:"latency_ms"`
+	CharCount        int        `json:"char_count"`
+	MinChars         int        `json:"min_chars"`
+	StartedAt        time.Time  `json:"started_at"`
+	FinishedAt       *time.Time `json:"finished_at,omitempty"`
+	HTML             string     `json:"html,omitempty"`
 }
 type PelicanEntry struct {
-	ReasoningEffort *string    `json:"reasoning_effort"`
-	PlanID          int64      `json:"plan_id"`
-	GroupID         int64      `json:"group_id"`
-	GroupName       string     `json:"group_name"`
-	AccountID       int64      `json:"account_id"`
-	ModelID         string     `json:"model_id"`
-	Status          string     `json:"status"`
-	LatencyMS       int64      `json:"latency_ms"`
-	CharCount       int        `json:"char_count"`
-	MinChars        int        `json:"min_chars"`
-	FinishedAt      *time.Time `json:"finished_at,omitempty"`
-	HistoryCount    int        `json:"history_count"`
-	ResultID        int64      `json:"result_id"`
-	ArtworkResultID *int64     `json:"artwork_result_id"`
-	ErrorMessage    string     `json:"error_message"`
+	ReasoningEffort  *string    `json:"reasoning_effort"`
+	PlanID           int64      `json:"plan_id"`
+	GroupID          int64      `json:"group_id"`
+	GroupName        string     `json:"group_name"`
+	AccountID        int64      `json:"account_id"`
+	ModelID          string     `json:"model_id"`
+	Status           string     `json:"status"`
+	LatencyMS        int64      `json:"latency_ms"`
+	CharCount        int        `json:"char_count"`
+	MinChars         int        `json:"min_chars"`
+	FinishedAt       *time.Time `json:"finished_at,omitempty"`
+	HistoryCount     int        `json:"history_count"`
+	ResultID         int64      `json:"result_id"`
+	ArtworkResultID  *int64     `json:"artwork_result_id"`
+	ErrorMessage     string     `json:"error_message"`
+	ErrorCode        string     `json:"error_code"`
+	ErrorMessageSafe string     `json:"error_message_safe"`
 }
 type PelicanGroup struct {
 	ID   int64  `json:"id"`
@@ -629,10 +638,33 @@ func (s *PelicanTestService) run(c context.Context, p *PelicanPlan, snapshot pel
 	}
 	x, err := s.tester.RunPelicanTest(accountCtx, a.ID, p.ModelID, snapshot.prompt, p.ReasoningEffort)
 	if err != nil || accountCtx.Err() != nil || x == nil {
-		s.save(accountCtx, p, a.ID, nil, "failed", "generation failed or timed out", started, snapshot)
+		code, safe := classifyPelicanFailure(err, accountCtx)
+		s.saveFailure(accountCtx, p, a.ID, "generation failed or timed out", code, safe, started, snapshot)
 		return
 	}
 	s.save(accountCtx, p, a.ID, x, "success", "", started, snapshot)
+}
+
+func classifyPelicanFailure(err error, ctx context.Context) (string, string) {
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, ErrPelicanUpstreamTimeout) {
+		return "upstream_timeout", "上游请求超时"
+	}
+	if errors.Is(err, ErrPelicanIncompleteHTML) {
+		return "incomplete_html", "返回的 HTML 内容不完整"
+	}
+	if errors.Is(err, ErrPelicanUpstreamClosed) || errors.Is(err, io.ErrUnexpectedEOF) {
+		return "upstream_stream_closed", "上游响应中途断流"
+	}
+	if errors.Is(err, ErrPelicanUpstreamRequest) {
+		if err.Error() != ErrPelicanUpstreamRequest.Error() && (strings.Contains(strings.ToLower(err.Error()), "eof") || strings.Contains(strings.ToLower(err.Error()), "stream")) {
+			return "upstream_stream_closed", "上游响应中途断流"
+		}
+		return "upstream_request_failed", "上游请求失败"
+	}
+	if err != nil && (strings.Contains(strings.ToLower(err.Error()), "eof") || strings.Contains(strings.ToLower(err.Error()), "stream closed")) {
+		return "upstream_stream_closed", "上游响应中途断流"
+	}
+	return "generation_failed", "生成失败"
 }
 func pelicanSkipReason(account *Account, accountErr error, group *Group, groupErr error, member bool) string {
 	if accountErr != nil || account == nil {
@@ -689,13 +721,42 @@ func (s *PelicanTestService) save(c context.Context, p *PelicanPlan, id int64, x
 	if x != nil {
 		r.HTML = x.HTML
 		r.CharCount = utf8.RuneCountInString(x.HTML)
-		if r.CharCount < p.MinChars || len(r.HTML) > 256*1024 {
+		if len(r.HTML) > 256*1024 {
+			r.Status = "failed"
+			r.ErrorMessage = "generated content exceeds limit"
+			r.ErrorCode = "incomplete_html"
+			r.ErrorMessageSafe = "返回的 HTML 内容不完整"
+			r.HTML = ""
+		} else if !pelicanHTMLStart.MatchString(r.HTML) || !pelicanHTMLEnd.MatchString(r.HTML) {
+			r.Status = "failed"
+			r.ErrorMessage = "generated content is incomplete"
+			r.ErrorCode = "incomplete_html"
+			r.ErrorMessageSafe = "返回的 HTML 内容不完整"
+			r.HTML = ""
+		} else if r.CharCount < p.MinChars {
 			r.Status = "failed"
 			r.ErrorMessage = "generated content is too short"
+			r.ErrorCode = "incomplete_html"
+			r.ErrorMessageSafe = "生成内容过短"
 			r.HTML = ""
 		}
 	}
+	if r.Status == "failed" && r.ErrorCode == "" {
+		r.ErrorCode, r.ErrorMessageSafe = classifyPelicanFailure(nil, c)
+	}
 	// Persist timeout/failure metadata even when the provider context expired.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(c), 3*time.Second)
+	defer cancel()
+	if err := s.repo.SaveResult(ctx, &r, p.MaxResults, p.RunGeneration); err != nil {
+		log.Printf("pelican plan %d account %d: result save failed", p.ID, id)
+	}
+}
+
+func (s *PelicanTestService) saveFailure(c context.Context, p *PelicanPlan, id int64, msg, code, safe string, started time.Time, snapshot pelicanPromptSnapshot) {
+	r := PelicanResult{PlanID: p.ID, GroupID: p.GroupID, AccountID: id, ModelID: p.ModelID, PromptVersion: snapshot.version, Status: "failed", ErrorMessage: msg, ErrorCode: code, ErrorMessageSafe: safe, MinChars: p.MinChars, StartedAt: started, LatencyMS: time.Since(started).Milliseconds()}
+	finished := time.Now()
+	r.FinishedAt = &finished
+	r.ReasoningEffort = &p.ReasoningEffort
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(c), 3*time.Second)
 	defer cancel()
 	if err := s.repo.SaveResult(ctx, &r, p.MaxResults, p.RunGeneration); err != nil {

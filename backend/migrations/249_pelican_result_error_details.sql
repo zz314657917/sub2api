@@ -1,0 +1,3 @@
+ALTER TABLE pelican_test_results
+  ADD COLUMN IF NOT EXISTS error_code TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS error_message_safe TEXT NOT NULL DEFAULT '';

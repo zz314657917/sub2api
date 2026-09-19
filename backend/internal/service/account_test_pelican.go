@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -51,7 +52,7 @@ type pelicanUpstream struct{ HTTPUpstream }
 func (u pelicanUpstream) DoWithTLS(req *http.Request, proxy string, id int64, concurrency int, profile *tlsfingerprint.Profile) (*http.Response, error) {
 	resp, err := u.HTTPUpstream.DoWithTLS(req, proxy, id, concurrency, profile)
 	if err != nil {
-		return nil, errors.New("pelican upstream request failed")
+		return nil, fmt.Errorf("%w: %v", ErrPelicanUpstreamRequest, err)
 	}
 	if resp == nil || resp.Body == nil {
 		return nil, errors.New("pelican upstream response missing")
@@ -82,10 +83,10 @@ func parsePelicanEvents(body string) (string, error) {
 		}
 		switch event.Type {
 		case "error":
-			return "", errors.New("pelican provider request failed")
+			return "", ErrPelicanUpstreamRequest
 		case "test_complete":
 			if !event.Success {
-				return "", errors.New("pelican provider request failed")
+				return "", ErrPelicanUpstreamRequest
 			}
 			completed = true
 		case "content":
@@ -101,7 +102,7 @@ func parsePelicanEvents(body string) (string, error) {
 		html = strings.TrimSpace(strings.TrimSuffix(html, "```"))
 	}
 	if !completed || !utf8.ValidString(html) || !pelicanHTMLStart.MatchString(html) || !pelicanHTMLEnd.MatchString(html) {
-		return "", errors.New("pelican provider returned incomplete HTML")
+		return "", ErrPelicanIncompleteHTML
 	}
 	return html, nil
 }
@@ -137,7 +138,10 @@ func (s *AccountTestService) RunPelicanTest(ctx context.Context, accountID int64
 		return nil, errors.New("pelican response exceeds limit")
 	}
 	if err != nil || runCtx.Err() != nil {
-		return nil, errors.New("pelican provider request failed")
+		if errors.Is(runCtx.Err(), context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return nil, ErrPelicanUpstreamTimeout
+		}
+		return nil, fmt.Errorf("%w: %v", ErrPelicanUpstreamRequest, err)
 	}
 	html, err := parsePelicanEvents(rec.Body.String())
 	if err != nil {

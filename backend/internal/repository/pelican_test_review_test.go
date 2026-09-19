@@ -20,7 +20,7 @@ func TestPelicanReviewSaveResultCommitsFenceInsertAndRetention(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectQuery("SELECT id FROM pelican_test_plans").WithArgs(int64(1), int64(2), int64(3)).WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(int64(1)))
 	mock.ExpectExec("INSERT INTO pelican_test_results").WithArgs(
-		int64(1), int64(2), int64(4), "gpt-test", "pelican-v1", "success", "", int64(8), 120, 100, int64(3), now, now, "<html>x</html>", "high",
+		int64(1), int64(2), int64(4), "gpt-test", "pelican-v1", "success", "", "", "", int64(8), 120, 100, int64(3), now, now, "<html>x</html>", "high",
 	).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec("UPDATE pelican_test_plans SET round_successes").WithArgs(int64(1), int64(3)).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec("DELETE FROM pelican_test_results").WithArgs(int64(1), int64(2), 20).WillReturnResult(sqlmock.NewResult(0, 0))
@@ -51,8 +51,8 @@ func TestPelicanReviewResultDetailUsesAllowedGroups(t *testing.T) {
 	}
 	defer db.Close()
 	now := time.Now()
-	columns := []string{"id", "plan_id", "group_id", "account_id", "model_id", "prompt_version", "status", "error_message", "latency_ms", "char_count", "min_chars", "started_at", "finished_at", "html", "reasoning_effort"}
-	mock.ExpectQuery(".*").WithArgs(int64(88), sqlmock.AnyArg()).WillReturnRows(sqlmock.NewRows(columns).AddRow(int64(88), int64(1), int64(7), int64(3), "gpt-test", "pelican-v1", "success", "", int64(1), 100, 100, now, now, "<html>x</html>", nil))
+	columns := []string{"id", "plan_id", "group_id", "account_id", "model_id", "prompt_version", "status", "error_message", "error_code", "error_message_safe", "latency_ms", "char_count", "min_chars", "started_at", "finished_at", "html", "reasoning_effort"}
+	mock.ExpectQuery(".*").WithArgs(int64(88), sqlmock.AnyArg()).WillReturnRows(sqlmock.NewRows(columns).AddRow(int64(88), int64(1), int64(7), int64(3), "gpt-test", "pelican-v1", "success", "", "", "", int64(1), 100, 100, now, now, "<html>x</html>", nil))
 	result, err := NewPelicanTestRepository(db).GetResult(context.Background(), service.PelicanAuthorization{GroupIDs: []int64{7}}, 88)
 	if err != nil || result == nil || result.ID != 88 {
 		t.Fatalf("result=%#v err=%v", result, err)

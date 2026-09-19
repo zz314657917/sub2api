@@ -5,12 +5,12 @@ export interface PelicanEntry {
   reasoning_effort?: string | null
   plan_id: number; group_id: number; group_name: string; account_id: number; model_id: string
   status: 'success' | 'failed' | 'skipped'; latency_ms: number; char_count: number; min_chars: number
-  finished_at: string; history_count: number; result_id: number; artwork_result_id: number | null; error_message?: string
+  finished_at: string; history_count: number; result_id: number; artwork_result_id: number | null; error_message?: string; error_code?: string; error_message_safe?: string
 }
 export interface PelicanResult {
   reasoning_effort?: string | null
   id: number; plan_id: number; group_id: number; account_id: number; model_id: string; prompt_version: string
-  status: 'success' | 'failed' | 'skipped'; error_message?: string; latency_ms: number; char_count: number; min_chars: number
+  status: 'success' | 'failed' | 'skipped'; error_message?: string; error_code?: string; error_message_safe?: string; latency_ms: number; char_count: number; min_chars: number
   started_at: string; finished_at: string; html?: string
 }
 export interface PelicanPlan {

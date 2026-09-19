@@ -82,7 +82,7 @@
                 <div class="result-row"><span :class="statusClass(revision.status)">● {{ statusText(revision.status) }}</span><span>{{ formatDate(revision.finished_at) }}</span></div>
                 <p class="dialog-note">{{ revision.model_id }} · {{ effortText(revision.reasoning_effort) }} · {{ formatDuration(revision.latency_ms) }}</p>
                 <PelicanHistoryPreview v-if="revision.status === 'success'" :result-id="revision.id" @enlarge="openRevision(revision, $event)" />
-                <div v-else class="history-unavailable">{{ revision.status === 'failed' ? '本轮生成失败，没有可播放的作品' : '本轮未执行，没有生成作品' }}<p v-if="revision.error_message">{{ planReasonText(revision.error_message) }}</p></div>
+                <div v-else class="history-unavailable">{{ revision.status === 'failed' ? '本轮生成失败，没有可播放的作品' : '本轮未执行，没有生成作品' }}<p v-if="revision.error_message || revision.error_code || revision.error_message_safe">{{ resultReasonText(revision) }}</p></div>
               </article>
             </div>
             <footer v-if="history.length" class="history-pagination">
@@ -297,6 +297,11 @@ function planReasonText(message: string): string {
   if (legacy.includes('cooldown')) return '账号仍在冷却中（历史记录未提供具体原因）'
   if (legacy.includes('expired')) return '账号已过期（历史记录未提供具体原因）'
   return message
+}
+function resultReasonText(result: Pick<PelicanResult, 'error_code' | 'error_message_safe' | 'error_message'>): string {
+  if (result.error_message_safe) return result.error_message_safe
+  if (result.error_code) return planReasonText(result.error_code)
+  return planReasonText(result.error_message || '')
 }
 async function loadPlans(): Promise<void> { if (!authStore.isAdmin) return; plansLoading.value = true; plansError.value = ''; try { const [planData, groupData] = await Promise.all([listPelicanPlans(), getAllAdminGroups('openai')]); plans.value = planData; adminGroups.value = groupData.filter(group => group.status === 'active').map(group => ({ id: group.id, name: group.name })) } catch (reason) { plansError.value = messageOf(reason) } finally { plansLoading.value = false } }
 watch(showPlans, visible => { if (visible) void loadPlans() })

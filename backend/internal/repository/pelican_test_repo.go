@@ -227,7 +227,7 @@ func (r *pelicanTestRepository) ListGallery(c context.Context, a service.Pelican
 		n++
 	}
 	latest := "(SELECT DISTINCT ON (plan_id,group_id) * FROM pelican_test_results ORDER BY plan_id,group_id,finished_at DESC,id DESC) r JOIN pelican_test_plans p ON p.id=r.plan_id AND p.group_id=r.group_id JOIN groups live_g ON live_g.id=r.group_id AND live_g.deleted_at IS NULL "
-	q := "SELECT r.plan_id,r.group_id,live_g.name,r.account_id,r.model_id,r.status,r.latency_ms,r.char_count,r.min_chars,r.finished_at,(SELECT count(*) FROM pelican_test_results h WHERE h.plan_id=r.plan_id AND h.group_id=r.group_id),r.id,(SELECT s.id FROM pelican_test_results s WHERE s.plan_id=r.plan_id AND s.group_id=r.group_id AND s.status='success' ORDER BY s.finished_at DESC,s.id DESC LIMIT 1),r.error_message,r.reasoning_effort FROM " + latest + where + " ORDER BY r.finished_at DESC,r.id DESC LIMIT $" + fmt.Sprint(n) + " OFFSET $" + fmt.Sprint(n+1)
+	q := "SELECT r.plan_id,r.group_id,live_g.name,r.account_id,r.model_id,r.status,r.latency_ms,r.char_count,r.min_chars,r.finished_at,(SELECT count(*) FROM pelican_test_results h WHERE h.plan_id=r.plan_id AND h.group_id=r.group_id),r.id,(SELECT s.id FROM pelican_test_results s WHERE s.plan_id=r.plan_id AND s.group_id=r.group_id AND s.status='success' ORDER BY s.finished_at DESC,s.id DESC LIMIT 1),r.error_message,r.error_code,r.error_message_safe,r.reasoning_effort FROM " + latest + where + " ORDER BY r.finished_at DESC,r.id DESC LIMIT $" + fmt.Sprint(n) + " OFFSET $" + fmt.Sprint(n+1)
 	args = append(args, size, (page-1)*size)
 	rows, e := r.db.QueryContext(c, q, args...)
 	if e != nil {
@@ -236,7 +236,7 @@ func (r *pelicanTestRepository) ListGallery(c context.Context, a service.Pelican
 	defer rows.Close()
 	for rows.Next() {
 		var x service.PelicanEntry
-		e = rows.Scan(&x.PlanID, &x.GroupID, &x.GroupName, &x.AccountID, &x.ModelID, &x.Status, &x.LatencyMS, &x.CharCount, &x.MinChars, &x.FinishedAt, &x.HistoryCount, &x.ResultID, &x.ArtworkResultID, &x.ErrorMessage, &x.ReasoningEffort)
+		e = rows.Scan(&x.PlanID, &x.GroupID, &x.GroupName, &x.AccountID, &x.ModelID, &x.Status, &x.LatencyMS, &x.CharCount, &x.MinChars, &x.FinishedAt, &x.HistoryCount, &x.ResultID, &x.ArtworkResultID, &x.ErrorMessage, &x.ErrorCode, &x.ErrorMessageSafe, &x.ReasoningEffort)
 		if e != nil {
 			return nil, e
 		}
@@ -276,7 +276,7 @@ func (r *pelicanTestRepository) ListHistory(c context.Context, a service.Pelican
 	if !a.Admin && len(a.GroupIDs) == 0 {
 		return []service.PelicanResult{}, nil
 	}
-	q := "SELECT r.id,r.plan_id,r.group_id,r.account_id,r.model_id,r.prompt_version,r.status,r.error_message,r.latency_ms,r.char_count,r.min_chars,r.started_at,r.finished_at,r.reasoning_effort FROM pelican_test_results r JOIN pelican_test_plans p ON p.id=r.plan_id AND p.group_id=r.group_id JOIN groups g ON g.id=r.group_id AND g.deleted_at IS NULL WHERE 1=1"
+	q := "SELECT r.id,r.plan_id,r.group_id,r.account_id,r.model_id,r.prompt_version,r.status,r.error_message,r.error_code,r.error_message_safe,r.latency_ms,r.char_count,r.min_chars,r.started_at,r.finished_at,r.reasoning_effort FROM pelican_test_results r JOIN pelican_test_plans p ON p.id=r.plan_id AND p.group_id=r.group_id JOIN groups g ON g.id=r.group_id AND g.deleted_at IS NULL WHERE 1=1"
 	args := []any{}
 	i := 1
 	if !a.Admin {
@@ -303,7 +303,7 @@ func (r *pelicanTestRepository) ListHistory(c context.Context, a service.Pelican
 	out := make([]service.PelicanResult, 0)
 	for rows.Next() {
 		var x service.PelicanResult
-		if e = rows.Scan(&x.ID, &x.PlanID, &x.GroupID, &x.AccountID, &x.ModelID, &x.PromptVersion, &x.Status, &x.ErrorMessage, &x.LatencyMS, &x.CharCount, &x.MinChars, &x.StartedAt, &x.FinishedAt, &x.ReasoningEffort); e != nil {
+		if e = rows.Scan(&x.ID, &x.PlanID, &x.GroupID, &x.AccountID, &x.ModelID, &x.PromptVersion, &x.Status, &x.ErrorMessage, &x.ErrorCode, &x.ErrorMessageSafe, &x.LatencyMS, &x.CharCount, &x.MinChars, &x.StartedAt, &x.FinishedAt, &x.ReasoningEffort); e != nil {
 			return nil, e
 		}
 		out = append(out, x)
@@ -314,14 +314,14 @@ func (r *pelicanTestRepository) GetResult(c context.Context, a service.PelicanAu
 	if !a.Admin && len(a.GroupIDs) == 0 {
 		return nil, service.ErrPelicanNotFound
 	}
-	q := "SELECT r.id,r.plan_id,r.group_id,r.account_id,r.model_id,r.prompt_version,r.status,r.error_message,r.latency_ms,r.char_count,r.min_chars,r.started_at,r.finished_at,COALESCE(r.html,''),r.reasoning_effort FROM pelican_test_results r JOIN pelican_test_plans p ON p.id=r.plan_id AND p.group_id=r.group_id JOIN groups g ON g.id=r.group_id AND g.deleted_at IS NULL WHERE r.id=$1"
+	q := "SELECT r.id,r.plan_id,r.group_id,r.account_id,r.model_id,r.prompt_version,r.status,r.error_message,r.error_code,r.error_message_safe,r.latency_ms,r.char_count,r.min_chars,r.started_at,r.finished_at,COALESCE(r.html,''),r.reasoning_effort FROM pelican_test_results r JOIN pelican_test_plans p ON p.id=r.plan_id AND p.group_id=r.group_id JOIN groups g ON g.id=r.group_id AND g.deleted_at IS NULL WHERE r.id=$1"
 	args := []any{id}
 	if !a.Admin {
 		q += " AND g.status='active' AND r.group_id=ANY($2)"
 		args = append(args, pq.Array(a.GroupIDs))
 	}
 	var x service.PelicanResult
-	e := r.db.QueryRowContext(c, q, args...).Scan(&x.ID, &x.PlanID, &x.GroupID, &x.AccountID, &x.ModelID, &x.PromptVersion, &x.Status, &x.ErrorMessage, &x.LatencyMS, &x.CharCount, &x.MinChars, &x.StartedAt, &x.FinishedAt, &x.HTML, &x.ReasoningEffort)
+	e := r.db.QueryRowContext(c, q, args...).Scan(&x.ID, &x.PlanID, &x.GroupID, &x.AccountID, &x.ModelID, &x.PromptVersion, &x.Status, &x.ErrorMessage, &x.ErrorCode, &x.ErrorMessageSafe, &x.LatencyMS, &x.CharCount, &x.MinChars, &x.StartedAt, &x.FinishedAt, &x.HTML, &x.ReasoningEffort)
 	if errors.Is(e, sql.ErrNoRows) {
 		return nil, service.ErrPelicanNotFound
 	}
@@ -356,7 +356,7 @@ func (r *pelicanTestRepository) SaveResult(c context.Context, x *service.Pelican
 	if e != nil {
 		return e
 	}
-	inserted, e := tx.ExecContext(c, "INSERT INTO pelican_test_results (plan_id,group_id,account_id,model_id,prompt_version,status,error_message,latency_ms,char_count,min_chars,run_generation,started_at,finished_at,html,reasoning_effort) SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15 WHERE EXISTS (SELECT 1 FROM pelican_test_plans WHERE id=$1 AND group_id=$2 AND run_generation=$11 AND running_until>NOW())", x.PlanID, x.GroupID, x.AccountID, x.ModelID, x.PromptVersion, x.Status, strings.TrimSpace(x.ErrorMessage), x.LatencyMS, x.CharCount, x.MinChars, generation, x.StartedAt, x.FinishedAt, x.HTML, x.ReasoningEffort)
+	inserted, e := tx.ExecContext(c, "INSERT INTO pelican_test_results (plan_id,group_id,account_id,model_id,prompt_version,status,error_message,error_code,error_message_safe,latency_ms,char_count,min_chars,run_generation,started_at,finished_at,html,reasoning_effort) SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17 WHERE EXISTS (SELECT 1 FROM pelican_test_plans WHERE id=$1 AND group_id=$2 AND run_generation=$13 AND running_until>NOW())", x.PlanID, x.GroupID, x.AccountID, x.ModelID, x.PromptVersion, x.Status, strings.TrimSpace(x.ErrorMessage), strings.TrimSpace(x.ErrorCode), strings.TrimSpace(x.ErrorMessageSafe), x.LatencyMS, x.CharCount, x.MinChars, generation, x.StartedAt, x.FinishedAt, x.HTML, x.ReasoningEffort)
 	if e != nil {
 		return e
 	}
