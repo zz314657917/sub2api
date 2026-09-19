@@ -33,7 +33,7 @@ func TestPelicanGroupProbePostgres(t *testing.T) {
 	exec("CREATE SCHEMA " + schema)
 	defer db.ExecContext(ctx, "DROP SCHEMA "+schema+" CASCADE")
 	exec("SET search_path TO " + schema)
-	for _, name := range []string{"243_pelican_tests.sql", "244_pelican_cost_cleanup.sql", "245_pelican_reasoning_effort.sql", "247_pelican_result_reasoning_effort.sql"} {
+	for _, name := range []string{"243_pelican_tests.sql", "244_pelican_cost_cleanup.sql", "245_pelican_reasoning_effort.sql", "247_pelican_result_reasoning_effort.sql", "248_pelican_plan_timeout.sql"} {
 		body, err := os.ReadFile("../../migrations/" + name)
 		if err != nil {
 			t.Fatal(err)

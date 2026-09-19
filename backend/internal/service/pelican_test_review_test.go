@@ -90,6 +90,7 @@ type pelicanReviewExecutor struct {
 	calls     []int64
 	prompts   []string
 	efforts   []string
+	timeouts  []time.Duration
 }
 
 func (e *pelicanReviewExecutor) RunPelicanTest(ctx context.Context, accountID int64, _, prompt, effort string) (*PelicanResult, error) {
@@ -101,6 +102,9 @@ func (e *pelicanReviewExecutor) RunPelicanTest(ctx context.Context, accountID in
 	e.calls = append(e.calls, accountID)
 	e.prompts = append(e.prompts, prompt)
 	e.efforts = append(e.efforts, effort)
+	if deadline, ok := ctx.Deadline(); ok {
+		e.timeouts = append(e.timeouts, time.Until(deadline))
+	}
 	e.mu.Unlock()
 	e.started <- accountID
 	defer func() {
@@ -298,7 +302,7 @@ func TestPelicanReviewRunnerPassesClaimedReasoningEffortToProvider(t *testing.T)
 	release := make(chan struct{})
 	executor := &pelicanReviewExecutor{started: make(chan int64, 1), release: release, cancelled: make(chan struct{}, 1)}
 	service, repo := newPelicanReviewService([]Account{*reviewAccount(1, true)}, map[int64]*Account{1: reviewAccount(1, true)}, executor)
-	repo.plan = &PelicanPlan{ID: 1, GroupID: 7, ModelID: "gpt-test", MinChars: 100, MaxResults: 1, RunGeneration: 1, ReasoningEffort: "high"}
+	repo.plan = &PelicanPlan{ID: 1, GroupID: 7, ModelID: "gpt-test", MinChars: 100, MaxResults: 1, RunGeneration: 1, ReasoningEffort: "high", TimeoutSeconds: 3600}
 	defer service.Stop(context.Background())
 
 	if err := service.RunNow(context.Background(), 1); err != nil {
@@ -317,6 +321,9 @@ func TestPelicanReviewRunnerPassesClaimedReasoningEffortToProvider(t *testing.T)
 	}
 	executor.mu.Lock()
 	defer executor.mu.Unlock()
+	if len(executor.timeouts) != 1 || executor.timeouts[0] < 3590*time.Second || executor.timeouts[0] > time.Hour {
+		t.Fatalf("provider timeouts=%v", executor.timeouts)
+	}
 	if len(executor.efforts) != 1 || executor.efforts[0] != "high" {
 		t.Fatalf("provider efforts=%#v", executor.efforts)
 	}

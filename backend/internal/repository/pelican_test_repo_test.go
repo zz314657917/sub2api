@@ -19,7 +19,7 @@ func TestPelicanClaimUsesDueFenceAndGeneration(t *testing.T) {
 	defer db.Close()
 	now := time.Now()
 	cols := strings.Split(planCols, ",")
-	row := []driver.Value{int64(7), int64(3), "openai", "m", 15, true, 20, 100, nil, now, nil, int64(3), 0, 0, 0, nil, 0, 0, "", 0, "", now, now}
+	row := []driver.Value{int64(7), int64(3), "openai", "m", 15, true, 20, 100, nil, now, nil, int64(3), 0, 0, 0, nil, 0, 0, "", 0, "", 180, now, now}
 	updatedRow := append([]driver.Value(nil), row...)
 	updatedRow[11] = int64(4)
 	mock.ExpectBegin()

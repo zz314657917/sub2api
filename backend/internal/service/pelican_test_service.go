@@ -59,6 +59,7 @@ type PelicanAuthorization struct {
 	Admin    bool
 }
 type PelicanPlan struct {
+	TimeoutSeconds        int        `json:"timeout_seconds"`
 	ID                    int64      `json:"id"`
 	GroupID               int64      `json:"group_id"`
 	GroupName             string     `json:"group_name"`
@@ -85,6 +86,7 @@ type PelicanPlan struct {
 	UpdatedAt             time.Time  `json:"updated_at"`
 }
 type PelicanPlanInput struct {
+	TimeoutSeconds        int    `json:"timeout_seconds"`
 	GroupID               int64  `json:"group_id"`
 	ModelID               string `json:"model_id"`
 	IntervalMinutes       int    `json:"interval_minutes"`
@@ -463,8 +465,15 @@ func (s *PelicanTestService) validPlanModel(c context.Context, groupID int64, mo
 	}
 	return nil, ErrPelicanInvalid
 }
+func pelicanTestTimeout(seconds int) time.Duration {
+	if seconds == 0 {
+		seconds = 180
+	}
+	return time.Duration(seconds) * time.Second
+}
+
 func validPelicanInput(i PelicanPlanInput) error {
-	if i.GroupID <= 0 || strings.TrimSpace(i.ModelID) == "" || len(i.ModelID) > 200 || isOpenAIImageModel(i.ModelID) || strings.ContainsAny(i.ModelID, "\r\n\x00") || i.IntervalMinutes < 15 || i.IntervalMinutes > 1440 || i.MaxResults < 1 || i.MaxResults > 50 || i.MinChars < 100 || i.MinChars > 50000 || i.DailyCallLimit < 0 || i.DailyCallLimit > 100000 || i.FailurePauseThreshold < 0 || i.FailurePauseThreshold > 100 || i.RetentionDays < 0 || i.RetentionDays > 3650 || !validPelicanReasoningEffort(i.ReasoningEffort) {
+	if (i.TimeoutSeconds != 0 && (i.TimeoutSeconds < 30 || i.TimeoutSeconds > 3600)) || i.GroupID <= 0 || strings.TrimSpace(i.ModelID) == "" || len(i.ModelID) > 200 || isOpenAIImageModel(i.ModelID) || strings.ContainsAny(i.ModelID, "\r\n\x00") || i.IntervalMinutes < 15 || i.IntervalMinutes > 1440 || i.MaxResults < 1 || i.MaxResults > 50 || i.MinChars < 100 || i.MinChars > 50000 || i.DailyCallLimit < 0 || i.DailyCallLimit > 100000 || i.FailurePauseThreshold < 0 || i.FailurePauseThreshold > 100 || i.RetentionDays < 0 || i.RetentionDays > 3650 || !validPelicanReasoningEffort(i.ReasoningEffort) {
 		return ErrPelicanInvalid
 	}
 	return nil
@@ -567,7 +576,8 @@ func (s *PelicanTestService) run(c context.Context, p *PelicanPlan, snapshot pel
 			log.Printf("pelican plan %d: finalize failed", p.ID)
 		}
 	}()
-	planCtx, cancelPlan := context.WithTimeout(c, 20*time.Minute)
+	timeout := pelicanTestTimeout(p.TimeoutSeconds)
+	planCtx, cancelPlan := context.WithTimeout(c, timeout+time.Minute)
 	defer cancelPlan()
 	started := time.Now()
 	if s.selector == nil {
@@ -587,7 +597,7 @@ func (s *PelicanTestService) run(c context.Context, p *PelicanPlan, snapshot pel
 		return
 	}
 	a := selection.Account
-	accountCtx, cancel := context.WithTimeout(planCtx, 180*time.Second)
+	accountCtx, cancel := context.WithTimeout(planCtx, timeout)
 	defer cancel()
 	fresh, err := s.accounts.GetByID(accountCtx, a.ID)
 	group, groupErr := s.groups.GetByIDLite(accountCtx, p.GroupID)

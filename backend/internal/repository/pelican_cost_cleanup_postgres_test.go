@@ -35,7 +35,7 @@ func TestPelicanCostCleanupPostgres(t *testing.T) {
 	if _, err = db.ExecContext(ctx, "SET search_path TO "+schema); err != nil {
 		t.Fatal(err)
 	}
-	for _, file := range []string{"../../migrations/243_pelican_tests.sql", "../../migrations/244_pelican_cost_cleanup.sql", "../../migrations/245_pelican_reasoning_effort.sql", "../../migrations/247_pelican_result_reasoning_effort.sql"} {
+	for _, file := range []string{"../../migrations/243_pelican_tests.sql", "../../migrations/244_pelican_cost_cleanup.sql", "../../migrations/245_pelican_reasoning_effort.sql", "../../migrations/247_pelican_result_reasoning_effort.sql", "../../migrations/248_pelican_plan_timeout.sql"} {
 		body, readErr := os.ReadFile(file)
 		if readErr != nil {
 			t.Fatal(readErr)

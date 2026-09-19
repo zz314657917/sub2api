@@ -19,27 +19,27 @@ func NewPelicanTestRepository(db *sql.DB) service.PelicanTestRepository {
 func scanPelicanPlan(s interface{ Scan(...any) error }) (service.PelicanPlan, error) {
 	var p service.PelicanPlan
 	var usageDay sql.NullTime
-	e := s.Scan(&p.ID, &p.GroupID, &p.GroupName, &p.ModelID, &p.IntervalMinutes, &p.Enabled, &p.MaxResults, &p.MinChars, &p.LastRunAt, &p.NextRunAt, &p.RunningUntil, &p.RunGeneration, &p.DailyCallLimit, &p.FailurePauseThreshold, &p.RetentionDays, &usageDay, &p.DailyCallsUsed, &p.ConsecutiveFailedRuns, &p.PauseReason, &p.LastRunCalls, &p.ReasoningEffort, &p.CreatedAt, &p.UpdatedAt)
+	e := s.Scan(&p.ID, &p.GroupID, &p.GroupName, &p.ModelID, &p.IntervalMinutes, &p.Enabled, &p.MaxResults, &p.MinChars, &p.LastRunAt, &p.NextRunAt, &p.RunningUntil, &p.RunGeneration, &p.DailyCallLimit, &p.FailurePauseThreshold, &p.RetentionDays, &usageDay, &p.DailyCallsUsed, &p.ConsecutiveFailedRuns, &p.PauseReason, &p.LastRunCalls, &p.ReasoningEffort, &p.TimeoutSeconds, &p.CreatedAt, &p.UpdatedAt)
 	if usageDay.Valid {
 		p.UsageDay = usageDay.Time.Format("2006-01-02")
 	}
 	return p, e
 }
 
-const planCols = "id,group_id,group_name,model_id,interval_minutes,enabled,max_results,min_chars,last_run_at,next_run_at,running_until,run_generation,daily_call_limit,failure_pause_threshold,retention_days,usage_day,daily_calls_used,consecutive_failed_runs,pause_reason,last_run_calls,reasoning_effort,created_at,updated_at"
-const planListCols = "id,group_id,group_name,model_id,interval_minutes,enabled,max_results,min_chars,last_run_at,next_run_at,running_until,run_generation,daily_call_limit,failure_pause_threshold,retention_days,(NOW() AT TIME ZONE 'Asia/Shanghai')::date AS usage_day,CASE WHEN usage_day IS NOT DISTINCT FROM (NOW() AT TIME ZONE 'Asia/Shanghai')::date THEN daily_calls_used ELSE 0 END AS daily_calls_used,consecutive_failed_runs,pause_reason,last_run_calls,reasoning_effort,created_at,updated_at"
+const planCols = "id,group_id,group_name,model_id,interval_minutes,enabled,max_results,min_chars,last_run_at,next_run_at,running_until,run_generation,daily_call_limit,failure_pause_threshold,retention_days,usage_day,daily_calls_used,consecutive_failed_runs,pause_reason,last_run_calls,reasoning_effort,timeout_seconds,created_at,updated_at"
+const planListCols = "id,group_id,group_name,model_id,interval_minutes,enabled,max_results,min_chars,last_run_at,next_run_at,running_until,run_generation,daily_call_limit,failure_pause_threshold,retention_days,(NOW() AT TIME ZONE 'Asia/Shanghai')::date AS usage_day,CASE WHEN usage_day IS NOT DISTINCT FROM (NOW() AT TIME ZONE 'Asia/Shanghai')::date THEN daily_calls_used ELSE 0 END AS daily_calls_used,consecutive_failed_runs,pause_reason,last_run_calls,reasoning_effort,timeout_seconds,created_at,updated_at"
 
 func (r *pelicanTestRepository) CreatePlan(c context.Context, i service.PelicanPlanInput, n string) (*service.PelicanPlan, error) {
-	q := "INSERT INTO pelican_test_plans (group_id,group_name,model_id,interval_minutes,enabled,max_results,min_chars,daily_call_limit,failure_pause_threshold,retention_days,reasoning_effort,next_run_at) VALUES ($1,$2,$3,$4,FALSE,$5,$6,$7,$8,$9,$10,NOW()) RETURNING " + planListCols
-	p, e := scanPelicanPlan(r.db.QueryRowContext(c, q, i.GroupID, n, i.ModelID, i.IntervalMinutes, i.MaxResults, i.MinChars, i.DailyCallLimit, i.FailurePauseThreshold, i.RetentionDays, i.ReasoningEffort))
+	q := "INSERT INTO pelican_test_plans (group_id,group_name,model_id,interval_minutes,enabled,max_results,min_chars,daily_call_limit,failure_pause_threshold,retention_days,reasoning_effort,timeout_seconds,next_run_at) VALUES ($1,$2,$3,$4,FALSE,$5,$6,$7,$8,$9,$10,COALESCE(NULLIF($11,0),180),NOW()) RETURNING " + planListCols
+	p, e := scanPelicanPlan(r.db.QueryRowContext(c, q, i.GroupID, n, i.ModelID, i.IntervalMinutes, i.MaxResults, i.MinChars, i.DailyCallLimit, i.FailurePauseThreshold, i.RetentionDays, i.ReasoningEffort, i.TimeoutSeconds))
 	if e != nil {
 		return nil, fmt.Errorf("create pelican plan: %w", e)
 	}
 	return &p, nil
 }
 func (r *pelicanTestRepository) UpdatePlan(c context.Context, id int64, i service.PelicanPlanInput, n string) (*service.PelicanPlan, error) {
-	q := "UPDATE pelican_test_plans SET group_id=$2,group_name=$3,model_id=$4,interval_minutes=$5,enabled=CASE WHEN pause_reason='' THEN $6 ELSE FALSE END,max_results=$7,min_chars=$8,daily_call_limit=$9,failure_pause_threshold=$10,retention_days=$11,reasoning_effort=$12,updated_at=NOW() WHERE id=$1 AND (running_until IS NULL OR running_until<NOW()) RETURNING " + planListCols
-	p, e := scanPelicanPlan(r.db.QueryRowContext(c, q, id, i.GroupID, n, i.ModelID, i.IntervalMinutes, i.Enabled, i.MaxResults, i.MinChars, i.DailyCallLimit, i.FailurePauseThreshold, i.RetentionDays, i.ReasoningEffort))
+	q := "UPDATE pelican_test_plans SET group_id=$2,group_name=$3,model_id=$4,interval_minutes=$5,enabled=CASE WHEN pause_reason='' THEN $6 ELSE FALSE END,max_results=$7,min_chars=$8,daily_call_limit=$9,failure_pause_threshold=$10,retention_days=$11,reasoning_effort=$12,timeout_seconds=COALESCE(NULLIF($13,0),180),updated_at=NOW() WHERE id=$1 AND (running_until IS NULL OR running_until<NOW()) RETURNING " + planListCols
+	p, e := scanPelicanPlan(r.db.QueryRowContext(c, q, id, i.GroupID, n, i.ModelID, i.IntervalMinutes, i.Enabled, i.MaxResults, i.MinChars, i.DailyCallLimit, i.FailurePauseThreshold, i.RetentionDays, i.ReasoningEffort, i.TimeoutSeconds))
 	if errors.Is(e, sql.ErrNoRows) {
 		return nil, service.ErrPelicanConflict
 	}
@@ -126,7 +126,7 @@ func (r *pelicanTestRepository) Claim(c context.Context, id int64, manual bool, 
 		}
 		return nil, service.ErrPelicanQuota
 	}
-	p, err = scanPelicanPlan(tx.QueryRowContext(c, "UPDATE pelican_test_plans SET running_until=$2::timestamptz + interval '30 minutes',run_generation=run_generation+1,round_attempted=0,round_successes=0,last_run_at=$2,next_run_at=$2::timestamptz+(interval_minutes || ' minutes')::interval,updated_at=$2 WHERE id=$1 RETURNING "+planListCols, id, now))
+	p, err = scanPelicanPlan(tx.QueryRowContext(c, "UPDATE pelican_test_plans SET running_until=$2::timestamptz + (timeout_seconds + 120) * interval '1 second',run_generation=run_generation+1,round_attempted=0,round_successes=0,last_run_at=$2,next_run_at=$2::timestamptz+(interval_minutes || ' minutes')::interval,updated_at=$2 WHERE id=$1 RETURNING "+planListCols, id, now))
 	if err != nil {
 		return nil, err
 	}
