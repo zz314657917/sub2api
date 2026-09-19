@@ -29,6 +29,20 @@ describe('PelicanPlansPanel', () => {
     expect((wrapper.get('select[aria-label="思考强度"]').element as HTMLSelectElement).value).toBe('')
   })
 
+  it('saves a custom timeout and restores it when editing', async () => {
+    models.mockResolvedValue(['gpt-test'])
+    const wrapper = mountPanel()
+    expect((wrapper.get('input[aria-label="测试超时秒"]').element as HTMLInputElement).value).toBe('180')
+    await wrapper.get('select[aria-label="分组"]').setValue('3'); await flushPromises()
+    await wrapper.get('select[aria-label="模型"]').setValue('gpt-test')
+    await wrapper.get('input[aria-label="测试超时秒"]').setValue('1800')
+    await wrapper.get('form').trigger('submit')
+    expect(wrapper.emitted('save')?.[0]).toEqual([null, expect.objectContaining({ timeout_seconds: 1800 })])
+    await wrapper.setProps({ plans: [{ ...plan, timeout_seconds: 3600 }] })
+    await wrapper.findAll('button').find(button => button.text() === '编辑')!.trigger('click'); await flushPromises()
+    expect((wrapper.get('input[aria-label="测试超时秒"]').element as HTMLInputElement).value).toBe('3600')
+  })
+
   it('round-trips the selected reasoning effort through create and edit', async () => {
     models.mockResolvedValue(['gpt-test'])
     const wrapper = mountPanel()

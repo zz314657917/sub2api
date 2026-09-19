@@ -17,12 +17,13 @@ export interface PelicanPlan {
   id: number; group_id: number; group_name: string; model_id: string; interval_minutes: number; enabled: boolean
   max_results: number; min_chars: number; last_run_at?: string | null; next_run_at?: string | null; running_until?: string | null
   daily_call_limit: number | null; failure_pause_threshold: number | null; retention_days: number | null
+  timeout_seconds?: number
   reasoning_effort: string
   daily_calls_used: number | null; usage_day: string | null; consecutive_failed_runs: number | null; pause_reason: '' | 'consecutive_failures' | null
   estimated_calls_per_run: number | null; last_run_calls: number | null
   created_at: string; updated_at: string
 }
-export type PelicanPlanInput = Pick<PelicanPlan, 'group_id' | 'model_id' | 'interval_minutes' | 'enabled' | 'max_results' | 'min_chars' | 'daily_call_limit' | 'failure_pause_threshold' | 'retention_days' | 'reasoning_effort'>
+export type PelicanPlanInput = Pick<PelicanPlan, 'group_id' | 'model_id' | 'interval_minutes' | 'enabled' | 'max_results' | 'min_chars' | 'daily_call_limit' | 'failure_pause_threshold' | 'retention_days' | 'reasoning_effort' | 'timeout_seconds'>
 export interface PelicanListResponse { items: PelicanEntry[]; total: number; page: number; page_size: number; groups: PelicanGroup[] }
 export interface PelicanTestMetadata { display_name: string; enabled: boolean }
 export interface PelicanTestSettings extends PelicanTestMetadata { prompt: string }
