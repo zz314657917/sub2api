@@ -13,7 +13,9 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/tlsfingerprint"
+	"github.com/Wei-Shaw/sub2api/internal/util/logredact"
 	"github.com/gin-gonic/gin"
 )
 
@@ -70,6 +72,60 @@ func (u pelicanUpstream) DoWithTLS(req *http.Request, proxy string, id int64, co
 var pelicanHTMLStart = regexp.MustCompile(`(?is)^\s*(?:<!doctype\s+html[^>]*>\s*)?<html(?:\s[^>]*)?>`)
 var pelicanHTMLEnd = regexp.MustCompile(`(?is)</html>\s*$`)
 
+type pelicanIncompleteHTMLError struct {
+	reason string
+}
+
+func (e *pelicanIncompleteHTMLError) Error() string {
+	return "pelican incomplete html: " + e.reason
+}
+
+func (e *pelicanIncompleteHTMLError) Unwrap() error {
+	return ErrPelicanIncompleteHTML
+}
+
+func pelicanIncompleteHTMLReason(completed, validUTF8, hasStart, hasEnd bool) string {
+	reasons := make([]string, 0, 4)
+	if !completed {
+		reasons = append(reasons, "未收到完成标记")
+	}
+	if !validUTF8 {
+		reasons = append(reasons, "内容不是有效 UTF-8")
+	}
+	if !hasStart {
+		reasons = append(reasons, "缺少 HTML 起始标签")
+	}
+	if !hasEnd {
+		reasons = append(reasons, "缺少 HTML 结束标签")
+	}
+	return strings.Join(reasons, "；")
+}
+
+func pelicanLogPreview(value string, maxRunes int) string {
+	value = logredact.RedactText(value, "api_key", "token", "authorization", "cookie")
+	value = strings.NewReplacer("\r", "\\r", "\n", "\\n", "\t", "\\t").Replace(value)
+	runes := []rune(value)
+	if len(runes) > maxRunes {
+		return string(runes[:maxRunes]) + "..."
+	}
+	return value
+}
+
+func logPelicanIncompleteHTML(body, html string, completed, validUTF8, hasStart, hasEnd bool) {
+	const previewRunes = 240
+	head := html
+	tail := html
+	runes := []rune(html)
+	if len(runes) > previewRunes {
+		head = string(runes[:previewRunes])
+		tail = string(runes[len(runes)-previewRunes:])
+	}
+	logger.LegacyPrintf("service.account_test_pelican",
+		"incomplete_html completed=%t valid_utf8=%t has_html_start=%t has_html_end=%t body_bytes=%d html_bytes=%d html_runes=%d head=%q tail=%q",
+		completed, validUTF8, hasStart, hasEnd, len(body), len(html), utf8.RuneCountInString(html),
+		pelicanLogPreview(head, previewRunes), pelicanLogPreview(tail, previewRunes))
+}
+
 func parsePelicanEvents(body string) (string, error) {
 	var text strings.Builder
 	completed := false
@@ -101,8 +157,12 @@ func parsePelicanEvents(body string) (string, error) {
 		html = strings.TrimSpace(strings.TrimPrefix(html, "```html"))
 		html = strings.TrimSpace(strings.TrimSuffix(html, "```"))
 	}
-	if !completed || !utf8.ValidString(html) || !pelicanHTMLStart.MatchString(html) || !pelicanHTMLEnd.MatchString(html) {
-		return "", ErrPelicanIncompleteHTML
+	validUTF8 := utf8.ValidString(html)
+	hasStart := pelicanHTMLStart.MatchString(html)
+	hasEnd := pelicanHTMLEnd.MatchString(html)
+	if !completed || !validUTF8 || !hasStart || !hasEnd {
+		logPelicanIncompleteHTML(body, html, completed, validUTF8, hasStart, hasEnd)
+		return "", &pelicanIncompleteHTMLError{reason: pelicanIncompleteHTMLReason(completed, validUTF8, hasStart, hasEnd)}
 	}
 	return html, nil
 }

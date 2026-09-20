@@ -646,8 +646,13 @@ func (s *PelicanTestService) run(c context.Context, p *PelicanPlan, snapshot pel
 }
 
 func classifyPelicanFailure(err error, ctx context.Context) (string, string) {
-	if errors.Is(ctx.Err(), context.DeadlineExceeded) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, ErrPelicanUpstreamTimeout) {
+	ctxTimedOut := ctx != nil && errors.Is(ctx.Err(), context.DeadlineExceeded)
+	if ctxTimedOut || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, ErrPelicanUpstreamTimeout) {
 		return "upstream_timeout", "上游请求超时"
+	}
+	var incomplete *pelicanIncompleteHTMLError
+	if errors.As(err, &incomplete) && strings.TrimSpace(incomplete.reason) != "" {
+		return "incomplete_html", "返回的 HTML 内容不完整：" + incomplete.reason
 	}
 	if errors.Is(err, ErrPelicanIncompleteHTML) {
 		return "incomplete_html", "返回的 HTML 内容不完整"
