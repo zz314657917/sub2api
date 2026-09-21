@@ -28,6 +28,7 @@ export function sanitizePelicanHtml(html: string): string {
   // Serialize the sanitized DOM without extracting/reinserting untrusted style text.
   return `${clean.querySelector('head')?.innerHTML ?? ''}${clean.querySelector('body')?.innerHTML ?? ''}`
 }
-export function toPelicanSrcdoc(html: string): string {
-  return `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src 'none'; connect-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'"></head><body>${sanitizePelicanHtml(html)}</body></html>`
+export function toPelicanSrcdoc(html: string, preview = false): string {
+  const previewStyle = preview ? '<style>html,body{overflow:hidden!important}*{scrollbar-width:none!important}*::-webkit-scrollbar{display:none!important}</style>' : ''
+  return `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src 'none'; connect-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'"></head><body>${sanitizePelicanHtml(html)}${previewStyle}</body></html>`
 }
