@@ -287,10 +287,10 @@ describe('user KeysView column settings', () => {
 })
 
 describe('user KeysView editor layout', () => {
-  it('uses an extra-wide dialog with a bounded multi-group route editor in the desktop right column', () => {
-    expect(keysViewSource).toContain('width="extra-wide"')
+  it('uses a full-width dialog with a bounded multi-group route editor in the desktop right column', () => {
+    expect(keysViewSource).toContain('width="full"')
     expect(keysViewSource).toContain('<aside class="key-route-panel')
-    expect(keysViewSource).toContain('lg:grid-cols-[minmax(0,1fr)_minmax(28rem,36rem)]')
+    expect(keysViewSource).toContain('lg:grid-cols-[minmax(0,1fr)_minmax(32rem,44rem)]')
     expect(keysViewSource).toContain('lg:col-start-2 lg:row-start-1 lg:row-span-3')
     expect(keysViewSource).toContain('lg:max-h-[calc(100vh-20rem)] lg:overflow-y-auto')
     expect(keysViewSource).toContain('key-route-heading flex min-w-0 items-center')

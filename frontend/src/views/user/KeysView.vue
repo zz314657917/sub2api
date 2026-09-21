@@ -513,12 +513,12 @@
     <BaseDialog
       :show="showCreateModal || showEditModal"
       :title="showEditModal ? t('keys.editKey') : t('keys.createKey')"
-      width="extra-wide"
+      width="full"
       @close="closeModals"
     >
       <form
         id="key-form"
-        class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(28rem,36rem)] lg:items-start"
+        class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(32rem,44rem)] lg:items-start"
         @submit.prevent="handleSubmit"
       >
         <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900/40 lg:col-start-1">
@@ -764,6 +764,7 @@
                   <Select
                     :model-value="route.group_id"
                     :options="getRouteGroupOptions(route)"
+                    :dropdown-min-width="420"
                     :placeholder="t('keys.selectGroup')"
                     :searchable="true"
                     :search-placeholder="t('keys.searchGroup')"

@@ -135,6 +135,7 @@ interface Props {
   labelKey?: string
   creatable?: boolean
   creatablePrefix?: string
+  dropdownMinWidth?: number
 }
 
 interface Emits {
@@ -182,7 +183,7 @@ const dropdownStyle = computed(() => {
   const rect = triggerRect.value
   const viewportPadding = 16
   const availableWidth = Math.max(200, window.innerWidth - viewportPadding * 2)
-  const dropdownWidth = Math.min(rect.width, availableWidth)
+  const dropdownWidth = Math.min(Math.max(rect.width, props.dropdownMinWidth ?? 0), availableWidth)
   const dropdownLeft = Math.min(
     Math.max(rect.left, viewportPadding),
     window.innerWidth - viewportPadding - dropdownWidth
