@@ -179,11 +179,11 @@ const dialogTitle = computed(() => `${selectedEntry.value?.group_name} · 计划
 
 watch([groupFilter, pageSize], () => { closeDialog(); if (page.value !== 1) page.value = 1; else void refresh({ resetView: true }) })
 watch(page, () => void refresh({ resetView: true }))
-watch(() => [authStore.user?.id, authStore.isAdmin], () => { listRequestVersion++; listAbort?.abort(); clearArtworkCache(); items.value = []; total.value = 0; groups.value = []; loading.value = false; closeDialog(); plans.value = []; adminGroups.value = []; showPlans.value = false; cleanupConfirmation.value = null; showSettings.value = false; settingsRequestVersion++; settingsLoaded.value = false; settingsLoading.value = false; settingsSaving.value = false; settingsError.value = ''; settingsDraft.value = { ...defaultSettings }; pelicanMetadata.reset?.(); void Promise.resolve(pelicanMetadata.load(true)).then(() => { if (authStore.isAdmin || pelicanMetadata.enabled) return refresh({ resetView: true }) }).catch(() => { if (authStore.isAdmin) return refresh({ resetView: true }) }) })
+watch([() => authStore.user?.id, () => authStore.isAdmin], () => { listRequestVersion++; listAbort?.abort(); clearArtworkCache(); items.value = []; total.value = 0; groups.value = []; loading.value = false; closeDialog(); plans.value = []; adminGroups.value = []; showPlans.value = false; cleanupConfirmation.value = null; showSettings.value = false; settingsRequestVersion++; settingsLoaded.value = false; settingsLoading.value = false; settingsSaving.value = false; settingsError.value = ''; settingsDraft.value = { ...defaultSettings }; pelicanMetadata.reset?.(); void Promise.resolve(pelicanMetadata.load(true)).then(() => { if (authStore.isAdmin || pelicanMetadata.enabled) return refresh({ resetView: true }) }).catch(() => { if (authStore.isAdmin) return refresh({ resetView: true }) }) })
 watch([() => pelicanMetadata.displayName, () => appStore.siteName], ([name, siteName]) => { document.title = `${name} - ${siteName || 'Sub2API'}` }, { immediate: true })
 watch(refreshSeconds, seconds => {
   if (interval) clearInterval(interval)
-  interval = seconds ? setInterval(() => void refresh(), seconds * 1000) : undefined
+  interval = seconds ? setInterval(() => { if (!showPlans.value && !showSettings.value && !dialogMode.value) void refresh() }, seconds * 1000) : undefined
 })
 watch(() => pelicanMetadata.enabled, enabled => {
   if (!authStore.isAdmin && !enabled) { listRequestVersion++; listAbort?.abort(); clearArtworkCache(); items.value = []; total.value = 0; groups.value = []; closeDialog() }
@@ -229,6 +229,15 @@ async function refresh({ resetView = false }: { resetView?: boolean } = {}): Pro
     const lastPage = Math.max(1, Math.ceil(data.total / pageSize.value))
     if (page.value > lastPage) { total.value = data.total; page.value = lastPage; return }
     const currentArtworkIDs = new Map(data.items.map(entry => [entry.result_id, entry.artwork_result_id]))
+    // A new failed attempt can still display the same last successful artwork.
+    const cachedArtwork = new Map(Object.entries(cardArtworkIDs.value).map(([id, artworkID]) => [artworkID, cardHtml.value[Number(id)]]))
+    for (const entry of data.items) {
+      const html = cachedArtwork.get(entry.artwork_result_id)
+      if (entry.artwork_result_id && html) {
+        cardHtml.value[entry.result_id] = html
+        cardArtworkIDs.value[entry.result_id] = entry.artwork_result_id
+      }
+    }
     cardHtml.value = Object.fromEntries(Object.entries(cardHtml.value).filter(([id]) => cardArtworkIDs.value[Number(id)] === currentArtworkIDs.get(Number(id))))
     cardArtworkIDs.value = Object.fromEntries(Object.entries(cardArtworkIDs.value).filter(([id, artworkID]) => artworkID === currentArtworkIDs.get(Number(id))))
     artworkLoading.value = Object.fromEntries(Object.entries(artworkLoading.value).filter(([id]) => currentArtworkIDs.has(Number(id))))
@@ -236,7 +245,7 @@ async function refresh({ resetView = false }: { resetView?: boolean } = {}): Pro
     if (!resetView && previousScrollTop != null) void nextTick(() => { if (version === listRequestVersion && resultsRegion.value) resultsRegion.value.scrollTop = previousScrollTop })
     if (selectedEntry.value && !data.items.some(item => item.plan_id === selectedEntry.value?.plan_id && item.group_id === selectedEntry.value?.group_id)) closeDialog()
     void loadVisibleArtwork(data.items, version, controller.signal)
-  } catch (reason) { if (version === listRequestVersion) { const status = (reason as { status?: number; response?: { status?: number } })?.status ?? (reason as { response?: { status?: number } })?.response?.status; if (status === 403) pelicanMetadata.reset?.(); error.value = messageOf(reason); clearArtworkCache(); items.value = []; total.value = 0; groups.value = []; closeDialog() } } finally { if (version === listRequestVersion) loading.value = false }
+  } catch (reason) { if (version === listRequestVersion) { const status = (reason as { status?: number; response?: { status?: number } })?.status ?? (reason as { response?: { status?: number } })?.response?.status; if (status === 403) pelicanMetadata.reset?.(); error.value = messageOf(reason); if (status === 401 || status === 403) { clearArtworkCache(); items.value = []; total.value = 0; groups.value = []; closeDialog() } } } finally { if (version === listRequestVersion) loading.value = false }
 }
 async function loadVisibleArtwork(entries: PelicanEntry[], version: number, signal: AbortSignal): Promise<void> {
   const queue = entries.filter(entry => entry.artwork_result_id && !cardHtml.value[entry.result_id])

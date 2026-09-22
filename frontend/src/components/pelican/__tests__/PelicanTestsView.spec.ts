@@ -33,6 +33,35 @@ describe('PelicanTestsView', () => {
   })
   async function view() { const wrapper = mount(PelicanTestsView, { global: { stubs } }); await flushPromises(); return wrapper }
 
+  it('keeps unsaved plans during profile refresh and pauses polling', async () => {
+    vi.useFakeTimers()
+    const wrapper = await view()
+    try {
+      await wrapper.get('select[aria-label="自动刷新间隔"]').setValue('15')
+      await wrapper.findAll('button').find(button => button.text() === '管理测试计划')!.trigger('click'); await flushPromises()
+      await wrapper.get('input[aria-label="间隔分钟"]').setValue('123')
+      const calls = api.list.mock.calls.length
+      auth.user = { id: 1 }; await flushPromises()
+      await vi.advanceTimersByTimeAsync(30_000); await flushPromises()
+      expect(wrapper.get('input[aria-label="间隔分钟"]').element).toHaveProperty('value', '123')
+      expect(api.list).toHaveBeenCalledTimes(calls)
+    } finally { wrapper.unmount(); vi.useRealTimers() }
+  })
+
+  it('preserves previews after network failures and new failed attempts', async () => {
+    const wrapper = await view()
+    const preview = wrapper.get('.artwork-preview').element
+    const requests = api.result.mock.calls.length
+    api.list.mockRejectedValueOnce(new Error('Network Error'))
+    await wrapper.get('.refresh-button').trigger('click'); await flushPromises()
+    expect(wrapper.get('.artwork-preview').element).toBe(preview)
+    api.list.mockResolvedValueOnce({ items: [{ ...item(27131, 999), status: 'failed', artwork_result_id: 27131 }], total: 1, page: 1, page_size: 24, groups: [] })
+    await wrapper.get('.refresh-button').trigger('click'); await flushPromises()
+    expect(wrapper.get('.artwork-preview').element).toBe(preview)
+    expect(api.result).toHaveBeenCalledTimes(requests)
+    wrapper.unmount()
+  })
+
   it('shows the recorded effort after the model without a label prefix', async () => {
     api.list.mockResolvedValue({ items: [{ ...item(1), reasoning_effort: 'high' }], total: 1, page: 1, page_size: 24, groups: [] })
     api.history.mockResolvedValue([{ ...result(1), reasoning_effort: 'low' }, { ...result(2), reasoning_effort: '' }, { ...result(3), reasoning_effort: null }])
@@ -90,7 +119,7 @@ describe('PelicanTestsView', () => {
   it('clears previously accessible artwork when a refresh fails', async () => {
     const wrapper = await view()
     expect(wrapper.find('.artwork-preview').exists()).toBe(true)
-    api.list.mockRejectedValueOnce(new Error('权限已变更'))
+    api.list.mockRejectedValueOnce(Object.assign(new Error('权限已变更'), { status: 403 }))
     await wrapper.get('.refresh-button').trigger('click'); await flushPromises()
     expect(wrapper.find('.artwork-preview').exists()).toBe(false)
     expect(wrapper.text()).toContain('权限已变更')
