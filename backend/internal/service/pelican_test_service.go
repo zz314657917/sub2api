@@ -661,13 +661,11 @@ func classifyPelicanFailure(err error, ctx context.Context) (string, string) {
 		return "upstream_stream_closed", "上游响应中途断流"
 	}
 	if errors.Is(err, ErrPelicanUpstreamRequest) {
-		if err.Error() != ErrPelicanUpstreamRequest.Error() && (strings.Contains(strings.ToLower(err.Error()), "eof") || strings.Contains(strings.ToLower(err.Error()), "stream")) {
-			return "upstream_stream_closed", "上游响应中途断流"
+		var detail *pelicanRequestFailure
+		if errors.As(err, &detail) {
+			return "upstream_request_failed", "上游请求失败：" + detail.safe
 		}
 		return "upstream_request_failed", "上游请求失败"
-	}
-	if err != nil && (strings.Contains(strings.ToLower(err.Error()), "eof") || strings.Contains(strings.ToLower(err.Error()), "stream closed")) {
-		return "upstream_stream_closed", "上游响应中途断流"
 	}
 	return "generation_failed", "生成失败"
 }

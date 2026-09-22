@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,6 +17,39 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/tlsfingerprint"
 )
+
+func TestPelicanProvider503AndBrokenStream(t *testing.T) {
+	for _, tc := range []struct {
+		status int
+		broken bool
+		code   string
+	}{
+		{503, false, "upstream_request_failed"},
+		{200, true, "upstream_stream_closed"},
+	} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/event-stream")
+			if tc.broken {
+				w.Header().Set("Content-Length", "99999")
+			}
+			w.WriteHeader(tc.status)
+			fmt.Fprint(w, "data: {\"type\":\"response.output_text.delta\",\"delta\":\"<html>\"}\n\n")
+		}))
+		account := &Account{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Credentials: map[string]any{"api_key": "fixture-only", "base_url": srv.URL}}
+		cfg := &config.Config{}
+		cfg.Security.URLAllowlist.AllowInsecureHTTP = true
+		svc := &AccountTestService{accountRepo: pelicanProviderAccounts{account: account}, cfg: cfg, httpUpstream: pelicanLocalUpstream{host: strings.TrimPrefix(srv.URL, "http://")}}
+		_, err := svc.RunPelicanTest(context.Background(), 1, "gpt-test", PelicanPrompt, "")
+		srv.Close()
+		code, safe := classifyPelicanFailure(err, nil)
+		if code != tc.code {
+			t.Fatalf("code=%s err=%v", code, err)
+		}
+		if tc.status == 503 && (!errors.Is(err, ErrPelicanUpstreamRequest) || !strings.Contains(safe, "503")) {
+			t.Fatalf("missing status: %s", safe)
+		}
+	}
+}
 
 type pelicanProviderAccounts struct {
 	AccountRepository
@@ -62,6 +96,9 @@ func TestPelicanProviderOAuthPreservesExactPrompt(t *testing.T) {
 		t.Fatal(err)
 	}
 	input := data["input"].([]any)[0].(map[string]any)
+	if data["instructions"] != pelicanTestInstructions {
+		t.Fatalf("unexpected instructions: %v", data["instructions"])
+	}
 	content := input["content"].([]any)[0].(map[string]any)
 	if content["text"] != prompt {
 		t.Fatalf("OAuth prompt=%q want=%q", content["text"], prompt)
@@ -145,6 +182,14 @@ func TestPelicanProviderReasoningEffortPayloadAndDefaultOmission(t *testing.T) {
 				t.Fatalf("result=%+v err=%v", result, err)
 			}
 			tc.assertBody(t, payload)
+			if tc.path == "/v1/chat/completions" {
+				messages := payload["messages"].([]any)
+				if messages[0].(map[string]any)["content"] != pelicanTestInstructions {
+					t.Fatal("missing test system instruction")
+				}
+			} else if payload["instructions"] != pelicanTestInstructions {
+				t.Fatal("missing test instructions")
+			}
 		})
 	}
 }

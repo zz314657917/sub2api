@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -18,6 +19,38 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/util/logredact"
 	"github.com/gin-gonic/gin"
 )
+
+const pelicanTestInstructions = "Generate a standalone HTML document for the user's request. Return only the complete HTML source, beginning with <!DOCTYPE html> or <html> and ending with </html>. Do not explain, use Markdown fences, inspect directories, create or edit files, or invoke tools. Include required CSS and JavaScript inline."
+
+type pelicanRequestFailure struct{ safe string }
+
+func (e *pelicanRequestFailure) Error() string { return e.safe }
+func (e *pelicanRequestFailure) Unwrap() error { return ErrPelicanUpstreamRequest }
+
+var pelicanPrivateValue = regexp.MustCompile(`(?i)(?:https?://[^\s<>"']+|bearer\s+[^\s<>"']+|sk-[a-z0-9_-]+)`)
+
+func newPelicanRequestFailure(message string) *pelicanRequestFailure {
+	message = pelicanPrivateValue.ReplaceAllString(message, "[redacted]")
+	return &pelicanRequestFailure{safe: pelicanLogPreview(message, 320)}
+}
+
+type pelicanObservedBody struct {
+	io.ReadCloser
+	failure *error
+}
+
+func (b *pelicanObservedBody) Read(p []byte) (int, error) {
+	n, err := b.ReadCloser.Read(p)
+	if err != nil && err != io.EOF {
+		var timeout net.Error
+		if errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &timeout) && timeout.Timeout()) {
+			*b.failure = ErrPelicanUpstreamTimeout
+		} else {
+			*b.failure = fmt.Errorf("%w: response body read failed", ErrPelicanUpstreamClosed)
+		}
+	}
+	return n, err
+}
 
 type cappedPelicanWriter struct {
 	gin.ResponseWriter
@@ -49,28 +82,64 @@ type pelicanLimitedBody struct {
 	io.Reader
 	io.Closer
 }
-type pelicanUpstream struct{ HTTPUpstream }
+type pelicanUpstream struct {
+	HTTPUpstream
+	failure *error
+}
 
 func (u pelicanUpstream) DoWithTLS(req *http.Request, proxy string, id int64, concurrency int, profile *tlsfingerprint.Profile) (*http.Response, error) {
 	resp, err := u.HTTPUpstream.DoWithTLS(req, proxy, id, concurrency, profile)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrPelicanUpstreamRequest, err)
+		var timeout net.Error
+		if errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &timeout) && timeout.Timeout()) {
+			*u.failure = ErrPelicanUpstreamTimeout
+		} else {
+			*u.failure = newPelicanRequestFailure(err.Error())
+		}
+		return nil, *u.failure
 	}
 	if resp == nil || resp.Body == nil {
 		return nil, errors.New("pelican upstream response missing")
 	}
 	if resp.StatusCode != http.StatusOK {
+		*u.failure = newPelicanRequestFailure(fmt.Sprintf("HTTP %d", resp.StatusCode))
 		_ = resp.Body.Close()
 		resp.Body = io.NopCloser(strings.NewReader("provider request failed"))
 	} else {
 		// Bound raw SSE overhead before the shared line parser buffers it.
-		resp.Body = &pelicanLimitedBody{Reader: io.LimitReader(resp.Body, 8<<20), Closer: resp.Body}
+		observed := &pelicanObservedBody{ReadCloser: resp.Body, failure: u.failure}
+		resp.Body = &pelicanLimitedBody{Reader: io.LimitReader(observed, 8<<20), Closer: observed}
 	}
 	return resp, nil
 }
 
 var pelicanHTMLStart = regexp.MustCompile(`(?is)^\s*(?:<!doctype\s+html[^>]*>\s*)?<html(?:\s[^>]*)?>`)
 var pelicanHTMLEnd = regexp.MustCompile(`(?is)</html>\s*$`)
+var pelicanDocumentStart = regexp.MustCompile(`(?i)<!doctype\s+html\b[^>]*>|<html(?:\s[^>]*)?>`)
+var pelicanHTMLFence = regexp.MustCompile("(?im)^\\s*```html[ \\t]*\\r?\\n")
+
+func extractPelicanDocument(output string) string {
+	// The first HTML fence is authoritative, even if its document is incomplete.
+	if fence := pelicanHTMLFence.FindStringIndex(output); fence != nil {
+		output = output[fence[1]:]
+		if end := strings.Index(output, "```"); end >= 0 {
+			output = output[:end]
+		}
+	} else if strings.Contains(output, "```") {
+		// Retain compatibility with an unlabelled code fence.
+		parts := strings.Split(output, "```")
+		if len(parts) > 1 {
+			output = parts[1]
+		}
+	}
+	if start := pelicanDocumentStart.FindStringIndex(output); start != nil {
+		output = output[start[0]:]
+	}
+	if end := strings.LastIndex(strings.ToLower(output), "</html>"); end >= 0 {
+		output = output[:end+len("</html>")]
+	}
+	return strings.TrimSpace(output)
+}
 
 type pelicanIncompleteHTMLError struct {
 	reason string
@@ -146,16 +215,15 @@ func parsePelicanEvents(body string) (string, error) {
 			}
 			completed = true
 		case "content":
-			if text.Len()+len(event.Text) > 256*1024 {
+			if text.Len()+len(event.Text) > 4<<20 {
 				return "", errors.New("pelican HTML exceeds limit")
 			}
 			text.WriteString(event.Text)
 		}
 	}
-	html := strings.TrimSpace(text.String())
-	if strings.HasPrefix(html, "```html") {
-		html = strings.TrimSpace(strings.TrimPrefix(html, "```html"))
-		html = strings.TrimSpace(strings.TrimSuffix(html, "```"))
+	html := extractPelicanDocument(text.String())
+	if len(html) > 256*1024 {
+		return "", &pelicanIncompleteHTMLError{reason: "HTML 超过大小限制"}
 	}
 	validUTF8 := utf8.ValidString(html)
 	hasStart := pelicanHTMLStart.MatchString(html)
@@ -192,7 +260,8 @@ func (s *AccountTestService) RunPelicanTest(ctx context.Context, accountID int64
 	c.Writer = &cappedPelicanWriter{ResponseWriter: c.Writer, remaining: 4 << 20, cancel: cancel}
 	started := time.Now()
 	// Use the established proxy/TLS/auth path without copying its mutex fields.
-	probe := &AccountTestService{accountRepo: s.accountRepo, httpUpstream: pelicanUpstream{s.httpUpstream}, cfg: s.cfg, tlsFPProfileService: s.tlsFPProfileService}
+	var upstreamFailure error
+	probe := &AccountTestService{accountRepo: s.accountRepo, httpUpstream: pelicanUpstream{HTTPUpstream: s.httpUpstream, failure: &upstreamFailure}, cfg: s.cfg, tlsFPProfileService: s.tlsFPProfileService}
 	err = probe.testOpenAIAccountConnection(c, account, model, prompt, AccountTestModeDefault)
 	if c.Writer.(*cappedPelicanWriter).overflow {
 		return nil, errors.New("pelican response exceeds limit")
@@ -201,7 +270,10 @@ func (s *AccountTestService) RunPelicanTest(ctx context.Context, accountID int64
 		if errors.Is(runCtx.Err(), context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			return nil, ErrPelicanUpstreamTimeout
 		}
-		return nil, fmt.Errorf("%w: %v", ErrPelicanUpstreamRequest, err)
+		if upstreamFailure != nil {
+			return nil, upstreamFailure
+		}
+		return nil, err
 	}
 	html, err := parsePelicanEvents(rec.Body.String())
 	if err != nil {

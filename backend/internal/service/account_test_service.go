@@ -597,6 +597,7 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 	payload := createOpenAITestPayloadWithPrompt(testModelID, isOAuth, prompt)
 	if c.GetBool("pelican_test") {
 		payload = createOpenAITestPayloadWithExactPrompt(testModelID, isOAuth, prompt)
+		payload["instructions"] = pelicanTestInstructions
 		if effort := c.GetString("pelican_reasoning_effort"); effort != "" {
 			payload["reasoning"] = map[string]any{"effort": effort}
 		}
@@ -802,6 +803,7 @@ func (s *AccountTestService) testOpenAIChatCompletionsConnection(
 	payload := createOpenAIChatCompletionsTestPayload(testModelID, prompt)
 	if c.GetBool("pelican_test") {
 		payload = createOpenAIChatCompletionsTestPayloadWithExactPrompt(testModelID, prompt)
+		payload["messages"] = append([]map[string]any{{"role": "system", "content": pelicanTestInstructions}}, payload["messages"].([]map[string]any)...)
 		if effort := c.GetString("pelican_reasoning_effort"); effort != "" {
 			payload["reasoning_effort"] = effort
 		}
@@ -1968,7 +1970,27 @@ func (s *AccountTestService) sendEvent(c *gin.Context, event TestEvent) {
 // sendErrorAndEnd sends an error event and ends the stream
 func (s *AccountTestService) sendErrorAndEnd(c *gin.Context, errorMsg string) error {
 	if c.GetBool("pelican_test") {
-		errorMsg = "Pelican provider request failed"
+		// Provider prose is untrusted and can echo credentials or the prompt.
+		switch errorMsg {
+		case "Stream ended before response.completed", "Chat Completions stream from /v1/chat/completions ended before [DONE]":
+			return fmt.Errorf("%w: missing completion event", ErrPelicanUpstreamClosed)
+		}
+		if !strings.HasPrefix(errorMsg, "Failed to ") && !strings.HasPrefix(errorMsg, "Stream read error:") && !strings.HasPrefix(errorMsg, "Chat Completions stream read error") && !strings.HasPrefix(errorMsg, "Invalid Chat Completions response") {
+			lower := strings.ToLower(errorMsg)
+			switch {
+			case strings.Contains(lower, "rate_limit"), strings.Contains(lower, "rate limit"):
+				errorMsg = "provider rate limit"
+			case strings.Contains(lower, "context_length"), strings.Contains(lower, "context length"):
+				errorMsg = "provider context length limit"
+			case strings.Contains(lower, "quota"):
+				errorMsg = "provider quota exceeded"
+			default:
+				errorMsg = "provider returned an error (untrusted message omitted)"
+			}
+		}
+		failure := newPelicanRequestFailure(errorMsg)
+		s.sendEvent(c, TestEvent{Type: "error", Error: failure.safe})
+		return failure
 	}
 	log.Printf("Account test error: %s", errorMsg)
 	s.sendEvent(c, TestEvent{Type: "error", Error: errorMsg})
