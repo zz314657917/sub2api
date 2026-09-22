@@ -21,6 +21,18 @@ type toolOutputMediaByCallID map[string][]ChatContentPart
 // Chat Completions request for upstreams that only implement
 // /v1/chat/completions.
 func ResponsesToChatCompletionsRequest(req *ResponsesRequest) (*ChatCompletionsRequest, error) {
+	return responsesToChatCompletionsRequest(req, false)
+}
+
+// ResponsesToChatCompletionsRequestWithDeepSeekReasoning retains plaintext
+// Responses reasoning summaries on the following assistant turn. It is an
+// opt-in compatibility path for DeepSeek Chat Completions fallback only; the
+// default bridge intentionally keeps its existing output unchanged.
+func ResponsesToChatCompletionsRequestWithDeepSeekReasoning(req *ResponsesRequest) (*ChatCompletionsRequest, error) {
+	return responsesToChatCompletionsRequest(req, true)
+}
+
+func responsesToChatCompletionsRequest(req *ResponsesRequest, retainReasoning bool) (*ChatCompletionsRequest, error) {
 	if req == nil {
 		return nil, fmt.Errorf("responses request is nil")
 	}
@@ -29,7 +41,7 @@ func ResponsesToChatCompletionsRequest(req *ResponsesRequest) (*ChatCompletionsR
 	if err != nil {
 		return nil, err
 	}
-	messages, err := responsesInputToChatMessages(req.Instructions, req.Input)
+	messages, err := responsesInputToChatMessagesWithReasoning(req.Instructions, req.Input, retainReasoning)
 	if err != nil {
 		return nil, err
 	}
@@ -132,6 +144,10 @@ func HasToolSearchTool(tools []ResponsesTool) bool {
 }
 
 func responsesInputToChatMessages(instructions string, inputRaw json.RawMessage) ([]ChatMessage, error) {
+	return responsesInputToChatMessagesWithReasoning(instructions, inputRaw, false)
+}
+
+func responsesInputToChatMessagesWithReasoning(instructions string, inputRaw json.RawMessage, retainReasoning bool) ([]ChatMessage, error) {
 	var messages []ChatMessage
 	if strings.TrimSpace(instructions) != "" {
 		content, _ := json.Marshal(instructions)
@@ -163,6 +179,7 @@ func responsesInputToChatMessages(instructions string, inputRaw json.RawMessage)
 	mediaByCallID := make(toolOutputMediaByCallID)
 	invalidFunctionCallIDs := make(map[string]struct{})
 	invalidEmptyFunctionCallOutputs := 0
+	pendingReasoning := ""
 
 	for _, raw := range rawItems {
 		raw = bytesTrimSpace(raw)
@@ -174,6 +191,9 @@ func responsesInputToChatMessages(instructions string, inputRaw json.RawMessage)
 		if err := json.Unmarshal(raw, &item); err != nil {
 			var text string
 			if textErr := json.Unmarshal(raw, &text); textErr == nil {
+				if retainReasoning {
+					pendingReasoning = ""
+				}
 				content, _ := json.Marshal(text)
 				messages = append(messages, ChatMessage{Role: "user", Content: content})
 				continue
@@ -183,6 +203,10 @@ func responsesInputToChatMessages(instructions string, inputRaw json.RawMessage)
 
 		role := chatCompletionsBridgeRole(rawString(item["role"]))
 		itemType := rawString(item["type"])
+		if itemType == "reasoning" && retainReasoning {
+			pendingReasoning += responsesReasoningPlaintext(item)
+			continue
+		}
 		switch itemType {
 		case "function_call":
 			arguments := rawString(item["arguments"])
@@ -210,6 +234,9 @@ func responsesInputToChatMessages(instructions string, inputRaw json.RawMessage)
 					Arguments: arguments,
 				},
 			})
+			if retainReasoning {
+				pendingReasoning = attachPendingReasoningToLastAssistant(messages, pendingReasoning)
+			}
 			continue
 		case "tool_search_call":
 			arguments := strings.TrimSpace(string(bytesTrimSpace(item["arguments"])))
@@ -227,6 +254,9 @@ func responsesInputToChatMessages(instructions string, inputRaw json.RawMessage)
 					Arguments: arguments,
 				},
 			})
+			if retainReasoning {
+				pendingReasoning = attachPendingReasoningToLastAssistant(messages, pendingReasoning)
+			}
 			continue
 		case "custom_tool_call":
 			arguments, _ := json.Marshal(map[string]string{"input": rawString(item["input"])})
@@ -238,8 +268,12 @@ func responsesInputToChatMessages(instructions string, inputRaw json.RawMessage)
 					Arguments: string(arguments),
 				},
 			})
+			if retainReasoning {
+				pendingReasoning = attachPendingReasoningToLastAssistant(messages, pendingReasoning)
+			}
 			continue
 		case "function_call_output", "custom_tool_call_output", "tool_search_output":
+			pendingReasoning = ""
 			outputRaw := bytesTrimSpace(item["output"])
 			if itemType == "tool_search_output" && (len(outputRaw) == 0 || string(outputRaw) == "null") {
 				outputRaw = bytesTrimSpace(item["tools"])
@@ -274,10 +308,12 @@ func responsesInputToChatMessages(instructions string, inputRaw json.RawMessage)
 			})
 			continue
 		case "input_text", "text":
+			pendingReasoning = ""
 			content, _ := json.Marshal(rawString(item["text"]))
 			messages = append(messages, ChatMessage{Role: "user", Content: content})
 			continue
 		case "input_image":
+			pendingReasoning = ""
 			content, err := chatContentFromSingleResponsesPart(itemType, item)
 			if err != nil {
 				return nil, err
@@ -296,13 +332,58 @@ func responsesInputToChatMessages(instructions string, inputRaw json.RawMessage)
 		if err != nil {
 			return nil, err
 		}
-		messages = append(messages, ChatMessage{
+		message := ChatMessage{
 			Role:    role,
 			Content: chatContent,
-		})
+		}
+		if retainReasoning && role == "assistant" {
+			if explicit := rawString(item["reasoning_content"]); explicit != "" {
+				message.ReasoningContent = explicit
+			} else {
+				message.ReasoningContent = pendingReasoning
+			}
+			pendingReasoning = ""
+		} else if retainReasoning && (role == "user" || role == "tool") {
+			pendingReasoning = ""
+		}
+		messages = append(messages, message)
 	}
 
-	return normalizeChatMessagesWithToolOutputMedia(messages, mediaByCallID), nil
+	return normalizeChatMessagesWithToolOutputMediaWithReasoning(messages, mediaByCallID, retainReasoning), nil
+}
+
+func attachPendingReasoningToLastAssistant(messages []ChatMessage, pending string) string {
+	if pending == "" || len(messages) == 0 {
+		return pending
+	}
+	last := &messages[len(messages)-1]
+	if last.Role != "assistant" || last.ReasoningContent != "" {
+		return ""
+	}
+	last.ReasoningContent = pending
+	return ""
+}
+
+func responsesReasoningPlaintext(item map[string]json.RawMessage) string {
+	var out strings.Builder
+	var summary []ResponsesSummary
+	if err := json.Unmarshal(item["summary"], &summary); err == nil {
+		for _, part := range summary {
+			if (part.Type == "summary_text" || part.Type == "reasoning_text") && part.Text != "" {
+				out.WriteString(part.Text)
+			}
+		}
+	}
+
+	var content []ResponsesSummary
+	if err := json.Unmarshal(item["content"], &content); err == nil {
+		for _, part := range content {
+			if (part.Type == "summary_text" || part.Type == "reasoning_text") && part.Text != "" {
+				out.WriteString(part.Text)
+			}
+		}
+	}
+	return out.String()
 }
 
 // extractToolOutputMedia rewrites only recognized image nodes. Media-free
@@ -443,6 +524,10 @@ func toolOutputImagePart(imageURL string) ChatContentPart {
 // its matching tool replies in call order. Any extracted media follows that
 // complete reply batch, never an individual sibling reply.
 func normalizeChatMessagesWithToolOutputMedia(messages []ChatMessage, mediaByCallID toolOutputMediaByCallID) []ChatMessage {
+	return normalizeChatMessagesWithToolOutputMediaWithReasoning(messages, mediaByCallID, false)
+}
+
+func normalizeChatMessagesWithToolOutputMediaWithReasoning(messages []ChatMessage, mediaByCallID toolOutputMediaByCallID, retainReasoning bool) []ChatMessage {
 	// Index every tool reply by its tool_call_id. A duplicate Responses output
 	// is interpreted as an update, so the final value wins.
 	replies := make(map[string]ChatMessage)
@@ -474,6 +559,11 @@ func normalizeChatMessagesWithToolOutputMedia(messages []ChatMessage, mediaByCal
 				}
 			}
 			if len(kept) == 0 {
+				if retainReasoning && message.ReasoningContent != "" {
+					message.ToolCalls = nil
+					out = append(out, message)
+					continue
+				}
 				if isBlankChatContent(message.Content) {
 					continue
 				}

@@ -158,7 +158,7 @@ func TestTokenRefreshService_RefreshWithRetry_InvalidatesCache(t *testing.T) {
 	require.Equal(t, "new-token", account.GetCredential("access_token"))
 }
 
-func TestTokenRefreshService_ListActiveAccountsSkipsPermanentlyUnschedulable(t *testing.T) {
+func TestV027PausedRefresh_ListActiveAccountsKeepsPausedAccounts(t *testing.T) {
 	repo := &tokenRefreshAccountRepo{activeAccounts: []Account{
 		{ID: 1, Schedulable: true},
 		{ID: 2, Schedulable: false},
@@ -168,7 +168,32 @@ func TestTokenRefreshService_ListActiveAccountsSkipsPermanentlyUnschedulable(t *
 
 	accounts, err := service.listActiveAccounts(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, []int64{1, 3}, []int64{accounts[0].ID, accounts[1].ID})
+	require.Equal(t, []int64{1, 2, 3}, []int64{accounts[0].ID, accounts[1].ID, accounts[2].ID})
+	require.False(t, accounts[1].Schedulable, "listing refresh candidates must not unpause an administrator-paused account")
+}
+
+func TestV027PausedRefresh_SuccessPersistsCredentialsWithoutUnpausing(t *testing.T) {
+	account := &Account{
+		ID:          27,
+		Platform:    PlatformGemini,
+		Type:        AccountTypeOAuth,
+		Schedulable: false,
+		Credentials: map[string]any{"refresh_token": "refresh-token"},
+	}
+	repo := &tokenRefreshAccountRepo{}
+	repo.accountsByID = map[int64]*Account{account.ID: account}
+	service := &TokenRefreshService{
+		accountRepo: repo,
+		cfg:         &config.TokenRefreshConfig{MaxRetries: 1},
+	}
+	refresher := &tokenRefresherStub{credentials: map[string]any{"access_token": "new-token"}}
+
+	err := service.refreshWithRetry(context.Background(), account, refresher, refresher, time.Hour)
+
+	require.NoError(t, err)
+	require.Equal(t, 1, repo.updateCredentialsCalls)
+	require.Equal(t, "new-token", account.GetCredential("access_token"))
+	require.False(t, account.Schedulable, "successful token refresh must not reverse an administrator pause")
 }
 
 func TestTokenRefreshService_RefreshWithRetry_InvalidatorErrorIgnored(t *testing.T) {

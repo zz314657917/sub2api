@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -68,7 +69,7 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 	toolSearch := apicompat.HasToolSearchTool(responsesReq.Tools)
 	namespaceTools := apicompat.NamespaceToolNames(responsesReq.Tools)
 
-	chatReq, err := apicompat.ResponsesToChatCompletionsRequest(&responsesReq)
+	chatReq, err := responsesToRawChatRequest(account, &responsesReq)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": gin.H{
@@ -84,6 +85,7 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 	reasoningEffort := extractOpenAIReasoningEffortFromFallbackCandidates(body, upstreamModel, billingModel, originalModel)
 	reasoningEffort = ApplyThinkingEnabledFallback(reasoningEffort, body, billingModel)
 	chatReq.Model = upstreamModel
+	ensureDeepSeekChatReasoningPlaceholders(account, chatReq)
 	if clientStream {
 		chatReq.StreamOptions = &apicompat.ChatStreamOptions{IncludeUsage: true}
 	}
@@ -211,6 +213,45 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 		return s.streamChatCompletionsAsResponses(c, resp, originalModel, customTools, toolSearch, namespaceTools, billingModel, upstreamModel, reasoningEffort, serviceTier, startTime)
 	}
 	return s.bufferChatCompletionsAsResponses(c, resp, originalModel, customTools, toolSearch, namespaceTools, billingModel, upstreamModel, reasoningEffort, serviceTier, startTime)
+}
+
+const deepSeekChatReasoningPlaceholderText = " "
+
+func responsesToRawChatRequest(account *Account, req *apicompat.ResponsesRequest) (*apicompat.ChatCompletionsRequest, error) {
+	if targetsDeepSeekAPIHost(account) {
+		return apicompat.ResponsesToChatCompletionsRequestWithDeepSeekReasoning(req)
+	}
+	return apicompat.ResponsesToChatCompletionsRequest(req)
+}
+
+func ensureDeepSeekChatReasoningPlaceholders(account *Account, chatReq *apicompat.ChatCompletionsRequest) {
+	if !targetsDeepSeekAPIHost(account) || chatReq == nil {
+		return
+	}
+	for i := range chatReq.Messages {
+		message := &chatReq.Messages[i]
+		if message.Role == "assistant" && message.ReasoningContent == "" {
+			message.ReasoningContent = deepSeekChatReasoningPlaceholderText
+		}
+	}
+}
+
+func targetsDeepSeekAPIHost(account *Account) bool {
+	if account == nil {
+		return false
+	}
+	if account.Platform == PlatformDeepseek {
+		return true
+	}
+	baseURL, err := url.Parse(strings.TrimSpace(account.GetOpenAIBaseURL()))
+	if err != nil {
+		return false
+	}
+	deepSeekURL, err := url.Parse(DefaultDeepseekBaseURL)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(baseURL.Hostname(), deepSeekURL.Hostname())
 }
 
 func (s *OpenAIGatewayService) bufferChatCompletionsAsResponses(

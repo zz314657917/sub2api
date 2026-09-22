@@ -245,23 +245,15 @@ func (s *TokenRefreshService) processRefresh() {
 	}
 }
 
-// listActiveAccounts 获取所有active状态的账号
-// 使用ListActive确保刷新所有活跃账号的token（包括临时禁用的）
+// listActiveAccounts 获取所有 active 状态的账号。
+// ListActive 已经排除了 error / disabled 账号；管理员暂停调度不代表刷新凭据
+// 已失效，后台仍须刷新其 stored access_token，避免管理端探针误报重新授权。
 func (s *TokenRefreshService) listActiveAccounts(ctx context.Context) ([]Account, error) {
 	accounts, err := s.accountRepo.ListActive(ctx)
 	if err != nil {
 		return nil, err
 	}
-	// schedulable=false is a permanent administrator decision. Temporary
-	// unschedulable states still need token refresh so they can recover.
-	filtered := accounts[:0]
-	for _, account := range accounts {
-		if !account.Schedulable {
-			continue
-		}
-		filtered = append(filtered, account)
-	}
-	return filtered, nil
+	return accounts, nil
 }
 
 // refreshWithRetry 带重试的刷新
