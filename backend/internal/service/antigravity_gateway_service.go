@@ -2150,7 +2150,12 @@ func (s *AntigravityGatewayService) ForwardGemini(ctx context.Context, c *gin.Co
 		return nil, s.writeGoogleError(c, http.StatusNotFound, "Unsupported action: "+action)
 	}
 
-	mappedModel := s.getMappedModel(account, originalModel)
+	mappedModel, variantResolved := resolveGeminiThinkingVariant(account, originalModel, body)
+	if !variantResolved {
+		mappedModel = s.getMappedModel(account, originalModel)
+	} else {
+		logger.LegacyPrintf("service.antigravity_gateway", "%s resolved bare Gemini model %s to thinking variant %s", prefix, originalModel, mappedModel)
+	}
 	if mappedModel == "" {
 		MarkOpsClientBusinessLimited(c, OpsClientBusinessLimitedReasonLocalFeatureGate)
 		return nil, s.writeGoogleError(c, http.StatusForbidden, fmt.Sprintf("model %s not in whitelist", originalModel))
@@ -3293,7 +3298,10 @@ func (s *AntigravityGatewayService) handleGeminiStreamingResponse(c *gin.Context
 			if time.Since(lastDataAt) < keepaliveInterval {
 				continue
 			}
-			// SSE ping/keepalive：保持连接活跃防止 Cloudflare Tunnel 等代理断开
+			// Google GenAI Go/Python SDKs reject SSE comment frames despite the SSE spec.
+			if downstreamRejectsSSEComments(c) {
+				continue
+			}
 			if !cw.Fprintf(":\n\n") {
 				logger.LegacyPrintf("service.antigravity_gateway", "Client disconnected during keepalive ping (antigravity gemini), continuing to drain upstream for billing")
 				continue

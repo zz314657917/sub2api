@@ -791,6 +791,13 @@ func (s *RateLimitService) handle403(ctx context.Context, account *Account, upst
 		s.handleCNProviderConcurrencyLimit403(ctx, account)
 		return true
 	}
+	// Coding Plan quota exhaustion is recoverable when its rolling window
+	// resets. Keep it outside the generic OpenAI/CN 403 breaker so repeated
+	// upstream signals cannot permanently disable the account.
+	if isCNProviderQuotaExhausted403(account, responseBody, upstreamMsg) {
+		s.handleCNProviderQuotaExhausted403(ctx, account, upstreamMsg)
+		return true
+	}
 	if account.Platform == PlatformOpenAI || IsCNProvider(account.Platform) {
 		return s.handleOpenAI403(ctx, account, upstreamMsg, responseBody)
 	}

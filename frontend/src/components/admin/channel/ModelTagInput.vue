@@ -30,7 +30,7 @@
           @focus="showSuggestions = true"
           @input="showSuggestions = true"
           @keydown.enter.prevent="addModel"
-          @keydown.tab.prevent="addModel"
+          @keydown.tab="handleTab"
           @keydown.backspace="handleBackspace"
           @keydown.delete="handleBackspace"
           @keydown.escape.prevent="showSuggestions = false"
@@ -116,6 +116,12 @@ function addModel() {
   addModelValue(val)
   inputValue.value = ''
   showSuggestions.value = false
+}
+
+function handleTab(event: KeyboardEvent) {
+  if (!inputValue.value.trim()) return
+  event.preventDefault()
+  addModel()
 }
 
 function addModelValue(val: string) {

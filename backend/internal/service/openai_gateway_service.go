@@ -6666,7 +6666,7 @@ func extractOpenAIResponseIDFromJSONBytes(body []byte) string {
 }
 
 func (s *OpenAIGatewayService) bindHTTPResponseAccount(ctx context.Context, c *gin.Context, account *Account, responseID string) {
-	if s == nil || account == nil || account.ID <= 0 {
+	if s == nil || c == nil || account == nil || account.ID <= 0 {
 		return
 	}
 	responseID = strings.TrimSpace(responseID)
@@ -6677,9 +6677,17 @@ func (s *OpenAIGatewayService) bindHTTPResponseAccount(ctx context.Context, c *g
 	if store == nil {
 		return
 	}
+	// The client may close after receiving the terminal event. Keep request
+	// values for affinity storage, but bound writes independently of cancellation.
+	bindBaseCtx := context.Background()
+	if ctx != nil {
+		bindBaseCtx = context.WithoutCancel(ctx)
+	}
+	bindCtx, cancel := context.WithTimeout(bindBaseCtx, openAIWSStateStoreRedisTimeout)
+	defer cancel()
 	groupID := getOpenAIGroupIDFromContext(c)
 	ttl := s.openAIWSResponseStickyTTL()
-	logOpenAIWSBindResponseAccountWarn(groupID, account.ID, responseID, store.BindResponseAccount(ctx, groupID, responseID, account.ID, ttl))
+	logOpenAIWSBindResponseAccountWarn(groupID, account.ID, responseID, store.BindResponseAccount(bindCtx, groupID, responseID, account.ID, ttl))
 }
 
 func openAIUsageFromGJSON(value gjson.Result) (OpenAIUsage, bool) {
@@ -7362,7 +7370,27 @@ func normalizeDeepSeekResponsesRequestBody(account *Account, body []byte) []byte
 	if stripped, err := sjson.DeleteBytes(normalized, "previous_response_id"); err == nil {
 		normalized = stripped
 	}
-	return normalized
+
+	var requestBody map[string]any
+	decoder := json.NewDecoder(bytes.NewReader(normalized))
+	decoder.UseNumber()
+	if err := decoder.Decode(&requestBody); err != nil {
+		return normalized
+	}
+	input, exists := requestBody["input"]
+	if !exists {
+		return normalized
+	}
+	liftedInput, changed := apicompat.LiftResponsesToolOutputMedia(input)
+	if !changed {
+		return normalized
+	}
+	requestBody["input"] = liftedInput
+	rebuilt, err := marshalOpenAIUpstreamJSON(requestBody)
+	if err != nil {
+		return normalized
+	}
+	return rebuilt
 }
 
 func trimOpenAIEncryptedReasoningItems(reqBody map[string]any) bool {

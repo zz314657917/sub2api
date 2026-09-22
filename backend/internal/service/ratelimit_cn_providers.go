@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/tidwall/gjson"
 )
 
 // 国产供应商（kimi/zhipu/deepseek）的响应式冷却辅助。
@@ -26,9 +28,68 @@ const kimiConcurrentRequestLimitMessage = "You've reached your concurrent reques
 
 const cnConcurrencyLimitReasonPrefix = "cn_concurrency_limit"
 
+const cnQuotaExhausted403ErrorType = "access_terminated_error"
+
+const cnQuotaExhaustedReasonPrefix = "cn_quota_exhausted"
+
 func isCNProviderConcurrencyLimit403(account *Account, upstreamMsg string) bool {
 	return account != nil && account.Platform == PlatformKimi &&
 		strings.TrimSpace(upstreamMsg) == kimiConcurrentRequestLimitMessage
+}
+
+// isCNProviderQuotaExhausted403 only recognizes the recoverable Coding Plan
+// quota signal. Other 403 responses must retain the existing breaker path.
+func isCNProviderQuotaExhausted403(account *Account, responseBody []byte, upstreamMsg string) bool {
+	if account == nil || !account.IsCNProvider() || !cnAccountIsCodingPlan(account) {
+		return false
+	}
+	msg := strings.ToLower(strings.TrimSpace(upstreamMsg))
+	if strings.Contains(msg, "usage limit") || strings.Contains(msg, "quota will reset") {
+		return true
+	}
+	return strings.EqualFold(
+		strings.TrimSpace(gjson.GetBytes(responseBody, "error.type").String()),
+		cnQuotaExhausted403ErrorType,
+	)
+}
+
+// handleCNProviderQuotaExhausted403 pauses a recoverable Coding Plan quota
+// exhaustion until its next known window reset. A missing or unwritable
+// snapshot falls back to a bounded temporary pause and never SetError.
+func (s *RateLimitService) handleCNProviderQuotaExhausted403(
+	ctx context.Context,
+	account *Account,
+	upstreamMsg string,
+) {
+	if until := cnProviderQuotaSnapshotReset(account, time.Now()); until != nil {
+		if err := s.accountRepo.SetRateLimited(ctx, account.ID, *until); err == nil {
+			s.notifyAccountSchedulingBlocked(account, *until, cnQuotaExhaustedReasonPrefix)
+			slog.Info("cn_quota_exhausted_rate_limited",
+				"account_id", account.ID,
+				"platform", account.Platform,
+				"reset_at", *until,
+			)
+			return
+		} else {
+			slog.Warn("cn_quota_exhausted_set_rate_limited_failed", "account_id", account.ID, "error", err)
+		}
+	}
+
+	reason := cnQuotaExhaustedReasonPrefix
+	if msg := strings.TrimSpace(upstreamMsg); msg != "" {
+		reason += ": " + msg
+	}
+	until := time.Now().Add(time.Duration(openAI403CooldownMinutesDefault) * time.Minute)
+	if err := s.accountRepo.SetTempUnschedulable(ctx, account.ID, until, reason); err != nil {
+		slog.Warn("cn_quota_exhausted_set_temp_unschedulable_failed", "account_id", account.ID, "error", err)
+		return
+	}
+	s.notifyAccountSchedulingBlocked(account, until, cnQuotaExhaustedReasonPrefix)
+	slog.Info("cn_quota_exhausted_temp_unschedulable",
+		"account_id", account.ID,
+		"platform", account.Platform,
+		"until", until.UTC(),
+	)
 }
 
 func (s *RateLimitService) handleCNProviderConcurrencyLimit403(ctx context.Context, account *Account) {

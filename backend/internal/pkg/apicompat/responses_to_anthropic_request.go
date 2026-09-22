@@ -544,6 +544,9 @@ func convertResponsesToAnthropicTools(tools []ResponsesTool) []AnthropicTool {
 }
 
 // normalizeAnthropicInputSchema ensures input_schema is a valid object schema.
+// Codex 会把部分内置工具（例如 codex_app 的 automation_update）的 parameters
+// 根节点声明成对象分支的 oneOf/anyOf，Anthropic 只接受 object 根节点，这里把
+// 顶层联合摊平成单个 object schema。
 func normalizeAnthropicInputSchema(schema json.RawMessage) json.RawMessage {
 	const emptyObjectSchema = `{"type":"object","properties":{}}`
 
@@ -556,6 +559,7 @@ func normalizeAnthropicInputSchema(schema json.RawMessage) json.RawMessage {
 	if err := json.Unmarshal(schema, &m); err != nil {
 		return json.RawMessage(emptyObjectSchema)
 	}
+	flattenAnthropicRootUnions(m)
 	typeRaw, ok := m["type"]
 	if !ok || strings.TrimSpace(string(typeRaw)) == "" || string(typeRaw) == "null" {
 		m["type"] = json.RawMessage(`"object"`)
