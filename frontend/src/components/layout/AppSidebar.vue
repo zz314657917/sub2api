@@ -501,6 +501,7 @@ const PelicanIcon: IconName = 'beaker'
 // yet. Admin-only flags (not in public settings) stay inline below.
 const flagChannelMonitor = makeSidebarFlag(FeatureFlags.channelMonitor)
 const flagPayment = makeSidebarFlag(FeatureFlags.payment)
+const flagServiceStore = makeSidebarFlag(FeatureFlags.serviceStore)
 const flagGroupBuy = makeSidebarFlag(FeatureFlags.groupBuy)
 const flagPixelCafe = makeSidebarFlag(FeatureFlags.pixelCafe)
 const flagAvailableChannels = makeSidebarFlag(FeatureFlags.availableChannels)
@@ -559,6 +560,10 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
     { path: '/usage', label: t('nav.usageAndSubscriptions'), icon: UsageIcon, hideInSimpleMode: true },
     { path: '/tickets', label: t('nav.tickets'), icon: TicketIcon, hideInSimpleMode: true },
     { path: '/purchase', label: t('nav.buySubscription'), icon: RechargeSubscriptionIcon, hideInSimpleMode: true, featureFlag: flagPayment },
+    // Keep the store landing page exclusive: the prefix matcher would otherwise
+    // also mark it active while the user is viewing /store/orders.
+    { path: '/store', label: t('nav.serviceStore'), icon: PriceTagIcon, featureFlag: flagServiceStore, exactActive: true },
+    { path: '/store/orders', label: t('nav.storeOrders'), icon: OrderIcon },
     { path: '/group-buy', label: groupBuyNavigationLabel.value, icon: CafeIcon, hideInSimpleMode: true, featureFlag: flagGroupBuyOrPixelCafe },
     { path: '/affiliate', label: t('nav.affiliate'), icon: TeamIcon, hideInSimpleMode: true, featureFlag: flagAffiliate },
     ...(isAdmin.value || pelicanMetadata.enabled ? [{ path: '/pelican-tests', label: pelicanMetadata.displayName, icon: PelicanIcon }] : []),
@@ -659,6 +664,7 @@ const adminNavItems = computed((): NavItem[] => {
         { path: '/admin/orders/dashboard', label: t('nav.paymentDashboard'), icon: ChartIcon },
         { path: '/admin/orders', label: t('nav.orderList'), icon: OrderIcon, exactActive: true },
         { path: '/admin/orders/invoices', label: t('nav.invoiceRequests'), icon: TicketIcon },
+        { path: '/admin/store', label: t('nav.storeManagement'), icon: PriceTagIcon },
       ],
     },
     {
@@ -1099,9 +1105,10 @@ watch(
   { immediate: true },
 )
 
-watch(() => [authStore.user?.id, authStore.isAuthenticated, authStore.isAdmin] as const, () => {
-  pelicanMetadata.reset()
-  if (authStore.isAuthenticated) void pelicanMetadata.load(true).catch(() => {})
+watch([() => authStore.user?.id, () => authStore.isAuthenticated, () => authStore.isAdmin], (_identity, previousIdentity) => {
+  const identityChanged = previousIdentity.length > 0
+  if (identityChanged || !authStore.isAuthenticated) pelicanMetadata.reset()
+  if (authStore.isAuthenticated) void pelicanMetadata.load(identityChanged).catch(() => {})
 }, { immediate: true })
 
 onMounted(() => {
