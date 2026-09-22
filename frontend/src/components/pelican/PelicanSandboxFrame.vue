@@ -8,4 +8,4 @@ const props = withDefaults(defineProps<{ html: string; replayKey: number; intera
 const safeDocument = computed(() => toPelicanSrcdoc(props.html, !props.interactive))
 </script>
 
-<style scoped>.pelican-frame { display:block; width:100%; aspect-ratio: 4 / 3; border:0; border-radius:8px; background:#eef5f6; }</style>
+<style scoped>.pelican-frame { display:block; width:100%; aspect-ratio: 16 / 9; border:0; border-radius:8px; background:#eef5f6; }</style>

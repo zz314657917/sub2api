@@ -86,6 +86,24 @@ func TestPelicanSettingsDefaultAndWriteFailures(t *testing.T) {
 	}
 }
 
+func TestPelicanSettingsUpgradeLegacyBuiltInPrompt(t *testing.T) {
+	repo := &pelicanSettingsRepoStub{value: `{"display_name":"鹈鹕测试","prompt":"请生成一个精致、完整、独立的中文海边鹈鹕骑自行车动画 HTML：鹈鹕双脚连续踩踏，车轮持续转动，海浪和云层轻轻移动，循环流畅。使用内联 CSS keyframes 和 SVG，支持不同屏幕宽度。不得包含 JavaScript、外部资源、链接或网络请求。仅输出完整 HTML 文档，不加 Markdown 代码围栏或解释。","enabled":true}`}
+	s := NewPelicanTestService(nil, nil, nil, nil)
+	s.SetSettingsRepository(repo)
+	settings, err := s.GetSettings(context.Background())
+	if err != nil || settings.Prompt != PelicanPrompt || settings.DisplayName != "鹈鹕测试" {
+		t.Fatalf("legacy settings were not upgraded: settings=%+v err=%v", settings, err)
+	}
+}
+
+func TestPelicanDefaultPromptKeepsArtworkToOneAnimatedSVG(t *testing.T) {
+	for _, required := range []string{"viewBox=\"0 0 960 540\"", "两个完整车轮", "@keyframes", "自动播放", "不要生成播放、暂停或重播按钮", "禁止 JavaScript", "外部资源"} {
+		if !strings.Contains(PelicanPrompt, required) {
+			t.Fatalf("default prompt missing %q", required)
+		}
+	}
+}
+
 func TestPelicanSettingsRejectInvalidLimitsWithoutWrite(t *testing.T) {
 	repo := &pelicanSettingsRepoStub{value: `{"display_name":"鹈鹕测试","prompt":"x","enabled":true}`}
 	s := NewPelicanTestService(nil, nil, nil, nil)

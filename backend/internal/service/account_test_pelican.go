@@ -20,7 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const pelicanTestInstructions = "Generate a standalone HTML document for the user's request. Return only the complete HTML source, beginning with <!DOCTYPE html> or <html> and ending with </html>. Do not explain, use Markdown fences, inspect directories, create or edit files, or invoke tools. Include required CSS and JavaScript inline."
+const pelicanTestInstructions = "Generate only one complete HTML document containing a single 16:9 inline SVG artwork with viewBox=\"0 0 960 540\". The artwork must show a complete pelican riding a complete bicycle with two full wheels, hubs, spokes, and tires. Use only inline CSS @keyframes or declarative SVG animation, and make it autoplay. Do not output a title, explanation, card, navigation, controls, play/pause/replay buttons, Markdown fences, JavaScript, Canvas, iframe, audio/video, links, remote images, remote fonts, or any external resource. Return only the HTML source, beginning with <!DOCTYPE html> or <html> and ending with </html>. Do not inspect directories, create or edit files, invoke tools, or describe file operations."
 
 type pelicanRequestFailure struct{ safe string }
 

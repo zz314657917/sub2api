@@ -18,8 +18,21 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 )
 
-const PelicanPromptVersion = "pelican-v1"
-const PelicanPrompt = "请生成一个精致、完整、独立的中文海边鹈鹕骑自行车动画 HTML：鹈鹕双脚连续踩踏，车轮持续转动，海浪和云层轻轻移动，循环流畅。使用内联 CSS keyframes 和 SVG，支持不同屏幕宽度。不得包含 JavaScript、外部资源、链接或网络请求。仅输出完整 HTML 文档，不加 Markdown 代码围栏或解释。"
+const PelicanPromptVersion = "pelican-v2"
+const PelicanPrompt = `请生成一个可直接在安全沙箱中运行的动态 SVG 作品。
+
+严格要求：
+- 只返回完整 HTML 文档，不要解释文字，不要 Markdown 代码围栏。
+- 页面只包含一个 SVG 画布，比例固定为 16:9，viewBox="0 0 960 540"。
+- 画面主体是一只正在骑自行车的鹈鹕，必须完整显示鹈鹕、自行车和两个完整车轮。
+- 车轮必须有轮胎、轮毂和轮辐，不能裁切、隐藏或只画半个车轮。
+- 使用内联 CSS @keyframes 或 SVG 声明式动画实现自动动画，例如车轮旋转、云朵移动和身体轻微起伏。
+- 动画加载后自动播放，不要生成播放、暂停或重播按钮。
+- 不要标题、说明文字、卡片、导航栏或其他页面布局。
+- 禁止 JavaScript、Canvas、iframe、音视频、链接、外链图片、外链字体和所有外部资源。
+- 所有图形、样式和动画都必须写在 HTML 内部。
+- HTML 必须以 <!DOCTYPE html> 开始，并以 </html> 结束。`
+const legacyPelicanPrompt = "请生成一个精致、完整、独立的中文海边鹈鹕骑自行车动画 HTML：鹈鹕双脚连续踩踏，车轮持续转动，海浪和云层轻轻移动，循环流畅。使用内联 CSS keyframes 和 SVG，支持不同屏幕宽度。不得包含 JavaScript、外部资源、链接或网络请求。仅输出完整 HTML 文档，不加 Markdown 代码围栏或解释。"
 const PelicanTestSettingsKey = "pelican_test_settings"
 
 type PelicanTestSettings struct {
@@ -240,6 +253,11 @@ func (s *PelicanTestService) GetSettings(ctx context.Context) (PelicanTestSettin
 	settings := defaults
 	if err := json.Unmarshal([]byte(raw), &settings); err != nil {
 		return PelicanTestSettings{}, fmt.Errorf("parse pelican test settings: %w", err)
+	}
+	// Upgrade the previous built-in prompt without touching an administrator's
+	// genuinely custom prompt.
+	if settings.Prompt == legacyPelicanPrompt {
+		settings.Prompt = PelicanPrompt
 	}
 	if err := validatePelicanTestSettings(settings); err != nil {
 		return PelicanTestSettings{}, fmt.Errorf("invalid persisted pelican test settings")

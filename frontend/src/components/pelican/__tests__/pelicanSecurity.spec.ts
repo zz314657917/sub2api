@@ -4,7 +4,7 @@ import PelicanSandboxFrame from '../PelicanSandboxFrame.vue'
 import { sanitizePelicanHtml, toPelicanSrcdoc } from '../sanitizePelicanHtml'
 
 describe('Pelican untrusted artwork boundary', () => {
-  it('removes external navigation, resource attributes, and SVG mutation primitives', () => {
+  it('removes external navigation and unsafe SVG mutations while retaining motion', () => {
     const clean = sanitizePelicanHtml([
       '<a href="https://outside.example">link</a>',
       '<img src="https://outside.example/p.png" srcset="https://outside.example/p2.png 2x">',
@@ -13,7 +13,9 @@ describe('Pelican untrusted artwork boundary', () => {
       '<animateMotion /><animateTransform /><set /><use href="#shape" /><foreignObject><div>x</div></foreignObject></svg>',
     ].join(''))
 
-    expect(clean).not.toMatch(/outside\.example|<a[\s>]|<animate[\s>]|<animatemotion|<animatetransform|<set[\s>]|<use[\s>]|<foreignobject/i)
+    expect(clean).not.toMatch(/outside\.example|<a[\s>]|<use[\s>]|<foreignobject/i)
+    expect(clean).toContain('<animateMotion')
+    expect(clean).not.toMatch(/attributeName="href"|<set[\s>]/i)
     expect(clean).not.toMatch(/(?:href|src|xlink:href|srcset|ping)=/i)
   })
 
@@ -43,6 +45,7 @@ describe('Pelican untrusted artwork boundary', () => {
     expect(frame.attributes('sandbox')).toBe('')
     expect(frame.attributes('tabindex')).toBe('-1')
     expect(frame.attributes('srcdoc')).toContain("default-src 'none'")
+    expect(frame.attributes('class')).toContain('pelican-frame')
   })
 
   it('keeps the enlarged artwork frame usable without relaxing the sandbox', () => {
