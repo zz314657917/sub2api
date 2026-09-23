@@ -274,7 +274,7 @@ func TestFrontendServer_ServeIndexHTML(t *testing.T) {
 		assert.Contains(t, w2.Body.String(), `nonce="nonce2"`)
 	})
 
-	t.Run("sets_etag_header", func(t *testing.T) {
+	t.Run("does_not_expose_a_shared_etag_for_nonce_html", func(t *testing.T) {
 		provider := &mockSettingsProvider{
 			settings: map[string]string{"test": "value"},
 		}
@@ -289,13 +289,10 @@ func TestFrontendServer_ServeIndexHTML(t *testing.T) {
 
 		server.serveIndexHTML(c)
 
-		etag := w.Header().Get("ETag")
-		assert.NotEmpty(t, etag)
-		assert.True(t, strings.HasPrefix(etag, `"`))
-		assert.True(t, strings.HasSuffix(etag, `"`))
+		assert.Empty(t, w.Header().Get("ETag"))
 	})
 
-	t.Run("returns_304_for_matching_etag", func(t *testing.T) {
+	t.Run("replaces_nonce_even_when_the_browser_sends_a_stale_etag", func(t *testing.T) {
 		provider := &mockSettingsProvider{
 			settings: map[string]string{"test": "value"},
 		}
@@ -305,27 +302,31 @@ func TestFrontendServer_ServeIndexHTML(t *testing.T) {
 
 		// Use a real router for proper 304 handling
 		router := gin.New()
+		requestNonce := "first-nonce"
 		router.Use(func(c *gin.Context) {
-			c.Set(middleware.CSPNonceKey, "test-nonce")
+			c.Set(middleware.CSPNonceKey, requestNonce)
 			c.Next()
 		})
 		router.Use(server.Middleware())
 
-		// First request to populate cache and get ETag
+		// The in-memory HTML template is reused, but each response needs its
+		// own nonce even when an old browser sends a conditional request.
 		w1 := httptest.NewRecorder()
 		req1 := httptest.NewRequest(http.MethodGet, "/", nil)
 		router.ServeHTTP(w1, req1)
-		etag := w1.Header().Get("ETag")
-		require.NotEmpty(t, etag)
+		assert.Contains(t, w1.Body.String(), `nonce="first-nonce"`)
 
-		// Second request with If-None-Match
+		requestNonce = "second-nonce"
 		w2 := httptest.NewRecorder()
 		req2 := httptest.NewRequest(http.MethodGet, "/", nil)
-		req2.Header.Set("If-None-Match", etag)
+		req2.Header.Set("If-None-Match", `"stale-template-etag"`)
 		router.ServeHTTP(w2, req2)
 
-		assert.Equal(t, http.StatusNotModified, w2.Code)
-		assert.Empty(t, w2.Body.String())
+		assert.Equal(t, http.StatusOK, w2.Code)
+		assert.Contains(t, w2.Body.String(), `nonce="second-nonce"`)
+		assert.NotContains(t, w2.Body.String(), `nonce="first-nonce"`)
+		assert.Empty(t, w2.Header().Get("ETag"))
+		assert.Equal(t, 1, provider.called)
 	})
 
 	t.Run("sets_cache_control_header", func(t *testing.T) {
@@ -343,7 +344,7 @@ func TestFrontendServer_ServeIndexHTML(t *testing.T) {
 
 		server.serveIndexHTML(c)
 
-		assert.Equal(t, "no-cache", w.Header().Get("Cache-Control"))
+		assert.Equal(t, "no-store", w.Header().Get("Cache-Control"))
 	})
 
 	t.Run("fallback_on_settings_error", func(t *testing.T) {
