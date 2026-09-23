@@ -122,3 +122,30 @@ func CodexBaseInstructionsForModel(model string) string {
 	}
 	return latestCodexInstructions()
 }
+
+// IsGPT6SolOrLunaModelSpelling accepts the two official IDs and local effort
+// and compact suffixes, but not other GPT-6 families or unknown variants.
+func IsGPT6SolOrLunaModelSpelling(model string) bool {
+	id := strings.ToLower(strings.TrimSpace(model))
+	if slash := strings.LastIndexByte(id, '/'); slash >= 0 {
+		id = id[slash+1:]
+	}
+	id = strings.ReplaceAll(id, "_", "-")
+	for strings.Contains(id, "--") {
+		id = strings.ReplaceAll(id, "--", "-")
+	}
+	for _, base := range []string{"gpt-6-sol", "gpt-6-luna"} {
+		if id == base {
+			return true
+		}
+		suffix, ok := strings.CutPrefix(id, base+"-")
+		if !ok {
+			continue
+		}
+		switch suffix {
+		case "none", "minimal", "low", "medium", "high", "xhigh", "max", "openai-compact":
+			return true
+		}
+	}
+	return false
+}

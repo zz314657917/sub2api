@@ -73,3 +73,17 @@ func TestDefaultModelsContainsCodexAutoReview(t *testing.T) {
 
 	t.Fatal("DefaultModels missing codex-auto-review")
 }
+
+func TestGPT6SolLunaModelIdentity(t *testing.T) {
+	for _, model := range []string{"gpt-6-sol", "gpt-6-luna", "openai/gpt-6-sol-max",
+		"gpt-6-luna-openai-compact", "GPT_6_SOL_XHIGH"} {
+		if !IsGPT6SolOrLunaModelSpelling(model) {
+			t.Errorf("%q should match GPT-6 Sol/Luna", model)
+		}
+	}
+	for _, model := range []string{"gpt-6-astra", "gpt-6-solitude", "gpt-6-luna-preview"} {
+		if IsGPT6SolOrLunaModelSpelling(model) {
+			t.Errorf("%q should not match GPT-6 Sol/Luna", model)
+		}
+	}
+}

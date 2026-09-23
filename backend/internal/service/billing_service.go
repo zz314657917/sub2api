@@ -11,6 +11,8 @@ import (
 	"sync"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 )
 
 // APIKeyRateLimitCacheData holds rate limit usage data cached in Redis.
@@ -55,6 +57,8 @@ type ModelPricing struct {
 	CacheCreationPricePerToken         float64 // 缓存创建每token价格 (USD)
 	CacheCreationPricePerTokenPriority float64 // priority service tier 下缓存创建每token价格 (USD)
 	CacheCreationPriceExplicit         bool    // 是否由渠道显式设定（为 true 时即使 == 0 也不回退）
+	CacheCreationPricePriorityExplicit bool    // priority cache-write 是否由渠道显式设定
+	StrictPriorityTier                 bool    // 新模型不能混用不完整 priority 价格与普通 tier 价格
 	CacheReadPricePerToken             float64 // 缓存读取每token价格 (USD)
 	CacheReadPricePerTokenPriority     float64 // priority service tier 下缓存读取每token价格 (USD)
 	CacheCreation5mPrice               float64 // 5分钟缓存创建每token价格 (USD)
@@ -77,12 +81,20 @@ func normalizeBillingServiceTier(serviceTier string) string {
 	return strings.ToLower(strings.TrimSpace(serviceTier))
 }
 
-func usePriorityServiceTierPricing(serviceTier string, pricing *ModelPricing) bool {
+func usePriorityServiceTierPricing(serviceTier string, pricing *ModelPricing, tokens UsageTokens) bool {
 	if pricing == nil || normalizeBillingServiceTier(serviceTier) != "priority" {
 		return false
 	}
-	return pricing.InputPricePerTokenPriority > 0 || pricing.OutputPricePerTokenPriority > 0 ||
-		pricing.CacheCreationPricePerTokenPriority > 0 || pricing.CacheReadPricePerTokenPriority > 0
+	if !pricing.StrictPriorityTier {
+		return pricing.InputPricePerTokenPriority > 0 || pricing.OutputPricePerTokenPriority > 0 ||
+			pricing.CacheCreationPricePerTokenPriority > 0 || pricing.CacheReadPricePerTokenPriority > 0
+	}
+	// Do not mix a partially provided priority card with ordinary-tier rates.
+	return (tokens.InputTokens <= 0 || pricing.InputPricePerTokenPriority > 0) &&
+		(tokens.OutputTokens <= 0 || pricing.OutputPricePerTokenPriority > 0) &&
+		(tokens.CacheReadTokens <= 0 || pricing.CacheReadPricePerTokenPriority > 0) &&
+		(tokens.CacheCreationTokens <= 0 || (!pricing.SupportsCacheBreakdown &&
+			(pricing.CacheCreationPricePerTokenPriority > 0 || pricing.CacheCreationPricePriorityExplicit)))
 }
 
 func serviceTierCostMultiplier(serviceTier string) float64 {
@@ -216,6 +228,16 @@ func (s *BillingService) initFallbackPricing() {
 	s.fallbackPrices["claude-opus-4.8"] = s.fallbackPrices["claude-opus-4.7"]
 	// Claude Opus 5（与4.8同价：$5 输入 / $25 输出 per MTok）
 	s.fallbackPrices["claude-opus-5"] = s.fallbackPrices["claude-opus-4.8"]
+	s.fallbackPrices["claude-opus-5-5"] = &ModelPricing{
+		InputPricePerToken:         4e-6,
+		OutputPricePerToken:        20e-6,
+		CacheCreationPricePerToken: 5e-6,
+		CacheReadPricePerToken:     0.2e-6,
+		CacheCreation5mPrice:       5e-6,
+		CacheCreation1hPrice:       8e-6,
+		SupportsCacheBreakdown:     true,
+		StrictPriorityTier:         true,
+	}
 
 	// Claude Fable 5.x：输入 $10 / 输出 $50 / cache write $12.5 per MTok。
 	// Fable 5.1 的 cache read 降至 $0.25 per MTok；本地已有 5m/1h
@@ -276,6 +298,38 @@ func (s *BillingService) initFallbackPricing() {
 		CacheCreationPricePerTokenPriority: 25e-6,
 		CacheReadPricePerToken:             1e-6,
 		CacheReadPricePerTokenPriority:     2e-6,
+		LongContextInputThreshold:          272_000,
+		LongContextInputMultiplier:         2,
+		LongContextOutputMultiplier:        1.5,
+	}
+	s.fallbackPrices["gpt-6-sol"] = &ModelPricing{
+		InputPricePerToken:                 2e-6,
+		InputPricePerTokenPriority:         4e-6,
+		OutputPricePerToken:                10e-6,
+		OutputPricePerTokenPriority:        20e-6,
+		CacheCreationPricePerToken:         2.5e-6,
+		CacheCreationPricePerTokenPriority: 5e-6,
+		CacheReadPricePerToken:             0.2e-6,
+		CacheReadPricePerTokenPriority:     0.4e-6,
+		CacheCreationPriceExplicit:         true,
+		CacheCreationPricePriorityExplicit: true,
+		StrictPriorityTier:                 true,
+		LongContextInputThreshold:          272_000,
+		LongContextInputMultiplier:         2,
+		LongContextOutputMultiplier:        1.5,
+	}
+	s.fallbackPrices["gpt-6-luna"] = &ModelPricing{
+		InputPricePerToken:                 0.1e-6,
+		InputPricePerTokenPriority:         0.2e-6,
+		OutputPricePerToken:                0.5e-6,
+		OutputPricePerTokenPriority:        1e-6,
+		CacheCreationPricePerToken:         0.125e-6,
+		CacheCreationPricePerTokenPriority: 0.25e-6,
+		CacheReadPricePerToken:             0.01e-6,
+		CacheReadPricePerTokenPriority:     0.02e-6,
+		CacheCreationPriceExplicit:         true,
+		CacheCreationPricePriorityExplicit: true,
+		StrictPriorityTier:                 true,
 		LongContextInputThreshold:          272_000,
 		LongContextInputMultiplier:         2,
 		LongContextOutputMultiplier:        1.5,
@@ -438,6 +492,9 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 		return s.fallbackPrices["claude-fable-5"]
 	}
 	if strings.Contains(modelLower, "opus") {
+		if claude.IsOpus55(modelLower) {
+			return s.fallbackPrices["claude-opus-5-5"]
+		}
 		// 先判 Opus 5，避免落入旧 Opus 家族的高价兜底。
 		if strings.Contains(modelLower, "opus-5") || strings.Contains(modelLower, "opus5") {
 			return s.fallbackPrices["claude-opus-5"]
@@ -583,6 +640,12 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 	}
 
 	// OpenAI 仅匹配已知 GPT-5/Codex 族，避免未知 OpenAI 型号误计价。
+	if openai.IsGPT6SolOrLunaModelSpelling(modelLower) {
+		if strings.HasPrefix(canonicalizeOpenAIModelAliasSpelling(modelLower), "gpt-6-luna") {
+			return s.fallbackPrices["gpt-6-luna"]
+		}
+		return s.fallbackPrices["gpt-6-sol"]
+	}
 	if normalized := normalizeKnownOpenAICodexModel(modelLower); normalized != "" {
 		switch normalized {
 		case "gpt-6-astra":
@@ -679,15 +742,33 @@ func (s *BillingService) GetModelPricing(model string) (*ModelPricing, error) {
 			// 2. 1h 价格 > 5m 价格（防止 LiteLLM 数据错误导致少收费）
 			price5m := litellmPricing.CacheCreationInputTokenCost
 			price1h := litellmPricing.CacheCreationInputTokenCostAbove1hr
-			enableBreakdown := price1h > 0 && price1h > price5m
+			// For Opus 5.5, missing cache fields follow its known 5m/1h
+			// ratios; an explicit zero is a price, not missing data.
+			if claude.IsOpus55(model) {
+				if !litellmPricing.CacheCreationInputTokenCostExplicit {
+					price5m = litellmPricing.InputCostPerToken * 1.25
+				}
+				if !litellmPricing.CacheCreationInputTokenCostAbove1hrExplicit {
+					price1h = price5m * 1.6
+				}
+			}
+			enableBreakdown := (price1h > 0 && price1h > price5m) ||
+				(claude.IsOpus55(model) && litellmPricing.CacheCreationInputTokenCostAbove1hrExplicit)
+			cacheRead := litellmPricing.CacheReadInputTokenCost
+			if claude.IsOpus55(model) && !litellmPricing.CacheReadInputTokenCostExplicit {
+				cacheRead = litellmPricing.InputCostPerToken * 0.05
+			}
 			return s.applyModelSpecificPricingPolicy(model, &ModelPricing{
 				InputPricePerToken:                 litellmPricing.InputCostPerToken,
 				InputPricePerTokenPriority:         litellmPricing.InputCostPerTokenPriority,
 				OutputPricePerToken:                litellmPricing.OutputCostPerToken,
 				OutputPricePerTokenPriority:        litellmPricing.OutputCostPerTokenPriority,
-				CacheCreationPricePerToken:         litellmPricing.CacheCreationInputTokenCost,
+				CacheCreationPricePerToken:         price5m,
 				CacheCreationPricePerTokenPriority: litellmPricing.CacheCreationInputTokenCostPriority,
-				CacheReadPricePerToken:             litellmPricing.CacheReadInputTokenCost,
+				CacheCreationPriceExplicit:         litellmPricing.CacheCreationInputTokenCostExplicit,
+				CacheCreationPricePriorityExplicit: litellmPricing.CacheCreationInputTokenCostPriorityExplicit,
+				StrictPriorityTier:                 claude.IsOpus55(model) || openai.IsGPT6SolOrLunaModelSpelling(model),
+				CacheReadPricePerToken:             cacheRead,
 				CacheReadPricePerTokenPriority:     litellmPricing.CacheReadInputTokenCostPriority,
 				CacheCreation5mPrice:               price5m,
 				CacheCreation1hPrice:               price1h,
@@ -739,6 +820,7 @@ func (s *BillingService) GetModelPricingWithChannel(model string, channelPricing
 		pricing.CacheCreationPricePerToken = *channelPricing.CacheWritePrice
 		pricing.CacheCreationPricePerTokenPriority = *channelPricing.CacheWritePrice
 		pricing.CacheCreationPriceExplicit = true
+		pricing.CacheCreationPricePriorityExplicit = true
 		pricing.CacheCreation5mPrice = *channelPricing.CacheWritePrice
 		pricing.CacheCreation1hPrice = *channelPricing.CacheWritePrice
 	}
@@ -858,7 +940,7 @@ func (s *BillingService) computeTokenBreakdown(
 	cacheCreationMultiplier := 1.0
 	tierMultiplier := 1.0
 
-	if usePriorityServiceTierPricing(serviceTier, pricing) {
+	if usePriorityServiceTierPricing(serviceTier, pricing, tokens) {
 		if pricing.InputPricePerTokenPriority > 0 {
 			inputPrice = pricing.InputPricePerTokenPriority
 		}
@@ -868,11 +950,16 @@ func (s *BillingService) computeTokenBreakdown(
 		if pricing.CacheReadPricePerTokenPriority > 0 {
 			cacheReadPrice = pricing.CacheReadPricePerTokenPriority
 		}
-		if pricing.CacheCreationPricePerTokenPriority > 0 || pricing.CacheCreationPriceExplicit {
+		if pricing.CacheCreationPricePerTokenPriority > 0 ||
+			(pricing.StrictPriorityTier && pricing.CacheCreationPricePriorityExplicit) ||
+			(!pricing.StrictPriorityTier && pricing.CacheCreationPriceExplicit) {
 			cacheCreationPrice = pricing.CacheCreationPricePerTokenPriority
 		}
 	} else {
 		tierMultiplier = serviceTierCostMultiplier(serviceTier)
+		if pricing.StrictPriorityTier && normalizeBillingServiceTier(serviceTier) == "fast" {
+			tierMultiplier = 2
+		}
 	}
 
 	longContextPricingEligible := applyLongCtx && s.shouldApplySessionLongContextPricing(tokens, pricing)
@@ -926,6 +1013,10 @@ func (s *BillingService) computeTokenBreakdown(
 
 	// 缓存创建费用
 	bd.CacheCreationCost = s.computeCacheCreationCost(pricing, tokens, cacheCreationPrice, cacheCreationMultiplier)
+	if normalizeBillingServiceTier(serviceTier) == "priority" &&
+		pricing.CacheCreationPricePriorityExplicit && pricing.CacheCreationPricePerTokenPriority == 0 {
+		bd.CacheCreationCost = 0
+	}
 
 	bd.CacheReadCost = float64(tokens.CacheReadTokens) * cacheReadPrice
 	if imageCached := min(max(tokens.ImageCacheReadTokens, 0), max(tokens.CacheReadTokens, 0)); imageCached > 0 && pricing.ImageCacheReadPricePerToken > 0 {
@@ -1064,13 +1155,14 @@ func (s *BillingService) applyModelSpecificPricingPolicy(model string, pricing *
 	}
 	normalized := normalizeKnownOpenAICodexModel(model)
 	isGPT56 := normalized == "gpt-5.6-sol" || normalized == "gpt-5.6-terra" || normalized == "gpt-5.6-luna"
-	usesLongContextPricing := isOpenAIGPT54Model(model)
-	if !isGPT56 && !usesLongContextPricing {
+	isGPT6 := openai.IsGPT6SolOrLunaModelSpelling(model)
+	usesLongContextPricing := isOpenAIGPT54Model(model) || isGPT6
+	if !isGPT56 && !isGPT6 && !usesLongContextPricing {
 		return pricing
 	}
 	needsLongContextPolicy := usesLongContextPricing &&
 		(pricing.LongContextInputThreshold <= 0 || pricing.LongContextInputMultiplier <= 0 || pricing.LongContextOutputMultiplier <= 0)
-	needsCacheCreationPolicy := isGPT56 && !pricing.CacheCreationPriceExplicit &&
+	needsCacheCreationPolicy := (isGPT56 || isGPT6) && !pricing.CacheCreationPriceExplicit &&
 		(pricing.CacheCreationPricePerToken <= 0 ||
 			(pricing.InputPricePerTokenPriority > 0 && pricing.CacheCreationPricePerTokenPriority <= 0))
 	if !needsLongContextPolicy && !needsCacheCreationPolicy {
