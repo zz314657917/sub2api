@@ -127,6 +127,7 @@ export interface GroupStatsResponse {
 }
 
 export interface DashboardSnapshotV2Params extends TrendParams {
+  native_compaction_v2?: boolean | null
   include_stats?: boolean
   include_trend?: boolean
   include_model_stats?: boolean
