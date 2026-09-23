@@ -14,6 +14,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/tlsfingerprint"
 	"github.com/Wei-Shaw/sub2api/internal/util/logredact"
@@ -21,6 +22,10 @@ import (
 )
 
 const pelicanTestInstructions = "Generate only one complete HTML document containing a single 16:9 inline SVG artwork with viewBox=\"0 0 960 540\". The artwork must show a complete pelican riding a complete bicycle with two full wheels, hubs, spokes, and tires. Use only inline CSS @keyframes or declarative SVG animation, and make it autoplay. Do not output a title, explanation, card, navigation, controls, play/pause/replay buttons, Markdown fences, JavaScript, Canvas, iframe, audio/video, links, remote images, remote fonts, or any external resource. Return only the HTML source, beginning with <!DOCTYPE html> or <html> and ending with </html>. Do not inspect directories, create or edit files, invoke tools, or describe file operations."
+
+// The default Pelican minimum is 9,366 characters. 8,192 output tokens leave
+// enough room for SVG markup and animation while retaining a bounded request.
+const pelicanAntigravityMaxOutputTokens = 8192
 
 type pelicanRequestFailure struct{ safe string }
 
@@ -89,6 +94,15 @@ type pelicanUpstream struct {
 
 func (u pelicanUpstream) DoWithTLS(req *http.Request, proxy string, id int64, concurrency int, profile *tlsfingerprint.Profile) (*http.Response, error) {
 	resp, err := u.HTTPUpstream.DoWithTLS(req, proxy, id, concurrency, profile)
+	return u.observeResponse(resp, err)
+}
+
+func (u pelicanUpstream) Do(req *http.Request, proxy string, id int64, concurrency int) (*http.Response, error) {
+	resp, err := u.HTTPUpstream.Do(req, proxy, id, concurrency)
+	return u.observeResponse(resp, err)
+}
+
+func (u pelicanUpstream) observeResponse(resp *http.Response, err error) (*http.Response, error) {
 	if err != nil {
 		var timeout net.Error
 		if errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &timeout) && timeout.Timeout()) {
@@ -246,7 +260,7 @@ func (s *AccountTestService) RunPelicanTest(ctx context.Context, accountID int64
 	if err != nil {
 		return nil, errors.New("pelican account unavailable")
 	}
-	if !pelicanAccountAvailable(account) || strings.TrimSpace(model) == "" || isOpenAIImageModel(account.GetMappedModel(model)) {
+	if account == nil || !pelicanAccountAvailable(account) || !pelicanAdapterAccountTypeSupported(account) || !account.IsModelSupported(model) || strings.TrimSpace(model) == "" || !pelicanHTMLModel(account.GetMappedModel(model)) {
 		return nil, errors.New("pelican account or model unsupported")
 	}
 	rec := httptest.NewRecorder()
@@ -256,13 +270,30 @@ func (s *AccountTestService) RunPelicanTest(ctx context.Context, accountID int64
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = req
 	c.Set("pelican_test", true)
+	c.Set("pelican_prompt", prompt)
 	c.Set("pelican_reasoning_effort", reasoningEffort)
 	c.Writer = &cappedPelicanWriter{ResponseWriter: c.Writer, remaining: 4 << 20, cancel: cancel}
 	started := time.Now()
 	// Use the established proxy/TLS/auth path without copying its mutex fields.
 	var upstreamFailure error
-	probe := &AccountTestService{accountRepo: s.accountRepo, httpUpstream: pelicanUpstream{HTTPUpstream: s.httpUpstream, failure: &upstreamFailure}, cfg: s.cfg, tlsFPProfileService: s.tlsFPProfileService}
-	err = probe.testOpenAIAccountConnection(c, account, model, prompt, AccountTestModeDefault)
+	probe := &AccountTestService{
+		accountRepo:               s.accountRepo,
+		geminiTokenProvider:       s.geminiTokenProvider,
+		claudeTokenProvider:       s.claudeTokenProvider,
+		grokTokenProvider:         s.grokTokenProvider,
+		antigravityGatewayService: s.antigravityGatewayService,
+		httpUpstream:              pelicanUpstream{HTTPUpstream: s.httpUpstream, failure: &upstreamFailure},
+		cfg:                       s.cfg,
+		tlsFPProfileService:       s.tlsFPProfileService,
+	}
+	// Reuse the established platform router. Each platform already has its
+	// tested auth/proxy/protocol path; Pelican only adds bounded HTML parsing
+	// around the same SSE event stream.
+	if account.Platform == PlatformAntigravity && account.Type == AccountTypeOAuth {
+		err = probe.testPelicanAntigravityOAuthConnection(c, account, model, prompt)
+	} else {
+		err = probe.TestAccountConnection(c, accountID, model, prompt, AccountTestModeDefault)
+	}
 	if c.Writer.(*cappedPelicanWriter).overflow {
 		return nil, errors.New("pelican response exceeds limit")
 	}
@@ -286,4 +317,86 @@ func (s *AccountTestService) RunPelicanTest(ctx context.Context, accountID int64
 	}
 	now := time.Now()
 	return &PelicanResult{Status: "success", HTML: html, CharCount: utf8.RuneCountInString(html), LatencyMS: time.Since(started).Milliseconds(), StartedAt: started, FinishedAt: &now}, nil
+}
+
+// pelicanAdapterAccountTypeSupported matches the existing account-test router
+// before this adapter constructs an upstream request. Selector-side filtering
+// remains owned by pelican_test_service.go.
+func pelicanAdapterAccountTypeSupported(account *Account) bool {
+	if account == nil {
+		return false
+	}
+	switch account.Platform {
+	case PlatformOpenAI:
+		return account.IsOAuth() || account.Type == AccountTypeAPIKey
+	case PlatformAnthropic:
+		return account.IsOAuth() || account.Type == AccountTypeAPIKey || account.Type == AccountTypeBedrock || account.Type == AccountTypeServiceAccount
+	case PlatformGemini:
+		return account.Type == AccountTypeAPIKey || account.Type == AccountTypeOAuth || account.Type == AccountTypeServiceAccount
+	case PlatformGrok:
+		return account.Type == AccountTypeOAuth
+	case PlatformAntigravity:
+		return account.Type == AccountTypeAPIKey || account.Type == AccountTypeOAuth
+	case PlatformKimi, PlatformZhipu, PlatformDeepseek:
+		return account.Type == AccountTypeAPIKey
+	default:
+		return false
+	}
+}
+
+// testPelicanAntigravityOAuthConnection uses the gateway's token, mapping and
+// v1internal request helpers, but deliberately sends exactly one capped probe.
+// The ordinary connection tester retains its retry and quota-management policy.
+func (s *AccountTestService) testPelicanAntigravityOAuthConnection(c *gin.Context, account *Account, model, prompt string) error {
+	if s.antigravityGatewayService == nil || s.antigravityGatewayService.GetTokenProvider() == nil {
+		return s.sendErrorAndEnd(c, "Antigravity gateway service not configured")
+	}
+	accessToken, err := s.antigravityGatewayService.GetTokenProvider().GetAccessToken(c.Request.Context(), account)
+	if err != nil {
+		return s.sendErrorAndEnd(c, "Failed to get Antigravity access token")
+	}
+	mappedModel := s.antigravityGatewayService.getMappedModel(account, model)
+	if mappedModel == "" {
+		return s.sendErrorAndEnd(c, "Antigravity model is not supported by this account")
+	}
+	baseURL := resolveAntigravityForwardBaseURL()
+	if baseURL == "" {
+		return s.sendErrorAndEnd(c, "Antigravity upstream is not configured")
+	}
+	payload, err := json.Marshal(map[string]any{
+		"contents": []map[string]any{{
+			"role":  "user",
+			"parts": []map[string]any{{"text": pelicanRequestPrompt(c, PelicanPrompt)}},
+		}},
+		"systemInstruction": map[string]any{"parts": []map[string]any{
+			{"text": antigravity.GetDefaultIdentityPatch()},
+			{"text": pelicanTestInstructions},
+		}},
+		"generationConfig": map[string]any{"maxOutputTokens": pelicanAntigravityMaxOutputTokens},
+	})
+	if err != nil {
+		return s.sendErrorAndEnd(c, "Failed to build Antigravity request")
+	}
+	body, err := s.antigravityGatewayService.wrapV1InternalRequest(account.GetCredential("project_id"), mappedModel, payload)
+	if err != nil {
+		return s.sendErrorAndEnd(c, "Failed to wrap Antigravity request")
+	}
+	req, err := antigravity.NewAPIRequestWithURL(c.Request.Context(), baseURL, "streamGenerateContent", accessToken, body)
+	if err != nil {
+		return s.sendErrorAndEnd(c, "Failed to create Antigravity request")
+	}
+	proxyURL := ""
+	if account.ProxyID != nil && account.Proxy != nil {
+		proxyURL = account.Proxy.URL()
+	}
+	s.sendEvent(c, TestEvent{Type: "test_start", Model: mappedModel})
+	resp, err := s.httpUpstream.Do(req, proxyURL, account.ID, account.Concurrency)
+	if err != nil {
+		return s.sendErrorAndEnd(c, "Antigravity request failed")
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return s.sendErrorAndEnd(c, fmt.Sprintf("Antigravity API returned %d", resp.StatusCode))
+	}
+	return s.processGeminiStream(c, resp.Body)
 }

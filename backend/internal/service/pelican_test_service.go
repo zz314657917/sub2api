@@ -15,7 +15,11 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/geminicli"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 )
 
 const PelicanPromptVersion = "pelican-v2"
@@ -140,6 +144,7 @@ type PelicanEntry struct {
 	PlanID           int64      `json:"plan_id"`
 	GroupID          int64      `json:"group_id"`
 	GroupName        string     `json:"group_name"`
+	Platform         string     `json:"platform"`
 	AccountID        int64      `json:"account_id"`
 	ModelID          string     `json:"model_id"`
 	Status           string     `json:"status"`
@@ -155,8 +160,9 @@ type PelicanEntry struct {
 	ErrorMessageSafe string     `json:"error_message_safe"`
 }
 type PelicanGroup struct {
-	ID   int64  `json:"id"`
-	Name string `json:"name"`
+	ID       int64  `json:"id"`
+	Name     string `json:"name"`
+	Platform string `json:"platform"`
 }
 type PelicanListResponse struct {
 	Items    []PelicanEntry `json:"items"`
@@ -197,6 +203,46 @@ type pelicanGatewaySelector struct{ gateway *OpenAIGatewayService }
 func (s pelicanGatewaySelector) SelectPelicanAccount(ctx context.Context, groupID int64, model string) (*AccountSelectionResult, error) {
 	selection, _, err := s.gateway.SelectAccountWithScheduler(ctx, &groupID, "", "", model, nil, OpenAIUpstreamTransportHTTPSSE, false)
 	return selection, err
+}
+
+// pelicanMixedSelector keeps the scheduler-backed OpenAI path intact and uses
+// the existing account repository for platforms whose gateway scheduler is
+// OpenAI-specific. The runner still rechecks membership, availability and
+// model mapping immediately before reserving an attempt.
+type pelicanMixedSelector struct {
+	gateway     *OpenAIGatewayService
+	accounts    AccountRepository
+	groups      GroupRepository
+	concurrency *ConcurrencyService
+}
+
+func (s pelicanMixedSelector) SelectPelicanAccount(ctx context.Context, groupID int64, model string) (*AccountSelectionResult, error) {
+	group, err := s.groups.GetByIDLite(ctx, groupID)
+	if err != nil || group == nil || !group.IsActive() || !pelicanPlatformSupported(group.Platform) {
+		return nil, err
+	}
+	if strings.EqualFold(group.Platform, PlatformOpenAI) && s.gateway != nil {
+		selection, _, selectErr := s.gateway.SelectAccountWithScheduler(ctx, &groupID, "", "", model, nil, OpenAIUpstreamTransportHTTPSSE, false)
+		return selection, selectErr
+	}
+	accounts, err := s.accounts.ListByGroup(ctx, groupID)
+	if err != nil {
+		return nil, err
+	}
+	for index := range accounts {
+		account := &accounts[index]
+		if pelicanModelAccount(account) && strings.EqualFold(account.Platform, group.Platform) && account.IsModelSupported(model) && pelicanAccountAvailableForGroup(account, group) {
+			if s.concurrency == nil {
+				return nil, errors.New("pelican concurrency service unavailable")
+			}
+			lease, leaseErr := s.concurrency.AcquireAccountSlot(ctx, account.ID, account.Concurrency)
+			if leaseErr != nil {
+				return nil, leaseErr
+			}
+			return &AccountSelectionResult{Account: account, Acquired: lease.Acquired, ReleaseFunc: lease.ReleaseFunc}, nil
+		}
+	}
+	return nil, nil
 }
 
 type PelicanTestService struct {
@@ -392,7 +438,7 @@ func (s *PelicanTestService) modelsForGroup(c context.Context, groupID int64) ([
 	if err != nil {
 		return nil, nil, err
 	}
-	if group == nil || !group.IsActive() || !strings.EqualFold(group.Platform, PlatformOpenAI) {
+	if group == nil || !group.IsActive() || !pelicanPlatformSupported(group.Platform) {
 		return nil, nil, ErrPelicanInvalid
 	}
 	accounts, err := s.accounts.ListByGroup(c, groupID)
@@ -402,7 +448,7 @@ func (s *PelicanTestService) modelsForGroup(c context.Context, groupID int64) ([
 	candidates := make(map[string]struct{})
 	for index := range accounts {
 		account := &accounts[index]
-		if !pelicanModelAccount(account) {
+		if !pelicanModelAccount(account) || !strings.EqualFold(account.Platform, group.Platform) {
 			continue
 		}
 		mapping := account.GetModelMapping()
@@ -418,7 +464,7 @@ func (s *PelicanTestService) modelsForGroup(c context.Context, groupID int64) ([
 			}
 		}
 		if allowDefaults {
-			for _, model := range openai.DefaultModelIDs() {
+			for _, model := range pelicanDefaultModelIDs(group.Platform) {
 				if pelicanHTMLModel(model) {
 					candidates[model] = struct{}{}
 				}
@@ -449,7 +495,7 @@ func (s *PelicanTestService) modelsForGroup(c context.Context, groupID int64) ([
 	for model := range candidates {
 		for index := range accounts {
 			account := &accounts[index]
-			if pelicanModelAccount(account) && account.IsModelSupported(model) && pelicanHTMLModel(account.GetMappedModel(model)) {
+			if pelicanModelAccount(account) && strings.EqualFold(account.Platform, group.Platform) && account.IsModelSupported(model) && pelicanHTMLModel(account.GetMappedModel(model)) {
 				models = append(models, model)
 				break
 			}
@@ -460,7 +506,72 @@ func (s *PelicanTestService) modelsForGroup(c context.Context, groupID int64) ([
 }
 
 func pelicanModelAccount(account *Account) bool {
-	return account != nil && account.IsOpenAI() && (account.Type == AccountTypeAPIKey || account.IsOAuth()) && !account.IsOpenAIAgentIdentity() && !account.IsShadow()
+	if account == nil || !pelicanPlatformAccountTypeSupported(account.Platform, account.Type) {
+		return false
+	}
+	return !account.IsOpenAIAgentIdentity() && !account.IsShadow()
+}
+
+// pelicanPlatformAccountTypeSupported mirrors the account-test router before
+// the runner acquires a shared slot or reserves a plan attempt.
+func pelicanPlatformAccountTypeSupported(platform, accountType string) bool {
+	switch strings.ToLower(strings.TrimSpace(platform)) {
+	case PlatformOpenAI:
+		return accountType == AccountTypeAPIKey || accountType == AccountTypeOAuth || accountType == AccountTypeSetupToken
+	case PlatformAnthropic:
+		return accountType == AccountTypeAPIKey || accountType == AccountTypeOAuth || accountType == AccountTypeSetupToken || accountType == AccountTypeBedrock || accountType == AccountTypeServiceAccount
+	case PlatformGemini:
+		return accountType == AccountTypeAPIKey || accountType == AccountTypeOAuth || accountType == AccountTypeServiceAccount
+	case PlatformGrok:
+		return accountType == AccountTypeOAuth
+	case PlatformAntigravity:
+		return accountType == AccountTypeAPIKey || accountType == AccountTypeOAuth
+	case PlatformKimi, PlatformZhipu, PlatformDeepseek:
+		return accountType == AccountTypeAPIKey
+	default:
+		return false
+	}
+}
+
+func pelicanPlatformSupported(platform string) bool {
+	switch strings.ToLower(strings.TrimSpace(platform)) {
+	case PlatformOpenAI, PlatformAnthropic, PlatformGemini, PlatformGrok, PlatformAntigravity, PlatformKimi, PlatformZhipu, PlatformDeepseek:
+		return true
+	default:
+		return false
+	}
+}
+
+func pelicanDefaultModelIDs(platform string) []string {
+	switch strings.ToLower(strings.TrimSpace(platform)) {
+	case PlatformOpenAI:
+		return openai.DefaultModelIDs()
+	case PlatformAnthropic:
+		return claude.DefaultModelIDs()
+	case PlatformGemini:
+		models := make([]string, 0, len(geminicli.DefaultModels))
+		for _, model := range geminicli.DefaultModels {
+			models = append(models, model.ID)
+		}
+		return models
+	case PlatformGrok:
+		return xai.DefaultModelIDs()
+	case PlatformAntigravity:
+		models := antigravity.DefaultModels()
+		ids := make([]string, 0, len(models))
+		for _, model := range models {
+			ids = append(ids, model.ID)
+		}
+		return ids
+	case PlatformKimi:
+		return []string{"kimi-k2.6", "kimi-k2.5", "kimi-k2", "kimi-k3"}
+	case PlatformZhipu:
+		return []string{"glm-5.3", "glm-5.2", "glm-4.7", "glm-4.5-air"}
+	case PlatformDeepseek:
+		return []string{"deepseek-chat", "deepseek-reasoner", "deepseek-v4-pro", "deepseek-v4-flash"}
+	default:
+		return nil
+	}
 }
 
 func pelicanHTMLModel(model string) bool {
@@ -691,13 +802,13 @@ func pelicanSkipReason(account *Account, accountErr error, group *Group, groupEr
 	if accountErr != nil || account == nil {
 		return "account_lookup_failed"
 	}
-	if groupErr != nil || group == nil || !group.IsActive() || !strings.EqualFold(group.Platform, PlatformOpenAI) {
+	if groupErr != nil || group == nil || !group.IsActive() || !pelicanPlatformSupported(group.Platform) {
 		return "group_unavailable"
 	}
 	if !member {
 		return "account_not_in_group"
 	}
-	if !pelicanModelAccount(account) {
+	if !pelicanModelAccount(account) || !strings.EqualFold(account.Platform, group.Platform) {
 		return "account_unsupported"
 	}
 	if !account.IsActive() {
@@ -732,7 +843,14 @@ func pelicanSkipReason(account *Account, accountErr error, group *Group, groupEr
 // constructs an upstream request. Keep that paid-call guard aligned with the
 // runner's classified skip reasons.
 func pelicanAccountAvailable(account *Account) bool {
-	return pelicanSkipReason(account, nil, &Group{Platform: PlatformOpenAI, Status: StatusActive}, nil, true) == ""
+	if account == nil {
+		return false
+	}
+	return pelicanAccountAvailableForGroup(account, &Group{Platform: account.Platform, Status: StatusActive})
+}
+
+func pelicanAccountAvailableForGroup(account *Account, group *Group) bool {
+	return pelicanSkipReason(account, nil, group, nil, true) == ""
 }
 func (s *PelicanTestService) save(c context.Context, p *PelicanPlan, id int64, x *PelicanResult, status, msg string, started time.Time, snapshot pelicanPromptSnapshot) {
 	r := PelicanResult{PlanID: p.ID, GroupID: p.GroupID, AccountID: id, ModelID: p.ModelID, PromptVersion: snapshot.version, Status: status, ErrorMessage: msg, MinChars: p.MinChars, StartedAt: started, LatencyMS: time.Since(started).Milliseconds()}

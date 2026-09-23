@@ -179,7 +179,7 @@ func (r *pelicanTestRepository) CanRunAccount(ctx context.Context, planID, gener
 	var allowed bool
 	err := r.db.QueryRowContext(ctx, `SELECT EXISTS (
 		SELECT 1 FROM pelican_test_plans p
-		JOIN groups g ON g.id=p.group_id AND g.deleted_at IS NULL AND g.status='active' AND g.platform='openai'
+		JOIN groups g ON g.id=p.group_id AND g.deleted_at IS NULL AND g.status='active'
 		JOIN account_groups ag ON ag.group_id=g.id AND ag.account_id=$3
 		JOIN accounts a ON a.id=ag.account_id AND a.deleted_at IS NULL AND a.status='active'
 		WHERE p.id=$1 AND p.run_generation=$2 AND p.running_until>NOW()
@@ -227,7 +227,7 @@ func (r *pelicanTestRepository) ListGallery(c context.Context, a service.Pelican
 		n++
 	}
 	latest := "(SELECT DISTINCT ON (plan_id,group_id) * FROM pelican_test_results ORDER BY plan_id,group_id,finished_at DESC,id DESC) r JOIN pelican_test_plans p ON p.id=r.plan_id AND p.group_id=r.group_id JOIN groups live_g ON live_g.id=r.group_id AND live_g.deleted_at IS NULL "
-	q := "SELECT r.plan_id,r.group_id,live_g.name,r.account_id,r.model_id,r.status,r.latency_ms,r.char_count,r.min_chars,r.finished_at,(SELECT count(*) FROM pelican_test_results h WHERE h.plan_id=r.plan_id AND h.group_id=r.group_id),r.id,(SELECT s.id FROM pelican_test_results s WHERE s.plan_id=r.plan_id AND s.group_id=r.group_id AND s.status='success' ORDER BY s.finished_at DESC,s.id DESC LIMIT 1),r.error_message,r.error_code,r.error_message_safe,r.reasoning_effort FROM " + latest + where + " ORDER BY r.finished_at DESC,r.id DESC LIMIT $" + fmt.Sprint(n) + " OFFSET $" + fmt.Sprint(n+1)
+	q := "SELECT r.plan_id,r.group_id,live_g.name,live_g.platform,r.account_id,r.model_id,r.status,r.latency_ms,r.char_count,r.min_chars,r.finished_at,(SELECT count(*) FROM pelican_test_results h WHERE h.plan_id=r.plan_id AND h.group_id=r.group_id),r.id,(SELECT s.id FROM pelican_test_results s WHERE s.plan_id=r.plan_id AND s.group_id=r.group_id AND s.status='success' ORDER BY s.finished_at DESC,s.id DESC LIMIT 1),r.error_message,r.error_code,r.error_message_safe,r.reasoning_effort FROM " + latest + where + " ORDER BY r.finished_at DESC,r.id DESC LIMIT $" + fmt.Sprint(n) + " OFFSET $" + fmt.Sprint(n+1)
 	args = append(args, size, (page-1)*size)
 	rows, e := r.db.QueryContext(c, q, args...)
 	if e != nil {
@@ -236,7 +236,7 @@ func (r *pelicanTestRepository) ListGallery(c context.Context, a service.Pelican
 	defer rows.Close()
 	for rows.Next() {
 		var x service.PelicanEntry
-		e = rows.Scan(&x.PlanID, &x.GroupID, &x.GroupName, &x.AccountID, &x.ModelID, &x.Status, &x.LatencyMS, &x.CharCount, &x.MinChars, &x.FinishedAt, &x.HistoryCount, &x.ResultID, &x.ArtworkResultID, &x.ErrorMessage, &x.ErrorCode, &x.ErrorMessageSafe, &x.ReasoningEffort)
+		e = rows.Scan(&x.PlanID, &x.GroupID, &x.GroupName, &x.Platform, &x.AccountID, &x.ModelID, &x.Status, &x.LatencyMS, &x.CharCount, &x.MinChars, &x.FinishedAt, &x.HistoryCount, &x.ResultID, &x.ArtworkResultID, &x.ErrorMessage, &x.ErrorCode, &x.ErrorMessageSafe, &x.ReasoningEffort)
 		if e != nil {
 			return nil, e
 		}
@@ -252,7 +252,7 @@ func (r *pelicanTestRepository) ListGallery(c context.Context, a service.Pelican
 	if e := r.db.QueryRowContext(c, countQ, args[:len(args)-2]...).Scan(&out.Total); e != nil {
 		return nil, e
 	}
-	groupsQ := "SELECT DISTINCT g.id,g.name FROM groups g JOIN pelican_test_results r ON r.group_id=g.id JOIN pelican_test_plans p ON p.id=r.plan_id AND p.group_id=r.group_id WHERE g.deleted_at IS NULL"
+	groupsQ := "SELECT DISTINCT g.id,g.name,g.platform FROM groups g JOIN pelican_test_results r ON r.group_id=g.id JOIN pelican_test_plans p ON p.id=r.plan_id AND p.group_id=r.group_id WHERE g.deleted_at IS NULL"
 	var groupArgs []any
 	if !a.Admin {
 		groupsQ += " AND g.status='active' AND g.id=ANY($1)"
@@ -265,7 +265,7 @@ func (r *pelicanTestRepository) ListGallery(c context.Context, a service.Pelican
 	defer groupRows.Close()
 	for groupRows.Next() {
 		var group service.PelicanGroup
-		if e = groupRows.Scan(&group.ID, &group.Name); e != nil {
+		if e = groupRows.Scan(&group.ID, &group.Name, &group.Platform); e != nil {
 			return nil, e
 		}
 		out.Groups = append(out.Groups, group)

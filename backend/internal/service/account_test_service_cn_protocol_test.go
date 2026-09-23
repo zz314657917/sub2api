@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -94,6 +95,55 @@ func TestAccountTestService_CNAnthropicProbeUsesNativeDefaultWithoutBetaQuery(t 
 	require.Equal(t, []string{"sk-test"}, upstream.requests[0].Header["x-api-key"])
 	require.Empty(t, upstream.requests[0].Header.Get("Authorization"))
 	require.Contains(t, recorder.Body.String(), "ok")
+}
+
+func TestAccountTestService_CNPelicanProtocolsPreserveExactPrompt(t *testing.T) {
+	const prompt = "  生成鹈鹕 HTML\n保留换行  "
+	for _, tc := range []struct {
+		name     string
+		platform string
+		protocol string
+		model    string
+		body     string
+		assert   func(*testing.T, map[string]any)
+	}{
+		{name: "native anthropic", platform: PlatformZhipu, protocol: APIProtocolAnthropic, model: "claude-test", body: "data: {\"type\":\"message_start\"}\n\ndata: {\"type\":\"message_stop\"}\n\n", assert: func(t *testing.T, body map[string]any) {
+			messages := body["messages"].([]any)
+			content := messages[0].(map[string]any)["content"].([]any)
+			require.Equal(t, prompt, content[0].(map[string]any)["text"])
+		}},
+		{name: "deepseek responses", platform: PlatformDeepseek, protocol: APIProtocolResponses, model: "deepseek-test", body: "data: {\"type\":\"response.completed\"}\n\n", assert: func(t *testing.T, body map[string]any) {
+			input := body["input"].([]any)
+			content := input[0].(map[string]any)["content"].([]any)
+			require.Equal(t, prompt, content[0].(map[string]any)["text"])
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			upstream := &cnProtocolTestUpstream{responses: []*http.Response{cnProtocolTestResponse(tc.body)}}
+			service := cnProtocolTestService(upstream)
+			baseURL := "https://relay.example/v1"
+			if tc.protocol == APIProtocolAnthropic {
+				baseURL = ""
+			}
+			account := cnProviderAccount(tc.platform, "", tc.protocol, baseURL)
+			c, _ := cnProtocolTestContext()
+			c.Set("pelican_test", true)
+			c.Set("pelican_prompt", prompt)
+			var err error
+			if tc.protocol == APIProtocolAnthropic {
+				err = service.testCNProviderAnthropicConnection(c, account, tc.model)
+			} else {
+				err = service.testCNProviderResponsesConnection(c, account, tc.model)
+			}
+			require.NoError(t, err)
+			require.Len(t, upstream.requests, 1)
+			raw, readErr := io.ReadAll(upstream.requests[0].Body)
+			require.NoError(t, readErr)
+			var body map[string]any
+			require.NoError(t, json.Unmarshal(raw, &body))
+			tc.assert(t, body)
+		})
+	}
 }
 
 func TestAccountTestService_CNAnthropicProbeRejectsOpenAIShapedURLBeforeOutbound(t *testing.T) {

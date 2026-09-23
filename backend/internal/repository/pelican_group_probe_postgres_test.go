@@ -40,8 +40,8 @@ func TestPelicanGroupProbePostgres(t *testing.T) {
 		}
 		exec(string(body))
 	}
-	exec("CREATE TABLE groups (id BIGINT PRIMARY KEY,name TEXT,status TEXT,deleted_at TIMESTAMPTZ)")
-	exec("INSERT INTO groups VALUES (7,'group seven','active',NULL),(8,'private group','active',NULL)")
+	exec("CREATE TABLE groups (id BIGINT PRIMARY KEY,name TEXT,platform TEXT NOT NULL,status TEXT,deleted_at TIMESTAMPTZ)")
+	exec("INSERT INTO groups VALUES (7,'group seven','openai','active',NULL),(8,'private group','anthropic','active',NULL)")
 	r := NewPelicanTestRepository(db)
 	p, err := r.CreatePlan(ctx, service.PelicanPlanInput{GroupID: 7, ModelID: "gpt-test", IntervalMinutes: 15, MaxResults: 2, MinChars: 100}, "group seven")
 	if err != nil {
@@ -70,7 +70,7 @@ func TestPelicanGroupProbePostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if gallery.Total != 1 || len(gallery.Items) != 1 || gallery.Items[0].AccountID != 0 || gallery.Items[0].HistoryCount != 3 || gallery.Items[0].ArtworkResultID == nil {
+	if gallery.Total != 1 || len(gallery.Items) != 1 || gallery.Items[0].Platform != "openai" || len(gallery.Groups) != 1 || gallery.Groups[0].Platform != "openai" || gallery.Items[0].AccountID != 0 || gallery.Items[0].HistoryCount != 3 || gallery.Items[0].ArtworkResultID == nil {
 		t.Fatalf("gallery=%+v", gallery)
 	}
 	history, err := r.ListHistory(ctx, auth, p.ID, 0)

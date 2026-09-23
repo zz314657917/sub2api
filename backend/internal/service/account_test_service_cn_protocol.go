@@ -66,7 +66,7 @@ func (s *AccountTestService) testCNProviderAnthropicConnection(c *gin.Context, a
 	c.Writer.Header().Set("X-Accel-Buffering", "no")
 	c.Writer.Flush()
 
-	payload, err := createTestPayload(testModelID)
+	payload, err := createTestPayloadWithPrompt(testModelID, pelicanRequestPrompt(c, "hi"))
 	if err != nil {
 		return s.sendErrorAndEnd(c, "Failed to create Anthropic test payload")
 	}
@@ -126,6 +126,9 @@ func (s *AccountTestService) testCNProviderResponsesConnection(c *gin.Context, a
 	c.Writer.Flush()
 
 	payload := createOpenAITestPayload(testModelID, false)
+	if c.GetBool("pelican_test") {
+		payload = createOpenAITestPayloadWithExactPrompt(testModelID, false, pelicanRequestPrompt(c, "hi"))
+	}
 	delete(payload, "instructions")
 	payloadBytes, _ := json.Marshal(payload)
 	payloadBytes = normalizeDeepSeekResponsesRequestBody(account, payloadBytes)

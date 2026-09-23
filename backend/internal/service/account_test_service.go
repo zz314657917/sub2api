@@ -134,6 +134,10 @@ func generateSessionString() (string, error) {
 
 // createTestPayload creates a Claude Code style test request payload
 func createTestPayload(modelID string) (map[string]any, error) {
+	return createTestPayloadWithPrompt(modelID, "hi")
+}
+
+func createTestPayloadWithPrompt(modelID, prompt string) (map[string]any, error) {
 	sessionID, err := generateSessionString()
 	if err != nil {
 		return nil, err
@@ -147,7 +151,7 @@ func createTestPayload(modelID string) (map[string]any, error) {
 				"content": []map[string]any{
 					{
 						"type": "text",
-						"text": "hi",
+						"text": prompt,
 						"cache_control": map[string]string{
 							"type": "ephemeral",
 						},
@@ -171,6 +175,17 @@ func createTestPayload(modelID string) (map[string]any, error) {
 		"temperature": 1,
 		"stream":      true,
 	}, nil
+}
+
+func pelicanRequestPrompt(c *gin.Context, fallback string) string {
+	if c != nil {
+		if value, ok := c.Get("pelican_prompt"); ok {
+			if prompt, ok := value.(string); ok && strings.TrimSpace(prompt) != "" {
+				return prompt
+			}
+		}
+	}
+	return fallback
 }
 
 // TestAccountConnection tests an account's connection by sending a test request
@@ -278,7 +293,7 @@ func (s *AccountTestService) testClaudeAccountConnection(c *gin.Context, account
 	c.Writer.Flush()
 
 	// Create Claude Code style payload (same for all account types)
-	payload, err := createTestPayload(testModelID)
+	payload, err := createTestPayloadWithPrompt(testModelID, pelicanRequestPrompt(c, "hi"))
 	if err != nil {
 		return s.sendErrorAndEnd(c, "Failed to create test payload")
 	}
@@ -351,7 +366,7 @@ func (s *AccountTestService) testClaudeVertexServiceAccountConnection(c *gin.Con
 	c.Writer.Header().Set("X-Accel-Buffering", "no")
 	c.Writer.Flush()
 
-	payload, err := createTestPayload(testModelID)
+	payload, err := createTestPayloadWithPrompt(testModelID, pelicanRequestPrompt(c, "hi"))
 	if err != nil {
 		return s.sendErrorAndEnd(c, "Failed to create test payload")
 	}
@@ -422,7 +437,13 @@ func (s *AccountTestService) testBedrockAccountConnection(c *gin.Context, ctx co
 	c.Writer.Header().Set("X-Accel-Buffering", "no")
 	c.Writer.Flush()
 
-	// Create a minimal Bedrock-compatible payload (no stream, no cache_control)
+	// Create a minimal Bedrock-compatible payload (no stream, no cache_control).
+	// Pelican needs enough output budget for a complete SVG document; ordinary
+	// account probes retain their small, low-cost request.
+	maxTokens := 256
+	if c.GetBool("pelican_test") {
+		maxTokens = pelicanAntigravityMaxOutputTokens
+	}
 	bedrockPayload := map[string]any{
 		"anthropic_version": "bedrock-2023-05-31",
 		"messages": []map[string]any{
@@ -431,12 +452,12 @@ func (s *AccountTestService) testBedrockAccountConnection(c *gin.Context, ctx co
 				"content": []map[string]any{
 					{
 						"type": "text",
-						"text": "hi",
+						"text": pelicanRequestPrompt(c, "hi"),
 					},
 				},
 			},
 		},
-		"max_tokens":  256,
+		"max_tokens":  maxTokens,
 		"temperature": 1,
 	}
 	bedrockBody, _ := json.Marshal(bedrockPayload)
@@ -491,9 +512,13 @@ func (s *AccountTestService) testBedrockAccountConnection(c *gin.Context, ctx co
 		Content []struct {
 			Text string `json:"text"`
 		} `json:"content"`
+		StopReason string `json:"stop_reason"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Failed to parse response: %s", err.Error()))
+	}
+	if c.GetBool("pelican_test") && !strings.EqualFold(result.StopReason, "end_turn") {
+		return &pelicanIncompleteHTMLError{reason: "Bedrock 非正常完成标记: " + strings.ToUpper(result.StopReason)}
 	}
 
 	text := ""
@@ -728,7 +753,7 @@ func (s *AccountTestService) testGrokAccountConnection(c *gin.Context, account *
 
 	payloadBytes, err := json.Marshal(map[string]any{
 		"model":  testModelID,
-		"input":  "hi",
+		"input":  pelicanRequestPrompt(c, "hi"),
 		"stream": true,
 	})
 	if err != nil {
@@ -1069,10 +1094,16 @@ func (s *AccountTestService) testGeminiAccountConnection(c *gin.Context, account
 
 	// For static upstream credentials with model mapping, map the model
 	if account.Type == AccountTypeAPIKey || account.Type == AccountTypeServiceAccount {
-		mapping := account.GetModelMapping()
-		if len(mapping) > 0 {
-			if mappedModel, exists := mapping[testModelID]; exists {
-				testModelID = mappedModel
+		if c.GetBool("pelican_test") {
+			// Pelican validates wildcard mappings before dispatch; use the same
+			// resolver so its provider request cannot drift from that decision.
+			testModelID = account.GetMappedModel(testModelID)
+		} else {
+			mapping := account.GetModelMapping()
+			if len(mapping) > 0 {
+				if mappedModel, exists := mapping[testModelID]; exists {
+					testModelID = mappedModel
+				}
 			}
 		}
 	}
@@ -1084,8 +1115,12 @@ func (s *AccountTestService) testGeminiAccountConnection(c *gin.Context, account
 	c.Writer.Header().Set("X-Accel-Buffering", "no")
 	c.Writer.Flush()
 
-	// Create test payload (Gemini format)
+	// Create test payload (Gemini format). Pelican preserves the configured
+	// prompt byte-for-byte; ordinary account probes retain their historic trim.
 	payload := createGeminiTestPayload(testModelID, prompt)
+	if c.GetBool("pelican_test") {
+		payload = createGeminiTestPayloadWithExactPrompt(testModelID, pelicanRequestPrompt(c, prompt))
+	}
 
 	// Build request based on account type
 	var req *http.Request
@@ -1362,6 +1397,26 @@ func createGeminiTestPayload(modelID string, prompt string) []byte {
 	return bytes
 }
 
+func createGeminiTestPayloadWithExactPrompt(modelID string, prompt string) []byte {
+	payload := map[string]any{
+		"contents": []map[string]any{
+			{
+				"role": "user",
+				"parts": []map[string]any{
+					{"text": prompt},
+				},
+			},
+		},
+		"systemInstruction": map[string]any{
+			"parts": []map[string]any{
+				{"text": pelicanTestInstructions},
+			},
+		},
+	}
+	bytes, _ := json.Marshal(payload)
+	return bytes
+}
+
 // processGeminiStream processes SSE stream from Gemini API
 func (s *AccountTestService) processGeminiStream(c *gin.Context, body io.Reader) error {
 	reader := bufio.NewReader(body)
@@ -1370,6 +1425,9 @@ func (s *AccountTestService) processGeminiStream(c *gin.Context, body io.Reader)
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
+				if c.GetBool("pelican_test") {
+					return &pelicanIncompleteHTMLError{reason: "Gemini 未收到 STOP 完成标记"}
+				}
 				s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
 				return nil
 			}
@@ -1383,6 +1441,9 @@ func (s *AccountTestService) processGeminiStream(c *gin.Context, body io.Reader)
 
 		jsonStr := strings.TrimPrefix(line, "data: ")
 		if jsonStr == "[DONE]" {
+			if c.GetBool("pelican_test") {
+				return &pelicanIncompleteHTMLError{reason: "Gemini 未收到 STOP 完成标记"}
+			}
 			s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
 			return nil
 		}
@@ -1426,6 +1487,9 @@ func (s *AccountTestService) processGeminiStream(c *gin.Context, body io.Reader)
 
 				// Check for completion after extracting content
 				if finishReason, ok := candidate["finishReason"].(string); ok && finishReason != "" {
+					if c.GetBool("pelican_test") && !strings.EqualFold(finishReason, "STOP") {
+						return &pelicanIncompleteHTMLError{reason: "Gemini 非 STOP 完成标记: " + strings.ToUpper(finishReason)}
+					}
 					s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
 					return nil
 				}
@@ -1516,11 +1580,15 @@ func createOpenAIChatCompletionsTestPayloadWithExactPrompt(modelID string, promp
 // processClaudeStream processes the SSE stream from Claude API
 func (s *AccountTestService) processClaudeStream(c *gin.Context, body io.Reader) error {
 	reader := bufio.NewReader(body)
+	pelican := c.GetBool("pelican_test")
 
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
+				if pelican {
+					return &pelicanIncompleteHTMLError{reason: "Claude 未收到 message_stop 完成标记"}
+				}
 				s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
 				return nil
 			}
@@ -1534,6 +1602,9 @@ func (s *AccountTestService) processClaudeStream(c *gin.Context, body io.Reader)
 
 		jsonStr := sseDataPrefix.ReplaceAllString(line, "")
 		if jsonStr == "[DONE]" {
+			if pelican {
+				return &pelicanIncompleteHTMLError{reason: "Claude 未收到 message_stop 完成标记"}
+			}
 			s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
 			return nil
 		}
@@ -1550,6 +1621,14 @@ func (s *AccountTestService) processClaudeStream(c *gin.Context, body io.Reader)
 			if delta, ok := data["delta"].(map[string]any); ok {
 				if text, ok := delta["text"].(string); ok {
 					s.sendEvent(c, TestEvent{Type: "content", Text: text})
+				}
+			}
+		case "message_delta":
+			if pelican {
+				if delta, ok := data["delta"].(map[string]any); ok {
+					if reason, ok := delta["stop_reason"].(string); ok && reason != "" && !strings.EqualFold(reason, "end_turn") {
+						return &pelicanIncompleteHTMLError{reason: "Claude 非正常完成标记: " + strings.ToUpper(reason)}
+					}
 				}
 			}
 		case "message_stop":
@@ -1637,6 +1716,9 @@ func (s *AccountTestService) processOpenAIChatCompletionsStream(c *gin.Context, 
 				}
 			}
 			if finishReason, ok := choice["finish_reason"].(string); ok && finishReason != "" {
+				if c.GetBool("pelican_test") && !strings.EqualFold(finishReason, "stop") {
+					return &pelicanIncompleteHTMLError{reason: "Chat Completions 非正常完成标记: " + strings.ToUpper(finishReason)}
+				}
 				seenFinish = true
 			}
 		}
@@ -1689,6 +1771,13 @@ func (s *AccountTestService) processOpenAIStream(c *gin.Context, body io.Reader)
 				s.sendEvent(c, TestEvent{Type: "content", Text: delta})
 			}
 		case "response.completed", "response.done":
+			if c.GetBool("pelican_test") {
+				if response, ok := data["response"].(map[string]any); ok {
+					if status, ok := response["status"].(string); ok && status != "" && !strings.EqualFold(status, "completed") {
+						return &pelicanIncompleteHTMLError{reason: "Responses 非正常完成状态: " + strings.ToUpper(status)}
+					}
+				}
+			}
 			s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
 			return nil
 		case "response.failed":

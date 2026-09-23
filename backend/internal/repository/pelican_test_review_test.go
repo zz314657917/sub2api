@@ -65,7 +65,7 @@ func TestPelicanReviewResultDetailUsesAllowedGroups(t *testing.T) {
 func TestPelicanReviewCanRunAccountUsesLiveEligibilityAndFence(t *testing.T) {
 	matcher := sqlmock.QueryMatcherFunc(func(_ string, actual string) error {
 		for _, required := range []string{
-			"pelican_test_plans", "JOIN groups g", "g.deleted_at IS NULL", "g.status='active'", "g.platform='openai'",
+			"pelican_test_plans", "JOIN groups g", "g.deleted_at IS NULL", "g.status='active'",
 			"JOIN account_groups", "JOIN accounts a", "a.deleted_at IS NULL", "a.status='active'",
 			"p.run_generation=$2", "p.running_until>NOW()",
 		} {
