@@ -138,6 +138,33 @@ describe('PelicanTestsView', () => {
     expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
   })
 
+  it.each([false, true])('restores the gallery opener after historical detail closes (return first: %s)', async (returnFirst) => {
+    const host = document.createElement('div')
+    document.body.append(host)
+    const wrapper = mount(PelicanTestsView, { attachTo: host, global: { stubs } })
+    try {
+      await flushPromises()
+      const opener = wrapper.get<HTMLButtonElement>('.history-count')
+      opener.element.focus()
+      await opener.trigger('click'); await flushPromises()
+      const revision = wrapper.get<HTMLButtonElement>('.history-grid button')
+      revision.element.focus()
+      await revision.trigger('click'); await flushPromises()
+      expect(wrapper.find('.back-button').exists()).toBe(true)
+      expect(revision.element.isConnected).toBe(false)
+      if (returnFirst) {
+        await wrapper.get('.back-button').trigger('click'); await flushPromises()
+        expect(wrapper.find('.history-grid').exists()).toBe(true)
+      }
+      await wrapper.get('[role="dialog"] button[aria-label="close"]').trigger('click'); await flushPromises()
+      expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+      expect(document.activeElement).toBe(opener.element)
+    } finally {
+      wrapper.unmount()
+      host.remove()
+    }
+  })
+
   it('drops an old list response after the authenticated user changes', async () => {
     let resolveOld!: (value: { items: ReturnType<typeof item>[]; total: number; page: number; page_size: number; groups: { id: number; name: string }[] }) => void
     const wrapper = await view()

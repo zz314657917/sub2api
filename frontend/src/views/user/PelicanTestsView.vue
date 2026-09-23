@@ -40,10 +40,11 @@
       <div ref="resultsRegion" class="results-region">
       <div v-if="loading && !items.length" class="empty-state" aria-live="polite">正在加载测试结果…</div>
       <div v-else-if="error && !items.length" class="empty-state" role="alert"><h2>无法加载测试结果</h2><p>{{ error }}</p><button type="button" @click="refresh()">重试</button></div>
-      <div v-else-if="items.length" class="gallery">
-        <article v-for="item in items" :key="`${item.plan_id}-${item.group_id}`" class="pelican-card" :aria-label="`${item.group_name} · 计划 ${item.plan_id}`">
+      <div v-else-if="items.length" class="gallery" :style="{ '--gallery-columns': galleryColumnCount }">
+        <div v-for="(column, columnIndex) in galleryColumns" :key="`gallery-column-${columnIndex}`" class="gallery-column">
+        <article v-for="item in column" :key="`${item.plan_id}-${item.group_id}`" class="pelican-card" :aria-label="`${item.group_name}${item.platform ? ` · ${item.platform}` : ''} · 计划 ${item.plan_id}`">
           <header class="card-heading">
-            <div><span class="team-badge">{{ item.group_name }}</span><strong>计划 #{{ item.plan_id }}</strong></div>
+            <div><span class="team-badge">{{ item.group_name }}{{ item.platform ? ` · ${item.platform}` : '' }}</span><strong>计划 #{{ item.plan_id }}</strong></div>
             <button class="history-count" type="button" :aria-label="`${item.group_name} 计划 ${item.plan_id} 历史 ${item.history_count} 次`" @click="openHistory(item, $event)"><Icon name="clock" size="xs" /> {{ item.history_count }}</button>
           </header>
           <button v-if="cardHtml[item.result_id]" class="artwork-preview" type="button" :aria-label="`放大查看${item.group_name} 计划 ${item.plan_id} 的作品`" @click="openArtwork(item, $event)" @keydown.enter.prevent="openArtwork(item, $event)" @keydown.space.prevent="openArtwork(item, $event)">
@@ -59,6 +60,7 @@
           <p class="html-meta">{{ item.model_id }} · {{ effortText(item.reasoning_effort) }}</p>
           <p class="last-success">{{ item.status === 'success' ? '生成于' : '测试于' }} {{ formatDate(item.finished_at) }}</p>
         </article>
+        </div>
       </div>
       <div v-else class="empty-state"><Icon name="search" size="lg" /><h2>暂无测试结果</h2><p>当前有权限的分组还没有可展示的测试结果。</p><button v-if="hasFilters" type="button" @click="clearFilters">清除筛选</button></div>
       </div>
@@ -81,7 +83,7 @@
               <article v-for="revision in visibleHistory" :key="revision.id" class="history-record">
                 <div class="result-row"><span :class="statusClass(revision.status)">● {{ statusText(revision.status) }}</span><span>{{ formatDate(revision.finished_at) }}</span></div>
                 <p class="dialog-note">{{ revision.model_id }} · {{ effortText(revision.reasoning_effort) }} · {{ formatDuration(revision.latency_ms) }}</p>
-                <PelicanHistoryPreview v-if="revision.status === 'success'" :result-id="revision.id" @enlarge="openRevision(revision, $event)" />
+                <PelicanHistoryPreview v-if="revision.status === 'success'" :result-id="revision.id" @enlarge="openRevision(revision)" />
                 <div v-else class="history-unavailable">{{ revision.status === 'failed' ? '本轮生成失败，没有可播放的作品' : '本轮未执行，没有生成作品' }}<p v-if="revision.error_message || revision.error_code || revision.error_message_safe">{{ resultReasonText(revision) }}</p></div>
               </article>
             </div>
@@ -153,10 +155,12 @@ const planBusyId = ref<number | null>(null)
 const cleanupConfirmation = ref<{ plan: PelicanPlan; scope: 'failed' | 'expired' } | null>(null)
 const cleanupBusy = ref(false)
 const cleanupNotice = ref('')
-const adminGroups = ref<Array<{ id: number; name: string }>>([])
+const adminGroups = ref<Array<{ id: number; name: string; platform?: string }>>([])
+const galleryColumnCount = ref(1)
 let opener: HTMLElement | null = null
 let cleanupOpener: HTMLElement | null = null
 let interval: ReturnType<typeof setInterval> | undefined
+let galleryResizeObserver: ResizeObserver | undefined
 let listRequestVersion = 0
 let historyRequestVersion = 0
 let dialogRequestVersion = 0
@@ -176,6 +180,10 @@ const settingsDraft = ref<PelicanTestSettings>({ ...defaultSettings })
 const hasFilters = computed(() => groupFilter.value !== '')
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 const dialogTitle = computed(() => `${selectedEntry.value?.group_name} · 计划 #${selectedEntry.value?.plan_id} · ${dialogMode.value === 'history' ? '测试历史' : '放大播放'}`)
+const galleryColumns = computed(() => {
+  const count = Math.max(1, Math.min(galleryColumnCount.value, items.value.length || 1))
+  return Array.from({ length: count }, (_, columnIndex) => items.value.filter((_, itemIndex) => itemIndex % count === columnIndex))
+})
 
 watch([groupFilter, pageSize], () => { closeDialog(); if (page.value !== 1) page.value = 1; else void refresh({ resetView: true }) })
 watch(page, () => void refresh({ resetView: true }))
@@ -188,13 +196,29 @@ watch(refreshSeconds, seconds => {
 watch(() => pelicanMetadata.enabled, enabled => {
   if (!authStore.isAdmin && !enabled) { listRequestVersion++; listAbort?.abort(); clearArtworkCache(); items.value = []; total.value = 0; groups.value = []; closeDialog() }
 })
-onMounted(() => { document.addEventListener('keydown', trapFocus); void Promise.resolve(pelicanMetadata.load(true)).then(() => { if (authStore.isAdmin || pelicanMetadata.enabled) return refresh() }).catch(() => { if (authStore.isAdmin) return refresh() }) })
+function updateGalleryColumnCount(): void {
+  const width = resultsRegion.value?.clientWidth ?? window.innerWidth
+  galleryColumnCount.value = Math.max(1, Math.min(6, Math.floor((width + 12) / 282)))
+}
+onMounted(() => {
+  document.addEventListener('keydown', trapFocus)
+  updateGalleryColumnCount()
+  if (typeof ResizeObserver !== 'undefined' && resultsRegion.value) {
+    galleryResizeObserver = new ResizeObserver(updateGalleryColumnCount)
+    galleryResizeObserver.observe(resultsRegion.value)
+  } else {
+    window.addEventListener('resize', updateGalleryColumnCount)
+  }
+  void Promise.resolve(pelicanMetadata.load(true)).then(() => { if (authStore.isAdmin || pelicanMetadata.enabled) return refresh() }).catch(() => { if (authStore.isAdmin) return refresh() })
+})
 onBeforeUnmount(() => {
   disposed = true
   settingsRequestVersion++
   listRequestVersion++; historyRequestVersion++; dialogRequestVersion++
   listAbort?.abort(); dialogAbort?.abort()
   if (interval) clearInterval(interval)
+  galleryResizeObserver?.disconnect()
+  window.removeEventListener('resize', updateGalleryColumnCount)
   document.removeEventListener('keydown', trapFocus)
 })
 
@@ -278,10 +302,10 @@ async function openArtwork(entry: PelicanEntry, event: MouseEvent | KeyboardEven
   try { const result = await getPelicanResult(entry.artwork_result_id, dialogAbort.signal); if (version !== dialogRequestVersion) return; selectedRevision.value = result; dialogMode.value = 'artwork' } catch (reason) { if (version === dialogRequestVersion) error.value = messageOf(reason) }
   void nextTick(() => dialogContent.value?.querySelector<HTMLButtonElement>('button')?.focus())
 }
-async function openRevision(revision: PelicanResult, event: MouseEvent): Promise<void> {
+async function openRevision(revision: PelicanResult): Promise<void> {
   const version = ++dialogRequestVersion
   dialogAbort?.abort(); dialogAbort = new AbortController()
-  fromHistory.value = true; opener = event.currentTarget as HTMLElement
+  fromHistory.value = true
   try { const result = await getPelicanResult(revision.id, dialogAbort.signal); if (version !== dialogRequestVersion) return; selectedRevision.value = result; dialogMode.value = 'artwork' } catch (reason) { if (version === dialogRequestVersion) historyError.value = messageOf(reason); return }
   void nextTick(() => dialogContent.value?.querySelector<HTMLButtonElement>('button')?.focus())
 }
@@ -312,7 +336,7 @@ function resultReasonText(result: Pick<PelicanResult, 'error_code' | 'error_mess
   if (result.error_code) return planReasonText(result.error_code)
   return planReasonText(result.error_message || '')
 }
-async function loadPlans(): Promise<void> { if (!authStore.isAdmin) return; plansLoading.value = true; plansError.value = ''; try { const [planData, groupData] = await Promise.all([listPelicanPlans(), getAllAdminGroups('openai')]); plans.value = planData; adminGroups.value = groupData.filter(group => group.status === 'active').map(group => ({ id: group.id, name: group.name })) } catch (reason) { plansError.value = messageOf(reason) } finally { plansLoading.value = false } }
+async function loadPlans(): Promise<void> { if (!authStore.isAdmin) return; plansLoading.value = true; plansError.value = ''; try { const [planData, groupData] = await Promise.all([listPelicanPlans(), getAllAdminGroups()]); plans.value = planData; adminGroups.value = groupData.filter(group => group.status === 'active').map(group => ({ id: group.id, name: group.name, platform: group.platform })) } catch (reason) { plansError.value = messageOf(reason) } finally { plansLoading.value = false } }
 watch(showPlans, visible => { if (visible) void loadPlans() })
 watch(showSettings, visible => { if (visible) void loadSettings() })
 async function loadSettings(): Promise<void> {
@@ -406,9 +430,11 @@ select { font: inherit; color: inherit; padding: 8px 30px 8px 12px; min-width: 1
 .list-summary { display: flex; justify-content: space-between; gap: 10px; color: var(--pelican-muted); margin: 12px 0 15px; font-size: 11px; }
 .list-summary i { margin: 0 8px; color: var(--pelican-muted); font-style: normal; }
 .refresh-error { margin: -8px 0 10px; color: #dc2626; font-size: 11px; }
-.results-region { min-height: 0; flex: 1 1 auto; overflow: auto; padding: 0 2px 10px 0; }
-.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(255px, 1fr)); gap: 12px; }
+.results-region { min-height: 0; flex: 1 1 auto; overflow: auto; padding: 0 2px 10px 0; container-type: inline-size; }
+.gallery { display: grid; grid-template-columns: repeat(var(--gallery-columns, 1), minmax(0, 1fr)); gap: 12px; width: 100%; max-width: 100%; align-items: start; }
 .pelican-card { min-width: 0; border: 1px solid var(--pelican-border); background: var(--pelican-surface); box-shadow: var(--console-shadow, none); border-radius: 12px; padding: 9px; }
+.gallery-column { display: flex; min-width: 0; flex-direction: column; gap: 12px; }
+.gallery-column > .pelican-card { width: 100%; box-sizing: border-box; }
 .artwork-placeholder { display: grid; place-items: center; min-height: 180px; border-radius: 8px; background: var(--pelican-accent-soft); color: var(--pelican-muted); font-size: 11px; }
 .artwork-preview { position: relative; display: block; width: 100%; overflow: hidden; border: 0; border-radius: 8px; padding: 0; cursor: zoom-in; background: var(--pelican-accent-soft); }
 .artwork-preview :deep(.pelican-frame) { pointer-events: none; }
@@ -437,9 +463,12 @@ select { font: inherit; color: inherit; padding: 8px 30px 8px 12px; min-width: 1
 .empty-state { text-align: center; padding: 60px 15px; border: 1px dashed var(--pelican-border); border-radius: 12px; color: var(--pelican-muted); }
 .empty-state h2 { font-size: 16px; color: var(--pelican-text); margin-top: 15px; }
 .empty-state p { margin: 8px 0 18px; }
+.dialog-content { container-type: inline-size; }
 .dialog-note { font-size: 11px; color: var(--pelican-muted); margin: 0 0 12px; }
-.history-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
-.history-record { min-width: 0; }
+.history-grid { width: 290px; max-width: 100%; column-width: 290px; column-gap: 18px; }
+@container (min-width: 620px) { .history-grid { width: 598px; } }
+@container (min-width: 920px) { .history-grid { width: 906px; } }
+.history-record { display: inline-block; width: 100%; min-width: 0; margin: 0 0 18px; break-inside: avoid; }
 .history-unavailable { min-height: 120px; padding: 20px; border-radius: 10px; background: var(--pelican-input); color: var(--pelican-muted); font-size: 13px; }
 .history-unavailable p { margin-top: 8px; }
 .history-pagination { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 0 4px; background: var(--pelican-input); color: var(--pelican-text); font-size: 12px; }
@@ -458,16 +487,14 @@ button:focus-visible, select:focus-visible, .search-box:focus-within { outline: 
   --pelican-accent: theme('colors.indigo.400');
   --pelican-accent-soft: rgba(129, 140, 248, .12);
 }
-@media (min-width: 1800px) { .gallery { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 @media (max-width: 760px) {
   .search-box { width: 100%; min-height: 42px; }
   .toolbar > select { flex: 1; min-width: 120px; max-width: 100%; }
   .refresh-controls { width: 100%; margin: 0; }
   .refresh-controls select { min-width: 0; flex: 1; }
   .list-summary { align-items: flex-start; flex-direction: column; }
-  .gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .history-grid { grid-template-columns: 1fr; }
+  .history-grid { columns: 1; }
   .page-controls { flex-wrap: wrap; gap: 7px; }
 }
-@media (max-width: 540px) { .gallery { grid-template-columns: 1fr; } }
+@media (max-width: 540px) { .gallery { grid-template-columns: minmax(0, 1fr); } }
 </style>

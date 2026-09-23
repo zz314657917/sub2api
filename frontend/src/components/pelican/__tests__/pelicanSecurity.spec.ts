@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import PelicanSandboxFrame from '../PelicanSandboxFrame.vue'
 import { sanitizePelicanHtml, toPelicanSrcdoc } from '../sanitizePelicanHtml'
 
@@ -34,7 +34,7 @@ describe('Pelican untrusted artwork boundary', () => {
     expect(clean).toContain('src="data:image/png;base64,AA=="')
   })
 
-  it('places CSP before untrusted markup and renders with an empty sandbox', () => {
+  it('places CSP before artwork and permits only the trusted opaque preview bridge', () => {
     const srcdoc = toPelicanSrcdoc('<svg><circle /></svg>')
     expect(srcdoc.indexOf('Content-Security-Policy')).toBeLessThan(srcdoc.indexOf('<svg>'))
     expect(srcdoc).toContain("default-src 'none'")
@@ -42,10 +42,12 @@ describe('Pelican untrusted artwork boundary', () => {
 
     const wrapper = mount(PelicanSandboxFrame, { props: { html: '<svg><circle /></svg>', replayKey: 1 } })
     const frame = wrapper.get('iframe')
-    expect(frame.attributes('sandbox')).toBe('')
+    expect(frame.attributes('sandbox')).toBe('allow-scripts')
     expect(frame.attributes('tabindex')).toBe('-1')
     expect(frame.attributes('srcdoc')).toContain("default-src 'none'")
     expect(frame.attributes('class')).toContain('pelican-frame')
+    expect(frame.attributes('srcdoc')).toMatch(/script-src 'nonce-[a-f0-9]{48}'/)
+    wrapper.unmount()
   })
 
   it('keeps the enlarged artwork frame usable without relaxing the sandbox', () => {
@@ -55,5 +57,47 @@ describe('Pelican untrusted artwork boundary', () => {
     expect(frame.attributes('sandbox')).toBe('')
     expect(frame.attributes('tabindex')).toBeUndefined()
     expect(frame.attributes('aria-hidden')).toBeUndefined()
+    expect(frame.attributes('srcdoc')).not.toContain('<script')
+    wrapper.unmount()
+  })
+
+  it('accepts only current-frame numeric measurements and clamps long artwork', async () => {
+    const wrapper = mount(PelicanSandboxFrame, { attachTo: document.body, props: { html: '<p>short</p>', replayKey: 0 } })
+    const iframe = wrapper.get('iframe').element as HTMLIFrameElement
+    const token = iframe.srcdoc.match(/data-token="([a-f0-9]+)"/)![1]
+    const send = async (data: Record<string, unknown>, source: Window | null = iframe.contentWindow) => {
+      window.dispatchEvent(new MessageEvent('message', { source, data: { type: 'pelican-preview-height', token, sequence: 1, height: 70, ...data } }))
+      await wrapper.vm.$nextTick()
+    }
+    expect(iframe.style.height).toBe('220px')
+    for (const data of [{ token: 'foreign' }, { height: NaN }, { height: Infinity }, { height: '70' }, { height: -1 }, { height: 100001 }, { sequence: 0 }, { type: 'other' }]) await send(data)
+    await send({}, window)
+    expect(iframe.style.height).toBe('220px')
+    await send({})
+    expect(iframe.style.height).toBe('70px')
+    await send({ height: 400 }) // Replay of the same sequence is ignored.
+    expect(iframe.style.height).toBe('70px')
+    await send({ height: 1200, sequence: 2 })
+    expect(iframe.style.height).toBe('580px')
+    await wrapper.setProps({ replayKey: 1 })
+    const nextFrame = wrapper.get('iframe').element as HTMLIFrameElement
+    expect(nextFrame).not.toBe(iframe)
+    expect(nextFrame.srcdoc).not.toContain(token)
+    await send({ height: 80, sequence: 3 }, nextFrame.contentWindow)
+    expect(nextFrame.style.height).toBe('220px')
+    const remove = vi.spyOn(window, 'removeEventListener')
+    wrapper.unmount()
+    expect(remove).toHaveBeenCalledWith('message', expect.any(Function))
+    remove.mockRestore()
+  })
+
+  it('reuses the outer document CSP nonce when embedding the trusted bridge', () => {
+    const script = document.createElement('script')
+    script.setAttribute('nonce', 'outer-server-nonce-1234567890')
+    document.head.appendChild(script)
+    const wrapper = mount(PelicanSandboxFrame, { props: { html: '<p>short</p>', replayKey: 0 } })
+    expect(wrapper.get('iframe').attributes('srcdoc')).toContain("script-src 'nonce-outer-server-nonce-1234567890'")
+    wrapper.unmount()
+    script.remove()
   })
 })

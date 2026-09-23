@@ -42,11 +42,10 @@ onBeforeUnmount(() => controller?.abort())
 </script>
 
 <style scoped>
-.preview, .placeholder { width: 100%; height: 240px; border: 1px solid var(--pelican-border); border-radius: 10px; overflow: hidden; background: var(--pelican-input); }
+.preview, .placeholder { width: 100%; border: 1px solid var(--pelican-border); border-radius: 10px; overflow: hidden; background: var(--pelican-input); }
 .preview { position: relative; display: block; padding: 0; cursor: zoom-in; }
 .overlay { position: absolute; inset: 0; }
-.preview :deep(iframe) { height: 100%; aspect-ratio: auto; }
-.placeholder { display: flex; align-items: center; justify-content: center; gap: 12px; color: var(--pelican-muted); }
+.placeholder { display: flex; min-height: 180px; align-items: center; justify-content: center; gap: 12px; color: var(--pelican-muted); }
 .actions { display: flex; gap: 14px; margin-top: 8px; }
 .actions button, .placeholder button { background: none; border: 0; color: var(--pelican-accent); cursor: pointer; font: inherit; font-size: 12px; padding: 4px 0; }
 .preview:focus-visible, button:focus-visible { outline: 2px solid var(--pelican-accent); outline-offset: 2px; }

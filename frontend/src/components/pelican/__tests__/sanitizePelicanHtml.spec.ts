@@ -38,4 +38,16 @@ describe('pelican HTML isolation', () => {
     expect(srcdoc).toContain('img-src data:')
     expect(srcdoc).toContain('data:image')
   })
+  it('keeps the nonce script constant and removes executable artwork and supplied nonces', () => {
+    const identity = { nonce: 'a'.repeat(48), token: 'b'.repeat(48) }
+    const source = '<script nonce="attacker">parent.postMessage("attack","*")</script><svg onload="alert(1)"><set attributeName="nonce" to="attacker" /></svg><div nonce="attacker" onclick="alert(2)">art</div>'
+    const result = toPelicanSrcdoc(source, true, identity)
+    expect(result.match(/<script\b/g)).toHaveLength(1)
+    expect(result).not.toMatch(/attacker|onclick|onload|alert\(/)
+    expect(result).toContain(`script-src 'nonce-${identity.nonce}'`)
+    expect(result.indexOf('Content-Security-Policy')).toBeLessThan(result.indexOf('<svg'))
+    expect(result).toContain('height:auto!important;min-height:0!important')
+    expect(toPelicanSrcdoc(source, false, identity)).not.toContain('<script')
+    expect(toPelicanSrcdoc(source, true, { nonce: '\"><script>evil', token: identity.token })).not.toContain('<script')
+  })
 })

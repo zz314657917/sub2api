@@ -1,9 +1,9 @@
 import { apiClient } from './client'
 
-export interface PelicanGroup { id: number; name: string }
+export interface PelicanGroup { id: number; name: string; platform?: string }
 export interface PelicanEntry {
   reasoning_effort?: string | null
-  plan_id: number; group_id: number; group_name: string; account_id: number; model_id: string
+  plan_id: number; group_id: number; group_name: string; platform?: string; account_id: number; model_id: string
   status: 'success' | 'failed' | 'skipped'; latency_ms: number; char_count: number; min_chars: number
   finished_at: string; history_count: number; result_id: number; artwork_result_id: number | null; error_message?: string; error_code?: string; error_message_safe?: string
 }
