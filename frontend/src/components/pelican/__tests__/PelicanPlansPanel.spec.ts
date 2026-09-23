@@ -9,6 +9,7 @@ const groups = [{ id: 3, name: '授权分组' }, { id: 4, name: '备用分组' }
 const plan = { id: 7, group_id: 3, group_name: '授权分组', model_id: 'gpt-test', interval_minutes: 30, enabled: false, max_results: 20, min_chars: 9366, daily_call_limit: 0, failure_pause_threshold: 0, retention_days: 0, daily_calls_used: 0, usage_day: '2026-09-17', consecutive_failed_runs: 0, pause_reason: '', estimated_calls_per_run: 1, last_run_calls: 0, created_at: '', updated_at: '' }
 const wrappers: ReturnType<typeof mount>[] = []
 const mountPanel = () => { const wrapper = mount(PelicanPlansPanel, { props: { loading: false, groups, plans: [plan] } }); wrappers.push(wrapper); return wrapper }
+const openCreate = async (wrapper: ReturnType<typeof mount>) => wrapper.findAll('button').find(button => button.text() === '新建计划')!.trigger('click')
 
 describe('PelicanPlansPanel', () => {
   beforeEach(() => models.mockReset())
@@ -16,9 +17,11 @@ describe('PelicanPlansPanel', () => {
   it('renders an actual plan and only submits a selected configured model', async () => {
     models.mockResolvedValue(['gpt-test'])
     const wrapper = mountPanel()
-    expect(wrapper.text()).toContain('授权分组 · gpt-test')
+    expect(wrapper.text()).toContain('授权分组')
+    expect(wrapper.text()).toContain('gpt-test')
     await wrapper.findAll('button').find(button => button.text() === '立即运行')!.trigger('click')
     expect(wrapper.emitted('run')?.[0]).toEqual([7])
+    await openCreate(wrapper)
     await wrapper.get('select[aria-label="分组"]').setValue('3'); await flushPromises()
     expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined()
     await wrapper.get('select[aria-label="模型"]').setValue('gpt-test')
@@ -32,6 +35,7 @@ describe('PelicanPlansPanel', () => {
   it('saves a custom timeout and restores it when editing', async () => {
     models.mockResolvedValue(['gpt-test'])
     const wrapper = mountPanel()
+    await openCreate(wrapper)
     expect((wrapper.get('input[aria-label="测试超时秒"]').element as HTMLInputElement).value).toBe('180')
     await wrapper.get('select[aria-label="分组"]').setValue('3'); await flushPromises()
     await wrapper.get('select[aria-label="模型"]').setValue('gpt-test')
@@ -46,6 +50,7 @@ describe('PelicanPlansPanel', () => {
   it('round-trips the selected reasoning effort through create and edit', async () => {
     models.mockResolvedValue(['gpt-test'])
     const wrapper = mountPanel()
+    await openCreate(wrapper)
     await wrapper.get('select[aria-label="分组"]').setValue('3'); await flushPromises()
     await wrapper.get('select[aria-label="模型"]').setValue('gpt-test')
     await wrapper.get('select[aria-label="思考强度"]').setValue('xhigh')
@@ -78,6 +83,7 @@ describe('PelicanPlansPanel', () => {
     const wrapper = mountPanel()
     await wrapper.setProps({ plans: [{ ...plan, pause_reason: 'consecutive_failures' }] })
     await wrapper.findAll('button').find(button => button.text() === '恢复计划')!.trigger('click')
+    await wrapper.get('.plan-more summary').trigger('click')
     await wrapper.findAll('button').find(button => button.text() === '清理失败/跳过记录')!.trigger('click')
     await wrapper.findAll('button').find(button => button.text() === '按保留规则清理')!.trigger('click')
     expect(wrapper.emitted('resume')?.[0]).toEqual([7])
@@ -87,6 +93,7 @@ describe('PelicanPlansPanel', () => {
   it('ignores stale group model responses and clears the previous selection immediately', async () => {
     models.mockImplementation((groupID: number) => new Promise<string[]>(resolve => setTimeout(() => resolve(groupID === 3 ? ['gpt-three'] : ['gpt-four']), groupID === 3 ? 20 : 0)))
     const wrapper = mountPanel()
+    await openCreate(wrapper)
     await wrapper.get('select[aria-label="分组"]').setValue('3')
     await wrapper.get('select[aria-label="分组"]').setValue('4')
     await new Promise(resolve => setTimeout(resolve, 30)); await flushPromises()
@@ -111,10 +118,26 @@ describe('PelicanPlansPanel', () => {
   it('shows a retryable model-load error and blocks submission', async () => {
     models.mockRejectedValueOnce(new Error('目录暂不可用')).mockResolvedValueOnce(['gpt-retry'])
     const wrapper = mountPanel()
+    await openCreate(wrapper)
     await wrapper.get('select[aria-label="分组"]').setValue('3'); await flushPromises()
     expect(wrapper.text()).toContain('无法加载模型：目录暂不可用')
     expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined()
     await wrapper.findAll('button').find(button => button.text() === '重试')!.trigger('click'); await flushPromises()
     expect(wrapper.text()).toContain('gpt-retry')
+  })
+
+  it('keeps the editor collapsed until requested and filters plan statuses', async () => {
+    const wrapper = mountPanel()
+    expect(wrapper.find('form').exists()).toBe(false)
+    expect(wrapper.get('.overview-grid').text()).toContain('启用中')
+    await wrapper.setProps({ plans: [plan, { ...plan, id: 8, group_name: '运行分组', enabled: true }, { ...plan, id: 9, group_name: '暂停分组', pause_reason: 'consecutive_failures' }] })
+    expect(wrapper.get('.overview-grid').text()).toContain('自动暂停')
+    await wrapper.get('select[aria-label="筛选计划"]').setValue('paused')
+    expect(wrapper.findAll('.plan-card')).toHaveLength(1)
+    expect(wrapper.get('.plan-card').text()).toContain('暂停分组')
+    await openCreate(wrapper)
+    expect(wrapper.find('form').exists()).toBe(true)
+    await wrapper.findAll('button').find(button => button.text() === '关闭')!.trigger('click')
+    expect(wrapper.find('form').exists()).toBe(false)
   })
 })

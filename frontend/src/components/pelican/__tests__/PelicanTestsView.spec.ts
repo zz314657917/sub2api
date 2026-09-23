@@ -39,6 +39,7 @@ describe('PelicanTestsView', () => {
     try {
       await wrapper.get('select[aria-label="自动刷新间隔"]').setValue('15')
       await wrapper.findAll('button').find(button => button.text() === '管理测试计划')!.trigger('click'); await flushPromises()
+      await wrapper.findAll('button').find(button => button.text() === '新建计划')!.trigger('click')
       await wrapper.get('input[aria-label="间隔分钟"]').setValue('123')
       const calls = api.list.mock.calls.length
       auth.user = { id: 1 }; await flushPromises()
@@ -151,6 +152,7 @@ describe('PelicanTestsView', () => {
     api.create.mockRejectedValueOnce(new Error('保存失败'))
     const wrapper = await view()
     await wrapper.findAll('.admin-toggle')[1].trigger('click'); await flushPromises()
+    await wrapper.findAll('button').find(button => button.text() === '新建计划')!.trigger('click')
     await wrapper.get('select[aria-label="分组"]').setValue('3')
     await flushPromises()
     await wrapper.get('select[aria-label="模型"]').setValue('gpt-kept')
