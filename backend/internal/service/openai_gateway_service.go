@@ -8288,11 +8288,11 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 	billingTierOverride string,
 	requestCountOverride int,
 ) (*CostBreakdown, error) {
-	if s.resolver != nil && apiKey.Group != nil {
-		gid := apiKey.Group.ID
+	groupID := apiKeyPricingGroupID(apiKey)
+	if s.resolver != nil && groupID != nil {
 		resolved := s.resolver.Resolve(ctx, PricingInput{
 			Model:   billingModel,
-			GroupID: &gid,
+			GroupID: groupID,
 			Group:   apiKey.Group,
 		})
 		sizeTier := strings.TrimSpace(billingTierOverride)
@@ -8324,7 +8324,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 		return s.billingService.CalculateCostUnified(CostInput{
 			Ctx:                       ctx,
 			Model:                     billingModel,
-			GroupID:                   &gid,
+			GroupID:                   groupID,
 			Group:                     apiKey.Group,
 			Tokens:                    tokens,
 			RequestCount:              requestCount,
@@ -8367,11 +8367,11 @@ func (s *OpenAIGatewayService) calculateOpenAIImageCost(
 	billingTier := OpenAIImageBillingTierForModel(billingModel, result.ImageOutputSize, sizeTier, result.ImageQuality)
 	if resolved := s.resolveOpenAIChannelPricing(ctx, billingModel, apiKey); resolved != nil &&
 		(resolved.Mode == BillingModePerRequest || resolved.Mode == BillingModeImage) {
-		gid := apiKey.Group.ID
+		groupID := apiKeyPricingGroupID(apiKey)
 		cost, err := s.billingService.CalculateCostUnified(CostInput{
 			Ctx:            ctx,
 			Model:          billingModel,
-			GroupID:        &gid,
+			GroupID:        groupID,
 			Group:          apiKey.Group,
 			RequestCount:   result.ImageCount,
 			SizeTier:       billingTier,
@@ -8397,11 +8397,11 @@ func (s *OpenAIGatewayService) calculateOpenAIImageCost(
 }
 
 func (s *OpenAIGatewayService) resolveOpenAIChannelPricing(ctx context.Context, billingModel string, apiKey *APIKey) *ResolvedPricing {
-	if s.resolver == nil || apiKey == nil || apiKey.Group == nil {
+	groupID := apiKeyPricingGroupID(apiKey)
+	if s.resolver == nil || groupID == nil {
 		return nil
 	}
-	gid := apiKey.Group.ID
-	resolved := s.resolver.Resolve(ctx, PricingInput{Model: billingModel, GroupID: &gid, Group: apiKey.Group})
+	resolved := s.resolver.Resolve(ctx, PricingInput{Model: billingModel, GroupID: groupID, Group: apiKey.Group})
 	if resolved.Source == PricingSourceGroup || resolved.Source == PricingSourceChannel {
 		return resolved
 	}

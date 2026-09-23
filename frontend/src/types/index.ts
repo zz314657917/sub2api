@@ -412,6 +412,7 @@ export interface PublicSettings {
   available_channels_enabled: boolean
   model_plaza_enabled?: boolean
   model_plaza_require_auth?: boolean
+  service_store_enabled?: boolean
   group_buy_enabled?: boolean
   group_buy_product_name?: string
   group_buy_description?: string

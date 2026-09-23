@@ -9977,11 +9977,11 @@ func (s *GatewayService) hasResolvableTokenPricing(ctx context.Context, model st
 // resolveChannelPricing 检查指定模型是否存在渠道级别定价。
 // 返回非 nil 的 ResolvedPricing 表示有渠道定价，nil 表示走默认定价路径。
 func (s *GatewayService) resolveChannelPricing(ctx context.Context, billingModel string, apiKey *APIKey) *ResolvedPricing {
-	if s.resolver == nil || apiKey == nil || apiKey.Group == nil {
+	groupID := apiKeyPricingGroupID(apiKey)
+	if s.resolver == nil || groupID == nil {
 		return nil
 	}
-	gid := apiKey.Group.ID
-	resolved := s.resolver.Resolve(ctx, PricingInput{Model: billingModel, GroupID: &gid, Group: apiKey.Group})
+	resolved := s.resolver.Resolve(ctx, PricingInput{Model: billingModel, GroupID: groupID, Group: apiKey.Group})
 	if resolved.Source == PricingSourceGroup || resolved.Source == PricingSourceChannel {
 		return resolved
 	}
@@ -10004,11 +10004,11 @@ func (s *GatewayService) calculateImageCost(
 			OutputTokens:      result.Usage.OutputTokens,
 			ImageOutputTokens: result.Usage.ImageOutputTokens,
 		}
-		gid := apiKey.Group.ID
+		groupID := apiKeyPricingGroupID(apiKey)
 		cost, err := s.billingService.CalculateCostUnified(CostInput{
 			Ctx:            ctx,
 			Model:          billingModel,
-			GroupID:        &gid,
+			GroupID:        groupID,
 			Group:          apiKey.Group,
 			Tokens:         tokens,
 			RequestCount:   result.ImageCount,
@@ -10058,12 +10058,12 @@ func (s *GatewayService) calculateTokenCost(
 
 	var resolved *ResolvedPricing
 	var group *Group
+	groupID := apiKeyPricingGroupID(apiKey)
 	if apiKey != nil {
 		group = apiKey.Group
 	}
-	if s.resolver != nil && group != nil {
-		groupID := group.ID
-		resolved = s.resolver.Resolve(ctx, PricingInput{Model: billingModel, GroupID: &groupID, Group: group})
+	if s.resolver != nil && groupID != nil {
+		resolved = s.resolver.Resolve(ctx, PricingInput{Model: billingModel, GroupID: groupID, Group: group})
 	}
 
 	rateMultiplier := tokenMultiplier
@@ -10081,6 +10081,7 @@ func (s *GatewayService) calculateTokenCost(
 	cost, err := s.billingService.CalculateTokenCostForRequest(TokenCostRequest{
 		Ctx:               ctx,
 		Model:             billingModel,
+		GroupID:           groupID,
 		Group:             group,
 		Tokens:            tokens,
 		RateMultiplier:    rateMultiplier,

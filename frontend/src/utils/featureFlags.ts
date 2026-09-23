@@ -114,6 +114,11 @@ export const FeatureFlags = {
     mode: 'opt-out',
     label: 'Payment',
   }),
+  serviceStore: defineFlag({
+    key: 'service_store_enabled',
+    mode: 'opt-out',
+    label: 'Service Store',
+  }),
   groupBuy: defineFlag({
     key: 'group_buy_enabled',
     mode: 'opt-out',
