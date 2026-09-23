@@ -304,6 +304,24 @@
               />
             </div>
             <div>
+              <label class="input-label">{{ t('usage.compactionFilter') }}</label>
+              <Select
+                v-model="filters.native_compaction_v2"
+                :options="compactionOptions"
+                :placeholder="t('usage.allCompactionTypes')"
+                @change="applyFilters"
+              />
+            </div>
+            <div>
+              <label class="input-label">{{ t('admin.usage.billingType') }}</label>
+              <Select
+                v-model="filters.billing_type"
+                :options="billingTypeOptions"
+                :placeholder="t('admin.usage.allBillingTypes')"
+                @change="applyFilters"
+              />
+            </div>
+            <div>
               <label class="input-label">{{ t('admin.usage.billingMode') }}</label>
               <Select
                 v-model="filters.billing_mode"
@@ -1282,6 +1300,17 @@ const requestTypeOptions = computed(() => [
   { value: 'cyber', label: t('usage.cyber') }
 ])
 
+const compactionOptions = computed(() => [
+  { value: null, label: t('usage.allCompactionTypes') },
+  { value: true, label: t('usage.compactionOnly') },
+])
+
+const billingTypeOptions = computed(() => [
+  { value: null, label: t('admin.usage.allBillingTypes') },
+  { value: 0, label: t('admin.usage.billingTypeBalance') },
+  { value: 1, label: t('admin.usage.billingTypeSubscription') },
+])
+
 const billingModeOptions = computed(() => [
   { value: null, label: t('usage.allBillingModes') },
   { value: BILLING_MODE_TOKEN, label: getBillingModeLabel(BILLING_MODE_TOKEN, t) },
@@ -1313,6 +1342,8 @@ const filters = ref<UsageQueryParams>({
   group_id: undefined,
   model: undefined,
   request_type: undefined,
+  native_compaction_v2: null,
+  billing_type: null,
   billing_mode: undefined,
   start_date: undefined,
   end_date: undefined
@@ -1604,6 +1635,12 @@ const buildUsageQueryParams = (page: number, pageSize: number): UsageTableQueryP
   if (filters.value.request_type) {
     params.request_type = filters.value.request_type
   }
+  if (filters.value.native_compaction_v2 !== undefined && filters.value.native_compaction_v2 !== null) {
+    params.native_compaction_v2 = filters.value.native_compaction_v2
+  }
+  if (filters.value.billing_type !== undefined && filters.value.billing_type !== null) {
+    params.billing_type = filters.value.billing_type
+  }
   if (filters.value.billing_mode) {
     params.billing_mode = filters.value.billing_mode
   }
@@ -1681,6 +1718,8 @@ const loadUsageStats = async () => {
         group_id: filters.value.group_id ? Number(filters.value.group_id) : undefined,
         model: filters.value.model || undefined,
         request_type: filters.value.request_type,
+        native_compaction_v2: filters.value.native_compaction_v2,
+        billing_type: filters.value.billing_type,
         billing_mode: filters.value.billing_mode || undefined,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       }
@@ -1705,6 +1744,8 @@ const buildAnalyticsFilters = (): UsageQueryParams => ({
   group_id: filters.value.group_id ? Number(filters.value.group_id) : undefined,
   model: filters.value.model || undefined,
   request_type: filters.value.request_type,
+  native_compaction_v2: filters.value.native_compaction_v2,
+  billing_type: filters.value.billing_type,
   billing_mode: filters.value.billing_mode || undefined,
 })
 
@@ -1769,6 +1810,8 @@ const resetFilters = () => {
     group_id: undefined,
     model: undefined,
     request_type: undefined,
+    native_compaction_v2: null,
+    billing_type: null,
     billing_mode: undefined,
     start_date: undefined,
     end_date: undefined

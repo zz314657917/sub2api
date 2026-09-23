@@ -336,13 +336,14 @@ type UserBreakdownDimension struct {
 	Endpoint     string // filter by endpoint value (non-empty to enable)
 	EndpointType string // "inbound", "upstream", or "path"
 	// Additional filter conditions
-	UserID      int64  // filter by user_id (>0 to enable)
-	APIKeyID    int64  // filter by api_key_id (>0 to enable)
-	AccountID   int64  // filter by account_id (>0 to enable)
-	RequestType *int16 // filter by request_type (non-nil to enable)
-	Stream      *bool  // filter by stream flag (non-nil to enable)
-	BillingType *int8  // filter by billing_type (non-nil to enable)
-	SortBy      string // repository allowlisted sort key
+	UserID             int64  // filter by user_id (>0 to enable)
+	APIKeyID           int64  // filter by api_key_id (>0 to enable)
+	AccountID          int64  // filter by account_id (>0 to enable)
+	RequestType        *int16 // filter by request_type (non-nil to enable)
+	Stream             *bool  // filter by stream flag (non-nil to enable)
+	NativeCompactionV2 *bool  // filter by native compaction flag
+	BillingType        *int8  // filter by billing_type (non-nil to enable)
+	SortBy             string // repository allowlisted sort key
 }
 
 // APIKeyUsageTrendPoint represents API key usage trend data point
@@ -428,11 +429,12 @@ type UsageLogFilters struct {
 	RequestID string
 	Model     string
 	// ModelFilterSource controls how Model is matched. Empty preserves raw usage_logs.model semantics.
-	ModelFilterSource string
-	RequestType       *int16
-	Stream            *bool
-	BillingType       *int8
-	BillingMode       string
+	ModelFilterSource  string
+	RequestType        *int16
+	Stream             *bool
+	NativeCompactionV2 *bool
+	BillingType        *int8
+	BillingMode        string
 	// UpstreamModelMismatch is tri-state; false intentionally excludes NULL rows.
 	UpstreamModelMismatch *bool
 	StartTime             *time.Time

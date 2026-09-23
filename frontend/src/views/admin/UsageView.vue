@@ -268,6 +268,7 @@ const breakdownFilters = computed(() => {
   if (filters.value.account_id) f.account_id = filters.value.account_id
   if (filters.value.group_id) f.group_id = filters.value.group_id
   if (filters.value.request_type != null) f.request_type = filters.value.request_type
+  if (filters.value.native_compaction_v2 != null) f.native_compaction_v2 = filters.value.native_compaction_v2
   if (filters.value.billing_type != null) f.billing_type = filters.value.billing_type
   if (typeof filters.value.upstream_model_mismatch === 'boolean') f.upstream_model_mismatch = filters.value.upstream_model_mismatch
   return f
@@ -323,7 +324,7 @@ const getGranularityForRange = (start: string, end: string): 'day' | 'hour' => {
 }
 const defaultRange = getLast24HoursRangeDates()
 const startDate = ref(defaultRange.start); const endDate = ref(defaultRange.end)
-const filters = ref<AdminUsagePageFilters>({ user_id: undefined, model: undefined, group_id: undefined, request_type: undefined, billing_type: null, upstream_model_mismatch: undefined, start_date: startDate.value, end_date: endDate.value })
+const filters = ref<AdminUsagePageFilters>({ user_id: undefined, model: undefined, group_id: undefined, request_type: undefined, native_compaction_v2: null, billing_type: null, upstream_model_mismatch: undefined, start_date: startDate.value, end_date: endDate.value })
 const usageFiltersRef = ref<UsageFiltersExposed | null>(null)
 const pagination = reactive({ page: 1, page_size: getPersistedPageSize(), total: 0 })
 const sortState = reactive({
@@ -484,6 +485,7 @@ const loadModelStats = async (source: ModelDistributionSource, force = false) =>
       group_id: filters.value.group_id,
       request_type: requestType,
       stream: legacyStream === null ? undefined : legacyStream,
+      native_compaction_v2: filters.value.native_compaction_v2,
       billing_type: filters.value.billing_type,
       upstream_model_mismatch: typeof filters.value.upstream_model_mismatch === 'boolean' ? filters.value.upstream_model_mismatch : undefined,
     }
@@ -534,6 +536,7 @@ const loadChartData = async () => {
       group_id: filters.value.group_id,
       request_type: requestType,
       stream: legacyStream === null ? undefined : legacyStream,
+      native_compaction_v2: filters.value.native_compaction_v2,
       billing_type: filters.value.billing_type,
       upstream_model_mismatch: typeof filters.value.upstream_model_mismatch === 'boolean' ? filters.value.upstream_model_mismatch : undefined,
       include_stats: false,
@@ -640,6 +643,7 @@ const resetFilters = () => {
     start_date: startDate.value,
     end_date: endDate.value,
     request_type: undefined,
+    native_compaction_v2: null,
     billing_type: null,
     billing_mode: undefined,
     upstream_model_mismatch: undefined,

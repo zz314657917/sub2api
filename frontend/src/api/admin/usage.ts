@@ -118,6 +118,7 @@ export async function getStats(params: {
   model?: string
   request_type?: UsageRequestType
   stream?: boolean
+  native_compaction_v2?: boolean | null
   period?: string
   start_date?: string
   end_date?: string

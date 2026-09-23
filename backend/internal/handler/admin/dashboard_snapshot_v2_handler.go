@@ -44,6 +44,7 @@ type dashboardSnapshotV2Filters struct {
 	Model                 string
 	RequestType           *int16
 	Stream                *bool
+	NativeCompactionV2    *bool
 	BillingType           *int8
 	UpstreamModelMismatch *bool
 }
@@ -59,6 +60,7 @@ type dashboardSnapshotV2CacheKey struct {
 	Model                 string `json:"model"`
 	RequestType           *int16 `json:"request_type"`
 	Stream                *bool  `json:"stream"`
+	NativeCompactionV2    *bool  `json:"native_compaction_v2"`
 	BillingType           *int8  `json:"billing_type"`
 	UpstreamModelMismatch *bool  `json:"upstream_model_mismatch"`
 	IncludeStats          bool   `json:"include_stats"`
@@ -105,6 +107,7 @@ func (h *DashboardHandler) GetSnapshotV2(c *gin.Context) {
 		Model:                 filters.Model,
 		RequestType:           filters.RequestType,
 		Stream:                filters.Stream,
+		NativeCompactionV2:    filters.NativeCompactionV2,
 		BillingType:           filters.BillingType,
 		UpstreamModelMismatch: filters.UpstreamModelMismatch,
 		IncludeStats:          includeStats,
@@ -186,6 +189,7 @@ func (h *DashboardHandler) buildSnapshotV2Response(
 			filters.Model,
 			filters.RequestType,
 			filters.Stream,
+			filters.NativeCompactionV2,
 			filters.BillingType,
 			filters.UpstreamModelMismatch,
 		)
@@ -207,6 +211,7 @@ func (h *DashboardHandler) buildSnapshotV2Response(
 			usagestats.ModelSourceRequested,
 			filters.RequestType,
 			filters.Stream,
+			filters.NativeCompactionV2,
 			filters.BillingType,
 			filters.UpstreamModelMismatch,
 		)
@@ -227,6 +232,7 @@ func (h *DashboardHandler) buildSnapshotV2Response(
 			filters.GroupID,
 			filters.RequestType,
 			filters.Stream,
+			filters.NativeCompactionV2,
 			filters.BillingType,
 			filters.UpstreamModelMismatch,
 		)
@@ -303,6 +309,13 @@ func parseDashboardSnapshotV2Filters(c *gin.Context) (*dashboardSnapshotV2Filter
 		}
 		bt := int8(v)
 		filters.BillingType = &bt
+	}
+	if raw := strings.TrimSpace(c.Query("native_compaction_v2")); raw != "" {
+		value, err := strconv.ParseBool(raw)
+		if err != nil {
+			return nil, err
+		}
+		filters.NativeCompactionV2 = &value
 	}
 	if raw := strings.TrimSpace(c.Query("upstream_model_mismatch")); raw != "" {
 		value, err := strconv.ParseBool(raw)

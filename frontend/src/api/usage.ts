@@ -81,6 +81,7 @@ export interface TrendParams {
   group_id?: number
   request_type?: UsageQueryParams['request_type']
   stream?: boolean
+  native_compaction_v2?: boolean | null
   billing_type?: number | null
   billing_mode?: string | null
   timezone?: string
@@ -209,7 +210,7 @@ export async function getStats(
 export async function getStatsByDateRange(
   startDate: string,
   endDate: string,
-  filters: Pick<UsageQueryParams, 'api_key_id' | 'group_id' | 'model' | 'request_type' | 'stream' | 'billing_type' | 'billing_mode' | 'timezone'> = {}
+  filters: Pick<UsageQueryParams, 'api_key_id' | 'group_id' | 'model' | 'request_type' | 'stream' | 'native_compaction_v2' | 'billing_type' | 'billing_mode' | 'timezone'> = {}
 ): Promise<UsageStatsResponse> {
   const params: Record<string, unknown> = {
     start_date: startDate,
@@ -230,6 +231,9 @@ export async function getStatsByDateRange(
   }
   if (filters.stream !== undefined) {
     params.stream = filters.stream
+  }
+  if (filters.native_compaction_v2 !== undefined && filters.native_compaction_v2 !== null) {
+    params.native_compaction_v2 = filters.native_compaction_v2
   }
   if (filters.billing_type !== undefined && filters.billing_type !== null) {
     params.billing_type = filters.billing_type
@@ -321,6 +325,7 @@ export async function getDashboardModels(params?: {
   group_id?: number
   request_type?: UsageQueryParams['request_type']
   stream?: boolean
+  native_compaction_v2?: boolean | null
   billing_type?: number | null
   billing_mode?: string | null
   timezone?: string

@@ -7687,6 +7687,7 @@ type OpenAIRecordUsageInput struct {
 	APIKeyService        APIKeyQuotaUpdater
 	QuotaPlatform        string
 	CyberBlocked         bool
+	NativeCompactionV2   bool
 	ChannelUsageFields
 }
 
@@ -7705,6 +7706,7 @@ type CyberPolicyUsageInput struct {
 	IPAddress          string
 	RequestPayloadHash string
 	APIKeyService      APIKeyQuotaUpdater
+	NativeCompactionV2 bool
 	ChannelUsageFields
 }
 
@@ -7734,6 +7736,7 @@ func (s *OpenAIGatewayService) RecordCyberPolicyUsageLog(ctx context.Context, in
 		RequestPayloadHash: in.RequestPayloadHash,
 		APIKeyService:      in.APIKeyService,
 		CyberBlocked:       true,
+		NativeCompactionV2: in.NativeCompactionV2,
 		ChannelUsageFields: in.ChannelUsageFields,
 	}); err != nil {
 		logger.LegacyPrintf("service.openai_gateway", "cyber usage record failed: request_id=%s err=%v", in.RequestID, err)
@@ -7955,6 +7958,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		usageLog.RequestType = RequestTypeCyberBlocked
 	}
 	usageLog.OpenAIWSMode = result.OpenAIWSMode
+	usageLog.NativeCompactionV2 = input.NativeCompactionV2
 	usageLog.DurationMs = &durationMs
 	usageLog.FirstTokenMs = result.FirstTokenMs
 	usageLog.CreatedAt = time.Now()

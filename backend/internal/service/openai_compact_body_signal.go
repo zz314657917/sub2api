@@ -67,6 +67,11 @@ func isOpenAINativeCompactionV2(c *gin.Context) bool {
 	return c != nil && c.GetBool(openAINativeCompactionV2Key)
 }
 
+// IsOpenAINativeCompactionV2 exposes only the request-scoped marker, not the payload.
+func IsOpenAINativeCompactionV2(c *gin.Context) bool {
+	return isOpenAINativeCompactionV2(c)
+}
+
 func ensureOpenAIRemoteCompactionV2BetaFeature(h http.Header) {
 	if h == nil {
 		return

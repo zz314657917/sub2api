@@ -82,6 +82,7 @@ func TestUsageLogRepositoryCreateSyncRequestTypeAndLegacyFields(t *testing.T) {
 			sqlmock.AnyArg(), // user_agent
 			sqlmock.AnyArg(), // ip_address
 			sqlmock.AnyArg(), // session_id
+			log.NativeCompactionV2,
 			log.ImageCount,
 			sqlmock.AnyArg(), // image_size
 			sqlmock.AnyArg(), // image_input_size
@@ -173,6 +174,7 @@ func TestUsageLogRepositoryCreate_PersistsServiceTier(t *testing.T) {
 			sqlmock.AnyArg(),
 			sqlmock.AnyArg(),
 			sqlmock.AnyArg(), // session_id
+			log.NativeCompactionV2,
 			log.ImageCount,
 			sqlmock.AnyArg(),
 			sqlmock.AnyArg(), // image_input_size
@@ -1226,6 +1228,7 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullString{},
 			sql.NullString{},
 			sql.NullString{}, // session_id
+			false,            // native_compaction_v2
 			2,
 			sql.NullString{Valid: true, String: "4K"},
 			sql.NullString{Valid: true, String: "1024x1024"},
@@ -1305,6 +1308,7 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullString{},
 			sql.NullString{},
 			sql.NullString{}, // session_id
+			false,            // native_compaction_v2
 			0,
 			sql.NullString{},
 			sql.NullString{}, // image_input_size
@@ -1365,6 +1369,7 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullString{},
 			sql.NullString{},
 			sql.NullString{}, // session_id
+			false,            // native_compaction_v2
 			0,
 			sql.NullString{},
 			sql.NullString{}, // image_input_size
@@ -1425,6 +1430,7 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullString{},
 			sql.NullString{},
 			sql.NullString{}, // session_id
+			false,            // native_compaction_v2
 			0,
 			sql.NullString{},
 			sql.NullString{}, // image_input_size

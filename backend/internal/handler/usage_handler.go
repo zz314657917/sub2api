@@ -132,6 +132,15 @@ func (h *UsageHandler) parseUserUsageFilters(c *gin.Context, requireRange bool) 
 	}
 
 	var billingType *int8
+	var nativeCompactionV2 *bool
+	if raw := strings.TrimSpace(c.Query("native_compaction_v2")); raw != "" {
+		value, err := strconv.ParseBool(raw)
+		if err != nil {
+			response.BadRequest(c, "Invalid native_compaction_v2 value, use true or false")
+			return nil, false
+		}
+		nativeCompactionV2 = &value
+	}
 	if raw := strings.TrimSpace(c.Query("billing_type")); raw != "" {
 		value, err := strconv.ParseInt(raw, 10, 8)
 		if err != nil {
@@ -197,7 +206,7 @@ func (h *UsageHandler) parseUserUsageFilters(c *gin.Context, requireRange bool) 
 		Filters: usagestats.UsageLogFilters{
 			UserID: subject.UserID, APIKeyID: apiKeyID, GroupID: groupID,
 			Model: strings.TrimSpace(c.Query("model")), ModelFilterSource: usagestats.ModelSourceRequested,
-			RequestType: requestType, Stream: stream, BillingType: billingType, BillingMode: billingMode,
+			RequestType: requestType, Stream: stream, NativeCompactionV2: nativeCompactionV2, BillingType: billingType, BillingMode: billingMode,
 			StartTime: startPtr, EndTime: endPtr,
 		},
 		StartTime: startTime,
@@ -428,6 +437,15 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 	}
 
 	var billingType *int8
+	var nativeCompactionV2 *bool
+	if raw := strings.TrimSpace(c.Query("native_compaction_v2")); raw != "" {
+		value, err := strconv.ParseBool(raw)
+		if err != nil {
+			response.BadRequest(c, "Invalid native_compaction_v2 value, use true or false")
+			return
+		}
+		nativeCompactionV2 = &value
+	}
 	if billingTypeStr := c.Query("billing_type"); billingTypeStr != "" {
 		val, err := strconv.ParseInt(billingTypeStr, 10, 8)
 		if err != nil {
@@ -486,6 +504,7 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 		ModelFilterSource: usagestats.ModelSourceRequested,
 		RequestType:       requestType,
 		Stream:            stream,
+		NativeCompactionV2: nativeCompactionV2,
 		BillingType:       billingType,
 		BillingMode:       billingMode,
 		StartTime:         &startTime,

@@ -133,6 +133,15 @@ func (h *UsageHandler) List(c *gin.Context) {
 	}
 
 	var billingType *int8
+	var nativeCompactionV2 *bool
+	if raw := strings.TrimSpace(c.Query("native_compaction_v2")); raw != "" {
+		value, err := strconv.ParseBool(raw)
+		if err != nil {
+			response.BadRequest(c, "Invalid native_compaction_v2 value, use true or false")
+			return
+		}
+		nativeCompactionV2 = &value
+	}
 	if billingTypeStr := c.Query("billing_type"); billingTypeStr != "" {
 		val, err := strconv.ParseInt(billingTypeStr, 10, 8)
 		if err != nil {
@@ -190,6 +199,7 @@ func (h *UsageHandler) List(c *gin.Context) {
 		Model:                 model,
 		RequestType:           requestType,
 		Stream:                stream,
+		NativeCompactionV2:    nativeCompactionV2,
 		BillingType:           billingType,
 		BillingMode:           billingMode,
 		UpstreamModelMismatch: upstreamModelMismatch,
@@ -275,6 +285,15 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 	}
 
 	var billingType *int8
+	var nativeCompactionV2 *bool
+	if raw := strings.TrimSpace(c.Query("native_compaction_v2")); raw != "" {
+		value, err := strconv.ParseBool(raw)
+		if err != nil {
+			response.BadRequest(c, "Invalid native_compaction_v2 value, use true or false")
+			return
+		}
+		nativeCompactionV2 = &value
+	}
 	if billingTypeStr := c.Query("billing_type"); billingTypeStr != "" {
 		val, err := strconv.ParseInt(billingTypeStr, 10, 8)
 		if err != nil {
@@ -340,6 +359,7 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 		Model:                 model,
 		RequestType:           requestType,
 		Stream:                stream,
+		NativeCompactionV2:    nativeCompactionV2,
 		BillingType:           billingType,
 		BillingMode:           billingMode,
 		UpstreamModelMismatch: upstreamModelMismatch,
