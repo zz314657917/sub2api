@@ -25,6 +25,9 @@ func TestDefaultModelsIncludeGPT6Astra(t *testing.T) {
 	if !containsModelID(DefaultModelIDs(), "gpt-6") {
 		t.Fatal("DefaultModels missing gpt-6")
 	}
+	if !containsModelID(DefaultModelIDs(), "gpt-6-sol") || !containsModelID(DefaultModelIDs(), "gpt-6-luna") {
+		t.Fatal("DefaultModels missing GPT-6 Sol/Luna")
+	}
 }
 
 func containsModelID(models []string, want string) bool {
