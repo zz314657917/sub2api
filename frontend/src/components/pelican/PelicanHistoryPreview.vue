@@ -1,7 +1,7 @@
 <template>
   <div class="history-preview">
     <button v-if="html" class="preview" type="button" aria-label="放大历史作品" @click="$emit('enlarge', $event)">
-      <PelicanSandboxFrame :html="html" :replay-key="replayKey" />
+      <PelicanSandboxFrame :html="html" :replay-key="replayKey" :min-height="180" />
       <span class="overlay" />
     </button>
     <div v-else class="placeholder" role="status">
@@ -44,6 +44,7 @@ onBeforeUnmount(() => controller?.abort())
 <style scoped>
 .preview, .placeholder { width: 100%; border: 1px solid var(--pelican-border); border-radius: 10px; overflow: hidden; background: var(--pelican-input); }
 .preview { position: relative; display: block; padding: 0; cursor: zoom-in; }
+.preview :deep(.pelican-frame) { min-height: 180px; }
 .overlay { position: absolute; inset: 0; }
 .placeholder { display: flex; min-height: 180px; align-items: center; justify-content: center; gap: 12px; color: var(--pelican-muted); }
 .actions { display: flex; gap: 14px; margin-top: 8px; }

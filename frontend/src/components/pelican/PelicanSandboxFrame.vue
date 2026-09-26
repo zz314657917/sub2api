@@ -4,9 +4,9 @@
 import { computed, onBeforeMount, onBeforeUnmount, ref, watch } from 'vue'
 import { toPelicanSrcdoc } from './sanitizePelicanHtml'
 
-const props = withDefaults(defineProps<{ html: string; replayKey: number; interactive?: boolean }>(), { interactive: false })
+const props = withDefaults(defineProps<{ html: string; replayKey: number; interactive?: boolean; minHeight?: number }>(), { interactive: false, minHeight: 220 })
 const frame = ref<HTMLIFrameElement>()
-const frameHeight = ref(220)
+const frameHeight = ref(props.minHeight)
 const freshSecret = () => Array.from(crypto.getRandomValues(new Uint8Array(24)), byte => byte.toString(16).padStart(2, '0')).join('')
 const outerNonce = () => {
   const script = document.querySelector('script[nonce]') as HTMLScriptElement | null
@@ -18,7 +18,7 @@ let lastSequence = 0
 watch(() => [props.html, props.replayKey, props.interactive], () => {
   documentIdentity.value = { nonce: outerNonce(), token: freshSecret() }
   lastSequence = 0
-  frameHeight.value = 220
+  frameHeight.value = props.minHeight
 }, { flush: 'sync' })
 const safeDocument = computed(() => toPelicanSrcdoc(props.html, !props.interactive, documentIdentity.value))
 function receiveHeight(event: MessageEvent) {

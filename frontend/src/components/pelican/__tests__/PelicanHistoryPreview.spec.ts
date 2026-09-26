@@ -13,6 +13,7 @@ describe('history animated previews', () => {
     await flushPromises()
     expect(api.result).toHaveBeenCalledWith(12, expect.any(AbortSignal))
     expect(wrapper.get('iframe').attributes('sandbox')).toBe('allow-scripts')
+    expect(wrapper.getComponent(PelicanSandboxFrame).props('minHeight')).toBe(180)
     await wrapper.get('.preview').trigger('click')
     expect(wrapper.emitted('enlarge')).toHaveLength(1)
     await wrapper.findAll('button').find(button => button.text() === '重新播放')!.trigger('click')

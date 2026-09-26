@@ -36,6 +36,23 @@ func TestPelicanPromptIsUsedByClaudeStylePayload(t *testing.T) {
 	}
 }
 
+func TestClaudePelicanPayloadUsesLargerOutputBudget(t *testing.T) {
+	ordinary, err := createTestPayloadWithPrompt("claude-sonnet-4-5", "hi")
+	if err != nil {
+		t.Fatalf("ordinary payload: %v", err)
+	}
+	if got := int(ordinary["max_tokens"].(int)); got != 1024 {
+		t.Fatalf("ordinary max_tokens=%d, want 1024", got)
+	}
+	pelican, err := createTestPayloadWithMaxTokens("claude-sonnet-4-5", PelicanPrompt, pelicanClaudeMaxOutputTokens)
+	if err != nil {
+		t.Fatalf("pelican payload: %v", err)
+	}
+	if got := int(pelican["max_tokens"].(int)); got != pelicanClaudeMaxOutputTokens {
+		t.Fatalf("pelican max_tokens=%d, want %d", got, pelicanClaudeMaxOutputTokens)
+	}
+}
+
 type pelicanAdapterAccountRepo struct {
 	AccountRepository
 	account *Account

@@ -66,7 +66,11 @@ func (s *AccountTestService) testCNProviderAnthropicConnection(c *gin.Context, a
 	c.Writer.Header().Set("X-Accel-Buffering", "no")
 	c.Writer.Flush()
 
-	payload, err := createTestPayloadWithPrompt(testModelID, pelicanRequestPrompt(c, "hi"))
+	maxTokens := 1024
+	if c.GetBool("pelican_test") {
+		maxTokens = pelicanClaudeMaxOutputTokens
+	}
+	payload, err := createTestPayloadWithMaxTokens(testModelID, pelicanRequestPrompt(c, "hi"), maxTokens)
 	if err != nil {
 		return s.sendErrorAndEnd(c, "Failed to create Anthropic test payload")
 	}

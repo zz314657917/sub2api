@@ -132,12 +132,18 @@ func generateSessionString() (string, error) {
 	return FormatMetadataUserID(hex64, "", sessionUUID, uaVersion), nil
 }
 
+const pelicanClaudeMaxOutputTokens = 32768
+
 // createTestPayload creates a Claude Code style test request payload
 func createTestPayload(modelID string) (map[string]any, error) {
 	return createTestPayloadWithPrompt(modelID, "hi")
 }
 
 func createTestPayloadWithPrompt(modelID, prompt string) (map[string]any, error) {
+	return createTestPayloadWithMaxTokens(modelID, prompt, 1024)
+}
+
+func createTestPayloadWithMaxTokens(modelID, prompt string, maxTokens int) (map[string]any, error) {
 	sessionID, err := generateSessionString()
 	if err != nil {
 		return nil, err
@@ -171,7 +177,7 @@ func createTestPayloadWithPrompt(modelID, prompt string) (map[string]any, error)
 		"metadata": map[string]string{
 			"user_id": sessionID,
 		},
-		"max_tokens":  1024,
+		"max_tokens":  maxTokens,
 		"temperature": 1,
 		"stream":      true,
 	}, nil
@@ -293,7 +299,11 @@ func (s *AccountTestService) testClaudeAccountConnection(c *gin.Context, account
 	c.Writer.Flush()
 
 	// Create Claude Code style payload (same for all account types)
-	payload, err := createTestPayloadWithPrompt(testModelID, pelicanRequestPrompt(c, "hi"))
+	maxTokens := 1024
+	if c.GetBool("pelican_test") {
+		maxTokens = pelicanClaudeMaxOutputTokens
+	}
+	payload, err := createTestPayloadWithMaxTokens(testModelID, pelicanRequestPrompt(c, "hi"), maxTokens)
 	if err != nil {
 		return s.sendErrorAndEnd(c, "Failed to create test payload")
 	}
@@ -366,7 +376,11 @@ func (s *AccountTestService) testClaudeVertexServiceAccountConnection(c *gin.Con
 	c.Writer.Header().Set("X-Accel-Buffering", "no")
 	c.Writer.Flush()
 
-	payload, err := createTestPayloadWithPrompt(testModelID, pelicanRequestPrompt(c, "hi"))
+	maxTokens := 1024
+	if c.GetBool("pelican_test") {
+		maxTokens = pelicanClaudeMaxOutputTokens
+	}
+	payload, err := createTestPayloadWithMaxTokens(testModelID, pelicanRequestPrompt(c, "hi"), maxTokens)
 	if err != nil {
 		return s.sendErrorAndEnd(c, "Failed to create test payload")
 	}
