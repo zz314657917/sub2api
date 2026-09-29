@@ -21,7 +21,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const pelicanTestInstructions = "Generate only one complete HTML document containing a single 16:9 inline SVG artwork with viewBox=\"0 0 960 540\". The artwork must show a complete pelican riding a complete bicycle with two full wheels, hubs, spokes, and tires. Use only inline CSS @keyframes or declarative SVG animation, and make it autoplay. Do not output a title, explanation, card, navigation, controls, play/pause/replay buttons, Markdown fences, JavaScript, Canvas, iframe, audio/video, links, remote images, remote fonts, or any external resource. Return only the HTML source, beginning with <!DOCTYPE html> or <html> and ending with </html>. Do not inspect directories, create or edit files, invoke tools, or describe file operations."
+const pelicanTestInstructions = "Follow the user's prompt for the subject, composition, dimensions, and animation of the artwork. Generate only one complete, self-contained HTML document. Use inline CSS and SVG; animations may use CSS @keyframes or declarative SVG animation. Do not include Markdown fences, JavaScript, Canvas, iframe, audio/video, links, remote images, remote fonts, or any external resource. Return only the HTML source, beginning with <!DOCTYPE html> or <html> and ending with </html>. Do not inspect directories, create or edit files, invoke tools, or describe file operations."
 
 // The default Pelican minimum is 9,366 characters. 8,192 output tokens leave
 // enough room for SVG markup and animation while retaining a bounded request.
