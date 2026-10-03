@@ -660,9 +660,18 @@ token_refresh:
   sync_linked_sora_accounts: false
 
 # =============================================================================
+# API Key Creation Limits
+# API Key 创建数量和频率限制
+# =============================================================================
+# API Key creation safeguards. Each zero independently disables that guard.
+# Count includes all nondeleted keys (inactive, expired and managed); soft cap.
+# Hourly attempts use a fixed one-hour Redis window and fail open if Redis is unavailable.
+api_key_create:
+  max_active_per_user: 200
+  max_per_user_per_hour: 60
+
 # API Key Auth Cache Configuration
 # API Key 认证缓存配置
-# =============================================================================
 api_key_auth_cache:
   # L1 cache size (entries), in-process LRU/TTL cache
   # L1 缓存容量（条目数），进程内 LRU/TTL 缓存

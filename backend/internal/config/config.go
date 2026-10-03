@@ -88,6 +88,7 @@ type Config struct {
 	Pricing                 PricingConfig                 `mapstructure:"pricing"`
 	Gateway                 GatewayConfig                 `mapstructure:"gateway"`
 	APIKeyAuth              APIKeyAuthCacheConfig         `mapstructure:"api_key_auth_cache"`
+	APIKeyCreate            APIKeyCreateConfig            `mapstructure:"api_key_create"`
 	SubscriptionCache       SubscriptionCacheConfig       `mapstructure:"subscription_cache"`
 	SubscriptionMaintenance SubscriptionMaintenanceConfig `mapstructure:"subscription_maintenance"`
 	Dashboard               DashboardCacheConfig          `mapstructure:"dashboard_cache"`
@@ -1360,6 +1361,12 @@ type RegistrationRiskLimitConfig struct {
 	ShortWindowSeconds int `mapstructure:"short_window_seconds"`
 }
 
+// APIKeyCreateConfig API Key 创建数量和频率限制配置。
+type APIKeyCreateConfig struct {
+	MaxActivePerUser  int `mapstructure:"max_active_per_user"`
+	MaxPerUserPerHour int `mapstructure:"max_per_user_per_hour"`
+}
+
 // APIKeyAuthCacheConfig API Key 认证缓存配置
 type APIKeyAuthCacheConfig struct {
 	L1Size             int  `mapstructure:"l1_size"`
@@ -1953,6 +1960,8 @@ func setDefaults() {
 
 	// API Key auth cache
 	viper.SetDefault("api_key_auth_cache.l1_size", 65535)
+	viper.SetDefault("api_key_create.max_active_per_user", 200)
+	viper.SetDefault("api_key_create.max_per_user_per_hour", 60)
 	viper.SetDefault("api_key_auth_cache.l1_ttl_seconds", 15)
 	viper.SetDefault("api_key_auth_cache.l2_ttl_seconds", 300)
 	viper.SetDefault("api_key_auth_cache.negative_ttl_seconds", 30)
@@ -2199,6 +2208,12 @@ func setDefaults() {
 func (c *Config) Validate() error {
 	if c == nil {
 		return fmt.Errorf("config must not be nil")
+	}
+	if c.APIKeyCreate.MaxActivePerUser < 0 {
+		return fmt.Errorf("api_key_create.max_active_per_user must not be negative")
+	}
+	if c.APIKeyCreate.MaxPerUserPerHour < 0 {
+		return fmt.Errorf("api_key_create.max_per_user_per_hour must not be negative")
 	}
 	forwardedHeaders, err := NormalizeForwardedClientIPHeaders(c.Security.ForwardedClientIPHeaders)
 	if err != nil {

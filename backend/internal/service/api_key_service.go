@@ -842,6 +842,10 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 		}
 	}
 
+	if err := s.checkAPIKeyCreateLimits(ctx, userID); err != nil {
+		return nil, err
+	}
+
 	// 创建API Key记录
 	apiKey := &APIKey{
 		UserID:              userID,

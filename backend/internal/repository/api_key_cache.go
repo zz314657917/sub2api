@@ -13,12 +13,31 @@ import (
 )
 
 const (
+	apiKeyCreateCountPrefix    = "apikey:create:hour:"
 	apiKeyRateLimitKeyPrefix   = "apikey:ratelimit:"
 	apiKeyRateLimitDuration    = 24 * time.Hour
 	apiKeyAuthCachePrefix      = "apikey:auth:"
 	apiKeyRouteCooldownPrefix  = "apikey:route:cooldown:"
 	authCacheInvalidateChannel = "auth:cache:invalidate"
 )
+
+var apiKeyCreateCountScript = redis.NewScript(`
+local count = redis.call("INCR", KEYS[1])
+if count == 1 then
+    redis.call("EXPIRE", KEYS[1], 3600)
+end
+return count
+`)
+
+var _ service.APIKeyCreateCounter = (*apiKeyCache)(nil)
+
+func (c *apiKeyCache) IncrementAPIKeyCreateCount(ctx context.Context, userID int64) (int64, error) {
+	if c.rdb == nil {
+		return 0, errors.New("API key creation Redis client unavailable")
+	}
+	key := fmt.Sprintf("%s%d", apiKeyCreateCountPrefix, userID)
+	return apiKeyCreateCountScript.Run(ctx, c.rdb, []string{key}).Int64()
+}
 
 // apiKeyRateLimitKey generates the Redis key for API key creation rate limiting.
 func apiKeyRateLimitKey(userID int64) string {
