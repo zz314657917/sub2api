@@ -29,6 +29,7 @@ func (s *BillingService) LegacyLongContextRule(platform string) *LegacyLongConte
 type TokenCostRequest struct {
 	Ctx               context.Context
 	Model             string
+	GroupID           *int64
 	Group             *Group
 	Tokens            UsageTokens
 	RateMultiplier    float64
@@ -63,7 +64,7 @@ func (s *BillingService) CalculateTokenCostForRequest(req TokenCostRequest) (*Co
 			req.LegacyLongContext.Multiplier,
 		)
 	}
-	if req.Resolver != nil && req.Group != nil {
+	if req.Resolver != nil && (req.Group != nil || req.GroupID != nil) {
 		return s.CalculateCostUnified(s.tokenCostInput(req))
 	}
 	return s.CalculateCost(req.Model, req.Tokens, req.RateMultiplier)
@@ -73,6 +74,7 @@ func (s *BillingService) tokenCostInput(req TokenCostRequest) CostInput {
 	input := CostInput{
 		Ctx:            req.Ctx,
 		Model:          req.Model,
+		GroupID:        req.GroupID,
 		Group:          req.Group,
 		Tokens:         req.Tokens,
 		RequestCount:   1,
@@ -80,7 +82,7 @@ func (s *BillingService) tokenCostInput(req TokenCostRequest) CostInput {
 		Resolver:       req.Resolver,
 		Resolved:       req.Resolved,
 	}
-	if req.Group != nil {
+	if input.GroupID == nil && req.Group != nil {
 		groupID := req.Group.ID
 		input.GroupID = &groupID
 	}
