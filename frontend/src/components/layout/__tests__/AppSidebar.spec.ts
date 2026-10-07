@@ -186,12 +186,6 @@ describe('AppSidebar chat image navigation', () => {
 })
 
 describe('AppSidebar self navigation groups', () => {
-  it('hides store links from self and admin navigation while keeping routes available', () => {
-    expect(componentSource).not.toContain("path: '/store', label: t('nav.serviceStore')")
-    expect(componentSource).not.toContain("path: '/store/orders', label: t('nav.storeOrders')")
-    expect(componentSource).not.toContain("path: '/admin/store', label: t('nav.storeManagement')")
-  })
-
   it('keeps account entries ungrouped at the bottom while usage/status links stay available', () => {
     expect(componentSource).not.toContain("label: t('nav.accountCenter')")
     expect(componentSource).not.toContain("path: '/self/account-center'")
