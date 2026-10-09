@@ -315,6 +315,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		ModelPlazaEnabled:                         settings.ModelPlazaEnabled,
 		ModelPlazaRequireAuth:                     settings.ModelPlazaRequireAuth,
 		ModelPlazaDescription:                     settings.ModelPlazaDescription,
+		ServiceStoreEnabled:                       settings.ServiceStoreEnabled,
 		GroupBuyEnabled:                           settings.GroupBuyEnabled,
 		GroupBuyProductName:                       settings.GroupBuyProductName,
 		GroupBuyDescription:                       settings.GroupBuyDescription,
@@ -633,6 +634,7 @@ type UpdateSettingsRequest struct {
 	HideCcsImportButton         bool                    `json:"hide_ccs_import_button"`
 	PurchaseSubscriptionEnabled *bool                   `json:"purchase_subscription_enabled"`
 	PurchaseSubscriptionURL     *string                 `json:"purchase_subscription_url"`
+	ServiceStoreEnabled         *bool                   `json:"service_store_enabled"`
 	GroupBuyEnabled             *bool                   `json:"group_buy_enabled"`
 	GroupBuyProductName         *string                 `json:"group_buy_product_name"`
 	GroupBuyDescription         *string                 `json:"group_buy_description"`
@@ -2001,6 +2003,12 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.GroupBuyEnabled
 		}(),
+		ServiceStoreEnabled: func() bool {
+			if req.ServiceStoreEnabled != nil {
+				return *req.ServiceStoreEnabled
+			}
+			return previousSettings.ServiceStoreEnabled
+		}(),
 		GroupBuyProductName: func() string {
 			if req.GroupBuyProductName != nil {
 				return strings.TrimSpace(*req.GroupBuyProductName)
@@ -2477,6 +2485,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		ModelPlazaEnabled:                         updatedSettings.ModelPlazaEnabled,
 		ModelPlazaRequireAuth:                     updatedSettings.ModelPlazaRequireAuth,
 		ModelPlazaDescription:                     updatedSettings.ModelPlazaDescription,
+		ServiceStoreEnabled:                       updatedSettings.ServiceStoreEnabled,
 		GroupBuyEnabled:                           updatedSettings.GroupBuyEnabled,
 		GroupBuyProductName:                       updatedSettings.GroupBuyProductName,
 		GroupBuyDescription:                       updatedSettings.GroupBuyDescription,
@@ -2994,6 +3003,9 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.ModelPlazaDescription != after.ModelPlazaDescription {
 		changed = append(changed, "model_plaza_description")
+	}
+	if before.ServiceStoreEnabled != after.ServiceStoreEnabled {
+		changed = append(changed, "service_store_enabled")
 	}
 	if before.GroupBuyEnabled != after.GroupBuyEnabled {
 		changed = append(changed, "group_buy_enabled")

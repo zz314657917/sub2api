@@ -176,6 +176,7 @@ const (
 	SettingKeyAccountShareEnabled              = "account_share_enabled"
 	SettingKeyAccountShareChannelStatusVisible = "account_share_channel_status_visible"
 	SettingKeyExternalCapacityReferenceEnabled = "external_capacity_reference_enabled"
+	SettingKeyServiceStoreEnabled              = "service_store_enabled"
 	SettingKeyGroupBuyEnabled                  = "group_buy_enabled"
 	SettingKeyGroupBuyProductName              = "group_buy_product_name"
 	SettingKeyGroupBuyDescription              = "group_buy_description"

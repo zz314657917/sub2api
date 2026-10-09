@@ -546,6 +546,7 @@ export interface SystemSettings {
 
   // Payment configuration
   payment_enabled: boolean;
+  service_store_enabled: boolean;
   group_buy_enabled: boolean;
   group_buy_product_name: string;
   group_buy_description: string;
@@ -830,6 +831,7 @@ export interface UpdateSettingsRequest {
   antigravity_user_agent_version?: string;
   // Payment configuration
   payment_enabled?: boolean;
+  service_store_enabled?: boolean;
   group_buy_enabled?: boolean;
   group_buy_product_name?: string;
   group_buy_description?: string;

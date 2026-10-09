@@ -1025,6 +1025,7 @@ var ProviderSet = wire.NewSet(
 	ProvideGroupBuyLifecycleService,
 	ProvidePaymentConfigService,
 	ProvidePaymentService,
+	ProvideDigitalStoreService,
 	ProvidePaymentOrderExpiryService,
 	ProvideBalanceNotifyService,
 	ProvideChannelMonitorService,
@@ -1059,6 +1060,14 @@ func ProvidePaymentService(
 	svc.SetSystemTicketService(systemTicketSvc)
 	svc.SetNotificationEmailService(notificationEmailService)
 	return svc
+}
+
+// ProvideDigitalStoreService registers the explicit store fulfillment hook
+// after constructing both services, avoiding a constructor cycle.
+func ProvideDigitalStoreService(entClient *dbent.Client, settingService *SettingService, encryptor SecretEncryptor, paymentService *PaymentService) *DigitalStoreService {
+	store := NewDigitalStoreService(entClient, settingService, encryptor, paymentService)
+	paymentService.SetStoreFulfillment(store)
+	return store
 }
 
 // ProvideBalanceNotifyService creates BalanceNotifyService

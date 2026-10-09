@@ -14,6 +14,12 @@ export default {
         payment: 'Payment',
       },
       features: {
+        serviceStore: {
+          title: 'Service Store',
+          description: 'Controls the Service Store entry and page access for signed-in users.',
+          enabled: 'Enable Service Store',
+          enabledHint: 'When disabled, the user entry is hidden and /store redirects to the console dashboard.',
+        },
         channelMonitor: {
           title: 'Channel Monitor',
           description: 'Periodically probe configured channels and surface availability / latency to users. Turning it off stops the scheduler and returns an empty list on the user page.',

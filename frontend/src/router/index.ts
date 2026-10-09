@@ -210,6 +210,30 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/store',
+    name: 'ServiceStore',
+    component: () => import('@/views/user/ServiceStoreView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      requiresServiceStore: true,
+      title: 'Service Store',
+      titleKey: 'nav.serviceStore'
+    }
+  },
+  {
+    path: '/store/orders',
+    name: 'StoreOrders',
+    component: () => import('@/views/user/StoreOrdersView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      requiresServiceStore: true,
+      title: 'Store Orders',
+      titleKey: 'nav.storeOrders'
+    }
+  },
+  {
     path: '/keys',
     name: 'Keys',
     component: () => import('@/views/user/KeysView.vue'),
@@ -881,6 +905,12 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/store',
+    name: 'AdminStoreManagement',
+    component: () => import('@/views/admin/StoreManagementView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Store Management', titleKey: 'nav.storeManagement' }
+  },
+  {
     path: '/admin/orders/invoices',
     name: 'AdminInvoiceRequests',
     component: () => import('@/views/admin/orders/AdminInvoiceRequestsView.vue'),
@@ -1141,6 +1171,11 @@ router.beforeEach(async (to, _from, next) => {
     !isFeatureFlagEnabled(FeatureFlags.groupBuy) &&
     !isFeatureFlagEnabled(FeatureFlags.pixelCafe)
   ) {
+    next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
+    return
+  }
+
+  if (to.meta.requiresServiceStore && !isFeatureFlagEnabled(FeatureFlags.serviceStore)) {
     next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
     return
   }

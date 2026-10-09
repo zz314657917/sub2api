@@ -113,6 +113,7 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		AvailableChannelsEnabled:   settings.AvailableChannelsEnabled,
 		ModelPlazaEnabled:          settings.ModelPlazaEnabled,
 		ModelPlazaRequireAuth:      settings.ModelPlazaRequireAuth,
+		ServiceStoreEnabled:        settings.ServiceStoreEnabled,
 		GroupBuyEnabled:            settings.GroupBuyEnabled,
 		GroupBuyProductName:        settings.GroupBuyProductName,
 		GroupBuyDescription:        settings.GroupBuyDescription,

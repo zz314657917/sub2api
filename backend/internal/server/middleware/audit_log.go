@@ -146,6 +146,11 @@ var auditActionOverrides = map[string]string{
 	"POST /api/v1/admin/prompt-audit/events/batch-delete":     "admin.prompt_audit.events.batch_delete",
 	"POST /api/v1/admin/prompt-audit/events/delete-preview":   "admin.prompt_audit.events.delete_preview",
 	"POST /api/v1/admin/prompt-audit/events/delete-by-filter": "admin.prompt_audit.events.filter_delete",
+	"POST /api/v1/admin/store/products":                       "admin.store.products.create",
+	"PUT /api/v1/admin/store/products/:id":                    "admin.store.products.update",
+	"POST /api/v1/admin/store/files":                          "admin.store.files.create",
+	"POST /api/v1/admin/store/products/:id/stock":             "admin.store.stock.import",
+	"POST /api/v1/admin/store/orders/:id/retry":               "admin.store.orders.retry",
 }
 
 // auditBodyOmittedRoutes 请求体几乎整体由凭证构成的路由（如整块粘贴 auth JSON 的导入接口）。
@@ -165,6 +170,8 @@ var auditBodyOmittedRoutes = map[string]struct{}{
 	"POST /api/v1/admin/prompt-audit/events/batch-delete":       {},
 	"POST /api/v1/admin/prompt-audit/events/delete-preview":     {},
 	"POST /api/v1/admin/prompt-audit/events/delete-by-filter":   {},
+	"POST /api/v1/admin/store/files":                            {},
+	"POST /api/v1/admin/store/products/:id/stock":               {},
 }
 
 // NewAuditLogMiddleware 创建审计中间件。

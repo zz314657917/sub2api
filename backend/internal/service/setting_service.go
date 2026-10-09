@@ -1115,6 +1115,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyAvailableChannelsEnabled,
 		SettingKeyModelPlazaEnabled,
 		SettingKeyModelPlazaRequireAuth,
+		SettingKeyServiceStoreEnabled,
 		SettingKeyGroupBuyEnabled,
 		SettingKeyGroupBuyProductName,
 		SettingKeyGroupBuyDescription,
@@ -1255,6 +1256,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		AvailableChannelsEnabled:   settings[SettingKeyAvailableChannelsEnabled] == "true",
 		ModelPlazaEnabled:          settings[SettingKeyModelPlazaEnabled] == "true",
 		ModelPlazaRequireAuth:      settings[SettingKeyModelPlazaRequireAuth] == "true",
+		ServiceStoreEnabled:        !isFalseSettingValue(settings[SettingKeyServiceStoreEnabled]),
 		GroupBuyEnabled:            !isFalseSettingValue(settings[SettingKeyGroupBuyEnabled]),
 		GroupBuyProductName:        normalizeGroupBuyProductName(settings[SettingKeyGroupBuyProductName]),
 		GroupBuyDescription:        strings.TrimSpace(settings[SettingKeyGroupBuyDescription]),
@@ -1542,6 +1544,7 @@ type PublicSettingsInjectionPayload struct {
 	AvailableChannelsEnabled             bool                       `json:"available_channels_enabled"`
 	ModelPlazaEnabled                    bool                       `json:"model_plaza_enabled"`
 	ModelPlazaRequireAuth                bool                       `json:"model_plaza_require_auth"`
+	ServiceStoreEnabled                  bool                       `json:"service_store_enabled"`
 	GroupBuyEnabled                      bool                       `json:"group_buy_enabled"`
 	GroupBuyProductName                  string                     `json:"group_buy_product_name"`
 	GroupBuyDescription                  string                     `json:"group_buy_description"`
@@ -1634,6 +1637,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		AvailableChannelsEnabled:             settings.AvailableChannelsEnabled,
 		ModelPlazaEnabled:                    settings.ModelPlazaEnabled,
 		ModelPlazaRequireAuth:                settings.ModelPlazaRequireAuth,
+		ServiceStoreEnabled:                  settings.ServiceStoreEnabled,
 		GroupBuyEnabled:                      settings.GroupBuyEnabled,
 		GroupBuyProductName:                  settings.GroupBuyProductName,
 		GroupBuyDescription:                  settings.GroupBuyDescription,
@@ -2341,6 +2345,7 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 		return nil, fmt.Errorf("model plaza description must not exceed %d characters", maxModelPlazaDescriptionRunes)
 	}
 	updates[SettingKeyModelPlazaDescription] = modelPlazaDescription
+	updates[SettingKeyServiceStoreEnabled] = strconv.FormatBool(settings.ServiceStoreEnabled)
 	updates[SettingKeyGroupBuyEnabled] = strconv.FormatBool(settings.GroupBuyEnabled)
 	updates[SettingKeyGroupBuyProductName] = normalizeGroupBuyProductName(settings.GroupBuyProductName)
 	updates[SettingKeyGroupBuyDescription] = strings.TrimSpace(settings.GroupBuyDescription)
@@ -3666,6 +3671,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyModelPlazaEnabled:                         "false",
 		SettingKeyModelPlazaRequireAuth:                     "false",
 		SettingKeyModelPlazaDescription:                     "",
+		SettingKeyServiceStoreEnabled:                       "true",
 		SettingKeyGroupBuyEnabled:                           "true",
 		SettingKeyGroupBuyProductName:                       "Token拼拼拼",
 		SettingKeyGroupBuyDescription:                       "按份额拼团，满份后开通 Token拼拼拼 权益；使用自己的平台 API Key。",
@@ -4180,6 +4186,7 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	result.ModelPlazaEnabled = settings[SettingKeyModelPlazaEnabled] == "true"
 	result.ModelPlazaRequireAuth = settings[SettingKeyModelPlazaRequireAuth] == "true"
 	result.ModelPlazaDescription = strings.TrimSpace(settings[SettingKeyModelPlazaDescription])
+	result.ServiceStoreEnabled = !isFalseSettingValue(settings[SettingKeyServiceStoreEnabled])
 	result.GroupBuyEnabled = !isFalseSettingValue(settings[SettingKeyGroupBuyEnabled])
 	result.GroupBuyProductName = normalizeGroupBuyProductName(settings[SettingKeyGroupBuyProductName])
 	result.GroupBuyDescription = strings.TrimSpace(settings[SettingKeyGroupBuyDescription])

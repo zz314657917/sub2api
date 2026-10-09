@@ -147,15 +147,19 @@ func (s *PaymentService) toPaid(ctx context.Context, o *dbent.PaymentOrder, trad
 	previousStatus := o.Status
 	now := time.Now()
 	grace := now.Add(-paymentGraceMinutes * time.Minute)
+	expiredEligible := paymentorder.And(paymentorder.StatusEQ(OrderStatusExpired), paymentorder.UpdatedAtGTE(grace))
+	if o.OrderType == payment.OrderTypeStore {
+		// A verified late Store payment must remain visible for manual delivery
+		// even after the generic grace window; released stock is never reclaimed
+		// automatically by the Store fulfillment transaction.
+		expiredEligible = paymentorder.StatusEQ(OrderStatusExpired)
+	}
 	c, err := s.entClient.PaymentOrder.Update().Where(
 		paymentorder.IDEQ(o.ID),
 		paymentorder.Or(
 			paymentorder.StatusEQ(OrderStatusPending),
 			paymentorder.StatusEQ(OrderStatusCancelled),
-			paymentorder.And(
-				paymentorder.StatusEQ(OrderStatusExpired),
-				paymentorder.UpdatedAtGTE(grace),
-			),
+			expiredEligible,
 		),
 	).SetStatus(OrderStatusPaid).SetPayAmount(paid).SetPaymentTradeNo(tradeNo).SetPaidAt(now).ClearFailedAt().ClearFailedReason().Save(ctx)
 	if err != nil {
@@ -233,13 +237,46 @@ func (s *PaymentService) executeFulfillment(ctx context.Context, oid int64) erro
 		return fmt.Errorf("get order: %w", err)
 	}
 	switch o.OrderType {
+	case payment.OrderTypeBalance:
+		return s.ExecuteBalanceFulfillment(ctx, oid)
 	case payment.OrderTypeSubscription:
 		return s.ExecuteSubscriptionFulfillment(ctx, oid)
 	case payment.OrderTypeGroupBuy:
 		return s.ExecuteGroupBuyFulfillment(ctx, oid)
+	case payment.OrderTypeStore:
+		return s.ExecuteStoreFulfillment(ctx, oid)
 	default:
-		return s.ExecuteBalanceFulfillment(ctx, oid)
+		// Unknown order types must never fall through to a balance credit.
+		return infraerrors.BadRequest("UNKNOWN_ORDER_TYPE", "unsupported order type")
 	}
+}
+
+// ExecuteStoreFulfillment delegates the whole delivery transaction to the
+// store service. Unlike balance/subscription fulfillment it must not make an
+// intermediate generic state transition: payment completion and delivery are
+// one store-owned transaction, so a crash cannot report a delivered item as
+// merely recharging (or credit a balance by fallback).
+func (s *PaymentService) ExecuteStoreFulfillment(ctx context.Context, oid int64) error {
+	o, err := s.entClient.PaymentOrder.Get(ctx, oid)
+	if err != nil {
+		return infraerrors.NotFound("NOT_FOUND", "order not found")
+	}
+	if o.OrderType != payment.OrderTypeStore {
+		return infraerrors.BadRequest("INVALID_ORDER_TYPE", "order is not a store order")
+	}
+	if psIsRefundStatus(o.Status) {
+		return infraerrors.BadRequest("INVALID_STATUS", "refund-related order cannot fulfill")
+	}
+	if o.Status == OrderStatusCompleted {
+		return nil
+	}
+	if o.Status != OrderStatusPaid && o.Status != OrderStatusRecharging && o.Status != OrderStatusFailed {
+		return infraerrors.BadRequest("INVALID_STATUS", "order cannot fulfill in status "+o.Status)
+	}
+	if s.storeSvc == nil {
+		return infraerrors.InternalServer("STORE_FULFILLMENT_NOT_CONFIGURED", "store fulfillment is not configured")
+	}
+	return s.storeSvc.FulfillStoreOrder(ctx, oid)
 }
 
 func (s *PaymentService) ExecuteGroupBuyFulfillment(ctx context.Context, oid int64) error {

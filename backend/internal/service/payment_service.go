@@ -198,6 +198,7 @@ type PaymentService struct {
 	systemTicketSvc          *SystemTicketService
 	welfareService           *WelfareService
 	groupBuySvc              groupBuyFulfillmentService
+	storeSvc                 storeFulfillmentService
 	notificationEmailService *NotificationEmailService
 	now                      func() time.Time
 }
@@ -205,6 +206,17 @@ type PaymentService struct {
 type groupBuyFulfillmentService interface {
 	HandleGroupBuyOrderPaid(ctx context.Context, orderID int64) error
 	ReleaseGroupBuySeatForOrder(ctx context.Context, orderID int64, reason string) error
+}
+
+// storeFulfillmentService deliberately has a narrower contract than the
+// generic payment service. Store fulfillment owns the transaction which
+// consumes inventory, writes encrypted delivery and completes the payment.
+// Keeping that transaction in the store module prevents a paid digital-good
+// order from accidentally using balance or subscription fulfillment.
+type storeFulfillmentService interface {
+	FulfillStoreOrder(ctx context.Context, paymentOrderID int64) error
+	ReleaseStoreReservation(ctx context.Context, paymentOrderID int64, reason string) error
+	ReconcileStoreOrders(ctx context.Context) (int, error)
 }
 
 func NewPaymentService(entClient *dbent.Client, registry *payment.Registry, loadBalancer payment.LoadBalancer, redeemService *RedeemService, subscriptionSvc *SubscriptionService, configService *PaymentConfigService, userRepo UserRepository, groupRepo GroupRepository, affiliateService *AffiliateService, membershipSvc ...*MembershipService) *PaymentService {
@@ -238,6 +250,12 @@ func (s *PaymentService) SetWelfareService(welfareService *WelfareService) {
 func (s *PaymentService) SetGroupBuyFulfillment(groupBuySvc groupBuyFulfillmentService) {
 	if s != nil {
 		s.groupBuySvc = groupBuySvc
+	}
+}
+
+func (s *PaymentService) SetStoreFulfillment(storeSvc storeFulfillmentService) {
+	if s != nil {
+		s.storeSvc = storeSvc
 	}
 }
 

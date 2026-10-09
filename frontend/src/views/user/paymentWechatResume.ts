@@ -36,6 +36,9 @@ export function parseWechatResumeRoute(
   if (!hasWechatResumeQuery(query)) {
     return null
   }
+  // Store checkout is handled only by its authenticated endpoint. Never turn
+  // a misplaced Store callback into a balance recharge.
+  if (readQueryString(query, 'order_type') === 'store') return null
 
   const wechatResumeToken = readQueryString(query, 'wechat_resume_token')
   const paymentType = normalizeVisibleMethod(readQueryString(query, 'payment_type')) || 'wxpay'

@@ -141,6 +141,11 @@ func (s *PaymentService) cancelCore(ctx context.Context, o *dbent.PaymentOrder, 
 				slog.Warn("release group buy seat after order cancel failed", "orderID", o.ID, "error", err)
 			}
 		}
+		if o.OrderType == payment.OrderTypeStore && s.storeSvc != nil {
+			if err := s.storeSvc.ReleaseStoreReservation(ctx, o.ID, ad); err != nil {
+				slog.Warn("release store reservation after order cancel failed", "orderID", o.ID, "error", err)
+			}
+		}
 	}
 	return checkPaidResultCancelled, nil
 }

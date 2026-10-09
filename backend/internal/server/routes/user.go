@@ -219,6 +219,17 @@ func RegisterUserRoutes(
 			cafe.DELETE("/rooms/:id/reservations/:reservation_id", h.Cafe.CancelReservation)
 		}
 
+		store := authenticated.Group("/store")
+		{
+			store.GET("/products", h.DigitalStore.ListProducts)
+			store.POST("/orders", h.DigitalStore.CreateOrder)
+			store.GET("/orders", h.DigitalStore.ListOrders)
+			store.GET("/orders/:id", h.DigitalStore.GetOrder)
+			store.GET("/orders/:id/delivery", h.DigitalStore.GetDelivery)
+			store.GET("/orders/:id/download", h.DigitalStore.Download)
+			store.POST("/orders/:id/resume", h.DigitalStore.ResumeOrder)
+		}
+
 		// 使用记录
 		usage := authenticated.Group("/usage")
 		{

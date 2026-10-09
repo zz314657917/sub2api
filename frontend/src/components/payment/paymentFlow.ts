@@ -305,7 +305,7 @@ export function readPaymentRecoverySnapshot(
       countryCode: parsed.countryCode || '',
       paymentEnv: parsed.paymentEnv || '',
       payAmount: parsed.payAmount,
-      orderType: parsed.orderType === 'subscription' || parsed.orderType === 'group_buy'
+      orderType: parsed.orderType === 'subscription' || parsed.orderType === 'group_buy' || parsed.orderType === 'store'
         ? parsed.orderType
         : 'balance',
       paymentMode: parsed.paymentMode,

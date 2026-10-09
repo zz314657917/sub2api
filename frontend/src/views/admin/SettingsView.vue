@@ -5584,6 +5584,30 @@
           </div>
         </div>
 
+        <div class="card" data-testid="service-store-feature-settings">
+          <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              {{ t('admin.settings.features.serviceStore.title') }}
+            </h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {{ t('admin.settings.features.serviceStore.description') }}
+            </p>
+          </div>
+          <div class="p-6">
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('admin.settings.features.serviceStore.enabled') }}
+                </label>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.features.serviceStore.enabledHint') }}
+                </p>
+              </div>
+              <Toggle v-model="form.service_store_enabled" data-testid="service-store-enabled" />
+            </div>
+          </div>
+        </div>
+
         <div class="card" data-testid="group-buy-feature-settings">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
@@ -8926,6 +8950,7 @@ const form = reactive<SettingsForm>({
   backend_mode_enabled: false,
   hide_ccs_import_button: false,
   payment_enabled: false,
+  service_store_enabled: true,
   group_buy_enabled: true,
   group_buy_product_name: 'Token拼拼拼',
   group_buy_description: '按份额拼团，满份后开通 Token拼拼拼 权益；使用自己的平台 API Key。',
@@ -10384,6 +10409,7 @@ async function loadSettings() {
         (form as Record<string, unknown>)[key] = value;
       }
     }
+    form.service_store_enabled = settings.service_store_enabled ?? true;
     form.reward_mode = normalizeLeaderboardRewardMode(settings);
     form.leaderboard_daily_reward_enabled = form.reward_mode !== "disabled";
     form.red_packet_pool_amount = normalizeMoney(settings.red_packet_pool_amount);
@@ -11007,6 +11033,7 @@ async function saveSettings() {
         form.antigravity_user_agent_version?.trim() || "",
       // Payment configuration
       payment_enabled: form.payment_enabled,
+      service_store_enabled: form.service_store_enabled,
       group_buy_enabled: form.group_buy_enabled,
       group_buy_product_name: form.group_buy_product_name?.trim() || 'Token拼拼拼',
       group_buy_description: form.group_buy_description?.trim() || '',

@@ -42,6 +42,9 @@ const (
 	OrderTypeBalance      = "balance"
 	OrderTypeSubscription = "subscription"
 	OrderTypeGroupBuy     = "group_buy"
+	// OrderTypeStore is created exclusively by the authenticated Store endpoint.
+	// It must never enter the generic balance/subscription creation path.
+	OrderTypeStore = "store"
 )
 
 // Entity statuses shared across users, groups, etc.

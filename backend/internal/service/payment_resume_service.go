@@ -35,6 +35,7 @@ const (
 	VisibleMethodSourceEasyPayWechat  = "easypay_wxpay"
 
 	wechatPaymentResumeTokenType = "wechat_payment_resume"
+	storeCheckoutTokenType       = "store_checkout"
 
 	paymentResumeNotConfiguredCode    = "PAYMENT_RESUME_NOT_CONFIGURED"
 	paymentResumeNotConfiguredMessage = "payment resume tokens require a configured signing key"
@@ -55,17 +56,34 @@ type ResumeTokenClaims struct {
 }
 
 type WeChatPaymentResumeClaims struct {
-	TokenType         string `json:"tk,omitempty"`
-	OpenID            string `json:"openid"`
-	PaymentType       string `json:"pt,omitempty"`
-	Amount            string `json:"amt,omitempty"`
-	OrderType         string `json:"ot,omitempty"`
-	PlanID            int64  `json:"pid,omitempty"`
-	RechargePackageID string `json:"rpid,omitempty"`
-	RedirectTo        string `json:"rd,omitempty"`
-	Scope             string `json:"scp,omitempty"`
-	IssuedAt          int64  `json:"iat"`
-	ExpiresAt         int64  `json:"exp,omitempty"`
+	TokenType           string `json:"tk,omitempty"`
+	OpenID              string `json:"openid"`
+	PaymentType         string `json:"pt,omitempty"`
+	Amount              string `json:"amt,omitempty"`
+	OrderType           string `json:"ot,omitempty"`
+	PlanID              int64  `json:"pid,omitempty"`
+	RechargePackageID   string `json:"rpid,omitempty"`
+	RedirectTo          string `json:"rd,omitempty"`
+	Scope               string `json:"scp,omitempty"`
+	StoreUserID         int64  `json:"suid,omitempty"`
+	StoreProductID      int64  `json:"spid,omitempty"`
+	StoreIdempotencyKey string `json:"sik,omitempty"`
+	IssuedAt            int64  `json:"iat"`
+	ExpiresAt           int64  `json:"exp,omitempty"`
+}
+
+// StoreCheckoutClaims is signed before the browser is redirected to WeChat.
+// The callback can therefore rebuild a Store checkout without trusting query
+// values for the account, product or idempotency key.
+type StoreCheckoutClaims struct {
+	TokenType      string `json:"tk,omitempty"`
+	UserID         int64  `json:"uid"`
+	ProductID      int64  `json:"pid"`
+	IdempotencyKey string `json:"ik"`
+	PaymentType    string `json:"pt,omitempty"`
+	RedirectTo     string `json:"rd,omitempty"`
+	IssuedAt       int64  `json:"iat"`
+	ExpiresAt      int64  `json:"exp,omitempty"`
 }
 
 type PaymentResumeService struct {
@@ -393,8 +411,62 @@ func (s *PaymentResumeService) CreateWeChatPaymentResumeToken(claims WeChatPayme
 	if claims.OrderType == "" {
 		claims.OrderType = payment.OrderTypeBalance
 	}
+	if claims.OrderType == payment.OrderTypeStore {
+		if claims.StoreUserID <= 0 || claims.StoreProductID <= 0 || strings.TrimSpace(claims.StoreIdempotencyKey) == "" || len(claims.StoreIdempotencyKey) > 64 {
+			return "", fmt.Errorf("wechat store resume token requires user, product and idempotency key")
+		}
+	}
 	claims.TokenType = wechatPaymentResumeTokenType
 	return s.createSignedToken(claims)
+}
+
+func (s *PaymentResumeService) CreateStoreCheckoutToken(claims StoreCheckoutClaims) (string, error) {
+	if err := s.ensureSigningKey(); err != nil {
+		return "", err
+	}
+	claims.IdempotencyKey = strings.TrimSpace(claims.IdempotencyKey)
+	if claims.UserID <= 0 || claims.ProductID <= 0 || claims.IdempotencyKey == "" || len(claims.IdempotencyKey) > 64 {
+		return "", fmt.Errorf("store checkout token requires user, product and idempotency key")
+	}
+	if normalized := NormalizeVisibleMethod(claims.PaymentType); normalized != "" {
+		claims.PaymentType = normalized
+	}
+	if claims.PaymentType != payment.TypeWxpay {
+		return "", fmt.Errorf("store checkout token requires wxpay")
+	}
+	if claims.RedirectTo == "" {
+		claims.RedirectTo = "/store"
+	}
+	if claims.IssuedAt == 0 {
+		claims.IssuedAt = time.Now().Unix()
+	}
+	if claims.ExpiresAt == 0 {
+		claims.ExpiresAt = time.Now().Add(wechatPaymentResumeTokenTTL).Unix()
+	}
+	claims.TokenType = storeCheckoutTokenType
+	return s.createSignedToken(claims)
+}
+
+func (s *PaymentResumeService) ParseStoreCheckoutToken(token string) (*StoreCheckoutClaims, error) {
+	if err := s.ensureSigningKey(); err != nil {
+		return nil, err
+	}
+	var claims StoreCheckoutClaims
+	if err := s.parseSignedToken(token, &claims); err != nil {
+		return nil, infraerrors.BadRequest("INVALID_STORE_CHECKOUT_TOKEN", "store checkout token payload is invalid")
+	}
+	claims.IdempotencyKey = strings.TrimSpace(claims.IdempotencyKey)
+	if claims.TokenType != storeCheckoutTokenType || claims.UserID <= 0 || claims.ProductID <= 0 || claims.IdempotencyKey == "" || len(claims.IdempotencyKey) > 64 || NormalizeVisibleMethod(claims.PaymentType) != payment.TypeWxpay {
+		return nil, infraerrors.BadRequest("INVALID_STORE_CHECKOUT_TOKEN", "store checkout token is invalid")
+	}
+	if err := validatePaymentResumeExpiry(claims.ExpiresAt, "INVALID_STORE_CHECKOUT_TOKEN", "store checkout token has expired"); err != nil {
+		return nil, err
+	}
+	claims.PaymentType = payment.TypeWxpay
+	if claims.RedirectTo == "" {
+		claims.RedirectTo = "/store"
+	}
+	return &claims, nil
 }
 
 func (s *PaymentResumeService) ParseWeChatPaymentResumeToken(token string) (*WeChatPaymentResumeClaims, error) {
@@ -423,6 +495,9 @@ func (s *PaymentResumeService) ParseWeChatPaymentResumeToken(token string) (*WeC
 	}
 	if claims.OrderType == "" {
 		claims.OrderType = payment.OrderTypeBalance
+	}
+	if claims.OrderType == payment.OrderTypeStore && (claims.StoreUserID <= 0 || claims.StoreProductID <= 0 || strings.TrimSpace(claims.StoreIdempotencyKey) == "" || len(claims.StoreIdempotencyKey) > 64) {
+		return nil, infraerrors.BadRequest("INVALID_WECHAT_PAYMENT_RESUME_TOKEN", "wechat store resume token is incomplete")
 	}
 	return &claims, nil
 }

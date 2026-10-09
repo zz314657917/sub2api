@@ -55,7 +55,7 @@
               <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.payAmount') }}</span>
               <span class="font-bold text-primary-600 dark:text-primary-400">{{ formatGatewayAmount(order.pay_amount) }}</span>
             </div>
-            <div v-if="hasAmountFields(order) && order.amount !== order.pay_amount" class="flex justify-between">
+            <div v-if="!isStoreOrder && hasAmountFields(order) && order.amount !== order.pay_amount" class="flex justify-between">
               <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.creditedAmount') }}</span>
               <span class="font-medium text-gray-900 dark:text-white">{{ formatOrderAmount(order) }}</span>
             </div>
@@ -88,8 +88,8 @@
         </div>
         <!-- Actions -->
         <div class="flex gap-3">
-          <button class="btn btn-secondary flex-1" @click="router.push('/purchase')">{{ t('payment.result.backToRecharge') }}</button>
-          <button class="btn btn-primary flex-1" @click="router.push('/orders')">{{ t('payment.result.viewOrders') }}</button>
+          <button class="btn btn-secondary flex-1" @click="router.push(isStoreOrder ? '/store' : '/purchase')">{{ isStoreOrder ? '返回商店' : t('payment.result.backToRecharge') }}</button>
+          <button class="btn btn-primary flex-1" @click="router.push(isStoreOrder ? '/store/orders' : '/orders')">{{ isStoreOrder ? '查看商品交付' : t('payment.result.viewOrders') }}</button>
         </div>
       </template>
     </div>
@@ -125,6 +125,11 @@ const authStore = useAuthStore()
 type ResolvedOrder = PaymentOrder | PublicOrderVerifyResult
 
 const order = ref<ResolvedOrder | null>(null)
+const recoveryOrderType = readPaymentRecoverySnapshot(localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY))?.orderType
+const isStoreOrder = computed(() => {
+  if (order.value && 'order_type' in order.value) return order.value.order_type === 'store'
+  return recoveryOrderType === 'store' || route.query.order_type === 'store'
+})
 const loading = ref(true)
 const currency = ref('CNY')
 

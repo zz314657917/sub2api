@@ -14,6 +14,12 @@ export default {
         payment: '支付设置',
       },
       features: {
+        serviceStore: {
+          title: '服务商店',
+          description: '控制已登录用户的服务商店入口与页面访问。',
+          enabled: '启用服务商店',
+          enabledHint: '关闭后用户端入口隐藏，访问 /store 会返回到控制台首页。',
+        },
         channelMonitor: {
           title: '渠道监控',
           description: '定期对配置的渠道发起健康检查，向用户展示可用性与延迟。关闭后调度器停止扫描，用户端列表为空。',

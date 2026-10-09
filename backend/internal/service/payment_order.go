@@ -134,6 +134,12 @@ func (s *PaymentService) validateOrderInput(ctx context.Context, req CreateOrder
 	if req.OrderType == payment.OrderTypeGroupBuy {
 		return nil, infraerrors.BadRequest("GROUP_BUY_ORDER_ROUTE_REQUIRED", "group buy orders must be created from the group-buy endpoint")
 	}
+	if req.OrderType == payment.OrderTypeStore {
+		return nil, infraerrors.BadRequest("STORE_ORDER_ROUTE_REQUIRED", "store orders must be created from the store endpoint")
+	}
+	if req.OrderType != payment.OrderTypeBalance && req.OrderType != payment.OrderTypeSubscription {
+		return nil, infraerrors.BadRequest("UNKNOWN_ORDER_TYPE", "unsupported order type")
+	}
 	if req.OrderType == payment.OrderTypeBalance && cfg.BalanceDisabled {
 		return nil, infraerrors.Forbidden("BALANCE_PAYMENT_DISABLED", "balance recharge has been disabled")
 	}

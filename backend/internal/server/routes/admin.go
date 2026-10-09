@@ -141,7 +141,20 @@ func RegisterAdminRoutes(
 		registerImageCreatorStorageGovernanceRoutes(admin, h)
 
 		registerAuditLogRoutes(admin, h)
+		registerDigitalStoreRoutes(admin, h)
 	}
+}
+
+func registerDigitalStoreRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	store := admin.Group("/store")
+	store.GET("/products", h.DigitalStore.AdminListProducts)
+	store.POST("/products", h.DigitalStore.AdminCreateProduct)
+	store.PUT("/products/:id", h.DigitalStore.AdminUpdateProduct)
+	store.POST("/files", h.DigitalStore.AdminUploadFile)
+	store.GET("/products/:id/stock", h.DigitalStore.AdminListStock)
+	store.POST("/products/:id/stock", h.DigitalStore.AdminImportStock)
+	store.GET("/orders", h.DigitalStore.AdminListOrders)
+	store.POST("/orders/:id/retry", h.DigitalStore.AdminRetryOrder)
 }
 
 func registerCNProviderRoutes(admin *gin.RouterGroup, h *handler.Handlers) {

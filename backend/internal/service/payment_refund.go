@@ -187,6 +187,9 @@ func (s *PaymentService) validateRefundRequest(ctx context.Context, oid, uid int
 	if o.UserID != uid {
 		return nil, infraerrors.Forbidden("FORBIDDEN", "no permission")
 	}
+	if o.OrderType == payment.OrderTypeStore {
+		return nil, infraerrors.BadRequest("STORE_ORDER_REFUND_UNSUPPORTED", "store orders do not support automatic refunds")
+	}
 	if o.OrderType != payment.OrderTypeBalance {
 		return nil, infraerrors.BadRequest("INVALID_ORDER_TYPE", "only balance orders can request refund")
 	}
@@ -211,6 +214,11 @@ func (s *PaymentService) PrepareRefund(ctx context.Context, oid int64, amt float
 	o, err := s.entClient.PaymentOrder.Get(ctx, oid)
 	if err != nil {
 		return nil, nil, infraerrors.NotFound("NOT_FOUND", "order not found")
+	}
+	// Digital goods have irreversible fulfillment.  Reject before any balance,
+	// subscription, or provider operation is considered.
+	if o.OrderType == payment.OrderTypeStore {
+		return nil, nil, infraerrors.BadRequest("STORE_ORDER_REFUND_UNSUPPORTED", "store orders do not support automatic refunds")
 	}
 	ok := []string{OrderStatusCompleted, OrderStatusRefundRequested, OrderStatusRefundFailed}
 	if !psSliceContains(ok, o.Status) {
@@ -315,6 +323,20 @@ func (s *PaymentService) deductAvailableBalance(ctx context.Context, userID int6
 }
 
 func (s *PaymentService) ExecuteRefund(ctx context.Context, p *RefundPlan) (*RefundResult, error) {
+	if p == nil || p.OrderID <= 0 {
+		return nil, infraerrors.BadRequest("INVALID_REFUND_PLAN", "refund plan is required")
+	}
+	// Do not trust a caller-constructed RefundPlan. This guard is intentionally
+	// before the status CAS, deductions and provider I/O so Store orders cannot
+	// be pushed into REFUNDING through this lower-level entry point.
+	o, err := s.entClient.PaymentOrder.Get(ctx, p.OrderID)
+	if err != nil {
+		return nil, infraerrors.NotFound("NOT_FOUND", "order not found")
+	}
+	if o.OrderType == payment.OrderTypeStore {
+		return nil, infraerrors.BadRequest("STORE_ORDER_REFUND_UNSUPPORTED", "store orders do not support automatic refunds")
+	}
+	p.Order = o
 	c, err := s.entClient.PaymentOrder.Update().Where(paymentorder.IDEQ(p.OrderID), paymentorder.StatusIn(OrderStatusCompleted, OrderStatusRefundRequested, OrderStatusRefundFailed)).SetStatus(OrderStatusRefunding).Save(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("lock: %w", err)
@@ -436,6 +458,13 @@ func (s *PaymentService) finishRefund(ctx context.Context, p *RefundPlan, resp *
 }
 
 func (s *PaymentService) QueryAndFinalizeRefund(ctx context.Context, oid int64) (*RefundResult, error) {
+	o, err := s.entClient.PaymentOrder.Get(ctx, oid)
+	if err != nil {
+		return nil, infraerrors.NotFound("NOT_FOUND", "order not found")
+	}
+	if o.OrderType == payment.OrderTypeStore {
+		return nil, infraerrors.BadRequest("STORE_ORDER_REFUND_UNSUPPORTED", "store orders do not support automatic refunds")
+	}
 	c, err := s.entClient.PaymentOrder.Update().
 		Where(paymentorder.IDEQ(oid), paymentorder.StatusEQ(OrderStatusRefundPending)).
 		SetStatus(OrderStatusRefunding).
@@ -447,7 +476,7 @@ func (s *PaymentService) QueryAndFinalizeRefund(ctx context.Context, oid int64) 
 		return nil, infraerrors.Conflict("CONFLICT", "only refund pending orders can be finalized")
 	}
 
-	o, err := s.entClient.PaymentOrder.Get(ctx, oid)
+	o, err = s.entClient.PaymentOrder.Get(ctx, oid)
 	if err != nil {
 		return nil, infraerrors.NotFound("NOT_FOUND", "order not found")
 	}

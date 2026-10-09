@@ -81,6 +81,7 @@ type Handlers struct {
 	AvailableChannel *AvailableChannelHandler
 	AsyncImage       *AsyncImageHandler
 	PelicanTest      *PelicanTestHandler
+	DigitalStore     *DigitalStoreHandler
 }
 
 // BuildInfo contains build-time information

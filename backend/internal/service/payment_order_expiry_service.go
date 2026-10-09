@@ -78,4 +78,13 @@ func (s *PaymentOrderExpiryService) runOnce() {
 	if expired > 0 {
 		slog.Info("[PaymentOrderExpiry] expired timed-out orders", "count", expired)
 	}
+
+	storeCtx, cancel := context.WithTimeout(context.Background(), expiryCheckTimeout)
+	defer cancel()
+	reconciled, err := s.paymentSvc.ReconcileStoreOrders(storeCtx)
+	if err != nil {
+		slog.Warn("[PaymentOrderExpiry] failed to reconcile store orders", "error", err)
+	} else if reconciled > 0 {
+		slog.Info("[PaymentOrderExpiry] reconciled store orders", "count", reconciled)
+	}
 }

@@ -46,6 +46,23 @@ vi.mock('@/stores', () => ({
 }))
 
 describe('WechatPaymentCallbackView', () => {
+  it('keeps store checkout token and product context on the store route', async () => {
+    locationState.current.hash = '#wechat_resume_token=opaque-store&redirect=%2Fstore&order_type=store&product_id=27&payment_type=wxpay'
+    const wrapper = mount(WechatPaymentCallbackView)
+    await flushPromises()
+    expect(replaceMock).toHaveBeenCalledWith({ path: '/store', query: {
+      wechat_resume: '1', wechat_resume_token: 'opaque-store', order_type: 'store', product_id: '27', payment_type: 'wxpay',
+    } })
+    wrapper.unmount()
+  })
+  it('rejects legacy unsigned store callbacks instead of falling back to recharge', async () => {
+    locationState.current.hash = '#openid=unsigned&redirect=%2Fstore&order_type=store&product_id=27'
+    const wrapper = mount(WechatPaymentCallbackView)
+    await flushPromises()
+    expect(replaceMock).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('商店付款恢复信息不完整')
+    wrapper.unmount()
+  })
   beforeEach(() => {
     replaceMock.mockReset()
     showErrorMock.mockReset()

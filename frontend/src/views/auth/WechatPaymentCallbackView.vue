@@ -50,6 +50,7 @@ const router = useRouter()
 const appStore = useAppStore()
 
 const errorMessage = ref('')
+const storeReturn = ref(false)
 
 watch(errorMessage, (message) => {
   if (message) {
@@ -92,12 +93,13 @@ function appendQueryParam(query: Record<string, string>, key: string, value: str
 }
 
 function goBackToPayment() {
-  void router.replace('/purchase')
+  void router.replace(storeReturn.value ? '/store/orders' : '/purchase')
 }
 
 onMounted(async () => {
   const fragment = parseFragmentParams()
   const readParam = (key: string) => fragment.get(key) || readQueryString(key)
+  storeReturn.value = readParam('order_type') === 'store' || readParam('redirect') === '/store'
 
   const error = readParam('error') || readParam('err_msg') || readParam('errmsg')
   const errorDescription = readParam('error_description') || readParam('message')
@@ -116,12 +118,16 @@ onMounted(async () => {
   const orderType = readParam('order_type')
   const planId = readParam('plan_id')
   const redirectURL = new URL(
-    normalizeRedirectPath(readParam('redirect')),
+    storeReturn.value ? '/store' : normalizeRedirectPath(readParam('redirect')),
     window.location.origin,
   )
 
   if (!resumeToken && !openid) {
     errorMessage.value = t('auth.wechatPayment.callbackMissingResumeToken')
+    return
+  }
+  if (storeReturn.value && (!resumeToken || !/^[1-9]\d*$/.test(readParam('product_id')))) {
+    errorMessage.value = '商店付款恢复信息不完整，请返回商店订单查看。'
     return
   }
 
@@ -132,6 +138,11 @@ onMounted(async () => {
 
   if (resumeToken) {
     query.wechat_resume_token = resumeToken
+    if (storeReturn.value) {
+      query.order_type = 'store'
+      query.product_id = readParam('product_id')
+      appendQueryParam(query, 'payment_type', paymentType)
+    }
   } else {
     query.openid = openid
     appendQueryParam(query, 'state', state)
