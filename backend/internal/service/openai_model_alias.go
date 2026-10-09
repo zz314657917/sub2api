@@ -1,6 +1,10 @@
 package service
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
+)
 
 func lastOpenAIModelSegment(model string) string {
 	model = strings.TrimSpace(model)
@@ -54,6 +58,9 @@ func normalizeKnownOpenAICodexModel(model string) string {
 	if normalized == "" {
 		return ""
 	}
+	if openai.IsGPT61SolModelSpelling(normalized) {
+		return "gpt-6.1-sol"
+	}
 
 	if mapped := getNormalizedCodexModel(normalized); mapped != "" {
 		return mapped
@@ -104,6 +111,22 @@ func normalizeKnownOpenAICodexModel(model string) string {
 func isOpenAIGPT6AstraModel(model string) bool {
 	normalized := canonicalizeOpenAIModelAliasSpelling(model)
 	return normalized == "gpt-6" || normalized == "gpt-6-astra"
+}
+
+// Keep pricing aliases separate from request capability/model validation.
+func isOpenAIGPT6AstraPricingModel(model string) bool {
+	if isOpenAIGPT6AstraModel(model) {
+		return true
+	}
+	suffix, ok := strings.CutPrefix(canonicalizeOpenAIModelAliasSpelling(model), "gpt-6-astra-")
+	if !ok {
+		return false
+	}
+	switch suffix {
+	case "none", "minimal", "low", "medium", "high", "xhigh", "max", "openai-compact":
+		return true
+	}
+	return false
 }
 
 func normalizeOpenAIGPT56Alias(normalized string) (string, bool) {

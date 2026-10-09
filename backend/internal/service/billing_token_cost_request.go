@@ -49,10 +49,31 @@ func legacyLongContextApplies(resolved *ResolvedPricing, group *Group, rule *Leg
 }
 
 // CalculateTokenCostForRequest selects one token billing path. Explicit
-// group/channel pricing wins; Gemini's legacy marginal rule is used next;
-// built-in pricing then uses the resolver so the group toggle remains effective.
+// group/channel pricing wins, followed by catalog whole-session metadata.
+// Gemini's legacy marginal rule is retained only for metadata-free cards.
 func (s *BillingService) CalculateTokenCostForRequest(req TokenCostRequest) (*CostBreakdown, error) {
+	// Resolve before selecting the legacy path so GroupID-only gates and catalog
+	// metadata work even when the gateway did not pre-resolve pricing.
+	if req.Resolved == nil && req.Resolver != nil {
+		input := s.tokenCostInput(req)
+		req.Resolved = req.Resolver.Resolve(req.Ctx, PricingInput{
+			Model: req.Model, GroupID: input.GroupID, Group: req.Group,
+		})
+	}
 	if req.Resolved != nil && (req.Resolved.Source == PricingSourceGroup || req.Resolved.Source == PricingSourceChannel) {
+		return s.CalculateCostUnified(s.tokenCostInput(req))
+	}
+	pricing := (*ModelPricing)(nil)
+	if req.Resolved != nil {
+		pricing = req.Resolved.BasePricing
+	}
+	if pricing == nil {
+		pricing, _ = s.GetModelPricing(req.Model)
+	}
+	if pricing != nil && pricing.LongContextMetadataPresent {
+		return s.CalculateCostUnified(s.tokenCostInput(req))
+	}
+	if req.Resolved != nil && !req.Resolved.longContextPricingEnabled {
 		return s.CalculateCostUnified(s.tokenCostInput(req))
 	}
 	if legacyLongContextApplies(req.Resolved, req.Group, req.LegacyLongContext) {
@@ -64,10 +85,7 @@ func (s *BillingService) CalculateTokenCostForRequest(req TokenCostRequest) (*Co
 			req.LegacyLongContext.Multiplier,
 		)
 	}
-	if req.Resolver != nil && (req.Group != nil || req.GroupID != nil) {
-		return s.CalculateCostUnified(s.tokenCostInput(req))
-	}
-	return s.CalculateCost(req.Model, req.Tokens, req.RateMultiplier)
+	return s.CalculateCostUnified(s.tokenCostInput(req))
 }
 
 func (s *BillingService) tokenCostInput(req TokenCostRequest) CostInput {

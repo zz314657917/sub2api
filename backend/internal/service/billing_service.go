@@ -48,6 +48,9 @@ type BillingCache interface {
 
 // ModelPricing 模型价格配置（per-token价格，与LiteLLM格式一致）
 type ModelPricing struct {
+	LongContextMetadataPresent         bool
+	LongContextThresholdInclusive      bool
+	UltrafastMultiplier                float64
 	InputPricePerToken                 float64 // 每token输入价格 (USD)
 	InputPricePerTokenPriority         float64 // priority service tier 下每token输入价格 (USD)
 	ImageInputPricePerToken            float64 // 图片输入 token 价格 (USD)，为 0 时回退到 InputPricePerToken
@@ -289,7 +292,22 @@ func (s *BillingService) initFallbackPricing() {
 	s.fallbackPrices["gpt-5.5-pro"] = s.fallbackPrices["gpt-5.4"]
 
 	// GPT-5.6 preview family pricing.
+	s.fallbackPrices["gpt-6.1-sol"] = &ModelPricing{
+		InputPricePerToken: 2e-6, OutputPricePerToken: 10e-6,
+		InputPricePerTokenPriority: 4e-6, OutputPricePerTokenPriority: 20e-6,
+		CacheCreationPricePerToken: 2.5e-6, CacheCreationPricePerTokenPriority: 5e-6,
+		CacheReadPricePerToken: 0.1e-6, CacheReadPricePerTokenPriority: 0.2e-6,
+		CacheCreationPriceExplicit: true, CacheCreationPricePriorityExplicit: true, StrictPriorityTier: true,
+		LongContextInputThreshold: 272000, LongContextInputMultiplier: 2,
+		LongContextOutputMultiplier: 1.5, LongContextMetadataPresent: true,
+	}
+	s.fallbackPrices["grok-4.7"] = &ModelPricing{
+		InputPricePerToken: 2e-6, OutputPricePerToken: 6e-6, CacheReadPricePerToken: 0.5e-6,
+		LongContextInputThreshold: 200000, LongContextThresholdInclusive: true,
+		LongContextInputMultiplier: 2, LongContextOutputMultiplier: 2, LongContextMetadataPresent: true,
+	}
 	s.fallbackPrices["gpt-6-astra"] = &ModelPricing{
+		LongContextMetadataPresent:         true,
 		InputPricePerToken:                 10e-6,
 		InputPricePerTokenPriority:         20e-6,
 		OutputPricePerToken:                50e-6,
@@ -640,6 +658,9 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 	}
 
 	// OpenAI 仅匹配已知 GPT-5/Codex 族，避免未知 OpenAI 型号误计价。
+	if isOpenAIGPT6AstraPricingModel(modelLower) {
+		return s.fallbackPrices["gpt-6-astra"]
+	}
 	if openai.IsGPT6SolOrLunaModelSpelling(modelLower) {
 		if strings.HasPrefix(canonicalizeOpenAIModelAliasSpelling(modelLower), "gpt-6-luna") {
 			return s.fallbackPrices["gpt-6-luna"]
@@ -648,6 +669,8 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 	}
 	if normalized := normalizeKnownOpenAICodexModel(modelLower); normalized != "" {
 		switch normalized {
+		case "gpt-6.1-sol":
+			return s.fallbackPrices["gpt-6.1-sol"]
 		case "gpt-6-astra":
 			return s.fallbackPrices["gpt-6-astra"]
 		case "gpt-5.6-sol":
@@ -675,6 +698,8 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 
 	nativeGrokModel := normalizeGrokProviderModel(modelLower)
 	switch nativeGrokModel {
+	case "grok-4.7", "grok-4.7-latest":
+		return s.fallbackPrices["grok-4.7"]
 	case "grok", "grok-latest", "grok-4.3":
 		return s.fallbackPrices["grok-4.3"]
 	case "grok-build", "grok-build-0.1":
@@ -767,13 +792,15 @@ func (s *BillingService) GetModelPricing(model string) (*ModelPricing, error) {
 				CacheCreationPricePerTokenPriority: litellmPricing.CacheCreationInputTokenCostPriority,
 				CacheCreationPriceExplicit:         litellmPricing.CacheCreationInputTokenCostExplicit,
 				CacheCreationPricePriorityExplicit: litellmPricing.CacheCreationInputTokenCostPriorityExplicit,
-				StrictPriorityTier:                 claude.IsOpus55(model) || openai.IsGPT6SolOrLunaModelSpelling(model),
+				StrictPriorityTier:                 claude.IsOpus55(model) || openai.IsGPT6SolOrLunaModelSpelling(model) || openai.IsGPT61SolModelSpelling(model),
 				CacheReadPricePerToken:             cacheRead,
 				CacheReadPricePerTokenPriority:     litellmPricing.CacheReadInputTokenCostPriority,
 				CacheCreation5mPrice:               price5m,
 				CacheCreation1hPrice:               price1h,
 				SupportsCacheBreakdown:             enableBreakdown,
 				LongContextInputThreshold:          litellmPricing.LongContextInputTokenThreshold,
+				LongContextMetadataPresent:         litellmPricing.LongContextMetadataPresent,
+				LongContextThresholdInclusive:      strings.EqualFold(litellmPricing.LiteLLMProvider, "xai"),
 				LongContextInputMultiplier:         litellmPricing.LongContextInputCostMultiplier,
 				LongContextOutputMultiplier:        litellmPricing.LongContextOutputCostMultiplier,
 				ImageInputPricePerToken:            litellmPricing.InputCostPerImageToken,
@@ -860,11 +887,17 @@ type CostInput struct {
 // CalculateCostUnified 统一计费入口，支持 token、按次、图片和视频计费模式。
 // 使用 ModelPricingResolver 解析定价，然后根据 BillingMode 分发计算。
 func (s *BillingService) CalculateCostUnified(input CostInput) (*CostBreakdown, error) {
+	if input.Resolver == nil && input.Resolved != nil {
+		input.Resolver = NewModelPricingResolver(nil, s)
+	}
 	if input.Resolver == nil {
 		// 无 Resolver，回退到旧路径
 		applyLongContextBilling := true
+		if input.Group != nil {
+			applyLongContextBilling = input.Group.LongContextPricingEnabled
+		}
 		if input.LongContextBillingEnabled != nil {
-			applyLongContextBilling = *input.LongContextBillingEnabled
+			applyLongContextBilling = applyLongContextBilling && *input.LongContextBillingEnabled
 		}
 		return s.calculateCostInternalWithPolicy(input.Model, input.Tokens, input.RateMultiplier, input.ServiceTier, nil, applyLongContextBilling)
 	}
@@ -903,7 +936,8 @@ func (s *BillingService) CalculateCostUnified(input CostInput) (*CostBreakdown, 
 
 // calculateTokenCost 按 token 区间计费
 func (s *BillingService) calculateTokenCost(resolved *ResolvedPricing, input CostInput) (*CostBreakdown, error) {
-	totalContext := input.Tokens.InputTokens + input.Tokens.CacheCreationTokens + input.Tokens.CacheReadTokens
+	totalContext := saturatingAddNonNegativeInts(input.Tokens.InputTokens, input.Tokens.CacheCreationTokens)
+	totalContext = saturatingAddNonNegativeInts(totalContext, input.Tokens.CacheReadTokens)
 
 	pricing := input.Resolver.GetIntervalPricing(resolved, totalContext)
 	if pricing == nil {
@@ -957,6 +991,9 @@ func (s *BillingService) computeTokenBreakdown(
 		}
 	} else {
 		tierMultiplier = serviceTierCostMultiplier(serviceTier)
+		if normalizeBillingServiceTier(serviceTier) == OpenAIFastTierUltrafast && pricing.UltrafastMultiplier > 0 {
+			tierMultiplier = pricing.UltrafastMultiplier
+		}
 		if pricing.StrictPriorityTier && normalizeBillingServiceTier(serviceTier) == "fast" {
 			tierMultiplier = 2
 		}
@@ -966,15 +1003,16 @@ func (s *BillingService) computeTokenBreakdown(
 	var baselineCost *CostBreakdown
 	if longContextPricingEligible {
 		baselineCost = s.computeTokenBreakdown(pricing, tokens, rateMultiplier, serviceTier, false)
-		inputPrice *= pricing.LongContextInputMultiplier
-		outputPrice *= pricing.LongContextOutputMultiplier
+		inputMultiplier := longContextMultiplierOrOne(pricing.LongContextInputMultiplier)
+		inputPrice *= inputMultiplier
+		outputPrice *= longContextMultiplierOrOne(pricing.LongContextOutputMultiplier)
 		// 缓存读取本质上是输入侧的复用，应与 input 一同应用长上下文倍率；
 		// 否则 cache hit 越多，少计的费用越多（见 #2293）。
-		cacheReadPrice *= pricing.LongContextInputMultiplier
+		cacheReadPrice *= inputMultiplier
 		// 缓存创建（cache_write）也是输入侧操作，三档价格（标准 / 5m / 1h）
 		// 都通过 computeCacheCreationCost 直接读取 pricing.*，不会经过这里
 		// 的倍率修改，因此显式向下传一个倍率，避免长上下文场景下被漏乘。
-		cacheCreationMultiplier = pricing.LongContextInputMultiplier
+		cacheCreationMultiplier = inputMultiplier
 	}
 
 	bd := &CostBreakdown{}
@@ -1155,20 +1193,24 @@ func (s *BillingService) applyModelSpecificPricingPolicy(model string, pricing *
 	}
 	normalized := normalizeKnownOpenAICodexModel(model)
 	isGPT56 := normalized == "gpt-5.6-sol" || normalized == "gpt-5.6-terra" || normalized == "gpt-5.6-luna"
-	isGPT6 := openai.IsGPT6SolOrLunaModelSpelling(model)
-	usesLongContextPricing := isOpenAIGPT54Model(model) || isGPT6
+	isGPT6 := openai.IsGPT6SolOrLunaModelSpelling(model) || openai.IsGPT61SolModelSpelling(model)
+	isAstra := isOpenAIGPT6AstraPricingModel(model)
+	usesLongContextPricing := isOpenAIGPT54Model(model) || isGPT6 || isAstra
 	if !isGPT56 && !isGPT6 && !usesLongContextPricing {
 		return pricing
 	}
-	needsLongContextPolicy := usesLongContextPricing &&
+	needsLongContextPolicy := usesLongContextPricing && !pricing.LongContextMetadataPresent &&
 		(pricing.LongContextInputThreshold <= 0 || pricing.LongContextInputMultiplier <= 0 || pricing.LongContextOutputMultiplier <= 0)
 	needsCacheCreationPolicy := (isGPT56 || isGPT6) && !pricing.CacheCreationPriceExplicit &&
 		(pricing.CacheCreationPricePerToken <= 0 ||
 			(pricing.InputPricePerTokenPriority > 0 && pricing.CacheCreationPricePerTokenPriority <= 0))
-	if !needsLongContextPolicy && !needsCacheCreationPolicy {
+	if !needsLongContextPolicy && !needsCacheCreationPolicy && !isAstra {
 		return pricing
 	}
 	cloned := *pricing
+	if isAstra {
+		cloned.UltrafastMultiplier = 6
+	}
 	if needsCacheCreationPolicy {
 		if cloned.CacheCreationPricePerToken <= 0 {
 			cloned.CacheCreationPricePerToken = cloned.InputPricePerToken * 1.25
@@ -1177,7 +1219,7 @@ func (s *BillingService) applyModelSpecificPricingPolicy(model string, pricing *
 			cloned.CacheCreationPricePerTokenPriority = cloned.InputPricePerTokenPriority * 1.25
 		}
 	}
-	if usesLongContextPricing {
+	if needsLongContextPolicy {
 		if cloned.LongContextInputThreshold <= 0 {
 			cloned.LongContextInputThreshold = openAIGPT54LongContextInputThreshold
 		}
@@ -1191,6 +1233,13 @@ func (s *BillingService) applyModelSpecificPricingPolicy(model string, pricing *
 	return &cloned
 }
 
+func longContextMultiplierOrOne(multiplier float64) float64 {
+	if multiplier <= 0 {
+		return 1
+	}
+	return multiplier
+}
+
 func (s *BillingService) shouldApplySessionLongContextPricing(tokens UsageTokens, pricing *ModelPricing) bool {
 	if pricing == nil || pricing.LongContextInputThreshold <= 0 {
 		return false
@@ -1200,6 +1249,9 @@ func (s *BillingService) shouldApplySessionLongContextPricing(tokens UsageTokens
 	}
 	totalInputTokens := saturatingAddNonNegativeInts(tokens.InputTokens, tokens.CacheCreationTokens)
 	totalInputTokens = saturatingAddNonNegativeInts(totalInputTokens, tokens.CacheReadTokens)
+	if pricing.LongContextThresholdInclusive {
+		return totalInputTokens >= pricing.LongContextInputThreshold
+	}
 	return totalInputTokens > pricing.LongContextInputThreshold
 }
 
@@ -1229,6 +1281,15 @@ func (s *BillingService) CalculateCostWithConfig(model string, tokens UsageToken
 // 拆分为：范围内 (200k, 0) + 范围外 (10k, 10k)
 // 范围内正常计费，范围外 × 2 计费
 func (s *BillingService) CalculateCostWithLongContext(model string, tokens UsageTokens, rateMultiplier float64, threshold int, extraMultiplier float64) (*CostBreakdown, error) {
+	pricing, err := s.GetModelPricing(model)
+	if err != nil {
+		return nil, err
+	}
+	// Metadata (including explicit disabled policy) selects whole-session billing
+	// before splitting; otherwise the catalog ladder could be charged twice.
+	if pricing.LongContextMetadataPresent {
+		return s.computeTokenBreakdown(pricing, tokens, rateMultiplier, "", true), nil
+	}
 	// 未启用长上下文计费，直接走正常计费
 	if threshold <= 0 || extraMultiplier <= 1 {
 		return s.CalculateCost(model, tokens, rateMultiplier)

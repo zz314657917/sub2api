@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -22,6 +23,17 @@ import (
 )
 
 var (
+	aboveTierPricePattern         = regexp.MustCompile(`^(input|output)_cost_per_token_above_(\d+)k_tokens$`)
+	openAIGPT61SolFallbackPricing = &LiteLLMModelPricing{
+		InputCostPerToken: 2e-6, OutputCostPerToken: 10e-6,
+		InputCostPerTokenPriority: 4e-6, OutputCostPerTokenPriority: 20e-6,
+		CacheCreationInputTokenCost: 2.5e-6, CacheCreationInputTokenCostPriority: 5e-6,
+		CacheReadInputTokenCost: 0.1e-6, CacheReadInputTokenCostPriority: 0.2e-6,
+		CacheCreationInputTokenCostExplicit: true, CacheCreationInputTokenCostPriorityExplicit: true,
+		LongContextInputTokenThreshold: 272000, LongContextInputCostMultiplier: 2,
+		LongContextOutputCostMultiplier: 1.5, LongContextMetadataPresent: true,
+		SupportsServiceTier: true, SupportsPromptCaching: true, LiteLLMProvider: "openai", Mode: "chat",
+	}
 	openAIModelDatePattern          = regexp.MustCompile(`-\d{8}$`)
 	openAIModelBasePattern          = regexp.MustCompile(`^(gpt-\d+(?:\.\d+)?)(?:-|$)`)
 	openAIGPTImage25FallbackPricing = &LiteLLMModelPricing{
@@ -61,6 +73,7 @@ var (
 		SupportsPromptCaching:   true,
 	}
 	openAIGPT6AstraFallbackPricing = &LiteLLMModelPricing{
+		LongContextMetadataPresent:          true,
 		InputCostPerToken:                   1e-05,
 		InputCostPerTokenPriority:           2e-05,
 		OutputCostPerToken:                  5e-05,
@@ -144,6 +157,7 @@ func newOpenAIGPT56FallbackLiteLLMPricing(inputCostPerToken, outputCostPerToken 
 // LiteLLMModelPricing LiteLLM价格数据结构
 // 只保留我们需要的字段，使用指针来处理可能缺失的值
 type LiteLLMModelPricing struct {
+	LongContextMetadataPresent                  bool    `json:"-"`
 	InputCostPerToken                           float64 `json:"input_cost_per_token"`
 	InputCostPerTokenPriority                   float64 `json:"input_cost_per_token_priority"`
 	OutputCostPerToken                          float64 `json:"output_cost_per_token"`
@@ -558,6 +572,11 @@ func (s *PricingService) parsePricingData(body []byte) (map[string]*LiteLLMModel
 		if entry.CacheReadInputImageTokenCost != nil {
 			pricing.CacheReadInputImageTokenCost = *entry.CacheReadInputImageTokenCost
 		}
+		pricing.LongContextMetadataPresent = entry.LongContextInputTokenThreshold != nil ||
+			entry.LongContextInputCostMultiplier != nil || entry.LongContextOutputCostMultiplier != nil
+		if !pricing.LongContextMetadataPresent {
+			deriveLongContextFromAboveTierFields(rawEntry, pricing)
+		}
 
 		result[modelName] = pricing
 	}
@@ -571,6 +590,59 @@ func (s *PricingService) parsePricingData(body []byte) (map[string]*LiteLLMModel
 	}
 
 	return result, nil
+}
+
+// Standard input/output above fields form one ladder at the smallest threshold.
+// Presence suppresses family defaults even when neither side raises the price.
+func deriveLongContextFromAboveTierFields(rawEntry json.RawMessage, pricing *LiteLLMModelPricing) {
+	var fields map[string]json.RawMessage
+	if pricing == nil || pricing.LongContextMetadataPresent || json.Unmarshal(rawEntry, &fields) != nil {
+		return
+	}
+	type tier struct{ input, output float64 }
+	tiers := make(map[int]tier)
+	for key, raw := range fields {
+		match := aboveTierPricePattern.FindStringSubmatch(key)
+		if match == nil {
+			continue
+		}
+		k, err := strconv.Atoi(match[2])
+		if err != nil || k <= 0 || k > int(^uint(0)>>1)/1000 {
+			continue
+		}
+		var price float64
+		if json.Unmarshal(raw, &price) != nil || string(raw) == "null" {
+			continue
+		}
+		threshold := k * 1000
+		entry := tiers[threshold]
+		if match[1] == "input" {
+			entry.input = price
+		} else {
+			entry.output = price
+		}
+		tiers[threshold] = entry
+	}
+	threshold := 0
+	for value := range tiers {
+		if threshold == 0 || value < threshold {
+			threshold = value
+		}
+	}
+	if threshold == 0 {
+		return
+	}
+	entry := tiers[threshold]
+	pricing.LongContextMetadataPresent = true
+	pricing.LongContextInputTokenThreshold = threshold
+	pricing.LongContextInputCostMultiplier = 1
+	pricing.LongContextOutputCostMultiplier = 1
+	if pricing.InputCostPerToken > 0 && entry.input > pricing.InputCostPerToken {
+		pricing.LongContextInputCostMultiplier = entry.input / pricing.InputCostPerToken
+	}
+	if pricing.OutputCostPerToken > 0 && entry.output > pricing.OutputCostPerToken {
+		pricing.LongContextOutputCostMultiplier = entry.output / pricing.OutputCostPerToken
+	}
 }
 
 // loadPricingData 从本地文件加载价格数据
@@ -728,6 +800,19 @@ func (s *PricingService) buildModelLookupCandidates(modelLower string) []string 
 	// Prefer canonical model name first (this also improves billing compatibility with "models/xxx").
 	normalized := normalizeModelNameForPricing(modelLower)
 	candidates := []string{normalized, modelLower}
+	if isOpenAIGPT6AstraPricingModel(normalized) {
+		candidates = append(candidates, "gpt-6-astra")
+	}
+	if known := normalizeKnownOpenAICodexModel(normalized); known == "gpt-6.1-sol" ||
+		known == "gpt-6-astra" || known == "gpt-6-sol" || known == "gpt-6-luna" {
+		candidates = append(candidates, known)
+	}
+	if normalized == "gemini-3.1-pro" {
+		candidates = append(candidates, "gemini-3.1-pro-preview")
+	}
+	if grok := normalizeGrokProviderModel(modelLower); grok == "grok-4.7" || grok == "grok-4.7-latest" {
+		candidates = append(candidates, "grok-4.7")
+	}
 	for _, candidate := range []string{normalized, modelLower} {
 		if strings.HasPrefix(candidate, "claude-") {
 			candidates = append(candidates, strings.ReplaceAll(candidate, ".", "-"))
@@ -938,6 +1023,12 @@ func (s *PricingService) matchByModelFamily(model string) *LiteLLMModelPricing {
 // 5. gpt-5.4* -> 业务静态兜底价
 // 6. 最终回退到 DefaultTestModel (gpt-5.1-codex)
 func (s *PricingService) matchOpenAIModel(model string) *LiteLLMModelPricing {
+	if openai.IsGPT61SolModelSpelling(model) {
+		if pricing, ok := s.pricingData["gpt-6.1-sol"]; ok {
+			return pricing
+		}
+		return openAIGPT61SolFallbackPricing
+	}
 	if openai.IsGPT6SolOrLunaModelSpelling(model) {
 		base := "gpt-6-sol"
 		fallback := openAIGPT6SolFallbackPricing
@@ -978,7 +1069,7 @@ func (s *PricingService) matchOpenAIModel(model string) *LiteLLMModelPricing {
 		}
 	}
 
-	if isOpenAIGPT6AstraModel(model) {
+	if isOpenAIGPT6AstraPricingModel(model) {
 		logger.With(zap.String("component", "service.pricing")).
 			Info(fmt.Sprintf("[Pricing] OpenAI fallback matched %s -> %s", model, "gpt-6-astra(static)"))
 		return openAIGPT6AstraFallbackPricing

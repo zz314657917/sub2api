@@ -149,3 +149,28 @@ func IsGPT6SolOrLunaModelSpelling(model string) bool {
 	}
 	return false
 }
+
+// IsGPT61SolModelSpelling recognizes pricing aliases without accepting unknown variants.
+func IsGPT61SolModelSpelling(model string) bool {
+	id := strings.ToLower(strings.TrimSpace(model))
+	if slash := strings.LastIndexByte(id, '/'); slash >= 0 {
+		id = id[slash+1:]
+	}
+	id = strings.ReplaceAll(id, "_", "-")
+	id = strings.Join(strings.Fields(id), "-")
+	for strings.Contains(id, "--") {
+		id = strings.ReplaceAll(id, "--", "-")
+	}
+	if id == "gpt-6.1-sol" {
+		return true
+	}
+	suffix, ok := strings.CutPrefix(id, "gpt-6.1-sol-")
+	if !ok {
+		return false
+	}
+	switch suffix {
+	case "none", "minimal", "low", "medium", "high", "xhigh", "max", "openai-compact":
+		return true
+	}
+	return false
+}
