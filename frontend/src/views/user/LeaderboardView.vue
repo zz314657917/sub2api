@@ -2288,9 +2288,9 @@ onUnmounted(() => {
 
 .leaderboard-token-rank-row {
   display: grid;
-  grid-template-columns: minmax(13.25rem, 14.5rem) minmax(14rem, 1fr);
+  grid-template-columns: clamp(18rem, 28%, 26rem) minmax(0, 1fr);
   align-items: center;
-  gap: 0.68rem;
+  gap: clamp(0.85rem, 1.2vw, 1.25rem);
   min-height: 3.65rem;
   padding: 0.16rem 0;
 }
@@ -2522,7 +2522,8 @@ onUnmounted(() => {
   max-width: 100%;
   max-height: 1.45rem;
   min-width: 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: center;
   justify-content: flex-start;
   gap: 0.24rem;
   overflow: hidden;
@@ -2530,9 +2531,10 @@ onUnmounted(() => {
 
 .leaderboard-token-title-badge,
 .leaderboard-token-title-more {
-  display: inline-flex;
+  display: block;
+  flex: 0 1 auto;
+  min-width: 0;
   max-width: 5.5rem;
-  align-items: center;
   overflow: hidden;
   border: 1px solid currentColor;
   border-radius: 0.25rem;
@@ -2548,6 +2550,7 @@ onUnmounted(() => {
 }
 
 .leaderboard-token-title-more {
+  flex: 0 0 auto;
   max-width: none;
   color: rgb(109 103 93);
 }

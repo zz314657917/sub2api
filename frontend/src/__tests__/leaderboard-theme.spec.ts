@@ -57,7 +57,7 @@ describe('leaderboard visual identity', () => {
     expect(leaderboardView).toContain('data-testid="leaderboard-rank-title"')
     expect(leaderboardView).toContain('function visibleLeaderboardTitleBadges')
     expect(leaderboardView).toContain('leaderboard-token-ranking-updated')
-    expect(leaderboardView).toContain('grid-template-columns: minmax(13.25rem, 14.5rem) minmax(14rem, 1fr)')
+    expect(leaderboardView).toContain('grid-template-columns: clamp(18rem, 28%, 26rem) minmax(0, 1fr)')
     expect(leaderboardView).toContain('const tokenBarTooltipHeight = 136')
     expect(leaderboardView).toContain('const tokenBarTooltipGap = 18')
     expect(leaderboardView).toContain('rect.top + window.scrollY - tokenBarTooltipGap - tokenBarTooltipHeight')
@@ -92,6 +92,36 @@ describe('leaderboard visual identity', () => {
     expect(leaderboardView).toContain('leaderboard.costPerMillionShort')
     expect(leaderboardView).toContain('function formatLeaderboardCostPerMillion(item: UserLeaderboardItem): string')
     expect(leaderboardView).not.toContain('data-testid="leaderboard-cost-efficiency-summary"')
+  })
+
+  it('gives desktop identities more room without forcing mobile rows into two columns', () => {
+    const rowStyles = leaderboardView.match(/\.leaderboard-token-rank-row \{([^}]+)\}/)?.[1]
+    expect(rowStyles).toContain('grid-template-columns: clamp(18rem, 28%, 26rem) minmax(0, 1fr)')
+    expect(rowStyles).toContain('gap: clamp(0.85rem, 1.2vw, 1.25rem)')
+
+    const mobileStyles = leaderboardView.slice(leaderboardView.indexOf('@media (max-width: 767px)'))
+    const mobileRowStyles = mobileStyles.match(/\.leaderboard-token-rank-row \{([^}]+)\}/)?.[1]
+    expect(mobileRowStyles).toContain('grid-template-columns: 1fr')
+    expect(mobileRowStyles).toContain('gap: 0.45rem')
+  })
+
+  it('keeps weekly and monthly titles on one line with the overflow count visible', () => {
+    const titleListStyles = leaderboardView.match(/\.leaderboard-token-title-list \{([^}]+)\}/)?.[1]
+    expect(titleListStyles).toContain('flex-wrap: nowrap')
+    expect(titleListStyles).toContain('align-items: center')
+    expect(titleListStyles).not.toContain('flex-wrap: wrap')
+
+    const badgeStyles = leaderboardView.match(/\.leaderboard-token-title-badge,\s*\.leaderboard-token-title-more \{([^}]+)\}/)?.[1]
+    expect(badgeStyles).toContain('display: block')
+    expect(badgeStyles).toContain('min-width: 0')
+    expect(badgeStyles).toContain('flex: 0 1 auto')
+    expect(badgeStyles).toContain('text-overflow: ellipsis')
+    expect(badgeStyles).toContain('white-space: nowrap')
+
+    const moreStyles = leaderboardView.match(/\}\s*\.leaderboard-token-title-more \{([^}]+)\}/)?.[1]
+    expect(moreStyles).toContain('flex: 0 0 auto')
+    expect(leaderboardView).toContain(':title="leaderboardBadgeTitle(badge)"')
+    expect(leaderboardView).toContain(':title="hiddenLeaderboardBadgeTitle(item.badges)"')
   })
 
   it('keeps the period switch inside the token ranking panel without model ranking tabs', () => {
