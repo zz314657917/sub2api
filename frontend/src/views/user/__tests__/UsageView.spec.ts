@@ -138,6 +138,8 @@ const messages: Record<string, string> = {
   'usage.latency': 'Latency Health',
   'usage.latencyFirstToken': 'First',
   'usage.latencyDuration': 'Total',
+  'usage.outputTps': 'Output TPS',
+  'usage.outputTpsHint': 'Output tokens divided by total duration',
   'usage.time': 'Time',
   'usage.userAgent': 'User Agent',
   'usage.ws': 'WS',
@@ -1013,6 +1015,17 @@ describe('user UsageView', () => {
     await settingsButton.trigger('click')
     expect(filterSurface.classes()).not.toContain('relative')
     expect(filterSurface.classes()).not.toContain('z-[221]')
+  })
+
+  it('shows output TPS using total duration and omits image or missing-duration rates', async () => {
+    const wrapper = await mountUsageView([
+      baseUsageLog({ request_id: 'tps-text', output_tokens: 1000, duration_ms: 20_000, first_token_ms: 10_000, image_count: 0, image_output_tokens: 0, billing_mode: 'token' }),
+      baseUsageLog({ request_id: 'tps-missing', duration_ms: null }),
+      baseUsageLog({ request_id: 'tps-image', image_count: 1 }),
+    ])
+
+    expect(wrapper.findAll('[data-testid="output-tps"]').map(cell => cell.text())).toEqual(['50.0 tok/s', '—', '—'])
+    expect(wrapper.text()).toContain('Output TPS')
   })
 
   it('migrates v2 timing columns to the combined latency column', async () => {

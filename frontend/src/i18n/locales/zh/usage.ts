@@ -84,6 +84,8 @@ export default {
     latency: '延迟健康',
     latencyFirstToken: '首字',
     latencyDuration: '总耗时',
+    outputTps: '输出 TPS',
+    outputTpsHint: '输出 Token ÷ 总耗时（包含首字等待），单位 tok/s。输出 Token 可能包含推理 Token。',
     time: '时间',
     ws: 'WS',
     live: 'Live 实时',
