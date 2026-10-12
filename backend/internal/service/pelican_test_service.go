@@ -311,7 +311,7 @@ type PelicanTestService struct {
 }
 
 func NewPelicanTestService(r PelicanTestRepository, a AccountRepository, g GroupRepository, t PelicanTestExecutor) *PelicanTestService {
-	return &PelicanTestService{repo: r, accounts: a, groups: g, tester: t, planGate: make(chan struct{}, 1), done: make(chan struct{})}
+	return &PelicanTestService{repo: r, accounts: a, groups: g, tester: t, planGate: make(chan struct{}, 4), done: make(chan struct{})}
 }
 func (s *PelicanTestService) SetAccountSelector(selector PelicanAccountSelector) {
 	s.selector = selector

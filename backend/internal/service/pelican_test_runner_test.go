@@ -12,12 +12,12 @@ type pelicanRunnerRepo struct {
 	release chan struct{}
 }
 
-func (r *pelicanRunnerRepo) Claim(context.Context, int64, bool, time.Time) (*PelicanPlan, error) {
+func (r *pelicanRunnerRepo) Claim(_ context.Context, id int64, _ bool, _ time.Time) (*PelicanPlan, error) {
 	select {
 	case r.claim <- struct{}{}:
 	default:
 	}
-	return &PelicanPlan{ID: 1, GroupID: 1, ModelID: "m", MinChars: 100, MaxResults: 1, RunGeneration: 1}, nil
+	return &PelicanPlan{ID: id, GroupID: 1, ModelID: "m", MinChars: 100, MaxResults: 1, RunGeneration: 1}, nil
 }
 func (r *pelicanRunnerRepo) Finalize(context.Context, int64, int64) error {
 	r.release <- struct{}{}
@@ -53,8 +53,8 @@ func (pelicanRunnerTester) RunPelicanTest(context.Context, int64, string, string
 	return nil, nil
 }
 
-func TestPelicanRunnerRejectsOverlappingManualRun(t *testing.T) {
-	r := &pelicanRunnerRepo{claim: make(chan struct{}, 2), release: make(chan struct{}, 2)}
+func TestPelicanRunnerRejectsManualRunAtCapacity(t *testing.T) {
+	r := &pelicanRunnerRepo{claim: make(chan struct{}, 4), release: make(chan struct{}, 4)}
 	block := make(chan struct{})
 	s := NewPelicanTestService(r, pelicanRunnerAccounts{block: block}, nil, pelicanRunnerTester{})
 	s.SetSettingsRepository(pelicanDefaultSettingsRepo{})
@@ -67,21 +67,25 @@ func TestPelicanRunnerRejectsOverlappingManualRun(t *testing.T) {
 	}))
 	s.Start(context.Background())
 	defer s.Stop(context.Background())
-	if err := s.RunNow(context.Background(), 1); err != nil {
-		t.Fatal(err)
+	for id := int64(1); id <= 4; id++ {
+		if err := s.RunNow(context.Background(), id); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case <-r.claim:
+		case <-time.After(time.Second):
+			t.Fatal("claim did not start")
+		}
 	}
-	select {
-	case <-r.claim:
-	case <-time.After(time.Second):
-		t.Fatal("claim did not start")
-	}
-	if err := s.RunNow(context.Background(), 2); err != ErrPelicanConflict {
+	if err := s.RunNow(context.Background(), 5); err != ErrPelicanConflict {
 		t.Fatalf("overlap err=%v", err)
 	}
 	close(block)
-	select {
-	case <-r.release:
-	case <-time.After(time.Second):
-		t.Fatal("run did not release")
+	for i := 0; i < 4; i++ {
+		select {
+		case <-r.release:
+		case <-time.After(time.Second):
+			t.Fatal("run did not release")
+		}
 	}
 }
