@@ -13,33 +13,40 @@ import (
 
 type pelicanTestRepository struct{ db *sql.DB }
 
+func pelicanInputModels(i service.PelicanPlanInput) []string {
+	if len(i.ModelIDs) > 0 {
+		return i.ModelIDs
+	}
+	return []string{i.ModelID}
+}
 func NewPelicanTestRepository(db *sql.DB) service.PelicanTestRepository {
 	return &pelicanTestRepository{db: db}
 }
 func scanPelicanPlan(s interface{ Scan(...any) error }) (service.PelicanPlan, error) {
 	var p service.PelicanPlan
 	var usageDay sql.NullTime
-	e := s.Scan(&p.ID, &p.GroupID, &p.GroupName, &p.ModelID, &p.IntervalMinutes, &p.Enabled, &p.MaxResults, &p.MinChars, &p.LastRunAt, &p.NextRunAt, &p.RunningUntil, &p.RunGeneration, &p.DailyCallLimit, &p.FailurePauseThreshold, &p.RetentionDays, &usageDay, &p.DailyCallsUsed, &p.ConsecutiveFailedRuns, &p.PauseReason, &p.LastRunCalls, &p.ReasoningEffort, &p.TimeoutSeconds, &p.CreatedAt, &p.UpdatedAt)
+	e := s.Scan(&p.ID, &p.GroupID, &p.GroupName, &p.ModelID, &p.IntervalMinutes, &p.Enabled, &p.MaxResults, &p.MinChars, &p.LastRunAt, &p.NextRunAt, &p.RunningUntil, &p.RunGeneration, &p.DailyCallLimit, &p.FailurePauseThreshold, &p.RetentionDays, &usageDay, &p.DailyCallsUsed, &p.ConsecutiveFailedRuns, &p.PauseReason, &p.LastRunCalls, &p.ReasoningEffort, &p.TimeoutSeconds, &p.CreatedAt, &p.UpdatedAt, pq.Array(&p.ModelIDs))
 	if usageDay.Valid {
 		p.UsageDay = usageDay.Time.Format("2006-01-02")
 	}
+	p.EstimatedCallsPerRun = len(p.ModelIDs)
 	return p, e
 }
 
-const planCols = "id,group_id,group_name,model_id,interval_minutes,enabled,max_results,min_chars,last_run_at,next_run_at,running_until,run_generation,daily_call_limit,failure_pause_threshold,retention_days,usage_day,daily_calls_used,consecutive_failed_runs,pause_reason,last_run_calls,reasoning_effort,timeout_seconds,created_at,updated_at"
-const planListCols = "id,group_id,group_name,model_id,interval_minutes,enabled,max_results,min_chars,last_run_at,next_run_at,running_until,run_generation,daily_call_limit,failure_pause_threshold,retention_days,(NOW() AT TIME ZONE 'Asia/Shanghai')::date AS usage_day,CASE WHEN usage_day IS NOT DISTINCT FROM (NOW() AT TIME ZONE 'Asia/Shanghai')::date THEN daily_calls_used ELSE 0 END AS daily_calls_used,consecutive_failed_runs,pause_reason,last_run_calls,reasoning_effort,timeout_seconds,created_at,updated_at"
+const planCols = "id,group_id,group_name,model_id,interval_minutes,enabled,max_results,min_chars,last_run_at,next_run_at,running_until,run_generation,daily_call_limit,failure_pause_threshold,retention_days,usage_day,daily_calls_used,consecutive_failed_runs,pause_reason,last_run_calls,reasoning_effort,timeout_seconds,created_at,updated_at,model_ids"
+const planListCols = "id,group_id,group_name,model_id,interval_minutes,enabled,max_results,min_chars,last_run_at,next_run_at,running_until,run_generation,daily_call_limit,failure_pause_threshold,retention_days,(NOW() AT TIME ZONE 'Asia/Shanghai')::date AS usage_day,CASE WHEN usage_day IS NOT DISTINCT FROM (NOW() AT TIME ZONE 'Asia/Shanghai')::date THEN daily_calls_used ELSE 0 END AS daily_calls_used,consecutive_failed_runs,pause_reason,last_run_calls,reasoning_effort,timeout_seconds,created_at,updated_at,model_ids"
 
 func (r *pelicanTestRepository) CreatePlan(c context.Context, i service.PelicanPlanInput, n string) (*service.PelicanPlan, error) {
-	q := "INSERT INTO pelican_test_plans (group_id,group_name,model_id,interval_minutes,enabled,max_results,min_chars,daily_call_limit,failure_pause_threshold,retention_days,reasoning_effort,timeout_seconds,next_run_at) VALUES ($1,$2,$3,$4,FALSE,$5,$6,$7,$8,$9,$10,COALESCE(NULLIF($11,0),180),NOW()) RETURNING " + planListCols
-	p, e := scanPelicanPlan(r.db.QueryRowContext(c, q, i.GroupID, n, i.ModelID, i.IntervalMinutes, i.MaxResults, i.MinChars, i.DailyCallLimit, i.FailurePauseThreshold, i.RetentionDays, i.ReasoningEffort, i.TimeoutSeconds))
+	q := "INSERT INTO pelican_test_plans (group_id,group_name,model_id,interval_minutes,enabled,max_results,min_chars,daily_call_limit,failure_pause_threshold,retention_days,reasoning_effort,timeout_seconds,next_run_at,model_ids) VALUES ($1,$2,$3,$4,FALSE,$5,$6,$7,$8,$9,$10,COALESCE(NULLIF($11,0),180),NOW(),$12) RETURNING " + planListCols
+	p, e := scanPelicanPlan(r.db.QueryRowContext(c, q, i.GroupID, n, i.ModelID, i.IntervalMinutes, i.MaxResults, i.MinChars, i.DailyCallLimit, i.FailurePauseThreshold, i.RetentionDays, i.ReasoningEffort, i.TimeoutSeconds, pq.Array(pelicanInputModels(i))))
 	if e != nil {
 		return nil, fmt.Errorf("create pelican plan: %w", e)
 	}
 	return &p, nil
 }
 func (r *pelicanTestRepository) UpdatePlan(c context.Context, id int64, i service.PelicanPlanInput, n string) (*service.PelicanPlan, error) {
-	q := "UPDATE pelican_test_plans SET group_id=$2,group_name=$3,model_id=$4,interval_minutes=$5,enabled=CASE WHEN pause_reason='' THEN $6 ELSE FALSE END,max_results=$7,min_chars=$8,daily_call_limit=$9,failure_pause_threshold=$10,retention_days=$11,reasoning_effort=$12,timeout_seconds=COALESCE(NULLIF($13,0),180),updated_at=NOW() WHERE id=$1 AND (running_until IS NULL OR running_until<NOW()) RETURNING " + planListCols
-	p, e := scanPelicanPlan(r.db.QueryRowContext(c, q, id, i.GroupID, n, i.ModelID, i.IntervalMinutes, i.Enabled, i.MaxResults, i.MinChars, i.DailyCallLimit, i.FailurePauseThreshold, i.RetentionDays, i.ReasoningEffort, i.TimeoutSeconds))
+	q := "UPDATE pelican_test_plans SET group_id=$2,group_name=$3,model_id=$4,interval_minutes=$5,enabled=CASE WHEN pause_reason='' THEN $6 ELSE FALSE END,max_results=$7,min_chars=$8,daily_call_limit=$9,failure_pause_threshold=$10,retention_days=$11,reasoning_effort=$12,timeout_seconds=COALESCE(NULLIF($13,0),180),model_ids=$14,updated_at=NOW() WHERE id=$1 AND (running_until IS NULL OR running_until<NOW()) RETURNING " + planListCols
+	p, e := scanPelicanPlan(r.db.QueryRowContext(c, q, id, i.GroupID, n, i.ModelID, i.IntervalMinutes, i.Enabled, i.MaxResults, i.MinChars, i.DailyCallLimit, i.FailurePauseThreshold, i.RetentionDays, i.ReasoningEffort, i.TimeoutSeconds, pq.Array(pelicanInputModels(i))))
 	if errors.Is(e, sql.ErrNoRows) {
 		return nil, service.ErrPelicanConflict
 	}
@@ -126,7 +133,7 @@ func (r *pelicanTestRepository) Claim(c context.Context, id int64, manual bool, 
 		}
 		return nil, service.ErrPelicanQuota
 	}
-	p, err = scanPelicanPlan(tx.QueryRowContext(c, "UPDATE pelican_test_plans SET running_until=$2::timestamptz + (timeout_seconds + 120) * interval '1 second',run_generation=run_generation+1,round_attempted=0,round_successes=0,last_run_at=$2,next_run_at=$2::timestamptz+(interval_minutes || ' minutes')::interval,updated_at=$2 WHERE id=$1 RETURNING "+planListCols, id, now))
+	p, err = scanPelicanPlan(tx.QueryRowContext(c, "UPDATE pelican_test_plans SET running_until=$2::timestamptz + (cardinality(model_ids) * (timeout_seconds + 10) + 120) * interval '1 second',run_generation=run_generation+1,round_attempted=0,round_successes=0,last_run_at=$2,next_run_at=$2::timestamptz+(interval_minutes || ' minutes')::interval,updated_at=$2 WHERE id=$1 RETURNING "+planListCols, id, now))
 	if err != nil {
 		return nil, err
 	}
@@ -226,8 +233,9 @@ func (r *pelicanTestRepository) ListGallery(c context.Context, a service.Pelican
 		args = append(args, ac)
 		n++
 	}
-	latest := "(SELECT DISTINCT ON (plan_id,group_id) * FROM pelican_test_results ORDER BY plan_id,group_id,finished_at DESC,id DESC) r JOIN pelican_test_plans p ON p.id=r.plan_id AND p.group_id=r.group_id JOIN groups live_g ON live_g.id=r.group_id AND live_g.deleted_at IS NULL "
-	q := "SELECT r.plan_id,r.group_id,live_g.name,live_g.platform,r.account_id,r.model_id,r.status,r.latency_ms,r.char_count,r.min_chars,r.finished_at,(SELECT count(*) FROM pelican_test_results h WHERE h.plan_id=r.plan_id AND h.group_id=r.group_id),r.id,(SELECT s.id FROM pelican_test_results s WHERE s.plan_id=r.plan_id AND s.group_id=r.group_id AND s.status='success' ORDER BY s.finished_at DESC,s.id DESC LIMIT 1),r.error_message,r.error_code,r.error_message_safe,r.reasoning_effort FROM " + latest + where + " ORDER BY r.finished_at DESC,r.id DESC LIMIT $" + fmt.Sprint(n) + " OFFSET $" + fmt.Sprint(n+1)
+	latest := "(SELECT DISTINCT ON (plan_id,group_id,model_id) * FROM pelican_test_results ORDER BY plan_id,group_id,model_id,finished_at DESC,id DESC) r JOIN pelican_test_plans p ON p.id=r.plan_id AND p.group_id=r.group_id AND r.model_id=ANY(p.model_ids) JOIN groups live_g ON live_g.id=r.group_id AND live_g.deleted_at IS NULL "
+	candidates := "WITH candidates AS (SELECT r.* FROM " + latest + where + "), paged_groups AS (SELECT group_id,max(finished_at) newest FROM candidates GROUP BY group_id ORDER BY newest DESC,group_id DESC LIMIT $" + fmt.Sprint(n) + " OFFSET $" + fmt.Sprint(n+1) + ") "
+	q := candidates + "SELECT r.plan_id,r.group_id,live_g.name,live_g.platform,r.account_id,r.model_id,r.status,r.latency_ms,r.char_count,r.min_chars,r.finished_at,(SELECT count(*) FROM pelican_test_results h WHERE h.plan_id=r.plan_id AND h.group_id=r.group_id AND h.model_id=r.model_id),r.id,(SELECT s.id FROM pelican_test_results s WHERE s.plan_id=r.plan_id AND s.group_id=r.group_id AND s.model_id=r.model_id AND s.status='success' ORDER BY s.finished_at DESC,s.id DESC LIMIT 1),r.error_message,r.error_code,r.error_message_safe,r.reasoning_effort,(SELECT s.finished_at FROM pelican_test_results s WHERE s.plan_id=r.plan_id AND s.group_id=r.group_id AND s.model_id=r.model_id AND s.status='success' ORDER BY s.finished_at DESC,s.id DESC LIMIT 1) FROM candidates r JOIN paged_groups pg ON pg.group_id=r.group_id JOIN pelican_test_plans p ON p.id=r.plan_id JOIN groups live_g ON live_g.id=r.group_id ORDER BY pg.newest DESC,r.group_id DESC,r.plan_id DESC,array_position(p.model_ids,r.model_id),r.id DESC"
 	args = append(args, size, (page-1)*size)
 	rows, e := r.db.QueryContext(c, q, args...)
 	if e != nil {
@@ -236,7 +244,7 @@ func (r *pelicanTestRepository) ListGallery(c context.Context, a service.Pelican
 	defer rows.Close()
 	for rows.Next() {
 		var x service.PelicanEntry
-		e = rows.Scan(&x.PlanID, &x.GroupID, &x.GroupName, &x.Platform, &x.AccountID, &x.ModelID, &x.Status, &x.LatencyMS, &x.CharCount, &x.MinChars, &x.FinishedAt, &x.HistoryCount, &x.ResultID, &x.ArtworkResultID, &x.ErrorMessage, &x.ErrorCode, &x.ErrorMessageSafe, &x.ReasoningEffort)
+		e = rows.Scan(&x.PlanID, &x.GroupID, &x.GroupName, &x.Platform, &x.AccountID, &x.ModelID, &x.Status, &x.LatencyMS, &x.CharCount, &x.MinChars, &x.FinishedAt, &x.HistoryCount, &x.ResultID, &x.ArtworkResultID, &x.ErrorMessage, &x.ErrorCode, &x.ErrorMessageSafe, &x.ReasoningEffort, &x.ArtworkFinishedAt)
 		if e != nil {
 			return nil, e
 		}
@@ -248,7 +256,7 @@ func (r *pelicanTestRepository) ListGallery(c context.Context, a service.Pelican
 	if e = rows.Close(); e != nil {
 		return nil, e
 	}
-	countQ := "SELECT count(*) FROM " + latest + where
+	countQ := "SELECT count(DISTINCT r.group_id) FROM " + latest + where
 	if e := r.db.QueryRowContext(c, countQ, args[:len(args)-2]...).Scan(&out.Total); e != nil {
 		return nil, e
 	}
@@ -273,6 +281,9 @@ func (r *pelicanTestRepository) ListGallery(c context.Context, a service.Pelican
 	return out, groupRows.Err()
 }
 func (r *pelicanTestRepository) ListHistory(c context.Context, a service.PelicanAuthorization, p, ac int64) ([]service.PelicanResult, error) {
+	return r.ListHistoryForModel(c, a, p, ac, "")
+}
+func (r *pelicanTestRepository) ListHistoryForModel(c context.Context, a service.PelicanAuthorization, p, ac int64, model string) ([]service.PelicanResult, error) {
 	if !a.Admin && len(a.GroupIDs) == 0 {
 		return []service.PelicanResult{}, nil
 	}
@@ -293,6 +304,10 @@ func (r *pelicanTestRepository) ListHistory(c context.Context, a service.Pelican
 		q += fmt.Sprintf(" AND r.account_id=$%d", i)
 		args = append(args, ac)
 		i++
+	}
+	if model != "" {
+		q += fmt.Sprintf(" AND r.model_id=$%d", i)
+		args = append(args, model)
 	}
 	q += " ORDER BY r.started_at DESC,r.id DESC LIMIT 50"
 	rows, e := r.db.QueryContext(c, q, args...)
@@ -373,8 +388,8 @@ func (r *pelicanTestRepository) SaveResult(c context.Context, x *service.Pelican
 		}
 	}
 	_, e = tx.ExecContext(c, `DELETE FROM pelican_test_results r WHERE r.plan_id=$1 AND r.group_id=$2
-	 AND (SELECT count(*) FROM pelican_test_results newer WHERE newer.plan_id=r.plan_id AND newer.group_id=r.group_id AND (newer.started_at,newer.id)>(r.started_at,r.id)) >= $3
-	 AND NOT (r.status='success' AND NOT EXISTS (SELECT 1 FROM pelican_test_results newer_success WHERE newer_success.plan_id=r.plan_id AND newer_success.group_id=r.group_id AND newer_success.status='success' AND (newer_success.started_at,newer_success.id)>(r.started_at,r.id)))`, x.PlanID, x.GroupID, max)
+	 AND (SELECT count(*) FROM pelican_test_results newer WHERE newer.plan_id=r.plan_id AND newer.group_id=r.group_id AND newer.model_id=r.model_id AND (newer.started_at,newer.id)>(r.started_at,r.id)) >= $3
+	 AND NOT (r.status='success' AND NOT EXISTS (SELECT 1 FROM pelican_test_results newer_success WHERE newer_success.plan_id=r.plan_id AND newer_success.group_id=r.group_id AND newer_success.model_id=r.model_id AND newer_success.status='success' AND (newer_success.started_at,newer_success.id)>(r.started_at,r.id)))`, x.PlanID, x.GroupID, max)
 	if e != nil {
 		return e
 	}
@@ -417,13 +432,13 @@ func (r *pelicanTestRepository) Cleanup(ctx context.Context, planID int64, scope
 }
 
 func cleanupSQL(extra string) string {
-	// Latest successful result per plan/group is protected even when it is
+	// Latest successful result per plan/group/model is protected even when it is
 	// outside the rolling retention window or older than max_results.
 	return `DELETE FROM pelican_test_results WHERE id IN (
 	 WITH ranked AS (
 	  SELECT r.id,r.plan_id,r.account_id,r.group_id,r.status,r.started_at,p.max_results,p.retention_days,
-	   row_number() OVER (PARTITION BY r.plan_id,r.group_id ORDER BY r.started_at DESC,r.id DESC) rn,
-	   row_number() OVER (PARTITION BY r.plan_id,r.group_id ORDER BY CASE WHEN r.status='success' THEN 0 ELSE 1 END,r.started_at DESC,r.id DESC) success_rank
+	   row_number() OVER (PARTITION BY r.plan_id,r.group_id,r.model_id ORDER BY r.started_at DESC,r.id DESC) rn,
+	   row_number() OVER (PARTITION BY r.plan_id,r.group_id,r.model_id ORDER BY CASE WHEN r.status='success' THEN 0 ELSE 1 END,r.started_at DESC,r.id DESC) success_rank
 	  FROM pelican_test_results r JOIN pelican_test_plans p ON p.id=r.plan_id ` + extra + `
 	 ) SELECT id FROM ranked WHERE (rn>max_results OR (retention_days>0 AND started_at < NOW()-(retention_days || ' days')::interval))
 	  AND NOT (status='success' AND success_rank=1)

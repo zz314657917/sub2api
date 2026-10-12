@@ -33,18 +33,20 @@
           <button class="refresh-button" type="button" :aria-label="`刷新${pelicanMetadata.displayName}列表`" :title="`刷新${pelicanMetadata.displayName}结果`" @click="refresh()"><Icon name="refresh" size="sm" /></button>
         </div>
       </section>
-      <div class="list-summary"><span>{{ total }} 个结果 <i>/</i> 查看当前动画与历史表现</span><span role="status">{{ refreshedAt }} 更新</span></div>
+      <div class="list-summary"><span>{{ total }} 个分组 <i>/</i> 查看当前动画与历史表现</span><span role="status">{{ refreshedAt }} 更新</span></div>
       <p v-if="error && items.length" class="refresh-error" role="alert">{{ error }}</p>
       </div>
 
       <div ref="resultsRegion" class="results-region">
       <div v-if="loading && !items.length" class="empty-state" aria-live="polite">正在加载测试结果…</div>
       <div v-else-if="error && !items.length" class="empty-state" role="alert"><h2>无法加载测试结果</h2><p>{{ error }}</p><button type="button" @click="refresh()">重试</button></div>
-      <div v-else-if="items.length" class="gallery" :style="{ '--gallery-columns': galleryColumnCount }">
+      <div v-else-if="items.length" class="gallery" :style="{ '--gallery-columns': galleryColumns.length }">
         <div v-for="(column, columnIndex) in galleryColumns" :key="`gallery-column-${columnIndex}`" class="gallery-column">
-        <article v-for="item in column" :key="`${item.plan_id}-${item.group_id}`" class="pelican-card" :aria-label="`${item.group_name}${item.platform ? ` · ${item.platform}` : ''} · 计划 ${item.plan_id}`">
+        <article v-for="group in column" :key="group.id" class="pelican-card" :aria-label="`${group.name}${group.platform ? ` · ${group.platform}` : ''}`">
+          <header class="group-heading"><span class="team-badge">{{ group.name }}{{ group.platform ? ` · ${group.platform}` : '' }}</span><span>{{ group.entries.length }} 个模型结果</span></header>
+          <section v-for="item in group.entries" :key="`${item.plan_id}-${item.group_id}-${item.model_id}`" class="model-artwork" :aria-label="`${item.model_id} · 计划 ${item.plan_id}`">
           <header class="card-heading">
-            <div><span class="team-badge">{{ item.group_name }}{{ item.platform ? ` · ${item.platform}` : '' }}</span><strong>计划 #{{ item.plan_id }}</strong></div>
+            <div class="model-heading"><ModelIcon :model="item.model_id" size="22px" /><strong>{{ item.model_id }}</strong><span class="plan-reference">计划 #{{ item.plan_id }}</span></div>
             <button class="history-count" type="button" :aria-label="`${item.group_name} 计划 ${item.plan_id} 历史 ${item.history_count} 次`" @click="openHistory(item, $event)"><Icon name="clock" size="xs" /> {{ item.history_count }}</button>
           </header>
           <button v-if="cardHtml[item.result_id]" class="artwork-preview" type="button" :aria-label="`放大查看${item.group_name} 计划 ${item.plan_id} 的作品`" @click="openArtwork(item, $event)" @keydown.enter.prevent="openArtwork(item, $event)" @keydown.space.prevent="openArtwork(item, $event)">
@@ -57,8 +59,10 @@
             <button :disabled="!cardHtml[item.result_id]" type="button" aria-label="放大播放" title="放大播放" @click="openArtwork(item, $event)"><Icon name="eye" size="sm" /></button>
             <button :disabled="!item.artwork_result_id" type="button" aria-label="重新播放" title="重新播放" @click="replay(`card-${item.result_id}`)"><Icon name="refresh" size="sm" /></button>
           </div>
-          <p class="html-meta">{{ item.model_id }} · {{ effortText(item.reasoning_effort) }}</p>
-          <p class="last-success">{{ item.status === 'success' ? '生成于' : '测试于' }} {{ formatDate(item.finished_at) }}</p>
+          <p class="generation-time" :title="formatTimestamp(item.artwork_finished_at ?? (item.status === 'success' ? item.finished_at : null))"><Icon name="clock" size="sm" />生成于 {{ formatDate(item.artwork_finished_at ?? (item.status === 'success' ? item.finished_at : null)) }}</p>
+          <p class="html-meta">{{ item.model_id }} · {{ effortText(item.reasoning_effort) }}</p><p class="html-meta">本次耗时 {{ formatDuration(item.latency_ms) }}</p>
+          <p v-if="item.status !== 'success'" class="last-success" :title="formatDate(item.finished_at)">本轮{{ statusText(item.status) }} · 测试于 {{ formatDate(item.finished_at) }}</p>
+          </section>
         </article>
         </div>
       </div>
@@ -66,7 +70,7 @@
       </div>
 
       <footer class="pagination">
-        <span>显示 {{ total ? (page - 1) * pageSize + 1 : 0 }} 至 {{ Math.min(page * pageSize, total) }}，共 {{ total }} 条结果</span>
+        <span>显示 {{ total ? (page - 1) * pageSize + 1 : 0 }} 至 {{ Math.min(page * pageSize, total) }}，共 {{ total }} 个分组</span>
         <div class="page-controls">
           <label>每页 <select v-model.number="pageSize" aria-label="每页条数"><option :value="6">6</option><option :value="12">12</option><option :value="24">24</option></select></label>
           <button type="button" :disabled="page === 1" @click="page--">上一页</button>
@@ -108,6 +112,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
+import ModelIcon from '@/components/common/ModelIcon.vue'
 import PelicanSandboxFrame from '@/components/pelican/PelicanSandboxFrame.vue'
 import PelicanPlansPanel from '@/components/pelican/PelicanPlansPanel.vue'
 import PelicanHistoryPreview from '@/components/pelican/PelicanHistoryPreview.vue'
@@ -179,10 +184,19 @@ const settingsDraft = ref<PelicanTestSettings>({ ...defaultSettings })
 
 const hasFilters = computed(() => groupFilter.value !== '')
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
-const dialogTitle = computed(() => `${selectedEntry.value?.group_name} · 计划 #${selectedEntry.value?.plan_id} · ${dialogMode.value === 'history' ? '测试历史' : '放大播放'}`)
+const dialogTitle = computed(() => `${selectedEntry.value?.group_name} · ${selectedEntry.value?.model_id} · 计划 #${selectedEntry.value?.plan_id} · ${dialogMode.value === 'history' ? '测试历史' : '放大播放'}`)
+const galleryGroups = computed(() => {
+  const grouped = new Map<number, { id: number; name: string; platform?: string; entries: PelicanEntry[] }>()
+  for (const entry of items.value) {
+    let group = grouped.get(entry.group_id)
+    if (!group) { group = { id: entry.group_id, name: entry.group_name, platform: entry.platform, entries: [] }; grouped.set(entry.group_id, group) }
+    group.entries.push(entry)
+  }
+  return [...grouped.values()]
+})
 const galleryColumns = computed(() => {
-  const count = Math.max(1, Math.min(galleryColumnCount.value, items.value.length || 1))
-  return Array.from({ length: count }, (_, columnIndex) => items.value.filter((_, itemIndex) => itemIndex % count === columnIndex))
+  const count = Math.max(1, Math.min(galleryColumnCount.value, galleryGroups.value.length || 1))
+  return Array.from({ length: count }, (_, columnIndex) => galleryGroups.value.filter((_, itemIndex) => itemIndex % count === columnIndex))
 })
 
 watch([groupFilter, pageSize], () => { closeDialog(); if (page.value !== 1) page.value = 1; else void refresh({ resetView: true }) })
@@ -233,6 +247,7 @@ function effortText(effort?: string | null): string {
 function statusText(status: PelicanEntry['status']): string { return status === 'success' ? '成功' : status === 'failed' ? '失败' : '本轮已跳过（未执行）' }
 function statusClass(status: PelicanEntry['status']): string { return status === 'success' ? 'success' : status === 'failed' ? 'failed' : 'skipped' }
 function formatDate(value?: string | null): string { const date = value ? new Date(value) : null; return date && !Number.isNaN(date.getTime()) ? new Intl.DateTimeFormat('zh-CN', { dateStyle: 'short', timeStyle: 'short' }).format(date) : '时间未知' }
+function formatTimestamp(value?: string | null): string { const date = value ? new Date(value) : null; return date && !Number.isNaN(date.getTime()) ? `${date.toISOString()} (UTC)` : '时间未知' }
 function formatDuration(value: number): string { return value > 1000 ? `${(value / 1000).toFixed(1)} 秒` : `${value} 毫秒` }
 function clearArtworkCache(): void { cardHtml.value = {}; cardArtworkIDs.value = {}; artworkLoading.value = {} }
 async function refresh({ resetView = false }: { resetView?: boolean } = {}): Promise<void> {
@@ -267,7 +282,7 @@ async function refresh({ resetView = false }: { resetView?: boolean } = {}): Pro
     artworkLoading.value = Object.fromEntries(Object.entries(artworkLoading.value).filter(([id]) => currentArtworkIDs.has(Number(id))))
     items.value = data.items; groups.value = data.groups; total.value = data.total; page.value = data.page; refreshedAt.value = formatNow()
     if (!resetView && previousScrollTop != null) void nextTick(() => { if (version === listRequestVersion && resultsRegion.value) resultsRegion.value.scrollTop = previousScrollTop })
-    if (selectedEntry.value && !data.items.some(item => item.plan_id === selectedEntry.value?.plan_id && item.group_id === selectedEntry.value?.group_id)) closeDialog()
+    if (selectedEntry.value && !data.items.some(item => item.plan_id === selectedEntry.value?.plan_id && item.group_id === selectedEntry.value?.group_id && item.model_id === selectedEntry.value?.model_id)) closeDialog()
     void loadVisibleArtwork(data.items, version, controller.signal)
   } catch (reason) { if (version === listRequestVersion) { const status = (reason as { status?: number; response?: { status?: number } })?.status ?? (reason as { response?: { status?: number } })?.response?.status; if (status === 403) pelicanMetadata.reset?.(); error.value = messageOf(reason); if (status === 401 || status === 403) { clearArtworkCache(); items.value = []; total.value = 0; groups.value = []; closeDialog() } } } finally { if (version === listRequestVersion) loading.value = false }
 }
@@ -292,7 +307,7 @@ async function openHistory(entry: PelicanEntry, event: MouseEvent): Promise<void
   dialogMode.value = 'history'
   const version = ++historyRequestVersion
   historyPage.value = 1; history.value = []; historyLoading.value = true; historyError.value = ''
-  try { const result = await listPelicanHistory({ plan_id: entry.plan_id }, dialogAbort.signal); if (version === historyRequestVersion) history.value = result } catch (reason) { if (version === historyRequestVersion) historyError.value = messageOf(reason) } finally { if (version === historyRequestVersion) historyLoading.value = false }
+  try { const result = await listPelicanHistory({ plan_id: entry.plan_id, model_id: entry.model_id }, dialogAbort.signal); if (version === historyRequestVersion) history.value = result } catch (reason) { if (version === historyRequestVersion) historyError.value = messageOf(reason) } finally { if (version === historyRequestVersion) historyLoading.value = false }
 }
 async function openArtwork(entry: PelicanEntry, event: MouseEvent | KeyboardEvent): Promise<void> {
   const version = ++dialogRequestVersion
@@ -366,7 +381,7 @@ function requestCleanup(plan: PelicanPlan, scope: 'failed' | 'expired'): void { 
 function cancelCleanup(): void { if (cleanupBusy.value) return; cleanupConfirmation.value = null; const target = cleanupOpener; cleanupOpener = null; void nextTick(() => target?.focus()) }
 function closePlans(): void { if (!cleanupConfirmation.value) showPlans.value = false }
 async function confirmCleanup(): Promise<void> { const request = cleanupConfirmation.value; if (!request || cleanupBusy.value) return; cleanupBusy.value = true; planBusyId.value = request.plan.id; plansError.value = ''; cleanupNotice.value = ''; try { const { deleted_count } = await cleanupPelicanPlan(request.plan.id, request.scope); cleanupNotice.value = `已删除 ${deleted_count} 条${request.scope === 'failed' ? '失败或跳过' : '过期'}记录。`; cleanupConfirmation.value = null; cleanupOpener = null; await Promise.all([loadPlans(), refresh(), refreshOpenHistory()]) } catch (reason) { plansError.value = messageOf(reason) } finally { cleanupBusy.value = false; planBusyId.value = null } }
-async function refreshOpenHistory(): Promise<void> { if (dialogMode.value !== 'history' || !selectedEntry.value) return; const entry = selectedEntry.value; const version = ++historyRequestVersion; historyLoading.value = true; historyError.value = ''; try { const data = await listPelicanHistory({ plan_id: entry.plan_id }); if (version === historyRequestVersion) history.value = data } catch (reason) { if (version === historyRequestVersion) historyError.value = messageOf(reason) } finally { if (version === historyRequestVersion) historyLoading.value = false } }
+async function refreshOpenHistory(): Promise<void> { if (dialogMode.value !== 'history' || !selectedEntry.value) return; const entry = selectedEntry.value; const version = ++historyRequestVersion; historyLoading.value = true; historyError.value = ''; try { const data = await listPelicanHistory({ plan_id: entry.plan_id, model_id: entry.model_id }); if (version === historyRequestVersion) history.value = data } catch (reason) { if (version === historyRequestVersion) historyError.value = messageOf(reason) } finally { if (version === historyRequestVersion) historyLoading.value = false } }
 function isPlanRunning(plan: PelicanPlan): boolean { return Boolean(plan.running_until && new Date(plan.running_until).getTime() > Date.now()) }
 function closeDialog(): void {
   historyRequestVersion++; dialogRequestVersion++; dialogAbort?.abort()
@@ -391,6 +406,13 @@ function trapFocus(event: KeyboardEvent): void {
 </script>
 
 <style scoped>
+.group-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 14px; font-size: 12px; }
+.model-artwork { min-width: 0; border-top: 1px solid var(--pelican-border, #d8cec2); padding-top: 12px; }
+.dark .model-artwork { border-color: #334155; }
+.model-heading { display: flex !important; flex-direction: row !important; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.card-heading .model-heading strong { color: var(--pelican-text, inherit); font-size: 15px; font-weight: 800; overflow-wrap: anywhere; }
+.plan-reference { font-size: 11px; opacity: .75; }
+.generation-time { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 8px 14px; font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
 .pelican-page, .dialog-content {
   --pelican-text: var(--console-text, #141413);
   --pelican-muted: var(--console-muted, #6c6a64);

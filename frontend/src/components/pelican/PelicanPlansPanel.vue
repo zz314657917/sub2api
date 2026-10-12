@@ -23,7 +23,7 @@
       <form class="plan-form" @submit.prevent="save">
         <div class="form-section"><span class="form-section-title">测试目标</span><div class="form-grid">
           <label>分组<select v-model.number="draft.group_id" required aria-label="分组"><option :value="0" disabled>选择分组</option><option v-for="group in groups" :key="group.id" :value="group.id">{{ group.name }}{{ group.platform ? ` · ${group.platform}` : '' }}</option></select></label>
-          <label>模型<select v-model="draft.model_id" required :disabled="!draft.group_id || modelsLoading" aria-label="模型"><option value="" disabled>{{ modelPlaceholder }}</option><option v-for="model in models" :key="model" :value="model">{{ model }}</option></select></label>
+          <fieldset class="model-picker"><legend>模型（多选，最多 10 个）</legend><div class="model-options"><label v-for="model in models" :key="model"><input type="checkbox" :checked="draft.model_ids.includes(model)" :disabled="modelsLoading || (draft.model_ids.length >= 10 && !draft.model_ids.includes(model))" :aria-label="model" @change="toggleModel(model)">{{ model }}</label></div><span role="status">已选 {{ draft.model_ids.length }} / 10 个 · 按选择顺序执行</span><ol v-if="draft.model_ids.length" class="selected-models"><li v-for="model in draft.model_ids" :key="model">{{ model }}</li></ol></fieldset>
           <label><span class="field-title">思考强度 <span class="field-help" tabindex="0" aria-label="思考强度说明：各模型支持的档位不同，默认使用模型自身设置。">?<span class="field-tooltip" role="tooltip">各模型支持的档位不同，默认使用模型自身设置。</span></span></span><select v-model="draft.reasoning_effort" aria-label="思考强度"><option v-for="option in reasoningEffortOptions" :key="option.value" :value="option.value">{{ option.label }}</option></select></label>
         </div></div>
         <p v-if="modelError" class="model-status error" role="alert">{{ modelError }} <button type="button" :disabled="modelsLoading" @click="reloadModels">重试</button></p>
@@ -43,8 +43,9 @@
           <label>按天保留（0 为关闭）<select v-model="retentionMode" aria-label="按天保留" @change="setRetentionPreset"><option value="0">不按天清理</option><option value="7">保留 7 天</option><option value="30">保留 30 天</option><option value="custom">自定义天数</option></select><input v-if="retentionMode === 'custom'" v-model.number="draft.retention_days" required type="number" min="0" max="3650" aria-label="自定义保留天数"></label>
         </div></div>
         <div class="form-actions"><button v-if="editingID" class="ghost-button" type="button" :disabled="busyId != null" @click="reset">取消</button><button class="primary-button save-plan" type="submit" :disabled="loading || busyId != null || modelsLoading || !!modelError || !draft.group_id || !isCurrentModel">{{ editingID ? '保存计划' : '新建计划' }}</button></div>
+      <p class="model-estimate">每轮预估 {{ draft.model_ids.length }} 次调用 · 每日预估 {{ dailyEstimate }} 次（按间隔运行，受每日上限限制）</p>
       </form>
-      <p class="retention-note">每轮由分组调度选择一个账号，最多测试一次。每日用量按 UTC+8 重置；0 表示不设上限或关闭对应限制。每个计划和分组保留最近 {{ draft.max_results }} 条结果，并保护最新成功作品。</p>
+      <p class="retention-note">每轮由分组调度选择一个账号，最多测试一次；多模型按选择顺序串行测试，每个模型最多调用一次。每日用量按 UTC+8 重置；0 表示不设上限或关闭对应限制。每个计划、分组和模型分别保留最近 {{ draft.max_results }} 条结果，并保护最新成功作品。</p>
     </section>
     <div class="list-toolbar">
       <div><span class="eyebrow">计划列表</span><strong>{{ filteredPlans.length }} 个计划</strong></div>
@@ -55,7 +56,7 @@
     <div v-else class="plans-list">
       <article v-for="plan in filteredPlans" :key="plan.id" class="plan-card">
         <header class="plan-card-header">
-          <div class="plan-title"><div class="status-line"><span class="status-badge" :class="`status-${planStatus(plan)}`">{{ planStatusLabel(plan) }}</span><strong>{{ plan.group_name }}</strong></div><span class="plan-model">{{ plan.model_id }}</span></div>
+          <div class="plan-title"><div class="status-line"><span class="status-badge" :class="`status-${planStatus(plan)}`">{{ planStatusLabel(plan) }}</span><strong>{{ plan.group_name }}</strong></div><span class="plan-model">{{ (plan.model_ids?.length ? plan.model_ids : [plan.model_id]).join(' · ') }}</span></div>
           <div class="plan-schedule"><strong>{{ plan.interval_minutes }} 分钟</strong><span>·</span><span>{{ plan.enabled ? `下次 ${planTime(plan.next_run_at)}` : isAutoPaused(plan) ? '等待恢复' : '定时已停用' }}</span></div>
         </header>
         <div class="plan-metrics">
@@ -95,14 +96,14 @@ const modelError = ref('')
 const modelSelectionNotice = ref('')
 let modelsRequestVersion = 0
 let modelsAbort: AbortController | undefined
-let retainedModelForGroup: { groupID: number; modelID: string } | undefined
+let retainedModelForGroup: { groupID: number; modelIDs: string[] } | undefined
 const reasoningEffortOptions = [{ value: '', label: '默认' }, { value: 'none', label: '无' }, { value: 'minimal', label: '最低' }, { value: 'low', label: '低' }, { value: 'medium', label: '中' }, { value: 'high', label: '高' }, { value: 'xhigh', label: '极高' }]
-const defaults = (): PelicanPlanInput => ({ group_id: 0, model_id: '', interval_minutes: 60, timeout_seconds: 180, enabled: false, max_results: 20, min_chars: 9366, daily_call_limit: 0, failure_pause_threshold: 0, retention_days: 0, reasoning_effort: '' })
-const draft = reactive<PelicanPlanInput>(defaults())
-const isCurrentModel = computed(() => models.value.includes(draft.model_id))
+const defaults = (): PelicanPlanInput & { model_ids: string[] } => ({ group_id: 0, model_id: '', model_ids: [], interval_minutes: 60, timeout_seconds: 180, enabled: false, max_results: 20, min_chars: 9366, daily_call_limit: 0, failure_pause_threshold: 0, retention_days: 0, reasoning_effort: '' })
+const draft = reactive(defaults())
+const isCurrentModel = computed(() => draft.model_ids.length > 0 && draft.model_ids.length <= 10 && draft.model_ids.every(model => models.value.includes(model)))
+const dailyEstimate = computed(() => { const estimate = Math.ceil(1440 / Math.max(15, draft.interval_minutes)) * draft.model_ids.length; return draft.daily_call_limit ? Math.min(estimate, draft.daily_call_limit) : estimate })
 const editingPaused = computed(() => props.plans.find(plan => plan.id === editingID.value)?.pause_reason === 'consecutive_failures')
 const retentionMode = ref('0')
-const modelPlaceholder = computed(() => !draft.group_id ? '请先选择分组' : modelsLoading.value ? '加载中…' : modelError.value ? '模型加载失败' : models.value.length ? '选择已配置模型' : '没有可选模型')
 const activeCount = computed(() => props.plans.filter(plan => plan.enabled && !isAutoPaused(plan)).length)
 const pausedCount = computed(() => props.plans.filter(plan => isAutoPaused(plan)).length)
 const dailyCalls = computed(() => {
@@ -117,17 +118,17 @@ function startEdit(plan: PelicanPlan): void {
   const sameGroup = draft.group_id === plan.group_id
   editingID.value = plan.id
   showEditor.value = true
-  retainedModelForGroup = { groupID: plan.group_id, modelID: plan.model_id }
-  Object.assign(draft, { group_id: plan.group_id, model_id: plan.model_id, interval_minutes: plan.interval_minutes, timeout_seconds: plan.timeout_seconds ?? 180, enabled: plan.pause_reason === 'consecutive_failures' ? false : plan.enabled, max_results: plan.max_results, min_chars: plan.min_chars, daily_call_limit: plan.daily_call_limit ?? 0, failure_pause_threshold: plan.failure_pause_threshold ?? 0, retention_days: plan.retention_days ?? 0, reasoning_effort: plan.reasoning_effort ?? '' })
+  retainedModelForGroup = { groupID: plan.group_id, modelIDs: [...(plan.model_ids?.length ? plan.model_ids : [plan.model_id])] }
+  Object.assign(draft, { group_id: plan.group_id, model_id: plan.model_id, model_ids: [...(plan.model_ids?.length ? plan.model_ids : [plan.model_id])], interval_minutes: plan.interval_minutes, timeout_seconds: plan.timeout_seconds ?? 180, enabled: plan.pause_reason === 'consecutive_failures' ? false : plan.enabled, max_results: plan.max_results, min_chars: plan.min_chars, daily_call_limit: plan.daily_call_limit ?? 0, failure_pause_threshold: plan.failure_pause_threshold ?? 0, retention_days: plan.retention_days ?? 0, reasoning_effort: plan.reasoning_effort ?? '' })
   retentionMode.value = [0, 7, 30].includes(draft.retention_days ?? 0) ? String(draft.retention_days ?? 0) : 'custom'
   if (sameGroup) { retainedModelForGroup = undefined; void loadModels(plan.group_id) }
 }
 watch(() => props.saveVersion, () => reset())
 watch(() => draft.group_id, (groupID, previousGroupID) => {
   if (!groupID) { clearModels(); return }
-  const retain = retainedModelForGroup?.groupID === groupID ? retainedModelForGroup.modelID : ''
+  const retain = retainedModelForGroup?.groupID === groupID ? retainedModelForGroup.modelIDs : []
   retainedModelForGroup = undefined
-  if (groupID !== previousGroupID && !retain) { draft.model_id = ''; modelSelectionNotice.value = '' }
+  if (groupID !== previousGroupID && !retain.length) { draft.model_id = ''; draft.model_ids = []; modelSelectionNotice.value = '' }
   void loadModels(groupID)
 })
 function clearModels(): void { modelsRequestVersion++; modelsAbort?.abort(); models.value = []; modelsLoading.value = false; modelError.value = ''; modelSelectionNotice.value = '' }
@@ -141,17 +142,26 @@ async function loadModels(groupID: number): Promise<void> {
     const loaded = await listPelicanPlanModels(groupID, controller.signal)
     if (version !== modelsRequestVersion || draft.group_id !== groupID) return
     models.value = loaded
-    if (draft.model_id && !loaded.includes(draft.model_id)) { draft.model_id = ''; modelSelectionNotice.value = '原模型已不在该分组的可选模型中，请重新选择。' }
+    const retained = draft.model_ids.filter(model => loaded.includes(model))
+    if (retained.length !== draft.model_ids.length) modelSelectionNotice.value = '原模型已不在该分组的可选模型中，请重新选择。'
+    draft.model_ids = retained
+    draft.model_id = retained[0] ?? ''
   } catch (reason) {
     if (version !== modelsRequestVersion || draft.group_id !== groupID) return
     modelError.value = reason instanceof Error && reason.message ? `无法加载模型：${reason.message}` : '无法加载模型，请稍后重试。'
-    draft.model_id = ''
+    draft.model_id = ''; draft.model_ids = []
   } finally { if (version === modelsRequestVersion) modelsLoading.value = false }
+}
+function toggleModel(model: string): void {
+  const index = draft.model_ids.indexOf(model)
+  if (index >= 0) draft.model_ids.splice(index, 1)
+  else if (draft.model_ids.length < 10) draft.model_ids.push(model)
+  draft.model_id = draft.model_ids[0] ?? ''
 }
 function reloadModels(): void { if (draft.group_id) void loadModels(draft.group_id) }
 function setRetentionPreset(): void { if (retentionMode.value !== 'custom') draft.retention_days = Number(retentionMode.value); else if ([0, 7, 30].includes(draft.retention_days ?? 0)) draft.retention_days = 1 }
 function reasoningEffortLabel(value?: string): string { return reasoningEffortOptions.find(option => option.value === (value ?? ''))?.label ?? '默认' }
-function save(): void { if (props.busyId != null || props.loading || modelsLoading.value || modelError.value || !draft.group_id || !isCurrentModel.value) return; emit('save', editingID.value, { ...draft, enabled: editingID.value ? draft.enabled : false }) }
+function save(): void { if (props.busyId != null || props.loading || modelsLoading.value || modelError.value || !draft.group_id || !isCurrentModel.value) return; emit('save', editingID.value, { ...draft, model_ids: [...draft.model_ids], model_id: draft.model_ids[0] ?? '', enabled: editingID.value ? draft.enabled : false }) }
 function isRunning(plan: PelicanPlan): boolean { return Boolean(plan.running_until && new Date(plan.running_until).getTime() > Date.now()) }
 function isAutoPaused(plan: PelicanPlan): boolean { return plan.pause_reason === 'consecutive_failures' }
 function isDailyLimitReached(plan: PelicanPlan): boolean { return Boolean(plan.daily_call_limit && (plan.daily_calls_used ?? 0) >= plan.daily_call_limit) }
@@ -161,6 +171,11 @@ function planTime(value?: string | null): string { const date = value ? new Date
 onBeforeUnmount(() => { modelsRequestVersion++; modelsAbort?.abort() })
 </script>
 <style scoped>
+.model-picker { min-width: 0; margin: 0; padding: 8px; border: 1px solid var(--plan-border); border-radius: 7px; }
+.model-picker legend, .model-picker > span { color: var(--plan-muted); font-size: 12px; }
+.model-options { display: grid; gap: 8px; max-height: 160px; overflow: auto; }
+.plan-form .model-options label { flex-direction: row; align-items: center; overflow-wrap: anywhere; }
+.selected-models { margin: 8px 0 0; padding-left: 20px; overflow-wrap: anywhere; font-size: 12px; }
 .pelican-plans {
   /* BaseDialog teleports outside the console theme variable scope. */
   --plan-border: #d8cec2;
@@ -226,6 +241,7 @@ onBeforeUnmount(() => { modelsRequestVersion++; modelsAbort?.abort() })
 .plan-form input, .plan-form select, .filter-control select { width: 100%; min-width: 0; min-height: 36px; padding: 7px 9px; border: 1px solid var(--plan-border); border-radius: 7px; background: var(--plan-surface); color: var(--plan-text); }
 .plan-form label.enabled { flex-direction: row; align-items: center; align-self: end; min-height: 36px; color: var(--plan-text); }
 .plan-form input[type=checkbox] { width: auto; min-height: auto; accent-color: #5046b6; }
+.model-estimate { margin: 0; font-weight: 600; color: var(--plan-accent); }
 .model-status { margin: -8px 0 0; color: var(--plan-muted); }
 .model-status button { margin-left: 6px; }
 .form-actions { display: flex; justify-content: flex-end; gap: 8px; }

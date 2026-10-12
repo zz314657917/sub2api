@@ -86,6 +86,7 @@ type PelicanPlan struct {
 	GroupID               int64      `json:"group_id"`
 	GroupName             string     `json:"group_name"`
 	ModelID               string     `json:"model_id"`
+	ModelIDs              []string   `json:"model_ids"`
 	IntervalMinutes       int        `json:"interval_minutes"`
 	Enabled               bool       `json:"enabled"`
 	MaxResults            int        `json:"max_results"`
@@ -108,9 +109,11 @@ type PelicanPlan struct {
 	UpdatedAt             time.Time  `json:"updated_at"`
 }
 type PelicanPlanInput struct {
-	TimeoutSeconds        int    `json:"timeout_seconds"`
-	GroupID               int64  `json:"group_id"`
-	ModelID               string `json:"model_id"`
+	TimeoutSeconds        int      `json:"timeout_seconds"`
+	GroupID               int64    `json:"group_id"`
+	ModelID               string   `json:"model_id"`
+	ModelIDs              []string `json:"model_ids"`
+	modelIDsPresent       bool
 	IntervalMinutes       int    `json:"interval_minutes"`
 	Enabled               bool   `json:"enabled"`
 	MaxResults            int    `json:"max_results"`
@@ -120,6 +123,49 @@ type PelicanPlanInput struct {
 	RetentionDays         int    `json:"retention_days"`
 	ReasoningEffort       string `json:"reasoning_effort"`
 }
+
+func (i *PelicanPlanInput) UnmarshalJSON(data []byte) error {
+	type input PelicanPlanInput
+	var decoded input
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return err
+	}
+	*i = PelicanPlanInput(decoded)
+	_, i.modelIDsPresent = fields["model_ids"]
+	return nil
+}
+
+func pelicanModels(modelIDs []string, modelID string) []string {
+	if len(modelIDs) > 0 {
+		return modelIDs
+	}
+	return []string{modelID}
+}
+
+func normalizePelicanInput(i *PelicanPlanInput) error {
+	if i.ModelIDs == nil && !i.modelIDsPresent {
+		i.ModelIDs = []string{i.ModelID}
+	}
+	if len(i.ModelIDs) < 1 || len(i.ModelIDs) > 10 {
+		return ErrPelicanInvalid
+	}
+	seen := make(map[string]bool, len(i.ModelIDs))
+	for index, model := range i.ModelIDs {
+		model = strings.TrimSpace(model)
+		if model == "" || len(model) > 200 || strings.ContainsAny(model, "\r\n\x00") || !pelicanHTMLModel(model) || seen[model] {
+			return ErrPelicanInvalid
+		}
+		seen[model] = true
+		i.ModelIDs[index] = model
+	}
+	i.ModelID = i.ModelIDs[0]
+	return nil
+}
+
 type PelicanResult struct {
 	ReasoningEffort  *string    `json:"reasoning_effort"`
 	ID               int64      `json:"id"`
@@ -140,24 +186,25 @@ type PelicanResult struct {
 	HTML             string     `json:"html,omitempty"`
 }
 type PelicanEntry struct {
-	ReasoningEffort  *string    `json:"reasoning_effort"`
-	PlanID           int64      `json:"plan_id"`
-	GroupID          int64      `json:"group_id"`
-	GroupName        string     `json:"group_name"`
-	Platform         string     `json:"platform"`
-	AccountID        int64      `json:"account_id"`
-	ModelID          string     `json:"model_id"`
-	Status           string     `json:"status"`
-	LatencyMS        int64      `json:"latency_ms"`
-	CharCount        int        `json:"char_count"`
-	MinChars         int        `json:"min_chars"`
-	FinishedAt       *time.Time `json:"finished_at,omitempty"`
-	HistoryCount     int        `json:"history_count"`
-	ResultID         int64      `json:"result_id"`
-	ArtworkResultID  *int64     `json:"artwork_result_id"`
-	ErrorMessage     string     `json:"error_message"`
-	ErrorCode        string     `json:"error_code"`
-	ErrorMessageSafe string     `json:"error_message_safe"`
+	ReasoningEffort   *string    `json:"reasoning_effort"`
+	PlanID            int64      `json:"plan_id"`
+	GroupID           int64      `json:"group_id"`
+	GroupName         string     `json:"group_name"`
+	Platform          string     `json:"platform"`
+	AccountID         int64      `json:"account_id"`
+	ModelID           string     `json:"model_id"`
+	Status            string     `json:"status"`
+	LatencyMS         int64      `json:"latency_ms"`
+	CharCount         int        `json:"char_count"`
+	MinChars          int        `json:"min_chars"`
+	FinishedAt        *time.Time `json:"finished_at,omitempty"`
+	HistoryCount      int        `json:"history_count"`
+	ResultID          int64      `json:"result_id"`
+	ArtworkResultID   *int64     `json:"artwork_result_id"`
+	ArtworkFinishedAt *time.Time `json:"artwork_finished_at,omitempty"`
+	ErrorMessage      string     `json:"error_message"`
+	ErrorCode         string     `json:"error_code"`
+	ErrorMessageSafe  string     `json:"error_message_safe"`
 }
 type PelicanGroup struct {
 	ID       int64  `json:"id"`
@@ -381,6 +428,20 @@ func (s *PelicanTestService) ListHistory(c context.Context, a PelicanAuthorizati
 	}
 	return s.repo.ListHistory(c, a, p, ac)
 }
+func (s *PelicanTestService) ListHistoryForModel(c context.Context, a PelicanAuthorization, p, ac int64, model string) ([]PelicanResult, error) {
+	if err := s.allowUserAccess(c, a); err != nil {
+		return nil, err
+	}
+	if repository, ok := s.repo.(interface {
+		ListHistoryForModel(context.Context, PelicanAuthorization, int64, int64, string) ([]PelicanResult, error)
+	}); ok {
+		return repository.ListHistoryForModel(c, a, p, ac, model)
+	}
+	if model != "" {
+		return nil, ErrPelicanInvalid
+	}
+	return s.repo.ListHistory(c, a, p, ac)
+}
 func (s *PelicanTestService) GetResult(c context.Context, a PelicanAuthorization, id int64) (*PelicanResult, error) {
 	if err := s.allowUserAccess(c, a); err != nil {
 		return nil, err
@@ -393,31 +454,9 @@ func (s *PelicanTestService) ListPlans(c context.Context) ([]PelicanPlan, error)
 		return nil, err
 	}
 	for i := range plans {
-		accounts, listErr := s.accounts.ListByGroup(c, plans[i].GroupID)
-		if listErr != nil {
-			return nil, listErr
-		}
-		group, groupErr := s.groups.GetByIDLite(c, plans[i].GroupID)
-		if groupErr != nil && !errors.Is(groupErr, ErrGroupNotFound) {
-			return nil, groupErr
-		}
-		if group == nil {
-			continue
-		}
-		for j := range accounts {
-			a := &accounts[j]
-			member := false
-			for _, groupID := range a.GroupIDs {
-				if groupID == plans[i].GroupID {
-					member = true
-					break
-				}
-			}
-			if pelicanSkipReason(a, nil, group, nil, member) == "" && a.IsModelSupported(plans[i].ModelID) && pelicanHTMLModel(a.GetMappedModel(plans[i].ModelID)) {
-				plans[i].EstimatedCallsPerRun = 1
-				break
-			}
-		}
+		plans[i].ModelIDs = pelicanModels(plans[i].ModelIDs, plans[i].ModelID)
+		plans[i].ModelID = plans[i].ModelIDs[0]
+		plans[i].EstimatedCallsPerRun = len(plans[i].ModelIDs)
 	}
 	return plans, nil
 }
@@ -626,23 +665,39 @@ func validPelicanReasoningEffort(effort string) bool {
 	}
 }
 func (s *PelicanTestService) CreatePlan(c context.Context, i PelicanPlanInput) (*PelicanPlan, error) {
+	if e := normalizePelicanInput(&i); e != nil {
+		return nil, e
+	}
 	if e := validPelicanInput(i); e != nil {
 		return nil, e
 	}
 	g, e := s.validPlanModel(c, i.GroupID, i.ModelID)
 	if e != nil {
 		return nil, e
+	}
+	for _, model := range i.ModelIDs[1:] {
+		if _, err := s.validPlanModel(c, i.GroupID, model); err != nil {
+			return nil, err
+		}
 	}
 	i.Enabled = false
 	return s.repo.CreatePlan(c, i, g.Name)
 }
 func (s *PelicanTestService) UpdatePlan(c context.Context, id int64, i PelicanPlanInput) (*PelicanPlan, error) {
+	if e := normalizePelicanInput(&i); e != nil {
+		return nil, e
+	}
 	if e := validPelicanInput(i); e != nil {
 		return nil, e
 	}
 	g, e := s.validPlanModel(c, i.GroupID, i.ModelID)
 	if e != nil {
 		return nil, e
+	}
+	for _, model := range i.ModelIDs[1:] {
+		if _, err := s.validPlanModel(c, i.GroupID, model); err != nil {
+			return nil, err
+		}
 	}
 	return s.repo.UpdatePlan(c, id, i, g.Name)
 }
@@ -714,48 +769,64 @@ func (s *PelicanTestService) run(c context.Context, p *PelicanPlan, snapshot pel
 			log.Printf("pelican plan %d: finalize failed", p.ID)
 		}
 	}()
+	models := append([]string(nil), pelicanModels(p.ModelIDs, p.ModelID)...)
 	timeout := pelicanTestTimeout(p.TimeoutSeconds)
-	planCtx, cancelPlan := context.WithTimeout(c, timeout+time.Minute)
+	// Ten seconds per model covers metadata saves; reserve an additional
+	// minute for round bookkeeping. Claim holds a further minute for finalize.
+	planCtx, cancelPlan := context.WithTimeout(c, time.Duration(len(models))*(timeout+10*time.Second)+time.Minute)
 	defer cancelPlan()
+	for _, model := range models {
+		if planCtx.Err() != nil {
+			break
+		}
+		modelPlan := *p
+		modelPlan.ModelID = model
+		if !s.runModel(planCtx, &modelPlan, snapshot) {
+			break
+		}
+	}
+}
+
+func (s *PelicanTestService) runModel(planCtx context.Context, p *PelicanPlan, snapshot pelicanPromptSnapshot) bool {
+	accountCtx, cancel := context.WithTimeout(planCtx, pelicanTestTimeout(p.TimeoutSeconds))
+	defer cancel()
 	started := time.Now()
 	if s.selector == nil {
 		s.save(planCtx, p, 0, nil, "skipped", "group_scheduler_unavailable", started, snapshot)
-		return
+		return true
 	}
-	selection, err := s.selector.SelectPelicanAccount(planCtx, p.GroupID, p.ModelID)
+	selection, err := s.selector.SelectPelicanAccount(accountCtx, p.GroupID, p.ModelID)
 	if selection != nil && selection.ReleaseFunc != nil {
 		defer selection.ReleaseFunc()
 	}
 	if err != nil || selection == nil || selection.Account == nil {
 		s.save(planCtx, p, 0, nil, "skipped", "group_scheduler_unavailable", started, snapshot)
-		return
+		return true
 	}
 	if !selection.Acquired {
 		s.save(planCtx, p, 0, nil, "skipped", "group_busy", started, snapshot)
-		return
+		return true
 	}
 	a := selection.Account
-	accountCtx, cancel := context.WithTimeout(planCtx, timeout)
-	defer cancel()
 	fresh, err := s.accounts.GetByID(accountCtx, a.ID)
 	group, groupErr := s.groups.GetByIDLite(accountCtx, p.GroupID)
 	member := fresh != nil && containsInt64(fresh.GroupIDs, p.GroupID)
 	if reason := pelicanSkipReason(fresh, err, group, groupErr, member); reason != "" {
 		s.save(accountCtx, p, a.ID, nil, "skipped", reason, started, snapshot)
-		return
+		return true
 	}
 	if !fresh.IsModelSupported(p.ModelID) {
 		s.save(accountCtx, p, a.ID, nil, "skipped", "account_model_not_allowed", started, snapshot)
-		return
+		return true
 	}
 	if !pelicanHTMLModel(fresh.GetMappedModel(p.ModelID)) {
 		s.save(accountCtx, p, a.ID, nil, "skipped", "model_not_html_capable", started, snapshot)
-		return
+		return true
 	}
 	allowed, checkErr := s.repo.CanRunAccount(accountCtx, p.ID, p.RunGeneration, a.ID)
 	if checkErr != nil || !allowed || accountCtx.Err() != nil {
 		s.save(accountCtx, p, a.ID, nil, "skipped", "plan_changed", started, snapshot)
-		return
+		return true
 	}
 	if err := s.repo.ReserveAttempt(accountCtx, p.ID, p.RunGeneration); err != nil {
 		reason := "daily_call_limit_reached"
@@ -763,15 +834,16 @@ func (s *PelicanTestService) run(c context.Context, p *PelicanPlan, snapshot pel
 			reason = "quota_reservation_failed"
 		}
 		s.save(accountCtx, p, a.ID, nil, "skipped", reason, started, snapshot)
-		return
+		return false
 	}
 	x, err := s.tester.RunPelicanTest(accountCtx, a.ID, p.ModelID, snapshot.prompt, p.ReasoningEffort)
 	if err != nil || accountCtx.Err() != nil || x == nil {
 		code, safe := classifyPelicanFailure(err, accountCtx)
 		s.saveFailure(accountCtx, p, a.ID, "generation failed or timed out", code, safe, started, snapshot)
-		return
+		return true
 	}
 	s.save(accountCtx, p, a.ID, x, "success", "", started, snapshot)
+	return true
 }
 
 func classifyPelicanFailure(err error, ctx context.Context) (string, string) {

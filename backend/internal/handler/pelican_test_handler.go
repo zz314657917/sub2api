@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
@@ -192,7 +193,25 @@ func (h *PelicanTestHandler) History(c *gin.Context) {
 	if !ok {
 		return
 	}
-	result, err := h.svc.ListHistory(c.Request.Context(), auth, planID, accountID)
+	model := c.Query("model_id")
+	if _, present := c.GetQuery("model_id"); present && (strings.TrimSpace(model) == "" || len(model) > 200 || strings.ContainsAny(model, "\r\n\x00")) {
+		response.BadRequest(c, "Invalid model_id")
+		return
+	}
+	var result []service.PelicanResult
+	var err error
+	if model != "" {
+		filtered, supported := h.svc.(interface {
+			ListHistoryForModel(context.Context, service.PelicanAuthorization, int64, int64, string) ([]service.PelicanResult, error)
+		})
+		if !supported {
+			response.BadRequest(c, "Model history unavailable")
+			return
+		}
+		result, err = filtered.ListHistoryForModel(c.Request.Context(), auth, planID, accountID, model)
+	} else {
+		result, err = h.svc.ListHistory(c.Request.Context(), auth, planID, accountID)
+	}
 	if err != nil {
 		pelicanError(c, err)
 		return

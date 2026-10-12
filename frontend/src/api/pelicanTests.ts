@@ -5,6 +5,7 @@ export interface PelicanEntry {
   reasoning_effort?: string | null
   plan_id: number; group_id: number; group_name: string; platform?: string; account_id: number; model_id: string
   status: 'success' | 'failed' | 'skipped'; latency_ms: number; char_count: number; min_chars: number
+  artwork_finished_at?: string | null
   finished_at: string; history_count: number; result_id: number; artwork_result_id: number | null; error_message?: string; error_code?: string; error_message_safe?: string
 }
 export interface PelicanResult {
@@ -14,6 +15,7 @@ export interface PelicanResult {
   started_at: string; finished_at: string; html?: string
 }
 export interface PelicanPlan {
+  model_ids?: string[]
   id: number; group_id: number; group_name: string; model_id: string; interval_minutes: number; enabled: boolean
   max_results: number; min_chars: number; last_run_at?: string | null; next_run_at?: string | null; running_until?: string | null
   daily_call_limit: number | null; failure_pause_threshold: number | null; retention_days: number | null
@@ -23,7 +25,7 @@ export interface PelicanPlan {
   estimated_calls_per_run: number | null; last_run_calls: number | null
   created_at: string; updated_at: string
 }
-export type PelicanPlanInput = Pick<PelicanPlan, 'group_id' | 'model_id' | 'interval_minutes' | 'enabled' | 'max_results' | 'min_chars' | 'daily_call_limit' | 'failure_pause_threshold' | 'retention_days' | 'reasoning_effort' | 'timeout_seconds'>
+export type PelicanPlanInput = Pick<PelicanPlan, 'group_id' | 'model_id' | 'model_ids' | 'interval_minutes' | 'enabled' | 'max_results' | 'min_chars' | 'daily_call_limit' | 'failure_pause_threshold' | 'retention_days' | 'reasoning_effort' | 'timeout_seconds'>
 export interface PelicanListResponse { items: PelicanEntry[]; total: number; page: number; page_size: number; groups: PelicanGroup[] }
 export interface PelicanTestMetadata { display_name: string; enabled: boolean }
 export interface PelicanTestSettings extends PelicanTestMetadata { prompt: string }
@@ -39,7 +41,7 @@ export async function listPelicanTests(params: { group_id?: number; account_id?:
   const { data } = await apiClient.get<PelicanListResponse>('/pelican-tests', { params, signal })
   return data
 }
-export async function listPelicanHistory(params: { plan_id: number; account_id?: number }, signal?: AbortSignal): Promise<PelicanResult[]> {
+export async function listPelicanHistory(params: { plan_id: number; account_id?: number; model_id?: string }, signal?: AbortSignal): Promise<PelicanResult[]> {
   const { data } = await apiClient.get<PelicanResult[]>('/pelican-tests/history', { params, signal })
   return data ?? []
 }

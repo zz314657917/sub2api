@@ -33,6 +33,52 @@ describe('PelicanTestsView', () => {
   })
   async function view() { const wrapper = mount(PelicanTestsView, { global: { stubs } }); await flushPromises(); return wrapper }
 
+  it('shows complete generation timestamps with seconds and timezone for success and fallback artwork', async () => {
+    api.list.mockResolvedValue({
+      items: [
+        { ...item(1), finished_at: '2026-10-07T10:00:37+08:00' },
+        { ...item(2), status: 'failed', finished_at: '2026-10-07T11:00:59+08:00', artwork_finished_at: '2026-10-07T10:00:12+08:00' },
+        { ...item(3), status: 'skipped', artwork_result_id: null, finished_at: 'invalid' }
+      ],
+      total: 1, page: 1, page_size: 24, groups: []
+    })
+    const wrapper = await view()
+    try {
+      const timestamps = wrapper.findAll('.generation-time')
+      expect(timestamps.map(node => node.attributes('title'))).toEqual([
+        '2026-10-07T02:00:37.000Z (UTC)',
+        '2026-10-07T02:00:12.000Z (UTC)',
+        '时间未知'
+      ])
+      expect(timestamps[0]!.text()).not.toContain('(UTC)')
+      expect(timestamps[1]!.attributes('title')).not.toContain('03:00:59')
+    } finally { wrapper.unmount() }
+  })
+
+  it('stacks models from separate plans in one group and keeps model-scoped history after refresh', async () => {
+    const entries = [
+      { ...item(1), model_id: 'gpt-a' },
+      { ...item(2), model_id: 'gpt-b' },
+      { ...item(3), plan_id: 2, model_id: 'gpt-a' }
+    ]
+    api.list.mockResolvedValue({ items: entries, total: 1, page: 1, page_size: 24, groups: [] })
+    const wrapper = await view()
+    try {
+      expect(wrapper.findAll('.pelican-card')).toHaveLength(1)
+      expect(wrapper.findAll('.model-artwork')).toHaveLength(3)
+      expect(wrapper.findAll('.model-heading strong').map(node => node.text())).toEqual(['gpt-a', 'gpt-b', 'gpt-a'])
+      await wrapper.findAll('.history-count')[1]!.trigger('click'); await flushPromises()
+      expect(api.history).toHaveBeenLastCalledWith({ plan_id: 1, model_id: 'gpt-b' }, expect.any(AbortSignal))
+      api.list.mockResolvedValue({ items: entries.map(entry => ({ ...entry, result_id: entry.result_id + 100 })), total: 1, page: 1, page_size: 24, groups: [] })
+      await wrapper.get('.refresh-button').trigger('click'); await flushPromises()
+      expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
+      expect(wrapper.get('[role="dialog"]').attributes('title')).toContain('gpt-b')
+      api.list.mockResolvedValue({ items: entries.filter(entry => entry.model_id !== 'gpt-b'), total: 1, page: 1, page_size: 24, groups: [] })
+      await wrapper.get('.refresh-button').trigger('click'); await flushPromises()
+      expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    } finally { wrapper.unmount() }
+  })
+
   it('keeps unsaved plans during profile refresh and pauses polling', async () => {
     vi.useFakeTimers()
     const wrapper = await view()
@@ -130,7 +176,7 @@ describe('PelicanTestsView', () => {
     let resolve!: (value: ReturnType<typeof result>) => void
     const wrapper = await view()
     await wrapper.get('button[aria-label*="历史"]').trigger('click'); await flushPromises()
-    expect(api.history).toHaveBeenLastCalledWith({ plan_id: 1 }, expect.any(AbortSignal))
+    expect(api.history).toHaveBeenLastCalledWith({ plan_id: 1, model_id: 'gpt-test' }, expect.any(AbortSignal))
     api.result.mockImplementationOnce(() => new Promise<ReturnType<typeof result>>(inner => { resolve = inner }))
     await wrapper.get('[role="dialog"] button:not([aria-label="close"])').trigger('click')
     await wrapper.get('[role="dialog"] button[aria-label="close"]').trigger('click')
@@ -182,10 +228,10 @@ describe('PelicanTestsView', () => {
     await wrapper.findAll('button').find(button => button.text() === '新建计划')!.trigger('click')
     await wrapper.get('select[aria-label="分组"]').setValue('3')
     await flushPromises()
-    await wrapper.get('select[aria-label="模型"]').setValue('gpt-kept')
+    await wrapper.get('input[aria-label="gpt-kept"]').setValue(true)
     await wrapper.get('form').trigger('submit'); await flushPromises()
     expect(wrapper.text()).toContain('保存失败')
-    expect((wrapper.get('select[aria-label="模型"]').element as HTMLSelectElement).value).toBe('gpt-kept')
+    expect((wrapper.get('input[aria-label="gpt-kept"]').element as HTMLInputElement).checked).toBe(true)
     await wrapper.get('[role="dialog"] button[aria-label="close"]').trigger('click'); await flushPromises()
     await wrapper.get('button[aria-label*="历史"]').trigger('click'); await flushPromises()
     await wrapper.get('[role="dialog"] button:not([aria-label="close"])').trigger('click'); await flushPromises()
