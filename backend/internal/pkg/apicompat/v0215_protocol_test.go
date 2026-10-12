@@ -10,7 +10,7 @@ import (
 )
 
 func TestV0215ProtocolInstructionRoles(t *testing.T) {
-	for _, role := range []string{"system", "developer"} {
+	for _, role := range []string{"system", "developer", "user"} {
 		for _, content := range []string{`"Answer in French."`, `[{"type":"text","text":"Answer in French."}]`} {
 			t.Run(role+"/"+content, func(t *testing.T) {
 				resp, err := ChatCompletionsToResponses(&ChatCompletionsRequest{
