@@ -22,6 +22,7 @@ type FrameConn interface {
 
 type Usage struct {
 	InputTokens              int
+	ImageInputTokens         int
 	OutputTokens             int
 	CacheCreationInputTokens int
 	CacheReadInputTokens     int
@@ -98,6 +99,7 @@ type relayState struct {
 	// lastResponseModelResponseID is deliberately separate from lastResponseID:
 	// an id-less terminal has no safe billing/request correlation.
 	lastResponseModelResponseID string
+	completedResponseIDs        map[string]struct{}
 }
 
 type relayExitSignal struct {
@@ -650,6 +652,19 @@ func observeUpstreamMessage(
 	if responseID == "" && isTerminalEvent(eventType) {
 		responseID = strings.TrimSpace(values[3].String())
 	}
+	if isTerminalEvent(eventType) && responseID != "" {
+		if _, duplicate := state.completedResponseIDs[responseID]; duplicate {
+			// Forward the wire event, but never bill/callback twice for completed
+			// vs done (or a retransmitted terminal) on the same response.
+			return observedUpstreamEvent{eventType: eventType, responseID: responseID}
+		}
+		if state.completedResponseIDs == nil {
+			state.completedResponseIDs = make(map[string]struct{})
+		}
+		// Keep IDs for this relay's lifetime: an old retransmission must not
+		// become billable merely because more turns completed in between.
+		state.completedResponseIDs[responseID] = struct{}{}
+	}
 	now := nowFn()
 
 	if state.firstTokenMs == nil && isTokenEvent(eventType) {
@@ -866,6 +881,9 @@ func parseUsageAndAccumulate(
 	}
 	usageResult := gjson.GetBytes(message, "response.usage")
 	if !usageResult.Exists() {
+		usageResult = gjson.GetBytes(message, "usage")
+	}
+	if !usageResult.Exists() {
 		return Usage{}
 	}
 	usageRaw := strings.TrimSpace(usageResult.Raw)
@@ -877,21 +895,35 @@ func parseUsageAndAccumulate(
 		return Usage{}
 	}
 
-	inputResult := gjson.GetBytes(message, "response.usage.input_tokens")
+	inputResult := usageResult.Get("input_tokens")
 	if !inputResult.Exists() {
-		inputResult = gjson.GetBytes(message, "response.usage.prompt_tokens")
+		inputResult = usageResult.Get("prompt_tokens")
 	}
-	outputResult := gjson.GetBytes(message, "response.usage.output_tokens")
+	outputResult := usageResult.Get("output_tokens")
 	if !outputResult.Exists() {
-		outputResult = gjson.GetBytes(message, "response.usage.completion_tokens")
+		outputResult = usageResult.Get("completion_tokens")
 	}
-	cachedResult := gjson.GetBytes(message, "response.usage.input_tokens_details.cached_tokens")
+	cachedResult := usageResult.Get("input_tokens_details.cached_tokens")
 	if !cachedResult.Exists() {
-		cachedResult = gjson.GetBytes(message, "response.usage.prompt_tokens_details.cached_tokens")
+		cachedResult = usageResult.Get("prompt_tokens_details.cached_tokens")
 	}
 	imageTokens := usageResult.Get("output_tokens_details.image_tokens").Int()
 	if imageTokens == 0 {
 		imageTokens = usageResult.Get("completion_tokens_details.image_tokens").Int()
+	}
+	imageInputTokens := usageResult.Get("input_tokens_details.image_tokens").Int()
+	if imageInputTokens <= 0 {
+		imageInputTokens = usageResult.Get("prompt_tokens_details.image_tokens").Int()
+	}
+	imageGen := gjson.GetBytes(message, "response.tool_usage.image_gen")
+	if !imageGen.Exists() {
+		imageGen = gjson.GetBytes(message, "tool_usage.image_gen")
+	}
+	if imageInputTokens <= 0 {
+		imageInputTokens = imageGen.Get("input_tokens_details.image_tokens").Int()
+	}
+	if imageTokens <= 0 {
+		imageTokens = imageGen.Get("output_tokens_details.image_tokens").Int()
 	}
 
 	inputTokens, inputOK := parseUsageIntField(inputResult, true)
@@ -907,13 +939,15 @@ func parseUsageAndAccumulate(
 	}
 	parsedUsage := Usage{
 		InputTokens:              inputTokens,
+		ImageInputTokens:         max(int(imageInputTokens), 0),
 		OutputTokens:             outputTokens,
 		CacheCreationInputTokens: openAICacheCreationTokensFromUsage(usageResult),
 		CacheReadInputTokens:     cachedTokens,
-		ImageOutputTokens:        int(imageTokens),
+		ImageOutputTokens:        max(int(imageTokens), 0),
 	}
 
 	state.usage.InputTokens += parsedUsage.InputTokens
+	state.usage.ImageInputTokens += parsedUsage.ImageInputTokens
 	state.usage.OutputTokens += parsedUsage.OutputTokens
 	state.usage.CacheCreationInputTokens += parsedUsage.CacheCreationInputTokens
 	state.usage.CacheReadInputTokens += parsedUsage.CacheReadInputTokens

@@ -36,6 +36,8 @@ export default {
       billingModePerRequest: 'Per Request',
       billingModeImage: 'Image',
       allBillingModes: 'All Billing Modes',
+      longContext: 'Long context',
+      longContextPricingTooltip: 'Long-context pricing was applied. Input and output rates depend on the pricing tier, not a uniform multiplier.',
       responseModelAudit: 'Response Model Audit',
       allResponseModelAudits: 'All Response Model States',
       responseModelMismatch: 'Model Mismatch',

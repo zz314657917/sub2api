@@ -5,9 +5,9 @@
  *   formatScaled(0.5,        1)        → "$0.5"      // per request
  *   formatScaled(null,       1_000_000) → "-"
  *
- * Uses toPrecision(10) then strips trailing zeros to avoid IEEE 754 display noise.
+ * Uses toPrecision(10) then normalizes the number to avoid IEEE 754 display noise.
  */
 export function formatScaled(value: number | null, scale: number): string {
   if (value == null) return '-'
-  return `$${(value * scale).toPrecision(10).replace(/\.?0+$/, '')}`
+  return `$${Number((value * scale).toPrecision(10)).toString()}`
 }

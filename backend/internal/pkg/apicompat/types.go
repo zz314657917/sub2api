@@ -59,7 +59,8 @@ type AnthropicContentBlock struct {
 	Text string `json:"text,omitempty"`
 
 	// type=thinking
-	Thinking string `json:"thinking,omitempty"`
+	Thinking  string `json:"thinking,omitempty"`
+	Signature string `json:"signature,omitempty"`
 
 	// type=image
 	Source *AnthropicImageSource `json:"source,omitempty"`
@@ -89,9 +90,10 @@ func (b AnthropicContentBlock) MarshalJSON() ([]byte, error) {
 		}{Text: b.Text, anthropicContentBlock: anthropicContentBlock(b)})
 	case "thinking":
 		return json.Marshal(struct {
-			Thinking string `json:"thinking"`
+			Thinking  string `json:"thinking"`
+			Signature string `json:"signature"`
 			anthropicContentBlock
-		}{Thinking: b.Thinking, anthropicContentBlock: anthropicContentBlock(b)})
+		}{Thinking: b.Thinking, Signature: b.Signature, anthropicContentBlock: anthropicContentBlock(b)})
 	default:
 		return json.Marshal(base)
 	}
@@ -255,8 +257,9 @@ type ResponsesInputItem struct {
 
 // ResponsesContentPart is a typed content part in a Responses message.
 type ResponsesContentPart struct {
-	Type     string `json:"type"` // "input_text" | "output_text" | "input_image" | "input_file"
+	Type     string `json:"type"` // "input_text" | "output_text" | "refusal" | "input_image" | "input_file"
 	Text     string `json:"text,omitempty"`
+	Refusal  string `json:"refusal,omitempty"`
 	ImageURL string `json:"image_url,omitempty"` // data URI for input_image
 
 	// input_file fields.
@@ -563,8 +566,9 @@ type ChatStreamOptions struct {
 
 // ChatMessage is a single message in the Chat Completions conversation.
 type ChatMessage struct {
-	Role             string          `json:"role"` // "system" | "user" | "assistant" | "tool" | "function"
+	Role             string          `json:"role"` // "system" | "developer" | "user" | "assistant" | "tool" | "function"
 	Content          json.RawMessage `json:"content,omitempty"`
+	Refusal          string          `json:"refusal,omitempty"`
 	ReasoningContent string          `json:"reasoning_content,omitempty"`
 	Name             string          `json:"name,omitempty"`
 	ToolCalls        []ChatToolCall  `json:"tool_calls,omitempty"`
@@ -695,6 +699,7 @@ type ChatChunkChoice struct {
 type ChatDelta struct {
 	Role             string         `json:"role,omitempty"`
 	Content          *string        `json:"content,omitempty"` // pointer: omit when not present, null vs "" matters
+	Refusal          *string        `json:"refusal,omitempty"`
 	ReasoningContent *string        `json:"reasoning_content,omitempty"`
 	ToolCalls        []ChatToolCall `json:"tool_calls,omitempty"`
 }

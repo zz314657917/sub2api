@@ -12,6 +12,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -29,6 +30,116 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 )
+
+type openAIWSTurnAPIKeyLookup interface {
+	GetByKey(context.Context, string) (*service.APIKey, error)
+}
+
+// Pricing refresh is not reauthorization: routing, user, quota, trial and
+// subscription ownership remain those of the connection.
+type openAIWSTurnBillingAPIKeys struct {
+	mu   sync.Mutex
+	keys map[int]*service.APIKey
+}
+
+func (k *openAIWSTurnBillingAPIKeys) begin(ctx context.Context, lookup openAIWSTurnAPIKeyLookup, turn int, conn *service.APIKey) {
+	k.mu.Lock()
+	_, exists := k.keys[turn]
+	k.mu.Unlock()
+	if exists {
+		return
+	}
+	key := conn
+	if turn > 1 {
+		key = refreshOpenAIWSTurnBillingAPIKey(ctx, lookup, conn)
+	}
+	key = snapshotOpenAIWSBillingAPIKey(conn, key)
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	if k.keys == nil {
+		k.keys = make(map[int]*service.APIKey)
+	}
+	k.keys[turn] = key
+}
+
+func (k *openAIWSTurnBillingAPIKeys) take(turn int, conn *service.APIKey) *service.APIKey {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	key := k.keys[turn]
+	delete(k.keys, turn)
+	if key != nil {
+		return key
+	}
+	// Passthrough's first turn has no BeforeTurn.
+	return snapshotOpenAIWSBillingAPIKey(conn, conn)
+}
+
+func refreshOpenAIWSTurnBillingAPIKey(ctx context.Context, lookup openAIWSTurnAPIKeyLookup, conn *service.APIKey) *service.APIKey {
+	if lookup == nil || conn == nil || conn.Key == "" || conn.GroupID == nil || conn.Group == nil {
+		return conn
+	}
+	latest, err := lookup.GetByKey(ctx, conn.Key)
+	if err != nil || latest == nil || latest.ID != conn.ID || latest.GroupID == nil ||
+		*latest.GroupID != *conn.GroupID || latest.Group == nil ||
+		latest.Group.ID != conn.Group.ID || latest.Group.Platform != conn.Group.Platform ||
+		latest.Group.SubscriptionType != conn.Group.SubscriptionType {
+		return conn
+	}
+	key := *conn
+	key.Group = latest.Group
+	return &key
+}
+
+func cloneOpenAIWSBillingValue[T any](value *T) *T {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	return &copy
+}
+
+func snapshotOpenAIWSBillingAPIKey(conn, pricing *service.APIKey) *service.APIKey {
+	if conn == nil {
+		return nil
+	}
+	key := *conn
+	if pricing == nil || pricing.Group == nil || conn.Group == nil {
+		return &key
+	}
+	// Start with local routing/configuration, copy only billing fields.
+	group, source := *conn.Group, pricing.Group
+	group.RateMultiplier = source.RateMultiplier
+	group.PeakRateEnabled, group.PeakStart, group.PeakEnd, group.PeakRateMultiplier =
+		source.PeakRateEnabled, source.PeakStart, source.PeakEnd, source.PeakRateMultiplier
+	group.LongContextPricingEnabled = source.LongContextPricingEnabled
+	group.ImageRateIndependent, group.ImageRateMultiplier = source.ImageRateIndependent, source.ImageRateMultiplier
+	group.ImagePrice1K = cloneOpenAIWSBillingValue(source.ImagePrice1K)
+	group.ImagePrice2K = cloneOpenAIWSBillingValue(source.ImagePrice2K)
+	group.ImagePrice4K = cloneOpenAIWSBillingValue(source.ImagePrice4K)
+	group.ModelPricing = make([]service.ChannelModelPricing, len(source.ModelPricing))
+	for i, price := range source.ModelPricing {
+		p := price.Clone()
+		p.InputPrice = cloneOpenAIWSBillingValue(price.InputPrice)
+		p.OutputPrice = cloneOpenAIWSBillingValue(price.OutputPrice)
+		p.CacheWritePrice = cloneOpenAIWSBillingValue(price.CacheWritePrice)
+		p.CacheReadPrice = cloneOpenAIWSBillingValue(price.CacheReadPrice)
+		p.ImageInputPrice = cloneOpenAIWSBillingValue(price.ImageInputPrice)
+		p.ImageOutputPrice = cloneOpenAIWSBillingValue(price.ImageOutputPrice)
+		p.PerRequestPrice = cloneOpenAIWSBillingValue(price.PerRequestPrice)
+		for j := range p.Intervals {
+			v := &p.Intervals[j]
+			v.MaxTokens = cloneOpenAIWSBillingValue(v.MaxTokens)
+			v.InputPrice = cloneOpenAIWSBillingValue(v.InputPrice)
+			v.OutputPrice = cloneOpenAIWSBillingValue(v.OutputPrice)
+			v.CacheWritePrice = cloneOpenAIWSBillingValue(v.CacheWritePrice)
+			v.CacheReadPrice = cloneOpenAIWSBillingValue(v.CacheReadPrice)
+			v.PerRequestPrice = cloneOpenAIWSBillingValue(v.PerRequestPrice)
+		}
+		group.ModelPricing[i] = p
+	}
+	key.Group = &group
+	return &key
+}
 
 // OpenAIGatewayHandler handles OpenAI API gateway requests
 type OpenAIGatewayHandler struct {
@@ -2113,6 +2224,18 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 			zap.Int("candidate_count", scheduleDecision.CandidateCount),
 		)
 
+		// Keep billing snapshots until AfterTurn consumes them. A later BeforeTurn
+		// may run before an earlier AfterTurn, and usage tasks can outlive both.
+		var turnBillingKeys openAIWSTurnBillingAPIKeys
+		connectionBillingKey := snapshotOpenAIWSBillingAPIKey(apiKey, apiKey)
+		beginTurnBilling := func(turn int) {
+			if h.apiKeyService != nil {
+				turnBillingKeys.begin(ctx, h.apiKeyService, turn, connectionBillingKey)
+			} else {
+				turnBillingKeys.begin(ctx, nil, turn, connectionBillingKey)
+			}
+		}
+		beginTurnBilling(1)
 		hooks := &service.OpenAIWSIngressHooks{
 			InitialRequestModel: reqModel,
 			BeforeRequest: func(turn int, payload []byte, originalModel string) error {
@@ -2134,9 +2257,13 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 					writeSecurityAuditWSError(ctx, wsConn, decision)
 					return service.NewOpenAIWSClientCloseError(securityAuditWSCloseStatus(decision), securityAuditWSCloseReason(decision), nil)
 				}
+				// Passthrough has BeforeRequest, but intentionally no BeforeTurn
+				// slot acquisition. Freeze pricing without changing that lifecycle.
+				beginTurnBilling(turn)
 				return nil
 			},
 			BeforeTurn: func(turn int) error {
+				beginTurnBilling(turn)
 				if cyberBlockedThisConnection {
 					return service.NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, cyberSessionBlockedClientMsg, nil)
 				}
@@ -2171,6 +2298,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				return nil
 			},
 			AfterTurn: func(turn int, result *service.OpenAIForwardResult, turnErr error) {
+				turnBillingAPIKey := turnBillingKeys.take(turn, connectionBillingKey)
 				defer clearCyberPolicyTurnState(c)
 				releaseTurnSlots()
 				h.recordCyberPolicyIfMarked(c, apiKey, account, subscription, reqModel, turnErr != nil, cyberBlockKey, channelMappingWS.ToUsageFields(reqModel, ""), service.HashUsageRequestPayload(firstMessage))
@@ -2213,7 +2341,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 					}
 					if err := h.gatewayService.RecordUsage(taskCtx, &service.OpenAIRecordUsageInput{
 						Result:             result,
-						APIKey:             apiKey,
+						APIKey:             turnBillingAPIKey,
 						User:               apiKey.User,
 						Account:            account,
 						Subscription:       subscription,

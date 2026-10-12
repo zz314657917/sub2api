@@ -287,7 +287,7 @@ func (s *GatewayService) handleCCBufferedFromAnthropic(
 		}
 		if event.Type == "content_block_delta" && event.Delta != nil && finalResp != nil && event.Index != nil {
 			idx := *event.Index
-			if idx < len(finalResp.Content) {
+			if idx >= 0 && idx < len(finalResp.Content) {
 				switch event.Delta.Type {
 				case "text_delta":
 					finalResp.Content[idx].Text += event.Delta.Text
@@ -429,6 +429,17 @@ func (s *GatewayService) handleCCStreamingFromAnthropic(
 	}
 
 	processAnthropicEvent := func(event *apicompat.AnthropicStreamEvent) bool {
+		if event == nil {
+			return false
+		}
+		// Heartbeats are SSE comments, not Chat chunks or first-token evidence.
+		if event.Type == "ping" {
+			if _, err := fmt.Fprint(c.Writer, ": ping\n\n"); err != nil {
+				return true
+			}
+			c.Writer.Flush()
+			return false
+		}
 		if firstChunk {
 			firstChunk = false
 			ms := int(time.Since(startTime).Milliseconds())

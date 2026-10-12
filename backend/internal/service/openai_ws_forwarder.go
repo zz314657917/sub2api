@@ -2933,7 +2933,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			}
 			normalized = litePayload
 		}
-		if compatibilityBody, compatibilityChanged, compatibilityErr := normalizeOpenAIResponsesWebSocketCompatibilityBody(normalized, account); compatibilityErr != nil {
+		if compatibilityBody, compatibilityChanged, compatibilityErr := normalizeOpenAIWSOAuthHistoryCompatibilityBody(normalized, account, isOpenAIResponsesLiteWebSocketPayload(normalized), false); compatibilityErr != nil {
 			return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", compatibilityErr)
 		} else if compatibilityChanged {
 			normalized = compatibilityBody

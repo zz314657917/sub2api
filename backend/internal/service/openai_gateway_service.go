@@ -2884,7 +2884,8 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	if account.Type == AccountTypeAPIKey && !isOpenAINativeCompactionV2(c) && !openai_compat.ShouldUseResponsesAPI(account.Extra) {
 		return s.forwardResponsesViaRawChatCompletions(ctx, c, account, body)
 	}
-	if normalized, changed, normalizeErr := normalizeOpenAIResponsesWebSocketCompatibilityBody(body, account); normalizeErr != nil {
+	responsesLite := isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader)) || isOpenAIResponsesLiteWebSocketPayload(body)
+	if normalized, changed, normalizeErr := normalizeOpenAIWSOAuthHistoryCompatibilityBody(body, account, responsesLite, isOpenAIResponsesCompactPath(c)); normalizeErr != nil {
 		return nil, fmt.Errorf("normalize OpenAI Responses compatibility: %w", normalizeErr)
 	} else if changed {
 		body = normalized
@@ -3220,12 +3221,15 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 				IsCompact:               isCompactRequest,
 				SkipDefaultInstructions: true,
 				PreserveToolCallIDs:     true,
+				ResponsesLite:           responsesLite,
 			})
 			ensureCodexOAuthInstructionsField(reqBody)
 			bodyModified = true
 			disablePatch()
 		} else {
-			codexResult = applyCodexOAuthTransform(reqBody, isCodexCLI, isCompactRequest)
+			codexResult = applyCodexOAuthTransformWithOptions(reqBody, codexOAuthTransformOptions{
+				IsCodexCLI: isCodexCLI, IsCompact: isCompactRequest, ResponsesLite: responsesLite,
+			})
 		}
 		if codexResult.Error != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"type": "invalid_request_error", "message": codexResult.Error.Error()}})
@@ -3732,7 +3736,12 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			}
 			respBody = s.redactAgentIdentitySensitiveBody(ctx, account, respBody)
 			resp.Body = io.NopCloser(bytes.NewReader(respBody))
-			if !httpInvalidEncryptedContentRetryTried && resp.StatusCode == http.StatusBadRequest && upstreamCode == "invalid_encrypted_content" {
+			invalidEncryptedContentError := upstreamCode == "invalid_encrypted_content" ||
+				(upstreamCode == "thinking_signature_invalid" &&
+					strings.Contains(upstreamMsg, "The encrypted content") &&
+					strings.Contains(upstreamMsg, "could not be verified") &&
+					strings.Contains(upstreamMsg, "could not be decrypted or parsed"))
+			if !httpInvalidEncryptedContentRetryTried && resp.StatusCode == http.StatusBadRequest && invalidEncryptedContentError {
 				if trimOpenAIEncryptedReasoningItems(reqBody) {
 					body, err = json.Marshal(reqBody)
 					if err != nil {

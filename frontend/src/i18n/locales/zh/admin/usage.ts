@@ -36,6 +36,8 @@ export default {
       billingModePerRequest: '按次',
       billingModeImage: '按次(图片)',
       allBillingModes: '全部计费模式',
+      longContext: '长上下文',
+      longContextPricingTooltip: '已应用长上下文计费。输入和输出费率取决于定价档位，并非统一倍率。',
       responseModelAudit: '响应模型审计',
       allResponseModelAudits: '全部响应模型状态',
       responseModelMismatch: '模型不一致',

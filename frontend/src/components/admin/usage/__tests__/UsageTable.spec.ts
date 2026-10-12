@@ -6,6 +6,7 @@ import UsageTable from '../UsageTable.vue'
 
 const messages: Record<string, string> = {
   'usage.outputTps': 'Output TPS',
+  'admin.usage.longContext': 'Long context',
   'usage.costDetails': 'Cost Breakdown',
   'admin.usage.inputCost': 'Input Cost',
   'admin.usage.outputCost': 'Output Cost',
@@ -160,7 +161,7 @@ describe('admin UsageTable tooltip', () => {
       global: { stubs: { DataTable: DataTableStub, EmptyState: true, Icon: true, Teleport: true } },
     })
 
-    expect(wrapper.get('[data-testid="long-context-billing-marker"]').text()).toBe('x2')
+    expect(wrapper.get('[data-testid="long-context-billing-marker"]').text()).toBe('Long context')
   })
 
   it('does not present an unsettled cost as a completed charge', () => {

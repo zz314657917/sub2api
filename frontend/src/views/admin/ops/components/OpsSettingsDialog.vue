@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { opsAPI } from '@/api/admin/ops'
@@ -21,7 +21,21 @@ const emit = defineEmits<{
 }>()
 
 const loading = ref(false)
+const settingsLoaded = ref(false)
 const saving = ref(false)
+let settingsRequestId = 0
+let disposed = false
+
+function invalidateSettingsLoad() {
+  settingsRequestId++
+  settingsLoaded.value = false
+  loading.value = false
+}
+
+onBeforeUnmount(() => {
+  disposed = true
+  invalidateSettingsLoad()
+})
 
 // 运行时设置
 const runtimeSettings = ref<OpsAlertRuntimeSettings | null>(null)
@@ -54,6 +68,10 @@ function normalizeAdvancedSettings(settings: OpsAdvancedSettings): OpsAdvancedSe
 
 // 加载所有配置
 async function loadAllSettings() {
+  if (!props.show || disposed) return
+  const requestId = ++settingsRequestId
+  const isCurrentRequest = () => requestId === settingsRequestId && props.show && !disposed
+  settingsLoaded.value = false
   loading.value = true
   try {
     const [runtime, email, advanced, thresholds] = await Promise.all([
@@ -62,6 +80,7 @@ async function loadAllSettings() {
       opsAPI.getAdvancedSettings(),
       opsAPI.getMetricThresholds()
     ])
+    if (!isCurrentRequest()) return
     runtimeSettings.value = runtime
     emailConfig.value = email
     advancedSettings.value = normalizeAdvancedSettings(advanced)
@@ -74,11 +93,13 @@ async function loadAllSettings() {
           upstream_error_rate_percent_max: thresholds.upstream_error_rate_percent_max ?? 5
         }
     }
+    settingsLoaded.value = true
   } catch (err: any) {
+    if (!isCurrentRequest()) return
     console.error('[OpsSettingsDialog] Failed to load settings', err)
     appStore.showError(err?.response?.data?.detail || t('admin.ops.settings.loadFailed'))
   } finally {
-    loading.value = false
+    if (isCurrentRequest()) loading.value = false
   }
 }
 
@@ -86,8 +107,10 @@ async function loadAllSettings() {
 watch(() => props.show, (show) => {
   if (show) {
     loadAllSettings()
+  } else {
+    invalidateSettingsLoad()
   }
-})
+}, { flush: 'sync' })
 
 // 邮件输入
 const alertRecipientInput = ref('')
@@ -191,6 +214,7 @@ const validation = computed(() => {
 
 // 保存所有配置
 async function saveAllSettings() {
+  if (loading.value || !settingsLoaded.value || saving.value) return
   if (!validation.value.valid) {
     appStore.showError(validation.value.errors[0])
     return
@@ -642,7 +666,7 @@ async function saveAllSettings() {
     <template #footer>
       <div class="flex justify-end gap-2">
         <button class="btn btn-secondary" @click="emit('close')">{{ t('common.cancel') }}</button>
-        <button class="btn btn-primary" :disabled="saving || !validation.valid" @click="saveAllSettings">
+        <button class="btn btn-primary" :disabled="loading || !settingsLoaded || saving || !validation.valid" @click="saveAllSettings">
           {{ saving ? t('common.saving') : t('common.save') }}
         </button>
       </div>
