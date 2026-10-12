@@ -49,30 +49,8 @@
             </span>
           </button>
 
-          <div class="home-integration-preview" :aria-label="t('home.integrationPreview.ariaLabel')">
-            <div class="home-integration-preview-header">
-              <span>{{ t('home.integrationPreview.title') }}</span>
-              <span class="home-integration-preview-status">{{ t('home.integrationPreview.status') }}</span>
-            </div>
-            <div class="home-integration-preview-row">
-              <span>{{ t('home.integrationPreview.baseUrl') }}</span>
-              <code>{{ publicApiEntryUrl }}/v1</code>
-            </div>
-            <div class="home-integration-preview-row">
-              <span>{{ t('home.integrationPreview.apiKey') }}</span>
-              <code>sk-••••••••••••</code>
-            </div>
-            <p>{{ t('home.integrationPreview.protocols') }}</p>
-          </div>
-
           <div class="home-mimo-actions">
-            <router-link v-if="isAuthenticated" :to="dashboardPath" class="home-action-button is-primary">
-              <span class="home-button-inner">
-                <span>{{ t('home.goToDashboard') }}</span>
-                <Icon name="arrowRight" size="sm" class="home-button-icon" aria-hidden="true" />
-              </span>
-            </router-link>
-            <button v-else type="button" class="home-action-button is-primary" @click="openAuthPanel">
+            <button v-if="!isAuthenticated" type="button" class="home-action-button is-primary" @click="openAuthPanel">
               <span class="home-button-inner">
                 <span>{{ t('home.claimButton') }}</span>
                 <Icon name="arrowRight" size="sm" class="home-button-icon" aria-hidden="true" />
@@ -101,41 +79,61 @@
           embedded
           :initial-mode="authMode"
         />
-        <aside v-else class="home-account-workbench" :aria-label="t('home.accountWorkbench.ariaLabel')">
-          <div class="home-account-workbench-header">
-            <div class="home-account-user-chip" :title="accountWorkbenchUserName">
-              <span>{{ accountWorkbenchUserName }}</span>
+        <div v-else class="home-account-column">
+          <aside class="home-account-workbench" :aria-label="t('home.accountWorkbench.ariaLabel')">
+            <div class="home-account-workbench-header">
+              <div class="home-account-user-chip" :title="accountWorkbenchUserName">
+                <span>{{ accountWorkbenchUserName }}</span>
+              </div>
             </div>
+
+            <div class="home-account-balance-card">
+              <span>{{ t('home.accountWorkbench.currentBalance') }}</span>
+              <strong>{{ accountWorkbenchBalance }}</strong>
+            </div>
+
+            <div class="home-account-stat-grid">
+              <article
+                v-for="card in accountWorkbenchCards"
+                :key="card.key"
+                class="home-account-stat-card"
+              >
+                <span>{{ card.label }}</span>
+                <strong>{{ card.value }}</strong>
+              </article>
+            </div>
+
+            <p v-if="accountWorkbenchLoading" class="home-account-workbench-state">
+              {{ t('home.accountWorkbench.loading') }}
+            </p>
+            <p v-else-if="accountWorkbenchError" class="home-account-workbench-state is-error">
+              {{ t('home.accountWorkbench.loadFailed') }}
+            </p>
+
+            <router-link to="/purchase" class="home-account-workbench-link">
+              <span>{{ t('home.accountWorkbench.rechargeBalance') }}</span>
+              <Icon name="arrowRight" size="sm" aria-hidden="true" />
+            </router-link>
+            <router-link :to="dashboardPath" class="home-account-workbench-link is-dashboard">
+              <span>{{ t('home.goToDashboard') }}</span>
+              <Icon name="arrowRight" size="sm" aria-hidden="true" />
+            </router-link>
+          </aside>
+          <div class="home-integration-preview" :aria-label="t('home.integrationPreview.ariaLabel')">
+            <div class="home-integration-preview-header">
+              <span>{{ t('home.integrationPreview.title') }}</span>
+            </div>
+            <div class="home-integration-preview-row">
+              <span>{{ t('home.integrationPreview.baseUrl') }}</span>
+              <code :title="integrationBaseUrl">{{ integrationBaseUrl }}</code>
+            </div>
+            <div class="home-integration-preview-row">
+              <span>{{ t('home.integrationPreview.apiKey') }}</span>
+              <code>sk-••••••••••••</code>
+            </div>
+            <p>{{ t('home.integrationPreview.protocols') }}</p>
           </div>
-
-          <div class="home-account-balance-card">
-            <span>{{ t('home.accountWorkbench.currentBalance') }}</span>
-            <strong>{{ accountWorkbenchBalance }}</strong>
-          </div>
-
-          <div class="home-account-stat-grid">
-            <article
-              v-for="card in accountWorkbenchCards"
-              :key="card.key"
-              class="home-account-stat-card"
-            >
-              <span>{{ card.label }}</span>
-              <strong>{{ card.value }}</strong>
-            </article>
-          </div>
-
-          <p v-if="accountWorkbenchLoading" class="home-account-workbench-state">
-            {{ t('home.accountWorkbench.loading') }}
-          </p>
-          <p v-else-if="accountWorkbenchError" class="home-account-workbench-state is-error">
-            {{ t('home.accountWorkbench.loadFailed') }}
-          </p>
-
-          <router-link to="/purchase" class="home-account-workbench-link">
-            <span>{{ t('home.accountWorkbench.rechargeBalance') }}</span>
-            <Icon name="arrowRight" size="sm" aria-hidden="true" />
-          </router-link>
-        </aside>
+        </div>
       </section>
     </main>
 
@@ -431,6 +429,10 @@ const shouldRenderCustomHomeContent = computed(() => route.path === '/home' && !
 const docUrl = computed(() => appStore.cachedPublicSettings?.doc_url || appStore.docUrl || '')
 const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appStore.siteName || 'Sub2API')
 const publicApiEntryUrl = computed(() => resolvePublicApiEntryUrl(appStore.cachedPublicSettings?.api_base_url || appStore.apiBaseUrl || ''))
+const integrationBaseUrl = computed(() => {
+  const value = publicApiEntryUrl.value
+  return /\/v1$/i.test(value) ? value : `${value}/v1`
+})
 const heroTitleTop = computed(() =>
   appStore.cachedPublicSettings?.home_hero_title_top?.trim() || t('home.heroTitleTop')
 )
@@ -867,8 +869,9 @@ onBeforeUnmount(() => {
 .home-integration-preview {
   display: grid;
   gap: 0.65rem;
-  width: min(100%, 36rem);
-  margin-top: 1rem;
+  width: 100%;
+  min-width: 0;
+  text-align: left;
   border: 1px solid #e6dfd8;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.46);
@@ -885,7 +888,6 @@ onBeforeUnmount(() => {
 }
 
 .home-integration-preview-header { color: #504f49; font-size: 0.76rem; font-weight: 650; }
-.home-integration-preview-status { color: #4e8b59; font-size: 0.7rem; }
 .home-integration-preview-row span { flex: 0 0 auto; color: #8e8b82; font-size: 0.72rem; }
 .home-integration-preview-row code { min-width: 0; overflow: hidden; color: #25231f; font-family: var(--public-font-mono); font-size: 0.76rem; text-overflow: ellipsis; white-space: nowrap; }
 .home-integration-preview p { margin: 0; color: #6c6a64; font-size: 0.72rem; line-height: 1.5; }
@@ -921,6 +923,13 @@ onBeforeUnmount(() => {
 
 .home-auth-panel {
   width: min(100%, 28rem);
+}
+
+.home-account-column {
+  display: grid;
+  gap: 1rem;
+  width: min(100%, 28rem);
+  min-width: 0;
 }
 
 .home-account-workbench {
@@ -1076,6 +1085,17 @@ onBeforeUnmount(() => {
 .home-account-workbench-link:focus-visible {
   outline: 2px solid var(--public-ring);
   outline-offset: 3px;
+}
+
+.home-account-workbench-link.is-dashboard {
+  margin-top: 0;
+  border-color: var(--public-border-strong);
+  background: transparent;
+  color: var(--public-text);
+}
+
+.home-account-workbench-link.is-dashboard:hover {
+  background: var(--public-surface-hover);
 }
 
 .home-action-button {
