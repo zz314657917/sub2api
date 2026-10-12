@@ -474,9 +474,8 @@ var apiKeyCodexModelsWithoutResponsesLite = map[string]struct{}{
 	"gpt-5.6-sol": {}, "gpt-5.6-terra": {}, "gpt-5.6-luna": {},
 }
 
-// adjustAPIKeyCodexModelsManifest disables Responses Lite only for the exact
-// GPT-6 Astra and GPT-5.6 API-key entries that need the web.run capability in
-// custom providers.
+// adjustAPIKeyCodexModelsManifest applies API-key capability adjustments and
+// fills only missing/null GPT-6.1 Sol context defaults. Explicit metadata wins.
 func adjustAPIKeyCodexModelsManifest(body []byte) ([]byte, error) {
 	var envelope map[string]json.RawMessage
 	if err := json.Unmarshal(body, &envelope); err != nil {
@@ -496,14 +495,23 @@ func adjustAPIKeyCodexModelsManifest(body []byte) ([]byte, error) {
 		if err := json.Unmarshal(model["slug"], &slug); err != nil {
 			continue
 		}
-		if _, targeted := apiKeyCodexModelsWithoutResponsesLite[slug]; !targeted {
+		modelChanged := false
+		if openai.IsGPT61SolModelSpelling(slug) {
+			if contextWindow, present := model["context_window"]; !present || bytes.Equal(bytes.TrimSpace(contextWindow), []byte("null")) {
+				model["context_window"] = json.RawMessage("500000")
+				modelChanged = true
+			}
+		}
+		if _, targeted := apiKeyCodexModelsWithoutResponsesLite[slug]; targeted {
+			var useResponsesLite bool
+			if json.Unmarshal(model["use_responses_lite"], &useResponsesLite) == nil && useResponsesLite {
+				model["use_responses_lite"] = json.RawMessage("false")
+				modelChanged = true
+			}
+		}
+		if !modelChanged {
 			continue
 		}
-		var useResponsesLite bool
-		if err := json.Unmarshal(model["use_responses_lite"], &useResponsesLite); err != nil || !useResponsesLite {
-			continue
-		}
-		model["use_responses_lite"] = json.RawMessage("false")
 		adjusted, err := json.Marshal(model)
 		if err != nil {
 			return nil, fmt.Errorf("encode model %q: %w", slug, err)

@@ -882,6 +882,9 @@ type CostInput struct {
 	// LongContextBillingEnabled is the OpenAI account-level veto. nil keeps
 	// the group/preset decision, which is required for Grok and other platforms.
 	LongContextBillingEnabled *bool
+	// DisableModelLongContextPricing exempts the model-card surcharge only;
+	// administrator prices/intervals and normal account/group gates are unchanged.
+	DisableModelLongContextPricing bool
 }
 
 // CalculateCostUnified 统一计费入口，支持 token、按次、图片和视频计费模式。
@@ -899,7 +902,7 @@ func (s *BillingService) CalculateCostUnified(input CostInput) (*CostBreakdown, 
 		if input.LongContextBillingEnabled != nil {
 			applyLongContextBilling = applyLongContextBilling && *input.LongContextBillingEnabled
 		}
-		return s.calculateCostInternalWithPolicy(input.Model, input.Tokens, input.RateMultiplier, input.ServiceTier, nil, applyLongContextBilling)
+		return s.calculateCostInternalWithPolicy(input.Model, input.Tokens, input.RateMultiplier, input.ServiceTier, nil, applyLongContextBilling && !input.DisableModelLongContextPricing)
 	}
 
 	// 优先使用预解析结果，避免重复 Resolve 调用
@@ -947,7 +950,7 @@ func (s *BillingService) calculateTokenCost(resolved *ResolvedPricing, input Cos
 	pricing = s.applyModelSpecificPricingPolicy(input.Model, pricing)
 
 	// 长上下文定价仅在无区间定价时应用（区间定价已包含上下文分层）
-	applyLongCtx := len(resolved.Intervals) == 0 && resolved.longContextPricingEnabled
+	applyLongCtx := len(resolved.Intervals) == 0 && resolved.longContextPricingEnabled && !input.DisableModelLongContextPricing
 	if input.LongContextBillingEnabled != nil {
 		applyLongCtx = applyLongCtx && *input.LongContextBillingEnabled
 	}

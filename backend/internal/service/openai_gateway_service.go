@@ -7769,6 +7769,13 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	user := input.User
 	account := input.Account
 	subscription := input.Subscription
+	// Resolve credential identity for subscription policy only. Attribution,
+	// account gates and settlement must continue to use the selected account.
+	credentialAccount, credentialErr := resolveCredentialAccount(ctx, s.accountRepo, account)
+	if credentialErr != nil {
+		return fmt.Errorf("resolve OpenAI usage credential account: %w", credentialErr)
+	}
+	modelLongContextExempt := openAISubscriptionLongContextExempt(credentialAccount, result)
 	ApplyOpenAIImageBillingResolution(result)
 
 	// OpenAI input_tokens 是总输入，包含缓存读取和缓存写入明细。
@@ -7858,7 +7865,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		}
 		cost = &override
 	} else {
-		cost, err = s.calculateOpenAIRecordUsageCost(ctx, result, apiKey, account, billingModels, multiplier, perRequestMultiplier, imageMultiplier, tokens, serviceTier, input.BillingTierOverride, input.RequestCountOverride)
+		cost, err = s.calculateOpenAIRecordUsageCost(ctx, result, apiKey, account, billingModels, multiplier, perRequestMultiplier, imageMultiplier, tokens, serviceTier, input.BillingTierOverride, input.RequestCountOverride, modelLongContextExempt)
 		if err != nil {
 			if !isUsagePricingUnavailableError(err) {
 				return err
@@ -8000,7 +8007,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	if apiKey.GroupID != nil {
 		applyAccountStatsCost(ctx, usageLog, s.channelService, s.billingService,
 			account.ID, *apiKey.GroupID, result.UpstreamModel, result.Model,
-			tokens, cost.TotalCost,
+			tokens, cost.TotalCost, modelLongContextExempt,
 		)
 	}
 
@@ -8231,6 +8238,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 	serviceTier string,
 	billingTierOverride string,
 	requestCountOverride int,
+	modelLongContextExempt ...bool,
 ) (*CostBreakdown, error) {
 	billingModel := firstUsageBillingModel(billingModels)
 	if s.shouldUseOpenAIImageBillingCost(ctx, billingModel, apiKey, result) {
@@ -8245,7 +8253,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 		if candidate == "" {
 			continue
 		}
-		cost, err := s.calculateOpenAIRecordUsageTokenCost(ctx, apiKey, account, candidate, tokenMultiplier, perRequestMultiplier, tokens, serviceTier, billingTierOverride, requestCountOverride)
+		cost, err := s.calculateOpenAIRecordUsageTokenCost(ctx, apiKey, account, candidate, tokenMultiplier, perRequestMultiplier, tokens, serviceTier, billingTierOverride, requestCountOverride, modelLongContextExempt...)
 		if err == nil {
 			return cost, nil
 		}
@@ -8296,7 +8304,9 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 	serviceTier string,
 	billingTierOverride string,
 	requestCountOverride int,
+	modelLongContextExempt ...bool,
 ) (*CostBreakdown, error) {
+	disableModelLongContextPricing := len(modelLongContextExempt) > 0 && modelLongContextExempt[0]
 	groupID := apiKeyPricingGroupID(apiKey)
 	if s.resolver != nil && groupID != nil {
 		resolved := s.resolver.Resolve(ctx, PricingInput{
@@ -8331,22 +8341,36 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 			rateMultiplier = perRequestMultiplier
 		}
 		return s.billingService.CalculateCostUnified(CostInput{
-			Ctx:                       ctx,
-			Model:                     billingModel,
-			GroupID:                   groupID,
-			Group:                     apiKey.Group,
-			Tokens:                    tokens,
-			RequestCount:              requestCount,
-			UsageUnits:                usageUnits,
-			SizeTier:                  sizeTier,
-			RateMultiplier:            rateMultiplier,
-			ServiceTier:               serviceTier,
-			Resolver:                  s.resolver,
-			Resolved:                  resolved,
-			LongContextBillingEnabled: openAIAccountLongContextBillingGate(account),
+			Ctx:                            ctx,
+			Model:                          billingModel,
+			GroupID:                        groupID,
+			Group:                          apiKey.Group,
+			Tokens:                         tokens,
+			RequestCount:                   requestCount,
+			UsageUnits:                     usageUnits,
+			SizeTier:                       sizeTier,
+			RateMultiplier:                 rateMultiplier,
+			ServiceTier:                    serviceTier,
+			Resolver:                       s.resolver,
+			Resolved:                       resolved,
+			LongContextBillingEnabled:      openAIAccountLongContextBillingGate(account),
+			DisableModelLongContextPricing: disableModelLongContextPricing,
 		})
 	}
-	return s.billingService.calculateCostWithServiceTierPolicy(billingModel, tokens, tokenMultiplier, serviceTier, account.IsOpenAILongContextBillingEnabled())
+	return s.billingService.calculateCostWithServiceTierPolicy(billingModel, tokens, tokenMultiplier, serviceTier, account.IsOpenAILongContextBillingEnabled() && !disableModelLongContextPricing)
+}
+
+// openAISubscriptionLongContextExempt uses the resolved upstream credential and
+// final sent model, never customer billing aliases or the response model.
+func openAISubscriptionLongContextExempt(credentialAccount *Account, result *OpenAIForwardResult) bool {
+	if credentialAccount == nil || credentialAccount.Platform != PlatformOpenAI || !credentialAccount.IsOAuth() || result == nil {
+		return false
+	}
+	model := strings.TrimSpace(result.UpstreamModel)
+	if model == "" {
+		model = result.Model
+	}
+	return openai.IsGPT61SolModelSpelling(model)
 }
 
 func openAIAccountLongContextBillingGate(account *Account) *bool {

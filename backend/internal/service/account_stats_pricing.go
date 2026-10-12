@@ -26,6 +26,7 @@ func resolveAccountStatsCost(
 	tokens UsageTokens,
 	requestCount int,
 	totalCost float64,
+	disableModelLongContextPricing ...bool,
 ) *float64 {
 	if channelService == nil || upstreamModel == "" {
 		return nil
@@ -53,19 +54,20 @@ func resolveAccountStatsCost(
 
 	// 优先级 3：模型定价文件（LiteLLM）默认价格
 	if billingService != nil {
-		return tryModelFilePricing(billingService, upstreamModel, tokens)
+		return tryModelFilePricing(billingService, upstreamModel, tokens, disableModelLongContextPricing...)
 	}
 
 	return nil
 }
 
 // tryModelFilePricing 使用模型定价文件（LiteLLM/fallback）中的标准价格计算费用。
-func tryModelFilePricing(billingService *BillingService, model string, tokens UsageTokens) *float64 {
+func tryModelFilePricing(billingService *BillingService, model string, tokens UsageTokens, disableModelLongContextPricing ...bool) *float64 {
 	pricing, err := billingService.GetModelPricing(model)
 	if err != nil || pricing == nil {
 		return nil
 	}
-	if billingService.shouldApplySessionLongContextPricing(tokens, pricing) {
+	disabled := len(disableModelLongContextPricing) > 0 && disableModelLongContextPricing[0]
+	if !disabled && billingService.shouldApplySessionLongContextPricing(tokens, pricing) {
 		breakdown, err := billingService.CalculateCost(model, tokens, 1)
 		if err != nil || breakdown == nil || breakdown.TotalCost <= 0 {
 			return nil
@@ -259,6 +261,7 @@ func applyAccountStatsCost(
 	upstreamModel, requestedModel string,
 	tokens UsageTokens,
 	totalCost float64,
+	disableModelLongContextPricing ...bool,
 ) {
 	model := upstreamModel
 	if model == "" {
@@ -269,6 +272,6 @@ func applyAccountStatsCost(
 		requestCount = usageLog.ImageCount
 	}
 	usageLog.AccountStatsCost = resolveAccountStatsCost(
-		ctx, cs, bs, accountID, groupID, model, tokens, requestCount, totalCost,
+		ctx, cs, bs, accountID, groupID, model, tokens, requestCount, totalCost, disableModelLongContextPricing...,
 	)
 }
