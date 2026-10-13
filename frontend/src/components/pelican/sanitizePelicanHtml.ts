@@ -13,7 +13,7 @@ function hasUnsafeCss(css: string): boolean {
   return unsafeCss.test(css.replace(/url\(\s*(['"]?)#[\w-]+\1\s*\)/gi, ''))
 }
 
-export function sanitizePelicanHtml(html: string): string {
+export function sanitizePelicanHtml(html: string, fitSvgPreview = false): string {
   const clean = DOMPurify.sanitize(html, {
     WHOLE_DOCUMENT: true, RETURN_DOM: true,
     ADD_TAGS: ['animate', 'animatemotion', 'animatetransform', 'set'],
@@ -49,8 +49,44 @@ export function sanitizePelicanHtml(html: string): string {
     }
     if (element.localName === 'style' && hasUnsafeCss(element.textContent ?? '')) element.remove()
   }
+  if (fitSvgPreview) fitSingleSvgPreview(clean)
   // Serialize the sanitized DOM without extracting/reinserting untrusted style text.
   return `${clean.querySelector('head')?.innerHTML ?? ''}${clean.querySelector('body')?.innerHTML ?? ''}`
+}
+
+function fitSingleSvgPreview(clean: HTMLElement): void {
+  const body = clean.querySelector('body')
+  if (!body) return
+  const wrappers: HTMLElement[] = [body]
+  let container: Element = body
+  // Only normalize a lone SVG and its otherwise empty wrapper chain.
+  // Multi-section HTML and SVGs used as decorative icons retain their layout.
+  while (true) {
+    const children = Array.from(container.children).filter(child => child.localName !== 'style')
+    if (children.length !== 1 || Array.from(container.childNodes).some(node => node.nodeType === 3 && node.textContent?.trim())) return
+    const child = children[0]!
+    if (child.namespaceURI === 'http://www.w3.org/2000/svg' && child.localName === 'svg') {
+      const viewBox = (child.getAttribute('viewBox') ?? '').trim().split(/[\s,]+/).map(Number)
+      if (viewBox.length !== 4 || viewBox.some(value => !Number.isFinite(value)) || viewBox[2]! <= 0 || viewBox[3]! <= 0) return
+      const svg = child as SVGSVGElement
+      for (const wrapper of wrappers) {
+        for (const [property, value] of Object.entries({ display: 'block', width: '100%', 'min-width': '0', 'max-width': 'none', height: 'auto', 'min-height': '0', 'max-height': 'none', margin: '0', padding: '0', 'box-sizing': 'border-box', position: 'static' })) {
+          wrapper.style.setProperty(property, value, 'important')
+        }
+      }
+      for (const [property, value] of Object.entries({ display: 'block', width: '100%', 'min-width': '0', 'max-width': `${580 * viewBox[2]! / viewBox[3]!}px`, height: 'auto', 'min-height': '0', 'max-height': '580px', 'aspect-ratio': `${viewBox[2]} / ${viewBox[3]}`, margin: '0 auto', position: 'static', 'box-sizing': 'border-box' })) {
+        svg.style.setProperty(property, value, 'important')
+      }
+      svg.setAttribute('preserveAspectRatio', 'xMidYMid meet')
+      const pageStyle = clean.ownerDocument.createElement('style')
+      pageStyle.textContent = 'html,body{display:block!important;width:100%!important;min-width:0!important;max-width:none!important;margin:0!important;padding:0!important;box-sizing:border-box!important}'
+      clean.querySelector('head')?.append(pageStyle)
+      return
+    }
+    if (!(child instanceof HTMLElement) || !['div', 'main', 'section', 'article', 'figure'].includes(child.localName)) return
+    wrappers.push(child)
+    container = child
+  }
 }
 // Constant application code: artwork never enters this executable string.
 const measurementScript = `(() => {
@@ -94,5 +130,5 @@ export function toPelicanSrcdoc(html: string, preview = false, identity?: { nonc
   const scriptPolicy = measured ? `script-src 'nonce-${identity.nonce}'; script-src-attr 'none';` : "script-src 'none';"
   const previewStyle = preview ? '<style>html,body{height:auto!important;min-height:0!important;max-height:none!important;overflow:hidden!important}*{scrollbar-width:none!important}*::-webkit-scrollbar{display:none!important}</style>' : ''
   const bridge = measured ? `<script nonce="${identity.nonce}" data-token="${identity.token}">${measurementScript}</script>` : ''
-  return `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; ${scriptPolicy} style-src 'unsafe-inline'; img-src data:; font-src 'none'; connect-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'"></head><body>${sanitizePelicanHtml(html)}${previewStyle}${bridge}</body></html>`
+  return `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; ${scriptPolicy} style-src 'unsafe-inline'; img-src data:; font-src 'none'; connect-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'"></head><body>${sanitizePelicanHtml(html, preview)}${previewStyle}${bridge}</body></html>`
 }

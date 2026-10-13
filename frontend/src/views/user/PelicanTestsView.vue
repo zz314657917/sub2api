@@ -60,8 +60,6 @@
             <button :disabled="!item.artwork_result_id" type="button" aria-label="重新播放" title="重新播放" @click="replay(`card-${item.result_id}`)"><Icon name="refresh" size="sm" /></button>
           </div>
           <p class="generation-time" :title="formatTimestamp(item.artwork_finished_at ?? (item.status === 'success' ? item.finished_at : null))"><Icon name="clock" size="sm" />生成于 {{ formatDate(item.artwork_finished_at ?? (item.status === 'success' ? item.finished_at : null)) }}</p>
-          <p class="html-meta">{{ item.model_id }} · {{ effortText(item.reasoning_effort) }}</p><p class="html-meta">本次耗时 {{ formatDuration(item.latency_ms) }}</p>
-          <p v-if="item.status !== 'success'" class="last-success" :title="formatDate(item.finished_at)">本轮{{ statusText(item.status) }} · 测试于 {{ formatDate(item.finished_at) }}</p>
           </section>
         </article>
         </div>
@@ -472,7 +470,6 @@ select { font: inherit; color: inherit; padding: 8px 30px 8px 12px; min-width: 1
 .result-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--pelican-muted); font-size: 11px; }
 .success { @apply text-emerald-700 dark:text-emerald-400; }
 .skipped { color: var(--pelican-muted); }
-.html-meta { color: var(--pelican-muted); font-size: 10px; line-height: 1.6; margin: 7px 0 11px; overflow-wrap: anywhere; }
 .group-meta { margin: 0 0 4px; color: var(--pelican-muted); font-size: 10px; }
 .stars { color: var(--pelican-accent); letter-spacing: 1px; white-space: nowrap; }
 .last-success { color: var(--pelican-muted); font-size: 10px; margin: 0 0 2px; }

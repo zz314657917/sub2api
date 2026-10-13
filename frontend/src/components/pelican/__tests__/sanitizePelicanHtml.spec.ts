@@ -2,6 +2,26 @@ import { describe, expect, it } from 'vitest'
 import { sanitizePelicanHtml, toPelicanSrcdoc } from '../sanitizePelicanHtml'
 
 describe('pelican HTML isolation', () => {
+  it('fits a single SVG preview and its fixed-size wrappers without changing the artwork or detail document', () => {
+    const source = '<style>.canvas{width:400px!important;height:220px!important;max-width:400px!important}svg{width:400px!important;height:220px!important}</style><div class="canvas"><svg viewBox="0 0 960 540" width="960" height="540"><circle cx="100" cy="400" r="70"/></svg></div>'
+    const preview = new DOMParser().parseFromString(toPelicanSrcdoc(source, true), 'text/html')
+    const svg = preview.querySelector('svg')!
+    expect(svg.style.width).toBe('100%')
+    expect(svg.style.height).toBe('auto')
+    expect(svg.style.getPropertyPriority('width')).toBe('important')
+    expect(svg.style.maxHeight).toBe('580px')
+    expect(parseFloat(svg.style.maxWidth)).toBeCloseTo(580 * 16 / 9)
+    expect(svg.getAttribute('preserveAspectRatio')).toBe('xMidYMid meet')
+    expect(svg.getAttribute('viewBox')).toBe('0 0 960 540')
+    expect(preview.querySelector('.canvas')!.getAttribute('style')).toContain('width: 100%')
+    expect(svg.querySelector('circle')!.getAttribute('r')).toBe('70')
+    expect(new DOMParser().parseFromString(toPelicanSrcdoc(source), 'text/html').querySelector('svg')!.getAttribute('style')).toBeNull()
+  })
+  it('retains multi-section HTML, decorative SVGs and invalid viewBox layouts', () => {
+    for (const source of ['<p>text</p><svg viewBox="0 0 960 540"/>', '<div>text<svg viewBox="0 0 960 540"/></div>', '<svg viewBox="0 0 0 540"/>']) {
+      expect(toPelicanSrcdoc(source, true)).not.toContain('aspect-ratio:')
+    }
+  })
   it('preserves local SVG gradients without permitting remote CSS resources', () => {
     const html = sanitizePelicanHtml('<style>circle{fill:url(#sea);animation:spin 2s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}</style><svg><defs><linearGradient id="sea" /></defs><circle /></svg>')
     expect(html).toContain('url(#sea)')

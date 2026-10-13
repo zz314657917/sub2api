@@ -109,11 +109,12 @@ describe('PelicanTestsView', () => {
     wrapper.unmount()
   })
 
-  it('shows the recorded effort after the model without a label prefix', async () => {
+  it('keeps model headings and recorded effort in history without duplicate footer metadata', async () => {
     api.list.mockResolvedValue({ items: [{ ...item(1), reasoning_effort: 'high' }], total: 1, page: 1, page_size: 24, groups: [] })
     api.history.mockResolvedValue([{ ...result(1), reasoning_effort: 'low' }, { ...result(2), reasoning_effort: '' }, { ...result(3), reasoning_effort: null }])
     const wrapper = await view()
-    expect(wrapper.get('.pelican-card .html-meta').text()).toBe('gpt-test · 高')
+    expect(wrapper.get('.pelican-card .model-heading').text()).toContain('gpt-test')
+    expect(wrapper.find('.pelican-card .html-meta').exists()).toBe(false)
     await wrapper.get('.history-count').trigger('click'); await flushPromises()
     const history = wrapper.get('.history-grid')
     expect(history.text()).toContain('gpt-test · 低')
@@ -257,7 +258,8 @@ describe('PelicanTestsView', () => {
     const wrapper = await view()
     const card = wrapper.get('.pelican-card')
     expect(card.text()).toContain('gpt-test')
-    expect(card.text()).toContain('测试于')
+    expect(card.text()).not.toContain('测试于')
+    expect(card.text()).not.toContain('本次耗时')
     expect(card.find('.result-row').exists()).toBe(false)
     expect(card.text()).not.toContain('阈值')
     expect(card.text()).not.toContain('账号已关闭调度')
