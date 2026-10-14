@@ -50,6 +50,5 @@ func TestBillingErrorDetails_InsufficientBalanceIncludesRechargeURL(t *testing.T
 	status, code, msg, _ := billingErrorDetails(service.ErrInsufficientBalance)
 	require.Equal(t, http.StatusForbidden, status)
 	require.Equal(t, "billing_error", code)
-	require.Contains(t, msg, "账户余额不足")
-	require.Contains(t, msg, "https://ai.3zapi.top/purchase")
+	require.Equal(t, "账户余额不足，充值请前往：https://ai.3zapi.com", msg)
 }

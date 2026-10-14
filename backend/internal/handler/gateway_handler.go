@@ -2428,7 +2428,7 @@ func billingErrorDetails(err error) (status int, code, message string, retryAfte
 		return http.StatusServiceUnavailable, "billing_service_error", msg, 0
 	}
 	if errors.Is(err, service.ErrInsufficientBalance) {
-		return http.StatusForbidden, "billing_error", "账户余额不足，充值请前往：https://ai.3zapi.top/purchase", 0
+		return http.StatusForbidden, "billing_error", "账户余额不足，充值请前往：https://ai.3zapi.com", 0
 	}
 	if errors.Is(err, service.ErrAPIKeyRateLimit5hExceeded) {
 		msg := pkgerrors.Message(err)
