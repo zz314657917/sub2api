@@ -543,8 +543,13 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	failedAccountIDs := make(map[int64]struct{})
 	sameAccountRetryCount := make(map[int64]int)
 	var lastFailoverErr *service.UpstreamFailoverError
+	streamRetryCount := 0 // request-wide, including account switches
+	var streamRetryTarget int64
 
 	for {
+		if c.Request.Context().Err() != nil {
+			return
+		}
 		// Select account supporting the requested model
 		reqLog.Debug("openai.account_selecting", zap.Int("excluded_account_count", len(failedAccountIDs)))
 		requiredAccountCapability := service.AccountCapabilityChat
@@ -553,8 +558,12 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		}
 		needsResponses := nativeV2 || legacyCompact
 		requiredCapability := openAIResponsesRequiredCapabilityForRequest(imageIntent, needsResponses, requestPlatform)
+		selectionCtx := c.Request.Context()
+		if streamRetryTarget != 0 {
+			selectionCtx = service.OpenAIStreamRetryContext(selectionCtx, streamRetryTarget, subject.UserID)
+		}
 		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForMediaCapabilityForUser(
-			c.Request.Context(),
+			selectionCtx,
 			apiKey.GroupID,
 			previousResponseID,
 			sessionHash,
@@ -568,6 +577,22 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 			requestPlatform,
 		)
 		if err != nil {
+			if c.Request.Context().Err() != nil {
+				return
+			}
+			if streamRetryTarget != 0 {
+				// The validated pin lost eligibility. Preserve the stream error
+				// and consume the ordinary switch budget before finite fallback.
+				failedAccountIDs[streamRetryTarget] = struct{}{}
+				streamRetryTarget = 0
+				h.gatewayService.RecordOpenAIAccountSwitch()
+				if switchCount >= maxAccountSwitches {
+					h.handleFailoverExhausted(c, lastFailoverErr, streamStarted)
+					return
+				}
+				switchCount++
+				continue
+			}
 			reqLog.Warn("openai.account_select_failed",
 				zap.Error(openAICompatibleSelectionErrorForLog(err, requestPlatform)),
 				zap.Int("excluded_account_count", len(failedAccountIDs)),
@@ -592,6 +617,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 			}
 			return
 		}
+		streamRetryTarget = 0
 		if selection == nil || selection.Account == nil {
 			cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel, requestPlatform)
 			if !cls.ModelNotFound {
@@ -625,7 +651,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		// Forward request
 		service.SetOpsLatencyMs(c, service.OpsRoutingLatencyMsKey, time.Since(routingStart).Milliseconds())
 		forwardStart := time.Now()
-		writerSizeBeforeForward := service.OpenAICompactKeepaliveAdjustedWrittenSize(c)
+		writerSizeBeforeForward := service.OpenAIStreamWrittenSize(c)
 		result, err := h.gatewayService.Forward(c.Request.Context(), c, account, forwardBody)
 		cyberBlockKey := ""
 		if service.GetOpsCyberPolicy(c) != nil {
@@ -707,11 +733,36 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 			} else {
 				var failoverErr *service.UpstreamFailoverError
 				if errors.As(err, &failoverErr) {
-					if service.OpenAICompactKeepaliveAdjustedWrittenSize(c) != writerSizeBeforeForward {
+					if c.Request.Context().Err() != nil {
+						return
+					}
+					if service.OpenAIStreamWrittenSize(c) != writerSizeBeforeForward {
 						h.handleFailoverExhausted(c, failoverErr, true)
 						return
 					}
 					h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil, account.GetMappedModel(reqModel))
+					var streamRetryErr *service.OpenAIStreamRetryError
+					if reqStream && errors.As(err, &streamRetryErr) && streamRetryCount < service.OpenAIStreamRetryLimit {
+						streamRetryCount++
+						streamRetryTarget = account.ID
+						lastFailoverErr = failoverErr
+						delay := service.OpenAIStreamRetryDelay(streamRetryCount)
+						reqLog.Warn("openai.stream_preoutput_retry",
+							zap.Int64("account_id", account.ID),
+							zap.Int("retry_count", streamRetryCount),
+							zap.Duration("retry_delay", delay),
+						)
+						// The account slot was released above; the next iteration
+						// revalidates the pin and follows normal acquire/wait rules.
+						timer := time.NewTimer(delay)
+						select {
+						case <-c.Request.Context().Done():
+							timer.Stop()
+							return
+						case <-timer.C:
+						}
+						continue
+					}
 					// 池模式：同账号重试
 					if failoverErr.RetryableOnSameAccount {
 						retryLimit := sameAccountRetryLimit(failoverErr, account.GetPoolModeRetryCount())
@@ -751,6 +802,9 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 				}
 				submitPartialResponsesUsage(result)
 				h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil, account.GetMappedModel(reqModel))
+				if c.Request.Context().Err() != nil {
+					return
+				}
 				upstreamErrorAlreadyCommunicated := openAIForwardErrorAlreadyCommunicated(c, writerSizeBeforeForward, err)
 				wroteFallback := false
 				if !upstreamErrorAlreadyCommunicated {
@@ -2795,7 +2849,7 @@ func (h *OpenAIGatewayHandler) mapUpstreamError(statusCode int) (int, string, st
 
 // handleStreamingAwareError handles errors that may occur after streaming has started
 func (h *OpenAIGatewayHandler) handleStreamingAwareError(c *gin.Context, status int, errType, message string, streamStarted bool) {
-	if service.StopOpenAICompactSSEKeepaliveCommitted(c) {
+	if service.StopOpenAICompactSSEKeepaliveCommitted(c) || service.OpenAIStreamCommentsCommitted(c) {
 		streamStarted = true
 	}
 	if streamStarted {
@@ -2879,7 +2933,7 @@ func openAIForwardErrorAlreadyCommunicated(c *gin.Context, writerSizeBeforeForwa
 	if err == nil || c == nil || c.Writer == nil {
 		return false
 	}
-	if service.OpenAICompactKeepaliveAdjustedWrittenSize(c) == writerSizeBeforeForward {
+	if service.OpenAIStreamWrittenSize(c) == writerSizeBeforeForward {
 		return false
 	}
 	if service.GetOpsCyberPolicy(c) != nil {
