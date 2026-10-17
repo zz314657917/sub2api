@@ -25,6 +25,82 @@ type geminiCompatHTTPUpstreamStub struct {
 	lastReq  *http.Request
 }
 
+func TestConvertClaudeMessagesToGeminiGenerateContent_ToolResultImagesOrdered(t *testing.T) {
+	image := func(source map[string]any) map[string]any {
+		return map[string]any{"type": "image", "source": source}
+	}
+	text := func(s string) map[string]any { return map[string]any{"type": "text", "text": s} }
+	png := image(map[string]any{"type": "base64", "media_type": "image/png", "data": "aGVsbG8="})
+	url := image(map[string]any{"type": "url", "url": "https://example.test/image.jpg", "media_type": "image/jpeg"})
+	inline := map[string]any{"inlineData": map[string]any{"mimeType": "image/png", "data": "aGVsbG8="}}
+	file := map[string]any{"fileData": map[string]any{"mimeType": "image/jpeg", "fileUri": "https://example.test/image.jpg"}}
+	for _, tc := range []struct {
+		name    string
+		content any
+		leading string
+		tail    []any
+	}{
+		{"text_image_text_url_text", []any{text("before"), png, text("between"), url, text("after")}, "before",
+			[]any{inline, map[string]any{"text": "between"}, file, map[string]any{"text": "after"}}},
+		{"image_text_image", []any{png, text("middle"), url}, "[image attached below]",
+			[]any{inline, map[string]any{"text": "middle"}, file}},
+		{"url_only", []any{url}, "[image attached below]", []any{file}},
+		{"base64_only", []any{png}, "[image attached below]", []any{inline}},
+		{"url_without_mime", []any{image(map[string]any{"type": "url", "url": "https://example.test/image"})},
+			"[image attached below]", []any{map[string]any{"fileData": map[string]any{"fileUri": "https://example.test/image"}}}},
+		{"text_only", []any{text("one"), text("two")}, "onetwo", nil},
+		{"string_legacy", "plain text", "plain text", nil},
+		{"object_legacy", map[string]any{"ok": true}, `{"ok":true}`, nil},
+		{"empty_legacy", []any{}, "", nil},
+		{"invalid_images", []any{nil, image(nil), image(map[string]any{"type": "base64", "data": "x"}),
+			image(map[string]any{"type": "base64", "media_type": "image/png"}),
+			image(map[string]any{"type": "url", "url": ""}),
+			image(map[string]any{"type": "unknown"}), text("kept")}, "kept", nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			input := map[string]any{"messages": []any{
+				map[string]any{"role": "assistant", "content": []any{
+					map[string]any{"type": "tool_use", "id": "first", "name": "inspect", "input": map[string]any{}},
+					map[string]any{"type": "tool_use", "id": "second", "name": "lookup", "input": map[string]any{}},
+				}},
+				map[string]any{"role": "user", "content": []any{
+					text("outside-before"),
+					map[string]any{"type": "tool_result", "tool_use_id": "first", "is_error": true, "content": tc.content},
+					map[string]any{"type": "tool_result", "tool_use_id": "second", "is_error": false, "content": []any{url, text("second-tail")}},
+					map[string]any{"type": "tool_result", "tool_use_id": "unknown", "content": "fallback"},
+					text("outside-after"),
+				}},
+			}}
+			body, err := json.Marshal(input)
+			require.NoError(t, err)
+			converted, err := convertClaudeMessagesToGeminiGenerateContent(body)
+			require.NoError(t, err)
+			var output map[string]any
+			require.NoError(t, json.Unmarshal(converted, &output))
+			contents := output["contents"].([]any)
+			require.Len(t, contents, 2)
+			require.Equal(t, "model", contents[0].(map[string]any)["role"])
+			require.Equal(t, "user", contents[1].(map[string]any)["role"])
+			response := func(name, content string, isError any) map[string]any {
+				r := map[string]any{"content": content}
+				if isError != nil {
+					r["is_error"] = isError
+				}
+				return map[string]any{"functionResponse": map[string]any{"name": name, "response": r}}
+			}
+			want := []any{map[string]any{"text": "outside-before"}, response("inspect", tc.leading, true)}
+			want = append(want, tc.tail...)
+			want = append(want, response("lookup", "[image attached below]", false), file,
+				map[string]any{"text": "second-tail"}, response("tool", "fallback", nil), map[string]any{"text": "outside-after"})
+			require.Equal(t, want, contents[1].(map[string]any)["parts"], "exact ordered parts, no loss or duplication")
+			calls := contents[0].(map[string]any)["parts"].([]any)
+			require.Equal(t, "inspect", calls[0].(map[string]any)["functionCall"].(map[string]any)["name"])
+			require.Equal(t, "lookup", calls[1].(map[string]any)["functionCall"].(map[string]any)["name"])
+			require.NotContains(t, calls[0].(map[string]any)["functionCall"], "id", "preserve existing upstream ID compatibility")
+		})
+	}
+}
+
 func TestGenerateAnthropicMsgIDUsesOfficialShape(t *testing.T) {
 	for range 10 {
 		require.Regexp(t, `^msg_01[0-9A-Za-z]{22}$`, generateAnthropicMsgID())

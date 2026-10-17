@@ -4,8 +4,10 @@ package service
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +15,28 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
+
+func TestGeminiErrorPolicy_CachedContentProbePrecedesPolicy(t *testing.T) {
+	svc, _, repo := newGeminiCacheTestService(403, geminiCachedContentNotFoundBody)
+	account := geminiCacheTestAccount()
+	account.Credentials["temp_unschedulable_enabled"] = true
+	account.Credentials["temp_unschedulable_rules"] = []any{map[string]any{
+		"error_code": float64(403), "keywords": []any{"permission denied"}, "duration_minutes": float64(10),
+	}}
+	resp := &http.Response{StatusCode: 403, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(geminiCachedContentNotFoundBody))}
+	found, rebuilt := svc.cachedContentNotFoundInLoop(resp)
+	require.True(t, found)
+	require.Equal(t, &geminiCacheAccountRepo{}, repo)
+	// The restored body still matches the configured policy; ForwardNative must
+	// exit before this mutating call. Keep the local two-result API exercised.
+	policy, restored := svc.checkErrorPolicyInLoop(context.Background(), account, rebuilt)
+	require.Equal(t, ErrorPolicyTempUnscheduled, policy)
+	require.Equal(t, 1, repo.temp)
+	body, err := io.ReadAll(restored.Body)
+	require.NoError(t, err)
+	require.Equal(t, geminiCachedContentNotFoundBody, string(body))
+	require.NoError(t, restored.Body.Close())
+}
 
 // ---------------------------------------------------------------------------
 // TestShouldFailoverGeminiUpstreamError — verifies the failover decision

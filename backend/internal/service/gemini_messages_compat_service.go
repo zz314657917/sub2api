@@ -1391,6 +1391,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 
 	var resp *http.Response
 	errorPolicy := ErrorPolicyNone
+	cachedContentNotFound := false
 	for attempt := 1; attempt <= geminiMaxRetries; attempt++ {
 		upstreamReq, idHeader, err := buildReq(ctx)
 		if err != nil {
@@ -1444,6 +1445,15 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 			}
 			setOpsUpstreamError(c, 0, safeErr, "")
 			return nil, s.writeGoogleError(c, http.StatusBadGateway, "Upstream request failed after retries: "+safeErr)
+		}
+
+		// Missing explicit cache is request-scoped; policy checks may mutate account state.
+		if notFound, rebuilt := s.cachedContentNotFoundInLoop(resp); notFound {
+			resp = rebuilt
+			cachedContentNotFound = true
+			break
+		} else {
+			resp = rebuilt
 		}
 
 		// 错误策略优先：匹配则跳过重试直接处理。
@@ -1540,6 +1550,12 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 
 	if resp.StatusCode >= 400 {
 		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+		if cachedContentNotFound {
+			for key, values := range responseheaders.FilterHeaders(resp.Header, s.responseHeaderFilter) {
+				c.Writer.Header()[key] = values
+			}
+			return nil, s.writeGeminiNativeUpstreamError(c, account, resp, respBody, requestID, isOAuth)
+		}
 		// Best-effort fallback for OAuth tokens missing AI Studio scopes when calling countTokens.
 		// This avoids Gemini SDKs failing hard during preflight token counting.
 		// Checked before error policy so it always works regardless of custom error codes.
@@ -1755,6 +1771,52 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 		ImageSize:                     imageSize,
 		ImageInputSize:                imageInputSize,
 	}, nil
+}
+
+// cachedContentNotFoundInLoop inspects 403 before policy/retries and restores the body.
+func (s *GeminiMessagesCompatService) cachedContentNotFoundInLoop(resp *http.Response) (bool, *http.Response) {
+	if resp.StatusCode != http.StatusForbidden {
+		return false, resp
+	}
+	body, readErr := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+	_ = resp.Body.Close()
+	rebuilt := *resp
+	rebuilt.Body = io.NopCloser(bytes.NewReader(body))
+	return readErr == nil && len(body) < 2<<20 && isGeminiCachedContentNotFound(resp.StatusCode, body), &rebuilt
+}
+
+// Match structured upstream errors only, including Code Assist response wrappers
+// and array responses. Credential errors merely mentioning cachedContent must not match.
+func isGeminiCachedContentNotFound(statusCode int, body []byte) bool {
+	if statusCode != http.StatusForbidden {
+		return false
+	}
+	var payload any
+	if json.Unmarshal(body, &payload) != nil {
+		return false
+	}
+	var matches func(any) bool
+	matches = func(v any) bool {
+		switch v := v.(type) {
+		case []any:
+			return len(v) == 1 && matches(v[0])
+		case map[string]any:
+			if inner, ok := v["response"]; ok {
+				return matches(inner)
+			}
+			errObj, ok := v["error"].(map[string]any)
+			if !ok {
+				return false
+			}
+			message, _ := errObj["message"].(string)
+			code, _ := errObj["code"].(float64)
+			status, _ := errObj["status"].(string)
+			return code == http.StatusForbidden && status == "PERMISSION_DENIED" &&
+				strings.EqualFold(strings.TrimSpace(message), "CachedContent not found (or permission denied)")
+		}
+		return false
+	}
+	return matches(payload)
 }
 
 // checkErrorPolicyInLoop checks policy before retrying and preserves the body.
@@ -3525,14 +3587,18 @@ func convertClaudeMessagesToGeminiContents(messages any, toolUseIDToName map[str
 					if name == "" {
 						name = "tool"
 					}
+					text, attachments := convertClaudeToolResultContent(bm["content"])
+					response := map[string]any{"content": text}
+					if isError, ok := bm["is_error"].(bool); ok {
+						response["is_error"] = isError
+					}
 					parts = append(parts, map[string]any{
 						"functionResponse": map[string]any{
-							"name": name,
-							"response": map[string]any{
-								"content": extractClaudeContentText(bm["content"]),
-							},
+							"name":     name,
+							"response": response,
 						},
 					})
+					parts = append(parts, attachments...)
 				case "image":
 					if src, ok := bm["source"].(map[string]any); ok {
 						if srcType, _ := src["type"].(string); srcType == "base64" {
@@ -3565,6 +3631,60 @@ func convertClaudeMessagesToGeminiContents(messages any, toolUseIDToName map[str
 		})
 	}
 	return out, nil
+}
+
+// Keep the legacy text-only response shape. With images, leading text stays in
+// functionResponse and subsequent image/text parts follow it in source order.
+func convertClaudeToolResultContent(v any) (string, []any) {
+	arr, ok := v.([]any)
+	if !ok {
+		return extractClaudeContentText(v), nil
+	}
+	var leading strings.Builder
+	var parts []any
+	for _, item := range arr {
+		block, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		switch block["type"] {
+		case "text":
+			if text, ok := block["text"].(string); ok {
+				if len(parts) == 0 {
+					leading.WriteString(text)
+				} else {
+					parts = append(parts, map[string]any{"text": text})
+				}
+			}
+		case "image":
+			src, ok := block["source"].(map[string]any)
+			if !ok {
+				continue
+			}
+			mediaType, _ := src["media_type"].(string)
+			switch src["type"] {
+			case "base64":
+				data, _ := src["data"].(string)
+				if mediaType != "" && data != "" {
+					parts = append(parts, map[string]any{"inlineData": map[string]any{"mimeType": mediaType, "data": data}})
+				}
+			case "url":
+				uri, _ := src["url"].(string)
+				if strings.TrimSpace(uri) != "" {
+					file := map[string]any{"fileUri": uri}
+					if mediaType != "" {
+						file["mimeType"] = mediaType
+					}
+					parts = append(parts, map[string]any{"fileData": file})
+				}
+			}
+		}
+	}
+	text := leading.String()
+	if text == "" && len(parts) > 0 {
+		text = "[image attached below]"
+	}
+	return text, parts
 }
 
 func extractClaudeContentText(v any) string {

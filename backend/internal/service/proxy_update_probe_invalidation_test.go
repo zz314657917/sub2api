@@ -47,21 +47,17 @@ func TestBothProxyUpdateServicesUseRepositoryUpdateBoundary(t *testing.T) {
 		repo := &updatingProxyRepoStub{
 			proxyRepoStub: &proxyRepoStub{},
 			proxy: &Proxy{
-				ID:             9,
-				Protocol:       "http",
-				Host:           "old.example",
-				Port:           8080,
-				Status:         StatusActive,
-				FallbackMode:   FallbackModeNone,
-				ExpiryWarnDays: 7,
+				ID:       9,
+				Protocol: "http",
+				Host:     "old.example",
+				Port:     8080,
+				Status:   StatusActive,
 			},
 		}
 		svc := &adminServiceImpl{proxyRepo: repo}
 
 		_, err := svc.UpdateProxy(context.Background(), 9, &UpdateProxyInput{
-			Host:           "new.example",
-			FallbackMode:   FallbackModeNone,
-			ExpiryWarnDays: 7,
+			Host: "new.example",
 		})
 
 		require.NoError(t, err)

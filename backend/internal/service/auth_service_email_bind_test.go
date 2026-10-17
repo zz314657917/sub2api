@@ -117,6 +117,21 @@ CREATE TABLE IF NOT EXISTS user_provider_default_grants (
 	return svc, repo, client
 }
 
+func createEmailBindTestUser(t *testing.T, client *dbent.Client, email, username, passwordHash string) *dbent.User {
+	t.Helper()
+	user, err := client.User.Create().
+		SetEmail(email).
+		SetUsername(username).
+		SetPasswordHash(passwordHash).
+		SetBalance(1).
+		SetConcurrency(1).
+		SetRole(service.RoleUser).
+		SetStatus(service.StatusActive).
+		Save(context.Background())
+	require.NoError(t, err)
+	return user
+}
+
 func TestAuthServiceBindEmailIdentity_UpdatesEmailAndAppliesFirstBindDefaults(t *testing.T) {
 	assigner := &emailBindDefaultSubAssignerStub{}
 	cache := &emailBindCacheStub{
@@ -993,15 +1008,65 @@ func (s *emailBindUserRepoStub) GetFirstAdmin(context.Context) (*service.User, e
 	panic("unexpected GetFirstAdmin call")
 }
 
-func (s *emailBindUserRepoStub) Update(_ context.Context, user *service.User) error {
+func (s *emailBindUserRepoStub) Update(_ context.Context, user *service.User, fields service.UserUpdateFields) error {
+	if user == nil || fields.IsEmpty() {
+		return nil
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	existing, ok := s.usersByID[user.ID]
 	if !ok {
 		return service.ErrUserNotFound
 	}
-	delete(s.usersByEmail, existing.Email)
-	cloned := cloneEmailBindUser(user)
+	cloned := cloneEmailBindUser(existing)
+	if fields.Email {
+		delete(s.usersByEmail, existing.Email)
+		cloned.Email = user.Email
+	}
+	if fields.Username {
+		cloned.Username = user.Username
+	}
+	if fields.Notes {
+		cloned.Notes = user.Notes
+	}
+	if fields.PasswordHash {
+		cloned.PasswordHash = user.PasswordHash
+	}
+	if fields.Role {
+		cloned.Role = user.Role
+	}
+	if fields.Status {
+		cloned.Status = user.Status
+	}
+	if fields.Concurrency {
+		cloned.Concurrency = user.Concurrency
+	}
+	if fields.RPMLimit {
+		cloned.RPMLimit = user.RPMLimit
+	}
+	if fields.ExcludeFromLeaderboard {
+		cloned.ExcludeFromLeaderboard = user.ExcludeFromLeaderboard
+	}
+	if fields.SignupSource && user.SignupSource != "" {
+		cloned.SignupSource = user.SignupSource
+	}
+	if fields.LastLoginAt && user.LastLoginAt != nil {
+		cloned.LastLoginAt = user.LastLoginAt
+	}
+	if fields.LastActiveAt && user.LastActiveAt != nil {
+		cloned.LastActiveAt = user.LastActiveAt
+	}
+	if fields.BalanceNotifySettings {
+		cloned.BalanceNotifyEnabled = user.BalanceNotifyEnabled
+		cloned.BalanceNotifyThresholdType = user.BalanceNotifyThresholdType
+		cloned.BalanceNotifyThreshold = user.BalanceNotifyThreshold
+	}
+	if fields.BalanceNotifyExtraEmails {
+		cloned.BalanceNotifyExtraEmails = append([]service.NotifyEmailEntry(nil), user.BalanceNotifyExtraEmails...)
+	}
+	if fields.AllowedGroups {
+		cloned.AllowedGroups = append([]int64(nil), user.AllowedGroups...)
+	}
 	s.usersByID[user.ID] = cloned
 	s.usersByEmail[cloned.Email] = cloned
 	return nil
@@ -1043,6 +1108,12 @@ func (s *emailBindUserRepoStub) UpdateUserLastActiveAt(context.Context, int64, t
 
 func (s *emailBindUserRepoStub) UpdateBalance(context.Context, int64, float64) error { return nil }
 func (s *emailBindUserRepoStub) DeductBalance(context.Context, int64, float64) error { return nil }
+func (s *emailBindUserRepoStub) AdjustBalance(context.Context, int64, float64) (service.BalanceChange, error) {
+	panic("unexpected AdjustBalance call")
+}
+func (s *emailBindUserRepoStub) SetBalance(context.Context, int64, float64) (service.BalanceChange, error) {
+	panic("unexpected SetBalance call")
+}
 func (s *emailBindUserRepoStub) UpdateConcurrency(context.Context, int64, int) error { return nil }
 
 func (s *emailBindUserRepoStub) ExistsByEmail(_ context.Context, email string) (bool, error) {

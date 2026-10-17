@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -467,6 +469,81 @@ func TestOpenAIGatewayServiceForward_CodexBridgeSkipsCompactRequests(t *testing.
 	require.False(t, gjson.GetBytes(upstream.lastBody, `tools.#(type=="image_generation")`).Exists())
 	instructions := gjson.GetBytes(upstream.lastBody, "instructions").String()
 	require.NotContains(t, instructions, "image_generation")
+}
+
+func TestOpenAIGatewayServiceForward_CodexBridgeNonOpenAI(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	groupID := int64(4242)
+	for _, platform := range []string{PlatformKimi, PlatformDeepseek, PlatformZhipu} {
+		for _, trigger := range []string{"global", "channel", "account", "all"} {
+			for _, explicit := range []bool{false, true} {
+				t.Run(fmt.Sprintf("%s/%s/explicit=%t", platform, trigger, explicit), func(t *testing.T) {
+					upstream := &httpUpstreamRecorder{resp: &http.Response{
+						StatusCode: http.StatusOK,
+						Header:     http.Header{"Content-Type": []string{"application/json"}},
+						Body:       io.NopCloser(strings.NewReader(`{"id":"resp_test","model":"cn-model","usage":{"input_tokens":1,"output_tokens":1}}`)),
+					}}
+					svc := newOpenAIImageGenerationControlTestService(upstream)
+					svc.cfg.Gateway.CodexImageGenerationBridgeEnabled = trigger == "global" || trigger == "all"
+					if trigger == "channel" || trigger == "all" {
+						svc.channelService = newOpenAIImageGenerationControlChannelService(groupID, &Channel{
+							ID: 1, Status: StatusActive, FeaturesConfig: map[string]any{
+								featureKeyCodexImageGenerationBridge: map[string]any{PlatformOpenAI: true},
+							},
+						})
+					}
+					account := newOpenAIImageGenerationControlTestAccount()
+					account.Platform = platform
+					account.Credentials["api_protocol"] = APIProtocolResponses
+					account.Extra = map[string]any{openai_compat.ExtraKeyResponsesMode: string(openai_compat.ResponsesSupportModeForceResponses)}
+					if trigger == "account" || trigger == "all" {
+						account.Extra[featureKeyCodexImageGenerationBridge] = true
+						account.Extra[PlatformOpenAI] = map[string]any{"codex_image_generation_bridge_enabled": true}
+					}
+					require.True(t, openai_compat.ShouldUseResponsesAPI(account.Extra))
+					c, _ := newOpenAIImageGenerationControlTestContext(true, "codex_cli_rs/0.144.1")
+					body := `{"model":"cn-model","input":"hello","stream":false,"instructions":"user instructions","tools":[{"type":"function","name":"shell","parameters":{"type":"object"}}]}`
+					if explicit {
+						body = `{"model":"cn-model","input":"hello","stream":false,"instructions":"user instructions","tools":[{"type":"function","name":"shell","parameters":{"type":"object"}},{"type":"image_generation"}],"tool_choice":{"type":"image_generation"}}`
+					}
+					result, err := svc.Forward(context.Background(), c, account, []byte(body))
+					require.NoError(t, err)
+					require.NotNil(t, result)
+					require.NotNil(t, upstream.lastReq)
+					require.Contains(t, upstream.lastReq.URL.Path, "/responses")
+					require.Equal(t, explicit, gjson.GetBytes(upstream.lastBody, `tools.#(type=="image_generation")`).Exists())
+					require.Equal(t, explicit, gjson.GetBytes(upstream.lastBody, "tool_choice").Exists())
+					if explicit {
+						require.Equal(t, "image_generation", gjson.GetBytes(upstream.lastBody, "tool_choice.type").String())
+					}
+					require.Equal(t, "shell", gjson.GetBytes(upstream.lastBody, "tools.0.name").String())
+					require.Equal(t, "user instructions", gjson.GetBytes(upstream.lastBody, "instructions").String())
+				})
+			}
+		}
+	}
+}
+
+func TestOpenAIGatewayService_CodexBridgeRejectsNilAndNonOpenAI(t *testing.T) {
+	groupID := int64(4242)
+	svc := newOpenAIImageGenerationControlTestService(&httpUpstreamRecorder{})
+	svc.cfg.Gateway.CodexImageGenerationBridgeEnabled = true
+	svc.channelService = newOpenAIImageGenerationControlChannelService(groupID, &Channel{
+		ID: 1, Status: StatusActive, FeaturesConfig: map[string]any{
+			featureKeyCodexImageGenerationBridge: map[string]any{PlatformOpenAI: true},
+		},
+	})
+	apiKey := &APIKey{GroupID: &groupID}
+	require.False(t, svc.isCodexImageGenerationBridgeEnabled(context.Background(), nil, apiKey))
+	for _, platform := range []string{"", PlatformAnthropic, PlatformGemini, PlatformAntigravity, PlatformKimi, PlatformDeepseek, "minimax"} {
+		t.Run("platform="+platform, func(t *testing.T) {
+			account := &Account{Platform: platform, Extra: map[string]any{
+				featureKeyCodexImageGenerationBridge: true,
+				PlatformOpenAI:                       map[string]any{"codex_image_generation_bridge_enabled": true},
+			}}
+			require.False(t, svc.isCodexImageGenerationBridgeEnabled(context.Background(), account, apiKey))
+		})
+	}
 }
 
 func TestOpenAIGatewayService_CodexImageGenerationBridgeOverridePrecedence(t *testing.T) {

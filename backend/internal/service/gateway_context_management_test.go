@@ -634,7 +634,7 @@ func TestBuildCountTokensRequest_OAuthMimic_DropsInjectedMaxTokens(t *testing.T)
 		"precondition: OAuth mimicry injects the Claude Code default")
 
 	svc := &GatewayService{cfg: &config.Config{}}
-	req, _, err := svc.buildCountTokensRequest(
+	req, err := svc.buildCountTokensRequest(
 		context.Background(), c, account, normalized,
 		"oauth-tok", "oauth", "claude-sonnet-4-5", true,
 	)
