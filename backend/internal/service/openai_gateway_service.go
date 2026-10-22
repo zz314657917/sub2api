@@ -2798,7 +2798,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		switch {
 		case account.IsAnthropicProtocol():
 			SetActualOpenAIUpstreamEndpoint(c, "/v1/messages")
-		case account.Type == AccountTypeAPIKey && !openai_compat.ShouldUseResponsesAPI(account.Extra):
+		case account.Type == AccountTypeAPIKey && !accountUsesResponsesForForward(account):
 			SetActualOpenAIUpstreamEndpoint(c, "/v1/chat/completions")
 		}
 	}
@@ -2892,7 +2892,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	// Native remote compaction v2 must keep its Responses payload intact. The
 	// scheduler normally excludes force-chat and Responses-unsupported API keys,
 	// but direct callers must not silently convert a compaction trigger to chat.
-	if account.Type == AccountTypeAPIKey && !isOpenAINativeCompactionV2(c) && !openai_compat.ShouldUseResponsesAPI(account.Extra) {
+	if account.Type == AccountTypeAPIKey && !isOpenAINativeCompactionV2(c) && !accountUsesResponsesForForward(account) {
 		return s.forwardResponsesViaRawChatCompletions(ctx, c, account, body)
 	}
 	responsesLite := isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader)) || isOpenAIResponsesLiteWebSocketPayload(body)
@@ -2976,7 +2976,16 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		return s.forwardOpenAIPassthrough(ctx, c, account, originalBody, reqModel, reasoningEffort, reqStream, startTime)
 	}
 
-	reqBody, err := getOpenAIRequestBodyMap(c, body)
+	var reqBody map[string]any
+	if isDeepSeekResponsesImageTarget(account) {
+		// Keep opaque integers exact through the native image rewrite, including
+		// the earlier forwarding transformations that rebuild this map.
+		decoder := json.NewDecoder(bytes.NewReader(body))
+		decoder.UseNumber()
+		err = decoder.Decode(&reqBody)
+	} else {
+		reqBody, err = getOpenAIRequestBodyMap(c, body)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -7455,16 +7464,34 @@ func buildOpenAIResponsesURLForPlatform(platform string, base string) string {
 	return buildOpenAIResponsesURL(base)
 }
 
+// DeepSeek protocol configuration takes precedence over OpenAI-only probe/mode
+// metadata. Preserve the original routing policy for all other accounts.
+func accountUsesResponsesForForward(account *Account) bool {
+	if account != nil && account.IsDeepseek() {
+		return account.GetAPIProtocol() == APIProtocolResponses
+	}
+	return account != nil && openai_compat.ShouldUseResponsesAPI(account.Extra)
+}
+
+func isDeepSeekResponsesImageTarget(account *Account) bool {
+	return account != nil && ((account.IsDeepseek() && account.GetAPIProtocol() == APIProtocolResponses) ||
+		(account.IsOpenAI() && targetsDeepSeekAPIHost(account)))
+}
+
 func normalizeDeepSeekResponsesRequestBody(account *Account, body []byte) []byte {
-	if account == nil || account.Platform != PlatformDeepseek || account.GetAPIProtocol() != APIProtocolResponses {
+	if !isDeepSeekResponsesImageTarget(account) {
 		return body
 	}
-	normalized, err := sjson.SetBytes(body, "store", false)
-	if err != nil {
-		return body
-	}
-	if stripped, err := sjson.DeleteBytes(normalized, "previous_response_id"); err == nil {
-		normalized = stripped
+	normalized := body
+	if account.IsDeepseek() {
+		patched, err := sjson.SetBytes(normalized, "store", false)
+		if err != nil {
+			return body
+		}
+		normalized = patched
+		if stripped, err := sjson.DeleteBytes(normalized, "previous_response_id"); err == nil {
+			normalized = stripped
+		}
 	}
 
 	var requestBody map[string]any
@@ -7477,16 +7504,124 @@ func normalizeDeepSeekResponsesRequestBody(account *Account, body []byte) []byte
 	if !exists {
 		return normalized
 	}
-	liftedInput, changed := apicompat.LiftResponsesToolOutputMedia(input)
+	// Canonicalize before lifting too, so a part containing both URL fields
+	// cannot have the less-preferred one captured by tool media extraction.
+	input, changed := normalizeDeepSeekResponsesInputImages(input)
+	if liftedInput, lifted := apicompat.LiftResponsesToolOutputMedia(input); lifted {
+		input = liftedInput
+		changed = true
+	}
+	if aliased, imageChanged := normalizeDeepSeekResponsesInputImages(input); imageChanged {
+		input = aliased
+		changed = true
+	}
 	if !changed {
 		return normalized
 	}
-	requestBody["input"] = liftedInput
+	requestBody["input"] = input
 	rebuilt, err := marshalOpenAIUpstreamJSON(requestBody)
 	if err != nil {
 		return normalized
 	}
 	return rebuilt
+}
+
+// Normalize image parts only at Responses input/content/output boundaries.
+// Do not recurse into opaque user fields or serialized tool output strings.
+func normalizeDeepSeekResponsesInputImages(input any) (any, bool) {
+	var items []any
+	switch values := input.(type) {
+	case []any:
+		items = values
+	case []map[string]any:
+		items = make([]any, len(values))
+		for i := range values {
+			items[i] = values[i]
+		}
+	default:
+		return input, false
+	}
+	changed := false
+	for _, raw := range items {
+		item, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		if normalizeDeepSeekResponsesImagePart(item) {
+			changed = true
+		}
+		for _, field := range []string{"content", "output"} {
+			if value, exists := item[field]; exists {
+				if rewritten, did := normalizeDeepSeekResponsesInputImages(value); did {
+					item[field] = rewritten
+					changed = true
+				}
+			}
+		}
+	}
+	if !changed {
+		return input, false
+	}
+	return items, true
+}
+
+func normalizeDeepSeekResponsesImagePart(part map[string]any) bool {
+	partType, _ := part["type"].(string)
+	switch strings.TrimSpace(partType) {
+	case "input_image", "image_url", "image":
+	default:
+		return false
+	}
+	imageURL := deepSeekResponsesImageURL(part)
+	if imageURL == "" {
+		return false // Preserve file_id-only parts.
+	}
+	changed := partType != "input_image" || part["image_url"] != imageURL
+	part["type"] = "input_image"
+	part["image_url"] = imageURL
+	if _, exists := part["url"]; exists {
+		delete(part, "url")
+		changed = true
+	}
+	return changed
+}
+
+func deepSeekResponsesImageURL(part map[string]any) string {
+	for _, field := range []string{"image_url", "url", "image"} {
+		if value := deepSeekResponsesURLValue(part[field]); value != "" {
+			return value
+		}
+	}
+	source, _ := part["source"].(map[string]any)
+	if value := deepSeekResponsesURLValue(source["url"]); value != "" {
+		return value
+	}
+	data, _ := source["data"].(string)
+	data = strings.TrimSpace(data)
+	if data == "" || strings.HasPrefix(strings.ToLower(data), "data:") {
+		return data
+	}
+	mediaType, _ := source["media_type"].(string)
+	mediaType = strings.TrimSpace(mediaType)
+	if mediaType == "" {
+		mediaType = "image/png"
+	}
+	return "data:" + mediaType + ";base64," + data
+}
+
+func deepSeekResponsesURLValue(value any) string {
+	switch typed := value.(type) {
+	case string:
+		return strings.TrimSpace(typed)
+	case map[string]any:
+		if url, _ := typed["url"].(string); strings.TrimSpace(url) != "" {
+			return strings.TrimSpace(url)
+		}
+		url, _ := typed["image_url"].(string)
+		return strings.TrimSpace(url)
+	default:
+		return ""
+	}
 }
 
 func trimOpenAIEncryptedReasoningItems(reqBody map[string]any) bool {

@@ -458,6 +458,11 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		reqLog = reqLog.With(zap.Any("resolved_group_id", apiKey.GroupID))
 	}
 
+	if imageIntent && service.IsCNProvider(openAICompatibleRequestPlatform(apiKey)) {
+		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Image generation is not supported for this platform")
+		return
+	}
+
 	if decision := h.checkSecurityAudit(c, reqLog, apiKey, subject, service.ContentModerationProtocolOpenAIResponses, reqModel, body); decision != nil && !decision.AllowNextStage {
 		h.openAISecurityAuditError(c, decision)
 		return
@@ -897,6 +902,9 @@ func isOpenAILegacyCompactPath(c *gin.Context) bool {
 
 func openAIResponsesRequiredCapabilityForRequest(imageIntent bool, needsResponses bool, platform string) service.OpenAIEndpointCapability {
 	if platform == service.PlatformOpenAI && (imageIntent || needsResponses) {
+		return service.OpenAIEndpointCapabilityResponses
+	}
+	if platform == service.PlatformDeepseek && needsResponses {
 		return service.OpenAIEndpointCapabilityResponses
 	}
 	return service.OpenAIEndpointCapabilityChatCompletions

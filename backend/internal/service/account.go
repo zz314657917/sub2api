@@ -435,7 +435,7 @@ func (a *Account) IsGrokOAuth() bool {
 }
 
 func (a *Account) IsOpenAICompatible() bool {
-	return a != nil && (a.Platform == PlatformOpenAI || a.Platform == PlatformGrok)
+	return a != nil && (a.Platform == PlatformOpenAI || a.Platform == PlatformGrok || a.IsCNProvider())
 }
 
 func (a *Account) GeminiOAuthType() string {
@@ -1755,6 +1755,11 @@ func (a *Account) SupportsOpenAIEndpointCapability(capability OpenAIEndpointCapa
 	}
 	if a.IsGrok() {
 		return capability == OpenAIEndpointCapabilityChatCompletions
+	}
+	// CN accounts expose Chat/conversion routes only. Native DeepSeek
+	// Responses eligibility is checked separately by the scheduler.
+	if a.IsCNProvider() && (a.Type != AccountTypeAPIKey || capability != OpenAIEndpointCapabilityChatCompletions) {
+		return false
 	}
 	switch capability {
 	case OpenAIEndpointCapabilityChatCompletions:

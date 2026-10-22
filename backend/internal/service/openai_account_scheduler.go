@@ -1553,6 +1553,9 @@ func accountSupportsOpenAICapabilities(account *Account, requiredCapability Open
 		return false
 	}
 	requiredAccountCapability = effectiveAccountCapabilityForOpenAIRequest(requiredCapability, requiredImageCapability, requiredAccountCapability)
+	if account.IsCNProvider() && requiredAccountCapability == AccountCapabilityImage {
+		return false
+	}
 	return supportsOpenAIEndpointCapabilityForRequest(account, requiredCapability) &&
 		account.SupportsOpenAIImageCapability(requiredImageCapability) &&
 		account.SupportsCapability(requiredAccountCapability)
@@ -1561,6 +1564,16 @@ func accountSupportsOpenAICapabilities(account *Account, requiredCapability Open
 func supportsOpenAIEndpointCapabilityForRequest(account *Account, capability OpenAIEndpointCapability) bool {
 	if capability != OpenAIEndpointCapabilityResponses {
 		return account != nil && account.SupportsOpenAIEndpointCapability(capability)
+	}
+	if account != nil && account.IsCNProvider() {
+		if account.Type != AccountTypeAPIKey || !account.IsDeepseek() || account.GetAPIProtocol() != APIProtocolResponses {
+			return false
+		}
+		if !account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions) {
+			return false
+		}
+		configured, found := account.openAIEndpointCapabilitySet()
+		return !found || configured[string(capability)]
 	}
 	if account == nil || !account.IsOpenAI() {
 		return false

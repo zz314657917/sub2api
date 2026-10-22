@@ -1099,6 +1099,11 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 		return
 	}
 
+	if platform == service.PlatformDeepseek {
+		writeModelsList(c, defaultModelIDsForPlatform(platform))
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"object": "list",
 		"data":   claude.DefaultModels,
@@ -1522,6 +1527,11 @@ func defaultModelIDsForPlatform(platform string) []string {
 		return ids
 	case service.PlatformGrok:
 		return xai.DefaultModelIDs()
+	case service.PlatformDeepseek:
+		return []string{
+			"deepseek-chat", "deepseek-reasoner",
+			"deepseek-v4-flash", "deepseek-v4-pro", "deepseek-v4.1-flash",
+		}
 	default:
 		ids := make([]string, 0, len(claude.DefaultModels))
 		for _, model := range claude.DefaultModels {
