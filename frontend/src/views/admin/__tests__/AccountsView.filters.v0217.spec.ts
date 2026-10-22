@@ -160,6 +160,29 @@ describe('AccountsView platform/status persistence through real filter events', 
     expect(lastRequest()).toMatchObject({ search: '', group: '' })
   })
 
+  it.each([
+    ['deepseek', false], ['deepseek', true],
+    ['kimi', false], ['kimi', true],
+    ['zhipu', false], ['zhipu', true]
+  ] as const)('persists %s through real filter events and scope changes (shared=%s)', async (platform, shared) => {
+    Reflect.set(route, 'name', shared ? 'AdminSharedAccounts' : 'AdminAccounts')
+    const key = shared ? SHARED : MAIN
+    const wrapper = await mountView()
+    const options = wrapper.findComponent(AccountTableFilters).findAll('select')[0].findAll('option')
+    expect(options.some(option => option.attributes('value') === platform)).toBe(true)
+    await changeFilter(wrapper, 0, platform)
+    expectRequest(platform, '', shared)
+    expect(JSON.parse(localStorage.getItem(key)!)).toEqual({ platform, status: '' })
+    await navigate(!shared)
+    expectRequest('', '', !shared)
+    await navigate(shared)
+    expectRequest(platform, '', shared)
+    wrapper.unmount()
+    wrappers = []
+    await mountView()
+    expectRequest(platform, '', shared)
+  })
+
   it('reloads separate saved values on same-instance main→shared→main transitions', async () => {
     localStorage.setItem(MAIN, JSON.stringify({ platform: 'anthropic', status: 'inactive' }))
     localStorage.setItem(SHARED, JSON.stringify({

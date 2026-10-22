@@ -844,7 +844,7 @@ const DEFAULT_HIDDEN_COLUMNS = ['today_stats', 'share', 'proxy', 'notes', 'rate_
 const HIDDEN_COLUMNS_KEY = computed(() => isSharedAccountsPage.value ? 'shared-account-hidden-columns' : 'account-hidden-columns')
 
 // Keep these values aligned with AccountTableFilters' platform/status options.
-const ACCOUNT_FILTER_PLATFORMS = new Set(['anthropic', 'openai', 'gemini', 'antigravity', 'grok'])
+const ACCOUNT_FILTER_PLATFORMS = new Set(['anthropic', 'openai', 'gemini', 'antigravity', 'grok', 'kimi', 'zhipu', 'deepseek'])
 const ACCOUNT_FILTER_STATUSES = new Set(['active', 'inactive', 'error', 'rate_limited', 'temp_unschedulable', 'unschedulable'])
 const ACCOUNT_FILTER_STORAGE_KEY = computed(() => isSharedAccountsPage.value ? 'shared-account-filter-values' : 'account-filter-values')
 const loadSavedAccountFilters = (): { platform: string; status: string } => {
