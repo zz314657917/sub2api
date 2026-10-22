@@ -4640,7 +4640,8 @@ func openAIStreamClientOutputStarted(c *gin.Context, localStarted bool) bool {
 
 func openAIStreamEventIsPreamble(eventType string) bool {
 	switch strings.TrimSpace(eventType) {
-	case "response.created", "response.in_progress":
+	// Queue and moderation metadata do not commit model output.
+	case "response.created", "response.queued", "response.in_progress", "response.metadata":
 		return true
 	default:
 		return false

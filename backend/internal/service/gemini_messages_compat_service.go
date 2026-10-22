@@ -3844,12 +3844,23 @@ func isClaudeWebSearchToolMap(tool map[string]any) bool {
 
 // cleanToolSchema 清理工具的 JSON Schema，移除 Gemini 不支持的字段
 func cleanToolSchema(schema any) any {
+	return cleanToolSchemaNode(schema, true)
+}
+
+func cleanToolSchemaNode(schema any, schemaNode bool) any {
 	if schema == nil {
 		return nil
 	}
 
 	switch v := schema.(type) {
 	case map[string]any:
+		if !schemaNode {
+			cleaned := make(map[string]any, len(v))
+			for key, value := range v {
+				cleaned[key] = cleanToolSchemaNode(value, false)
+			}
+			return cleaned
+		}
 		cleaned := make(map[string]any)
 		for key, value := range v {
 			// 跳过不支持的字段
@@ -3857,17 +3868,59 @@ func cleanToolSchema(schema any) any {
 				key == "$defs" || key == "definitions" ||
 				key == "additionalProperties" || key == "patternProperties" || key == "minLength" ||
 				key == "maxLength" || key == "minItems" || key == "maxItems" ||
-				key == "exclusiveMinimum" || key == "deprecated" {
+				key == "exclusiveMinimum" || key == "deprecated" || key == "examples" || key == "const" {
 				continue
 			}
-			// 递归清理嵌套对象
-			cleaned[key] = cleanToolSchema(value)
+			switch key {
+			case "properties", "dependentSchemas", "dependencies":
+				if children, ok := value.(map[string]any); ok {
+					result := make(map[string]any, len(children))
+					for name, child := range children {
+						if key == "dependencies" {
+							_, isSchema := child.(map[string]any)
+							result[name] = cleanToolSchemaNode(child, isSchema)
+						} else {
+							result[name] = cleanToolSchemaNode(child, true)
+						}
+					}
+					cleaned[key] = result
+				} else {
+					cleaned[key] = cleanToolSchemaNode(value, false)
+				}
+			case "items", "contains", "propertyNames", "if", "then", "else", "not", "contentSchema",
+				"additionalItems", "unevaluatedItems", "unevaluatedProperties",
+				"anyOf", "allOf", "oneOf", "prefixItems":
+				cleaned[key] = cleanToolSchemaNode(value, true)
+			default:
+				cleaned[key] = cleanToolSchemaNode(value, false)
+			}
 		}
+		enumValid := true
 		if enum, ok := cleaned["enum"].([]any); ok {
 			if normalized, ok := normalizeGeminiEnum(enum); ok {
 				cleaned["enum"] = normalized
 			} else {
 				delete(cleaned, "enum")
+				enumValid = false
+			}
+		}
+		if constant, ok := v["const"].(string); ok {
+			if enumValid {
+				if enum, ok := v["enum"].([]any); ok {
+					intersection := make([]any, 0, 1)
+					for _, value := range enum {
+						if text, ok := value.(string); ok && text == constant {
+							intersection = append(intersection, constant)
+							break
+						}
+					}
+					cleaned["enum"] = intersection
+				} else {
+					cleaned["enum"] = []any{constant}
+				}
+			}
+			if _, exists := v["type"]; !exists {
+				cleaned["type"] = "STRING"
 			}
 		}
 		// 规范化 type 字段为大写
@@ -3889,7 +3942,7 @@ func cleanToolSchema(schema any) any {
 	case []any:
 		cleaned := make([]any, len(v))
 		for i, item := range v {
-			cleaned[i] = cleanToolSchema(item)
+			cleaned[i] = cleanToolSchemaNode(item, schemaNode)
 		}
 		return cleaned
 	default:

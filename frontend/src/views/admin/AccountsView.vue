@@ -843,6 +843,27 @@ const hiddenColumns = reactive<Set<string>>(new Set())
 const DEFAULT_HIDDEN_COLUMNS = ['today_stats', 'share', 'proxy', 'notes', 'rate_multiplier']
 const HIDDEN_COLUMNS_KEY = computed(() => isSharedAccountsPage.value ? 'shared-account-hidden-columns' : 'account-hidden-columns')
 
+// Keep these values aligned with AccountTableFilters' platform/status options.
+const ACCOUNT_FILTER_PLATFORMS = new Set(['anthropic', 'openai', 'gemini', 'antigravity', 'grok'])
+const ACCOUNT_FILTER_STATUSES = new Set(['active', 'inactive', 'error', 'rate_limited', 'temp_unschedulable', 'unschedulable'])
+const ACCOUNT_FILTER_STORAGE_KEY = computed(() => isSharedAccountsPage.value ? 'shared-account-filter-values' : 'account-filter-values')
+const loadSavedAccountFilters = (): { platform: string; status: string } => {
+  const fallback = { platform: '', status: '' }
+  try {
+    const raw = localStorage.getItem(ACCOUNT_FILTER_STORAGE_KEY.value)
+    if (!raw) return fallback
+    const parsed: unknown = JSON.parse(raw)
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return fallback
+    const values = parsed as Record<string, unknown>
+    return {
+      platform: typeof values.platform === 'string' && ACCOUNT_FILTER_PLATFORMS.has(values.platform) ? values.platform : '',
+      status: typeof values.status === 'string' && ACCOUNT_FILTER_STATUSES.has(values.status) ? values.status : ''
+    }
+  } catch {
+    return fallback
+  }
+}
+
 // Sorting settings
 const ACCOUNT_SORT_STORAGE_KEY = computed(() => isSharedAccountsPage.value ? 'shared-account-table-sort' : 'account-table-sort')
 type AccountSortOrder = 'asc' | 'desc'
@@ -1100,9 +1121,8 @@ const {
 } = useTableLoader<Account, any>({
   fetchFn: adminAPI.accounts.list,
   initialParams: {
-    platform: '',
+    ...loadSavedAccountFilters(),
     type: '',
-    status: '',
     privacy_mode: '',
     plan_type: '',
     owner_filter: '',
@@ -1191,6 +1211,14 @@ const reload = async () => {
 }
 
 const debouncedReload = () => {
+  try {
+    localStorage.setItem(ACCOUNT_FILTER_STORAGE_KEY.value, JSON.stringify({
+      platform: typeof params.platform === 'string' && ACCOUNT_FILTER_PLATFORMS.has(params.platform) ? params.platform : '',
+      status: typeof params.status === 'string' && ACCOUNT_FILTER_STATUSES.has(params.status) ? params.status : ''
+    }))
+  } catch {
+    // Filtering must still work when browser storage is unavailable.
+  }
   hasPendingListSync.value = false
   resetAutoRefreshCache()
   pendingTodayStatsRefresh.value = true
@@ -1241,6 +1269,7 @@ watch(isSharedAccountsPage, async () => {
   clearSelection()
   resetColumnVisibilityForScope()
   loadSavedSortForScope()
+  Object.assign(params, loadSavedAccountFilters())
   applyFixedAccountScope()
   pagination.page = 1
   isFirstLoad.value = true
