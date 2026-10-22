@@ -2,20 +2,26 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 
 const copyToClipboard = vi.fn().mockResolvedValue(true)
+const { showError, syncUpstreamModels } = vi.hoisted(() => ({
+  showError: vi.fn(), syncUpstreamModels: vi.fn(),
+}))
+vi.mock('@/api/admin/accounts', () => ({ default: { syncUpstreamModels }, accountsAPI: { syncUpstreamModels } }))
 
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
   return {
     ...actual,
     useI18n: () => ({
-      t: (key: string) => (key === 'common.copy' ? 'Copy' : key)
+      t: (key: string, params?: { message?: string }) => (
+        key === 'common.copy' ? 'Copy' : params?.message ? `${key}: ${params.message}` : key
+      )
     })
   }
 })
 
 vi.mock('@/stores/app', () => ({
   useAppStore: () => ({
-    showError: vi.fn(),
+    showError,
     showSuccess: vi.fn(),
     showInfo: vi.fn()
   })
@@ -52,6 +58,8 @@ function findModelRow(wrapper: ReturnType<typeof mountSelector>, modelId: string
 describe('ModelWhitelistSelector', () => {
   beforeEach(() => {
     copyToClipboard.mockClear()
+    showError.mockReset()
+    syncUpstreamModels.mockReset()
   })
 
   it('copies a model ID without selecting it', async () => {
@@ -85,5 +93,22 @@ describe('ModelWhitelistSelector', () => {
 
     expect(findModelRow(wrapper, 'kimi-for-coding').exists()).toBe(true)
     expect(wrapper.findAll('[data-testid="model-option"]').some(row => row.text().includes('gpt-5.6-sol'))).toBe(false)
+  })
+
+  it.each([
+    [{ status: 502, message: 'upstream unavailable' }, 'upstream unavailable'],
+    [new Error('network failure'), 'network failure'],
+    [{ status: 502 }, 'admin.accounts.syncUpstreamModelsFailed'],
+  ])('extracts sync errors with fallback: %j', async (error, message) => {
+    syncUpstreamModels.mockRejectedValue(error)
+    const wrapper = mountSelector()
+    await wrapper.setProps({ accountId: 42 })
+    const button = wrapper.findAll('button').find(button => button.text() === 'admin.accounts.syncUpstreamModels')!
+    await button.trigger('click')
+    await flushPromises()
+    expect(syncUpstreamModels).toHaveBeenCalledWith(42)
+    expect(showError).toHaveBeenCalledWith(`admin.accounts.syncUpstreamModelsError: ${message}`)
+    expect(button.attributes('disabled')).toBeUndefined()
+    wrapper.unmount()
   })
 })

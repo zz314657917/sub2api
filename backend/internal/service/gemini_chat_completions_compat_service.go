@@ -115,7 +115,9 @@ func (s *GeminiMessagesCompatService) forwardClaudeBodyAsChatCompletions(
 
 	var resp *http.Response
 	errorPolicy := ErrorPolicyNone
+	policyChecked := false
 	for attempt := 1; attempt <= geminiMaxRetries; attempt++ {
+		policyChecked = false
 		// Each upstream attempt owns a fresh observation. A retry must not carry
 		// a response model declared by an earlier failed attempt into billing.
 		beginUpstreamResponseModelObservation(c)
@@ -154,12 +156,10 @@ func (s *GeminiMessagesCompatService) forwardClaudeBodyAsChatCompletions(
 			return nil, s.writeChatCompletionsError(c, http.StatusBadGateway, "upstream_error", "Upstream request failed after retries: "+safeErr)
 		}
 
-		if policy, rebuilt := s.checkErrorPolicyInLoop(ctx, account, resp); policy != ErrorPolicyNone {
-			resp = rebuilt
-			errorPolicy = policy
+		errorPolicy, resp = s.checkErrorPolicyInLoop(ctx, account, resp)
+		policyChecked = resp.StatusCode >= 400 && s.rateLimitService != nil
+		if errorPolicy != ErrorPolicyNone {
 			break
-		} else {
-			resp = rebuilt
 		}
 
 		if resp.StatusCode >= 400 && s.shouldRetryGeminiUpstreamError(account, resp.StatusCode) {
@@ -222,8 +222,8 @@ func (s *GeminiMessagesCompatService) forwardClaudeBodyAsChatCompletions(
 
 	if resp.StatusCode >= 400 {
 		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
-		if errorPolicy == ErrorPolicyNone && s.rateLimitService != nil {
-			errorPolicy = s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, respBody)
+		if s.rateLimitService != nil {
+			errorPolicy = s.finalErrorPolicy(ctx, account, resp.StatusCode, respBody, errorPolicy, policyChecked)
 		}
 		if errorPolicy == ErrorPolicyNone || errorPolicy == ErrorPolicyMatched {
 			s.handleGeminiUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)

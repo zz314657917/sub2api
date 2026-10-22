@@ -245,6 +245,12 @@ const currentPage = ref(1)
 const pageSize = ref(10)
 
 let searchTimeout: ReturnType<typeof setTimeout>
+let loadVersion = 0
+
+const invalidateLoad = () => {
+  loadVersion++
+  loading.value = false
+}
 
 const platformColorClass = computed(() => {
   switch (props.group?.platform) {
@@ -272,16 +278,22 @@ const cloneEntries = (entries: GroupRPMOverrideEntry[]): LocalEntry[] => {
 
 const loadEntries = async () => {
   if (!props.group) return
+  const version = ++loadVersion
   loading.value = true
+  serverEntries.value = []
+  localEntries.value = []
   try {
-    serverEntries.value = await adminAPI.groups.getGroupRPMOverrides(props.group.id)
+    const entries = await adminAPI.groups.getGroupRPMOverrides(props.group.id)
+    if (version !== loadVersion) return
+    serverEntries.value = entries
     localEntries.value = cloneEntries(serverEntries.value)
     adjustPage()
   } catch (error) {
+    if (version !== loadVersion) return
     appStore.showError(t('admin.groups.failedToLoad'))
     console.error('Error loading RPM overrides:', error)
   } finally {
-    loading.value = false
+    if (version === loadVersion) loading.value = false
   }
 }
 
@@ -290,8 +302,9 @@ const adjustPage = () => {
   if (currentPage.value > totalPages) currentPage.value = totalPages
 }
 
-watch(() => props.show, (val) => {
-  if (val && props.group) {
+watch([() => props.show, () => props.group?.id], ([show]) => {
+  invalidateLoad()
+  if (show && props.group) {
     currentPage.value = 1
     searchQuery.value = ''
     searchResults.value = []
@@ -299,7 +312,7 @@ watch(() => props.show, (val) => {
     newRpm.value = null
     loadEntries()
   }
-})
+}, { immediate: true })
 
 const handlePageSizeChange = (newSize: number) => {
   pageSize.value = newSize
@@ -411,6 +424,7 @@ const handleSave = async () => {
 }
 
 const handleClose = () => {
+  invalidateLoad()
   if (isDirty.value) {
     localEntries.value = cloneEntries(serverEntries.value)
   }
@@ -422,6 +436,7 @@ if (typeof document !== 'undefined') {
   document.addEventListener('click', handleClickOutside)
 }
 onUnmounted(() => {
+  invalidateLoad()
   clearTimeout(searchTimeout)
   document.removeEventListener('click', handleClickOutside)
 })

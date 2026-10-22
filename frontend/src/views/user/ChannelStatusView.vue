@@ -43,7 +43,7 @@
               :loading="loading"
               :auto-refresh="autoRefresh"
               @update:window="handleWindowChange"
-              @refresh="manualReload"
+              @refresh="refresh()"
             />
           </div>
 
@@ -107,14 +107,19 @@ const detailTarget = ref<UserMonitorView | null>(null)
 
 let abortController: AbortController | null = null
 let capacityAbortController: AbortController | null = null
+let refreshVersion = 0
+let unmounted = false
+const pendingDetails = new Map<number, { version?: number; promise: Promise<void> }>()
+
+function isCurrentRefresh(version: number) {
+  return !unmounted && version === refreshVersion
+}
 
 const autoRefresh = useAutoRefresh({
   storageKey: 'channel-status-auto-refresh',
   intervals: [30, 60, 120] as const,
   defaultInterval: DEFAULT_INTERVAL_SECONDS,
-  onRefresh: async () => {
-    await Promise.all([reload(true), loadCapacityPools(true)])
-  },
+  onRefresh: () => refresh(true),
   shouldPause: () => document.hidden || loading.value || capacityLoading.value,
 })
 
@@ -163,6 +168,7 @@ async function reload(silent = false) {
     const res = await listChannelMonitorViews({ signal: ctrl.signal })
     if (ctrl.signal.aborted || abortController !== ctrl) return
     items.value = res.items || []
+    return true
   } catch (err: unknown) {
     const e = err as { name?: string; code?: string }
     if (e?.name === 'AbortError' || e?.code === 'ERR_CANCELED') return
@@ -203,22 +209,44 @@ async function loadCapacityPools(silent = false) {
   }
 }
 
-async function manualReload() {
-  await Promise.all([reload(false), loadCapacityPools(false)])
+async function refresh(silent = false) {
+  if (unmounted) return
+  const version = ++refreshVersion
+  const [reloaded] = await Promise.all([reload(silent), loadCapacityPools(silent)])
+  if (!reloaded || !isCurrentRefresh(version)) return
   // After base reload, refresh any cached detail records so non-7d availability
   // values stay in sync without forcing the user to switch tabs again.
   if (currentWindow.value !== '7d') {
-    await Promise.all(items.value.map(it => loadDetail(it.id, true)))
+    await Promise.all(items.value.map(it => loadDetail(it.id, true, version)))
   }
 }
 
-async function loadDetail(id: number, force = false) {
+async function loadDetail(id: number, force = false, version?: number) {
+  const isActive = () => !unmounted && (version === undefined || isCurrentRefresh(version))
+  if (!isActive()) return
   if (!force && detailCache[id]) return
-  try {
-    detailCache[id] = await fetchChannelMonitorDetail(id)
-  } catch (err: unknown) {
-    appStore.showError(extractApiErrorMessage(err, t('channelStatus.detailLoadError')))
+  // Ordinary window details survive refreshes (including 7d extra models).
+  // Only details owned by a refresh expire when that refresh is superseded.
+  const pending = pendingDetails.get(id)
+  if (!force && pending && (pending.version === undefined || isCurrentRefresh(pending.version))) {
+    return pending.promise
   }
+  const request = { version, promise: Promise.resolve() }
+  pendingDetails.set(id, request)
+  const isCurrentDetail = () => isActive() && pendingDetails.get(id) === request
+  request.promise = (async () => {
+    try {
+      const detail = await fetchChannelMonitorDetail(id)
+      if (!isCurrentDetail()) return
+      detailCache[id] = detail
+    } catch (err: unknown) {
+      if (!isCurrentDetail()) return
+      appStore.showError(extractApiErrorMessage(err, t('channelStatus.detailLoadError')))
+    } finally {
+      if (pendingDetails.get(id) === request) pendingDetails.delete(id)
+    }
+  })()
+  return request.promise
 }
 
 async function ensureDetailsForWindow() {
@@ -287,6 +315,8 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  unmounted = true
+  refreshVersion++
   if (abortController) abortController.abort()
   if (capacityAbortController) capacityAbortController.abort()
 })

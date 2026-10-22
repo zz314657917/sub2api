@@ -303,8 +303,8 @@ func TestResolveCodexImportExpiryForNoRefreshTokenUsesEarlierRequestExpiry(t *te
 
 func TestCodexIdentityKeysPreferStrongIdentifiers(t *testing.T) {
 	keys := buildCodexImportIdentityKeys("acct-1", "user-1", "same@example.com", "token", "refresh")
-	if len(keys) == 0 || keys[0] != "user:user-1" {
-		t.Fatalf("user key should have highest priority when refresh token exists: %v", keys)
+	if len(keys) == 0 || keys[0] != "account_user:6:acct-16:user-1" {
+		t.Fatalf("workspace-scoped user key should have highest priority when refresh token exists: %v", keys)
 	}
 	if keys[len(keys)-1] != "account:acct-1" {
 		t.Fatalf("shared account key should be the last fallback: %v", keys)
@@ -465,8 +465,8 @@ func TestCodexAccountIndexKeepsAllCandidatesForSharedAccountKey(t *testing.T) {
 		if got == nil || got.ID != member.ID {
 			t.Fatalf("Find by user key = %v, want member account ID %d", got, member.ID)
 		}
-		if matchedKey != "user:user-2" {
-			t.Fatalf("matched key = %q, want user:user-2", matchedKey)
+		if matchedKey != "account_user:6:team-16:user-2" {
+			t.Fatalf("matched key = %q, want account_user:6:team-16:user-2", matchedKey)
 		}
 	}
 }

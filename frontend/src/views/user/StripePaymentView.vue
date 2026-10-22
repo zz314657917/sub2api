@@ -135,26 +135,28 @@ let redirectTimer: ReturnType<typeof setTimeout> | null = null
 
 onMounted(async () => {
   const orderId = Number(route.query.order_id)
-  const clientSecret = String(route.query.client_secret || '')
   const method = String(route.query.method || '')
   const resumeToken = typeof route.query.resume_token === 'string' ? route.query.resume_token : undefined
 
-  if (!orderId || !clientSecret) {
-    loading.value = false
-    initError.value = t('payment.stripeMissingParams')
-    return
-  }
-
   try {
-    if (typeof window !== 'undefined') {
-      const restored = readPaymentRecoverySnapshot(
+    // Only the matching local order snapshot may supply the PaymentIntent secret.
+    // Keep storage access inside try so unavailable storage ends the loading state.
+    const restored = typeof window !== 'undefined'
+      ? readPaymentRecoverySnapshot(
         window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY),
         { resumeToken },
       )
-      if (restored?.orderId === orderId) {
-        currency.value = normalizePaymentCurrency(restored.currency)
-      }
+      : null
+    const clientSecret = Number.isSafeInteger(orderId) && orderId > 0 && restored?.orderId === orderId
+      ? restored.clientSecret.trim()
+      : ''
+    if (!clientSecret
+      || !Number.isFinite(Date.parse(restored?.expiresAt || ''))
+      || (route.query.resume_token !== undefined && route.query.resume_token !== restored?.resumeToken)) {
+      initError.value = t('payment.stripeMissingParams')
+      return
     }
+    currency.value = normalizePaymentCurrency(restored?.currency)
     const res = await paymentAPI.getOrder(orderId)
     order.value = res.data
     if (res.data.currency) {

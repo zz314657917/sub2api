@@ -832,8 +832,10 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 
 	var resp *http.Response
 	errorPolicy := ErrorPolicyNone
+	policyChecked := false
 	signatureRetryStage := 0
 	for attempt := 1; attempt <= geminiMaxRetries; attempt++ {
+		policyChecked = false
 		upstreamReq, idHeader, err := buildReq(ctx)
 		if err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
@@ -943,12 +945,10 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 		}
 
 		// 错误策略优先：匹配则跳过重试直接处理。
-		if policy, rebuilt := s.checkErrorPolicyInLoop(ctx, account, resp); policy != ErrorPolicyNone {
-			resp = rebuilt
-			errorPolicy = policy
+		errorPolicy, resp = s.checkErrorPolicyInLoop(ctx, account, resp)
+		policyChecked = resp.StatusCode >= 400 && s.rateLimitService != nil
+		if errorPolicy != ErrorPolicyNone {
 			break
-		} else {
-			resp = rebuilt
 		}
 
 		if resp.StatusCode >= 400 && s.shouldRetryGeminiUpstreamError(account, resp.StatusCode) {
@@ -1016,9 +1016,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
 		// 统一错误策略：自定义错误码 + 临时不可调度
 		if s.rateLimitService != nil {
-			if errorPolicy == ErrorPolicyNone {
-				errorPolicy = s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, respBody)
-			}
+			errorPolicy = s.finalErrorPolicy(ctx, account, resp.StatusCode, respBody, errorPolicy, policyChecked)
 			switch errorPolicy {
 			case ErrorPolicySkipped:
 				upstreamReqID := resp.Header.Get(requestIDHeader)
@@ -1391,8 +1389,10 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 
 	var resp *http.Response
 	errorPolicy := ErrorPolicyNone
+	policyChecked := false
 	cachedContentNotFound := false
 	for attempt := 1; attempt <= geminiMaxRetries; attempt++ {
+		policyChecked = false
 		upstreamReq, idHeader, err := buildReq(ctx)
 		if err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
@@ -1457,12 +1457,10 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 		}
 
 		// 错误策略优先：匹配则跳过重试直接处理。
-		if policy, rebuilt := s.checkErrorPolicyInLoop(ctx, account, resp); policy != ErrorPolicyNone {
-			resp = rebuilt
-			errorPolicy = policy
+		errorPolicy, resp = s.checkErrorPolicyInLoop(ctx, account, resp)
+		policyChecked = resp.StatusCode >= 400 && s.rateLimitService != nil
+		if errorPolicy != ErrorPolicyNone {
 			break
-		} else {
-			resp = rebuilt
 		}
 
 		if resp.StatusCode >= 400 && s.shouldRetryGeminiUpstreamError(account, resp.StatusCode) {
@@ -1575,9 +1573,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 
 		// 统一错误策略：自定义错误码 + 临时不可调度
 		if s.rateLimitService != nil {
-			if errorPolicy == ErrorPolicyNone {
-				errorPolicy = s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, respBody)
-			}
+			errorPolicy = s.finalErrorPolicy(ctx, account, resp.StatusCode, respBody, errorPolicy, policyChecked)
 			switch errorPolicy {
 			case ErrorPolicySkipped:
 				if failoverErr := s.skippedErrorPolicyFailoverError(c, account, resp.StatusCode, respBody, requestID); failoverErr != nil {
@@ -1834,6 +1830,17 @@ func (s *GeminiMessagesCompatService) checkErrorPolicyInLoop(
 		Body:       io.NopCloser(bytes.NewReader(body)),
 	}
 	return s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, body), rebuilt
+}
+
+// finalErrorPolicy reuses the check for this response, including ErrorPolicyNone.
+// Callers reset checked on every new response; policy checks may mutate account state.
+func (s *GeminiMessagesCompatService) finalErrorPolicy(
+	ctx context.Context, account *Account, statusCode int, body []byte, policy ErrorPolicyResult, checked bool,
+) ErrorPolicyResult {
+	if checked {
+		return policy
+	}
+	return s.rateLimitService.CheckErrorPolicy(ctx, account, statusCode, body)
 }
 
 func (s *GeminiMessagesCompatService) shouldRetryGeminiUpstreamError(account *Account, statusCode int) bool {
@@ -3177,7 +3184,7 @@ func extractGeminiUsage(data []byte) *ClaudeUsage {
 	// 注意：Gemini 的 promptTokenCount 包含 cachedContentTokenCount，
 	// 但 Claude 的 input_tokens 不包含 cache_read_input_tokens，需要减去
 	return &ClaudeUsage{
-		InputTokens:          prompt - cached,
+		InputTokens:          max(prompt-cached, 0),
 		OutputTokens:         cand + thoughts,
 		CacheReadInputTokens: cached,
 		ImageOutputTokens:    imageTokens,

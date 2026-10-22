@@ -938,6 +938,20 @@ func TestExtractGeminiUsage(t *testing.T) {
 // Task 8.2 — estimateGeminiCountTokens 测试
 // ---------------------------------------------------------------------------
 
+func TestExtractGeminiUsageV0217Clamp(t *testing.T) {
+	for _, metadata := range []string{
+		`"cachedContentTokenCount":12980`,
+		`"promptTokenCount":10,"cachedContentTokenCount":12980`,
+	} {
+		t.Run(metadata, func(t *testing.T) {
+			usage := extractGeminiUsage([]byte(`{"promptFeedback":{"blockReason":"PROHIBITED_CONTENT"},"usageMetadata":{` + metadata + `}}`))
+			require.NotNil(t, usage)
+			require.Zero(t, usage.InputTokens)
+			require.Equal(t, 12980, usage.CacheReadInputTokens)
+		})
+	}
+}
+
 func TestEstimateGeminiCountTokens(t *testing.T) {
 	tests := []struct {
 		name      string
