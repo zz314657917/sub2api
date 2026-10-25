@@ -6620,9 +6620,11 @@
     "supports_prompt_caching": true
   },
   "kimi-k3": {
-    "input_cost_per_token": 3e-06,
-    "output_cost_per_token": 1.5e-05,
-    "cache_read_input_token_cost": 3e-07,
+    "input_cost_per_token": 0.00002,
+    "output_cost_per_token": 0.0001,
+    "cache_read_input_token_cost": 0.000002,
+    "cache_creation_input_token_cost": 0.00002,
+    "cache_creation_input_token_cost_above_1hr": 0.00004,
     "litellm_provider": "moonshot",
     "mode": "chat",
     "supports_prompt_caching": true

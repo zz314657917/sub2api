@@ -424,12 +424,15 @@ func (s *BillingService) initFallbackPricing() {
 	s.fallbackPrices["glm-4.5-flash"] = &ModelPricing{InputPricePerToken: 0, OutputPricePerToken: 0}
 	s.fallbackPrices["glm-4-32b-0414-128k"] = &ModelPricing{InputPricePerToken: 0.1e-6, OutputPricePerToken: 0.1e-6}
 
-	// Kimi Code bare aliases use the Kimi API Platform K3 pricing as a fallback.
+	// Kimi Code bare aliases share the configured K3 pricing.
 	s.fallbackPrices["kimi-k3"] = &ModelPricing{
-		InputPricePerToken:     3e-6,
-		OutputPricePerToken:    15e-6,
-		CacheReadPricePerToken: 0.30e-6,
-		SupportsCacheBreakdown: false,
+		InputPricePerToken:         20e-6,
+		OutputPricePerToken:        100e-6,
+		CacheReadPricePerToken:     2e-6,
+		CacheCreationPricePerToken: 20e-6,
+		CacheCreation5mPrice:       20e-6,
+		CacheCreation1hPrice:       40e-6,
+		SupportsCacheBreakdown:     true,
 	}
 	s.fallbackPrices["kimi-k2.6"] = &ModelPricing{InputPricePerToken: 0.95e-6, OutputPricePerToken: 4e-6, CacheReadPricePerToken: 0.15e-6}
 	s.fallbackPrices["kimi-for-coding"] = &ModelPricing{InputPricePerToken: 0.95e-6, OutputPricePerToken: 4e-6, CacheReadPricePerToken: 0.15e-6}
@@ -616,9 +619,7 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 	// K3 must be checked before K2. Bare Code aliases are exact to avoid
 	// charging unknown K3-like model names. The [1m] suffix is client syntax,
 	// not a Kimi API model ID, so it deliberately does not match here.
-	if modelLower == "kimi-k3" || strings.HasSuffix(modelLower, "/kimi-k3") ||
-		modelLower == "k3" || modelLower == "k3-256k" ||
-		strings.HasSuffix(modelLower, "/k3") || strings.HasSuffix(modelLower, "/k3-256k") {
+	if isKimiK3Model(modelLower) {
 		return s.fallbackPrices["kimi-k3"]
 	}
 	if strings.Contains(modelLower, "kimi-k2.6") || strings.Contains(modelLower, "kimi-k2-6") {
@@ -1190,9 +1191,27 @@ func (s *BillingService) calculateCostInternalWithPolicy(model string, tokens Us
 	return s.computeTokenBreakdown(pricing, tokens, rateMultiplier, serviceTier, longContextBillingEnabled), nil
 }
 
+func isKimiK3Model(model string) bool {
+	model = strings.ToLower(strings.TrimSpace(model))
+	return model == "kimi-k3" || strings.HasSuffix(model, "/kimi-k3") ||
+		model == "k3" || model == "k3-256k" ||
+		strings.HasSuffix(model, "/k3") || strings.HasSuffix(model, "/k3-256k")
+}
+
 func (s *BillingService) applyModelSpecificPricingPolicy(model string, pricing *ModelPricing) *ModelPricing {
 	if pricing == nil {
 		return nil
+	}
+	if isKimiK3Model(model) {
+		cloned := *pricing
+		cloned.InputPricePerToken = 20e-6
+		cloned.OutputPricePerToken = 100e-6
+		cloned.CacheReadPricePerToken = 2e-6
+		cloned.CacheCreationPricePerToken = 20e-6
+		cloned.CacheCreation5mPrice = 20e-6
+		cloned.CacheCreation1hPrice = 40e-6
+		cloned.SupportsCacheBreakdown = true
+		return &cloned
 	}
 	normalized := normalizeKnownOpenAICodexModel(model)
 	isGPT56 := normalized == "gpt-5.6-sol" || normalized == "gpt-5.6-terra" || normalized == "gpt-5.6-luna"
