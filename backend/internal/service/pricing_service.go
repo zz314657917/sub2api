@@ -157,6 +157,9 @@ func newOpenAIGPT56FallbackLiteLLMPricing(inputCostPerToken, outputCostPerToken 
 // LiteLLMModelPricing LiteLLM价格数据结构
 // 只保留我们需要的字段，使用指针来处理可能缺失的值
 type LiteLLMModelPricing struct {
+	InputCostPerTokenPriorityExplicit           bool    `json:"-"`
+	OutputCostPerTokenPriorityExplicit          bool    `json:"-"`
+	CacheReadInputTokenCostPriorityExplicit     bool    `json:"-"`
 	LongContextMetadataPresent                  bool    `json:"-"`
 	InputCostPerToken                           float64 `json:"input_cost_per_token"`
 	InputCostPerTokenPriority                   float64 `json:"input_cost_per_token_priority"`
@@ -519,12 +522,14 @@ func (s *PricingService) parsePricingData(body []byte) (map[string]*LiteLLMModel
 		}
 		if entry.InputCostPerTokenPriority != nil {
 			pricing.InputCostPerTokenPriority = *entry.InputCostPerTokenPriority
+			pricing.InputCostPerTokenPriorityExplicit = true
 		}
 		if entry.OutputCostPerToken != nil {
 			pricing.OutputCostPerToken = *entry.OutputCostPerToken
 		}
 		if entry.OutputCostPerTokenPriority != nil {
 			pricing.OutputCostPerTokenPriority = *entry.OutputCostPerTokenPriority
+			pricing.OutputCostPerTokenPriorityExplicit = true
 		}
 		if entry.CacheCreationInputTokenCost != nil {
 			pricing.CacheCreationInputTokenCost = *entry.CacheCreationInputTokenCost
@@ -550,6 +555,7 @@ func (s *PricingService) parsePricingData(body []byte) (map[string]*LiteLLMModel
 		}
 		if entry.CacheReadInputTokenCostPriority != nil {
 			pricing.CacheReadInputTokenCostPriority = *entry.CacheReadInputTokenCostPriority
+			pricing.CacheReadInputTokenCostPriorityExplicit = true
 		}
 		if entry.LongContextInputTokenThreshold != nil {
 			pricing.LongContextInputTokenThreshold = *entry.LongContextInputTokenThreshold
@@ -739,6 +745,134 @@ func (s *PricingService) validatePricingURL(raw string) (string, error) {
 }
 
 // GetModelPricing 获取模型价格（带模糊匹配）
+// newModelPricingKey is pricing-only normalization. Unknown suffixes of these
+// families must not fall through to an older Claude/Grok card.
+func newModelPricingKey(model string) (string, bool) {
+	model = strings.ToLower(strings.TrimSpace(model))
+	model = normalizeModelNameForPricing(model)
+	for _, prefix := range []string{"anthropic/", "google/", "antigravity/", "xai/", "x-ai/", "grok/"} {
+		model = strings.TrimPrefix(model, prefix)
+	}
+	model = strings.ReplaceAll(model, "5.5", "5-5")
+	reserved := false
+	for _, base := range []string{"grok-4.7-fast", "grok-4.7-build-fast",
+		"gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash",
+		"gemini-4-argon-cyber-permissive", "gemini-4-argon",
+		"claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-5-5"} {
+		if !strings.HasPrefix(model, base) {
+			continue
+		}
+		reserved = true
+		suffix := strings.TrimPrefix(model, base)
+		known := suffix == ""
+		if strings.HasPrefix(base, "gemini-") {
+			known = known || suffix == "-low" || suffix == "-medium" || suffix == "-high" || suffix == "-tiered"
+		}
+		if strings.HasPrefix(base, "claude-") {
+			known = known || suffix == "-low" || suffix == "-medium" || suffix == "-high" || suffix == "-thinking" ||
+				(len(suffix) == 9 && suffix[0] == '-' && isNumeric(suffix[1:]))
+		}
+		if known {
+			if base == "grok-4.7-build-fast" {
+				base = "grok-4.7-fast"
+			}
+			return base, true
+		}
+	}
+	return "", reserved
+}
+
+// These finite cards come from the pinned upstream catalog audit. Promotions
+// are constants, not scheduled repricing: Argon through Nov 30 2026, Flash
+// 3.6/3.7/3.8 through Dec 31 2026. No unproven 3.7/3.8 priority card is inferred.
+func newModelStaticPricing(key string) *LiteLLMModelPricing {
+	p := &LiteLLMModelPricing{Mode: "chat", SupportsPromptCaching: true}
+	switch key {
+	case "grok-4.7-fast":
+		p.InputCostPerToken, p.OutputCostPerToken, p.CacheReadInputTokenCost = 4e-6, 12e-6, 1e-6
+		p.LongContextInputTokenThreshold, p.LongContextInputCostMultiplier, p.LongContextOutputCostMultiplier = 200000, 1.5, 1.5
+		p.LongContextMetadataPresent, p.LiteLLMProvider = true, "xai"
+	case "gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash":
+		p.InputCostPerToken, p.OutputCostPerToken, p.CacheReadInputTokenCost = .75e-6, 3.75e-6, .075e-6
+		p.LongContextMetadataPresent = true
+		if key == "gemini-3.6-flash" {
+			p.InputCostPerTokenPriority, p.OutputCostPerTokenPriority, p.CacheReadInputTokenCostPriority = 1.35e-6, 6.75e-6, .135e-6
+		}
+	case "gemini-4-argon", "gemini-4-argon-cyber-permissive":
+		p.InputCostPerToken, p.OutputCostPerToken, p.CacheReadInputTokenCost = 2e-6, 10e-6, .1e-6
+		p.InputCostPerTokenPriority, p.OutputCostPerTokenPriority, p.CacheReadInputTokenCostPriority = 3.6e-6, 18e-6, .18e-6
+		p.LongContextMetadataPresent = true
+		if key == "gemini-4-argon-cyber-permissive" {
+			p.InputCostPerToken *= 2
+			p.OutputCostPerToken *= 2
+			p.CacheReadInputTokenCost *= 2
+			p.InputCostPerTokenPriority *= 2
+			p.OutputCostPerTokenPriority *= 2
+			p.CacheReadInputTokenCostPriority *= 2
+		}
+	case "claude-sonnet-5-5":
+		p.InputCostPerToken, p.OutputCostPerToken, p.CacheReadInputTokenCost = 2e-6, 10e-6, .2e-6
+		p.CacheCreationInputTokenCost, p.CacheCreationInputTokenCostAbove1hr = 2.5e-6, 4e-6
+	case "claude-haiku-5-5":
+		p.InputCostPerToken, p.OutputCostPerToken, p.CacheReadInputTokenCost = .1e-6, .5e-6, .01e-6
+		p.CacheCreationInputTokenCost, p.CacheCreationInputTokenCostAbove1hr = .125e-6, .2e-6
+		p.LongContextInputTokenThreshold, p.LongContextInputCostMultiplier, p.LongContextOutputCostMultiplier = 100000, 5, 5
+		p.LongContextMetadataPresent = true
+	case "claude-opus-5-5":
+		*p = *claudeOpus55FallbackPricing
+	default:
+		return nil
+	}
+	if strings.HasPrefix(key, "claude-") {
+		p.CacheCreationInputTokenCostExplicit, p.CacheCreationInputTokenCostAbove1hrExplicit, p.CacheReadInputTokenCostExplicit = true, true, true
+	}
+	return p
+}
+
+// Complete only absent known fields; explicit zero fields are retained.
+func supplementNewModelPricing(p *LiteLLMModelPricing, key string) *LiteLLMModelPricing {
+	known := newModelStaticPricing(key)
+	if p == nil {
+		return known
+	}
+	copy := *p
+	if !copy.CacheCreationInputTokenCostExplicit && copy.CacheCreationInputTokenCost == 0 {
+		copy.CacheCreationInputTokenCost = copy.InputCostPerToken * known.CacheCreationInputTokenCost / known.InputCostPerToken
+	}
+	if !copy.CacheCreationInputTokenCostAbove1hrExplicit && copy.CacheCreationInputTokenCostAbove1hr == 0 {
+		copy.CacheCreationInputTokenCostAbove1hr = copy.InputCostPerToken * known.CacheCreationInputTokenCostAbove1hr / known.InputCostPerToken
+	}
+	if !copy.CacheReadInputTokenCostExplicit && copy.CacheReadInputTokenCost == 0 {
+		copy.CacheReadInputTokenCost = copy.InputCostPerToken * known.CacheReadInputTokenCost / known.InputCostPerToken
+	}
+	if !copy.InputCostPerTokenPriorityExplicit && copy.InputCostPerTokenPriority == 0 {
+		copy.InputCostPerTokenPriority = copy.InputCostPerToken * known.InputCostPerTokenPriority / known.InputCostPerToken
+		copy.InputCostPerTokenPriorityExplicit = known.InputCostPerTokenPriority > 0
+	}
+	if !copy.OutputCostPerTokenPriorityExplicit && copy.OutputCostPerTokenPriority == 0 {
+		copy.OutputCostPerTokenPriority = copy.OutputCostPerToken * known.OutputCostPerTokenPriority / known.OutputCostPerToken
+		copy.OutputCostPerTokenPriorityExplicit = known.OutputCostPerTokenPriority > 0
+	}
+	if !copy.CacheReadInputTokenCostPriorityExplicit && copy.CacheReadInputTokenCostPriority == 0 {
+		copy.CacheReadInputTokenCostPriority = copy.CacheReadInputTokenCost * known.CacheReadInputTokenCostPriority / known.CacheReadInputTokenCost
+		copy.CacheReadInputTokenCostPriorityExplicit = known.CacheReadInputTokenCostPriority > 0
+	}
+	if !copy.CacheCreationInputTokenCostPriorityExplicit && copy.CacheCreationInputTokenCostPriority == 0 {
+		copy.CacheCreationInputTokenCostPriority = copy.InputCostPerToken * known.CacheCreationInputTokenCostPriority / known.InputCostPerToken
+		copy.CacheCreationInputTokenCostPriorityExplicit = known.CacheCreationInputTokenCostPriority > 0
+	}
+	if !copy.LongContextMetadataPresent {
+		copy.LongContextMetadataPresent = known.LongContextMetadataPresent
+		copy.LongContextInputTokenThreshold = known.LongContextInputTokenThreshold
+		copy.LongContextInputCostMultiplier = known.LongContextInputCostMultiplier
+		copy.LongContextOutputCostMultiplier = known.LongContextOutputCostMultiplier
+	}
+	if copy.LiteLLMProvider == "" {
+		copy.LiteLLMProvider = known.LiteLLMProvider
+	}
+	return &copy
+}
+
 func (s *PricingService) GetModelPricing(modelName string) *LiteLLMModelPricing {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -750,6 +884,25 @@ func (s *PricingService) GetModelPricing(modelName string) *LiteLLMModelPricing 
 	// 标准化模型名称（同时兼容 "models/xxx"、VertexAI 资源名等前缀）
 	modelLower := strings.ToLower(strings.TrimSpace(modelName))
 	lookupCandidates := s.buildModelLookupCandidates(modelLower)
+	key, reserved := newModelPricingKey(modelLower)
+	if reserved {
+		if p, ok := s.pricingData[modelLower]; ok {
+			return p
+		}
+		if key == "" {
+			return nil
+		}
+		// Literal normalized aliases precede the canonical base card.
+		for _, candidate := range lookupCandidates {
+			if p, ok := s.pricingData[candidate]; ok {
+				return p
+			}
+		}
+		if p := s.pricingData[key]; p != nil {
+			return p
+		}
+		return newModelStaticPricing(key)
+	}
 
 	// 1. 精确匹配
 	if pricing, ok := s.pricingData[modelLower]; ok {

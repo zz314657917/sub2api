@@ -54,7 +54,7 @@ func resolveAccountStatsCost(
 
 	// 优先级 3：模型定价文件（LiteLLM）默认价格
 	if billingService != nil {
-		return tryModelFilePricing(billingService, upstreamModel, tokens, disableModelLongContextPricing...)
+		return tryModelFilePricingAt(ctx, billingService, upstreamModel, tokens, disableModelLongContextPricing...)
 	}
 
 	return nil
@@ -62,13 +62,17 @@ func resolveAccountStatsCost(
 
 // tryModelFilePricing 使用模型定价文件（LiteLLM/fallback）中的标准价格计算费用。
 func tryModelFilePricing(billingService *BillingService, model string, tokens UsageTokens, disableModelLongContextPricing ...bool) *float64 {
+	return tryModelFilePricingAt(context.Background(), billingService, model, tokens, disableModelLongContextPricing...)
+}
+
+func tryModelFilePricingAt(ctx context.Context, billingService *BillingService, model string, tokens UsageTokens, disableModelLongContextPricing ...bool) *float64 {
 	pricing, err := billingService.GetModelPricing(model)
 	if err != nil || pricing == nil {
 		return nil
 	}
 	disabled := len(disableModelLongContextPricing) > 0 && disableModelLongContextPricing[0]
-	if !disabled && billingService.shouldApplySessionLongContextPricing(tokens, pricing) {
-		breakdown, err := billingService.CalculateCost(model, tokens, 1)
+	if deepseekPricingModel(model) != "" || (!disabled && billingService.shouldApplySessionLongContextPricing(tokens, pricing)) {
+		breakdown, err := billingService.CalculateCostUnified(CostInput{Ctx: ctx, Model: model, Tokens: tokens, RateMultiplier: 1, DisableModelLongContextPricing: disabled})
 		if err != nil || breakdown == nil || breakdown.TotalCost <= 0 {
 			return nil
 		}

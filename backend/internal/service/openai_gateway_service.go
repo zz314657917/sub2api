@@ -7979,6 +7979,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	if input == nil {
 		return errors.New("openai usage input is nil")
 	}
+	ctx = s.billingService.captureBillingPricingTime(ctx, input.RequestStartedAt)
 	result := input.Result
 	if result == nil {
 		return errors.New("openai usage result is nil")
@@ -8032,7 +8033,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	perRequestMultiplier := multiplier
 	// token 倍率叠加分时因子（token 计费含图片 token，图片按次倍率不受影响）。分时因子按请求开始时刻计算，
 	// 不并入上面的 Resolve，以免污染 user:group 倍率缓存。
-	multiplier, imageMultiplier := computePeakAwareMultipliers(apiKey, multiplier, billingReferenceTime(input.RequestStartedAt))
+	multiplier, imageMultiplier := computePeakAwareMultipliers(apiKey, multiplier, requestPricingTime(ctx))
 
 	var cost *CostBreakdown
 	var err error
@@ -8579,7 +8580,8 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 			DisableModelLongContextPricing: disableModelLongContextPricing,
 		})
 	}
-	return s.billingService.calculateCostWithServiceTierPolicy(billingModel, tokens, tokenMultiplier, serviceTier, account.IsOpenAILongContextBillingEnabled() && !disableModelLongContextPricing)
+	return s.billingService.calculateCostInternalWithPolicy(billingModel, tokens, tokenMultiplier, serviceTier, nil,
+		account.IsOpenAILongContextBillingEnabled() && !disableModelLongContextPricing, requestPricingTime(ctx))
 }
 
 // openAISubscriptionLongContextExempt uses the resolved upstream credential and

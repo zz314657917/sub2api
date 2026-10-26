@@ -9714,6 +9714,7 @@ type recordUsageCoreInput struct {
 // - ParsedRequest != nil → 启用 Claude Max 缓存计费策略
 // - LongContextThreshold > 0 → Token 计费回退走 CalculateCostWithLongContext
 func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsageCoreInput, opts *recordUsageOpts) error {
+	ctx = s.billingService.captureBillingPricingTime(ctx, input.RequestStartedAt)
 	result := input.Result
 	apiKey := input.APIKey
 	user := input.User
@@ -9753,7 +9754,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	perRequestMultiplier := multiplier
 	// token 倍率叠加分时因子（token 计费含图片 token，图片按次倍率不受影响）。分时因子按请求开始时刻计算，
 	// 不并入上面的 getUserGroupRateMultiplier，以免污染 user:group 倍率缓存。
-	multiplier, imageMultiplier := computePeakAwareMultipliers(apiKey, multiplier, billingReferenceTime(input.RequestStartedAt))
+	multiplier, imageMultiplier := computePeakAwareMultipliers(apiKey, multiplier, requestPricingTime(ctx))
 
 	// 确定计费模型
 	concreteBillingModel := forwardResultBillingModel(result.Model, result.UpstreamModel)

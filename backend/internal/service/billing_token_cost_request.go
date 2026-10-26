@@ -1,6 +1,9 @@
 package service
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // LegacyLongContextRule 平台级的边际长上下文规则。
 // 只有 Gemini 原生入口在没有显式分组/渠道定价时使用该规则。
@@ -27,6 +30,7 @@ func (s *BillingService) LegacyLongContextRule(platform string) *LegacyLongConte
 
 // TokenCostRequest 是网关 token 计费的统一路径选择输入。
 type TokenCostRequest struct {
+	PricingAt         time.Time
 	Ctx               context.Context
 	Model             string
 	GroupID           *int64
@@ -52,6 +56,10 @@ func legacyLongContextApplies(resolved *ResolvedPricing, group *Group, rule *Leg
 // group/channel pricing wins, followed by catalog whole-session metadata.
 // Gemini's legacy marginal rule is retained only for metadata-free cards.
 func (s *BillingService) CalculateTokenCostForRequest(req TokenCostRequest) (*CostBreakdown, error) {
+	if req.PricingAt.IsZero() {
+		req.PricingAt = requestPricingTime(req.Ctx)
+	}
+	req.PricingAt = billingReferenceTime(req.PricingAt)
 	// Resolve before selecting the legacy path so GroupID-only gates and catalog
 	// metadata work even when the gateway did not pre-resolve pricing.
 	if req.Resolved == nil && req.Resolver != nil {
@@ -70,7 +78,7 @@ func (s *BillingService) CalculateTokenCostForRequest(req TokenCostRequest) (*Co
 	if pricing == nil {
 		pricing, _ = s.GetModelPricing(req.Model)
 	}
-	if pricing != nil && pricing.LongContextMetadataPresent {
+	if deepseekPricingModel(req.Model) != "" || (pricing != nil && pricing.LongContextMetadataPresent) {
 		return s.CalculateCostUnified(s.tokenCostInput(req))
 	}
 	if req.Resolved != nil && !req.Resolved.longContextPricingEnabled {
@@ -83,6 +91,7 @@ func (s *BillingService) CalculateTokenCostForRequest(req TokenCostRequest) (*Co
 			req.RateMultiplier,
 			req.LegacyLongContext.Threshold,
 			req.LegacyLongContext.Multiplier,
+			req.PricingAt,
 		)
 	}
 	return s.CalculateCostUnified(s.tokenCostInput(req))
@@ -90,6 +99,7 @@ func (s *BillingService) CalculateTokenCostForRequest(req TokenCostRequest) (*Co
 
 func (s *BillingService) tokenCostInput(req TokenCostRequest) CostInput {
 	input := CostInput{
+		PricingAt:      req.PricingAt,
 		Ctx:            req.Ctx,
 		Model:          req.Model,
 		GroupID:        req.GroupID,
