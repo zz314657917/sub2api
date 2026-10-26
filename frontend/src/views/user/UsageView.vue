@@ -1331,14 +1331,12 @@ const formatLocalDate = (date: Date): string => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
-// Initialize date range immediately
-const now = new Date()
-const weekAgo = new Date(now)
-weekAgo.setDate(weekAgo.getDate() - 6)
+// Initialize the usage/subscription page to today's records.
+const today = formatLocalDate(new Date())
 
 // Date range state
-const startDate = ref(formatLocalDate(weekAgo))
-const endDate = ref(formatLocalDate(now))
+const startDate = ref(today)
+const endDate = ref(today)
 
 const filters = ref<UsageQueryParams>({
   api_key_id: undefined,
@@ -1819,12 +1817,10 @@ const resetFilters = () => {
     start_date: undefined,
     end_date: undefined
   }
-  // Reset date range to default (last 7 days)
-  const now = new Date()
-  const weekAgo = new Date(now)
-  weekAgo.setDate(weekAgo.getDate() - 6)
-  startDate.value = formatLocalDate(weekAgo)
-  endDate.value = formatLocalDate(now)
+  // Reset date range to today's records.
+  const today = formatLocalDate(new Date())
+  startDate.value = today
+  endDate.value = today
   filters.value.start_date = startDate.value
   filters.value.end_date = endDate.value
   granularity.value = 'day'

@@ -560,6 +560,23 @@ describe('user UsageView', () => {
     vi.restoreAllMocks()
   })
 
+  it('defaults usage and subscription records to today', async () => {
+    const wrapper = await mountUsageView()
+    const setupState = (wrapper.vm as any).$?.setupState
+    const today = new Date()
+    const expectedToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+
+    expect(setupState.startDate).toBe(expectedToday)
+    expect(setupState.endDate).toBe(expectedToday)
+    expect(query).toHaveBeenCalledWith(
+      expect.objectContaining({
+        start_date: expectedToday,
+        end_date: expectedToday,
+      }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    )
+  })
+
   it('loads every API key page for the usage filter', async () => {
     list
       .mockResolvedValueOnce({ items: [{ id: 3, name: 'first-key' }], pages: 2 })
