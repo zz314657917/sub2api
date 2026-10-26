@@ -75,6 +75,40 @@ func runnerTaskPtr(r *ChannelMonitorRunner, id int64) *scheduledMonitor {
 	return r.tasks[id]
 }
 
+func TestMonitorJitterDelayBoundsAndLegacyZero(t *testing.T) {
+	task := &scheduledMonitor{interval: 60 * time.Second}
+	if got := task.nextDelay(); got != 60*time.Second {
+		t.Fatalf("zero jitter delay = %v", got)
+	}
+	task.jitter = 40 * time.Second
+	for i := 0; i < 1000; i++ {
+		if got := task.nextDelay(); got < 20*time.Second || got > 100*time.Second {
+			t.Fatalf("jitter delay out of bounds: %v", got)
+		}
+	}
+	task.interval = time.Second
+	if got := task.nextDelay(); got < 15*time.Second {
+		t.Fatalf("dirty data bypassed floor: %v", got)
+	}
+}
+
+func TestMonitorScheduleQuotaIgnoresUnusedBrokenProbeKey(t *testing.T) {
+	stub := &stubMonitorSvc{runCalled: make(chan int64, 1)}
+	runner := newRunnerForTest(stub)
+	runner.Start()
+	t.Cleanup(runner.Stop)
+	runner.Schedule(&ChannelMonitor{ID: 81, Enabled: true, IntervalSeconds: 60,
+		CheckMode: MonitorCheckModeQuota, APIKeyDecryptFailed: true})
+	select {
+	case id := <-stub.runCalled:
+		if id != 81 {
+			t.Fatalf("scheduled id = %d", id)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("quota monitor with no usable probe key was not scheduled")
+	}
+}
+
 // TestSchedule_AddsTaskAndFiresOnce 验证 Schedule 后立即触发一次首检测，并把任务记入 tasks 表。
 func TestSchedule_AddsTaskAndFiresOnce(t *testing.T) {
 	svc := &stubMonitorSvc{runCalled: make(chan int64, 4)}

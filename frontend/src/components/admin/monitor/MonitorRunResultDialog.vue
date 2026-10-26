@@ -9,11 +9,12 @@
       <div
         v-for="r in results"
         :key="r.model"
-        class="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-dark-600"
+        class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-dark-600"
       >
-        <div class="flex flex-col">
-          <span class="font-medium text-gray-900 dark:text-white">{{ displayModelLabel(r.model) }}</span>
-          <span v-if="r.message" class="text-xs text-gray-500 dark:text-gray-400">{{ r.message }}</span>
+        <div class="flex min-w-0 flex-col">
+          <span class="break-words font-medium text-gray-900 dark:text-white">{{ formatMonitorModel(displayModelLabel(r.model)) }}</span>
+          <span v-if="r.message" class="break-words text-xs text-gray-500 dark:text-gray-400">{{ r.message }}</span>
+          <MonitorQuotaView :snapshot="r.quota" class="mt-1" />
         </div>
         <div class="flex items-center gap-2">
           <span
@@ -40,6 +41,7 @@
 import { useI18n } from 'vue-i18n'
 import type { CheckResult } from '@/api/admin/channelMonitor'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import MonitorQuotaView from '@/components/common/MonitorQuotaView.vue'
 import { useChannelMonitorFormat } from '@/composables/useChannelMonitorFormat'
 import { displayModelLabel } from '@/utils/modelDisplay'
 
@@ -53,5 +55,5 @@ defineEmits<{
 }>()
 
 const { t } = useI18n()
-const { statusLabel, statusBadgeClass, formatLatency } = useChannelMonitorFormat()
+const { statusLabel, statusBadgeClass, formatLatency, formatMonitorModel } = useChannelMonitorFormat()
 </script>

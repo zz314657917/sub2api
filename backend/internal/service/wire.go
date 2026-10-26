@@ -1100,8 +1100,15 @@ func ProvideGroupBuyLifecycleService(groupBuySvc *GroupBuyService, cafeLifecycle
 func ProvideChannelMonitorService(
 	repo ChannelMonitorRepository,
 	encryptor SecretEncryptor,
+	usage *AccountUsageService,
+	quota *CNProviderQuotaService,
+	balance *CNProviderBalanceService,
+	accounts AccountRepository,
+	cfg *config.Config,
 ) *ChannelMonitorService {
-	return NewChannelMonitorService(repo, encryptor)
+	svc := NewChannelMonitorService(repo, encryptor)
+	svc.SetQuotaFetcher(NewChannelMonitorQuotaFetcher(usage, quota, balance, accounts, cfg))
+	return svc
 }
 
 // ProvideChannelMonitorRunner 创建并启动渠道监控调度器。

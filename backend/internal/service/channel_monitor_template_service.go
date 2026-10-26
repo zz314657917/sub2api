@@ -31,6 +31,7 @@ type AssociatedMonitorBrief struct {
 	ID       int64
 	Name     string
 	Provider string
+	APIMode  string
 	Enabled  bool
 }
 
@@ -53,6 +54,15 @@ func (s *ChannelMonitorRequestTemplateService) List(ctx context.Context, params 
 			return nil, err
 		}
 	}
+	if params.APIMode != "" {
+		if params.Provider == "" {
+			if err := validateAPIMode(MonitorProviderOpenAI, params.APIMode); err != nil {
+				return nil, err
+			}
+		} else if err := validateAPIMode(params.Provider, params.APIMode); err != nil {
+			return nil, err
+		}
+	}
 	return s.repo.List(ctx, params)
 }
 
@@ -69,6 +79,7 @@ func (s *ChannelMonitorRequestTemplateService) Create(ctx context.Context, p Cha
 	t := &ChannelMonitorRequestTemplate{
 		Name:             strings.TrimSpace(p.Name),
 		Provider:         p.Provider,
+		APIMode:          defaultAPIMode(p.APIMode),
 		Description:      strings.TrimSpace(p.Description),
 		ExtraHeaders:     emptyHeadersIfNil(p.ExtraHeaders),
 		BodyOverrideMode: defaultBodyMode(p.BodyOverrideMode),
@@ -144,7 +155,10 @@ func validateTemplateCreateParams(p ChannelMonitorRequestTemplateCreateParams) e
 	if err := validateProvider(p.Provider); err != nil {
 		return ErrChannelMonitorTemplateInvalidProvider
 	}
-	if err := validateBodyModeParams(p.BodyOverrideMode, p.BodyOverride); err != nil {
+	if err := validateAPIMode(p.Provider, p.APIMode); err != nil {
+		return ErrChannelMonitorTemplateInvalidAPIMode
+	}
+	if err := validateBodyModeForProtocol(p.Provider, p.APIMode, p.BodyOverrideMode, p.BodyOverride); err != nil {
 		return err
 	}
 	if err := validateExtraHeaders(p.ExtraHeaders); err != nil {
@@ -165,6 +179,13 @@ func applyTemplateUpdate(existing *ChannelMonitorRequestTemplate, p ChannelMonit
 	if p.Description != nil {
 		existing.Description = strings.TrimSpace(*p.Description)
 	}
+	newAPIMode := defaultAPIMode(existing.APIMode)
+	if p.APIMode != nil {
+		newAPIMode = defaultAPIMode(*p.APIMode)
+	}
+	if err := validateAPIMode(existing.Provider, newAPIMode); err != nil {
+		return ErrChannelMonitorTemplateInvalidAPIMode
+	}
 	if p.ExtraHeaders != nil {
 		if err := validateExtraHeaders(*p.ExtraHeaders); err != nil {
 			return err
@@ -180,9 +201,10 @@ func applyTemplateUpdate(existing *ChannelMonitorRequestTemplate, p ChannelMonit
 	if p.BodyOverride != nil {
 		newBody = *p.BodyOverride
 	}
-	if err := validateBodyModeParams(newMode, newBody); err != nil {
+	if err := validateBodyModeForProtocol(existing.Provider, newAPIMode, newMode, newBody); err != nil {
 		return err
 	}
+	existing.APIMode = newAPIMode
 	existing.BodyOverrideMode = defaultBodyMode(newMode)
 	existing.BodyOverride = newBody
 	return nil
@@ -248,4 +270,17 @@ func defaultBodyMode(mode string) string {
 		return MonitorBodyOverrideModeOff
 	}
 	return mode
+}
+
+func validateBodyModeForProtocol(provider, apiMode, mode string, body map[string]any) error {
+	if err := validateBodyModeParams(mode, body); err != nil {
+		return err
+	}
+	if defaultBodyMode(mode) != MonitorBodyOverrideModeReplace {
+		return nil
+	}
+	if err := validateReplaceRequestBody(provider, defaultAPIMode(apiMode), body); err != nil {
+		return ErrChannelMonitorInvalidRequestBody
+	}
+	return nil
 }

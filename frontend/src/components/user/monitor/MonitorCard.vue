@@ -29,8 +29,8 @@
           >
             {{ providerLabel(item.provider) }}
           </span>
-          <span class="min-w-0 flex-1 font-mono text-[10px] truncate text-gray-500 dark:text-gray-400" :title="displayModelLabel(item.primary_model)">
-            {{ displayModelLabel(item.primary_model) }}
+          <span class="min-w-0 flex-1 font-mono text-[10px] truncate text-gray-500 dark:text-gray-400" :title="formatMonitorModel(displayModelLabel(item.primary_model))">
+            {{ formatMonitorModel(displayModelLabel(item.primary_model)) }}
           </span>
           <span
             v-if="item.group_name"
@@ -93,6 +93,12 @@ const PROVIDER_TINT: Record<string, string> = {
   openai: 'text-[#a9583e] dark:text-[#f0b89e]',
   anthropic: 'text-orange-600 dark:text-orange-300',
   gemini: 'text-[#6c6a64] dark:text-[#d8cec2]',
+  grok: 'text-slate-700 dark:text-slate-200',
+  kimi: 'text-pink-600 dark:text-pink-300',
+  zhipu: 'text-indigo-600 dark:text-indigo-300',
+  deepseek: 'text-teal-600 dark:text-teal-300',
+  antigravity: 'text-purple-600 dark:text-purple-300',
+  minimax: 'text-rose-600 dark:text-rose-300',
 }
 
 const props = defineProps<{
@@ -113,6 +119,7 @@ const {
   providerLabel,
   providerBadgeClass,
   formatLatency,
+  formatMonitorModel,
 } = useChannelMonitorFormat()
 
 const providerTintClass = computed(() =>
