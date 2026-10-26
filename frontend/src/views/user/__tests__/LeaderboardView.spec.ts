@@ -38,6 +38,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.totalCost': '总积分消费',
     'leaderboard.totalRequests': '总请求',
     'leaderboard.totalTokens': '总 Token',
+    'leaderboard.tokenShare': '占比',
     'leaderboard.periodLabel': '排行榜周期',
     'leaderboard.tokenRankingTitle': 'Token Top {count}',
     'leaderboard.tokenRankingDescription': '当前周期用量排行。',
@@ -843,20 +844,18 @@ describe('LeaderboardView', () => {
     expect(ranking.text()).not.toContain('Token Top 2')
     expect(ranking.text()).toContain('更新 16:00:00')
     expect(ranking.get('[data-testid="leaderboard-participation-note"]').text()).toBe('排行榜不包含企业用户和平台用户。')
-    expect(ranking.get('.leaderboard-token-rank-index').text()).toBe('1')
+    expect(ranking.get('.leaderboard-token-rank-index').text()).toBe('#1')
     expect(ranking.text()).not.toContain('No.1')
-    expect(ranking.text()).not.toContain('#1')
+    expect(ranking.findAll('.leaderboard-podium-card')).toHaveLength(3)
+    expect(ranking.get('.leaderboard-podium-card--1').text()).toContain('29.41% 占比')
     expect(ranking.text()).toContain('Pricey')
     expect(ranking.text()).toContain('Efficient')
     const rankChanges = ranking.findAll('[data-testid="leaderboard-rank-change"]')
     expect(rankChanges.map((node) => node.text())).toEqual(['↑+1', '↓-1', '新'])
     expect(rankChanges.map((node) => node.attributes('title'))).toEqual(['较昨日名次上升 1', '较昨日名次下降 1', '较昨日新上榜'])
     expect(ranking.text()).toContain('2,000')
-    expect(ranking.findAll('[data-testid="leaderboard-token-bar-fill"]')).toHaveLength(3)
-    expect(ranking.findAll('[data-testid="leaderboard-token-segment-input"]')).toHaveLength(3)
-    expect(ranking.findAll('[data-testid="leaderboard-token-segment-output"]')).toHaveLength(3)
-    expect(ranking.findAll('[data-testid="leaderboard-token-segment-cache"]')).toHaveLength(3)
-    const tokenBars = ranking.findAll('.leaderboard-token-bar-track')
+    expect(ranking.findAll('[data-testid="leaderboard-token-bar-fill"]')).toHaveLength(0)
+    const tokenBars = ranking.findAll('[data-testid="leaderboard-token-metrics"]')
     expect(tokenBars[0].attributes('title')).toBeUndefined()
     expect(tokenBars[0].attributes('aria-label')).toBe('输入 700 / 输出 200 / 缓存 100 (缓存占比 10.0%) / 积分 ✪ 10,000.00 / 1M Token')
     expect(tokenBars[1].attributes('title')).toBeUndefined()
@@ -1651,10 +1650,10 @@ describe('LeaderboardView', () => {
     expect(lottery.text()).toContain('45分钟后开奖')
   })
 
-  it('colors token bars by rank without row background frames', async () => {
+  it('keeps the top three in podium cards and subsequent ranks in token rows', async () => {
     getDashboardLeaderboard.mockResolvedValue(
       makeResponse({
-        ranking: [1, 2, 3].map((rank) => ({
+        ranking: [1, 2, 3, 4].map((rank) => ({
           rank,
           user_id: rank,
           display_name: `Top ${rank}`,
@@ -1681,7 +1680,14 @@ describe('LeaderboardView', () => {
     await flushPromises()
 
     const rows = wrapper.findAll('.leaderboard-token-rank-row')
-    expect(rows).toHaveLength(3)
+    expect(rows).toHaveLength(4)
+    expect(rows.slice(0, 3).every((row) => row.classes().includes('leaderboard-podium-card'))).toBe(true)
+    expect(rows[0].find('.leaderboard-podium-crown').exists()).toBe(true)
+    expect(rows[1].find('.leaderboard-podium-crown').exists()).toBe(false)
+    expect(rows[3].classes()).not.toContain('leaderboard-podium-card')
+    expect(rows[3].get('.leaderboard-token-rank-index').text()).toBe('4')
+    expect(rows[3].find('[data-testid="leaderboard-token-bar-fill"]').exists()).toBe(true)
+    expect(rows[3].findAll('.leaderboard-token-bar-segment')).toHaveLength(3)
     expect(rows[0].attributes('style')).toContain('--token-bar-color: rgb(196 111 80)')
     expect(rows[1].attributes('style')).toContain('--token-bar-color: rgb(95 143 129)')
     expect(rows[2].attributes('style')).toContain('--token-bar-color: rgb(132 118 98)')

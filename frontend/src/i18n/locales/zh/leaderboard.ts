@@ -11,6 +11,7 @@ export default {
     totalCost: '总积分消费',
     totalRequests: '总请求',
     totalTokens: '总 Token',
+    tokenShare: '占比',
     viewLabel: '排行榜类型',
     views: {
       tokens: 'Token 消耗榜',

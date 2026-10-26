@@ -11,6 +11,7 @@ export default {
     totalCost: 'Total Credit Spend',
     totalRequests: 'Total Requests',
     totalTokens: 'Total Tokens',
+    tokenShare: 'share',
     viewLabel: 'Leaderboard type',
     views: {
       tokens: 'Token Usage',

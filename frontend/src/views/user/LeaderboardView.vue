@@ -163,15 +163,28 @@
                     v-for="item in rankingItems"
                     :key="item.user_id"
                     class="leaderboard-token-rank-row"
-                    :class="item.is_current_user ? 'leaderboard-token-rank-row-current' : ''"
+                    :class="[
+                      item.is_current_user ? 'leaderboard-token-rank-row-current' : '',
+                      item.rank <= 3 ? `leaderboard-podium-card leaderboard-podium-card--${item.rank}` : '',
+                    ]"
+                    :data-rank="item.rank"
                     :style="tokenBarStyle(item)"
                   >
+                    <svg
+                      v-if="item.rank === 1"
+                      class="leaderboard-podium-crown"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path d="m3 6 5 4 4-7 4 7 5-4-2 13H5L3 6Zm3 15h12v-2H6v2Z" />
+                    </svg>
                     <div
                       class="leaderboard-token-rank-user"
                       :class="hasLeaderboardRankSecondary(item) ? '' : 'leaderboard-token-rank-user--name-only'"
                     >
                       <div class="leaderboard-token-rank-main">
-                        <span class="leaderboard-token-rank-index">{{ item.rank }}</span>
+                        <span class="leaderboard-token-rank-index">{{ item.rank <= 3 ? `#${item.rank}` : item.rank }}</span>
                         <span class="leaderboard-token-rank-avatar" data-testid="leaderboard-rank-avatar" aria-hidden="true">
                           <img
                             v-if="leaderboardAvatarUrl(item)"
@@ -222,9 +235,29 @@
                       </div>
                     </div>
 
-                    <div class="leaderboard-token-bar-area">
+                    <div
+                      v-if="item.rank <= 3"
+                      class="leaderboard-podium-stats"
+                      data-testid="leaderboard-token-metrics"
+                      :aria-label="leaderboardTokenMetricsLabel(item)"
+                      role="group"
+                      tabindex="0"
+                      @mouseenter="showTokenBarTooltip(item, $event)"
+                      @mouseleave="hideTokenBarTooltip"
+                      @focusin="showTokenBarTooltip(item, $event)"
+                      @focusout="hideTokenBarTooltip"
+                    >
+                      <strong class="leaderboard-podium-tokens">{{ formatPodiumTokens(item.tokens) }}</strong>
+                      <span class="leaderboard-podium-meta">
+                        <span>{{ formatNumber(item.requests) }} {{ t('leaderboard.requests') }}</span>
+                        <span aria-hidden="true">·</span>
+                        <span>{{ formatPodiumShare(item.tokens) }} {{ t('leaderboard.tokenShare') }}</span>
+                      </span>
+                    </div>
+                    <div v-else class="leaderboard-token-bar-area">
                       <div
                         class="leaderboard-token-bar-track"
+                        data-testid="leaderboard-token-metrics"
                         :aria-label="leaderboardTokenMetricsLabel(item)"
                         role="img"
                         tabindex="0"
@@ -1285,6 +1318,19 @@ function formatCompactTokens(value: number): string {
   return Math.round(value).toLocaleString('en-US')
 }
 
+function formatPodiumTokens(value: number): string {
+  if (!Number.isFinite(value)) return '0'
+  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(2)}B`
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`
+  return formatNumber(Math.max(0, Math.round(value)))
+}
+
+function formatPodiumShare(value: number): string {
+  const total = leaderboard.value?.total_tokens ?? 0
+  if (total <= 0 || !Number.isFinite(value)) return '0%'
+  return `${Math.min(100, Math.max(0, (value / total) * 100)).toFixed(2)}%`
+}
+
 function findLeaderboardEntryByRank(rank: number): UserLeaderboardItem | null {
   return rankingItems.value.find((item) => item.rank === rank) ?? null
 }
@@ -2251,8 +2297,10 @@ onUnmounted(() => {
 
 .leaderboard-token-rank-list {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.42rem;
-  padding-top: 0.82rem;
+  column-gap: 0.85rem;
+  padding-top: 1.45rem;
   padding-bottom: 1.05rem;
 }
 
@@ -2288,6 +2336,7 @@ onUnmounted(() => {
 
 .leaderboard-token-rank-row {
   display: grid;
+  grid-column: 1 / -1;
   grid-template-columns: clamp(18rem, 28%, 26rem) minmax(0, 1fr);
   align-items: center;
   gap: clamp(0.85rem, 1.2vw, 1.25rem);
@@ -2298,6 +2347,136 @@ onUnmounted(() => {
 .leaderboard-token-rank-row-current {
   border-radius: 0.45rem;
   background: rgb(95 143 129 / 0.1);
+}
+
+.leaderboard-podium-card {
+  --podium-accent: rgb(143 156 174);
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 14.5rem;
+  grid-column: auto;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.65rem;
+  margin-bottom: 0.9rem;
+  border: 1px solid rgb(214 202 186 / 0.62);
+  border-radius: 0.85rem;
+  background: rgb(247 244 238 / 0.72);
+  padding: 1.25rem 0.75rem;
+  text-align: center;
+}
+
+.leaderboard-podium-card--1 {
+  --podium-accent: rgb(191 148 39);
+  grid-column: 2;
+  order: -2;
+  transform: translateY(-0.65rem);
+  border-color: rgb(191 148 39 / 0.55);
+  background: linear-gradient(180deg, rgb(231 195 102 / 0.13), rgb(255 253 248 / 0.6));
+  padding-top: 2.5rem;
+}
+
+.leaderboard-podium-card--2 {
+  grid-column: 1;
+  order: -3;
+}
+
+.leaderboard-podium-card--3 {
+  --podium-accent: rgb(174 116 68);
+  grid-column: 3;
+  order: -1;
+}
+
+.leaderboard-podium-card.leaderboard-token-rank-row-current {
+  box-shadow: inset 0 0 0 1px rgb(95 143 129 / 0.35);
+}
+
+.leaderboard-podium-crown {
+  position: absolute;
+  top: 0.8rem;
+  left: calc(50% - 0.65rem);
+  width: 1.3rem;
+  height: 1.3rem;
+  color: rgb(211 164 34);
+}
+
+.leaderboard-podium-card .leaderboard-token-rank-user {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+
+.leaderboard-podium-card .leaderboard-token-rank-avatar {
+  order: -1;
+  width: 3.75rem;
+  height: 3.75rem;
+  flex: 0 0 auto;
+  border: 3px solid var(--podium-accent);
+  background: rgb(229 226 220);
+  box-shadow: none;
+  color: rgb(74 68 59);
+  font-size: 1.15rem;
+}
+
+.leaderboard-podium-card--1 .leaderboard-token-rank-avatar {
+  width: 4.5rem;
+  height: 4.5rem;
+}
+
+.leaderboard-podium-card .leaderboard-token-rank-index {
+  color: rgb(132 118 98);
+  font-size: 0.7rem;
+}
+
+.leaderboard-podium-card .leaderboard-token-rank-name-line {
+  justify-content: center;
+}
+
+.leaderboard-podium-card .leaderboard-token-rank-name {
+  color: rgb(35 32 28);
+  font-size: 0.82rem;
+}
+
+.leaderboard-podium-card .leaderboard-token-title-list {
+  max-width: 100%;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+}
+
+.leaderboard-podium-stats {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: 0.2rem;
+  border-radius: 0.3rem;
+  cursor: help;
+}
+
+.leaderboard-podium-stats:focus-visible {
+  outline: 2px solid var(--podium-accent);
+  outline-offset: 4px;
+}
+
+.leaderboard-podium-tokens {
+  color: rgb(35 32 28);
+  font-size: clamp(1.25rem, 2vw, 1.65rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.leaderboard-podium-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  column-gap: 0.3rem;
+  color: rgb(109 103 93);
+  font-size: 0.72rem;
+  line-height: 1.5;
 }
 
 .leaderboard-token-rank-user {
@@ -3444,6 +3623,33 @@ onUnmounted(() => {
   background: rgb(95 143 129 / 0.14);
 }
 
+:global(.dark .leaderboard-podium-card) {
+  border-color: rgb(214 183 157 / 0.13);
+  background: rgb(35 32 28 / 0.5);
+}
+
+:global(.dark .leaderboard-podium-card--1) {
+  border-color: rgb(191 148 39 / 0.55);
+  background: linear-gradient(180deg, rgb(211 164 34 / 0.11), rgb(35 32 28 / 0.5));
+}
+
+:global(.dark .leaderboard-podium-card .leaderboard-token-rank-avatar) {
+  border-color: var(--podium-accent);
+  background: rgb(48 45 40);
+  box-shadow: none;
+  color: rgb(243 239 231);
+}
+
+:global(.dark .leaderboard-podium-card .leaderboard-token-rank-name),
+:global(.dark .leaderboard-podium-tokens) {
+  color: rgb(243 239 231);
+}
+
+:global(.dark .leaderboard-podium-card .leaderboard-token-rank-index),
+:global(.dark .leaderboard-podium-meta) {
+  color: rgb(168 159 145);
+}
+
 :global(.dark .leaderboard-token-title-badge),
 :global(.dark .leaderboard-token-title-more) {
   background: rgb(14 14 13 / 0.36);
@@ -3688,6 +3894,51 @@ onUnmounted(() => {
 }
 
 @media (max-width: 767px) {
+  .leaderboard-token-rank-list {
+    column-gap: 0.4rem;
+  }
+
+  .leaderboard-token-rank-row.leaderboard-podium-card {
+    min-height: 12.5rem;
+    gap: 0.5rem;
+    border-radius: 0.65rem;
+    padding: 1rem 0.3rem;
+  }
+
+  .leaderboard-token-rank-row.leaderboard-podium-card--1 {
+    padding-top: 2.15rem;
+  }
+
+  .leaderboard-podium-card .leaderboard-token-rank-avatar {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-width: 2px;
+    font-size: 1rem;
+  }
+
+  .leaderboard-podium-card--1 .leaderboard-token-rank-avatar {
+    width: 3.25rem;
+    height: 3.25rem;
+  }
+
+  .leaderboard-podium-card .leaderboard-token-rank-name {
+    font-size: 0.72rem;
+  }
+
+  .leaderboard-podium-card .leaderboard-token-rank-name-line {
+    flex-wrap: wrap;
+    gap: 0.2rem;
+  }
+
+  .leaderboard-podium-tokens {
+    font-size: clamp(0.95rem, 4vw, 1.25rem);
+  }
+
+  .leaderboard-podium-meta {
+    column-gap: 0.2rem;
+    font-size: 0.62rem;
+  }
+
   .leaderboard-ranking-card-toolbar {
     flex-wrap: wrap;
     margin-bottom: 0.7rem;
