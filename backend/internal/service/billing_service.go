@@ -513,6 +513,12 @@ func newOpenAIGPT56FallbackModelPricing(inputPricePerToken, outputPricePerToken 
 // getFallbackPricing 根据模型系列获取回退价格
 func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 	modelLower := strings.ToLower(model)
+	if known, reserved := kimi31ProPricingKey(modelLower); reserved {
+		if known {
+			return s.modelPricingFromLiteLLM(model, kimi31ProDefaultPricing())
+		}
+		return nil
+	}
 	if key, reserved := newModelPricingKey(modelLower); reserved {
 		if key == "" {
 			return nil
@@ -779,6 +785,12 @@ func (s *BillingService) GetModelPricing(model string) (*ModelPricing, error) {
 	// 标准化模型名称（转小写）
 	model = strings.ToLower(model)
 
+	if known, reserved := kimi31ProPricingKey(model); reserved {
+		if known {
+			return s.modelPricingFromLiteLLM(model, kimi31ProDefaultPricing()), nil
+		}
+		return nil, fmt.Errorf("%w for model: %s", ErrModelPricingUnavailable, model)
+	}
 	if pricing := deepseekBasePricing(model); pricing != nil {
 		return pricing, nil
 	}
@@ -877,7 +889,12 @@ func (s *BillingService) modelPricingFromLiteLLM(model string, litellmPricing *L
 func (s *BillingService) GetModelPricingWithChannel(model string, channelPricing *ChannelModelPricing) (*ModelPricing, error) {
 	pricing, err := s.GetModelPricing(model)
 	if err != nil {
-		return nil, err
+		// Reserved K3.1 variants have no default, but explicit administrator
+		// pricing remains usable, just as in the unified resolver.
+		if _, reserved := kimi31ProPricingKey(model); !reserved || channelPricing == nil {
+			return nil, err
+		}
+		pricing = &ModelPricing{}
 	}
 	if channelPricing == nil {
 		return pricing, nil
@@ -1005,7 +1022,12 @@ func (s *BillingService) calculateTokenCost(resolved *ResolvedPricing, input Cos
 		return nil, fmt.Errorf("no pricing available for model: %s: %w", input.Model, ErrModelPricingUnavailable)
 	}
 
-	pricing = s.applyModelSpecificPricingPolicy(input.Model, pricing)
+	// K3.1 domestic standard policy belongs only to default pricing. Preserve
+	// all administrator overrides, including zero and interval prices.
+	_, kimi31Reserved := kimi31ProPricingKey(input.Model)
+	if !kimi31Reserved || (resolved.Source != PricingSourceGroup && resolved.Source != PricingSourceChannel) {
+		pricing = s.applyModelSpecificPricingPolicy(input.Model, pricing)
+	}
 	if resolved.Source != PricingSourceGroup && resolved.Source != PricingSourceChannel {
 		pricing = defaultPricingAt(input.Model, pricing, input.PricingAt)
 	}

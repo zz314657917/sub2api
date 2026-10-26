@@ -883,6 +883,12 @@ func (s *PricingService) GetModelPricing(modelName string) *LiteLLMModelPricing 
 
 	// 标准化模型名称（同时兼容 "models/xxx"、VertexAI 资源名等前缀）
 	modelLower := strings.ToLower(strings.TrimSpace(modelName))
+	if known, reserved := kimi31ProPricingKey(modelLower); reserved {
+		if known {
+			return kimi31ProDefaultPricing()
+		}
+		return nil
+	}
 	lookupCandidates := s.buildModelLookupCandidates(modelLower)
 	key, reserved := newModelPricingKey(modelLower)
 	if reserved {

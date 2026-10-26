@@ -6714,6 +6714,17 @@
     "mode": "chat",
     "supports_prompt_caching": true
   },
+  "kimi-k3.1-pro": {
+    "input_cost_per_token": 0.000013,
+    "output_cost_per_token": 0.000068,
+    "cache_read_input_token_cost": 0.0000013,
+    "cache_creation_input_token_cost": 0.000013,
+    "cache_creation_input_token_cost_above_1hr": 0.000026,
+    "max_input_tokens": 1048576,
+    "litellm_provider": "moonshot",
+    "mode": "chat",
+    "supports_prompt_caching": true
+  },
   "kimi-k3": {
     "input_cost_per_token": 0.00002,
     "output_cost_per_token": 0.0001,
