@@ -431,6 +431,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import tutorialsAPI from '@/api/tutorials'
 import type { TutorialPage, TutorialPageSummary } from '@/types'
+import { DEFAULT_CODEX_MODEL } from '@/utils/codexConfig'
 import { renderTutorialMarkdown, type TutorialTocItem } from '@/utils/tutorialMarkdown'
 import PublicRevealBackdrop from './components/PublicRevealBackdrop.vue'
 import PublicTopNav from './components/PublicTopNav.vue'
@@ -679,7 +680,7 @@ const quickstartApiExample = computed(() => {
     'curl ' + quickstartClient.value.baseUrl + '/responses ' + continuation,
     '  -H "Authorization: Bearer 你的 API Key" ' + continuation,
     '  -H "Content-Type: application/json" ' + continuation,
-    "  -d '{\"model\":\"gpt-6-astra\",\"input\":\"你好\"}'",
+    `  -d '{"model":"${DEFAULT_CODEX_MODEL}","input":"你好"}'`,
   ].join('\n')
 })
 

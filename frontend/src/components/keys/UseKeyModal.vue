@@ -193,6 +193,7 @@ import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { useClipboard } from '@/composables/useClipboard'
+import { buildCodexConfig } from '@/utils/codexConfig'
 import type { GroupPlatform } from '@/types'
 
 interface Props {
@@ -659,21 +660,7 @@ function generateOpenAIFiles(baseUrl: string, apiKey: string): FileConfig[] {
   const configDir = isWindows ? '%userprofile%\\.codex' : '~/.codex'
 
   // config.toml content
-  const configContent = `model_provider = "OpenAI"
-model = "gpt-5.6-sol"
-review_model = "gpt-5.5"
-model_reasoning_effort = "xhigh"
-disable_response_storage = true
-network_access = "enabled"
-windows_wsl_setup_acknowledged = true
-
-[model_providers.OpenAI]
-name = "3Z API"
-base_url = "${baseUrl}"
-wire_api = "responses"
-requires_openai_auth = true
-request_max_retries = 0
-stream_max_retries = 1`
+  const configContent = buildCodexConfig(baseUrl)
 
   // auth.json content
   const authContent = `{
@@ -698,25 +685,7 @@ function generateOpenAIWsFiles(baseUrl: string, apiKey: string): FileConfig[] {
   const configDir = isWindows ? '%userprofile%\\.codex' : '~/.codex'
 
   // config.toml content with WebSocket v2
-  const configContent = `model_provider = "OpenAI"
-model = "gpt-5.6-sol"
-review_model = "gpt-5.5"
-model_reasoning_effort = "xhigh"
-disable_response_storage = true
-network_access = "enabled"
-windows_wsl_setup_acknowledged = true
-
-[model_providers.OpenAI]
-name = "3Z API"
-base_url = "${baseUrl}"
-wire_api = "responses"
-supports_websockets = true
-requires_openai_auth = true
-request_max_retries = 0
-stream_max_retries = 1
-
-[features]
-responses_websockets_v2 = true`
+  const configContent = buildCodexConfig(baseUrl, true)
 
   // auth.json content
   const authContent = `{

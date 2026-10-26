@@ -1,19 +1,7 @@
-export function codexTutorialConfig(baseUrl = 'https://ai.3zapi.com'): string {
-  return `model_provider = "OpenAI"
-model = "gpt-6-astra"
-review_model = "gpt-5.5"
-model_reasoning_effort = "xhigh"
-disable_response_storage = true
-network_access = "enabled"
-windows_wsl_setup_acknowledged = true
+import { buildCodexConfig } from '@/utils/codexConfig'
 
-[model_providers.OpenAI]
-name = "3Z API"
-base_url = ${JSON.stringify(baseUrl)}
-wire_api = "responses"
-requires_openai_auth = true
-request_max_retries = 0
-stream_max_retries = 1`
+export function codexTutorialConfig(baseUrl = 'https://ai.3zapi.com'): string {
+  return buildCodexConfig(baseUrl)
 }
 
 export type QuickstartPlatformID = 'codex' | 'claude'

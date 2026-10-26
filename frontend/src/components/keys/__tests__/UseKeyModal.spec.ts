@@ -108,17 +108,27 @@ describe('UseKeyModal', () => {
     })
 
     const assertCurrentDefaults = (config: string) => {
-      expect(config).toContain('model = "gpt-5.6-sol"')
-      expect(config).toContain('review_model = "gpt-5.5"')
+      expect(config).toContain('model = "gpt-6.1-sol"')
+      expect(config).toContain('review_model = "gpt-6.1-sol"')
+      expect(config).toContain('model_reasoning_effort = "xhigh"')
       expect(config).toContain('name = "3Z API"')
+      expect(config).toContain('wire_api = "responses"')
+      expect(config).toContain('requires_openai_auth = true')
       expect(config).toContain('request_max_retries = 0')
       expect(config).toContain('stream_max_retries = 1')
       expect(config).not.toContain('model = "gpt-5.4"')
       expect(config).not.toContain('model_context_window')
       expect(config).not.toContain('model_auto_compact_token_limit')
+      expect(config).not.toContain('disable_response_storage')
+      expect(config).not.toContain('network_access')
+      expect(config).not.toContain('windows_wsl_setup_acknowledged')
     }
 
-    assertCurrentDefaults(wrapper.findAll('pre code')[0].text())
+    const httpConfig = wrapper.findAll('pre code')[0].text()
+    assertCurrentDefaults(httpConfig)
+    expect(httpConfig).not.toContain('supports_websockets')
+    expect(httpConfig).not.toContain('[features]')
+    expect(JSON.parse(wrapper.findAll('pre code')[1].text())).toEqual({ OPENAI_API_KEY: 'sk-test' })
 
     const wsTab = wrapper.findAll('button').find((button) =>
       button.text().includes('keys.useKeyModal.cliTabs.codexCliWs')
@@ -131,6 +141,23 @@ describe('UseKeyModal', () => {
     assertCurrentDefaults(wsConfig)
     expect(wsConfig).toContain('supports_websockets = true')
     expect(wsConfig).toContain('responses_websockets_v2 = true')
+
+    const windowsTab = wrapper.findAll('button').find((button) =>
+      button.text().trim() === 'Windows'
+    )
+    expect(windowsTab).toBeDefined()
+    await windowsTab!.trigger('click')
+    await nextTick()
+    expect(wrapper.findAll('pre code')[0].text()).toBe(wsConfig)
+    expect(wrapper.text()).toContain('%userprofile%\\.codex/config.toml')
+
+    const codexTab = wrapper.findAll('button').find((button) =>
+      button.text().trim() === 'keys.useKeyModal.cliTabs.codexCli'
+    )
+    expect(codexTab).toBeDefined()
+    await codexTab!.trigger('click')
+    await nextTick()
+    expect(wrapper.findAll('pre code')[0].text()).toBe(httpConfig)
   })
 
   it('renders GPT-5.4 mini entry in OpenCode config', async () => {
