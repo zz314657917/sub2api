@@ -3,17 +3,47 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import PelicanPlansPanel from '../PelicanPlansPanel.vue'
 
 const models = vi.hoisted(() => vi.fn())
-vi.mock('@/api/pelicanTests', () => ({ listPelicanPlanModels: models }))
+vi.mock('@/api/pelicanTests', () => ({ listPelicanPlanModels: models, listPelicanPlanAccounts: vi.fn(async () => []) }))
 
 const groups = [{ id: 3, name: '授权分组' }, { id: 4, name: '备用分组' }]
 const plan = { id: 7, group_id: 3, group_name: '授权分组', model_id: 'gpt-test', interval_minutes: 30, enabled: false, max_results: 20, min_chars: 9366, daily_call_limit: 0, failure_pause_threshold: 0, retention_days: 0, daily_calls_used: 0, usage_day: '2026-09-17', consecutive_failed_runs: 0, pause_reason: '', estimated_calls_per_run: 1, last_run_calls: 0, created_at: '', updated_at: '' }
 const wrappers: ReturnType<typeof mount>[] = []
-const mountPanel = () => { const wrapper = mount(PelicanPlansPanel, { props: { loading: false, groups, plans: [plan] } }); wrappers.push(wrapper); return wrapper }
+const mountPanel = () => { const wrapper = mount(PelicanPlansPanel, { props: { loading: false, groups, plans: [plan] }, global: { stubs: { teleport: true } } }); wrappers.push(wrapper); return wrapper }
 const openCreate = async (wrapper: ReturnType<typeof mount>) => wrapper.findAll('button').find(button => button.text() === '新建计划')!.trigger('click')
 
 describe('PelicanPlansPanel', () => {
   beforeEach(() => models.mockReset())
   afterEach(() => { wrappers.splice(0).forEach(wrapper => wrapper.unmount()) })
+  it('opens the loaded plan directly and switches plans within the same editor', async () => {
+    models.mockResolvedValue(['gpt-test'])
+    const wrapper = mountPanel()
+    await wrapper.setProps({ loading: true, openEditorOnLoad: true })
+    expect(wrapper.find('.editor-panel').exists()).toBe(false)
+    await wrapper.setProps({ loading: false, plans: [plan, { ...plan, id: 8, interval_minutes: 120 }] })
+    await flushPromises()
+    expect((wrapper.get('select[aria-label="当前计划"]').element as HTMLSelectElement).value).toBe('7')
+    await wrapper.get('select[aria-label="当前计划"]').setValue('8'); await flushPromises()
+    expect((wrapper.get('input[aria-label="间隔分钟"]').element as HTMLInputElement).value).toBe('120')
+    await wrapper.get('form').trigger('submit')
+    expect(wrapper.emitted('save')?.[0]).toEqual([8, expect.objectContaining({ interval_minutes: 120 })])
+    await wrapper.get('select[aria-label="当前计划"]').setValue('')
+    expect(wrapper.get('button[type="submit"]').text()).toBe('新建计划')
+    await wrapper.findAll('button').find(button => button.text() === '返回计划列表')!.trigger('click')
+    await wrapper.setProps({ loading: true })
+    await wrapper.setProps({ loading: false })
+    expect(wrapper.find('.editor-panel').exists()).toBe(false)
+  })
+
+  it('opens creation directly for an empty loaded list, but not for a failed load', async () => {
+    const wrapper = mountPanel()
+    await wrapper.setProps({ plans: [], loading: true, openEditorOnLoad: true, error: '加载失败' })
+    await wrapper.setProps({ loading: false })
+    expect(wrapper.find('.editor-panel').exists()).toBe(false)
+    await wrapper.setProps({ loading: true, error: '' })
+    await wrapper.setProps({ loading: false })
+    expect(wrapper.get('button[type="submit"]').text()).toBe('新建计划')
+    expect((wrapper.get('select[aria-label="当前计划"]').element as HTMLSelectElement).value).toBe('')
+  })
   it('creates multiple models in selection order and round-trips that order when editing', async () => {
     models.mockResolvedValue(['gpt-a', 'gpt-b', 'gpt-c'])
     const wrapper = mountPanel()
@@ -189,7 +219,7 @@ describe('PelicanPlansPanel', () => {
     expect(wrapper.get('.plan-card').text()).toContain('暂停分组')
     await openCreate(wrapper)
     expect(wrapper.find('form').exists()).toBe(true)
-    await wrapper.findAll('button').find(button => button.text() === '关闭')!.trigger('click')
+    await wrapper.findAll('button').find(button => button.text() === '返回计划列表')!.trigger('click')
     expect(wrapper.find('form').exists()).toBe(false)
   })
 })

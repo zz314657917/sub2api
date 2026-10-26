@@ -47,6 +47,11 @@ func TestPelicanMultiModelPostgres(t *testing.T) {
 		t.Fatal(e)
 	}
 	exec(string(b))
+	preferredMigration, err := os.ReadFile("../../migrations/252_pelican_preferred_accounts.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	exec(string(preferredMigration))
 	var backfill string
 	if e = db.QueryRow(`SELECT model_ids[1] FROM pelican_test_plans WHERE id=99`).Scan(&backfill); e != nil || backfill != "legacy" {
 		t.Fatalf("backfill=%q %v", backfill, e)

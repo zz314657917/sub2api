@@ -1,10 +1,11 @@
-import { flushPromises, mount } from '@vue/test-utils'
+import { DOMWrapper, flushPromises, mount } from '@vue/test-utils'
 import { nextTick, reactive } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import PelicanTestsView from '@/views/user/PelicanTestsView.vue'
+import PelicanPlansPanel from '../PelicanPlansPanel.vue'
 
 const api = vi.hoisted(() => ({
-  list: vi.fn(), history: vi.fn(), result: vi.fn(), plans: vi.fn(), groups: vi.fn(), models: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn(), run: vi.fn(), resume: vi.fn(), cleanup: vi.fn(), settings: vi.fn(), saveSettings: vi.fn()
+  list: vi.fn(), history: vi.fn(), result: vi.fn(), plans: vi.fn(), groups: vi.fn(), models: vi.fn(), accounts: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn(), run: vi.fn(), resume: vi.fn(), cleanup: vi.fn(), settings: vi.fn(), saveSettings: vi.fn()
 }))
 const auth = reactive({ isAdmin: true, user: { id: 1 } })
 const metadata = reactive({ displayName: '鹈鹕测试', load: vi.fn(() => Promise.resolve()), applySavedName: vi.fn((name: string) => { metadata.displayName = name }) })
@@ -12,7 +13,7 @@ const app = reactive({ siteName: 'Sub2API' })
 vi.mock('@/api/pelicanTests', () => ({
   buildPelicanListParams: (group: number | '', account: string, page: number, pageSize: number) => ({ group_id: group || undefined, account_id: account ? Number(account) : undefined, page, page_size: pageSize }),
   listPelicanTests: api.list, listPelicanHistory: api.history, getPelicanResult: api.result,
-  listPelicanPlans: api.plans, listPelicanPlanModels: api.models, createPelicanPlan: api.create, updatePelicanPlan: api.update, deletePelicanPlan: api.remove, runPelicanPlan: api.run, resumePelicanPlan: api.resume, cleanupPelicanPlan: api.cleanup,
+  listPelicanPlans: api.plans, listPelicanPlanModels: api.models, listPelicanPlanAccounts: api.accounts, createPelicanPlan: api.create, updatePelicanPlan: api.update, deletePelicanPlan: api.remove, runPelicanPlan: api.run, resumePelicanPlan: api.resume, cleanupPelicanPlan: api.cleanup,
   getPelicanTestSettings: api.settings, updatePelicanTestSettings: api.saveSettings
 }))
 vi.mock('@/api/admin/groups', () => ({ default: { getAll: api.groups }, getAll: api.groups }))
@@ -27,6 +28,7 @@ const stubs = { AppLayout: { template: '<div><slot /></div>' }, Icon: true, Peli
 describe('PelicanTestsView', () => {
   beforeEach(() => {
     vi.clearAllMocks(); auth.isAdmin = true; auth.user = { id: 1 }
+    api.accounts.mockResolvedValue([])
     api.list.mockResolvedValue({ items: [item(27131)], total: 7, page: 1, page_size: 6, groups: [{ id: 3, name: '授权组' }] })
     api.result.mockResolvedValue(result(27131)); api.history.mockResolvedValue([result(27131)])
     api.plans.mockResolvedValue([]); api.groups.mockResolvedValue([{ id: 3, name: '授权组', status: 'active' }]); api.models.mockResolvedValue(['gpt-kept']); api.create.mockResolvedValue({}); api.update.mockResolvedValue({}); api.remove.mockResolvedValue(undefined); api.run.mockResolvedValue({ queued: true }); api.resume.mockResolvedValue({}); api.cleanup.mockResolvedValue({ deleted_count: 2 }); api.settings.mockResolvedValue({ display_name: '鹈鹕测试', prompt: '默认提示词' }); api.saveSettings.mockResolvedValue({ display_name: '新页面名', prompt: '自定义提示词' }); metadata.displayName = '鹈鹕测试'
@@ -233,6 +235,7 @@ describe('PelicanTestsView', () => {
     await wrapper.get('form').trigger('submit'); await flushPromises()
     expect(wrapper.text()).toContain('保存失败')
     expect((wrapper.get('input[aria-label="gpt-kept"]').element as HTMLInputElement).checked).toBe(true)
+    await wrapper.get('.editor-panel').findAll('button').find(button => button.text() === '取消')!.trigger('click'); await flushPromises()
     await wrapper.get('[role="dialog"] button[aria-label="close"]').trigger('click'); await flushPromises()
     await wrapper.get('button[aria-label*="历史"]').trigger('click'); await flushPromises()
     await wrapper.get('[role="dialog"] button:not([aria-label="close"])').trigger('click'); await flushPromises()
@@ -296,10 +299,204 @@ describe('PelicanTestsView', () => {
     expect(api.plans).not.toHaveBeenCalled()
   })
 
+  const editablePlan = { id: 7, group_id: 3, group_name: '授权组', model_id: 'gpt-kept', preferred_account_ids: [22, 11], interval_minutes: 30, enabled: false, max_results: 20, min_chars: 9366, daily_call_limit: 0, failure_pause_threshold: 0, retention_days: 0, daily_calls_used: 0, usage_day: '', consecutive_failed_runs: 0, pause_reason: '', estimated_calls_per_run: 1, last_run_calls: 0, created_at: '', updated_at: '' }
+  function deferred<T>() {
+    let resolve!: (value: T) => void
+    let reject!: (reason: Error) => void
+    const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no })
+    return { promise, resolve, reject }
+  }
+  async function openPlanEditor(wrapper: ReturnType<typeof mount>) {
+    await wrapper.findAll('button').find(button => button.text() === '管理测试计划')!.trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.editor-panel').exists()).toBe(true)
+  }
+  function configureEditablePlan() {
+    api.plans.mockResolvedValue([editablePlan])
+    api.accounts.mockResolvedValue([{ id: 11, name: '账号甲' }, { id: 22, name: '账号乙' }])
+  }
+
+  it('blocks duplicate submits and every close path during save, retaining the failed draft inside the editor', async () => {
+    configureEditablePlan()
+    const pending = deferred<object>()
+    api.update.mockReturnValueOnce(pending.promise)
+    const wrapper = await view()
+    try {
+      await openPlanEditor(wrapper)
+      await wrapper.get('input[aria-label="间隔分钟"]').setValue('123')
+      const panel = wrapper.getComponent(PelicanPlansPanel)
+      // Two events before Vue propagates the busy prop exercise the parent's synchronous guard.
+      panel.vm.$emit('save', 7, { ...editablePlan, preferred_account_ids: [22, 11] })
+      panel.vm.$emit('save', 7, { ...editablePlan, preferred_account_ids: [11] })
+      await nextTick()
+      expect(api.update).toHaveBeenCalledTimes(1)
+      expect(api.update).toHaveBeenCalledWith(7, expect.objectContaining({ preferred_account_ids: [22, 11] }))
+      for (const close of wrapper.findAll('[role="dialog"] > button[aria-label="close"]')) await close.trigger('click')
+      await wrapper.get('.editor-panel').findAll('button').find(button => button.text() === '取消')!.trigger('click')
+      expect(wrapper.findAll('[role="dialog"]')).toHaveLength(2)
+      expect(wrapper.get('.form-fields').attributes('disabled')).toBeDefined()
+      pending.reject(new Error('计划保存失败'))
+      await flushPromises()
+      expect(wrapper.get('.editor-panel [role="alert"]').text()).toContain('计划保存失败')
+      expect((wrapper.get('input[aria-label="间隔分钟"]').element as HTMLInputElement).value).toBe('123')
+      expect(wrapper.findAll('.preferred-accounts li span').map(row => row.text())).toEqual(['1. 账号乙 · #22', '2. 账号甲 · #11'])
+      expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeUndefined()
+      await wrapper.get('form').trigger('submit'); await flushPromises()
+      expect(api.update).toHaveBeenCalledTimes(2)
+      expect(wrapper.find('.editor-panel').exists()).toBe(false)
+    } finally { wrapper.unmount() }
+  })
+
+  it('closes the matching editor after save even if list refresh fails and shows refresh failure separately', async () => {
+    configureEditablePlan()
+    const wrapper = await view()
+    try {
+      await openPlanEditor(wrapper)
+      api.plans.mockRejectedValueOnce(new Error('列表断线'))
+      await wrapper.get('form').trigger('submit'); await flushPromises()
+      expect(wrapper.find('.editor-panel').exists()).toBe(false)
+      expect(wrapper.get('.pelican-plans [role="alert"]').text()).toBe('计划已保存，但列表刷新失败：列表断线')
+      expect(wrapper.findAll('[role="dialog"]')).toHaveLength(1)
+      await wrapper.findAll('button').find(button => button.text() === '编辑')!.trigger('click'); await flushPromises()
+      expect(wrapper.find('.editor-panel [role="alert"]').exists()).toBe(false)
+    } finally { wrapper.unmount() }
+  })
+
+  it.each(['success', 'failure'])('ignores old mutation callbacks after identity change and same-group reopen (%s)', async outcome => {
+    configureEditablePlan()
+    const pending = deferred<object>()
+    api.update.mockReturnValueOnce(pending.promise)
+    const wrapper = await view()
+    try {
+      await openPlanEditor(wrapper)
+      await wrapper.get('form').trigger('submit')
+      auth.user = { id: 2 }; await flushPromises()
+      await openPlanEditor(wrapper)
+      await wrapper.get('input[aria-label="间隔分钟"]').setValue('345')
+      const requests = api.plans.mock.calls.length
+      if (outcome === 'success') pending.resolve({})
+      else pending.reject(new Error('旧保存失败'))
+      await flushPromises()
+      expect(api.plans).toHaveBeenCalledTimes(requests)
+      expect(wrapper.find('.editor-panel').exists()).toBe(true)
+      expect((wrapper.get('input[aria-label="间隔分钟"]').element as HTMLInputElement).value).toBe('345')
+      expect(wrapper.text()).not.toContain('旧保存失败')
+      expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeUndefined()
+    } finally { wrapper.unmount() }
+  })
+
+  it.each(['success', 'failure'])('ignores stale plan-list callbacks after closing and reopening (%s)', async outcome => {
+    const pending = deferred<object[]>()
+    api.plans.mockReturnValueOnce(pending.promise)
+    const wrapper = await view()
+    try {
+      await wrapper.findAll('button').find(button => button.text() === '管理测试计划')!.trigger('click')
+      await flushPromises()
+      await wrapper.get('[role="dialog"] > button[aria-label="close"]').trigger('click')
+      configureEditablePlan()
+      await openPlanEditor(wrapper)
+      if (outcome === 'success') pending.resolve([{ ...editablePlan, group_name: '旧列表' }])
+      else pending.reject(new Error('旧列表失败'))
+      await flushPromises()
+      expect(wrapper.text()).not.toContain('旧列表')
+      expect(wrapper.get('.plan-card').text()).toContain('授权组')
+      expect(wrapper.find('.editor-panel').exists()).toBe(true)
+    } finally { wrapper.unmount() }
+  })
+
+  it('ignores a mutation that resolves after view unmount', async () => {
+    configureEditablePlan()
+    const pending = deferred<object>()
+    api.update.mockReturnValueOnce(pending.promise)
+    const wrapper = await view()
+    await openPlanEditor(wrapper)
+    await wrapper.get('form').trigger('submit')
+    const requests = api.plans.mock.calls.length
+    wrapper.unmount()
+    pending.resolve({}); await flushPromises()
+    expect(api.plans).toHaveBeenCalledTimes(requests)
+  })
+
+  it('does not let an old failed save clear the busy state or error of a newer session', async () => {
+    configureEditablePlan()
+    const oldSave = deferred<object>()
+    const newSave = deferred<object>()
+    api.update.mockReturnValueOnce(oldSave.promise).mockReturnValueOnce(newSave.promise)
+    const wrapper = await view()
+    try {
+      await openPlanEditor(wrapper)
+      await wrapper.get('form').trigger('submit')
+      auth.user = { id: 2 }; await flushPromises()
+      await openPlanEditor(wrapper)
+      await wrapper.get('input[aria-label="间隔分钟"]').setValue('234')
+      await wrapper.get('form').trigger('submit')
+      oldSave.reject(new Error('旧会话失败')); await flushPromises()
+      expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined()
+      expect(wrapper.find('.editor-panel [role="alert"]').exists()).toBe(false)
+      await wrapper.get('[role="dialog"] > button[aria-label="close"]').trigger('click')
+      expect(wrapper.findAll('[role="dialog"]')).toHaveLength(2)
+      newSave.reject(new Error('本次保存失败')); await flushPromises()
+      expect(wrapper.get('.editor-panel [role="alert"]').text()).toBe('本次保存失败')
+      expect((wrapper.get('input[aria-label="间隔分钟"]').element as HTMLInputElement).value).toBe('234')
+      expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeUndefined()
+    } finally { wrapper.unmount() }
+  })
+
+  it('uses real nested BaseDialogs for Escape, z-index, focus return and the surviving body scroll lock', async () => {
+    configureEditablePlan()
+    const pending = deferred<object>()
+    api.update.mockReturnValueOnce(pending.promise)
+    const host = document.createElement('div')
+    document.body.append(host)
+    const wrapper = mount(PelicanTestsView, { attachTo: host, global: { stubs: { ...stubs, BaseDialog: false, teleport: false } } })
+    try {
+      await flushPromises()
+      const outerOpener = wrapper.findAll('button').find(button => button.text() === '管理测试计划')!
+      outerOpener.element.focus()
+      await outerOpener.trigger('click'); await flushPromises()
+      const body = new DOMWrapper(document.body)
+      expect(body.findAll('.modal-overlay')).toHaveLength(2)
+      expect((body.get('select[aria-label="当前计划"]').element as HTMLSelectElement).value).toBe('7')
+      await body.findAll('button').find(button => button.text() === '返回计划列表')!.trigger('click')
+      await flushPromises()
+      const outerBody = body.get('.modal-body').element
+      Object.defineProperty(outerBody, 'scrollTop', { configurable: true, writable: true, value: 160 })
+      const editButton = body.findAll('button').find(button => button.text() === '编辑')!
+      editButton.element.focus()
+      await editButton.trigger('click'); await flushPromises()
+      expect(body.findAll('.modal-overlay')).toHaveLength(2)
+      expect(body.findAll('.modal-overlay')[1]!.attributes('style')).toContain('z-index: 60')
+      expect(body.get('.editor-panel').classes()).toContain('pelican-plans')
+      expect(outerBody.scrollTop).toBe(160)
+      await body.findAll('.modal-header button')[0]!.trigger('click')
+      expect(body.findAll('.modal-overlay')).toHaveLength(2)
+      await body.get('form').trigger('submit')
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      await body.findAll('.modal-header button')[1]!.trigger('click')
+      await flushPromises()
+      expect(body.findAll('.modal-overlay')).toHaveLength(2)
+      pending.reject(new Error('保存被拒绝')); await flushPromises()
+      expect(body.get('.editor-panel [role="alert"]').text()).toContain('保存被拒绝')
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      await flushPromises()
+      expect(body.findAll('.modal-overlay')).toHaveLength(1)
+      expect(body.find('.editor-panel').exists()).toBe(false)
+      expect(document.body.classList.contains('modal-open')).toBe(true)
+      expect(document.activeElement).toBe(editButton.element)
+      expect(outerBody.scrollTop).toBe(160)
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      await flushPromises()
+      expect(body.findAll('.modal-overlay')).toHaveLength(0)
+      expect(document.body.classList.contains('modal-open')).toBe(false)
+      expect(document.activeElement).toBe(outerOpener.element)
+    } finally { wrapper.unmount(); host.remove() }
+  })
+
   it('resumes only a paused plan and makes cleanup cancellable before confirming it', async () => {
     api.plans.mockResolvedValue([{ id: 7, group_id: 3, group_name: '授权组', model_id: 'gpt-kept', interval_minutes: 30, enabled: false, max_results: 20, min_chars: 9366, daily_call_limit: 5, failure_pause_threshold: 2, retention_days: 7, daily_calls_used: 2, usage_day: '2026-09-17', consecutive_failed_runs: 2, pause_reason: 'consecutive_failures', estimated_calls_per_run: 1, last_run_calls: 1, created_at: '', updated_at: '' }])
     const wrapper = await view()
     await wrapper.findAll('.admin-toggle')[1].trigger('click'); await flushPromises()
+    await wrapper.findAll('button').find(button => button.text() === '返回计划列表')!.trigger('click')
     await wrapper.findAll('button').find(button => button.text() === '恢复计划')!.trigger('click'); await flushPromises()
     expect(api.resume).toHaveBeenCalledWith(7)
     await wrapper.findAll('button').find(button => button.text() === '清理失败/跳过记录')!.trigger('click'); await flushPromises()

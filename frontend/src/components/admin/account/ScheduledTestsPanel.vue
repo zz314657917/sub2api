@@ -3,7 +3,8 @@
     :show="show"
     :title="t('admin.scheduledTests.title')"
     width="wide"
-    @close="emit('close')"
+    :close-on-escape="!editorOpen && !showDeleteConfirm"
+    @close="closePanel"
   >
     <div class="space-y-4">
       <!-- Add Plan Button -->
@@ -12,7 +13,7 @@
           {{ t('admin.scheduledTests.title') }}
         </p>
         <button
-          @click="showAddForm = !showAddForm"
+          @click="startCreate"
           class="btn btn-primary flex items-center gap-1.5 text-sm"
         >
           <Icon name="plus" size="sm" :stroke-width="2" />
@@ -20,21 +21,30 @@
         </button>
       </div>
 
-      <!-- Add Plan Form -->
-      <div
-        v-if="showAddForm"
-        class="rounded-xl border border-primary-200 bg-primary-50/50 p-4 dark:border-primary-800 dark:bg-primary-900/20"
+      <BaseDialog
+        :show="editorOpen"
+        :title="t(editingPlanId == null ? 'admin.scheduledTests.addPlan' : 'admin.scheduledTests.editPlan')"
+        width="wide"
+        :z-index="60"
+        :close-on-escape="!creating && !updating"
+        @close="closeEditor"
       >
-        <div class="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-          {{ t('admin.scheduledTests.addPlan') }}
-        </div>
+        <form @submit.prevent="editingPlanId == null ? handleCreate() : handleEdit()">
+        <fieldset :disabled="creating || updating" class="space-y-3">
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400">
+          {{ t('admin.scheduledTests.title') }}
+          <select :value="editingPlanId ?? ''" aria-label="当前定时计划" class="input mt-1 w-full" @change="switchPlan">
+            <option value="">{{ t('admin.scheduledTests.addPlan') }}</option>
+            <option v-for="plan in plans" :key="plan.id" :value="plan.id">#{{ plan.id }} · {{ plan.model_id }} · {{ plan.cron_expression }}</option>
+          </select>
+        </label>
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
               {{ t('admin.scheduledTests.model') }}
             </label>
             <Select
-              v-model="newPlan.model_id"
+              v-model="editorForm.model_id"
               :options="modelOptions"
               :placeholder="t('admin.scheduledTests.model')"
               :searchable="modelOptions.length > 5"
@@ -61,7 +71,7 @@
               </HelpTooltip>
             </label>
             <Input
-              v-model="newPlan.cron_expression"
+              v-model="editorForm.cron_expression"
               :placeholder="'*/30 * * * *'"
               :hint="t('admin.scheduledTests.cronHelp')"
             />
@@ -85,21 +95,21 @@
               </HelpTooltip>
             </label>
             <Input
-              v-model="newPlan.max_results"
+              v-model="editorForm.max_results"
               type="number"
               placeholder="100"
             />
           </div>
           <div class="flex items-end">
             <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-              <Toggle v-model="newPlan.enabled" />
+              <Toggle v-model="editorForm.enabled" />
               {{ t('admin.scheduledTests.enabled') }}
             </label>
           </div>
           <div class="flex items-end">
             <div>
               <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                <Toggle v-model="newPlan.auto_recover" />
+                <Toggle v-model="editorForm.auto_recover" />
                 {{ t('admin.scheduledTests.autoRecover') }}
               </label>
               <p class="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
@@ -110,21 +120,24 @@
         </div>
         <div class="mt-3 flex justify-end gap-2">
           <button
-            @click="showAddForm = false; resetNewPlan()"
+            type="button"
+            @click="closeEditor"
             class="rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-300 dark:hover:bg-dark-500"
           >
             {{ t('common.cancel') }}
           </button>
           <button
-            @click="handleCreate"
-            :disabled="!newPlan.model_id || !newPlan.cron_expression || creating"
+            type="submit"
+            :disabled="!editorForm.model_id || !editorForm.cron_expression || creating || updating"
             class="flex items-center gap-1.5 rounded-lg bg-primary-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Icon v-if="creating" name="refresh" size="sm" class="animate-spin" :stroke-width="2" />
+            <Icon v-if="creating || updating" name="refresh" size="sm" class="animate-spin" :stroke-width="2" />
             {{ t('common.save') }}
           </button>
         </div>
-      </div>
+        </fieldset>
+        </form>
+      </BaseDialog>
 
       <!-- Loading State -->
       <div v-if="loading" class="flex items-center justify-center py-8">
@@ -226,113 +239,6 @@
                   expandedPlanId === plan.id ? 'rotate-180' : ''
                 ]"
               />
-            </div>
-          </div>
-
-          <!-- Edit Form -->
-          <div
-            v-if="editingPlanId === plan.id"
-            class="border-t border-[#d8cec2] bg-[#fffaf5]/60 px-4 py-3 dark:border-[#cc785c]/30 dark:bg-[#cc785c]/10"
-            @click.stop
-          >
-            <div class="mb-2 text-xs font-medium text-gray-600 dark:text-gray-400">
-              {{ t('admin.scheduledTests.editPlan') }}
-            </div>
-            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div>
-                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                  {{ t('admin.scheduledTests.model') }}
-                </label>
-                <Select
-                  v-model="editForm.model_id"
-                  :options="modelOptions"
-                  :placeholder="t('admin.scheduledTests.model')"
-                  :searchable="modelOptions.length > 5"
-                />
-              </div>
-              <div>
-                <label class="mb-1 flex items-center gap-1 text-xs font-medium text-gray-600 dark:text-gray-400">
-                  {{ t('admin.scheduledTests.cronExpression') }}
-                  <HelpTooltip>
-                    <template #trigger>
-                      <span class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-gray-400/70 text-[10px] font-semibold text-gray-400 transition-colors hover:border-primary-500 hover:text-primary-600 dark:border-gray-500 dark:text-gray-500 dark:hover:border-primary-400 dark:hover:text-primary-400">
-                        ?
-                      </span>
-                    </template>
-                    <div class="space-y-1.5">
-                      <p class="font-medium">{{ t('admin.scheduledTests.cronTooltipTitle') }}</p>
-                      <p>{{ t('admin.scheduledTests.cronTooltipMeaning') }}</p>
-                      <p>{{ t('admin.scheduledTests.cronTooltipExampleEvery30Min') }}</p>
-                      <p>{{ t('admin.scheduledTests.cronTooltipExampleHourly') }}</p>
-                      <p>{{ t('admin.scheduledTests.cronTooltipExampleDaily') }}</p>
-                      <p>{{ t('admin.scheduledTests.cronTooltipExampleWeekly') }}</p>
-                      <p>{{ t('admin.scheduledTests.cronTooltipRange') }}</p>
-                    </div>
-                  </HelpTooltip>
-                </label>
-                <Input
-                  v-model="editForm.cron_expression"
-                  :placeholder="'*/30 * * * *'"
-                  :hint="t('admin.scheduledTests.cronHelp')"
-                />
-              </div>
-              <div>
-                <label class="mb-1 flex items-center gap-1 text-xs font-medium text-gray-600 dark:text-gray-400">
-                  {{ t('admin.scheduledTests.maxResults') }}
-                  <HelpTooltip>
-                    <template #trigger>
-                      <span class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-gray-400/70 text-[10px] font-semibold text-gray-400 transition-colors hover:border-primary-500 hover:text-primary-600 dark:border-gray-500 dark:text-gray-500 dark:hover:border-primary-400 dark:hover:text-primary-400">
-                        ?
-                      </span>
-                    </template>
-                    <div class="space-y-1.5">
-                      <p class="font-medium">{{ t('admin.scheduledTests.maxResultsTooltipTitle') }}</p>
-                      <p>{{ t('admin.scheduledTests.maxResultsTooltipMeaning') }}</p>
-                      <p>{{ t('admin.scheduledTests.maxResultsTooltipBody') }}</p>
-                      <p>{{ t('admin.scheduledTests.maxResultsTooltipExample') }}</p>
-                      <p>{{ t('admin.scheduledTests.maxResultsTooltipRange') }}</p>
-                    </div>
-                  </HelpTooltip>
-                </label>
-                <Input
-                  v-model="editForm.max_results"
-                  type="number"
-                  placeholder="100"
-                />
-              </div>
-              <div class="flex items-end">
-                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                  <Toggle v-model="editForm.enabled" />
-                  {{ t('admin.scheduledTests.enabled') }}
-                </label>
-              </div>
-              <div class="flex items-end">
-                <div>
-                  <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                    <Toggle v-model="editForm.auto_recover" />
-                    {{ t('admin.scheduledTests.autoRecover') }}
-                  </label>
-                  <p class="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
-                    {{ t('admin.scheduledTests.autoRecoverHelp') }}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div class="mt-3 flex justify-end gap-2">
-              <button
-                @click="cancelEdit"
-                class="rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-300 dark:hover:bg-dark-500"
-              >
-                {{ t('common.cancel') }}
-              </button>
-              <button
-                @click="handleEdit"
-                :disabled="!editForm.model_id || !editForm.cron_expression || updating"
-                class="flex items-center gap-1.5 rounded-lg bg-primary-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Icon v-if="updating" name="refresh" size="sm" class="animate-spin" :stroke-width="2" />
-                {{ t('common.save') }}
-              </button>
             </div>
           </div>
 
@@ -463,7 +369,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, onBeforeUnmount } from 'vue'
+import { computed, ref, reactive, watch, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
@@ -503,7 +409,7 @@ watch(expandedPlanId, () => {
   results.value = []
   loadingResults.value = false
 }, { flush: 'sync' })
-onBeforeUnmount(() => { resultsRequestId++ })
+onBeforeUnmount(() => { resultsRequestId++; panelSession++ })
 const expandedResultIds = reactive(new Set<number>())
 const showAddForm = ref(false)
 const showDeleteConfirm = ref(false)
@@ -525,6 +431,9 @@ const newPlan = reactive({
   enabled: true,
   auto_recover: false
 })
+const editorOpen = computed(() => showAddForm.value || editingPlanId.value != null)
+const editorForm = computed(() => editingPlanId.value == null ? newPlan : editForm)
+let panelSession = 0
 
 const resetNewPlan = () => {
   newPlan.model_id = ''
@@ -536,35 +445,47 @@ const resetNewPlan = () => {
 
 // Load plans when dialog opens
 watch(
-  () => props.show,
-  async (visible) => {
-    if (visible && props.accountId) {
-      await loadPlans()
-    } else {
-      plans.value = []
-      results.value = []
-      expandedPlanId.value = null
-      expandedResultIds.clear()
-      showAddForm.value = false
-      showDeleteConfirm.value = false
+  () => [props.show, props.accountId] as const,
+  async ([visible, accountId]) => {
+    const session = ++panelSession
+    plans.value = []
+    results.value = []
+    expandedPlanId.value = null
+    expandedResultIds.clear()
+    showAddForm.value = false
+    editingPlanId.value = null
+    showDeleteConfirm.value = false
+    creating.value = false
+    updating.value = false
+    loading.value = false
+    resetNewPlan()
+    if (visible && accountId && await loadPlans(session) && session === panelSession) {
+      if (plans.value[0]) startEdit(plans.value[0])
+      else startCreate()
     }
-  }
+  },
+  { immediate: true }
 )
 
-const loadPlans = async () => {
-  if (!props.accountId) return
+async function loadPlans(session = panelSession): Promise<boolean> {
+  if (!props.accountId) return false
   loading.value = true
   try {
-    plans.value = await adminAPI.scheduledTests.listByAccount(props.accountId)
+    const loaded = await adminAPI.scheduledTests.listByAccount(props.accountId)
+    if (session !== panelSession) return false
+    plans.value = loaded
+    return true
   } catch (error: any) {
-    appStore.showError(error?.message || 'Failed to load plans')
+    if (session === panelSession) appStore.showError(error?.message || 'Failed to load plans')
+    return false
   } finally {
-    loading.value = false
+    if (session === panelSession) loading.value = false
   }
 }
 
 const handleCreate = async () => {
-  if (!props.accountId || !newPlan.model_id || !newPlan.cron_expression) return
+  if (creating.value || updating.value || !props.accountId || !newPlan.model_id || !newPlan.cron_expression) return
+  const session = panelSession
   creating.value = true
   try {
     const maxResults = Number(newPlan.max_results) || 100
@@ -576,14 +497,15 @@ const handleCreate = async () => {
       max_results: maxResults,
       auto_recover: newPlan.auto_recover
     })
+    if (session !== panelSession) return
     appStore.showSuccess(t('admin.scheduledTests.createSuccess'))
     showAddForm.value = false
     resetNewPlan()
-    await loadPlans()
+    await loadPlans(session)
   } catch (error: any) {
-    appStore.showError(error?.message || 'Failed to create plan')
+    if (session === panelSession) appStore.showError(error?.message || 'Failed to create plan')
   } finally {
-    creating.value = false
+    if (session === panelSession) creating.value = false
   }
 }
 
@@ -601,39 +523,66 @@ const handleToggleEnabled = async (plan: ScheduledTestPlan, enabled: boolean) =>
 }
 
 const startEdit = (plan: ScheduledTestPlan) => {
+  if (creating.value || updating.value) return
+  showAddForm.value = false
   editingPlanId.value = plan.id
   editForm.model_id = plan.model_id
   editForm.cron_expression = plan.cron_expression
   editForm.max_results = String(plan.max_results)
   editForm.enabled = plan.enabled
-  editForm.auto_recover = plan.auto_recover
+  editForm.auto_recover = plan.auto_recover ?? false
 }
 
-const cancelEdit = () => {
+const startCreate = () => {
+  if (creating.value || updating.value) return
   editingPlanId.value = null
+  resetNewPlan()
+  showAddForm.value = true
+}
+
+const closeEditor = () => {
+  if (creating.value || updating.value) return
+  showAddForm.value = false
+  editingPlanId.value = null
+  resetNewPlan()
+}
+
+const closePanel = () => {
+  if (!editorOpen.value && !showDeleteConfirm.value) emit('close')
+}
+
+const switchPlan = (event: Event) => {
+  const id = Number((event.target as HTMLSelectElement).value)
+  if (id === editingPlanId.value) return
+  const plan = plans.value.find(plan => plan.id === id)
+  if (plan) startEdit(plan)
+  else if (!id) startCreate()
 }
 
 const handleEdit = async () => {
-  if (!editingPlanId.value || !editForm.model_id || !editForm.cron_expression) return
+  if (creating.value || updating.value || !editingPlanId.value || !editForm.model_id || !editForm.cron_expression) return
+  const session = panelSession
+  const planId = editingPlanId.value
   updating.value = true
   try {
-    const updated = await adminAPI.scheduledTests.update(editingPlanId.value, {
+    const updated = await adminAPI.scheduledTests.update(planId, {
       model_id: editForm.model_id,
       cron_expression: editForm.cron_expression,
       max_results: Number(editForm.max_results) || 100,
       enabled: editForm.enabled,
       auto_recover: editForm.auto_recover
     })
-    const index = plans.value.findIndex((p) => p.id === editingPlanId.value)
+    if (session !== panelSession) return
+    const index = plans.value.findIndex((p) => p.id === planId)
     if (index !== -1) {
       plans.value[index] = updated
     }
     appStore.showSuccess(t('admin.scheduledTests.updateSuccess'))
     editingPlanId.value = null
   } catch (error: any) {
-    appStore.showError(error?.message || 'Failed to update plan')
+    if (session === panelSession) appStore.showError(error?.message || 'Failed to update plan')
   } finally {
-    updating.value = false
+    if (session === panelSession) updating.value = false
   }
 }
 

@@ -81,6 +81,7 @@ type PelicanAuthorization struct {
 	Admin    bool
 }
 type PelicanPlan struct {
+	PreferredAccountIDs   []int64    `json:"preferred_account_ids"`
 	TimeoutSeconds        int        `json:"timeout_seconds"`
 	ID                    int64      `json:"id"`
 	GroupID               int64      `json:"group_id"`
@@ -109,6 +110,7 @@ type PelicanPlan struct {
 	UpdatedAt             time.Time  `json:"updated_at"`
 }
 type PelicanPlanInput struct {
+	PreferredAccountIDs   []int64  `json:"preferred_account_ids"`
 	TimeoutSeconds        int      `json:"timeout_seconds"`
 	GroupID               int64    `json:"group_id"`
 	ModelID               string   `json:"model_id"`
@@ -147,6 +149,19 @@ func pelicanModels(modelIDs []string, modelID string) []string {
 }
 
 func normalizePelicanInput(i *PelicanPlanInput) error {
+	if len(i.PreferredAccountIDs) > 50 {
+		return ErrPelicanInvalid
+	}
+	accounts := make(map[int64]bool, len(i.PreferredAccountIDs))
+	for _, id := range i.PreferredAccountIDs {
+		if id <= 0 || accounts[id] {
+			return ErrPelicanInvalid
+		}
+		accounts[id] = true
+	}
+	if i.PreferredAccountIDs == nil {
+		i.PreferredAccountIDs = []int64{}
+	}
 	if i.ModelIDs == nil && !i.modelIDsPresent {
 		i.ModelIDs = []string{i.ModelID}
 	}
@@ -245,6 +260,20 @@ type PelicanAccountSelector interface {
 	SelectPelicanAccount(context.Context, int64, string) (*AccountSelectionResult, error)
 }
 
+// Rejected leases belong to the selector; a successful lease transfers to the
+// runner. automatic marks the single permitted automatic fallback candidate.
+type PelicanPreferredAccountSelector interface {
+	SelectPreferredPelicanAccount(context.Context, int64, string, []int64, map[int64]struct{}) (*AccountSelectionResult, bool, error)
+}
+
+func releasePelicanSelection(selection *AccountSelectionResult) {
+	if selection != nil && selection.ReleaseFunc != nil {
+		release := selection.ReleaseFunc
+		selection.ReleaseFunc = nil
+		release()
+	}
+}
+
 type pelicanGatewaySelector struct{ gateway *OpenAIGatewayService }
 
 func (s pelicanGatewaySelector) SelectPelicanAccount(ctx context.Context, groupID int64, model string) (*AccountSelectionResult, error) {
@@ -261,6 +290,85 @@ type pelicanMixedSelector struct {
 	accounts    AccountRepository
 	groups      GroupRepository
 	concurrency *ConcurrencyService
+}
+
+func (s pelicanMixedSelector) SelectPreferredPelicanAccount(ctx context.Context, groupID int64, model string, ids []int64, excluded map[int64]struct{}) (*AccountSelectionResult, bool, error) {
+	group, err := s.groups.GetByIDLite(ctx, groupID)
+	if err != nil {
+		return nil, false, err
+	}
+	if group == nil || !group.IsActive() || !pelicanPlatformSupported(group.Platform) {
+		return nil, false, ErrPelicanInvalid
+	}
+	for _, id := range ids {
+		if ctx.Err() != nil {
+			return nil, false, ctx.Err()
+		}
+		if _, rejected := excluded[id]; rejected {
+			continue
+		}
+		account, err := s.accounts.GetByID(ctx, id)
+		if err != nil && !errors.Is(err, ErrAccountNotFound) {
+			return nil, false, err
+		}
+		if err == nil && account != nil && containsInt64(account.GroupIDs, groupID) &&
+			pelicanAccountAvailableForGroup(account, group) && account.IsModelSupported(model) && pelicanHTMLModel(account.GetMappedModel(model)) {
+			if s.concurrency == nil {
+				return nil, false, errors.New("pelican concurrency service unavailable")
+			}
+			lease, leaseErr := s.concurrency.AcquireAccountSlot(ctx, id, account.Concurrency)
+			selection := &AccountSelectionResult{Account: account}
+			if lease != nil {
+				selection.Acquired, selection.ReleaseFunc = lease.Acquired, lease.ReleaseFunc
+			}
+			if leaseErr == nil && selection.Acquired {
+				return selection, false, nil
+			}
+			releasePelicanSelection(selection)
+			if leaseErr != nil {
+				return nil, false, leaseErr
+			}
+		}
+		excluded[id] = struct{}{}
+	}
+	if ctx.Err() != nil {
+		return nil, false, ctx.Err()
+	}
+	if strings.EqualFold(group.Platform, PlatformOpenAI) && s.gateway != nil {
+		selection, _, err := s.gateway.SelectAccountWithScheduler(ctx, &groupID, "", "", model, excluded, OpenAIUpstreamTransportHTTPSSE, false)
+		if err != nil {
+			releasePelicanSelection(selection)
+			return nil, true, err
+		}
+		return selection, true, nil
+	}
+	accounts, err := s.accounts.ListByGroup(ctx, groupID)
+	if err != nil {
+		return nil, true, err
+	}
+	for index := range accounts {
+		account := &accounts[index]
+		if _, rejected := excluded[account.ID]; rejected {
+			continue
+		}
+		if !containsInt64(account.GroupIDs, groupID) || !pelicanAccountAvailableForGroup(account, group) || !account.IsModelSupported(model) || !pelicanHTMLModel(account.GetMappedModel(model)) {
+			continue
+		}
+		if s.concurrency == nil {
+			return nil, true, errors.New("pelican concurrency service unavailable")
+		}
+		lease, err := s.concurrency.AcquireAccountSlot(ctx, account.ID, account.Concurrency)
+		selection := &AccountSelectionResult{Account: account}
+		if lease != nil {
+			selection.Acquired, selection.ReleaseFunc = lease.Acquired, lease.ReleaseFunc
+		}
+		if err != nil {
+			releasePelicanSelection(selection)
+			return nil, true, err
+		}
+		return selection, true, nil
+	}
+	return nil, true, nil
 }
 
 func (s pelicanMixedSelector) SelectPelicanAccount(ctx context.Context, groupID int64, model string) (*AccountSelectionResult, error) {
@@ -454,6 +562,9 @@ func (s *PelicanTestService) ListPlans(c context.Context) ([]PelicanPlan, error)
 		return nil, err
 	}
 	for i := range plans {
+		if plans[i].PreferredAccountIDs == nil {
+			plans[i].PreferredAccountIDs = []int64{}
+		}
 		plans[i].ModelIDs = pelicanModels(plans[i].ModelIDs, plans[i].ModelID)
 		plans[i].ModelID = plans[i].ModelIDs[0]
 		plans[i].EstimatedCallsPerRun = len(plans[i].ModelIDs)
@@ -467,6 +578,55 @@ func (s *PelicanTestService) ListPlans(c context.Context) ([]PelicanPlan, error)
 func (s *PelicanTestService) Models(c context.Context, groupID int64) ([]string, error) {
 	models, _, err := s.modelsForGroup(c, groupID)
 	return models, err
+}
+
+type PelicanSelectableAccount struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+func (s *PelicanTestService) Accounts(ctx context.Context, groupID int64) ([]PelicanSelectableAccount, error) {
+	if groupID <= 0 || s.groups == nil || s.accounts == nil {
+		return nil, ErrPelicanInvalid
+	}
+	group, err := s.groups.GetByIDLite(ctx, groupID)
+	if err != nil && !errors.Is(err, ErrGroupNotFound) {
+		return nil, err
+	}
+	if err != nil || group == nil || !group.IsActive() || !pelicanPlatformSupported(group.Platform) {
+		return nil, ErrPelicanInvalid
+	}
+	accounts, err := s.accounts.ListByGroup(ctx, groupID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]PelicanSelectableAccount, 0, len(accounts))
+	for _, account := range accounts {
+		if account.IsActive() && pelicanModelAccount(&account) && strings.EqualFold(account.Platform, group.Platform) && containsInt64(account.GroupIDs, groupID) {
+			out = append(out, PelicanSelectableAccount{ID: account.ID, Name: account.Name})
+		}
+	}
+	return out, nil
+}
+
+func (s *PelicanTestService) validatePreferredAccounts(ctx context.Context, i PelicanPlanInput) error {
+	if len(i.PreferredAccountIDs) == 0 {
+		return nil
+	}
+	accounts, err := s.Accounts(ctx, i.GroupID)
+	if err != nil {
+		return err
+	}
+	allowed := make(map[int64]bool, len(accounts))
+	for _, account := range accounts {
+		allowed[account.ID] = true
+	}
+	for _, id := range i.PreferredAccountIDs {
+		if !allowed[id] {
+			return ErrPelicanInvalid
+		}
+	}
+	return nil
 }
 
 func (s *PelicanTestService) modelsForGroup(c context.Context, groupID int64) ([]string, *Group, error) {
@@ -681,6 +841,9 @@ func (s *PelicanTestService) CreatePlan(c context.Context, i PelicanPlanInput) (
 		}
 	}
 	i.Enabled = false
+	if err := s.validatePreferredAccounts(c, i); err != nil {
+		return nil, err
+	}
 	return s.repo.CreatePlan(c, i, g.Name)
 }
 func (s *PelicanTestService) UpdatePlan(c context.Context, id int64, i PelicanPlanInput) (*PelicanPlan, error) {
@@ -698,6 +861,9 @@ func (s *PelicanTestService) UpdatePlan(c context.Context, id int64, i PelicanPl
 		if _, err := s.validPlanModel(c, i.GroupID, model); err != nil {
 			return nil, err
 		}
+	}
+	if err := s.validatePreferredAccounts(c, i); err != nil {
+		return nil, err
 	}
 	return s.repo.UpdatePlan(c, id, i, g.Name)
 }
@@ -788,6 +954,9 @@ func (s *PelicanTestService) run(c context.Context, p *PelicanPlan, snapshot pel
 }
 
 func (s *PelicanTestService) runModel(planCtx context.Context, p *PelicanPlan, snapshot pelicanPromptSnapshot) bool {
+	if len(p.PreferredAccountIDs) > 0 {
+		return s.runPreferredModel(planCtx, p, snapshot)
+	}
 	accountCtx, cancel := context.WithTimeout(planCtx, pelicanTestTimeout(p.TimeoutSeconds))
 	defer cancel()
 	started := time.Now()
@@ -843,6 +1012,98 @@ func (s *PelicanTestService) runModel(planCtx context.Context, p *PelicanPlan, s
 		return true
 	}
 	s.save(accountCtx, p, a.ID, x, "success", "", started, snapshot)
+	return true
+}
+
+func (s *PelicanTestService) runPreferredModel(planCtx context.Context, p *PelicanPlan, snapshot pelicanPromptSnapshot) bool {
+	ctx, cancel := context.WithTimeout(planCtx, pelicanTestTimeout(p.TimeoutSeconds))
+	defer cancel()
+	started := time.Now()
+	skip := func(id int64, reason string) {
+		s.save(planCtx, p, id, nil, "skipped", reason, started, snapshot)
+	}
+	selector, ok := s.selector.(PelicanPreferredAccountSelector)
+	if !ok || len(p.PreferredAccountIDs) > 50 {
+		skip(0, "preferred_scheduler_unavailable")
+		return true
+	}
+	excluded := make(map[int64]struct{})
+	for attempt := 0; attempt <= len(p.PreferredAccountIDs); attempt++ {
+		if ctx.Err() != nil {
+			skip(0, "plan_changed")
+			return true
+		}
+		selection, automatic, err := selector.SelectPreferredPelicanAccount(ctx, p.GroupID, p.ModelID, p.PreferredAccountIDs, excluded)
+		if err != nil || selection == nil || selection.Account == nil || !selection.Acquired {
+			releasePelicanSelection(selection)
+			skip(0, "group_scheduler_unavailable")
+			return true
+		}
+		id := selection.Account.ID
+		_, rejected := excluded[id]
+		excluded[id] = struct{}{}
+		if rejected {
+			releasePelicanSelection(selection)
+			skip(id, "group_scheduler_unavailable")
+			return true
+		}
+		fresh, accountErr := s.accounts.GetByID(ctx, id)
+		if accountErr != nil && !errors.Is(accountErr, ErrAccountNotFound) {
+			releasePelicanSelection(selection)
+			skip(id, "account_lookup_failed")
+			return true
+		}
+		group, groupErr := s.groups.GetByIDLite(ctx, p.GroupID)
+		if ctx.Err() != nil || groupErr != nil || group == nil || !group.IsActive() || !pelicanPlatformSupported(group.Platform) {
+			releasePelicanSelection(selection)
+			skip(id, "group_unavailable")
+			return true
+		}
+		reason := pelicanSkipReason(fresh, accountErr, group, nil, fresh != nil && containsInt64(fresh.GroupIDs, p.GroupID))
+		if reason == "" && !fresh.IsModelSupported(p.ModelID) {
+			reason = "account_model_not_allowed"
+		}
+		if reason == "" && !pelicanHTMLModel(fresh.GetMappedModel(p.ModelID)) {
+			reason = "model_not_html_capable"
+		}
+		if reason != "" {
+			releasePelicanSelection(selection)
+			if automatic {
+				skip(id, reason)
+				return true
+			}
+			continue
+		}
+		// From this point there is no reselection: generation/quota/provider
+		// failures are model terminal. The runner owns this one lease.
+		defer releasePelicanSelection(selection)
+		allowed, checkErr := s.repo.CanRunAccount(ctx, p.ID, p.RunGeneration, id)
+		if checkErr != nil || !allowed || ctx.Err() != nil {
+			skip(id, "plan_changed")
+			return true
+		}
+		if err := s.repo.ReserveAttempt(ctx, p.ID, p.RunGeneration); err != nil {
+			reason := "quota_reservation_failed"
+			if errors.Is(err, ErrPelicanQuota) {
+				reason = "daily_call_limit_reached"
+			}
+			skip(id, reason)
+			return false
+		}
+		if ctx.Err() != nil {
+			skip(id, "plan_changed")
+			return true
+		}
+		result, err := s.tester.RunPelicanTest(ctx, id, p.ModelID, snapshot.prompt, p.ReasoningEffort)
+		if err != nil || ctx.Err() != nil || result == nil {
+			code, safe := classifyPelicanFailure(err, ctx)
+			s.saveFailure(ctx, p, id, "generation failed or timed out", code, safe, started, snapshot)
+		} else {
+			s.save(ctx, p, id, result, "success", "", started, snapshot)
+		}
+		return true
+	}
+	skip(0, "group_scheduler_unavailable")
 	return true
 }
 

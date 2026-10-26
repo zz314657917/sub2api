@@ -28,6 +28,44 @@ type pelicanSettingsAPIStub struct{ pelicanAPI }
 
 type pelicanModelsAPIStub struct{ pelicanAPI }
 
+type pelicanAccountsAPIStub struct {
+	pelicanAPI
+	err error
+}
+
+func (s pelicanAccountsAPIStub) Accounts(context.Context, int64) ([]service.PelicanSelectableAccount, error) {
+	return []service.PelicanSelectableAccount{{ID: 9, Name: "Account"}}, s.err
+}
+
+func TestPelicanAccountsAdminCatalogue(t *testing.T) {
+	for _, tc := range []struct {
+		name, role, query string
+		err               error
+		status            int
+	}{
+		{"admin", service.RoleAdmin, "?group_id=7", nil, 200},
+		{"nonadmin", "user", "?group_id=7", nil, 403},
+		{"missing", service.RoleAdmin, "", nil, 400},
+		{"invalid", service.RoleAdmin, "?group_id=x", nil, 400},
+		{"zero", service.RoleAdmin, "?group_id=0", nil, 400},
+		{"negative", service.RoleAdmin, "?group_id=-1", nil, 400},
+		{"unsupported", service.RoleAdmin, "?group_id=7", service.ErrPelicanInvalid, 400},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := &PelicanTestHandler{svc: pelicanAccountsAPIStub{err: tc.err}}
+			c, w := pelicanContext(tc.role, true)
+			c.Request = httptest.NewRequest("GET", "/admin/pelican-test-plans/accounts"+tc.query, nil)
+			h.Accounts(c)
+			if w.Code != tc.status {
+				t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+			}
+			if tc.status == 200 && !strings.Contains(w.Body.String(), `"accounts":[{"id":9,"name":"Account"}]`) {
+				t.Fatalf("body=%s", w.Body.String())
+			}
+		})
+	}
+}
+
 type pelicanDisabledAPIStub struct{ pelicanAPI }
 
 func (pelicanDisabledAPIStub) ListGallery(context.Context, service.PelicanAuthorization, int64, int64, int, int) (*service.PelicanListResponse, error) {

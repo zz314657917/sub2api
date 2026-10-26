@@ -26,6 +26,7 @@ func RegisterAdminRoutes(
 			plans := admin.Group("/pelican-test-plans")
 			plans.GET("", h.PelicanTest.ListPlans)
 			plans.GET("/models", h.PelicanTest.Models)
+			plans.GET("/accounts", h.PelicanTest.Accounts)
 			plans.POST("", h.PelicanTest.SavePlan)
 			plans.PUT("/:id", h.PelicanTest.SavePlan)
 			plans.DELETE("/:id", h.PelicanTest.DeletePlan)

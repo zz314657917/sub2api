@@ -1,6 +1,7 @@
 import { apiClient } from './client'
 
 export interface PelicanGroup { id: number; name: string; platform?: string }
+export interface PelicanPlanAccount { id: number; name: string }
 export interface PelicanEntry {
   reasoning_effort?: string | null
   plan_id: number; group_id: number; group_name: string; platform?: string; account_id: number; model_id: string
@@ -15,6 +16,7 @@ export interface PelicanResult {
   started_at: string; finished_at: string; html?: string
 }
 export interface PelicanPlan {
+  preferred_account_ids?: number[]
   model_ids?: string[]
   id: number; group_id: number; group_name: string; model_id: string; interval_minutes: number; enabled: boolean
   max_results: number; min_chars: number; last_run_at?: string | null; next_run_at?: string | null; running_until?: string | null
@@ -25,7 +27,7 @@ export interface PelicanPlan {
   estimated_calls_per_run: number | null; last_run_calls: number | null
   created_at: string; updated_at: string
 }
-export type PelicanPlanInput = Pick<PelicanPlan, 'group_id' | 'model_id' | 'model_ids' | 'interval_minutes' | 'enabled' | 'max_results' | 'min_chars' | 'daily_call_limit' | 'failure_pause_threshold' | 'retention_days' | 'reasoning_effort' | 'timeout_seconds'>
+export type PelicanPlanInput = Pick<PelicanPlan, 'group_id' | 'model_id' | 'model_ids' | 'preferred_account_ids' | 'interval_minutes' | 'enabled' | 'max_results' | 'min_chars' | 'daily_call_limit' | 'failure_pause_threshold' | 'retention_days' | 'reasoning_effort' | 'timeout_seconds'>
 export interface PelicanListResponse { items: PelicanEntry[]; total: number; page: number; page_size: number; groups: PelicanGroup[] }
 export interface PelicanTestMetadata { display_name: string; enabled: boolean }
 export interface PelicanTestSettings extends PelicanTestMetadata { prompt: string }
@@ -52,6 +54,10 @@ export async function getPelicanResult(id: number, signal?: AbortSignal): Promis
 export async function getPelicanTestMetadata(signal?: AbortSignal): Promise<PelicanTestMetadata> { const { data } = await apiClient.get<PelicanTestMetadata>('/pelican-tests/metadata', { signal }); return data }
 export async function getPelicanTestSettings(): Promise<PelicanTestSettings> { const { data } = await apiClient.get<PelicanTestSettings>('/admin/pelican-test-settings'); return data }
 export async function listPelicanPlanModels(groupID: number, signal?: AbortSignal): Promise<string[]> { const { data } = await apiClient.get<PelicanPlanModelsResponse>('/admin/pelican-test-plans/models', { params: { group_id: groupID }, signal }); return data?.models ?? [] }
+export async function listPelicanPlanAccounts(groupID: number, signal?: AbortSignal): Promise<PelicanPlanAccount[]> {
+  const { data } = await apiClient.get<{ accounts: PelicanPlanAccount[] }>('/admin/pelican-test-plans/accounts', { params: { group_id: groupID }, signal })
+  return data?.accounts ?? []
+}
 export async function updatePelicanTestSettings(input: PelicanTestSettingsUpdate): Promise<PelicanTestSettings> { const { data } = await apiClient.put<PelicanTestSettings>('/admin/pelican-test-settings', input); return data }
 export async function listPelicanPlans(): Promise<PelicanPlan[]> { const { data } = await apiClient.get<PelicanPlan[]>('/admin/pelican-test-plans'); return data ?? [] }
 export async function createPelicanPlan(input: PelicanPlanInput): Promise<PelicanPlan> { const { data } = await apiClient.post<PelicanPlan>('/admin/pelican-test-plans', input); return data }

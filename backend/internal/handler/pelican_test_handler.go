@@ -249,6 +249,32 @@ func (h *PelicanTestHandler) ListPlans(c *gin.Context) {
 	response.Success(c, plans)
 }
 
+func (h *PelicanTestHandler) Accounts(c *gin.Context) {
+	if !pelicanAdmin(c) {
+		return
+	}
+	groupID, ok := pelicanPositiveID(c, c.Query("group_id"), false)
+	if !ok {
+		return
+	}
+	svc, ok := h.svc.(interface {
+		Accounts(context.Context, int64) ([]service.PelicanSelectableAccount, error)
+	})
+	if !ok {
+		response.InternalError(c, "Account catalogue unavailable")
+		return
+	}
+	accounts, err := svc.Accounts(c.Request.Context(), groupID)
+	if err != nil {
+		pelicanError(c, err)
+		return
+	}
+	if accounts == nil {
+		accounts = []service.PelicanSelectableAccount{}
+	}
+	response.Success(c, gin.H{"accounts": accounts})
+}
+
 func (h *PelicanTestHandler) Models(c *gin.Context) {
 	if !pelicanAdmin(c) {
 		return

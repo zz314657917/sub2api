@@ -14,7 +14,7 @@
           <div><button v-if="!settingsLoaded" type="button" :disabled="settingsLoading" @click="loadSettings">重新加载</button><button type="button" :disabled="!settingsLoaded || settingsLoading || settingsSaving" @click="restoreDefaultSettings">恢复默认</button><button type="button" :disabled="!settingsLoaded || settingsLoading || settingsSaving" @click="saveSettings">{{ settingsSaving ? '保存中…' : '保存设置' }}</button></div>
         </section>
         <button class="admin-toggle" type="button" @click="showPlans = true">管理测试计划</button>
-        <BaseDialog :show="showPlans" :title="`${pelicanMetadata.displayName} · 测试计划`" width="wide" :close-on-escape="!cleanupConfirmation" @close="closePlans"><p v-if="cleanupNotice" class="cleanup-notice" role="status">{{ cleanupNotice }}</p><PelicanPlansPanel v-if="showPlans" :plans="plans" :groups="adminGroups" :loading="plansLoading" :error="plansError" :busy-id="planBusyId" :save-version="saveVersion" :pelican-enabled="pelicanMetadata.enabled" @run="runPlan" @resume="resumePlan" @save="savePlan" @delete="removePlan" @cleanup-request="requestCleanup" /></BaseDialog>
+        <BaseDialog :show="showPlans" :title="`${pelicanMetadata.displayName} · 测试计划`" width="wide" :close-on-escape="!cleanupConfirmation && !planEditorOpen && planBusyId == null" @close="closePlans"><p v-if="cleanupNotice" class="cleanup-notice" role="status">{{ cleanupNotice }}</p><PelicanPlansPanel v-if="showPlans" open-editor-on-load :plans="plans" :groups="adminGroups" :loading="plansLoading" :error="plansError" :save-error="planSaveError" :busy-id="planBusyId" :save-version="saveVersion" :pelican-enabled="pelicanMetadata.enabled" @editor-change="onPlanEditorChange" @run="runPlan" @resume="resumePlan" @save="savePlan" @delete="removePlan" @cleanup-request="requestCleanup" /></BaseDialog>
         <BaseDialog :show="Boolean(cleanupConfirmation)" title="确认清理测试记录" width="narrow" :z-index="60" :close-on-escape="!cleanupBusy" @close="cancelCleanup"><div v-if="cleanupConfirmation" class="cleanup-confirmation"><p>{{ cleanupConfirmation.scope === 'failed' ? '将永久删除该计划的失败和已跳过记录，成功记录不会删除。' : '将按当前保留天数和结果数量永久删除过期记录，并始终保留最新成功记录。' }}</p><p>此操作不可撤销。删除后会刷新画廊和已打开的历史记录。</p><div><button type="button" :disabled="cleanupBusy" @click="cancelCleanup">取消</button><button type="button" :disabled="cleanupBusy" @click="confirmCleanup">{{ cleanupBusy ? '正在清理…' : '确认清理' }}</button></div></div></BaseDialog>
       </template>
       <section class="toolbar" :aria-label="`筛选${pelicanMetadata.displayName}`">
@@ -154,7 +154,13 @@ const showPlans = ref(false)
 const plans = ref<PelicanPlan[]>([])
 const plansLoading = ref(false)
 const plansError = ref('')
+const planSaveError = ref('')
+const planEditorOpen = ref(false)
 const planBusyId = ref<number | null>(null)
+let plansSession = 0
+let plansRequestVersion = 0
+let planEditorVersion = 0
+let planActionVersion = 0
 const cleanupConfirmation = ref<{ plan: PelicanPlan; scope: 'failed' | 'expired' } | null>(null)
 const cleanupBusy = ref(false)
 const cleanupNotice = ref('')
@@ -199,7 +205,7 @@ const galleryColumns = computed(() => {
 
 watch([groupFilter, pageSize], () => { closeDialog(); if (page.value !== 1) page.value = 1; else void refresh({ resetView: true }) })
 watch(page, () => void refresh({ resetView: true }))
-watch([() => authStore.user?.id, () => authStore.isAdmin], () => { listRequestVersion++; listAbort?.abort(); clearArtworkCache(); items.value = []; total.value = 0; groups.value = []; loading.value = false; closeDialog(); plans.value = []; adminGroups.value = []; showPlans.value = false; cleanupConfirmation.value = null; showSettings.value = false; settingsRequestVersion++; settingsLoaded.value = false; settingsLoading.value = false; settingsSaving.value = false; settingsError.value = ''; settingsDraft.value = { ...defaultSettings }; pelicanMetadata.reset?.(); void Promise.resolve(pelicanMetadata.load(true)).then(() => { if (authStore.isAdmin || pelicanMetadata.enabled) return refresh({ resetView: true }) }).catch(() => { if (authStore.isAdmin) return refresh({ resetView: true }) }) })
+watch([() => authStore.user?.id, () => authStore.isAdmin], () => { invalidatePlansSession(); listRequestVersion++; listAbort?.abort(); clearArtworkCache(); items.value = []; total.value = 0; groups.value = []; loading.value = false; closeDialog(); plans.value = []; adminGroups.value = []; showPlans.value = false; cleanupConfirmation.value = null; showSettings.value = false; settingsRequestVersion++; settingsLoaded.value = false; settingsLoading.value = false; settingsSaving.value = false; settingsError.value = ''; settingsDraft.value = { ...defaultSettings }; pelicanMetadata.reset?.(); void Promise.resolve(pelicanMetadata.load(true)).then(() => { if (authStore.isAdmin || pelicanMetadata.enabled) return refresh({ resetView: true }) }).catch(() => { if (authStore.isAdmin) return refresh({ resetView: true }) }) }, { flush: 'sync' })
 watch([() => pelicanMetadata.displayName, () => appStore.siteName], ([name, siteName]) => { document.title = `${name} - ${siteName || 'Sub2API'}` }, { immediate: true })
 watch(refreshSeconds, seconds => {
   if (interval) clearInterval(interval)
@@ -225,6 +231,7 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   disposed = true
+  invalidatePlansSession()
   settingsRequestVersion++
   listRequestVersion++; historyRequestVersion++; dialogRequestVersion++
   listAbort?.abort(); dialogAbort?.abort()
@@ -349,8 +356,31 @@ function resultReasonText(result: Pick<PelicanResult, 'error_code' | 'error_mess
   if (result.error_code) return planReasonText(result.error_code)
   return planReasonText(result.error_message || '')
 }
-async function loadPlans(): Promise<void> { if (!authStore.isAdmin) return; plansLoading.value = true; plansError.value = ''; try { const [planData, groupData] = await Promise.all([listPelicanPlans(), getAllAdminGroups()]); plans.value = planData; adminGroups.value = groupData.filter(group => group.status === 'active').map(group => ({ id: group.id, name: group.name, platform: group.platform })) } catch (reason) { plansError.value = messageOf(reason) } finally { plansLoading.value = false } }
-watch(showPlans, visible => { if (visible) void loadPlans() })
+function invalidatePlansSession(): void {
+  plansSession++; plansRequestVersion++; planActionVersion++; planEditorVersion++
+  planEditorOpen.value = false; planBusyId.value = null; plansLoading.value = false
+  cleanupBusy.value = false; cleanupNotice.value = ''
+  planSaveError.value = ''; plansError.value = ''
+}
+function isPlansSession(session: number): boolean { return !disposed && authStore.isAdmin && showPlans.value && session === plansSession }
+function onPlanEditorChange(open: boolean): void {
+  planEditorVersion++; planEditorOpen.value = open; planSaveError.value = ''
+}
+async function loadPlans(session = plansSession, afterSave = false): Promise<void> {
+  if (!isPlansSession(session)) return
+  const version = ++plansRequestVersion
+  const isCurrent = () => isPlansSession(session) && version === plansRequestVersion
+  plansLoading.value = true; plansError.value = ''
+  try {
+    const [planData, groupData] = await Promise.all([listPelicanPlans(), getAllAdminGroups()])
+    if (!isCurrent()) return
+    plans.value = planData
+    adminGroups.value = groupData.filter(group => group.status === 'active').map(group => ({ id: group.id, name: group.name, platform: group.platform }))
+  } catch (reason) {
+    if (isCurrent()) plansError.value = `${afterSave ? '计划已保存，但列表刷新失败：' : ''}${messageOf(reason)}`
+  } finally { if (isCurrent()) plansLoading.value = false }
+}
+watch(showPlans, visible => { invalidatePlansSession(); if (visible) void loadPlans() }, { flush: 'sync' })
 watch(showSettings, visible => { if (visible) void loadSettings() })
 async function loadSettings(): Promise<void> {
   if (!authStore.isAdmin) return
@@ -371,14 +401,55 @@ async function saveSettings(): Promise<void> {
 		if (version === settingsRequestVersion) settingsSaving.value = false
 	}
 }
-async function runPlan(id: number): Promise<void> { if (!pelicanMetadata.enabled) { plansError.value = '鹈鹕广场已关闭，无法开始新的测试轮次。'; return } planBusyId.value = id; try { await runPelicanPlan(id); await loadPlans() } catch (reason) { plansError.value = messageOf(reason) } finally { planBusyId.value = null } }
-async function resumePlan(id: number): Promise<void> { planBusyId.value = id; plansError.value = ''; try { await resumePelicanPlan(id); await loadPlans() } catch (reason) { plansError.value = messageOf(reason) } finally { planBusyId.value = null } }
-async function savePlan(id: number | null, input: PelicanPlanInput): Promise<void> { planBusyId.value = id ?? -1; plansError.value = ''; try { if (id) await updatePelicanPlan(id, input); else await createPelicanPlan({ ...input, enabled: false }); saveVersion.value++; await loadPlans() } catch (reason) { plansError.value = messageOf(reason) } finally { planBusyId.value = null } }
-async function removePlan(id: number): Promise<void> { planBusyId.value = id; try { await deletePelicanPlan(id); await loadPlans() } catch (reason) { plansError.value = messageOf(reason) } finally { planBusyId.value = null } }
-function requestCleanup(plan: PelicanPlan, scope: 'failed' | 'expired'): void { if (planBusyId.value != null || isPlanRunning(plan)) return; cleanupOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null; cleanupConfirmation.value = { plan, scope } }
+async function mutatePlan(id: number, mutate: () => Promise<unknown>): Promise<void> {
+  if (!isPlansSession(plansSession) || planBusyId.value != null || planEditorOpen.value) return
+  const session = plansSession
+  const action = ++planActionVersion
+  const isCurrent = () => isPlansSession(session) && action === planActionVersion
+  planBusyId.value = id; plansError.value = ''
+  try { await mutate(); if (isCurrent()) await loadPlans(session) }
+  catch (reason) { if (isCurrent()) plansError.value = messageOf(reason) }
+  finally { if (isCurrent()) planBusyId.value = null }
+}
+async function runPlan(id: number): Promise<void> { if (!pelicanMetadata.enabled) { plansError.value = '鹈鹕广场已关闭，无法开始新的测试轮次。'; return } await mutatePlan(id, () => runPelicanPlan(id)) }
+async function resumePlan(id: number): Promise<void> { await mutatePlan(id, () => resumePelicanPlan(id)) }
+async function savePlan(id: number | null, input: PelicanPlanInput): Promise<void> {
+  if (!isPlansSession(plansSession) || !planEditorOpen.value || planBusyId.value != null) return
+  const session = plansSession
+  const editor = planEditorVersion
+  const action = ++planActionVersion
+  const isCurrent = () => isPlansSession(session) && action === planActionVersion
+  planBusyId.value = id ?? -1; planSaveError.value = ''
+  try {
+    if (id != null) await updatePelicanPlan(id, input)
+    else await createPelicanPlan({ ...input, enabled: false })
+    if (!isCurrent()) return
+    if (editor === planEditorVersion) saveVersion.value++
+    await loadPlans(session, true)
+  } catch (reason) {
+    if (isCurrent() && editor === planEditorVersion) planSaveError.value = messageOf(reason)
+  } finally { if (isCurrent()) planBusyId.value = null }
+}
+async function removePlan(id: number): Promise<void> { await mutatePlan(id, () => deletePelicanPlan(id)) }
+function requestCleanup(plan: PelicanPlan, scope: 'failed' | 'expired'): void { if (planBusyId.value != null || planEditorOpen.value || isPlanRunning(plan)) return; cleanupOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null; cleanupConfirmation.value = { plan, scope } }
 function cancelCleanup(): void { if (cleanupBusy.value) return; cleanupConfirmation.value = null; const target = cleanupOpener; cleanupOpener = null; void nextTick(() => target?.focus()) }
-function closePlans(): void { if (!cleanupConfirmation.value) showPlans.value = false }
-async function confirmCleanup(): Promise<void> { const request = cleanupConfirmation.value; if (!request || cleanupBusy.value) return; cleanupBusy.value = true; planBusyId.value = request.plan.id; plansError.value = ''; cleanupNotice.value = ''; try { const { deleted_count } = await cleanupPelicanPlan(request.plan.id, request.scope); cleanupNotice.value = `已删除 ${deleted_count} 条${request.scope === 'failed' ? '失败或跳过' : '过期'}记录。`; cleanupConfirmation.value = null; cleanupOpener = null; await Promise.all([loadPlans(), refresh(), refreshOpenHistory()]) } catch (reason) { plansError.value = messageOf(reason) } finally { cleanupBusy.value = false; planBusyId.value = null } }
+function closePlans(): void { if (!cleanupConfirmation.value && !planEditorOpen.value && planBusyId.value == null) showPlans.value = false }
+async function confirmCleanup(): Promise<void> {
+  const request = cleanupConfirmation.value
+  if (!request || cleanupBusy.value || planBusyId.value != null || !isPlansSession(plansSession)) return
+  const session = plansSession
+  const action = ++planActionVersion
+  const isCurrent = () => isPlansSession(session) && action === planActionVersion
+  cleanupBusy.value = true; planBusyId.value = request.plan.id; plansError.value = ''; cleanupNotice.value = ''
+  try {
+    const { deleted_count } = await cleanupPelicanPlan(request.plan.id, request.scope)
+    if (!isCurrent()) return
+    cleanupNotice.value = `已删除 ${deleted_count} 条${request.scope === 'failed' ? '失败或跳过' : '过期'}记录。`
+    cleanupConfirmation.value = null; cleanupOpener = null
+    await Promise.all([loadPlans(session), refresh(), refreshOpenHistory()])
+  } catch (reason) { if (isCurrent()) plansError.value = messageOf(reason) }
+  finally { if (isCurrent()) { cleanupBusy.value = false; planBusyId.value = null } }
+}
 async function refreshOpenHistory(): Promise<void> { if (dialogMode.value !== 'history' || !selectedEntry.value) return; const entry = selectedEntry.value; const version = ++historyRequestVersion; historyLoading.value = true; historyError.value = ''; try { const data = await listPelicanHistory({ plan_id: entry.plan_id, model_id: entry.model_id }); if (version === historyRequestVersion) history.value = data } catch (reason) { if (version === historyRequestVersion) historyError.value = messageOf(reason) } finally { if (version === historyRequestVersion) historyLoading.value = false } }
 function isPlanRunning(plan: PelicanPlan): boolean { return Boolean(plan.running_until && new Date(plan.running_until).getTime() > Date.now()) }
 function closeDialog(): void {
