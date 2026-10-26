@@ -73,11 +73,10 @@ describe('MonitorTimeline', () => {
     const realBars = bars.slice(-3)
 
     expect(realBars[0].classes()).toContain('bg-orange-500')
-    expect(realBars[0].attributes('style')).toContain('height: 65%')
     expect(realBars[1].classes()).toContain('bg-emerald-500')
-    expect(realBars[1].attributes('style')).toContain('height: 100%')
     expect(realBars[2].classes()).toContain('bg-red-500')
-    expect(realBars[2].attributes('style')).toContain('height: 35%')
+    expect(bars.every(bar => bar.classes().includes('h-full'))).toBe(true)
+    expect(bars.every(bar => !bar.attributes('style')?.includes('height:'))).toBe(true)
     expect(realBars[2].attributes('title')).toContain('失败')
     expect(wrapper.text()).toContain('近 60 次记录')
     expect(wrapper.text()).toContain('59s 后刷新')

@@ -1,74 +1,77 @@
 <template>
   <button
     type="button"
-    class="group text-left p-5 rounded-2xl min-h-[280px] w-full bg-white/70 backdrop-blur-xl border border-gray-200/80 shadow-card dark:bg-dark-800/60 dark:border-dark-700/70 hover:-translate-y-1 hover:shadow-card-hover dark:hover:border-primary-500/30 hover:border-gray-300 transition-all duration-300 ease-out flex flex-col"
+    class="monitor-card group text-left p-4 rounded-xl h-full min-w-0 w-full bg-white/70 backdrop-blur-xl border border-gray-200/80 shadow-card dark:bg-dark-800/60 dark:border-dark-700/70 hover:shadow-card-hover dark:hover:border-primary-500/30 hover:border-gray-300 transition-colors duration-200 flex flex-col"
     @click="emit('click')"
   >
-    <!-- Header: icon + name/model + status chip -->
-    <div class="flex items-start gap-3">
-      <span
-        class="w-9 h-9 rounded-xl ring-1 ring-black/5 dark:ring-white/10 grid place-items-center flex-shrink-0"
-        :class="[providerGradient(item.provider), providerTintClass]"
-      >
-        <ProviderIcon :provider="item.provider" :size="20" />
-      </span>
-      <div class="flex-1 min-w-0">
-        <div class="text-base font-semibold truncate text-gray-900 dark:text-gray-100">
+    <div class="monitor-row-summary">
+      <!-- Channel identity stays separate from the compact metric columns. -->
+      <div class="grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1 w-full min-w-0">
+        <span
+          class="row-span-2 w-9 h-9 rounded-xl ring-1 ring-black/5 dark:ring-white/10 grid place-items-center"
+          :class="[providerGradient(item.provider), providerTintClass]"
+        >
+          <ProviderIcon :provider="item.provider" :size="20" />
+        </span>
+        <div class="min-w-0 text-sm font-semibold truncate text-gray-900 dark:text-gray-100" :title="item.name">
           {{ item.name }}
         </div>
-        <div class="mt-0.5 flex items-center gap-1.5 min-w-0">
+        <span
+          class="px-2 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap"
+          :class="statusBadgeClass(item.primary_status)"
+        >
+          {{ statusLabel(item.primary_status) }}
+        </span>
+        <div class="col-start-2 col-span-2 flex items-center gap-1.5 min-w-0">
           <span
             class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium flex-shrink-0"
             :class="providerBadgeClass(item.provider)"
           >
             {{ providerLabel(item.provider) }}
           </span>
-          <span class="font-mono text-xs truncate text-gray-500 dark:text-gray-400">
+          <span class="min-w-0 flex-1 font-mono text-[10px] truncate text-gray-500 dark:text-gray-400" :title="displayModelLabel(item.primary_model)">
             {{ displayModelLabel(item.primary_model) }}
           </span>
           <span
             v-if="item.group_name"
-            class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-300 flex-shrink-0"
+            class="max-w-[30%] truncate rounded-md px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-300"
+            :title="item.group_name"
           >
             {{ item.group_name }}
           </span>
+          <span v-if="extraModelsCountLabel" class="flex-shrink-0 text-[10px] text-gray-400">
+            {{ extraModelsCountLabel }}
+          </span>
         </div>
       </div>
-      <span
-        class="px-2.5 py-1 rounded-full text-xs font-semibold flex-shrink-0"
-        :class="statusBadgeClass(item.primary_status)"
-      >
-        {{ statusLabel(item.primary_status) }}
-      </span>
+
+      <div class="flex items-center gap-4 min-w-0">
+        <MonitorMetricPair
+          class="flex-1"
+          primary-icon="bolt"
+          :primary-label="t('monitorCommon.dialogLatency')"
+          :primary-value="formatLatency(item.primary_latency_ms)"
+          primary-unit="ms"
+          secondary-icon="globe"
+          :secondary-label="t('monitorCommon.endpointPing')"
+          :secondary-value="formatLatency(item.primary_ping_latency_ms)"
+          secondary-unit="ms"
+        />
+        <MonitorAvailabilityRow
+          class="shrink-0 border-l border-gray-200/80 dark:border-dark-700/60 pl-4"
+          :window-label="availabilityLabel"
+          :value="availabilityValue"
+        />
+      </div>
     </div>
 
-    <!-- Metrics -->
-    <MonitorMetricPair
-      primary-icon="bolt"
-      :primary-label="t('monitorCommon.dialogLatency')"
-      :primary-value="formatLatency(item.primary_latency_ms)"
-      primary-unit="ms"
-      secondary-icon="globe"
-      :secondary-label="t('monitorCommon.endpointPing')"
-      :secondary-value="formatLatency(item.primary_ping_latency_ms)"
-      secondary-unit="ms"
-    />
-
-    <!-- Divider -->
-    <div class="mt-4 border-t border-gray-100 dark:border-dark-700/60"></div>
-
-    <!-- Availability row -->
-    <MonitorAvailabilityRow
-      :window-label="availabilityLabel"
-      :value="availabilityValue"
-      :samples-label="extraModelsCountLabel"
-    />
-
     <!-- Timeline -->
-    <MonitorTimeline
-      :buckets="item.timeline"
-      :countdown-seconds="countdownSeconds"
-    />
+    <div class="mt-auto w-full min-w-0">
+      <MonitorTimeline
+        :buckets="item.timeline"
+        :countdown-seconds="countdownSeconds"
+      />
+    </div>
   </button>
 </template>
 
@@ -127,3 +130,21 @@ const extraModelsCountLabel = computed(() => {
   return t('monitorCommon.extraModelsCount', { n: count })
 })
 </script>
+
+<style scoped>
+.monitor-card {
+  container-type: inline-size;
+}
+
+.monitor-row-summary {
+  display: grid;
+  align-items: center;
+  gap: 1rem;
+}
+
+@container (min-width: 560px) {
+  .monitor-row-summary {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  }
+}
+</style>

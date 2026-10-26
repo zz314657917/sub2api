@@ -1,13 +1,13 @@
 <template>
-  <div>
+  <div class="monitor-list">
     <div
       v-if="loading && items.length === 0"
-      class="monitor-card-grid grid gap-5"
+      class="monitor-card-grid grid gap-3"
     >
       <div
         v-for="i in 6"
         :key="i"
-        class="p-5 rounded-2xl min-h-[280px] bg-white/70 dark:bg-dark-800/60 border border-gray-200/80 dark:border-dark-700/70 animate-pulse"
+        class="p-4 rounded-xl min-h-[160px] bg-white/70 dark:bg-dark-800/60 border border-gray-200/80 dark:border-dark-700/70 animate-pulse"
       >
         <div class="flex items-start gap-3">
           <div class="w-9 h-9 rounded-xl bg-gray-200 dark:bg-dark-700"></div>
@@ -17,11 +17,7 @@
           </div>
           <div class="h-6 w-16 rounded-full bg-gray-200 dark:bg-dark-700"></div>
         </div>
-        <div class="mt-5 grid grid-cols-2 gap-2">
-          <div class="h-16 rounded-xl bg-gray-100 dark:bg-dark-900/40"></div>
-          <div class="h-16 rounded-xl bg-gray-100 dark:bg-dark-900/40"></div>
-        </div>
-        <div class="mt-6 h-5 w-full rounded bg-gray-100 dark:bg-dark-900/40"></div>
+        <div class="mt-4 h-5 w-full rounded bg-gray-100 dark:bg-dark-900/40"></div>
       </div>
     </div>
 
@@ -33,7 +29,7 @@
 
     <div
       v-else
-      class="monitor-card-grid grid gap-5"
+      class="monitor-card-grid grid gap-3"
       data-testid="monitor-card-grid"
     >
       <MonitorCard
@@ -82,7 +78,17 @@ function resolveAvailability(item: UserMonitorView): number | null {
 </script>
 
 <style scoped>
+.monitor-list {
+  container-type: inline-size;
+}
+
 .monitor-card-grid {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@container (min-width: 760px) {
+  .monitor-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 </style>
