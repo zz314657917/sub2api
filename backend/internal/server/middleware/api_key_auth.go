@@ -391,6 +391,14 @@ func ResolveAPIKeyForModelRequest(c *gin.Context, apiKeyService *service.APIKeyS
 	if c == nil || apiKeyService == nil || apiKey == nil {
 		return apiKey, true
 	}
+	if abortAPIKeyRouteRetryIfStopped(c) {
+		unused := apiKey
+		if cached, ok := cachedAPIKeyModelResolution(c, apiKey, requestedModel); ok {
+			unused = cached
+		}
+		releaseUnusedAPIKeyRouteProbe(c, apiKeyService, unused)
+		return nil, false
+	}
 	if resolved, ok := cachedAPIKeyModelResolution(c, apiKey, requestedModel); ok {
 		return resolved, true
 	}
@@ -402,12 +410,31 @@ func ResolveAPIKeyForModelRequest(c *gin.Context, apiKeyService *service.APIKeyS
 		return apiKey, true
 	}
 	forcePlatform, _ := GetForcePlatformFromContext(c)
-	resolved := apiKeyService.ResolveForModelRequest(c.Request.Context(), apiKey, c.Request.URL.Path, forcePlatform, requestedModel, imageIntent)
+	resolved, err := apiKeyService.ResolveForModelRequestWithRetry(c.Request.Context(), apiKey, c.Request.URL.Path, forcePlatform, requestedModel, imageIntent)
+	accepted := false
+	defer func() {
+		if !accepted {
+			c.Set(contextKeyAPIKeyRouteLocalTerminal, true)
+			releaseUnusedAPIKeyRouteProbe(c, apiKeyService, resolved)
+		}
+	}()
+	if abortAPIKeyRouteRetryIfStopped(c) {
+		return nil, false
+	}
+	if err != nil {
+		if errors.Is(err, service.ErrAPIKeyRouteTemporarilyUnavailable) {
+			c.Header("Retry-After", "5")
+			AbortWithError(c, http.StatusServiceUnavailable, "GROUP_ROUTE_TEMPORARILY_UNAVAILABLE", "Compatible group routes are temporarily unavailable")
+		} else {
+			AbortWithError(c, http.StatusRequestTimeout, "REQUEST_TIMEOUT", "Request cancelled while selecting a group route")
+		}
+		return nil, false
+	}
 	if resolved == nil {
 		AbortWithError(c, http.StatusForbidden, "NO_MATCHING_GROUP_ROUTE", "No available group route matches the requested model or request type")
 		return nil, false
 	}
-	if abortIfAPIKeyGroupUnavailable(c, resolved) {
+	if abortIfAPIKeyGroupUnavailable(c, resolved) || abortIfAPIKeyGroupNotAllowed(c, resolved) {
 		return nil, false
 	}
 	SetAPIKeyContext(c, resolved)
@@ -421,8 +448,47 @@ func ResolveAPIKeyForModelRequest(c *gin.Context, apiKeyService *service.APIKeyS
 	if !deferredBilling && !refreshSubscriptionContextForResolvedAPIKey(c, resolved) {
 		return nil, false
 	}
+	if abortAPIKeyRouteRetryIfStopped(c) {
+		return nil, false
+	}
 	cacheAPIKeyModelResolution(c, resolved, requestedModel)
+	accepted = true
 	return resolved, true
+}
+
+const contextKeyAPIKeyRouteLocalTerminal = "api_key_route_local_terminal"
+const contextKeyAPIKeyRouteReleasedProbes = "api_key_route_released_probes"
+
+func releaseUnusedAPIKeyRouteProbe(c *gin.Context, apiKeyService *service.APIKeyService, apiKey *service.APIKey) {
+	if apiKey == nil || apiKey.RouteBreakerLease == nil || !apiKey.RouteBreakerLease.HalfOpen {
+		return
+	}
+	released, _ := c.Get(contextKeyAPIKeyRouteReleasedProbes)
+	leases, _ := released.(map[service.APIKeyRouteBreakerLease]struct{})
+	if leases == nil {
+		leases = make(map[service.APIKeyRouteBreakerLease]struct{})
+		c.Set(contextKeyAPIKeyRouteReleasedProbes, leases)
+	}
+	lease := *apiKey.RouteBreakerLease
+	if _, exists := leases[lease]; exists {
+		return
+	}
+	leases[lease] = struct{}{}
+	apiKeyService.ReleaseUnusedAPIKeyRouteBreakerProbe(c.Request.Context(), apiKey)
+}
+
+func abortAPIKeyRouteRetryIfStopped(c *gin.Context) bool {
+	if c.IsAborted() || c.Writer.Written() {
+		c.Set(contextKeyAPIKeyRouteLocalTerminal, true)
+		c.Abort()
+		return true
+	}
+	if c.Request.Context().Err() != nil {
+		c.Set(contextKeyAPIKeyRouteLocalTerminal, true)
+		AbortWithError(c, http.StatusRequestTimeout, "REQUEST_TIMEOUT", "Request cancelled while selecting a group route")
+		return true
+	}
+	return false
 }
 
 const contextKeyAPIKeyModelResolution = "api_key_model_resolution"
@@ -697,6 +763,9 @@ func resolveAPIKeyForRequest(c *gin.Context, apiKeyService *service.APIKeyServic
 
 func applyAPIKeyRouteCooldownAfterRequest(c *gin.Context, apiKeyService *service.APIKeyService, apiKey *service.APIKey) {
 	if c == nil || apiKeyService == nil || apiKey == nil || apiKey.GroupID == nil || len(apiKey.MultiGroupRoutes) == 0 {
+		return
+	}
+	if terminal, _ := c.Get(contextKeyAPIKeyRouteLocalTerminal); terminal == true {
 		return
 	}
 	groupID := *apiKey.GroupID
