@@ -83,20 +83,26 @@ func countGeminiInlineImageOutputs(payload []byte) int {
 }
 
 func geminiPartIsInlineImage(part gjson.Result) bool {
-	inline := part.Get("inlineData")
-	if !inline.Exists() {
-		inline = part.Get("inline_data")
+	for _, key := range []string{"inlineData", "inline_data", "fileData", "file_data"} {
+		image := part.Get(key)
+		mimeType := image.Get("mimeType")
+		if !mimeType.Exists() {
+			mimeType = image.Get("mime_type")
+		}
+		if !isGeminiInlineImageMIMEType(strings.ToLower(strings.TrimSpace(mimeType.String()))) {
+			continue
+		}
+		data := image.Get("data")
+		if key == "fileData" || key == "file_data" {
+			data = image.Get("fileUri")
+			if !data.Exists() {
+				data = image.Get("file_uri")
+			}
+		}
+		// A part may expose both forms; count it only once and require actual data.
+		if data.Type == gjson.String && strings.TrimSpace(data.String()) != "" {
+			return true
+		}
 	}
-	if !inline.Exists() {
-		return false
-	}
-
-	mimeType := inline.Get("mimeType")
-	if !mimeType.Exists() {
-		mimeType = inline.Get("mime_type")
-	}
-	if !isGeminiInlineImageMIMEType(strings.ToLower(strings.TrimSpace(mimeType.String()))) {
-		return false
-	}
-	return strings.TrimSpace(inline.Get("data").String()) != ""
+	return false
 }

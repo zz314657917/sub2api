@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"math"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -120,6 +122,73 @@ func cnProviderResponseIndicatesInsufficientBalance(body []byte) bool {
 		strings.Contains(s, "no enough balance")
 }
 
+// A frequency-only response may use the existing short 429 fallback, but only
+// when every observed local quota window is usable and comfortably below 90%.
+func cnProviderResponseIndicatesFrequencyLimit(body []byte) bool {
+	message := strings.ToLower(string(body))
+	for _, marker := range []string{
+		"额度", "配额", "限额", "用量", "已用尽", "耗尽", "用完", "余额", "欠费",
+		"quota", "usage limit", "insufficient", "balance", "credit",
+	} {
+		if strings.Contains(message, marker) {
+			return false
+		}
+	}
+	for _, marker := range []string{
+		"速率限制", "请求频率", "访问频率", "请求过于频繁", "请求太频繁",
+		"too many requests", "rate limit exceeded", "rate_limit_exceeded", "ratelimit exceeded",
+	} {
+		if strings.Contains(message, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+func cnProviderQuotaSnapshotAllowsFrequencyCooldown(account *Account) bool {
+	if account == nil {
+		return false
+	}
+	seen := false
+	for _, suffix := range []string{cnExtraSuffix5hUsed, cnExtraSuffixWeeklyUsed} {
+		raw, present := account.Extra[cnExtraKey(account.Platform, suffix)]
+		if !present {
+			continue
+		}
+		seen = true
+		var percent float64
+		var err error
+		switch value := raw.(type) {
+		case float64:
+			percent = value
+		case float32:
+			percent = float64(value)
+		case int:
+			percent = float64(value)
+		case int64:
+			percent = float64(value)
+		case json.Number:
+			if !json.Valid([]byte(value)) {
+				return false
+			}
+			percent, err = value.Float64()
+		case string:
+			value = strings.TrimSpace(value)
+			if !json.Valid([]byte(value)) {
+				return false
+			}
+			percent, err = strconv.ParseFloat(value, 64)
+		default:
+			return false
+		}
+		// Do not treat a malformed snapshot as zero usage.
+		if err != nil || math.IsNaN(percent) || math.IsInf(percent, 0) || percent < 0 || percent >= 90 {
+			return false
+		}
+	}
+	return seen
+}
+
 // handleCNProviderInsufficientBalance 把余额不足标记为可恢复的临时停调：
 // 写入 balance_low 快照 + SetTempUnschedulable 一个余额检测周期，
 // 由周期任务在余额恢复后清除。返回前已通知调度阻塞。
@@ -204,7 +273,14 @@ func (s *RateLimitService) applyCNProviderReactive429(
 		s.handleCNProviderInsufficientBalance(ctx, account, extractUpstreamErrorMessage(responseBody))
 		return true
 	}
-	// 2) Coding Plan 窗口耗尽：冷却到快照中最早的窗口重置点（见
+	// 2) Frequency-only Coding Plan 429s with safe snapshots use the configured
+	// short fallback in handle429 instead of pausing until a window reset.
+	if cnAccountIsCodingPlan(account) &&
+		cnProviderResponseIndicatesFrequencyLimit(responseBody) &&
+		cnProviderQuotaSnapshotAllowsFrequencyCooldown(account) {
+		return false
+	}
+	// 3) Coding Plan 窗口耗尽：冷却到快照中最早的窗口重置点（见
 	// cnProviderQuotaSnapshotReset：429 多由 5h 窗口触发，取较早点避免过度停调）。
 	if cnAccountIsCodingPlan(account) {
 		if until := cnProviderQuotaSnapshotReset(account, time.Now()); until != nil {

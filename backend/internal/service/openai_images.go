@@ -53,7 +53,7 @@ const (
 	openAIChatGPTFilesURL                  = "https://chatgpt.com/backend-api/files"
 	openAIImageBackendUserAgent            = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 	openAIImageMaxDownloadBytes            = 20 << 20 // 20MB per image download
-	openAIImageMaxUploadPartSize           = 20 << 20 // 20MB per multipart upload part
+	openAIImageMaxUploadPartSize           = 50 << 20 // 50 MiB per multipart upload part
 	openAIImagesResponsesMainModel         = "gpt-5.6-luna"
 	openAIImagesVerbatimPromptInstructions = "When invoking the image_generation tool, use the user's image prompt verbatim. Do not rewrite, expand, summarize, embellish, translate, normalize punctuation, or add or remove visual details or constraints. Preserve the original language, wording, capitalization, quotes, and punctuation exactly."
 
@@ -542,15 +542,13 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 			return fmt.Errorf("read multipart body: %w", err)
 		}
 		name := strings.TrimSpace(part.FormName())
-		if name == "" {
-			_ = part.Close()
-			continue
-		}
-
-		data, err := io.ReadAll(io.LimitReader(part, openAIImageMaxUploadPartSize))
+		data, err := readOpenAIImagesMultipartPart(part)
 		_ = part.Close()
 		if err != nil {
 			return fmt.Errorf("read multipart field %s: %w", name, err)
+		}
+		if name == "" {
+			continue
 		}
 
 		fileName := strings.TrimSpace(part.FileName())
@@ -3362,6 +3360,18 @@ func normalizeOpenAIImagesJSONCompatibilityFields(body []byte) ([]byte, error) {
 	return rewritten, nil
 }
 
+// Read one byte beyond the bound so oversized parts are rejected, never truncated.
+func readOpenAIImagesMultipartPart(part *multipart.Part) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(part, openAIImageMaxUploadPartSize+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > openAIImageMaxUploadPartSize {
+		return nil, fmt.Errorf("multipart field %q exceeds the %d MB per-part limit", strings.TrimSpace(part.FormName()), openAIImageMaxUploadPartSize>>20)
+	}
+	return data, nil
+}
+
 func rewriteOpenAIImagesMultipartModel(body []byte, contentType string, model string) ([]byte, string, error) {
 	return rewriteOpenAIImagesMultipartModelAndN(body, contentType, model, 0, false)
 }
@@ -3400,7 +3410,7 @@ func rewriteOpenAIImagesMultipartModelAndN(body []byte, contentType string, mode
 			continue
 		}
 		if formName == "transparent_background" && part.FileName() == "" {
-			data, readErr := io.ReadAll(io.LimitReader(part, openAIImageMaxUploadPartSize))
+			data, readErr := readOpenAIImagesMultipartPart(part)
 			_ = part.Close()
 			if readErr != nil {
 				return nil, "", fmt.Errorf("read multipart transparent_background: %w", readErr)
@@ -3411,7 +3421,7 @@ func rewriteOpenAIImagesMultipartModelAndN(body []byte, contentType string, mode
 		}
 
 		if formName == "background" && part.FileName() == "" {
-			data, readErr := io.ReadAll(io.LimitReader(part, openAIImageMaxUploadPartSize))
+			data, readErr := readOpenAIImagesMultipartPart(part)
 			_ = part.Close()
 			if readErr != nil {
 				return nil, "", fmt.Errorf("read multipart background: %w", readErr)

@@ -3883,6 +3883,12 @@ func (s *AntigravityGatewayService) handleClaudeStreamToNonStreaming(c *gin.Cont
 				continue
 			}
 
+			// A terminal failure may have no parts; detect it before selecting
+			// lastWithParts so earlier content cannot turn a failure into success.
+			if extractGeminiFinishReason(parsed) == "MALFORMED_FUNCTION_CALL" {
+				return nil, s.writeClaudeError(c, http.StatusBadGateway, "malformed_function_call", antigravity.ErrMalformedFunctionCall.Error())
+			}
+
 			// 记录首 token 时间
 			if firstTokenMs == nil {
 				ms := int(time.Since(startTime).Milliseconds())
@@ -3937,6 +3943,9 @@ returnResponse:
 	// 转换 Gemini 响应为 Claude 格式
 	claudeResp, agUsage, err := antigravity.TransformGeminiToClaude(geminiBody, originalModel)
 	if err != nil {
+		if errors.Is(err, antigravity.ErrMalformedFunctionCall) {
+			return nil, s.writeClaudeError(c, http.StatusBadGateway, "malformed_function_call", err.Error())
+		}
 		logger.LegacyPrintf("service.antigravity_gateway", "[antigravity-Forward] transform_error error=%v body=%s", err, string(geminiBody))
 		return nil, s.writeClaudeError(c, http.StatusBadGateway, "upstream_error", "Failed to parse upstream response")
 	}

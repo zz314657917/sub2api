@@ -5,6 +5,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"strconv"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/util/logredact"
@@ -166,7 +167,8 @@ func PaginatedWithResult(c *gin.Context, items any, pagination *PaginationResult
 	})
 }
 
-// ParsePagination 解析分页参数
+// ParsePagination 解析分页参数。无效或超出 int 范围的值使用默认值；
+// 有效页码按 pageSize 限制上限，返回可安全计算 offset 和 offset+pageSize 的页码。
 func ParsePagination(c *gin.Context) (page, pageSize int) {
 	page = 1
 	pageSize = 20
@@ -188,16 +190,21 @@ func ParsePagination(c *gin.Context) (page, pageSize int) {
 		}
 	}
 
+	if page > math.MaxInt/pageSize {
+		page = math.MaxInt / pageSize
+	}
+
 	return page, pageSize
 }
 
 func parseInt(s string) (int, error) {
-	var result int
-	for _, c := range s {
-		if c < '0' || c > '9' {
+	value, err := strconv.ParseUint(s, 10, strconv.IntSize-1)
+	if err != nil {
+		// Preserve the legacy zero/nil result for syntactically invalid input.
+		if numErr, ok := err.(*strconv.NumError); ok && numErr.Err == strconv.ErrSyntax {
 			return 0, nil
 		}
-		result = result*10 + int(c-'0')
+		return 0, err
 	}
-	return result, nil
+	return int(value), nil
 }
