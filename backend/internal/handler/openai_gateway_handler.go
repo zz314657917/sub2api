@@ -745,7 +745,9 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 						h.handleFailoverExhausted(c, failoverErr, true)
 						return
 					}
-					h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil, account.GetMappedModel(reqModel))
+					if !failoverErr.RequestScopedTransient {
+						h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil, account.GetMappedModel(reqModel))
+					}
 					var streamRetryErr *service.OpenAIStreamRetryError
 					if reqStream && errors.As(err, &streamRetryErr) && streamRetryCount < service.OpenAIStreamRetryLimit {
 						streamRetryCount++
@@ -833,7 +835,9 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 			if account.Type == service.AccountTypeOAuth {
 				h.gatewayService.UpdateCodexUsageSnapshotFromHeaders(c.Request.Context(), account.ID, result.ResponseHeaders)
 			}
-			h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, result.SucceededForScheduling(), result.FirstTokenMs, account.GetMappedModel(reqModel))
+			if !isOpenAIRequestScopedTransient(err) {
+				h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, result.SucceededForScheduling(), result.FirstTokenMs, account.GetMappedModel(reqModel))
+			}
 		} else {
 			h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, true, nil, account.GetMappedModel(reqModel))
 		}
@@ -1352,7 +1356,9 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 						h.handleAnthropicFailoverExhausted(c, failoverErr, true)
 						return
 					}
-					h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil, account.GetMappedModel(currentRoutingModel))
+					if !failoverErr.RequestScopedTransient {
+						h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil, account.GetMappedModel(currentRoutingModel))
+					}
 					// 池模式：同账号重试
 					if failoverErr.RetryableOnSameAccount {
 						retryLimit := sameAccountRetryLimit(failoverErr, account.GetPoolModeRetryCount())
@@ -1408,10 +1414,12 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 				return
 			}
 		}
-		if result != nil {
-			h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, true, result.FirstTokenMs, account.GetMappedModel(currentRoutingModel))
-		} else {
-			h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, true, nil, account.GetMappedModel(currentRoutingModel))
+		if !isOpenAIRequestScopedTransient(err) {
+			if result != nil {
+				h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, true, result.FirstTokenMs, account.GetMappedModel(currentRoutingModel))
+			} else {
+				h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, true, nil, account.GetMappedModel(currentRoutingModel))
+			}
 		}
 
 		userAgent := c.GetHeader("User-Agent")

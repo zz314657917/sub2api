@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
@@ -14,6 +15,11 @@ import (
 // GatewayService 隐式实现此接口。
 type TempUnscheduler interface {
 	TempUnscheduleRetryableError(ctx context.Context, accountID int64, failoverErr *service.UpstreamFailoverError)
+}
+
+func isOpenAIRequestScopedTransient(err error) bool {
+	var failoverErr *service.UpstreamFailoverError
+	return errors.As(err, &failoverErr) && failoverErr.RequestScopedTransient
 }
 
 // FailoverAction 表示 failover 错误处理后的下一步动作
@@ -36,6 +42,9 @@ func sameAccountRetryLimit(failoverErr *service.UpstreamFailoverError, fallback 
 }
 
 func sameAccountRetryDelay(failoverErr *service.UpstreamFailoverError, retryCount int) time.Duration {
+	if failoverErr != nil && failoverErr.SameAccountRetryDelay > 0 {
+		return failoverErr.SameAccountRetryDelay
+	}
 	if failoverErr != nil && failoverErr.SameAccountRetryBackoffBase > 0 {
 		if retryCount < 1 {
 			retryCount = 1
@@ -113,7 +122,7 @@ func (s *FailoverState) HandleFailoverError(
 	}
 
 	// 同账号重试用尽，执行临时封禁
-	if failoverErr.RetryableOnSameAccount {
+	if failoverErr.RetryableOnSameAccount && !failoverErr.RequestScopedTransient {
 		gatewayService.TempUnscheduleRetryableError(ctx, accountID, failoverErr)
 	}
 

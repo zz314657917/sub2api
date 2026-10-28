@@ -393,7 +393,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 				Message:            upstreamMsg,
 				Detail:             upstreamDetail,
 			})
-			s.handleOpenAIAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody, upstreamModel)
+			s.handleOpenAIHTTPAccountUpstreamError(ctx, c, account, resp.StatusCode, resp.Header, respBody, upstreamModel)
 			retryLimit, retryBackoffBase := openAISameAccountRetryPolicy(upstreamMsg, respBody)
 			failoverErr := &UpstreamFailoverError{
 				StatusCode:   resp.StatusCode,
@@ -403,6 +403,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 				SameAccountRetryLimit:       retryLimit,
 				SameAccountRetryBackoffBase: retryBackoffBase,
 			}
+			augmentOpenAIHTTPFailover(c, account, resp, respBody, failoverErr)
 			return nil, s.applyOpenAIOAuth429Retry(account, resp.StatusCode, false, resp.Header, respBody, failoverErr)
 		}
 		// Non-failover error: return Anthropic-formatted error to client

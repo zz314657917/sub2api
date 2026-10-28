@@ -1440,7 +1440,7 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 				Kind:               "failover",
 				Message:            upstreamMsg,
 			})
-			s.handleFailoverSideEffects(upstreamCtx, resp, account, respBody)
+			s.handleOpenAIHTTPAccountUpstreamError(upstreamCtx, c, account, resp.StatusCode, resp.Header, respBody)
 			retryLimit, retryBackoffBase := openAISameAccountRetryPolicy(upstreamMsg, respBody)
 			failoverErr := &UpstreamFailoverError{
 				StatusCode:                  resp.StatusCode,
@@ -1449,6 +1449,7 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 				SameAccountRetryLimit:       retryLimit,
 				SameAccountRetryBackoffBase: retryBackoffBase,
 			}
+			augmentOpenAIHTTPFailover(c, account, resp, respBody, failoverErr)
 			return nil, s.applyOpenAIOAuth429Retry(account, resp.StatusCode, false, resp.Header, respBody, failoverErr)
 		}
 		return s.handleOpenAIImagesErrorResponse(upstreamCtx, resp, c, account, upstreamModel)
@@ -1627,7 +1628,7 @@ func (s *OpenAIGatewayService) forwardSplitOpenAIImagesAPIKey(
 					Kind:               "failover",
 					Message:            upstreamMsg,
 				})
-				s.handleFailoverSideEffects(ctx, resp, account, respBody)
+				s.handleOpenAIHTTPAccountUpstreamError(ctx, c, account, resp.StatusCode, resp.Header, respBody)
 				retryLimit, retryBackoffBase := openAISameAccountRetryPolicy(upstreamMsg, respBody)
 				if len(responseBodies) > 0 {
 					failoverErr := &UpstreamFailoverError{
@@ -1637,6 +1638,7 @@ func (s *OpenAIGatewayService) forwardSplitOpenAIImagesAPIKey(
 						SameAccountRetryLimit:       retryLimit,
 						SameAccountRetryBackoffBase: retryBackoffBase,
 					}
+					augmentOpenAIHTTPFailover(c, account, resp, respBody, failoverErr)
 					return partialResult(), s.applyOpenAIOAuth429Retry(account, resp.StatusCode, false, resp.Header, respBody, failoverErr)
 				}
 				failoverErr := &UpstreamFailoverError{
@@ -1646,6 +1648,7 @@ func (s *OpenAIGatewayService) forwardSplitOpenAIImagesAPIKey(
 					SameAccountRetryLimit:       retryLimit,
 					SameAccountRetryBackoffBase: retryBackoffBase,
 				}
+				augmentOpenAIHTTPFailover(c, account, resp, respBody, failoverErr)
 				return nil, s.applyOpenAIOAuth429Retry(account, resp.StatusCode, false, resp.Header, respBody, failoverErr)
 			}
 			result, err := s.handleOpenAIImagesErrorResponse(ctx, resp, c, account, upstreamModel)

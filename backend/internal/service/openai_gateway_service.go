@@ -2768,7 +2768,7 @@ func (s *OpenAIGatewayService) failoverOpenAIUpstreamHTTPError(
 			Message:            upstreamMsg,
 		})
 	}
-	s.handleOpenAIAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, responseBody, requestedModel)
+	s.handleOpenAIHTTPAccountUpstreamError(ctx, c, account, resp.StatusCode, resp.Header, responseBody, requestedModel)
 	retryLimit, retryBackoffBase := openAISameAccountRetryPolicy(upstreamMsg, responseBody)
 	failoverErr := &UpstreamFailoverError{
 		StatusCode:                  resp.StatusCode,
@@ -2778,6 +2778,7 @@ func (s *OpenAIGatewayService) failoverOpenAIUpstreamHTTPError(
 		SameAccountRetryLimit:       retryLimit,
 		SameAccountRetryBackoffBase: retryBackoffBase,
 	}
+	augmentOpenAIHTTPFailover(c, account, resp, responseBody, failoverErr)
 	return s.applyOpenAIOAuth429Retry(account, resp.StatusCode, false, resp.Header, responseBody, failoverErr)
 }
 
@@ -3810,7 +3811,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 					Detail:             upstreamDetail,
 				})
 
-				s.handleFailoverSideEffects(ctx, resp, account, respBody, upstreamModel)
+				s.handleOpenAIHTTPAccountUpstreamError(ctx, c, account, resp.StatusCode, resp.Header, respBody, upstreamModel)
 				retryLimit, retryBackoffBase := openAISameAccountRetryPolicy(upstreamMsg, respBody)
 				failoverErr := &UpstreamFailoverError{
 					StatusCode:   resp.StatusCode,
@@ -3820,6 +3821,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 					SameAccountRetryLimit:       retryLimit,
 					SameAccountRetryBackoffBase: retryBackoffBase,
 				}
+				augmentOpenAIHTTPFailover(c, account, resp, respBody, failoverErr)
 				return nil, s.applyOpenAIOAuth429Retry(account, resp.StatusCode, false, resp.Header, respBody, failoverErr)
 			}
 			return s.handleErrorResponse(ctx, resp, c, account, body, upstreamModel)
@@ -4492,7 +4494,7 @@ func (s *OpenAIGatewayService) handleFailoverErrorResponsePassthrough(
 	logOpenAIInstructionsRequiredDebug(ctx, c, account, resp.StatusCode, upstreamMsg, requestBody, body)
 	if !cyberHit {
 		reqModel, _, _ := extractOpenAIRequestMetaFromBody(requestBody)
-		_ = s.handleOpenAIAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, body, reqModel)
+		_ = s.handleOpenAIHTTPAccountUpstreamError(ctx, c, account, resp.StatusCode, resp.Header, body, reqModel)
 	}
 	appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
 		ProxyID:              opsUpstreamProxyID(account),
@@ -4517,6 +4519,7 @@ func (s *OpenAIGatewayService) handleFailoverErrorResponsePassthrough(
 		SameAccountRetryLimit:       retryLimit,
 		SameAccountRetryBackoffBase: retryBackoffBase,
 	}
+	augmentOpenAIHTTPFailover(c, account, resp, body, failoverErr)
 	return s.applyOpenAIOAuth429Retry(account, resp.StatusCode, false, resp.Header, body, failoverErr)
 }
 
@@ -4546,7 +4549,7 @@ func (s *OpenAIGatewayService) handleErrorResponsePassthrough(
 	// account state still needs to be updated so sticky routing can stop
 	// reusing a freshly rate-limited account.
 	reqModel, _, _ := extractOpenAIRequestMetaFromBody(requestBody)
-	_ = s.handleOpenAIAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, body, reqModel)
+	_ = s.handleOpenAIHTTPAccountUpstreamError(ctx, c, account, resp.StatusCode, resp.Header, body, reqModel)
 	appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
 		ProxyID:              opsUpstreamProxyID(account),
 		ProxyName:            opsUpstreamProxyName(account),
@@ -4662,7 +4665,16 @@ func openAIStreamDataStartsClientOutput(data, eventType string) bool {
 	if trimmed == "" {
 		return false
 	}
+	if !gjson.Valid(trimmed) || !gjson.Parse(trimmed).IsObject() {
+		return true
+	}
 	if strings.TrimSpace(eventType) == "response.failed" {
+		return false
+	}
+	if openAIStreamKnownEmptyEvent(trimmed, eventType) {
+		return false
+	}
+	if eventType == "error" && openAIStreamErrorEventShouldFailover([]byte(trimmed), extractOpenAISSEErrorMessage([]byte(trimmed))) {
 		return false
 	}
 	return !openAIStreamEventIsPreamble(eventType)
@@ -4916,7 +4928,7 @@ func (s *OpenAIGatewayService) newOpenAIStreamFailoverError(
 	retryLimit, retryBackoffBase := openAISameAccountRetryPolicy(message, payload)
 	poolRetryable := statusCode == http.StatusTooManyRequests &&
 		account != nil && account.IsPoolMode() && account.IsPoolModeRetryableStatus(statusCode)
-	return &UpstreamFailoverError{
+	failoverErr := &UpstreamFailoverError{
 		StatusCode:                  statusCode,
 		ResponseBody:                body,
 		ResponseHeaders:             headers,
@@ -4924,6 +4936,11 @@ func (s *OpenAIGatewayService) newOpenAIStreamFailoverError(
 		SameAccountRetryLimit:       retryLimit,
 		SameAccountRetryBackoffBase: retryBackoffBase,
 	}
+	if openAIRequestScopedOverload(c, account, http.StatusOK, payload, true) {
+		failoverErr.RequestScopedTransient = true
+		failoverErr.SameAccountRetryDelay = openAIRequestRetryDelay(headers, payload, time.Now())
+	}
+	return failoverErr
 }
 
 func (s *OpenAIGatewayService) recordOpenAIStreamUpstreamError(
@@ -5692,7 +5709,7 @@ func (s *OpenAIGatewayService) handleErrorResponse(
 	if reqModel == "" {
 		reqModel, _, _ = extractOpenAIRequestMetaFromBody(requestBody)
 	}
-	shouldDisable := s.handleOpenAIAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, body, reqModel)
+	shouldDisable := s.handleOpenAIHTTPAccountUpstreamError(ctx, c, account, resp.StatusCode, resp.Header, body, reqModel)
 	kind := "http_error"
 	if shouldDisable {
 		kind = "failover"
@@ -5713,6 +5730,7 @@ func (s *OpenAIGatewayService) handleErrorResponse(
 		return nil, &UpstreamFailoverError{
 			StatusCode:             resp.StatusCode,
 			ResponseBody:           body,
+			ResponseHeaders:        resp.Header.Clone(),
 			RetryableOnSameAccount: account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode),
 		}
 	}
@@ -5853,8 +5871,8 @@ func (s *OpenAIGatewayService) handleCompatErrorResponse(
 	if len(requestedModel) > 0 {
 		reqModel = strings.TrimSpace(requestedModel[0])
 	}
-	shouldDisable := s.handleOpenAIAccountUpstreamError(
-		c.Request.Context(), account, resp.StatusCode, resp.Header, body, reqModel,
+	shouldDisable := s.handleOpenAIHTTPAccountUpstreamError(
+		c.Request.Context(), c, account, resp.StatusCode, resp.Header, body, reqModel,
 	)
 	kind := "http_error"
 	if shouldDisable {
@@ -5876,6 +5894,7 @@ func (s *OpenAIGatewayService) handleCompatErrorResponse(
 		return nil, &UpstreamFailoverError{
 			StatusCode:             resp.StatusCode,
 			ResponseBody:           body,
+			ResponseHeaders:        resp.Header.Clone(),
 			RetryableOnSameAccount: account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode),
 		}
 	}

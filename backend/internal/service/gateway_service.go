@@ -527,6 +527,8 @@ type UpstreamFailoverError struct {
 	RetryableOnSameAccount      bool          // 临时性错误（如 Google 间歇性 400、空响应），应在同一账号上重试 N 次再切换
 	SameAccountRetryLimit       int           // 大于 0 时覆盖 handler 的默认同账号重试上限
 	SameAccountRetryBackoffBase time.Duration // 大于 0 时按重试次数线性计算等待时长
+	RequestScopedTransient      bool          // 当前请求的过载，不改变账号健康状态
+	SameAccountRetryDelay       time.Duration // 大于 0 时使用上游给定的固定等待时长
 }
 
 func (e *UpstreamFailoverError) Error() string {
@@ -544,7 +546,7 @@ func (e *sseStreamErrorEventError) Error() string { return "have error in stream
 // TempUnscheduleRetryableError 对 RetryableOnSameAccount 类型的 failover 错误触发临时封禁。
 // 由 handler 层在同账号重试全部用尽、切换账号时调用。
 func (s *GatewayService) TempUnscheduleRetryableError(ctx context.Context, accountID int64, failoverErr *UpstreamFailoverError) {
-	if failoverErr == nil || !failoverErr.RetryableOnSameAccount {
+	if failoverErr == nil || !failoverErr.RetryableOnSameAccount || failoverErr.RequestScopedTransient {
 		return
 	}
 	// 根据状态码选择封禁策略
