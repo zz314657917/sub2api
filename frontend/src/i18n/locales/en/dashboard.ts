@@ -85,6 +85,7 @@ export default {
       helperDescription: 'Detect the app, compare endpoints and write your configuration automatically.',
       downloadHelper: 'Download for Windows',
       helperNote: 'Independent helper. For Mac / Linux, use the tutorial below.',
+      helperWarning: 'Unsigned; security software may block it. If blocked, contact support or configure manually.',
       yourDefaultKey: 'Your default API key',
       copyDefaultKey: 'Copy default key',
       keyCopied: 'Key copied',

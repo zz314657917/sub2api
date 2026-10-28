@@ -25,7 +25,10 @@
           <Icon name="download" size="sm" />
           {{ t('dashboard.onboarding.downloadHelper') }}
         </a>
-        <p class="setup-footnote">{{ t('dashboard.onboarding.helperNote') }}</p>
+        <p class="setup-footnote">
+          {{ t('dashboard.onboarding.helperNote') }}
+          <span class="block" data-testid="setup-download-warning">{{ t('dashboard.onboarding.helperWarning') }}</span>
+        </p>
       </article>
 
       <article class="setup-card">

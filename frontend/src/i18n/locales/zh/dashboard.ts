@@ -85,6 +85,7 @@ export default {
       helperDescription: '自动检测应用、选择节点并写入配置，无需手动修改文件。',
       downloadHelper: '下载 Windows 配置助手',
       helperNote: '独立配置工具；Mac / Linux 请使用下方教程。',
+      helperWarning: '未签名，可能被拦截；遇拦截请联系客服或手动配置。',
       yourDefaultKey: '你的默认密钥',
       copyDefaultKey: '复制默认密钥',
       keyCopied: '已复制密钥',

@@ -58,6 +58,7 @@ describe('UserApiKeyOnboardingDialog quick setup', () => {
     expect(wrapper.text()).not.toContain(rawKey)
     expect(wrapper.get('code').text()).toBe('sk-tes...6789')
     expect(wrapper.get('[data-testid="setup-download"]').attributes('href')).toBe('/downloads/chatgpt-config-windows.exe')
+    expect(wrapper.get('[data-testid="setup-download-warning"]').text()).toBe('未签名，可能被拦截；遇拦截请联系客服或手动配置。')
     expect(mocks.list).toHaveBeenCalledWith(1, 1, { sort_by: 'id', sort_order: 'asc' }, { signal: expect.any(AbortSignal) })
     expect(mocks.copy).not.toHaveBeenCalled()
   })
