@@ -746,7 +746,9 @@ const rankingItems = computed<UserLeaderboardItem[]>(() => {
     badges: orderedLeaderboardBadges(item, costSaverUserID, costBurnerUserID),
   }))
 })
-const maxRankingTokens = computed(() => Math.max(0, ...rankingItems.value.map((item) => item.tokens)))
+const maxTokenBarTokens = computed(() =>
+  Math.max(0, ...rankingItems.value.filter((item) => item.rank > 3).map((item) => item.tokens))
+)
 const activeRankingEmpty = computed(() => rankingItems.value.length === 0)
 const dailyRewards = computed<LeaderboardDailyRewards | null>(() => leaderboard.value?.daily_rewards ?? null)
 const leaderboardRewardMode = computed<LeaderboardRewardMode>(() => normalizeLeaderboardRewardMode(dailyRewards.value))
@@ -1608,8 +1610,8 @@ function formatLotteryCountdown(drawAt?: string | null): string {
 }
 
 function tokenBarWidth(item: UserLeaderboardItem): string {
-  if (maxRankingTokens.value <= 0 || item.tokens <= 0) return '0%'
-  return `${Math.min(84, Math.max(4, (item.tokens / maxRankingTokens.value) * 84))}%`
+  if (maxTokenBarTokens.value <= 0 || item.tokens <= 0) return '0%'
+  return `${Math.min(84, Math.max(4, (item.tokens / maxTokenBarTokens.value) * 84))}%`
 }
 
 function leaderboardCacheTokens(item: UserLeaderboardItem): number {

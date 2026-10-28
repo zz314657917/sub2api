@@ -874,11 +874,50 @@ describe('LeaderboardView', () => {
       ['缓存', '100', '缓存占比 10.0%'],
       ['积分', '✪ 10,000.00', '/ 1M Token'],
     ])
-    expect(ranking.findAll('.leaderboard-token-rank-row')[1].attributes('style')).toContain('--token-bar-width: 84%')
     expect(ranking.findAll('.leaderboard-token-rank-row')[1].attributes('style')).toContain('--token-input-width: 75.0%')
     expect(ranking.findAll('.leaderboard-token-rank-row')[1].attributes('style')).toContain('--token-output-width: 15.0%')
     expect(ranking.findAll('.leaderboard-token-rank-row')[1].attributes('style')).toContain('--token-cache-width: 10.0%')
     expect(wrapper.find('[data-testid="leaderboard-cost-efficiency-summary"]').exists()).toBe(false)
+  })
+
+  it('scales bars against ranks below the podium and recalculates when switching periods', async () => {
+    getDashboardLeaderboard.mockImplementation(({ period }: { period: string }) => {
+      const tokens = period === 'week'
+        ? [30_000_000_000, 20_000_000_000, 10_000_000_000, 200_000_000, 100_000_000, 25_000_000]
+        : [3_000_000_000, 2_000_000_000, 1_000_000_000, 100_000_000, 50_000_000, 0]
+      return Promise.resolve(makeResponse({
+        period,
+        ranking: tokens.map((value, index) => ({
+          ...makeResponse().ranking[0],
+          rank: index + 1,
+          user_id: index + 1,
+          display_name: `User ${index + 1}`,
+          tokens: value,
+          is_current_user: false,
+        })),
+      }))
+    })
+    const { default: LeaderboardView } = await import('../LeaderboardView.vue')
+    const wrapper = mount(LeaderboardView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+        },
+      },
+    })
+    await flushPromises()
+
+    const ranking = wrapper.get('[data-testid="leaderboard-token-ranking"]')
+    const barWidths = () => ranking.findAll('.leaderboard-token-rank-row:not(.leaderboard-podium-card)')
+      .map((row) => (row.element as HTMLElement).style.getPropertyValue('--token-bar-width'))
+    expect(ranking.findAll('.leaderboard-podium-card')).toHaveLength(3)
+    expect(barWidths()).toEqual(['84%', '42%', '0%'])
+
+    await ranking.findAll('[role="tab"]').find((tab) => tab.text() === '周榜')!.trigger('click')
+    await flushPromises()
+
+    expect(barWidths()).toEqual(['84%', '42%', '10.5%'])
+    expect(ranking.get('.leaderboard-podium-card--1 .leaderboard-podium-tokens').text()).toBe('30.00B')
   })
 
   it('keeps period tabs inside the token ranking card and hides the model ranking switch', async () => {
