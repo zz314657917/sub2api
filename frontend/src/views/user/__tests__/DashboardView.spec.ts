@@ -199,5 +199,40 @@ describe('User DashboardView data loading', () => {
 
     await onboarding.trigger('click')
     expect(mocks.push).toHaveBeenCalledWith({ path: '/keys' })
+    expect(window.localStorage.getItem('sub2api:user-api-key-onboarding:skip:1')).toBeNull()
+  })
+
+  it('can reopen quick setup after a skip and after requests have started', async () => {
+    window.localStorage.setItem('sub2api:user-api-key-onboarding:skip:1', String(Date.now()))
+    const onboardingStub = defineComponent({
+      props: { show: Boolean },
+      emits: ['skip'],
+      template: '<button data-test="setup-state" :data-show="String(show)" @click="$emit(\'skip\')">close</button>',
+    })
+    const wrapper = mount(DashboardView, {
+      global: {
+        stubs: {
+          AppLayout: defineComponent({ template: '<main><slot /></main>' }),
+          LoadingSpinner: true,
+          Icon: true,
+          UserDashboardStats: true,
+          UserDashboardPerformanceStats: true,
+          UserDashboardCharts: true,
+          UserDashboardPlatformBreakdown: true,
+          UserDashboardAccountUsage: true,
+          UserDashboardRecentUsage: true,
+          UserDashboardQuickActions: true,
+          UserApiKeyOnboardingDialog: onboardingStub,
+        },
+      },
+    })
+    await flushPromises()
+    expect(wrapper.get('[data-test="setup-state"]').attributes('data-show')).toBe('false')
+    await wrapper.get('[data-testid="quick-setup"]').trigger('click')
+    expect(wrapper.get('[data-test="setup-state"]').attributes('data-show')).toBe('true')
+    await wrapper.get('[data-test="setup-state"]').trigger('click')
+    expect(wrapper.get('[data-test="setup-state"]').attributes('data-show')).toBe('false')
+    await wrapper.get('[data-testid="quick-setup"]').trigger('click')
+    expect(wrapper.get('[data-test="setup-state"]').attributes('data-show')).toBe('true')
   })
 })

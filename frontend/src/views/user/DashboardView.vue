@@ -1,6 +1,12 @@
 <template>
   <AppLayout>
     <div class="user-dashboard-page">
+      <div v-if="user?.role !== 'admin'" class="mb-4 flex justify-end">
+        <button type="button" class="btn btn-secondary inline-flex items-center gap-2" data-testid="quick-setup" @click="quickSetupOpen = true">
+          <Icon name="bolt" size="sm" />
+          {{ t('dashboard.onboarding.quickSetup') }}
+        </button>
+      </div>
       <div v-if="loading" class="dashboard-loading-state">
         <LoadingSpinner />
       </div>
@@ -34,6 +40,7 @@
       </template>
     </div>
     <UserApiKeyOnboardingDialog
+      :key="user?.id"
       :show="showApiKeyOnboarding"
       :has-api-key="hasApiKeyForOnboarding"
       :has-benefit="hasOnboardingBenefit"
@@ -57,6 +64,7 @@ import { userAPI } from '@/api/user'
 import { welfareAPI } from '@/api/welfare'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import Icon from '@/components/icons/Icon.vue'
 import UserDashboardStats from '@/components/user/dashboard/UserDashboardStats.vue'
 import UserDashboardPerformanceStats from '@/components/user/dashboard/UserDashboardPerformanceStats.vue'
 import UserDashboardCharts from '@/components/user/dashboard/UserDashboardCharts.vue'
@@ -89,6 +97,7 @@ const trendData = ref<TrendDataPoint[]>([])
 const recentUsage = ref<UsageLog[]>([])
 const accountUsageSummary = ref<UserAccountUsageSummary | null>(null)
 const apiKeyOnboardingDismissed = ref(false)
+const quickSetupOpen = ref(false)
 const welfareTrial = ref<WelfareNewUserTrial | null>(null)
 
 const formatLD = (d: Date) => {
@@ -196,10 +205,12 @@ const apiKeyOnboardingStorageKey = computed(() => {
 
 const showApiKeyOnboarding = computed(() => {
   return Boolean(
-    stats.value &&
     user.value?.role !== 'admin' &&
-    stats.value.total_requests === 0 &&
-    !apiKeyOnboardingDismissed.value
+    (quickSetupOpen.value || (
+      stats.value &&
+      stats.value.total_requests === 0 &&
+      !apiKeyOnboardingDismissed.value
+    ))
   )
 })
 
@@ -260,6 +271,7 @@ const readApiKeyOnboardingSkip = () => {
 }
 
 const skipApiKeyOnboarding = () => {
+  quickSetupOpen.value = false
   apiKeyOnboardingDismissed.value = true
   const key = apiKeyOnboardingStorageKey.value
   try {
@@ -271,20 +283,13 @@ const skipApiKeyOnboarding = () => {
   }
 }
 
-const markApiKeyOnboardingDone = () => {
+const closeApiKeyOnboardingForNavigation = () => {
+  quickSetupOpen.value = false
   apiKeyOnboardingDismissed.value = true
-  const key = apiKeyOnboardingStorageKey.value
-  try {
-    if (key) {
-      window.localStorage.setItem(key, String(Date.now()))
-    }
-  } catch {
-    // Ignore storage failures; navigation should continue.
-  }
 }
 
 const startApiKeyOnboardingCreate = async () => {
-  markApiKeyOnboardingDone()
+  closeApiKeyOnboardingForNavigation()
   await router.push(
     hasApiKeyForOnboarding.value
       ? { path: '/keys' }
@@ -293,7 +298,7 @@ const startApiKeyOnboardingCreate = async () => {
 }
 
 const openApiKeyTutorial = async () => {
-  markApiKeyOnboardingDone()
+  closeApiKeyOnboardingForNavigation()
   await router.push('/tutorial/getting-started')
 }
 

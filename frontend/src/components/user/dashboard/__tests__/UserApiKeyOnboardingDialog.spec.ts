@@ -1,167 +1,178 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
 import UserApiKeyOnboardingDialog from '../UserApiKeyOnboardingDialog.vue'
 
-const { openSupportPopupMock } = vi.hoisted(() => ({
-  openSupportPopupMock: vi.fn(),
+const mocks = vi.hoisted(() => ({
+  list: vi.fn(),
+  copy: vi.fn(),
+  support: vi.fn(),
 }))
+vi.mock('@/api/keys', () => ({ keysAPI: { list: mocks.list } }))
+vi.mock('@/composables/useClipboard', () => ({ useClipboard: () => ({ copyToClipboard: mocks.copy }) }))
+vi.mock('@/utils/supportPopup', () => ({ openSupportPopup: mocks.support }))
+vi.mock('vue-i18n', async () => {
+  const { default: dashboard } = await import('@/i18n/locales/zh/dashboard')
+  return {
+    useI18n: () => ({
+      t: (key: string, params: Record<string, unknown> = {}) => {
+        const message = key.split('.').slice(1).reduce<unknown>((value, part) =>
+          value && typeof value === 'object' ? (value as Record<string, unknown>)[part] : undefined, dashboard)
+        return typeof message === 'string'
+          ? message.replace(/\{(\w+)\}/g, (_, name: string) => String(params[name] ?? ''))
+          : key
+      },
+    }),
+  }
+})
 
-vi.mock('vue-i18n', () => ({
-  useI18n: () => ({
-    t: (key: string) => {
-      const messages: Record<string, string> = {
-        'dashboard.onboarding.title': '先创建一个 API 密钥',
-        'dashboard.onboarding.description': 'API 密钥是接入工具的凭证。',
-        'dashboard.onboarding.readyTitle': '默认 API 密钥已准备好',
-        'dashboard.onboarding.descriptionWithKey': '系统已为您创建默认 API 密钥。',
-        'dashboard.onboarding.badge': '新用户接入引导',
-        'dashboard.onboarding.trialBadge': '新人福利',
-        'dashboard.onboarding.trialTitle': '首次调用后领免费积分',
-        'dashboard.onboarding.trialDescription': '创建 API 密钥后发起首次调用，API 专用试用积分会自动启用并抵扣，无需先购买积分。',
-        'dashboard.onboarding.trialDescriptionWithKey': '默认 API 密钥已准备好，发起首次调用后 API 专用试用积分会自动启用并抵扣，无需先购买积分。',
-        'dashboard.onboarding.balanceDescription': '账户积分已发放到账号，创建 API 密钥后即可开始调用，系统会按实际消耗自动扣减。',
-        'dashboard.onboarding.balanceDescriptionWithKey': '账户积分已发放到账号，使用默认 API 密钥即可开始调用，系统会按实际消耗自动扣减。',
-        'dashboard.onboarding.rewardDescription': '创建 API 密钥并完成一次真实调用后，到福利中心领取免费积分。',
-        'dashboard.onboarding.rewardDescriptionWithKey': '使用默认 API 密钥完成一次真实调用后，到福利中心领取免费积分。',
-        'dashboard.onboarding.trialQuotaFallback': 'API 试用积分',
-        'dashboard.onboarding.trialQuotaAmount': '0.1 API 试用积分',
-        'dashboard.onboarding.balanceFallback': '账户积分',
-        'dashboard.onboarding.balanceAmount': '0.1 账户积分',
-        'dashboard.onboarding.rewardFallback': '免费积分',
-        'dashboard.onboarding.rewardAmount': '1 免费积分',
-        'dashboard.onboarding.walletNotice': 'API 专用试用积分仅用于调用，不会显示为账户积分。',
-        'dashboard.onboarding.walletBalanceNotice': '可在账户积分中查看，调用时按实际消耗扣减。',
-        'dashboard.onboarding.pillAutoActivate': '首调用自动抵扣',
-        'dashboard.onboarding.pillBalanceDeduct': '调用自动扣减',
-        'dashboard.onboarding.pillGpt55': 'GPT-5.5',
-        'dashboard.onboarding.pillImage2': 'Image2',
-        'dashboard.onboarding.pillClaude': 'Claude',
-        'dashboard.onboarding.pillOpenClaw': 'OpenClaw',
-        'dashboard.onboarding.pillWelfareClaim': '福利中心领取',
-        'dashboard.onboarding.pillNoRecharge': '无需购买体验',
-        'dashboard.onboarding.createKey': '创建 API 密钥',
-        'dashboard.onboarding.openKey': '查看 API 密钥',
-        'dashboard.onboarding.joinGroup': '联系客服',
-        'dashboard.onboarding.viewTutorial': '查看教程',
-        'dashboard.onboarding.skip': '暂时跳过',
-        'dashboard.onboarding.stepKeyTitle': '创建密钥',
-        'dashboard.onboarding.stepKeyDescription': '生成 API Key，接入 Codex、Claude Code 或其他工具。',
-        'dashboard.onboarding.stepCopyKeyTitle': '复制密钥',
-        'dashboard.onboarding.stepCopyKeyDescription': '打开密钥页，复制默认 API Key 和 Base URL。',
-        'dashboard.onboarding.stepToolTitle': '接入工具',
-        'dashboard.onboarding.stepToolDescription': '按教程配置工具。',
-        'dashboard.onboarding.stepTrialTitle': '发起首次调用',
-        'dashboard.onboarding.stepTrialDescription': '发送一次真实请求，试用积分会自动启用并抵扣。',
-        'dashboard.onboarding.stepBalanceDescription': '使用新密钥发送一次真实请求，费用会从账户积分中扣减。',
-        'dashboard.onboarding.stepRewardCallDescription': '发送一次真实请求，完成领取条件。',
-        'dashboard.onboarding.stepRewardClaimTitle': '领取积分',
-        'dashboard.onboarding.stepRewardTitle': '领取 1 免费积分',
-        'dashboard.onboarding.stepRewardDescription': '到福利中心领取免费积分。',
-        'dashboard.onboarding.stepUsageTitle': '查看用量',
-        'dashboard.onboarding.stepUsageDescription': '查看消费和调用记录。',
-      }
-      return messages[key] ?? key
+const rawKey = 'sk-test-onboarding-not-a-real-credential-0123456789'
+const makeKey = (overrides = {}) => ({
+  id: 1, is_default: true, key: rawKey, status: 'active', expires_at: null, quota: 0, quota_used: 0,
+  ...overrides,
+})
+const wrappers: ReturnType<typeof mount>[] = []
+function render(props = {}) {
+  const wrapper = mount(UserApiKeyOnboardingDialog, {
+    props: { show: true, hasApiKey: true, ...props },
+    global: {
+      stubs: { Teleport: true, Transition: false },
     },
-  }),
-}))
+  })
+  wrappers.push(wrapper)
+  return wrapper
+}
+beforeEach(() => {
+  vi.clearAllMocks()
+  mocks.list.mockResolvedValue({ items: [makeKey()], total: 1 })
+  mocks.copy.mockResolvedValue(true)
+})
+afterEach(() => { wrappers.splice(0).forEach(wrapper => wrapper.unmount()) })
 
-vi.mock('@/utils/supportPopup', () => ({
-  openSupportPopup: openSupportPopupMock,
-}))
-
-describe('UserApiKeyOnboardingDialog', () => {
-  beforeEach(() => {
-    openSupportPopupMock.mockClear()
+describe('UserApiKeyOnboardingDialog quick setup', () => {
+  it('links the executable without credentials and only displays a masked key', async () => {
+    const wrapper = render()
+    await flushPromises()
+    expect(wrapper.text()).toContain('两步完成 ChatGPT 配置')
+    expect(wrapper.text()).toContain('下载配置助手')
+    expect(wrapper.text()).toContain('复制你的密钥')
+    expect(wrapper.text()).not.toContain(rawKey)
+    expect(wrapper.get('code').text()).toBe('sk-tes...6789')
+    expect(wrapper.get('[data-testid="setup-download"]').attributes('href')).toBe('/downloads/chatgpt-config-windows.exe')
+    expect(mocks.list).toHaveBeenCalledWith(1, 1, { sort_by: 'id', sort_order: 'asc' }, { signal: expect.any(AbortSignal) })
+    expect(mocks.copy).not.toHaveBeenCalled()
   })
 
-  it('renders onboarding content and emits primary actions', async () => {
-    const wrapper = mount(UserApiKeyOnboardingDialog, {
-      props: {
-        show: true,
-        hasApiKey: true,
-        hasBenefit: true,
-        benefitKind: 'reward',
-        benefitLabel: '1 免费积分',
-        benefitRewardLabel: '1 免费积分',
-      },
-      global: {
-        stubs: {
-          Teleport: true,
-          Transition: false,
-          Icon: true,
-        },
-      },
-    })
+  it('copies the full key on click, shows the next action and keeps the dialog open', async () => {
+    const wrapper = render()
+    await flushPromises()
+    await wrapper.get('[data-testid="setup-copy"]').trigger('click')
+    await flushPromises()
+    expect(mocks.copy).toHaveBeenCalledWith(rawKey, '已复制密钥')
+    expect(wrapper.text()).toContain('已复制密钥')
+    expect(wrapper.text()).toContain('打开助手 → 粘贴密钥 → 测试并保存。')
+    expect(wrapper.emitted('skip')).toBeUndefined()
+    expect(wrapper.text()).not.toContain(rawKey)
+  })
 
-    expect(wrapper.text()).toContain('首次调用后领免费积分')
-    expect(wrapper.text()).toContain('使用默认 API 密钥完成一次真实调用后，到福利中心领取免费积分')
-    expect(wrapper.text()).toContain('GPT-5.5')
-    expect(wrapper.text()).toContain('Image2')
-    expect(wrapper.text()).toContain('Claude')
-    expect(wrapper.text()).toContain('OpenClaw')
-    expect(wrapper.text()).not.toContain('1 免费积分')
-    expect(wrapper.text()).not.toContain('首次调用成功后')
-    expect(wrapper.text()).toContain('复制密钥')
-    expect(wrapper.text()).toContain('发起首次调用')
-    expect(wrapper.text()).toContain('领取积分')
-    expect(wrapper.find('.pointer-events-none').exists()).toBe(true)
-    expect(wrapper.find('.items-center.justify-center').exists()).toBe(true)
-    expect(wrapper.find('img[src="/onboarding/new-user-trial-popup-header.png"]').exists()).toBe(true)
-    expect(wrapper.find('.modal-overlay').exists()).toBe(false)
+  it('does not claim success when copying fails', async () => {
+    mocks.copy.mockResolvedValue(false)
+    const wrapper = render()
+    await flushPromises()
+    await wrapper.get('[data-testid="setup-copy"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[data-testid="setup-copy"]').text()).toBe('复制默认密钥')
+  })
 
-    await wrapper.get('button.btn-primary').trigger('click')
-    expect(wrapper.get('button.btn-primary').text()).toBe('查看 API 密钥')
+  it.each([
+    [{ status: 'inactive' }, '默认密钥已停用'],
+    [{ status: 'expired' }, '默认密钥已过期'],
+    [{ expires_at: '2000-01-01T00:00:00Z' }, '默认密钥已过期'],
+    [{ status: 'quota_exhausted' }, '默认密钥额度已用尽'],
+    [{ quota: 1, quota_used: 1 }, '默认密钥额度已用尽'],
+  ])('does not offer copying for unavailable keys: %j', async (overrides, expected) => {
+    mocks.list.mockResolvedValue({ items: [makeKey(overrides)], total: 1 })
+    const wrapper = render()
+    await flushPromises()
+    expect(wrapper.text()).toContain(expected)
+    expect(wrapper.find('[data-testid="setup-copy"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('前往密钥管理')
+    expect(mocks.copy).not.toHaveBeenCalled()
+  })
+
+  it('never substitutes another key when the default flag is absent', async () => {
+    mocks.list.mockResolvedValue({ items: [makeKey({ is_default: false })], total: 1 })
+    const wrapper = render()
+    await flushPromises()
+    expect(wrapper.find('[data-testid="setup-copy"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('还没有可复制的默认密钥')
+    expect(mocks.copy).not.toHaveBeenCalled()
+  })
+
+  it('offers key creation when no key exists', async () => {
+    mocks.list.mockResolvedValue({ items: [], total: 0 })
+    const wrapper = render({ hasApiKey: false })
+    await flushPromises()
+    await wrapper.findAll('button').find(button => button.text() === '创建 API 密钥')!.trigger('click')
     expect(wrapper.emitted('create')).toHaveLength(1)
+    expect(wrapper.emitted('skip')).toBeUndefined()
+  })
 
-    const buttonByText = (text: string) => wrapper.findAll('button').find(button => button.text() === text)
-    await buttonByText('暂时跳过')?.trigger('click')
-    await buttonByText('查看教程')?.trigger('click')
-    await buttonByText('联系客服')?.trigger('click')
+  it('shows loading and retries a failed request without exposing server errors', async () => {
+    let reject!: (reason: Error) => void
+    mocks.list.mockReturnValueOnce(new Promise((_, rejectRequest) => { reject = rejectRequest }))
+    const wrapper = render()
+    expect(wrapper.text()).toContain('正在读取密钥')
+    reject(new Error(rawKey))
+    await flushPromises()
+    expect(wrapper.text()).not.toContain(rawKey)
+    expect(wrapper.text()).toContain('暂时无法读取密钥')
+    await wrapper.findAll('button').find(button => button.text() === '重新读取密钥')!.trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="setup-copy"]').exists()).toBe(true)
+  })
 
-    expect(wrapper.emitted('skip')).toHaveLength(1)
+  it('ignores stale responses after closing and reopens with a fresh request', async () => {
+    let resolve!: (value: unknown) => void
+    mocks.list.mockReturnValueOnce(new Promise(resolveRequest => { resolve = resolveRequest }))
+    const wrapper = render()
+    const signal = mocks.list.mock.calls[0][3].signal as AbortSignal
+    await wrapper.setProps({ show: false })
+    expect(signal.aborted).toBe(true)
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+    resolve({ items: [makeKey({ key: 'sk-stale-secret', status: 'inactive' })] })
+    await flushPromises()
+    expect(wrapper.find('[data-testid="setup-copy"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('sk-stale-secret')
+    expect(mocks.list).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not fetch a key for a closed dialog', async () => {
+    render({ show: false })
+    await flushPromises()
+    expect(mocks.list).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['reward', '完成首次真实调用后，可到福利中心领取 1 免费积分。'],
+    ['trial', '首次调用时自动启用 API 试用积分'],
+    ['wallet', '账户积分已到账'],
+  ] as const)('preserves benefit guidance for %s', async (benefitKind, expected) => {
+    const wrapper = render({ hasBenefit: true, benefitKind, benefitLabel: '1 免费积分' })
+    await flushPromises()
+    expect(wrapper.text()).toContain(expected)
+    expect(wrapper.text()).not.toContain('GPT-5.5')
+  })
+
+  it('retains tutorial, support and skip actions', async () => {
+    const wrapper = render()
+    await flushPromises()
+    const button = (text: string) => wrapper.findAll('button').find(item => item.text().startsWith(text))!
+    await button('其他系统 / 手动配置').trigger('click')
+    await button('联系客服').trigger('click')
+    await button('暂时跳过').trigger('click')
     expect(wrapper.emitted('tutorial')).toHaveLength(1)
-    expect(openSupportPopupMock).toHaveBeenCalledTimes(1)
-  })
-
-  it('shows the default key path when a key already exists', () => {
-    const wrapper = mount(UserApiKeyOnboardingDialog, {
-      props: {
-        show: true,
-        hasApiKey: true,
-      },
-      global: {
-        stubs: {
-          Teleport: true,
-          Transition: false,
-          Icon: true,
-        },
-      },
-    })
-
-    expect(wrapper.text()).toContain('默认 API 密钥已准备好')
-    expect(wrapper.text()).toContain('系统已为您创建默认 API 密钥')
-    expect(wrapper.text()).toContain('复制密钥')
-    expect(wrapper.text()).toContain('查看 API 密钥')
-    expect(wrapper.text()).not.toContain('先创建一个 API 密钥')
-  })
-
-  it('falls back to plain API key onboarding when trial is unavailable', () => {
-    const wrapper = mount(UserApiKeyOnboardingDialog, {
-      props: {
-        show: true,
-      },
-      global: {
-        stubs: {
-          Teleport: true,
-          Transition: false,
-          Icon: true,
-        },
-      },
-    })
-
-    expect(wrapper.text()).toContain('先创建一个 API 密钥')
-    expect(wrapper.text()).toContain('接入工具')
-    expect(wrapper.text()).toContain('查看用量')
-    expect(wrapper.text()).not.toContain('这笔额度仅用于 API 调用')
+    expect(mocks.support).toHaveBeenCalledOnce()
+    expect(wrapper.emitted('skip')).toHaveLength(1)
   })
 })
