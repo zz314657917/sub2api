@@ -236,8 +236,11 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		if err == nil && result != nil && result.FirstTokenMs != nil {
 			service.SetOpsLatencyMs(c, service.OpsTimeToFirstTokenMsKey, int64(*result.FirstTokenMs))
 		}
+		if streamBillingFirstResponseUncommitted(c) {
+			return
+		}
 		submitPartialChatUsage := func(res *service.OpenAIForwardResult) {
-			if !shouldSubmitOpenAIPartialUsage(err, res) {
+			if streamBillingFirstResponseUncommitted(c) || !shouldSubmitOpenAIPartialUsage(err, res) {
 				return
 			}
 			userAgent := c.GetHeader("User-Agent")
@@ -283,7 +286,7 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 					).Error("openai_chat_completions.record_partial_usage_failed", zap.Error(err))
 				}
 			})
-			trialReleasedByUsage = capturedTrialRelease != nil && submitMode != service.UsageRecordSubmitModeDropped
+			trialReleasedByUsage = capturedTrialRelease != nil && !submitMode.Dropped()
 		}
 		if err != nil {
 			if result != nil && result.ImageCount > 0 {
@@ -407,7 +410,7 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 				).Error("openai_chat_completions.record_usage_failed", zap.Error(err))
 			}
 		})
-		trialReleasedByUsage = capturedTrialRelease != nil && submitMode != service.UsageRecordSubmitModeDropped
+		trialReleasedByUsage = capturedTrialRelease != nil && !submitMode.Dropped()
 		reqLog.Debug("openai_chat_completions.request_completed",
 			zap.Int64("account_id", account.ID),
 			zap.Int("switch_count", switchCount),

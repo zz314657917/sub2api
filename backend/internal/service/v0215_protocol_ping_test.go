@@ -104,24 +104,22 @@ func TestV0215ProtocolHandleCCStreamingFromAnthropic_PingFlushesImmediately(t *t
 	send("content_block_delta", `{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":" world"}}`)
 	require.Contains(t, body, `"content":" world"`)
 	send("message_delta", `{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":7}}`)
-	send("message_stop", `{"type":"message_stop"}`)
-	ping()
-	require.NotContains(t, body, "[DONE]")
-	require.NoError(t, upstream.Close())
 
 	select {
 	case got := <-finished:
 		require.NoError(t, got.err)
+		require.NotNil(t, got.result)
+		require.False(t, got.result.ClientDisconnect)
 		require.Equal(t, 10, got.result.Usage.InputTokens)
 		require.Equal(t, 7, got.result.Usage.OutputTokens)
 		require.NotNil(t, got.result.FirstTokenMs)
 	case <-time.After(5 * time.Second):
-		t.Fatal("stream did not finish after EOF")
+		t.Fatal("stream did not finish after the terminal event without upstream EOF")
 	}
 	body = writer.Body.String()
 	require.NotContains(t, body, "event:")
 	require.NotContains(t, body, `"type":"ping"`)
-	require.Equal(t, 4, strings.Count(body, ": ping\n\n"))
+	require.Equal(t, 3, strings.Count(body, ": ping\n\n"))
 	require.Equal(t, 1, strings.Count(body, "data: [DONE]\n\n"))
 	require.True(t, strings.HasSuffix(body, "data: [DONE]\n\n"))
 	var content strings.Builder
@@ -163,9 +161,29 @@ func TestV0215ProtocolHandleCCStreamingFromAnthropic_PingDoesNotSetFirstToken(t 
 		&http.Response{Body: io.NopCloser(strings.NewReader("event: ping\ndata: {\"type\":\"ping\"}\n\n"))},
 		context, "gpt-5", "claude-sonnet-4.5", nil, time.Now(), true,
 	)
-	require.NoError(t, err)
-	require.Nil(t, result.FirstTokenMs)
+	require.ErrorIs(t, err, io.EOF)
+	require.ErrorContains(t, err, "stream usage incomplete")
+	require.Nil(t, result)
+	require.True(t, writer.Flushed)
 	require.True(t, strings.HasPrefix(writer.Body.String(), ": ping\n\n"))
+	require.NotContains(t, writer.Body.String(), "[DONE]")
+	require.NotContains(t, writer.Body.String(), `"finish_reason":"stop"`)
+
+	// A real protocol terminal exposes the result without adding token evidence.
+	successWriter := httptest.NewRecorder()
+	successContext, _ := gin.CreateTestContext(successWriter)
+	successResult, successErr := (&GatewayService{}).handleCCStreamingFromAnthropic(
+		&http.Response{Body: io.NopCloser(strings.NewReader("event: ping\ndata: {\"type\":\"ping\"}\n\ndata: [DONE]\n\n"))},
+		successContext, "gpt-5", "claude-sonnet-4.5", nil, time.Now(), true,
+	)
+	require.NoError(t, successErr)
+	require.NotNil(t, successResult)
+	require.Nil(t, successResult.FirstTokenMs)
+	require.Zero(t, successResult.Usage.InputTokens)
+	require.Zero(t, successResult.Usage.OutputTokens)
+	require.True(t, successWriter.Flushed)
+	require.True(t, strings.HasPrefix(successWriter.Body.String(), ": ping\n\n"))
+	require.Equal(t, 1, strings.Count(successWriter.Body.String(), "data: [DONE]\n\n"))
 }
 
 func TestV0215ProtocolHandleCCStreamingFromAnthropic_PingWriteFailureStopsDownstream(t *testing.T) {
@@ -193,7 +211,9 @@ func TestV0215ProtocolHandleCCStreamingFromAnthropic_PingWriteFailureStopsDownst
 			require.Zero(t, writer.writesAfterError)
 			require.Zero(t, writer.flushesAfterError)
 			require.NotContains(t, writer.Body.String(), "[DONE]")
-			require.Zero(t, result.Usage.OutputTokens)
+			require.NotNil(t, result)
+			require.True(t, result.ClientDisconnect)
+			require.Equal(t, 7, result.Usage.OutputTokens)
 			if withUsage {
 				require.Equal(t, 10, result.Usage.InputTokens)
 			} else {

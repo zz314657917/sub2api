@@ -199,6 +199,12 @@ func (s *GatewayService) ForwardAsChatCompletions(
 		result, handleErr = s.handleCCBufferedFromAnthropic(resp, c, originalModel, mappedModel, reasoningEffort, startTime)
 	}
 
+	if StreamBillingFirstResponseUncommitted(ctx, c) {
+		if handleErr == nil {
+			handleErr = ctx.Err()
+		}
+		return nil, handleErr
+	}
 	return result, handleErr
 }
 
@@ -392,12 +398,8 @@ func (s *GatewayService) handleCCStreamingFromAnthropic(
 	var firstTokenMs *int
 	firstChunk := true
 
-	scanner := bufio.NewScanner(resp.Body)
-	maxLineSize := defaultMaxLineSize
-	if s.cfg != nil && s.cfg.Gateway.MaxLineSize > 0 {
-		maxLineSize = s.cfg.Gateway.MaxLineSize
-	}
-	scanner.Buffer(make([]byte, 0, 64*1024), maxLineSize)
+	stream := s.newAnthropicCompatBillingStream(resp, c)
+	defer stream.pump.stop()
 
 	resultWithUsage := func() *ForwardResult {
 		return &ForwardResult{
@@ -411,10 +413,15 @@ func (s *GatewayService) handleCCStreamingFromAnthropic(
 			Stream:                        true,
 			Duration:                      time.Since(startTime),
 			FirstTokenMs:                  firstTokenMs,
+			ClientDisconnect:              stream.disconnected,
 		}
 	}
 
 	writeChunk := func(chunk apicompat.ChatCompletionsChunk) bool {
+		stream.checkClient()
+		if stream.disconnected {
+			return false
+		}
 		sse, err := apicompat.ChatChunkToSSE(chunk)
 		if err != nil {
 			return false
@@ -430,6 +437,10 @@ func (s *GatewayService) handleCCStreamingFromAnthropic(
 
 	processAnthropicEvent := func(event *apicompat.AnthropicStreamEvent) bool {
 		if event == nil {
+			return false
+		}
+		stream.checkClient()
+		if stream.disconnected {
 			return false
 		}
 		// Heartbeats are SSE comments, not Chat chunks or first-token evidence.
@@ -469,43 +480,13 @@ func (s *GatewayService) handleCCStreamingFromAnthropic(
 		return false
 	}
 
-	for scanner.Scan() {
-		line := scanner.Text()
-		if !strings.HasPrefix(line, "event: ") {
-			continue
-		}
-
-		if !scanner.Scan() {
-			break
-		}
-		dataLine := scanner.Text()
-		if !strings.HasPrefix(dataLine, "data: ") {
-			continue
-		}
-		payload := dataLine[6:]
-		observer := upstreamResponseModelObserverFromContext(c)
-		if observer == nil {
-			observer = beginUpstreamResponseModelObservation(c)
-		}
-		observer.ObserveAnthropic([]byte(payload))
-
-		var event apicompat.AnthropicStreamEvent
-		if err := json.Unmarshal([]byte(payload), &event); err != nil {
-			continue
-		}
-
-		if processAnthropicEvent(&event) {
-			return resultWithUsage(), nil
-		}
+	if err := stream.read(c, &usage, processAnthropicEvent); err != nil {
+		return anthropicCompatBillingFailure(c, resultWithUsage(), err, func() bool {
+			return writeAnthropicCompatBillingFailure(c, nil, err)
+		})
 	}
-
-	if err := scanner.Err(); err != nil {
-		if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
-			logger.L().Warn("forward_as_cc stream: read error",
-				zap.Error(err),
-				zap.String("request_id", requestID),
-			)
-		}
+	if stream.disconnected {
+		return resultWithUsage(), nil
 	}
 
 	// Finalize both state machines
@@ -513,16 +494,29 @@ func (s *GatewayService) handleCCStreamingFromAnthropic(
 	for _, resEvt := range finalResEvents {
 		ccChunks := apicompat.ResponsesEventToChatChunks(&resEvt, ccState)
 		for _, chunk := range ccChunks {
-			writeChunk(chunk) //nolint:errcheck
+			if writeChunk(chunk) {
+				stream.disconnect()
+				return resultWithUsage(), nil
+			}
 		}
 	}
 	finalCCChunks := apicompat.FinalizeResponsesChatStream(ccState)
 	for _, chunk := range finalCCChunks {
-		writeChunk(chunk) //nolint:errcheck
+		if writeChunk(chunk) {
+			stream.disconnect()
+			return resultWithUsage(), nil
+		}
 	}
 
 	// Write [DONE] marker
-	fmt.Fprint(c.Writer, "data: [DONE]\n\n") //nolint:errcheck
+	stream.checkClient()
+	if stream.disconnected {
+		return resultWithUsage(), nil
+	}
+	if _, err := fmt.Fprint(c.Writer, "data: [DONE]\n\n"); err != nil {
+		stream.disconnect()
+		return resultWithUsage(), nil
+	}
 	c.Writer.Flush()
 
 	return resultWithUsage(), nil

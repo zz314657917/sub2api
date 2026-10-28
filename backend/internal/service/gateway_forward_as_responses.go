@@ -193,6 +193,12 @@ func (s *GatewayService) ForwardAsResponses(
 		result, handleErr = s.handleResponsesBufferedStreamingResponse(resp, c, originalModel, mappedModel, reasoningEffort, startTime)
 	}
 
+	if StreamBillingFirstResponseUncommitted(ctx, c) {
+		if handleErr == nil {
+			handleErr = ctx.Err()
+		}
+		return nil, handleErr
+	}
 	return result, handleErr
 }
 
@@ -430,12 +436,8 @@ func (s *GatewayService) handleResponsesStreamingResponse(
 	var firstTokenMs *int
 	firstChunk := true
 
-	scanner := bufio.NewScanner(resp.Body)
-	maxLineSize := defaultMaxLineSize
-	if s.cfg != nil && s.cfg.Gateway.MaxLineSize > 0 {
-		maxLineSize = s.cfg.Gateway.MaxLineSize
-	}
-	scanner.Buffer(make([]byte, 0, 64*1024), maxLineSize)
+	stream := s.newAnthropicCompatBillingStream(resp, c)
+	defer stream.pump.stop()
 
 	resultWithUsage := func() *ForwardResult {
 		return &ForwardResult{
@@ -449,11 +451,16 @@ func (s *GatewayService) handleResponsesStreamingResponse(
 			Stream:                        true,
 			Duration:                      time.Since(startTime),
 			FirstTokenMs:                  firstTokenMs,
+			ClientDisconnect:              stream.disconnected,
 		}
 	}
 
 	// processEvent handles a single parsed Anthropic SSE event.
 	processEvent := func(event *apicompat.AnthropicStreamEvent) bool {
+		stream.checkClient()
+		if stream.disconnected {
+			return false
+		}
 		if firstChunk {
 			firstChunk = false
 			ms := int(time.Since(startTime).Milliseconds())
@@ -472,6 +479,10 @@ func (s *GatewayService) handleResponsesStreamingResponse(
 		// Convert to Responses events
 		events := apicompat.AnthropicEventToResponsesEvents(event, state)
 		for _, evt := range events {
+			stream.checkClient()
+			if stream.disconnected {
+				return false
+			}
 			sse, err := apicompat.ResponsesEventToSSE(evt)
 			if err != nil {
 				logger.L().Warn("forward_as_responses stream: failed to marshal event",
@@ -495,65 +506,35 @@ func (s *GatewayService) handleResponsesStreamingResponse(
 	}
 
 	finalizeStream := func() (*ForwardResult, error) {
+		stream.checkClient()
+		if stream.disconnected {
+			return resultWithUsage(), nil
+		}
 		if finalEvents := apicompat.FinalizeAnthropicResponsesStream(state); len(finalEvents) > 0 {
 			for _, evt := range finalEvents {
+				stream.checkClient()
+				if stream.disconnected {
+					return resultWithUsage(), nil
+				}
 				sse, err := apicompat.ResponsesEventToSSE(evt)
 				if err != nil {
 					continue
 				}
 				out := string(reverseToolNamesIfPresent(c, []byte(sse)))
-				fmt.Fprint(c.Writer, out) //nolint:errcheck
+				if _, err := fmt.Fprint(c.Writer, out); err != nil {
+					stream.disconnect()
+					return resultWithUsage(), nil
+				}
 			}
 			c.Writer.Flush()
 		}
 		return resultWithUsage(), nil
 	}
 
-	// Read Anthropic SSE events
-	for scanner.Scan() {
-		line := scanner.Text()
-		if !strings.HasPrefix(line, "event: ") {
-			continue
-		}
-		eventType := strings.TrimPrefix(line, "event: ")
-
-		// Read data line
-		if !scanner.Scan() {
-			break
-		}
-		dataLine := scanner.Text()
-		if !strings.HasPrefix(dataLine, "data: ") {
-			continue
-		}
-		payload := dataLine[6:]
-		observer := upstreamResponseModelObserverFromContext(c)
-		if observer == nil {
-			observer = beginUpstreamResponseModelObservation(c)
-		}
-		observer.ObserveAnthropic([]byte(payload))
-
-		var event apicompat.AnthropicStreamEvent
-		if err := json.Unmarshal([]byte(payload), &event); err != nil {
-			logger.L().Warn("forward_as_responses stream: failed to parse event",
-				zap.Error(err),
-				zap.String("request_id", requestID),
-				zap.String("event_type", eventType),
-			)
-			continue
-		}
-
-		if processEvent(&event) {
-			return resultWithUsage(), nil
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
-			logger.L().Warn("forward_as_responses stream: read error",
-				zap.Error(err),
-				zap.String("request_id", requestID),
-			)
-		}
+	if err := stream.read(c, &usage, processEvent); err != nil {
+		return anthropicCompatBillingFailure(c, resultWithUsage(), err, func() bool {
+			return writeAnthropicCompatBillingFailure(c, state, err)
+		})
 	}
 
 	return finalizeStream()

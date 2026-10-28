@@ -5288,7 +5288,10 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
 					ResponseBody: body,
 				}
 			}
-			return nil, err
+			return partialStreamUsageResult(ctx, c, resp, streamResult, originalModel, mappedModel, startTime, err), err
+		}
+		if StreamBillingFirstResponseUncommitted(ctx, c) {
+			return nil, ctx.Err()
 		}
 		usage = streamResult.usage
 		firstTokenMs = streamResult.firstTokenMs
@@ -5547,7 +5550,10 @@ func (s *GatewayService) forwardAnthropicAPIKeyPassthroughWithInput(
 	if input.RequestStream {
 		streamResult, err := s.handleStreamingResponseAnthropicAPIKeyPassthrough(ctx, resp, c, account, input.StartTime, input.RequestModel)
 		if err != nil {
-			return nil, err
+			return partialStreamUsageResult(ctx, c, resp, streamResult, input.OriginalModel, input.RequestModel, input.StartTime, err), err
+		}
+		if StreamBillingFirstResponseUncommitted(ctx, c) {
+			return nil, ctx.Err()
 		}
 		usage = streamResult.usage
 		firstTokenMs = streamResult.firstTokenMs
@@ -5680,58 +5686,16 @@ func (s *GatewayService) handleStreamingResponseAnthropicAPIKeyPassthrough(
 	clientDisconnected := false
 	sawTerminalEvent := false
 
-	scanner := bufio.NewScanner(resp.Body)
 	maxLineSize := defaultMaxLineSize
 	if s.cfg != nil && s.cfg.Gateway.MaxLineSize > 0 {
 		maxLineSize = s.cfg.Gateway.MaxLineSize
 	}
-	scanBuf := getSSEScannerBuf64K()
-	scanner.Buffer(scanBuf[:0], maxLineSize)
-
-	type scanEvent struct {
-		line string
-		err  error
-	}
-	events := make(chan scanEvent, 16)
-	done := make(chan struct{})
-	sendEvent := func(ev scanEvent) bool {
-		select {
-		case events <- ev:
-			return true
-		case <-done:
-			return false
-		}
-	}
-	var lastReadAt int64
-	atomic.StoreInt64(&lastReadAt, time.Now().UnixNano())
-	go func(scanBuf *sseScannerBuf64K) {
-		defer putSSEScannerBuf64K(scanBuf)
-		defer close(events)
-		for scanner.Scan() {
-			atomic.StoreInt64(&lastReadAt, time.Now().UnixNano())
-			if !sendEvent(scanEvent{line: scanner.Text()}) {
-				return
-			}
-		}
-		if err := scanner.Err(); err != nil {
-			_ = sendEvent(scanEvent{err: err})
-		}
-	}(scanBuf)
-	defer close(done)
-
-	streamInterval := time.Duration(0)
-	if s.cfg != nil && s.cfg.Gateway.StreamDataIntervalTimeout > 0 {
-		streamInterval = time.Duration(s.cfg.Gateway.StreamDataIntervalTimeout) * time.Second
-	}
-	var intervalTicker *time.Ticker
-	if streamInterval > 0 {
-		intervalTicker = time.NewTicker(streamInterval)
-		defer intervalTicker.Stop()
-	}
-	var intervalCh <-chan time.Time
-	if intervalTicker != nil {
-		intervalCh = intervalTicker.C
-	}
+	pump := s.newAnthropicBillingPump(resp)
+	defer pump.stop()
+	events := pump.events
+	clientGone := anthropicClientGone(c)
+	requestGone := ctx.Done()
+	streamInterval := pump.interval
 
 	keepaliveInterval := time.Duration(0)
 	if s.cfg != nil && s.cfg.Gateway.StreamKeepaliveInterval > 0 {
@@ -5762,7 +5726,39 @@ func (s *GatewayService) handleStreamingResponseAnthropicAPIKeyPassthrough(
 	inPartialEvent := false
 
 	for {
+		// Check cancellation before consuming buffered input or writing a prelude.
 		select {
+		case <-clientGone:
+			clientDisconnected = true
+			clientGone = nil
+		default:
+		}
+		select {
+		case <-requestGone:
+			clientDisconnected = true
+			requestGone = nil
+		default:
+		}
+		if clientDisconnected {
+			if StreamBillingFirstResponseUncommitted(ctx, c) {
+				return nil, ctx.Err()
+			}
+			pump.disconnect()
+		}
+		select {
+		case <-pump.deadlineC():
+			return &streamingResult{usage: usage, firstTokenMs: firstTokenMs, clientDisconnect: true}, errGatewayAnthropicDrain
+		default:
+		}
+		select {
+		case <-clientGone:
+			clientDisconnected = true
+			clientGone = nil
+			continue
+		case <-requestGone:
+			clientDisconnected = true
+			requestGone = nil
+			continue
 		case ev, ok := <-events:
 			if !ok {
 				if !clientDisconnected {
@@ -5770,16 +5766,11 @@ func (s *GatewayService) handleStreamingResponseAnthropicAPIKeyPassthrough(
 					flusher.Flush()
 				}
 				if !sawTerminalEvent {
-					if clientDisconnected && streamInterval > 0 {
-						lastRead := time.Unix(0, atomic.LoadInt64(&lastReadAt))
-						if time.Since(lastRead) >= streamInterval {
-							return &streamingResult{usage: usage, firstTokenMs: firstTokenMs, clientDisconnect: true}, fmt.Errorf("stream usage incomplete after timeout")
-						}
-					}
 					return &streamingResult{usage: usage, firstTokenMs: firstTokenMs, clientDisconnect: clientDisconnected}, fmt.Errorf("stream usage incomplete: missing terminal event")
 				}
 				return &streamingResult{usage: usage, firstTokenMs: firstTokenMs, clientDisconnect: clientDisconnected}, nil
 			}
+			pump.readLine()
 			if ev.err != nil {
 				if sawTerminalEvent {
 					return &streamingResult{usage: usage, firstTokenMs: firstTokenMs, clientDisconnect: clientDisconnected}, nil
@@ -5807,6 +5798,9 @@ func (s *GatewayService) handleStreamingResponseAnthropicAPIKeyPassthrough(
 					ms := int(time.Since(startTime).Milliseconds())
 					firstTokenMs = &ms
 				}
+				if gjson.Get(data, "type").String() == "error" {
+					return nil, &UpstreamFailoverError{StatusCode: http.StatusForbidden, ResponseBody: []byte(data)}
+				}
 				s.parseSSEUsagePassthrough(data, usage)
 				observer := upstreamResponseModelObserverFromContext(c)
 				if observer == nil {
@@ -5820,11 +5814,18 @@ func (s *GatewayService) handleStreamingResponseAnthropicAPIKeyPassthrough(
 				}
 			}
 
+			if anthropicBillingClientCanceled(ctx, c) {
+				clientDisconnected = true
+				pump.disconnect()
+			}
 			if !clientDisconnected {
 				restored := string(reverseToolNamesIfPresent(c, []byte(line)))
 				if _, err := io.WriteString(w, restored); err != nil {
 					clientDisconnected = true
 					logger.LegacyPrintf("service.gateway", "[Anthropic passthrough] Client disconnected during streaming, continue draining upstream for usage: account=%d", account.ID)
+				} else if anthropicBillingClientCanceled(ctx, c) {
+					clientDisconnected = true
+					pump.disconnect()
 				} else if _, err := io.WriteString(w, "\n"); err != nil {
 					clientDisconnected = true
 					logger.LegacyPrintf("service.gateway", "[Anthropic passthrough] Client disconnected during streaming, continue draining upstream for usage: account=%d", account.ID)
@@ -5839,9 +5840,15 @@ func (s *GatewayService) handleStreamingResponseAnthropicAPIKeyPassthrough(
 				}
 			}
 
-		case <-intervalCh:
-			lastRead := time.Unix(0, atomic.LoadInt64(&lastReadAt))
-			if time.Since(lastRead) < streamInterval {
+			if sawTerminalEvent && line == "" {
+				return &streamingResult{usage: usage, firstTokenMs: firstTokenMs, clientDisconnect: clientDisconnected}, nil
+			}
+
+		case <-pump.deadlineC():
+			return &streamingResult{usage: usage, firstTokenMs: firstTokenMs, clientDisconnect: true}, errGatewayAnthropicDrain
+		case <-pump.idleC():
+			if len(events) > 0 {
+				pump.readLine()
 				continue
 			}
 			if clientDisconnected {
@@ -6216,7 +6223,10 @@ func (s *GatewayService) forwardBedrock(
 	if reqStream {
 		streamResult, err := s.handleBedrockStreamingResponse(ctx, resp, c, account, startTime, reqModel)
 		if err != nil {
-			return nil, err
+			return partialStreamUsageResult(ctx, c, resp, streamResult, reqModel, mappedModel, startTime, err), err
+		}
+		if StreamBillingFirstResponseUncommitted(ctx, c) {
+			return nil, ctx.Err()
 		}
 		usage = streamResult.usage
 		firstTokenMs = streamResult.firstTokenMs
@@ -7889,63 +7899,17 @@ func (s *GatewayService) handleStreamingResponse(ctx context.Context, resp *http
 
 	usage := &ClaudeUsage{}
 	var firstTokenMs *int
-	scanner := bufio.NewScanner(resp.Body)
-	// 设置更大的buffer以处理长行
 	maxLineSize := defaultMaxLineSize
 	if s.cfg != nil && s.cfg.Gateway.MaxLineSize > 0 {
 		maxLineSize = s.cfg.Gateway.MaxLineSize
 	}
-	scanBuf := getSSEScannerBuf64K()
-	scanner.Buffer(scanBuf[:0], maxLineSize)
+	pump := s.newAnthropicBillingPump(resp)
+	defer pump.stop()
+	events := pump.events
+	clientGone := anthropicClientGone(c)
+	requestGone := ctx.Done()
+	streamInterval := pump.interval
 
-	type scanEvent struct {
-		line string
-		err  error
-	}
-	// 独立 goroutine 读取上游，避免读取阻塞导致超时/keepalive无法处理
-	events := make(chan scanEvent, 16)
-	done := make(chan struct{})
-	sendEvent := func(ev scanEvent) bool {
-		select {
-		case events <- ev:
-			return true
-		case <-done:
-			return false
-		}
-	}
-	var lastReadAt int64
-	atomic.StoreInt64(&lastReadAt, time.Now().UnixNano())
-	go func(scanBuf *sseScannerBuf64K) {
-		defer putSSEScannerBuf64K(scanBuf)
-		defer close(events)
-		for scanner.Scan() {
-			atomic.StoreInt64(&lastReadAt, time.Now().UnixNano())
-			if !sendEvent(scanEvent{line: scanner.Text()}) {
-				return
-			}
-		}
-		if err := scanner.Err(); err != nil {
-			_ = sendEvent(scanEvent{err: err})
-		}
-	}(scanBuf)
-	defer close(done)
-
-	streamInterval := time.Duration(0)
-	if s.cfg != nil && s.cfg.Gateway.StreamDataIntervalTimeout > 0 {
-		streamInterval = time.Duration(s.cfg.Gateway.StreamDataIntervalTimeout) * time.Second
-	}
-	// 仅监控上游数据间隔超时，避免下游写入阻塞导致误判
-	var intervalTicker *time.Ticker
-	if streamInterval > 0 {
-		intervalTicker = time.NewTicker(streamInterval)
-		defer intervalTicker.Stop()
-	}
-	var intervalCh <-chan time.Time
-	if intervalTicker != nil {
-		intervalCh = intervalTicker.C
-	}
-
-	// 下游 keepalive：防止代理/Cloudflare Tunnel 因连接空闲而断开
 	keepaliveInterval := time.Duration(0)
 	if s.cfg != nil && s.cfg.Gateway.StreamKeepaliveInterval > 0 {
 		keepaliveInterval = time.Duration(s.cfg.Gateway.StreamKeepaliveInterval) * time.Second
@@ -8066,6 +8030,9 @@ func (s *GatewayService) handleStreamingResponse(ctx context.Context, resp *http
 		if eventName == "" {
 			eventName = eventType
 		}
+		if eventType == "error" {
+			return nil, dataLine, nil, &sseStreamErrorEventError{RawData: dataLine}
+		}
 		eventChanged := false
 
 		if useNoopDeltaKeepalive {
@@ -8176,7 +8143,39 @@ func (s *GatewayService) handleStreamingResponse(ctx context.Context, resp *http
 	}
 
 	for {
+		// Check cancellation before consuming buffered input or writing a prelude.
 		select {
+		case <-clientGone:
+			clientDisconnected = true
+			clientGone = nil
+		default:
+		}
+		select {
+		case <-requestGone:
+			clientDisconnected = true
+			requestGone = nil
+		default:
+		}
+		if clientDisconnected {
+			if StreamBillingFirstResponseUncommitted(ctx, c) {
+				return nil, ctx.Err()
+			}
+			pump.disconnect()
+		}
+		select {
+		case <-pump.deadlineC():
+			return &streamingResult{usage: usage, firstTokenMs: firstTokenMs, clientDisconnect: true}, errGatewayAnthropicDrain
+		default:
+		}
+		select {
+		case <-clientGone:
+			clientDisconnected = true
+			clientGone = nil
+			continue
+		case <-requestGone:
+			clientDisconnected = true
+			requestGone = nil
+			continue
 		case ev, ok := <-events:
 			if !ok {
 				// 上游完成，返回结果
@@ -8185,6 +8184,7 @@ func (s *GatewayService) handleStreamingResponse(ctx context.Context, resp *http
 				}
 				return &streamingResult{usage: usage, firstTokenMs: firstTokenMs, clientDisconnect: clientDisconnected}, nil
 			}
+			pump.readLine()
 			if ev.err != nil {
 				if sawTerminalEvent {
 					return &streamingResult{usage: usage, firstTokenMs: firstTokenMs, clientDisconnect: clientDisconnected}, nil
@@ -8239,13 +8239,24 @@ func (s *GatewayService) handleStreamingResponse(ctx context.Context, resp *http
 				outputBlocks, data, usagePatch, err := processSSEEvent(pendingEventLines)
 				pendingEventLines = pendingEventLines[:0]
 				if err != nil {
-					if clientDisconnected {
-						return &streamingResult{usage: usage, firstTokenMs: firstTokenMs, clientDisconnect: true}, nil
-					}
 					return nil, err
+				}
+				// Usage belongs to the received event even if its first client write fails.
+				if data != "" {
+					if firstTokenMs == nil && data != "[DONE]" {
+						ms := int(time.Since(startTime).Milliseconds())
+						firstTokenMs = &ms
+					}
+					if usagePatch != nil {
+						mergeSSEUsagePatch(usage, usagePatch)
+					}
 				}
 
 				for _, block := range outputBlocks {
+					if anthropicBillingClientCanceled(ctx, c) {
+						clientDisconnected = true
+						pump.disconnect()
+					}
 					if !clientDisconnected {
 						restored := reverseToolNamesIfPresent(c, []byte(block))
 						if _, werr := fmt.Fprint(w, string(restored)); werr != nil {
@@ -8257,24 +8268,20 @@ func (s *GatewayService) handleStreamingResponse(ctx context.Context, resp *http
 						lastDataAt = time.Now()
 						resetKeepaliveTimer()
 					}
-					if data != "" {
-						if firstTokenMs == nil && data != "[DONE]" {
-							ms := int(time.Since(startTime).Milliseconds())
-							firstTokenMs = &ms
-						}
-						if usagePatch != nil {
-							mergeSSEUsagePatch(usage, usagePatch)
-						}
-					}
+				}
+				if sawTerminalEvent {
+					return &streamingResult{usage: usage, firstTokenMs: firstTokenMs, clientDisconnect: clientDisconnected}, nil
 				}
 				continue
 			}
 
 			pendingEventLines = append(pendingEventLines, line)
 
-		case <-intervalCh:
-			lastRead := time.Unix(0, atomic.LoadInt64(&lastReadAt))
-			if time.Since(lastRead) < streamInterval {
+		case <-pump.deadlineC():
+			return &streamingResult{usage: usage, firstTokenMs: firstTokenMs, clientDisconnect: true}, errGatewayAnthropicDrain
+		case <-pump.idleC():
+			if len(events) > 0 {
+				pump.readLine()
 				continue
 			}
 			if clientDisconnected {

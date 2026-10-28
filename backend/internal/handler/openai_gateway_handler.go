@@ -676,8 +676,11 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		if err == nil && result != nil && result.FirstTokenMs != nil {
 			service.SetOpsLatencyMs(c, service.OpsTimeToFirstTokenMsKey, int64(*result.FirstTokenMs))
 		}
+		if streamBillingFirstResponseUncommitted(c) {
+			return
+		}
 		submitPartialResponsesUsage := func(res *service.OpenAIForwardResult) {
-			if !shouldSubmitOpenAIPartialUsage(err, res) {
+			if streamBillingFirstResponseUncommitted(c) || !shouldSubmitOpenAIPartialUsage(err, res) {
 				return
 			}
 			userAgent := c.GetHeader("User-Agent")
@@ -726,7 +729,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 					).Error("openai.record_partial_usage_failed", zap.Error(err))
 				}
 			})
-			trialReleasedByUsage = capturedTrialRelease != nil && submitMode != service.UsageRecordSubmitModeDropped
+			trialReleasedByUsage = capturedTrialRelease != nil && !submitMode.Dropped()
 		}
 		if err != nil {
 			if result != nil && result.ImageCount > 0 {
@@ -891,7 +894,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 				).Error("openai.record_usage_failed", zap.Error(err))
 			}
 		})
-		trialReleasedByUsage = capturedTrialRelease != nil && submitMode != service.UsageRecordSubmitModeDropped
+		trialReleasedByUsage = capturedTrialRelease != nil && !submitMode.Dropped()
 		reqLog.Debug("openai.request_completed",
 			zap.Int64("account_id", account.ID),
 			zap.Int("switch_count", switchCount),
@@ -1291,8 +1294,11 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 		if err == nil && result != nil && result.FirstTokenMs != nil {
 			service.SetOpsLatencyMs(c, service.OpsTimeToFirstTokenMsKey, int64(*result.FirstTokenMs))
 		}
+		if streamBillingFirstResponseUncommitted(c) {
+			return
+		}
 		submitPartialMessagesUsage := func(res *service.OpenAIForwardResult) {
-			if !shouldSubmitOpenAIPartialUsage(err, res) {
+			if streamBillingFirstResponseUncommitted(c) || !shouldSubmitOpenAIPartialUsage(err, res) {
 				return
 			}
 			userAgent := c.GetHeader("User-Agent")
@@ -1340,7 +1346,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 					).Error("openai_messages.record_partial_usage_failed", zap.Error(err))
 				}
 			})
-			trialReleasedByUsage = capturedTrialRelease != nil && submitMode != service.UsageRecordSubmitModeDropped
+			trialReleasedByUsage = capturedTrialRelease != nil && !submitMode.Dropped()
 		}
 		if err != nil {
 			if result != nil && result.ImageCount > 0 {
@@ -1468,7 +1474,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 				).Error("openai_messages.record_usage_failed", zap.Error(err))
 			}
 		})
-		trialReleasedByUsage = capturedTrialRelease != nil && submitMode != service.UsageRecordSubmitModeDropped
+		trialReleasedByUsage = capturedTrialRelease != nil && !submitMode.Dropped()
 		reqLog.Debug("openai_messages.request_completed",
 			zap.Int64("account_id", account.ID),
 			zap.Int("switch_count", switchCount),
@@ -2434,7 +2440,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 						)
 					}
 				})
-				trialReleasedByUsage = capturedTrialRelease != nil && submitMode != service.UsageRecordSubmitModeDropped
+				trialReleasedByUsage = capturedTrialRelease != nil && !submitMode.Dropped()
 			},
 		}
 
@@ -2643,15 +2649,18 @@ func getContextInt64(c *gin.Context, key string) (int64, bool) {
 	}
 }
 
-func (h *OpenAIGatewayHandler) submitUsageRecordTask(parent context.Context, task service.UsageRecordTask) service.UsageRecordSubmitMode {
+func (h *OpenAIGatewayHandler) submitUsageRecordTask(parent context.Context, task service.UsageRecordTask) (mode service.UsageRecordSubmitMode) {
 	if task == nil {
 		return service.UsageRecordSubmitModeDropped
 	}
 	task = wrapUsageRecordTaskContext(parent, task)
 	if h.usageRecordWorkerPool != nil {
-		return h.usageRecordWorkerPool.Submit(task)
+		if mode := h.usageRecordWorkerPool.Submit(task); mode != service.UsageRecordSubmitModeDroppedStopped {
+			return mode
+		}
 	}
-	// 回退路径：worker 池未注入时同步执行，避免退回到无界 goroutine 模式。
+	// 无池或关停窗口同步兜底；显式 drop/sample 溢出仍遵循配置。
+	mode = service.UsageRecordSubmitModeSync
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	defer func() {
@@ -2673,19 +2682,20 @@ func (h *OpenAIGatewayHandler) submitOpenAIUsageRecordTask(parent context.Contex
 	return h.submitUsageRecordTask(parent, task)
 }
 
-func (h *OpenAIGatewayHandler) submitMandatoryUsageRecordTask(parent context.Context, task service.UsageRecordTask) service.UsageRecordSubmitMode {
+func (h *OpenAIGatewayHandler) submitMandatoryUsageRecordTask(parent context.Context, task service.UsageRecordTask) (mode service.UsageRecordSubmitMode) {
 	if task == nil {
 		return service.UsageRecordSubmitModeDropped
 	}
 	task = wrapUsageRecordTaskContext(parent, task)
 	if h.usageRecordWorkerPool != nil {
-		if mode := h.usageRecordWorkerPool.Submit(task); mode != service.UsageRecordSubmitModeDropped {
+		if mode := h.usageRecordWorkerPool.Submit(task); !mode.Dropped() {
 			return mode
 		}
 		logger.L().With(
 			zap.String("component", "handler.openai_gateway.usage"),
 		).Warn("openai.usage_record_task_mandatory_sync_fallback")
 	}
+	mode = service.UsageRecordSubmitModeSync
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	defer func() {
@@ -2735,7 +2745,7 @@ func (h *OpenAIGatewayHandler) checkBillingEligibilityOrBeginTrial(c *gin.Contex
 		defer cancel()
 		h.welfareService.CancelNewUserTrial(cancelCtx, session)
 	}
-	return session, release, nil
+	return session, sync.OnceFunc(release), nil
 }
 
 func (h *OpenAIGatewayHandler) acquireImageGenerationSlot(c *gin.Context, streamStarted bool) (func(), bool) {

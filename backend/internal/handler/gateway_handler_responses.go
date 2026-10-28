@@ -259,6 +259,53 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 			accountReleaseFunc()
 		}
 
+		// Success and observed partial failures share the same billing metadata.
+		submitForwardUsage := func(result *service.ForwardResult) {
+			if streamBillingFirstResponseUncommitted(c) || result == nil || (err != nil && !shouldSubmitGatewayPartialUsage(err, result)) {
+				return
+			}
+			// 6. Record usage
+			userAgent := c.GetHeader("User-Agent")
+			clientIP := ip.GetClientIP(c)
+			requestPayloadHash := service.HashUsageRequestPayload(body)
+			inboundEndpoint := GetInboundEndpoint(c)
+			upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
+			sessionID := service.ExtractClientSessionID(c)
+
+			capturedTrialSession := trialSession
+			capturedTrialRelease := trialRelease
+			submitMode := h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
+				if capturedTrialRelease != nil {
+					defer capturedTrialRelease()
+				}
+				if capturedTrialSession != nil {
+					ctx = service.WithNewUserTrialSession(ctx, capturedTrialSession)
+				}
+				if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
+					Result:             result,
+					APIKey:             apiKey,
+					User:               apiKey.User,
+					Account:            account,
+					Subscription:       subscription,
+					InboundEndpoint:    inboundEndpoint,
+					UpstreamEndpoint:   upstreamEndpoint,
+					UserAgent:          userAgent,
+					IPAddress:          clientIP,
+					SessionID:          sessionID,
+					RequestPayloadHash: requestPayloadHash,
+					RequestStartedAt:   requestStart,
+					APIKeyService:      h.apiKeyService,
+					ChannelUsageFields: channelMapping.ToUsageFields(reqModel, result.UpstreamModel),
+				}); err != nil {
+					reqLog.Error("gateway.responses.record_usage_failed",
+						zap.Int64("account_id", account.ID),
+						zap.Error(err),
+					)
+				}
+			})
+			trialReleasedByUsage = capturedTrialRelease != nil && !submitMode.Dropped()
+		}
+
 		if err != nil {
 			var failoverErr *service.UpstreamFailoverError
 			if errors.As(err, &failoverErr) {
@@ -280,7 +327,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 			}
 			upstreamErrorAlreadyCommunicated := gatewayForwardErrorAlreadyCommunicated(c, writerSizeBeforeForward, err)
 			wroteFallback := false
-			if !upstreamErrorAlreadyCommunicated {
+			if !upstreamErrorAlreadyCommunicated && c.Request.Context().Err() == nil && (result == nil || !result.ClientDisconnect) {
 				wroteFallback = h.ensureForwardErrorResponse(c, streamStarted)
 			}
 			reqLog.Error("gateway.responses.forward_failed",
@@ -289,49 +336,11 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 				zap.Bool("upstream_error_response_already_written", upstreamErrorAlreadyCommunicated),
 				zap.Error(err),
 			)
+			submitForwardUsage(result)
 			return
 		}
 
-		// 6. Record usage
-		userAgent := c.GetHeader("User-Agent")
-		clientIP := ip.GetClientIP(c)
-		requestPayloadHash := service.HashUsageRequestPayload(body)
-		inboundEndpoint := GetInboundEndpoint(c)
-		upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
-		sessionID := service.ExtractClientSessionID(c)
-
-		capturedTrialSession := trialSession
-		capturedTrialRelease := trialRelease
-		submitMode := h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
-			if capturedTrialRelease != nil {
-				defer capturedTrialRelease()
-			}
-			if capturedTrialSession != nil {
-				ctx = service.WithNewUserTrialSession(ctx, capturedTrialSession)
-			}
-			if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
-				Result:             result,
-				APIKey:             apiKey,
-				User:               apiKey.User,
-				Account:            account,
-				Subscription:       subscription,
-				InboundEndpoint:    inboundEndpoint,
-				UpstreamEndpoint:   upstreamEndpoint,
-				UserAgent:          userAgent,
-				IPAddress:          clientIP,
-				SessionID:          sessionID,
-				RequestPayloadHash: requestPayloadHash,
-				RequestStartedAt:   requestStart,
-				APIKeyService:      h.apiKeyService,
-				ChannelUsageFields: channelMapping.ToUsageFields(reqModel, result.UpstreamModel),
-			}); err != nil {
-				reqLog.Error("gateway.responses.record_usage_failed",
-					zap.Int64("account_id", account.ID),
-					zap.Error(err),
-				)
-			}
-		})
-		trialReleasedByUsage = capturedTrialRelease != nil && submitMode != service.UsageRecordSubmitModeDropped
+		submitForwardUsage(result)
 		return
 	}
 }
