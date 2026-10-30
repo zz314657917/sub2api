@@ -762,6 +762,11 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 		if !account.IsSchedulableWithContext(ctx) || account.Platform != normalizeOpenAICompatiblePlatform(req.Platform) || !isOpenAICompatibleAccount(account) {
 			continue
 		}
+		// A cooled request/model pair must not occupy the ranked top-K and
+		// hide eligible accounts. Keep the later fresh/DB checks for drift.
+		if req.RequestedModel != "" && account.isModelRateLimitedWithContext(ctx, req.RequestedModel) {
+			continue
+		}
 		if account.IsShadow() && !parentHealthyForShadow(account, func(parentID int64) *Account {
 			if parent := accountsByID[parentID]; parent != nil {
 				return parent

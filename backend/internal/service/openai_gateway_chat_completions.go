@@ -75,6 +75,7 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 	compatPromptCacheTenantIsolated bool,
 ) (*OpenAIForwardResult, error) {
 	ClearActualOpenAIUpstreamEndpoint(c)
+	rememberOpenAIModelUnavailableRequest(c, account, body)
 	setCodexToolNameReverse(c, nil)
 	if account != nil {
 		switch {
@@ -330,6 +331,9 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 		_ = resp.Body.Close()
 		resp.Body = io.NopCloser(bytes.NewReader(respBody))
 
+		if modelErr := s.failoverOpenAIModelUnavailable(ctx, c, account, resp, respBody, upstreamModel); modelErr != nil {
+			return nil, modelErr
+		}
 		upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(respBody))
 		upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
 		if !agentIdentityTaskRecoveryWasTried(ctx) && s.isAgentIdentityAccount(ctx, account) && isAgentIdentityTaskInvalidHTTPResponse(resp.StatusCode, respBody) {
@@ -341,6 +345,7 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 		}
 		if account.Type == AccountTypeAPIKey &&
 			openai_compat.ResolveResponsesSupport(account.Extra) == openai_compat.ResponsesSupportUnknown &&
+			!openAIHTTPModelUnavailable(c, account, resp.StatusCode, respBody) &&
 			!isResponsesEndpointSupportedByStatus(resp.StatusCode) {
 			logger.L().Info("openai chat_completions: /responses unsupported, falling back to raw chat completions",
 				zap.Int64("account_id", account.ID),

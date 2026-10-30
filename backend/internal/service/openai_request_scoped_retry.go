@@ -255,6 +255,14 @@ func augmentOpenAIHTTPFailover(c *gin.Context, account *Account, resp *http.Resp
 		return err
 	}
 	err.ResponseHeaders = resp.Header.Clone()
+	if openAIHTTPModelUnavailable(c, account, resp.StatusCode, body) {
+		err.RetryableOnSameAccount = false
+		err.SameAccountRetryLimit = 0
+		err.SameAccountRetryBackoffBase = 0
+		err.RequestScopedTransient = false
+		err.SameAccountRetryDelay = 0
+		return err
+	}
 	if openAIRequestScopedOverload(c, account, resp.StatusCode, body, false) {
 		err.RequestScopedTransient = true
 		err.SameAccountRetryDelay = openAIRequestRetryDelay(resp.Header, body, time.Now())
@@ -267,6 +275,17 @@ func augmentOpenAIHTTPFailover(c *gin.Context, account *Account, resp *http.Resp
 func (s *OpenAIGatewayService) handleOpenAIHTTPAccountUpstreamError(ctx context.Context, c *gin.Context, account *Account, status int, headers http.Header, body []byte, model ...string) bool {
 	if openAIRequestScopedOverload(c, account, status, body, false) {
 		return false
+	}
+	if openAIModelUnavailableHTTPScope(c, account) && (status == http.StatusBadRequest || status == http.StatusNotFound) {
+		if openAIModelUnavailableError(account, status, body) {
+			if len(model) > 0 {
+				s.persistOpenAIModelUnavailable(ctx, c, account, status, model[0])
+			}
+			return true
+		}
+		// The legacy global 404 parser scans the entire JSON body. HTTP text
+		// negatives must not re-enter it via a request/debug echo.
+		return s.handleOpenAIAccountUpstreamError(ctx, account, status, headers, body)
 	}
 	return s.handleOpenAIAccountUpstreamError(ctx, account, status, headers, body, model...)
 }

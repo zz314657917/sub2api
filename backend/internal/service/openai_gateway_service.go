@@ -2791,6 +2791,7 @@ func (s *OpenAIGatewayService) handleFailoverSideEffects(ctx context.Context, re
 
 // Forward forwards request to OpenAI API
 func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, account *Account, body []byte) (*OpenAIForwardResult, error) {
+	rememberOpenAIModelUnavailableRequest(c, account, body)
 	beginUpstreamResponseModelObservation(c)
 	startTime := time.Now()
 	setCodexToolNameReverse(c, nil)
@@ -3744,6 +3745,9 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			_ = resp.Body.Close()
 			resp.Body = io.NopCloser(bytes.NewReader(respBody))
 
+			if modelErr := s.failoverOpenAIModelUnavailable(ctx, c, account, resp, respBody, upstreamModel); modelErr != nil {
+				return nil, modelErr
+			}
 			upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(respBody))
 			upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
 			upstreamCode := extractUpstreamErrorCode(respBody)
@@ -4196,6 +4200,9 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 			return nil, fmt.Errorf("read Agent Identity error response: %w", readErr)
 		}
 		resp.Body = io.NopCloser(bytes.NewReader(probeBody))
+		if modelErr := s.failoverOpenAIModelUnavailable(ctx, c, account, resp, probeBody, gjson.GetBytes(body, "model").String()); modelErr != nil {
+			return nil, modelErr
+		}
 		if retryBody, _, changed, retryErr := normalizeOpenAIResponsesRejectedFieldRetryBody(resp.StatusCode, body, probeBody); retryErr != nil {
 			return nil, retryErr
 		} else if changed && rejectedFieldRetryState.Allow(retryBody) {
@@ -4542,6 +4549,9 @@ func (s *OpenAIGatewayService) handleErrorResponsePassthrough(
 ) error {
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
 	body = s.redactAgentIdentitySensitiveBody(ctx, account, body)
+	if modelErr := s.failoverOpenAIModelUnavailable(ctx, c, account, resp, body, gjson.GetBytes(requestBody, "model").String()); modelErr != nil {
+		return modelErr
+	}
 
 	upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(body))
 	upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
@@ -5861,6 +5871,13 @@ func (s *OpenAIGatewayService) handleErrorResponse(
 ) (*OpenAIForwardResult, error) {
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
 	body = s.redactAgentIdentitySensitiveBody(ctx, account, body)
+	model := gjson.GetBytes(requestBody, "model").String()
+	if len(requestedModel) > 0 && strings.TrimSpace(requestedModel[0]) != "" {
+		model = requestedModel[0]
+	}
+	if modelErr := s.failoverOpenAIModelUnavailable(ctx, c, account, resp, body, model); modelErr != nil {
+		return nil, modelErr
+	}
 	if hit, code, cyberMsg := detectOpenAICyberPolicy(body); hit {
 		MarkOpsCyberPolicy(c, CyberPolicyMark{
 			Code:           code,
@@ -6040,6 +6057,13 @@ func (s *OpenAIGatewayService) handleCompatErrorResponse(
 ) (*OpenAIForwardResult, error) {
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
 	body = s.redactAgentIdentitySensitiveBody(context.Background(), account, body)
+	model := ""
+	if len(requestedModel) > 0 {
+		model = requestedModel[0]
+	}
+	if modelErr := s.failoverOpenAIModelUnavailable(c.Request.Context(), c, account, resp, body, model); modelErr != nil {
+		return nil, modelErr
+	}
 	if hit, code, cyberMsg := detectOpenAICyberPolicy(body); hit {
 		MarkOpsCyberPolicy(c, CyberPolicyMark{
 			Code:           code,
