@@ -40,17 +40,19 @@ const legacyPelicanPrompt = "请生成一个精致、完整、独立的中文海
 const PelicanTestSettingsKey = "pelican_test_settings"
 
 type PelicanTestSettings struct {
-	DisplayName string `json:"display_name"`
-	Prompt      string `json:"prompt"`
-	Enabled     bool   `json:"enabled"`
+	DisplayName string                    `json:"display_name"`
+	Prompt      string                    `json:"prompt"`
+	Enabled     bool                      `json:"enabled"`
+	Radar       *PelicanReferenceSettings `json:"radar,omitempty"`
 }
 
 // PelicanTestSettingsUpdate keeps enabled presence-aware: an older client that
 // omits it must not accidentally turn the plaza off.
 type PelicanTestSettingsUpdate struct {
-	DisplayName string `json:"display_name"`
-	Prompt      string `json:"prompt"`
-	Enabled     *bool  `json:"enabled"`
+	DisplayName string                    `json:"display_name"`
+	Prompt      string                    `json:"prompt"`
+	Enabled     *bool                     `json:"enabled"`
+	Radar       *PelicanReferenceSettings `json:"radar,omitempty"`
 }
 
 type PelicanTestMetadata struct {
@@ -401,25 +403,26 @@ func (s pelicanMixedSelector) SelectPelicanAccount(ctx context.Context, groupID 
 }
 
 type PelicanTestService struct {
-	repo     PelicanTestRepository
-	accounts AccountRepository
-	groups   GroupRepository
-	tester   PelicanTestExecutor
-	selector PelicanAccountSelector
-	settings SettingRepository
-	cancel   context.CancelFunc
-	wg       sync.WaitGroup
-	mu       sync.Mutex
-	rootCtx  context.Context
-	planGate chan struct{}
-	started  bool
-	stopped  bool
-	stopOnce sync.Once
-	done     chan struct{}
+	repo      PelicanTestRepository
+	accounts  AccountRepository
+	groups    GroupRepository
+	tester    PelicanTestExecutor
+	selector  PelicanAccountSelector
+	settings  SettingRepository
+	cancel    context.CancelFunc
+	wg        sync.WaitGroup
+	mu        sync.Mutex
+	rootCtx   context.Context
+	planGate  chan struct{}
+	started   bool
+	stopped   bool
+	stopOnce  sync.Once
+	done      chan struct{}
+	reference *pelicanReferenceCache
 }
 
 func NewPelicanTestService(r PelicanTestRepository, a AccountRepository, g GroupRepository, t PelicanTestExecutor) *PelicanTestService {
-	return &PelicanTestService{repo: r, accounts: a, groups: g, tester: t, planGate: make(chan struct{}, 4), done: make(chan struct{})}
+	return &PelicanTestService{repo: r, accounts: a, groups: g, tester: t, planGate: make(chan struct{}, 4), done: make(chan struct{}), reference: newPelicanReferenceCache()}
 }
 func (s *PelicanTestService) SetAccountSelector(selector PelicanAccountSelector) {
 	s.selector = selector
@@ -463,6 +466,11 @@ func (s *PelicanTestService) GetSettings(ctx context.Context) (PelicanTestSettin
 	if err := validatePelicanTestSettings(settings); err != nil {
 		return PelicanTestSettings{}, fmt.Errorf("invalid persisted pelican test settings")
 	}
+	// Persisted validation must not depend on an evolving external catalog:
+	// a source label change cannot break the plaza's prompt/settings reads.
+	if settings.Radar, err = normalizePelicanReferenceSettings(settings.Radar, nil); err != nil {
+		return PelicanTestSettings{}, fmt.Errorf("invalid persisted pelican reference settings")
+	}
 	return settings, nil
 }
 
@@ -475,6 +483,12 @@ func (s *PelicanTestService) UpdateSettings(ctx context.Context, input PelicanTe
 	settings.Prompt = input.Prompt
 	if input.Enabled != nil {
 		settings.Enabled = *input.Enabled
+	}
+	if input.Radar != nil {
+		settings.Radar, err = normalizePelicanReferenceSettings(input.Radar, s.referenceCache().aliases())
+		if err != nil {
+			return PelicanTestSettings{}, err
+		}
 	}
 	if err := validatePelicanTestSettings(settings); err != nil {
 		return PelicanTestSettings{}, err

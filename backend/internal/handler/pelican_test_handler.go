@@ -150,6 +150,46 @@ func (h *PelicanTestHandler) Metadata(c *gin.Context) {
 	response.Success(c, metadata)
 }
 
+func (h *PelicanTestHandler) ReferenceScores(c *gin.Context) {
+	auth, ok := h.authorization(c)
+	if !ok {
+		return
+	}
+	svc, supported := h.svc.(interface {
+		ReferenceScores(context.Context, service.PelicanAuthorization) (*service.PelicanReferenceScores, error)
+	})
+	if !supported {
+		response.InternalError(c, "Reference scores unavailable")
+		return
+	}
+	scores, err := svc.ReferenceScores(c.Request.Context(), auth)
+	if err != nil {
+		pelicanError(c, err)
+		return
+	}
+	response.Success(c, scores)
+}
+
+func (h *PelicanTestHandler) ReferenceCatalog(c *gin.Context) {
+	c.Header("Cache-Control", "private, no-store")
+	if !pelicanAdmin(c) {
+		return
+	}
+	svc, supported := h.svc.(interface {
+		ReferenceCatalog(context.Context) (*service.PelicanReferenceCatalog, error)
+	})
+	if !supported {
+		response.InternalError(c, "Reference catalog unavailable")
+		return
+	}
+	catalog, err := svc.ReferenceCatalog(c.Request.Context())
+	if err != nil {
+		pelicanError(c, err)
+		return
+	}
+	response.Success(c, catalog)
+}
+
 func (h *PelicanTestHandler) GetSettings(c *gin.Context) {
 	if !pelicanAdmin(c) {
 		return

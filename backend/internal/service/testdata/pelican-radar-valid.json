@@ -1,0 +1,42 @@
+{
+  "schema": "codex-four-task-results/1",
+  "protocol": "codex-four-weighted-150-v2",
+  "round_id": "codex-four-261-10c-20261029",
+  "score_snapshot_at": "2026-10-29T12:00:25.692213Z",
+  "author_test_interval": {
+    "started_at": "2026-10-29T08:08:11.944316Z",
+    "completed_at": "2026-10-29T12:00:24.249331Z"
+  },
+  "score_max": 150,
+  "task_weights": {"combined": 60, "pompeii": 45, "pelican": 22.5, "candy": 22.5},
+  "models": ["gpt-6.1-sol", "gpt-6-luna"],
+  "model_names": {"gpt-6.1-sol": "GPT-6.1 Sol", "gpt-6-luna": "GPT-6 Luna"},
+  "model_efforts": {"gpt-6.1-sol": ["low", "high", "max", "ultra"], "gpt-6-luna": ["low", "high"]},
+  "efforts": ["low", "high", "max", "ultra"],
+  "rows": [
+    {
+      "model": "gpt-6.1-sol",
+      "effort": "low",
+      "combined": {"score": 69, "raw_score_total": 72},
+      "pompeii": {"score100": 52.17391304347826, "reward": 0.5217391304347826},
+      "pelican": {"score": 83.5},
+      "candy": {"correct": true}
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "effort": "max",
+      "combined": {"score": 0},
+      "pompeii": {"score100": 0},
+      "pelican": {"score": 0},
+      "candy": {"correct": false}
+    },
+    {
+      "model": "gpt-6-luna",
+      "effort": "high",
+      "combined": {"score": null},
+      "pompeii": {"score100": 60},
+      "pelican": {"score": 70},
+      "candy": {"correct": true}
+    }
+  ]
+}

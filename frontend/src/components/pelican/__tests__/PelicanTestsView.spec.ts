@@ -5,7 +5,7 @@ import PelicanTestsView from '@/views/user/PelicanTestsView.vue'
 import PelicanPlansPanel from '../PelicanPlansPanel.vue'
 
 const api = vi.hoisted(() => ({
-  list: vi.fn(), history: vi.fn(), result: vi.fn(), plans: vi.fn(), groups: vi.fn(), models: vi.fn(), accounts: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn(), run: vi.fn(), resume: vi.fn(), cleanup: vi.fn(), settings: vi.fn(), saveSettings: vi.fn()
+  list: vi.fn(), history: vi.fn(), result: vi.fn(), plans: vi.fn(), groups: vi.fn(), models: vi.fn(), accounts: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn(), run: vi.fn(), resume: vi.fn(), cleanup: vi.fn(), settings: vi.fn(), saveSettings: vi.fn(), reference: vi.fn(), catalog: vi.fn()
 }))
 const auth = reactive({ isAdmin: true, user: { id: 1 } })
 const metadata = reactive({ displayName: '鹈鹕测试', load: vi.fn(() => Promise.resolve()), applySavedName: vi.fn((name: string) => { metadata.displayName = name }) })
@@ -14,7 +14,8 @@ vi.mock('@/api/pelicanTests', () => ({
   buildPelicanListParams: (group: number | '', account: string, page: number, pageSize: number) => ({ group_id: group || undefined, account_id: account ? Number(account) : undefined, page, page_size: pageSize }),
   listPelicanTests: api.list, listPelicanHistory: api.history, getPelicanResult: api.result,
   listPelicanPlans: api.plans, listPelicanPlanModels: api.models, listPelicanPlanAccounts: api.accounts, createPelicanPlan: api.create, updatePelicanPlan: api.update, deletePelicanPlan: api.remove, runPelicanPlan: api.run, resumePelicanPlan: api.resume, cleanupPelicanPlan: api.cleanup,
-  getPelicanTestSettings: api.settings, updatePelicanTestSettings: api.saveSettings
+  getPelicanTestSettings: api.settings, updatePelicanTestSettings: api.saveSettings,
+  getPelicanReferenceScores: api.reference, getPelicanReferenceCatalog: api.catalog
 }))
 vi.mock('@/api/admin/groups', () => ({ default: { getAll: api.groups }, getAll: api.groups }))
 vi.mock('@/stores/auth', () => ({ useAuthStore: () => auth }))
@@ -29,6 +30,8 @@ describe('PelicanTestsView', () => {
   beforeEach(() => {
     vi.clearAllMocks(); auth.isAdmin = true; auth.user = { id: 1 }
     api.accounts.mockResolvedValue([])
+    api.reference.mockResolvedValue({ enabled: false, status: 'disabled', items: [] })
+    api.catalog.mockResolvedValue({ models: [], status: 'unavailable', synced_at: null })
     api.list.mockResolvedValue({ items: [item(27131)], total: 7, page: 1, page_size: 6, groups: [{ id: 3, name: '授权组' }] })
     api.result.mockResolvedValue(result(27131)); api.history.mockResolvedValue([result(27131)])
     api.plans.mockResolvedValue([]); api.groups.mockResolvedValue([{ id: 3, name: '授权组', status: 'active' }]); api.models.mockResolvedValue(['gpt-kept']); api.create.mockResolvedValue({}); api.update.mockResolvedValue({}); api.remove.mockResolvedValue(undefined); api.run.mockResolvedValue({ queued: true }); api.resume.mockResolvedValue({}); api.cleanup.mockResolvedValue({ deleted_count: 2 }); api.settings.mockResolvedValue({ display_name: '鹈鹕测试', prompt: '默认提示词' }); api.saveSettings.mockResolvedValue({ display_name: '新页面名', prompt: '自定义提示词' }); metadata.displayName = '鹈鹕测试'
@@ -256,6 +259,66 @@ describe('PelicanTestsView', () => {
     expect(metadata.displayName).toBe('新页面名')
   })
 
+  it('defaults old settings without radar to off and keeps the original toolbar and gallery', async () => {
+    const wrapper = await view()
+    try {
+      expect(wrapper.find('.reference-scores').exists()).toBe(false)
+      expect(wrapper.find('.toolbar').exists()).toBe(true)
+      expect(wrapper.findAll('.pelican-card')).toHaveLength(1)
+      expect(api.catalog).not.toHaveBeenCalled()
+      await wrapper.findAll('.admin-toggle')[0]!.trigger('click'); await flushPromises()
+      expect(wrapper.get('input[aria-label="启用第三方参考评分"]').element).toHaveProperty('checked', false)
+      expect(wrapper.findAll('.reference-selection-list li')).toHaveLength(0)
+      expect(api.catalog).toHaveBeenCalledOnce()
+    } finally { wrapper.unmount() }
+  })
+
+  it('preserves radar draft on save failure, preserves radar on restore defaults, and refreshes scores only after save succeeds', async () => {
+    const radar = { enabled: true, selections: [{ model: 'unknown-custom-model', effort: 'ultra' }] }
+    api.settings.mockResolvedValue({ display_name: '原页面', prompt: '原提示词', enabled: false, radar })
+    api.saveSettings.mockResolvedValue({ display_name: '鹈鹕测试', prompt: '默认提示词', enabled: true, radar })
+    api.reference.mockResolvedValue({ enabled: true, status: 'ready', items: [{ model: 'unknown-custom-model', display_name: 'unknown-custom-model', effort: 'ultra', status: 'not_recorded', score: null }] })
+    const wrapper = await view()
+    try {
+      const section = wrapper.get('.reference-scores').element
+      expect(section.compareDocumentPosition(wrapper.get('.toolbar').element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      await wrapper.findAll('.admin-toggle')[0]!.trigger('click'); await flushPromises()
+      await wrapper.get('input[aria-label="参考模型 1"]').setValue('new-custom-model')
+      const referenceCalls = api.reference.mock.calls.length
+      api.saveSettings.mockRejectedValueOnce(new Error('设置保存失败'))
+      await wrapper.findAll('button').find(button => button.text() === '保存设置')!.trigger('click'); await flushPromises()
+      expect(wrapper.get('input[aria-label="参考模型 1"]').element).toHaveProperty('value', 'new-custom-model')
+      expect(api.reference).toHaveBeenCalledTimes(referenceCalls)
+      await wrapper.findAll('button').find(button => button.text() === '恢复默认')!.trigger('click')
+      expect(wrapper.get('input[aria-label="页面名称"]').element).toHaveProperty('value', '鹈鹕测试')
+      expect(wrapper.get('input[aria-label="参考模型 1"]').element).toHaveProperty('value', 'new-custom-model')
+      expect(wrapper.get('input[aria-label="启用第三方参考评分"]').element).toHaveProperty('checked', true)
+      await wrapper.findAll('button').find(button => button.text() === '保存设置')!.trigger('click'); await flushPromises()
+      expect(api.saveSettings).toHaveBeenLastCalledWith(expect.objectContaining({ enabled: true, radar: { enabled: true, selections: [{ model: 'new-custom-model', effort: 'ultra' }] } }))
+      expect(api.reference).toHaveBeenCalledTimes(referenceCalls + 1)
+    } finally { wrapper.unmount() }
+  })
+
+  it('keeps ordinary results usable when reference requests fail and blocks late scores after role change', async () => {
+    let resolveReference!: (value: unknown) => void
+    api.reference.mockReturnValueOnce(new Promise(resolve => { resolveReference = resolve }))
+    const wrapper = await view()
+    try {
+      auth.isAdmin = false
+      await flushPromises()
+      resolveReference({ enabled: true, status: 'ready', items: [{ model: 'late-private', effort: 'high', display_name: 'late-private', status: 'available', score: 100 }] })
+      await flushPromises()
+      expect(wrapper.text()).not.toContain('late-private')
+      expect(api.catalog).not.toHaveBeenCalled()
+      auth.isAdmin = true
+      api.reference.mockRejectedValue(new Error('internal origin error'))
+      await flushPromises()
+      expect(wrapper.findAll('.pelican-card')).toHaveLength(1)
+      expect(wrapper.text()).toContain('参考评分暂时不可用')
+      expect(wrapper.text()).not.toContain('internal origin error')
+    } finally { wrapper.unmount() }
+  })
+
   it('keeps cards compact and shows Chinese skip reasons in history', async () => {
     api.list.mockResolvedValue({ items: [{ ...item(27131), status: 'skipped', error_message: 'account_scheduling_disabled' }, { ...item(27132), status: 'skipped', error_message: 'account unavailable' }, { ...item(27133), status: 'skipped', error_message: 'daily_call_limit_reached' }, { ...item(27134), status: 'skipped', error_message: 'quota_reservation_failed' }, { ...item(27135), status: 'skipped', error_message: 'model_unsupported' }, { ...item(27136), status: 'skipped', error_message: 'account_model_not_allowed' }, { ...item(27137), status: 'skipped', error_message: 'model_not_html_capable' }], total: 7, page: 1, page_size: 24, groups: [{ id: 3, name: '授权组' }] })
     const wrapper = await view()
@@ -309,12 +372,47 @@ describe('PelicanTestsView', () => {
   async function openPlanEditor(wrapper: ReturnType<typeof mount>) {
     await wrapper.findAll('button').find(button => button.text() === '管理测试计划')!.trigger('click')
     await flushPromises()
+    expect(wrapper.find('.editor-panel').exists()).toBe(false)
+    await wrapper.findAll('button').find(button => button.text() === '编辑')!.trigger('click')
+    await flushPromises()
     expect(wrapper.find('.editor-panel').exists()).toBe(true)
   }
   function configureEditablePlan() {
     api.plans.mockResolvedValue([editablePlan])
     api.accounts.mockResolvedValue([{ id: 11, name: '账号甲' }, { id: 22, name: '账号乙' }])
   }
+
+  it('opens the plan list on every visit and only creates or edits after an explicit action', async () => {
+    const pending = deferred<object[]>()
+    api.plans.mockReturnValueOnce(pending.promise)
+    const wrapper = await view()
+    try {
+      const open = async () => {
+        await wrapper.findAll('button').find(button => button.text() === '管理测试计划')!.trigger('click')
+        await flushPromises()
+      }
+      await open()
+      expect(wrapper.find('.editor-panel').exists()).toBe(false)
+      expect(wrapper.text()).toContain('加载中')
+      pending.resolve([]); await flushPromises()
+      expect(wrapper.find('.editor-panel').exists()).toBe(false)
+      expect(wrapper.text()).toContain('还没有测试计划')
+      await wrapper.findAll('button').find(button => button.text() === '新建计划')!.trigger('click')
+      expect(wrapper.get('button[type="submit"]').text()).toBe('新建计划')
+      await wrapper.findAll('button').find(button => button.text() === '返回计划列表')!.trigger('click')
+      await wrapper.get('[role="dialog"] > button[aria-label="close"]').trigger('click')
+      configureEditablePlan()
+      await open()
+      expect(wrapper.find('.editor-panel').exists()).toBe(false)
+      expect(wrapper.get('.plan-card').text()).toContain('授权组')
+      await wrapper.findAll('button').find(button => button.text() === '编辑')!.trigger('click')
+      await flushPromises()
+      expect((wrapper.get('select[aria-label="当前计划"]').element as HTMLSelectElement).value).toBe('7')
+      expect(wrapper.get('button[type="submit"]').text()).toBe('保存计划')
+      expect(api.create).not.toHaveBeenCalled()
+      expect(api.update).not.toHaveBeenCalled()
+    } finally { wrapper.unmount() }
+  })
 
   it('blocks duplicate submits and every close path during save, retaining the failed draft inside the editor', async () => {
     configureEditablePlan()
@@ -455,16 +553,15 @@ describe('PelicanTestsView', () => {
       outerOpener.element.focus()
       await outerOpener.trigger('click'); await flushPromises()
       const body = new DOMWrapper(document.body)
-      expect(body.findAll('.modal-overlay')).toHaveLength(2)
-      expect((body.get('select[aria-label="当前计划"]').element as HTMLSelectElement).value).toBe('7')
-      await body.findAll('button').find(button => button.text() === '返回计划列表')!.trigger('click')
-      await flushPromises()
+      expect(body.findAll('.modal-overlay')).toHaveLength(1)
+      expect(body.find('.editor-panel').exists()).toBe(false)
       const outerBody = body.get('.modal-body').element
       Object.defineProperty(outerBody, 'scrollTop', { configurable: true, writable: true, value: 160 })
       const editButton = body.findAll('button').find(button => button.text() === '编辑')!
       editButton.element.focus()
       await editButton.trigger('click'); await flushPromises()
       expect(body.findAll('.modal-overlay')).toHaveLength(2)
+      expect((body.get('select[aria-label="当前计划"]').element as HTMLSelectElement).value).toBe('7')
       expect(body.findAll('.modal-overlay')[1]!.attributes('style')).toContain('z-index: 60')
       expect(body.get('.editor-panel').classes()).toContain('pelican-plans')
       expect(outerBody.scrollTop).toBe(160)
@@ -496,7 +593,6 @@ describe('PelicanTestsView', () => {
     api.plans.mockResolvedValue([{ id: 7, group_id: 3, group_name: '授权组', model_id: 'gpt-kept', interval_minutes: 30, enabled: false, max_results: 20, min_chars: 9366, daily_call_limit: 5, failure_pause_threshold: 2, retention_days: 7, daily_calls_used: 2, usage_day: '2026-09-17', consecutive_failed_runs: 2, pause_reason: 'consecutive_failures', estimated_calls_per_run: 1, last_run_calls: 1, created_at: '', updated_at: '' }])
     const wrapper = await view()
     await wrapper.findAll('.admin-toggle')[1].trigger('click'); await flushPromises()
-    await wrapper.findAll('button').find(button => button.text() === '返回计划列表')!.trigger('click')
     await wrapper.findAll('button').find(button => button.text() === '恢复计划')!.trigger('click'); await flushPromises()
     expect(api.resume).toHaveBeenCalledWith(7)
     await wrapper.findAll('button').find(button => button.text() === '清理失败/跳过记录')!.trigger('click'); await flushPromises()

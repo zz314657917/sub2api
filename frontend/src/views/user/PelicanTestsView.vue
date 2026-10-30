@@ -10,13 +10,15 @@
           <label class="settings-enabled"><input v-model="settingsDraft.enabled" :disabled="settingsLoading || settingsSaving" type="checkbox" aria-label="启用鹈鹕广场" /> 启用鹈鹕广场</label><small v-if="!settingsDraft.enabled">保存关闭后会隐藏普通用户入口，阻止普通用户访问结果与新的手动/定时运行。</small>
           <label>页面名称<input v-model="settingsDraft.display_name" :disabled="settingsLoading || settingsSaving" maxlength="40" aria-label="页面名称" /></label>
           <label>共享测试提示词<textarea v-model="settingsDraft.prompt" :disabled="settingsLoading || settingsSaving" maxlength="20000" rows="8" aria-label="共享测试提示词" /></label>
+          <PelicanReferenceSettings v-model="radarDraft" :catalog="referenceCatalog" :loading="referenceCatalogLoading" :disabled="!settingsLoaded || settingsLoading || settingsSaving" @validity-change="referenceSettingsValid = $event" />
           <p v-if="settingsError" role="alert">{{ settingsError }}</p>
-          <div><button v-if="!settingsLoaded" type="button" :disabled="settingsLoading" @click="loadSettings">重新加载</button><button type="button" :disabled="!settingsLoaded || settingsLoading || settingsSaving" @click="restoreDefaultSettings">恢复默认</button><button type="button" :disabled="!settingsLoaded || settingsLoading || settingsSaving" @click="saveSettings">{{ settingsSaving ? '保存中…' : '保存设置' }}</button></div>
+          <div><button v-if="!settingsLoaded" type="button" :disabled="settingsLoading" @click="loadSettings">重新加载</button><button type="button" :disabled="!settingsLoaded || settingsLoading || settingsSaving" @click="restoreDefaultSettings">恢复默认</button><button type="button" :disabled="!settingsLoaded || settingsLoading || settingsSaving || !referenceSettingsValid" @click="saveSettings">{{ settingsSaving ? '保存中…' : '保存设置' }}</button></div>
         </section>
         <button class="admin-toggle" type="button" @click="showPlans = true">管理测试计划</button>
-        <BaseDialog :show="showPlans" :title="`${pelicanMetadata.displayName} · 测试计划`" width="wide" :close-on-escape="!cleanupConfirmation && !planEditorOpen && planBusyId == null" @close="closePlans"><p v-if="cleanupNotice" class="cleanup-notice" role="status">{{ cleanupNotice }}</p><PelicanPlansPanel v-if="showPlans" open-editor-on-load :plans="plans" :groups="adminGroups" :loading="plansLoading" :error="plansError" :save-error="planSaveError" :busy-id="planBusyId" :save-version="saveVersion" :pelican-enabled="pelicanMetadata.enabled" @editor-change="onPlanEditorChange" @run="runPlan" @resume="resumePlan" @save="savePlan" @delete="removePlan" @cleanup-request="requestCleanup" /></BaseDialog>
+        <BaseDialog :show="showPlans" :title="`${pelicanMetadata.displayName} · 测试计划`" width="wide" :close-on-escape="!cleanupConfirmation && !planEditorOpen && planBusyId == null" @close="closePlans"><p v-if="cleanupNotice" class="cleanup-notice" role="status">{{ cleanupNotice }}</p><PelicanPlansPanel v-if="showPlans" :plans="plans" :groups="adminGroups" :loading="plansLoading" :error="plansError" :save-error="planSaveError" :busy-id="planBusyId" :save-version="saveVersion" :pelican-enabled="pelicanMetadata.enabled" @editor-change="onPlanEditorChange" @run="runPlan" @resume="resumePlan" @save="savePlan" @delete="removePlan" @cleanup-request="requestCleanup" /></BaseDialog>
         <BaseDialog :show="Boolean(cleanupConfirmation)" title="确认清理测试记录" width="narrow" :z-index="60" :close-on-escape="!cleanupBusy" @close="cancelCleanup"><div v-if="cleanupConfirmation" class="cleanup-confirmation"><p>{{ cleanupConfirmation.scope === 'failed' ? '将永久删除该计划的失败和已跳过记录，成功记录不会删除。' : '将按当前保留天数和结果数量永久删除过期记录，并始终保留最新成功记录。' }}</p><p>此操作不可撤销。删除后会刷新画廊和已打开的历史记录。</p><div><button type="button" :disabled="cleanupBusy" @click="cancelCleanup">取消</button><button type="button" :disabled="cleanupBusy" @click="confirmCleanup">{{ cleanupBusy ? '正在清理…' : '确认清理' }}</button></div></div></BaseDialog>
       </template>
+      <PelicanReferenceScores v-if="authStore.isAdmin || pelicanMetadata.enabled" :data="referenceScores" :loading="referenceLoading" :failed="referenceFailed" />
       <section class="toolbar" :aria-label="`筛选${pelicanMetadata.displayName}`">
         <select v-model.number="groupFilter" aria-label="筛选分组">
           <option value="">全部分组</option>
@@ -114,7 +116,9 @@ import ModelIcon from '@/components/common/ModelIcon.vue'
 import PelicanSandboxFrame from '@/components/pelican/PelicanSandboxFrame.vue'
 import PelicanPlansPanel from '@/components/pelican/PelicanPlansPanel.vue'
 import PelicanHistoryPreview from '@/components/pelican/PelicanHistoryPreview.vue'
-import { buildPelicanListParams, cleanupPelicanPlan, createPelicanPlan, deletePelicanPlan, getPelicanResult, getPelicanTestSettings, listPelicanHistory, listPelicanPlans, listPelicanTests, resumePelicanPlan, runPelicanPlan, updatePelicanPlan, updatePelicanTestSettings, type PelicanEntry, type PelicanPlan, type PelicanPlanInput, type PelicanResult, type PelicanTestSettings } from '@/api/pelicanTests'
+import PelicanReferenceScores from '@/components/pelican/PelicanReferenceScores.vue'
+import PelicanReferenceSettings from '@/components/pelican/PelicanReferenceSettings.vue'
+import { buildPelicanListParams, cleanupPelicanPlan, createPelicanPlan, deletePelicanPlan, getPelicanResult, getPelicanTestSettings, getPelicanReferenceScores, getPelicanReferenceCatalog, listPelicanHistory, listPelicanPlans, listPelicanTests, resumePelicanPlan, runPelicanPlan, updatePelicanPlan, updatePelicanTestSettings, type PelicanEntry, type PelicanPlan, type PelicanPlanInput, type PelicanResult, type PelicanTestSettings, type PelicanReferenceScores as ReferenceScores, type PelicanReferenceCatalog, type PelicanReferenceSettings as ReferenceSettings } from '@/api/pelicanTests'
 import { getAll as getAllAdminGroups } from '@/api/admin/groups'
 import { useAuthStore } from '@/stores/auth'
 import { usePelicanMetadataStore } from '@/stores/pelicanMetadata'
@@ -185,6 +189,59 @@ const settingsLoaded = ref(false)
 const settingsError = ref('')
 const defaultSettings: PelicanTestSettings = { display_name: '鹈鹕测试', prompt: '请生成一个精致、完整、独立的中文海边鹈鹕骑自行车动画 HTML：鹈鹕双脚连续踩踏，车轮持续转动，海浪和云层轻轻移动，循环流畅。使用内联 CSS keyframes 和 SVG，支持不同屏幕宽度。不得包含 JavaScript、外部资源、链接或网络请求。仅输出完整 HTML 文档，不加 Markdown 代码围栏或解释。', enabled: true }
 const settingsDraft = ref<PelicanTestSettings>({ ...defaultSettings })
+const radarDraft = computed<ReferenceSettings>({
+  get: () => settingsDraft.value.radar ?? { enabled: false, selections: [] },
+  set: radar => { settingsDraft.value = { ...settingsDraft.value, radar } }
+})
+const referenceSettingsValid = ref(true)
+const referenceScores = ref<ReferenceScores | null>(null)
+const referenceLoading = ref(true)
+const referenceFailed = ref(false)
+const referenceCatalog = ref<PelicanReferenceCatalog | null>(null)
+const referenceCatalogLoading = ref(false)
+let referenceRequestVersion = 0
+let referenceCatalogVersion = 0
+let referenceAbort: AbortController | undefined
+let referenceCatalogAbort: AbortController | undefined
+
+function copySettings(settings: PelicanTestSettings): PelicanTestSettings {
+  return { ...settings, ...(settings.radar ? { radar: { enabled: settings.radar.enabled, selections: settings.radar.selections.map(item => ({ ...item })) } } : {}) }
+}
+function resetReferenceSession(): void {
+  referenceRequestVersion++; referenceCatalogVersion++
+  referenceAbort?.abort(); referenceCatalogAbort?.abort()
+  referenceScores.value = null; referenceCatalog.value = null
+  referenceLoading.value = false; referenceFailed.value = false; referenceCatalogLoading.value = false; referenceSettingsValid.value = true
+}
+async function loadReferenceScores(): Promise<void> {
+  if (disposed || (!authStore.isAdmin && !pelicanMetadata.enabled)) return
+  const version = ++referenceRequestVersion
+  referenceAbort?.abort()
+  const controller = new AbortController()
+  referenceAbort = controller
+  referenceLoading.value = true
+  referenceFailed.value = false
+  try {
+    const data = await getPelicanReferenceScores(controller.signal)
+    if (!disposed && version === referenceRequestVersion) referenceScores.value = data
+  } catch {
+    if (!disposed && version === referenceRequestVersion) referenceFailed.value = true
+  } finally { if (!disposed && version === referenceRequestVersion) referenceLoading.value = false }
+}
+async function loadReferenceCatalog(): Promise<void> {
+  if (disposed || !authStore.isAdmin) return
+  const version = ++referenceCatalogVersion
+  referenceCatalogAbort?.abort()
+  const controller = new AbortController()
+  referenceCatalogAbort = controller
+  referenceCatalogLoading.value = true
+  try {
+    const data = await getPelicanReferenceCatalog(controller.signal)
+    if (!disposed && authStore.isAdmin && version === referenceCatalogVersion) referenceCatalog.value = data
+  } catch {
+    if (!disposed && version === referenceCatalogVersion) referenceCatalog.value = null
+  } finally { if (!disposed && version === referenceCatalogVersion) referenceCatalogLoading.value = false }
+}
 
 const hasFilters = computed(() => groupFilter.value !== '')
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
@@ -205,14 +262,14 @@ const galleryColumns = computed(() => {
 
 watch([groupFilter, pageSize], () => { closeDialog(); if (page.value !== 1) page.value = 1; else void refresh({ resetView: true }) })
 watch(page, () => void refresh({ resetView: true }))
-watch([() => authStore.user?.id, () => authStore.isAdmin], () => { invalidatePlansSession(); listRequestVersion++; listAbort?.abort(); clearArtworkCache(); items.value = []; total.value = 0; groups.value = []; loading.value = false; closeDialog(); plans.value = []; adminGroups.value = []; showPlans.value = false; cleanupConfirmation.value = null; showSettings.value = false; settingsRequestVersion++; settingsLoaded.value = false; settingsLoading.value = false; settingsSaving.value = false; settingsError.value = ''; settingsDraft.value = { ...defaultSettings }; pelicanMetadata.reset?.(); void Promise.resolve(pelicanMetadata.load(true)).then(() => { if (authStore.isAdmin || pelicanMetadata.enabled) return refresh({ resetView: true }) }).catch(() => { if (authStore.isAdmin) return refresh({ resetView: true }) }) }, { flush: 'sync' })
+watch([() => authStore.user?.id, () => authStore.isAdmin], () => { invalidatePlansSession(); resetReferenceSession(); listRequestVersion++; listAbort?.abort(); clearArtworkCache(); items.value = []; total.value = 0; groups.value = []; loading.value = false; closeDialog(); plans.value = []; adminGroups.value = []; showPlans.value = false; cleanupConfirmation.value = null; showSettings.value = false; settingsRequestVersion++; settingsLoaded.value = false; settingsLoading.value = false; settingsSaving.value = false; settingsError.value = ''; settingsDraft.value = { ...defaultSettings }; pelicanMetadata.reset?.(); void Promise.resolve(pelicanMetadata.load(true)).then(() => { if (authStore.isAdmin || pelicanMetadata.enabled) { void loadReferenceScores(); return refresh({ resetView: true }) } }).catch(() => { if (authStore.isAdmin) { void loadReferenceScores(); return refresh({ resetView: true }) } }) }, { flush: 'sync' })
 watch([() => pelicanMetadata.displayName, () => appStore.siteName], ([name, siteName]) => { document.title = `${name} - ${siteName || 'Sub2API'}` }, { immediate: true })
 watch(refreshSeconds, seconds => {
   if (interval) clearInterval(interval)
   interval = seconds ? setInterval(() => { if (!showPlans.value && !showSettings.value && !dialogMode.value) void refresh() }, seconds * 1000) : undefined
 })
 watch(() => pelicanMetadata.enabled, enabled => {
-  if (!authStore.isAdmin && !enabled) { listRequestVersion++; listAbort?.abort(); clearArtworkCache(); items.value = []; total.value = 0; groups.value = []; closeDialog() }
+  if (!authStore.isAdmin && !enabled) { resetReferenceSession(); listRequestVersion++; listAbort?.abort(); clearArtworkCache(); items.value = []; total.value = 0; groups.value = []; closeDialog() }
 })
 function updateGalleryColumnCount(): void {
   const width = resultsRegion.value?.clientWidth ?? window.innerWidth
@@ -227,10 +284,11 @@ onMounted(() => {
   } else {
     window.addEventListener('resize', updateGalleryColumnCount)
   }
-  void Promise.resolve(pelicanMetadata.load(true)).then(() => { if (authStore.isAdmin || pelicanMetadata.enabled) return refresh() }).catch(() => { if (authStore.isAdmin) return refresh() })
+  void Promise.resolve(pelicanMetadata.load(true)).then(() => { if (authStore.isAdmin || pelicanMetadata.enabled) { void loadReferenceScores(); return refresh() } }).catch(() => { if (authStore.isAdmin) { void loadReferenceScores(); return refresh() } })
 })
 onBeforeUnmount(() => {
   disposed = true
+  resetReferenceSession()
   invalidatePlansSession()
   settingsRequestVersion++
   listRequestVersion++; historyRequestVersion++; dialogRequestVersion++
@@ -386,15 +444,17 @@ async function loadSettings(): Promise<void> {
   if (!authStore.isAdmin) return
   const version = ++settingsRequestVersion
   settingsLoading.value = true; settingsError.value = ''
-  try { const loaded = await getPelicanTestSettings(); if (version === settingsRequestVersion && authStore.isAdmin) { settingsDraft.value = { ...loaded }; settingsLoaded.value = true } } catch (reason) { if (version === settingsRequestVersion) { settingsLoaded.value = false; settingsError.value = messageOf(reason) } } finally { if (version === settingsRequestVersion) settingsLoading.value = false }
+  void loadReferenceCatalog()
+  try { const loaded = await getPelicanTestSettings(); if (!disposed && version === settingsRequestVersion && authStore.isAdmin) { settingsDraft.value = copySettings(loaded); settingsLoaded.value = true } } catch (reason) { if (version === settingsRequestVersion) { settingsLoaded.value = false; settingsError.value = messageOf(reason) } } finally { if (version === settingsRequestVersion) settingsLoading.value = false }
 }
-function restoreDefaultSettings(): void { settingsDraft.value = { ...defaultSettings }; settingsError.value = '' }
+function restoreDefaultSettings(): void { settingsDraft.value = { ...defaultSettings, ...(settingsDraft.value.radar ? { radar: copySettings(settingsDraft.value).radar } : {}) }; settingsError.value = '' }
 async function saveSettings(): Promise<void> {
+  if (!settingsLoaded.value || settingsLoading.value || settingsSaving.value || !referenceSettingsValid.value || !authStore.isAdmin) return
 	const version = ++settingsRequestVersion
   settingsSaving.value = true; settingsError.value = ''
 	try {
-		const saved = await updatePelicanTestSettings({ ...settingsDraft.value })
-		if (version === settingsRequestVersion && authStore.isAdmin && !disposed) { settingsDraft.value = { ...saved }; if (pelicanMetadata.applySavedSettings) pelicanMetadata.applySavedSettings(saved.display_name, saved.enabled); else pelicanMetadata.applySavedName?.(saved.display_name) }
+		const saved = await updatePelicanTestSettings(copySettings(settingsDraft.value))
+		if (version === settingsRequestVersion && authStore.isAdmin && !disposed) { settingsDraft.value = copySettings(saved); if (pelicanMetadata.applySavedSettings) pelicanMetadata.applySavedSettings(saved.display_name, saved.enabled); else pelicanMetadata.applySavedName?.(saved.display_name); void loadReferenceScores() }
 	} catch (reason) {
 		if (version === settingsRequestVersion && !disposed) settingsError.value = messageOf(reason)
 	} finally {

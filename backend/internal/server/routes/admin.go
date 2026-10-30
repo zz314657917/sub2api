@@ -22,6 +22,7 @@ func RegisterAdminRoutes(
 	{
 		if h.PelicanTest != nil {
 			admin.GET("/pelican-test-settings", h.PelicanTest.GetSettings)
+			admin.GET("/pelican-reference-catalog", h.PelicanTest.ReferenceCatalog)
 			admin.PUT("/pelican-test-settings", h.PelicanTest.UpdateSettings)
 			plans := admin.Group("/pelican-test-plans")
 			plans.GET("", h.PelicanTest.ListPlans)

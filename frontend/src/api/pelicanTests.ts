@@ -30,8 +30,32 @@ export interface PelicanPlan {
 export type PelicanPlanInput = Pick<PelicanPlan, 'group_id' | 'model_id' | 'model_ids' | 'preferred_account_ids' | 'interval_minutes' | 'enabled' | 'max_results' | 'min_chars' | 'daily_call_limit' | 'failure_pause_threshold' | 'retention_days' | 'reasoning_effort' | 'timeout_seconds'>
 export interface PelicanListResponse { items: PelicanEntry[]; total: number; page: number; page_size: number; groups: PelicanGroup[] }
 export interface PelicanTestMetadata { display_name: string; enabled: boolean }
-export interface PelicanTestSettings extends PelicanTestMetadata { prompt: string }
-export interface PelicanTestSettingsUpdate { display_name: string; prompt: string; enabled?: boolean }
+export interface PelicanReferenceSelection { model: string; effort: string }
+export interface PelicanReferenceSettings { enabled: boolean; selections: PelicanReferenceSelection[] }
+export interface PelicanReferenceItem extends PelicanReferenceSelection {
+  display_name: string
+  status: 'available' | 'not_recorded' | 'unsupported' | 'unavailable'
+  score: number | null
+}
+export interface PelicanReferenceScores {
+  enabled: boolean
+  status: 'ready' | 'stale' | 'unavailable' | 'disabled'
+  source_url: string
+  test_started_at: string | null
+  test_completed_at: string | null
+  source_snapshot_at: string | null
+  synced_at: string | null
+  round_id: string | null
+  score_max: number | null
+  items: PelicanReferenceItem[]
+}
+export interface PelicanReferenceCatalog {
+  models: Array<{ model: string; display_name: string; efforts: string[] }>
+  status: 'ready' | 'stale' | 'unavailable'
+  synced_at: string | null
+}
+export interface PelicanTestSettings extends PelicanTestMetadata { prompt: string; radar?: PelicanReferenceSettings }
+export interface PelicanTestSettingsUpdate { display_name: string; prompt: string; enabled?: boolean; radar?: PelicanReferenceSettings }
 export interface PelicanPlanModelsResponse { models: string[] }
 
 export function buildPelicanListParams(groupID: number | '', accountQuery: string, page: number, pageSize: number): { group_id?: number; account_id?: number; page: number; page_size: number } {
@@ -53,6 +77,14 @@ export async function getPelicanResult(id: number, signal?: AbortSignal): Promis
 }
 export async function getPelicanTestMetadata(signal?: AbortSignal): Promise<PelicanTestMetadata> { const { data } = await apiClient.get<PelicanTestMetadata>('/pelican-tests/metadata', { signal }); return data }
 export async function getPelicanTestSettings(): Promise<PelicanTestSettings> { const { data } = await apiClient.get<PelicanTestSettings>('/admin/pelican-test-settings'); return data }
+export async function getPelicanReferenceScores(signal?: AbortSignal): Promise<PelicanReferenceScores> {
+  const { data } = await apiClient.get<PelicanReferenceScores>('/pelican-tests/reference-scores', { signal })
+  return data
+}
+export async function getPelicanReferenceCatalog(signal?: AbortSignal): Promise<PelicanReferenceCatalog> {
+  const { data } = await apiClient.get<PelicanReferenceCatalog>('/admin/pelican-reference-catalog', { signal })
+  return data
+}
 export async function listPelicanPlanModels(groupID: number, signal?: AbortSignal): Promise<string[]> { const { data } = await apiClient.get<PelicanPlanModelsResponse>('/admin/pelican-test-plans/models', { params: { group_id: groupID }, signal }); return data?.models ?? [] }
 export async function listPelicanPlanAccounts(groupID: number, signal?: AbortSignal): Promise<PelicanPlanAccount[]> {
   const { data } = await apiClient.get<{ accounts: PelicanPlanAccount[] }>('/admin/pelican-test-plans/accounts', { params: { group_id: groupID }, signal })
