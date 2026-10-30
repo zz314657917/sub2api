@@ -314,21 +314,19 @@ func mergeAnthropicCompatCacheDetails(usage *ClaudeUsage, payload string) {
 
 func anthropicCompatBillingFailure(c *gin.Context, result *ForwardResult, err error, write func() bool) (*ForwardResult, error) {
 	var sseErr *sseStreamErrorEventError
-	if errors.As(err, &sseErr) {
-		if result.ClientDisconnect {
-			// There is no client left to retry. Keep already observed billing
-			// usage and the upstream error, without writing another client frame.
-			if !result.Usage.hasObservedTokens() {
-				return nil, err
-			}
-			return result, err
+	if errors.As(err, &sseErr) && !result.ClientDisconnect {
+		// Decide before writing a failure frame: Size may include a prelude
+		// still buffered behind the first-response writer's commit barrier.
+		committed := c.Writer.Written()
+		if writer, ok := c.Writer.(interface{ Committed() bool }); ok {
+			committed = writer.Committed()
 		}
-		// The handler's effective-output barrier decides whether this attempt can retry.
-		if c.Writer.Size() > 0 {
-			write()
+		if !committed {
+			return nil, &UpstreamFailoverError{StatusCode: http.StatusForbidden, ResponseBody: []byte(sseErr.RawData)}
 		}
-		return nil, &UpstreamFailoverError{StatusCode: http.StatusForbidden, ResponseBody: []byte(sseErr.RawData)}
 	}
+	// A committed or disconnected attempt cannot be replayed. Preserve its
+	// observed usage and original error, including a failed error-frame write.
 	if !result.ClientDisconnect {
 		result.ClientDisconnect = write()
 	}

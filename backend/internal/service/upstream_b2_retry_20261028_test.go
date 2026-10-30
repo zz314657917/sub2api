@@ -104,8 +104,15 @@ func TestUpstreamB2StreamBoundaries(t *testing.T) {
 					require.Equal(t, safe, errors.As(err, &failover), "event: %s; err: %v", event, err)
 					if safe {
 						require.Empty(t, rec.Body.String())
-						require.True(t, failover.RequestScopedTransient)
-						require.Equal(t, 3, failover.SameAccountRetryLimit)
+						if event == `{"type":"error","error":{"message":"temporary upstream problem"}}` {
+							require.False(t, failover.RequestScopedTransient)
+							require.Zero(t, failover.SameAccountRetryLimit)
+							require.Zero(t, failover.SameAccountRetryDelay)
+							require.Contains(t, string(failover.ResponseBody), "temporary upstream problem")
+						} else {
+							require.True(t, failover.RequestScopedTransient)
+							require.Equal(t, 3, failover.SameAccountRetryLimit)
+						}
 						require.Equal(t, -1, OpenAIStreamWrittenSize(c))
 					} else {
 						require.NotEmpty(t, rec.Body.String(), "conservative output must be retained")

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -151,10 +152,24 @@ func TestStreamBillingAnthropicNoUsageAndFailover(t *testing.T) {
 				c, _ := streamBillingAnthropicContext(context.Background())
 				result, err := streamBillingAnthropicForward(t, kind, streamBillingAnthropicService(body), c, c.Request.Context())
 				require.Error(t, err)
-				require.Nil(t, result)
-				if strings.Contains(payload, "overloaded_error") {
+				if (kind == "chat" || kind == "responses") && strings.Contains(payload, "overloaded_error") {
+					require.NotNil(t, result)
 					var failover *UpstreamFailoverError
-					require.ErrorAs(t, err, &failover)
+					require.False(t, errors.As(err, &failover))
+					require.Equal(t, 11, result.Usage.InputTokens)
+					require.Zero(t, result.Usage.OutputTokens)
+					require.Equal(t, 7, result.Usage.CacheReadInputTokens)
+					require.Equal(t, 5, result.Usage.CacheCreationInputTokens)
+					require.Equal(t, 2, result.Usage.CacheCreation5mTokens)
+					require.Equal(t, 3, result.Usage.CacheCreation1hTokens)
+					require.True(t, c.Writer.Written())
+					require.Positive(t, c.Writer.Size())
+				} else {
+					require.Nil(t, result)
+					if strings.Contains(payload, "overloaded_error") {
+						var failover *UpstreamFailoverError
+						require.ErrorAs(t, err, &failover)
+					}
 				}
 				require.EqualValues(t, 1, body.closes.Load())
 			})

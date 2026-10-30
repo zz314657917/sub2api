@@ -422,8 +422,8 @@ func TestStreamBillingAnthropicR2DisconnectedInbandError(t *testing.T) {
 				require.NotContains(t, rec.Body.String(), "response.completed")
 				var failover *UpstreamFailoverError
 				if mode == "connected" {
-					require.ErrorAs(t, err, &failover)
-					require.Nil(t, result, "connected failover must remain unbillable")
+					require.False(t, errors.As(err, &failover))
+					require.NotNil(t, result, "the ordinary writer already committed protocol output and observed usage")
 					return
 				}
 				require.False(t, errors.As(err, &failover), "an aborted client's observed usage must not become a retry")

@@ -5345,10 +5345,15 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 				line = "data: " + string(normalizedData)
 			}
 			eventType := strings.TrimSpace(gjson.Get(trimmedData, "type").String())
-			if eventType == "error" && (clientDisconnected || openAIStreamClientOutputStarted(c, clientOutputStarted) ||
-				!openAIStreamErrorEventShouldFailover(dataBytes, extractOpenAISSEErrorMessage(dataBytes))) {
+			if eventType == "error" {
 				failedMessage = extractOpenAISSEErrorMessage(dataBytes)
 				s.parseSSEUsageBytes(dataBytes, usage)
+				if !clientDisconnected && !openAIStreamClientOutputStarted(c, clientOutputStarted) &&
+					gjson.ValidBytes(dataBytes) && gjson.ParseBytes(dataBytes).IsObject() &&
+					openAIStreamErrorEventShouldFailover(dataBytes, failedMessage) {
+					return resultWithUsage(),
+						s.newResponsesStreamFailoverError(c, account, true, upstreamRequestID, dataBytes, failedMessage, resp.Header)
+				}
 				sawFailedEvent = true
 				sawTerminalEvent = true
 				forceFlushFailedEvent = true
@@ -6444,9 +6449,14 @@ func (s *OpenAIGatewayService) handleStreamingResponse(ctx context.Context, resp
 			}
 			s.parseSSEUsageBytes(dataBytes, usage)
 			forceFlushFailedEvent := false
-			if eventType == "error" && (clientDisconnected || openAIStreamClientOutputStarted(c, clientOutputStarted) ||
-				!openAIStreamErrorEventShouldFailover(dataBytes, extractOpenAISSEErrorMessage(dataBytes))) {
+			if eventType == "error" {
 				failedMessage = extractOpenAISSEErrorMessage(dataBytes)
+				if !clientDisconnected && !openAIStreamClientOutputStarted(c, clientOutputStarted) &&
+					gjson.ValidBytes(dataBytes) && gjson.ParseBytes(dataBytes).IsObject() &&
+					openAIStreamErrorEventShouldFailover(dataBytes, failedMessage) {
+					streamFailoverErr = s.newResponsesStreamFailoverError(c, account, false, upstreamRequestID, dataBytes, failedMessage, resp.Header)
+					return
+				}
 				sawFailedEvent = true
 				sawTerminalEvent = true
 				forceFlushFailedEvent = true
