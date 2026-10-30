@@ -1086,7 +1086,7 @@ const endpointStatsLoading = ref(false)
 const modelDistributionMetric = ref<'tokens' | 'actual_cost'>('tokens')
 const groupDistributionMetric = ref<'tokens' | 'actual_cost'>('tokens')
 const endpointDistributionMetric = ref<'tokens' | 'actual_cost'>('tokens')
-const granularity = ref<'day' | 'hour'>('day')
+const granularity = ref<'day' | 'hour'>('hour')
 const activeTab = ref<'usage' | 'errors'>('usage')
 const errorViewEnabled = computed(
   () => appStore.cachedPublicSettings?.allow_user_view_error_requests === true
@@ -1823,7 +1823,7 @@ const resetFilters = () => {
   endDate.value = today
   filters.value.start_date = startDate.value
   filters.value.end_date = endDate.value
-  granularity.value = 'day'
+  granularity.value = 'hour'
   pagination.page = 1
   void loadUsageLogs()
   void loadUsageStats()

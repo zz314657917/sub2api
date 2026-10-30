@@ -417,7 +417,7 @@ const mountUsageView = async (items = [baseUsageLog()]) => {
     generated_at: '2026-03-08T00:00:00Z',
     start_date: '2026-03-01',
     end_date: '2026-03-08',
-    granularity: 'day',
+    granularity: 'hour',
     trend: [],
     groups: [],
   })
@@ -657,7 +657,7 @@ describe('user UsageView', () => {
         start_date: '2026-07-01',
         end_date: '2026-07-31',
         timezone: expect.any(String),
-        granularity: 'day',
+        granularity: 'hour',
         include_trend: true,
         include_model_stats: false,
         include_group_stats: true,
