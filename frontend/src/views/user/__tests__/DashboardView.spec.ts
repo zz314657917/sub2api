@@ -1,6 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
+import { createPinia, setActivePinia } from 'pinia'
+import { useAppStore } from '@/stores/app'
+import type { PublicSettings } from '@/types'
 
 import DashboardView from '../DashboardView.vue'
 
@@ -103,6 +106,8 @@ const makeStats = (overrides: Record<string, unknown> = {}) => ({
 describe('User DashboardView data loading', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    setActivePinia(createPinia())
+    useAppStore().cachedPublicSettings = { account_share_enabled: true } as PublicSettings
     window.localStorage.clear()
     mocks.refreshUser.mockResolvedValue(undefined)
     mocks.getDashboardStats.mockResolvedValue(makeStats())
@@ -113,8 +118,12 @@ describe('User DashboardView data loading', () => {
     mocks.getWelfareOverview.mockResolvedValue({ enabled: false })
   })
 
-  it('loads the dashboard without requesting popular model stats', async () => {
-    mount(DashboardView, {
+  it.each([true, false, undefined])('loads account usage only when sharing is enabled (%s)', async (enabled) => {
+    const appStore = useAppStore()
+    appStore.cachedPublicSettings = enabled === undefined
+      ? null
+      : { account_share_enabled: enabled } as PublicSettings
+    const wrapper = mount(DashboardView, {
       global: {
         stubs: {
           AppLayout: defineComponent({
@@ -140,9 +149,24 @@ describe('User DashboardView data loading', () => {
     expect(mocks.getDashboardStats).toHaveBeenCalledTimes(1)
     expect(mocks.getDashboardTrend).toHaveBeenCalledTimes(1)
     expect(mocks.getByDateRange).toHaveBeenCalledTimes(1)
-    expect(mocks.getAccountUsageSummary).toHaveBeenCalledTimes(1)
+    expect(mocks.getAccountUsageSummary).toHaveBeenCalledTimes(enabled === true ? 1 : 0)
+    expect(wrapper.find('[data-test-stub="UserDashboardAccountUsage"]').exists()).toBe(enabled === true)
     expect(mocks.getWelfareOverview).toHaveBeenCalledTimes(1)
     expect(mocks.getDashboardModels).not.toHaveBeenCalled()
+
+    // Public settings may arrive after the dashboard mounts or be refreshed later.
+    appStore.cachedPublicSettings = { account_share_enabled: true } as PublicSettings
+    await flushPromises()
+    expect(wrapper.find('[data-test-stub="UserDashboardAccountUsage"]').exists()).toBe(true)
+    expect(mocks.getAccountUsageSummary).toHaveBeenCalledTimes(1)
+
+    appStore.cachedPublicSettings = { account_share_enabled: false } as PublicSettings
+    await flushPromises()
+    expect(wrapper.find('[data-test-stub="UserDashboardAccountUsage"]').exists()).toBe(false)
+    wrapper.findComponent({ name: 'UserDashboardCharts' }).vm.$emit('dateRangeChange')
+    await flushPromises()
+    expect(mocks.getAccountUsageSummary).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
   })
 
   it('shows onboarding for unused default key and opens the key page', async () => {

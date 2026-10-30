@@ -32,6 +32,7 @@
         </div>
 
         <UserDashboardAccountUsage
+          v-if="accountShareEnabled"
           :summary="accountUsageSummary"
           :loading="loadingAccountUsage"
           :start-date="startDate"
@@ -55,10 +56,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
+import { useAppStore } from '@/stores/app'
 import { usageAPI, type UserDashboardStats as UserStatsType } from '@/api/usage'
 import { userAPI } from '@/api/user'
 import { welfareAPI } from '@/api/welfare'
@@ -86,7 +88,9 @@ const API_KEY_ONBOARDING_SKIP_MS = API_KEY_ONBOARDING_SKIP_DAYS * 24 * 60 * 60 *
 const router = useRouter()
 const { t } = useI18n()
 const authStore = useAuthStore()
+const appStore = useAppStore()
 const user = computed(() => authStore.user)
+const accountShareEnabled = computed(() => appStore.cachedPublicSettings?.account_share_enabled === true)
 
 const stats = ref<UserStatsType | null>(null)
 const loading = ref(false)
@@ -156,13 +160,18 @@ const loadRecent = async () => {
 }
 
 const loadAccountUsage = async () => {
+  if (!accountShareEnabled.value) {
+    accountUsageSummary.value = null
+    return
+  }
   loadingAccountUsage.value = true
   try {
-    accountUsageSummary.value = await userAPI.getAccountUsageSummary({
+    const summary = await userAPI.getAccountUsageSummary({
       start_date: startDate.value,
       end_date: endDate.value,
       timezone: userTimezone(),
     })
+    accountUsageSummary.value = accountShareEnabled.value ? summary : null
   } catch (error) {
     console.error('Failed to load account usage summary:', error)
     accountUsageSummary.value = null
@@ -170,6 +179,10 @@ const loadAccountUsage = async () => {
     loadingAccountUsage.value = false
   }
 }
+
+watch(accountShareEnabled, () => {
+  void loadAccountUsage()
+})
 
 const loadWelfareTrial = async () => {
   if (user.value?.role === 'admin') {
