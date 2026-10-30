@@ -61,6 +61,32 @@ describe('Pelican untrusted artwork boundary', () => {
     wrapper.unmount()
   })
 
+  it('sizes enlarged lone SVGs to their aspect ratio and resets the layout when artwork changes', async () => {
+    const wrapper = mount(PelicanSandboxFrame, { props: {
+      html: '<style>html,body{height:100vh;display:grid;place-items:center}svg{width:100%;height:100vh}</style><main style="height:760px"><svg viewBox="0 0 960 540"><circle r="20"/></svg></main>',
+      replayKey: 0, interactive: true,
+    } })
+    let frame = wrapper.get('iframe')
+    expect(frame.element.style.aspectRatio).toBe(`${960 / 540}`)
+    expect(frame.element.style.height).toBe('auto')
+    expect(frame.element.style.minHeight).toBe('0')
+    expect(frame.attributes('srcdoc')).toContain('height:auto!important;min-height:0!important')
+    expect(frame.attributes('sandbox')).toBe('')
+    expect(frame.attributes('srcdoc')).not.toContain('<script')
+    await wrapper.setProps({ replayKey: 1 })
+    expect(wrapper.get('iframe').element.style.aspectRatio).toBe(`${960 / 540}`)
+    await wrapper.setProps({ html: '<svg viewBox="0 0 300 900"/>' })
+    frame = wrapper.get('iframe')
+    expect(frame.element.style.aspectRatio).toBe(`${1 / 3}`)
+    expect(parseFloat(frame.element.style.maxWidth)).toBeCloseTo(580 / 3)
+    await wrapper.setProps({ html: '<header>Full document</header><svg viewBox="0 0 960 540"/><footer>Controls</footer>' })
+    frame = wrapper.get('iframe')
+    expect(frame.element.style.aspectRatio).toBe('')
+    expect(frame.element.style.height).toBe('')
+    expect(frame.attributes('srcdoc')).not.toContain('aspect-ratio:')
+    wrapper.unmount()
+  })
+
   it('accepts only current-frame numeric measurements and clamps long artwork', async () => {
     const wrapper = mount(PelicanSandboxFrame, { attachTo: document.body, props: { html: '<p>short</p>', replayKey: 0 } })
     const iframe = wrapper.get('iframe').element as HTMLIFrameElement

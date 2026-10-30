@@ -1,8 +1,8 @@
-<template><iframe ref="frame" :key="documentIdentity.token" :class="['pelican-frame', { 'pelican-frame--interactive': interactive }]" :style="interactive ? undefined : { height: `${frameHeight}px` }" :sandbox="interactive ? '' : 'allow-scripts'" :scrolling="interactive ? 'auto' : 'no'" :tabindex="interactive ? undefined : -1" :aria-hidden="interactive ? undefined : 'true'" :srcdoc="safeDocument" title="鹈鹕测试作品" /></template>
+<template><iframe ref="frame" :key="documentIdentity.token" :class="['pelican-frame', { 'pelican-frame--interactive': interactive }]" :style="frameStyle" :sandbox="interactive ? '' : 'allow-scripts'" :scrolling="interactive ? 'auto' : 'no'" :tabindex="interactive ? undefined : -1" :aria-hidden="interactive ? undefined : 'true'" :srcdoc="safeDocument" title="鹈鹕测试作品" /></template>
 
 <script setup lang="ts">
 import { computed, onBeforeMount, onBeforeUnmount, ref, watch } from 'vue'
-import { toPelicanSrcdoc } from './sanitizePelicanHtml'
+import { getPelicanSvgAspectRatio, toPelicanSrcdoc } from './sanitizePelicanHtml'
 
 const props = withDefaults(defineProps<{ html: string; replayKey: number; interactive?: boolean; minHeight?: number }>(), { interactive: false, minHeight: 220 })
 const frame = ref<HTMLIFrameElement>()
@@ -21,6 +21,13 @@ watch(() => [props.html, props.replayKey, props.interactive], () => {
   frameHeight.value = props.minHeight
 }, { flush: 'sync' })
 const safeDocument = computed(() => toPelicanSrcdoc(props.html, !props.interactive, documentIdentity.value))
+const frameStyle = computed(() => {
+  if (!props.interactive) return { height: `${frameHeight.value}px` }
+  const aspectRatio = getPelicanSvgAspectRatio(safeDocument.value)
+  // Lone SVGs need a matching viewport; a fixed-height iframe adds letterboxing.
+  // Full HTML documents retain their scrollable interactive viewport.
+  return aspectRatio ? { height: 'auto', minHeight: '0', aspectRatio: `${aspectRatio}`, maxWidth: `${580 * aspectRatio}px`, margin: '0 auto' } : undefined
+})
 function receiveHeight(event: MessageEvent) {
   const data = event.data
   if (props.interactive || !frame.value || event.source !== frame.value.contentWindow ||

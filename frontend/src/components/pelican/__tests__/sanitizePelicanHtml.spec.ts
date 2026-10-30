@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { sanitizePelicanHtml, toPelicanSrcdoc } from '../sanitizePelicanHtml'
 
 describe('pelican HTML isolation', () => {
-  it('fits a single SVG preview and its fixed-size wrappers without changing the artwork or detail document', () => {
+  it('fits a single SVG and its fixed-size wrappers in previews and enlarged documents', () => {
     const source = '<style>.canvas{width:400px!important;height:220px!important;max-width:400px!important}svg{width:400px!important;height:220px!important}</style><div class="canvas"><svg viewBox="0 0 960 540" width="960" height="540"><circle cx="100" cy="400" r="70"/></svg></div>'
     const preview = new DOMParser().parseFromString(toPelicanSrcdoc(source, true), 'text/html')
     const svg = preview.querySelector('svg')!
@@ -15,11 +15,16 @@ describe('pelican HTML isolation', () => {
     expect(svg.getAttribute('viewBox')).toBe('0 0 960 540')
     expect(preview.querySelector('.canvas')!.getAttribute('style')).toContain('width: 100%')
     expect(svg.querySelector('circle')!.getAttribute('r')).toBe('70')
-    expect(new DOMParser().parseFromString(toPelicanSrcdoc(source), 'text/html').querySelector('svg')!.getAttribute('style')).toBeNull()
+    const detail = new DOMParser().parseFromString(toPelicanSrcdoc(source), 'text/html')
+    expect(detail.querySelector('svg')!.style.aspectRatio).toBe('960 / 540')
+    expect(detail.querySelector('svg')!.style.height).toBe('auto')
+    expect(detail.querySelector('circle')!.getAttribute('r')).toBe('70')
+    expect(detail.querySelector('script')).toBeNull()
   })
   it('retains multi-section HTML, decorative SVGs and invalid viewBox layouts', () => {
     for (const source of ['<p>text</p><svg viewBox="0 0 960 540"/>', '<div>text<svg viewBox="0 0 960 540"/></div>', '<svg viewBox="0 0 0 540"/>']) {
       expect(toPelicanSrcdoc(source, true)).not.toContain('aspect-ratio:')
+      expect(toPelicanSrcdoc(source)).not.toContain('aspect-ratio:')
     }
   })
   it('preserves local SVG gradients without permitting remote CSS resources', () => {
