@@ -1,0 +1,445 @@
+{
+  "provenance": {
+    "kind": "layout-preview-fixture",
+    "source": "https://codexradar.com/data/codex-four-task-results.json",
+    "source_sha256": "200a64a9625fdc75cbe1fc36b1369cb56d2ba5da55486d55902a23496d0cade7",
+    "note": "Layout preview fixture from frozen source capture; all declared efforts for the original five selected models. Scores calculated per exact pair. Not a deployed backend or a live synchronization."
+  },
+  "radar": {
+    "enabled": true,
+    "selections": [
+      {
+        "model": "gpt-6.1-sol",
+        "effort": "low"
+      },
+      {
+        "model": "gpt-6.1-sol",
+        "effort": "medium"
+      },
+      {
+        "model": "gpt-6.1-sol",
+        "effort": "high"
+      },
+      {
+        "model": "gpt-6.1-sol",
+        "effort": "xhigh"
+      },
+      {
+        "model": "gpt-6.1-sol",
+        "effort": "max"
+      },
+      {
+        "model": "gpt-6.1-sol",
+        "effort": "ultra"
+      },
+      {
+        "model": "gpt-6-astra",
+        "effort": "low"
+      },
+      {
+        "model": "gpt-6-astra",
+        "effort": "medium"
+      },
+      {
+        "model": "gpt-6-astra",
+        "effort": "high"
+      },
+      {
+        "model": "gpt-6-astra",
+        "effort": "xhigh"
+      },
+      {
+        "model": "gpt-6-astra",
+        "effort": "max"
+      },
+      {
+        "model": "gpt-6-astra",
+        "effort": "ultra"
+      },
+      {
+        "model": "gpt-6.1-terra",
+        "effort": "low"
+      },
+      {
+        "model": "gpt-6.1-terra",
+        "effort": "medium"
+      },
+      {
+        "model": "gpt-6.1-terra",
+        "effort": "high"
+      },
+      {
+        "model": "gpt-6.1-terra",
+        "effort": "xhigh"
+      },
+      {
+        "model": "gpt-6.1-terra",
+        "effort": "max"
+      },
+      {
+        "model": "gpt-6.1-terra",
+        "effort": "ultra"
+      },
+      {
+        "model": "gpt-6-sol",
+        "effort": "low"
+      },
+      {
+        "model": "gpt-6-sol",
+        "effort": "medium"
+      },
+      {
+        "model": "gpt-6-sol",
+        "effort": "high"
+      },
+      {
+        "model": "gpt-6-sol",
+        "effort": "xhigh"
+      },
+      {
+        "model": "gpt-6-sol",
+        "effort": "max"
+      },
+      {
+        "model": "gpt-6-sol",
+        "effort": "ultra"
+      },
+      {
+        "model": "gpt-6-luna",
+        "effort": "low"
+      },
+      {
+        "model": "gpt-6-luna",
+        "effort": "medium"
+      },
+      {
+        "model": "gpt-6-luna",
+        "effort": "high"
+      },
+      {
+        "model": "gpt-6-luna",
+        "effort": "xhigh"
+      },
+      {
+        "model": "gpt-6-luna",
+        "effort": "max"
+      }
+    ]
+  },
+  "payload": {
+    "enabled": true,
+    "status": "ready",
+    "source_url": "https://codexradar.com/#stationmaster-round",
+    "test_started_at": "2026-10-29T08:08:11.944316+00:00",
+    "test_completed_at": "2026-10-29T12:00:24.249331+00:00",
+    "source_snapshot_at": "2026-10-29T12:00:25.692213+00:00",
+    "synced_at": "2026-10-30T05:59:01.990Z",
+    "round_id": "codex-four-261-10c-20261029",
+    "score_max": 150,
+    "items": [
+      {
+        "model": "gpt-6.1-sol",
+        "effort": "low",
+        "display_name": "GPT-6.1 Sol",
+        "status": "available",
+        "score": 106.1657608695652
+      },
+      {
+        "model": "gpt-6.1-sol",
+        "effort": "medium",
+        "display_name": "GPT-6.1 Sol",
+        "status": "available",
+        "score": 102.89423076923077
+      },
+      {
+        "model": "gpt-6.1-sol",
+        "effort": "high",
+        "display_name": "GPT-6.1 Sol",
+        "status": "available",
+        "score": 123.80192307692307
+      },
+      {
+        "model": "gpt-6.1-sol",
+        "effort": "xhigh",
+        "display_name": "GPT-6.1 Sol",
+        "status": "available",
+        "score": 125.3875
+      },
+      {
+        "model": "gpt-6.1-sol",
+        "effort": "max",
+        "display_name": "GPT-6.1 Sol",
+        "status": "available",
+        "score": 135.78333333333333
+      },
+      {
+        "model": "gpt-6.1-sol",
+        "effort": "ultra",
+        "display_name": "GPT-6.1 Sol",
+        "status": "available",
+        "score": 125.05000000000001
+      },
+      {
+        "model": "gpt-6-astra",
+        "effort": "low",
+        "display_name": "GPT-6 Astra",
+        "status": "available",
+        "score": 118.76250000000002
+      },
+      {
+        "model": "gpt-6-astra",
+        "effort": "medium",
+        "display_name": "GPT-6 Astra",
+        "status": "available",
+        "score": 107.1
+      },
+      {
+        "model": "gpt-6-astra",
+        "effort": "high",
+        "display_name": "GPT-6 Astra",
+        "status": "available",
+        "score": 124.45714285714286
+      },
+      {
+        "model": "gpt-6-astra",
+        "effort": "xhigh",
+        "display_name": "GPT-6 Astra",
+        "status": "available",
+        "score": 127.73571428571428
+      },
+      {
+        "model": "gpt-6-astra",
+        "effort": "max",
+        "display_name": "GPT-6 Astra",
+        "status": "available",
+        "score": 146.57327586206895
+      },
+      {
+        "model": "gpt-6-astra",
+        "effort": "ultra",
+        "display_name": "GPT-6 Astra",
+        "status": "available",
+        "score": 131.72500000000002
+      },
+      {
+        "model": "gpt-6.1-terra",
+        "effort": "low",
+        "display_name": "GPT-6.1 Terra",
+        "status": "available",
+        "score": 91.25113636363636
+      },
+      {
+        "model": "gpt-6.1-terra",
+        "effort": "medium",
+        "display_name": "GPT-6.1 Terra",
+        "status": "available",
+        "score": 89.48035714285713
+      },
+      {
+        "model": "gpt-6.1-terra",
+        "effort": "high",
+        "display_name": "GPT-6.1 Terra",
+        "status": "available",
+        "score": 94.47236842105264
+      },
+      {
+        "model": "gpt-6.1-terra",
+        "effort": "xhigh",
+        "display_name": "GPT-6.1 Terra",
+        "status": "available",
+        "score": 108.17386363636363
+      },
+      {
+        "model": "gpt-6.1-terra",
+        "effort": "max",
+        "display_name": "GPT-6.1 Terra",
+        "status": "available",
+        "score": 136.95
+      },
+      {
+        "model": "gpt-6.1-terra",
+        "effort": "ultra",
+        "display_name": "GPT-6.1 Terra",
+        "status": "available",
+        "score": 114.66684782608695
+      },
+      {
+        "model": "gpt-6-sol",
+        "effort": "low",
+        "display_name": "GPT-6 Sol",
+        "status": "available",
+        "score": 88.1625
+      },
+      {
+        "model": "gpt-6-sol",
+        "effort": "medium",
+        "display_name": "GPT-6 Sol",
+        "status": "available",
+        "score": 93.29021739130435
+      },
+      {
+        "model": "gpt-6-sol",
+        "effort": "high",
+        "display_name": "GPT-6 Sol",
+        "status": "available",
+        "score": 111.11249999999998
+      },
+      {
+        "model": "gpt-6-sol",
+        "effort": "xhigh",
+        "display_name": "GPT-6 Sol",
+        "status": "available",
+        "score": 104.79107142857143
+      },
+      {
+        "model": "gpt-6-sol",
+        "effort": "max",
+        "display_name": "GPT-6 Sol",
+        "status": "available",
+        "score": 130.5
+      },
+      {
+        "model": "gpt-6-sol",
+        "effort": "ultra",
+        "display_name": "GPT-6 Sol",
+        "status": "available",
+        "score": 107.2125
+      },
+      {
+        "model": "gpt-6-luna",
+        "effort": "low",
+        "display_name": "GPT-6 Luna",
+        "status": "available",
+        "score": 44.68858695652174
+      },
+      {
+        "model": "gpt-6-luna",
+        "effort": "medium",
+        "display_name": "GPT-6 Luna",
+        "status": "available",
+        "score": 62.4375
+      },
+      {
+        "model": "gpt-6-luna",
+        "effort": "high",
+        "display_name": "GPT-6 Luna",
+        "status": "available",
+        "score": 57.013636363636365
+      },
+      {
+        "model": "gpt-6-luna",
+        "effort": "xhigh",
+        "display_name": "GPT-6 Luna",
+        "status": "available",
+        "score": 96.56576086956521
+      },
+      {
+        "model": "gpt-6-luna",
+        "effort": "max",
+        "display_name": "GPT-6 Luna",
+        "status": "available",
+        "score": 96.61467391304348
+      }
+    ]
+  },
+  "catalog": {
+    "models": [
+      {
+        "model": "gpt-6.1-sol",
+        "display_name": "GPT-6.1 Sol",
+        "efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max",
+          "ultra"
+        ]
+      },
+      {
+        "model": "gpt-6-astra",
+        "display_name": "GPT-6 Astra",
+        "efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max",
+          "ultra"
+        ]
+      },
+      {
+        "model": "gpt-6.1-terra",
+        "display_name": "GPT-6.1 Terra",
+        "efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max",
+          "ultra"
+        ]
+      },
+      {
+        "model": "gpt-6-sol",
+        "display_name": "GPT-6 Sol",
+        "efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max",
+          "ultra"
+        ]
+      },
+      {
+        "model": "gpt-6-luna",
+        "display_name": "GPT-6 Luna",
+        "efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ]
+      },
+      {
+        "model": "gpt-5.6-sol",
+        "display_name": "GPT-5.6 Sol",
+        "efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max",
+          "ultra"
+        ]
+      },
+      {
+        "model": "gpt-5.6-terra",
+        "display_name": "GPT-5.6 Terra",
+        "efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max",
+          "ultra"
+        ]
+      },
+      {
+        "model": "gpt-5.6-luna",
+        "display_name": "GPT-5.6 Luna",
+        "efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ]
+      }
+    ],
+    "status": "ready",
+    "synced_at": "2026-10-30T05:59:01.990Z"
+  }
+}

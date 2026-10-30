@@ -1,0 +1,20 @@
+    <section class="browse-bar" aria-label="作品筛选">
+      <div class="browse-left">
+        <label class="search-field"><span data-icon="search"></span><input id="search" type="search" placeholder="搜索分组或模型" aria-label="搜索分组或模型"><kbd>/</kbd></label>
+        <label class="select-field"><select id="group-filter" aria-label="筛选分组"><option value="all">全部分组</option></select><span data-icon="chevron-down"></span></label>
+        <label class="select-field"><select id="status-filter" aria-label="筛选状态"><option value="all">全部状态</option><option value="success">生成成功</option><option value="running">生成中</option><option value="failed">生成失败</option></select><span data-icon="chevron-down"></span></label>
+      </div>
+      <div class="browse-right"><span id="updated-at">刚刚更新</span><button id="refresh" class="icon-button" aria-label="刷新演示列表" title="刷新演示列表"><span data-icon="refresh"></span></button></div>
+    </section>
+
+    <div class="list-caption"><span><strong id="group-count">3</strong> 个分组 <span class="caption-divider">/</span> <span id="result-count">18</span> 条演示结果</span><span class="scroll-tip"><span data-icon="move"></span>每组独立横向浏览</span></div>
+    <div id="groups"></div>
+    <div id="empty-state" hidden><span data-icon="search"></span><h2>没有符合条件的作品</h2><p>试试其他分组、模型或状态。</p><button id="reset" class="text-button">清除筛选</button></div>
+
+
+
+  <dialog id="art-dialog" aria-labelledby="dialog-title">
+    <header class="dialog-header"><div><span id="dialog-group"></span><h2 id="dialog-title"></h2></div><button class="icon-button" id="dialog-close" aria-label="关闭作品预览"><span data-icon="close"></span></button></header>
+    <div id="dialog-art"></div>
+    <div class="dialog-footer"><span class="status success"><i></i>生成成功</span><span id="dialog-meta"></span></div>
+  </dialog>

@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 210" role="img" aria-label="鹈鹕海边骑自行车"><style>.sky{fill:#dbe9e2}.sea{fill:#a8d1c7}.far-hill{fill:#b4caa8}.near-hill{fill:#8fb4a2}.bike-frame{stroke:#cc8265}.scarf-color{fill:#ca8061}.wheel,.crank{animation:spin 2s linear infinite;transform-origin:0 0}.rider{animation:bob 2s ease-in-out infinite}.water-lines{animation:water 7s ease-in-out infinite alternate}@keyframes spin{to{transform:rotate(360deg)}}@keyframes bob{50%{transform:translateY(-1px)}}@keyframes water{to{transform:translateX(-6px)}}@media(prefers-reduced-motion:reduce){*{animation:none!important}}</style>
+        <rect width="320" height="210" class="sky" />
+        <circle cx="265" cy="36" r="21" fill="#f1d78b" opacity=".4" />
+        <circle cx="265" cy="36" r="16" fill="#e6c66f" />
+        <g class="clouds" fill="#eff3e7">
+          <path d="M33 39q2-10 11-8q8-13 16 0q11-1 13 8Z" />
+          <path d="M243 68q3-10 12-8q7-12 16-1q10-3 15 9Z" />
+          <path d="M-30 88q4-8 13-5q8-12 14 0q12-2 14 8Z" />
+        </g>
+        <path d="M0 111Q40 83 85 105T167 109T252 99T340 105V160H0Z" class="far-hill" />
+        <path d="M0 119Q65 104 122 119T239 114T320 121V171H0Z" class="sea" />
+        <g class="water-lines" stroke="#e2efe3" stroke-width="1" opacity=".6">
+          <path d="M12 132h45m23 14h34m20-16h34m84 10h49M36 156h53m79-7h42" />
+        </g>
+        <path d="M0 157Q41 144 86 155T180 157T320 149V180H0Z" class="near-hill" />
+        <path d="M0 173Q87 177 150 170T320 175V210H0Z" fill="#d1c7a6" />
+        <g class="road" stroke="#f6edd3" stroke-width="2">
+          <path d="M-60 196h30m20 0h30m20 0h30m20 0h30m20 0h30m20 0h30m20 0h30m20 0h30m20 0h30" />
+        </g>
+        <g fill="none" stroke="#7d9b74" stroke-width="1.4">
+          <path d="M39 175v-8m0 7q-7-2-7-6m7 6q5-2 5-6M290 174v-7m0 5q-5-1-5-5" />
+        </g>
+        <ellipse cx="163" cy="187" rx="91" ry="4" fill="#74887b" opacity=".14" />
+        <g fill="none" stroke="#355b54" stroke-linecap="round" stroke-linejoin="round">
+          <g transform="translate(99 157)">
+            <circle r="35" stroke-width="3" fill="#e4ead9" fill-opacity=".25" />
+            <circle r="32" stroke-width=".7" />
+            <g class="wheel" stroke-width=".75" opacity=".8">
+              <path d="M-32 0H32" transform="rotate(0)"/><path d="M-32 0H32" transform="rotate(30)"/><path d="M-32 0H32" transform="rotate(60)"/><path d="M-32 0H32" transform="rotate(90)"/><path d="M-32 0H32" transform="rotate(120)"/><path d="M-32 0H32" transform="rotate(150)"/>
+            </g>
+            <circle r="3" fill="#d7dfcb" stroke-width="1.2" />
+          </g><g transform="translate(225 157)">
+            <circle r="35" stroke-width="3" fill="#e4ead9" fill-opacity=".25" />
+            <circle r="32" stroke-width=".7" />
+            <g class="wheel" stroke-width=".75" opacity=".8">
+              <path d="M-32 0H32" transform="rotate(0)"/><path d="M-32 0H32" transform="rotate(30)"/><path d="M-32 0H32" transform="rotate(60)"/><path d="M-32 0H32" transform="rotate(90)"/><path d="M-32 0H32" transform="rotate(120)"/><path d="M-32 0H32" transform="rotate(150)"/>
+            </g>
+            <circle r="3" fill="#d7dfcb" stroke-width="1.2" />
+          </g>
+          <path d="M99 157l38-57l30 57H99l78-48l48 48l-20-65M137 100l45 0m-15 57l-27-65" class="bike-frame" stroke-width="4" />
+          <path d="M99 157l38-57l30 57H99l78-48l48 48l-20-65" stroke="#45675c" stroke-width=".9" />
+          <path d="M128 93h22m53 0l-4-13h17q9 0 9 6" stroke-width="3" />
+          <path d="M132 93h17" stroke="#394e43" stroke-width="4" />
+          <g transform="translate(167 157)">
+            <circle r="7" stroke-width="1.3" />
+            <g class="crank" stroke-width="2"><path d="M-13 0h26" /><path d="M-16-2h6m20 4h6" /></g>
+          </g>
+        </g>
+        <g class="rider" stroke="#416055" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+          <path class="back-leg" d="M151 107l26 18l-16 23h-8" fill="none" stroke="#c69650" stroke-width="4" />
+          <path class="front-leg" d="M155 107l-1 24l25 27h8" fill="none" stroke="#d9af63" stroke-width="4" />
+          <path d="M114 85l-15-12q3 18 15 23q-9-1-14-7q8 20 28 19" fill="#f5f4df" />
+          <path d="M113 84q16-10 37 0q17 7 25-9q5-9 2-24q-3-19 10-23q14-3 16 13q1 11-5 21q-6 13 0 22q-8 21-35 27q-27 7-47-9q-9-9-3-18Z" fill="#f6f4e5" />
+          <path d="M117 86q13-6 31 5q12 8 26-1q-6 19-26 14q-20-2-31-18Z" fill="#e5e9d9" />
+          <path d="M123 88q19 16 37 11" fill="none" stroke-width=".9" />
+          <path d="M182 41q23-2 61 7l-40 7l-20-4Z" fill="#e8bd61" />
+          <path d="M186 50l52-1q-24 23-39 15q-10-3-13-14Z" fill="#eccb78" />
+          <path d="M188 51q21 7 47-1" fill="none" stroke="#ba944c" stroke-width=".8" />
+          <circle cx="190" cy="36" r="1.6" fill="#304d45" stroke="none" />
+          <path d="M181 30l-3-6m6 4l-1-6" fill="none" />
+          <path d="M176 64q7 4 18 1l-1 6q-10 3-17-1Z" fill="#ca8061" stroke-width=".8" />
+          <path class="scarf-tail" d="M177 67q-12 6-27 0l5 8q15 2 24-5Z" fill="#ca8061" stroke-width=".8" />
+          <path d="M162 92q23 5 42-9l9 0" fill="none" stroke-width="3.8" stroke="#f6f4e5" />
+          <path d="M162 95q23 3 43-9l8-1" fill="none" />
+          <path d="M178 27q0-16 15-13q9 1 10 14l-25-1h31" fill="#719783" />
+          <path d="M172 28q17 5 40 1" fill="none" stroke-width="3" />
+          <path d="M183 17v8m5-9v9m6-8v8" fill="none" stroke="#d9e3cf" stroke-width="1" />
+        </g>
+        <path d="M229 21q3-4 6 0m3 0q3-4 6 0" fill="none" stroke="#799a91" stroke-width=".8" />
+      </svg>
