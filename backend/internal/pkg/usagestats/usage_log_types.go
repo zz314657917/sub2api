@@ -90,15 +90,26 @@ type DashboardStats struct {
 
 // TrendDataPoint represents a single point in trend data
 type TrendDataPoint struct {
-	Date                string  `json:"date"`
-	Requests            int64   `json:"requests"`
-	InputTokens         int64   `json:"input_tokens"`
-	OutputTokens        int64   `json:"output_tokens"`
-	CacheCreationTokens int64   `json:"cache_creation_tokens"`
-	CacheReadTokens     int64   `json:"cache_read_tokens"`
-	TotalTokens         int64   `json:"total_tokens"`
-	Cost                float64 `json:"cost"`        // 标准计费
-	ActualCost          float64 `json:"actual_cost"` // 实际扣除
+	Date                string               `json:"date"`
+	Requests            int64                `json:"requests"`
+	InputTokens         int64                `json:"input_tokens"`
+	OutputTokens        int64                `json:"output_tokens"`
+	CacheCreationTokens int64                `json:"cache_creation_tokens"`
+	CacheReadTokens     int64                `json:"cache_read_tokens"`
+	TotalTokens         int64                `json:"total_tokens"`
+	Cost                float64              `json:"cost"`        // 标准计费
+	ActualCost          float64              `json:"actual_cost"` // 实际扣除
+	ActualCostBreakdown *ActualCostBreakdown `json:"actual_cost_breakdown,omitempty"`
+}
+
+// ActualCostBreakdown allocates applied spend using each request's stored reference costs.
+// It is an attribution of actual credits, not a separate billing ledger.
+type ActualCostBreakdown struct {
+	Input         float64 `json:"input"`
+	Output        float64 `json:"output"`
+	CacheCreation float64 `json:"cache_creation"`
+	CacheRead     float64 `json:"cache_read"`
+	Other         float64 `json:"other"`
 }
 
 // ModelStat represents usage statistics for a single model

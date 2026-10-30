@@ -78,6 +78,7 @@ const formatCacheReuseRate = (cacheReadTokens: number, inputTokens: number): str
 }
 
 const formatDuration = (milliseconds: number): string => {
+  if (!Number.isFinite(milliseconds) || milliseconds <= 0) return '—'
   const value = Number(milliseconds) || 0
   if (value >= 1000) {
     return `${(value / 1000).toFixed(2)}s`
@@ -120,7 +121,7 @@ const performanceCards = computed<PerformanceCard[]>(() => [
     kind: 'single',
     label: t('dashboard.avgResponse'),
     value: formatDuration(props.stats.average_duration_ms || 0),
-    note: t('dashboard.averageTime'),
+    note: t('dashboard.console.historicalAverage'),
     icon: 'clock',
     iconClass: 'dashboard-performance-icon--rose',
   },

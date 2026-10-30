@@ -1,4 +1,5 @@
 export default {
+    consoleHelp: 'Help & resources',
     loading: 'Loading...',
     submitting: 'Submitting...',
     justNow: 'just now',

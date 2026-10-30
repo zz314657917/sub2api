@@ -1,7 +1,10 @@
 <template>
   <section v-if="platformCards.length > 0" class="dashboard-panel dashboard-platform-panel">
     <div class="dashboard-platform-header">
-      <h2 class="dashboard-panel-title">{{ t('dashboard.platformBreakdown') }}</h2>
+      <div>
+        <h2 class="dashboard-panel-title">{{ t('dashboard.platformBreakdown') }}</h2>
+        <p class="dashboard-panel-subtitle">{{ t('dashboard.console.platformDescription') }}</p>
+      </div>
       <span class="dashboard-platform-count">
         {{ t('dashboard.platformCount', { count: sortedPlatforms.length }) }}
       </span>

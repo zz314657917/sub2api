@@ -28,49 +28,47 @@
         />
       </div>
 
-      <div class="flex shrink-0 items-center gap-3">
+      <div class="console-header-actions flex shrink-0 items-center gap-2">
         <AnnouncementBell v-if="user" ref="announcementBellRef" />
 
-        <router-link
-          to="/tutorial"
-          class="console-chip flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-semibold transition-colors"
-        >
-          <Icon name="book" size="sm" />
-          <span class="hidden xl:inline">{{ t('home.navTutorial') }}</span>
-        </router-link>
+        <nav class="console-header-shortcuts flex items-center" :aria-label="t('common.consoleHelp')">
+          <router-link
+            to="/tutorial"
+            class="console-header-shortcut console-icon-button"
+            :aria-label="t('home.navTutorial')"
+            :title="t('home.navTutorial')"
+          >
+            <Icon name="book" size="sm" />
+            <span class="hidden md:inline">{{ t('home.navTutorial') }}</span>
+          </router-link>
 
-        <router-link
-          v-if="modelPlazaEnabled"
-          to="/models"
-          class="console-chip flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-semibold transition-colors"
-        >
-          <Icon name="cube" size="sm" />
-          <span class="hidden xl:inline">{{ t('home.navModels') }}</span>
-        </router-link>
+          <router-link
+            v-if="modelPlazaEnabled"
+            to="/models"
+            class="console-header-shortcut console-icon-button"
+            :aria-label="t('home.navModels')"
+            :title="t('home.navModels')"
+          >
+            <Icon name="cube" size="sm" />
+            <span class="hidden md:inline">{{ t('home.navModels') }}</span>
+          </router-link>
 
-        <button
-          v-if="hasSupportButton"
-          type="button"
-          class="console-chip flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-semibold transition-colors"
-          @click="openSupportPopup"
-        >
-          <Icon name="chatBubble" size="sm" />
-          <span class="hidden sm:inline">{{ t('common.contactSupport') }}</span>
-        </button>
+          <button
+            v-if="hasSupportButton"
+            type="button"
+            class="console-header-shortcut console-icon-button"
+            :aria-label="t('common.contactSupport')"
+            :title="t('common.contactSupport')"
+            @click="openSupportPopup"
+          >
+            <Icon name="chatBubble" size="sm" />
+            <span class="hidden md:inline">{{ t('common.contactSupport') }}</span>
+          </button>
+        </nav>
 
-        <a
-          v-if="docUrl"
-          :href="docUrl"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="console-chip flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-semibold transition-colors"
-        >
-          <Icon name="book" size="sm" />
-          <span class="hidden sm:inline">{{ t('nav.docs') }}</span>
-        </a>
-
-        <LocaleSwitcher />
-        <SubscriptionProgressMini v-if="user" />
+        <div ref="localeRef" @keydown.esc="closeLocaleMenu">
+          <LocaleSwitcher :key="localeMenuKey" />
+        </div>
 
         <div v-if="user" class="console-balance hidden items-center gap-2 px-3 py-1.5 sm:flex">
           <span class="text-sm font-semibold">
@@ -80,32 +78,40 @@
 
         <div v-if="user" class="relative" ref="dropdownRef">
           <button
+            ref="userButton"
             @click="toggleDropdown"
+            @keydown.down.prevent="openUserWithFocus"
             class="console-user-button flex items-center gap-2 p-1.5 transition-colors"
             :aria-label="t('common.userMenu')"
+            :aria-expanded="dropdownOpen"
+            aria-controls="console-user-panel"
           >
-            <div class="console-avatar flex h-8 w-8 items-center justify-center overflow-hidden text-sm font-semibold text-white">
+            <div
+              class="console-avatar flex h-8 w-8 items-center justify-center overflow-hidden text-sm font-semibold text-white"
+            >
               <img
                 v-if="avatarUrl"
                 :src="avatarUrl"
                 :alt="displayName"
                 class="h-full w-full object-cover"
-              >
+              />
               <span v-else>{{ userInitials }}</span>
             </div>
-            <div class="hidden text-left md:block">
+            <div class="hidden text-left xl:block">
               <div class="text-sm font-medium text-white">
                 {{ displayName }}
-              </div>
-              <div class="text-xs capitalize text-violet-200/60">
-                {{ user.role }}
               </div>
             </div>
             <Icon name="chevronDown" size="xs" class="hidden md:block" />
           </button>
 
           <transition name="dropdown">
-            <div v-if="dropdownOpen" class="dropdown right-0 mt-2 w-56">
+            <div
+              v-if="dropdownOpen"
+              id="console-user-panel"
+              class="dropdown right-0 mt-2 w-56"
+              @keydown="handlePanelKeys"
+            >
               <div class="border-b border-white/10 px-4 py-3">
                 <div class="text-sm font-medium text-white">
                   {{ displayName }}
@@ -123,6 +129,9 @@
               </div>
 
               <div class="py-1">
+                <div class="console-subscription-menu">
+                  <SubscriptionProgressMini v-if="user" />
+                </div>
                 <router-link to="/profile" @click="closeDropdown" class="dropdown-item">
                   <Icon name="user" size="sm" />
                   {{ t('nav.profile') }}
@@ -132,6 +141,18 @@
                   <Icon name="key" size="sm" />
                   {{ t('nav.apiKeys') }}
                 </router-link>
+
+                <a
+                  v-if="docUrl"
+                  :href="docUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  @click="closeDropdown"
+                  class="dropdown-item"
+                >
+                  <Icon name="book" size="sm" />
+                  {{ t('nav.docs') }}
+                </a>
 
                 <a
                   v-if="authStore.isAdmin"
@@ -179,7 +200,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAppStore, useAuthStore, useOnboardingStore, usePelicanMetadataStore } from '@/stores'
@@ -209,6 +230,9 @@ const pelicanMetadata = usePelicanMetadataStore()
 const user = computed(() => authStore.user)
 const dropdownOpen = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
+const userButton = ref<HTMLButtonElement | null>(null)
+const localeRef = ref<HTMLElement | null>(null)
+const localeMenuKey = ref(0)
 const announcementBellRef = ref<InstanceType<typeof AnnouncementBell> | null>(null)
 const contactInfo = computed(() => appStore.contactInfo)
 const docUrl = computed(() => appStore.docUrl)
@@ -216,9 +240,10 @@ const avatarUrl = computed(() => user.value?.avatar_url?.trim() || '')
 const hasSupportButton = computed(() =>
   hasSupportContent(appStore.cachedPublicSettings, appStore.contactInfo)
 )
-const modelPlazaEnabled = computed(() =>
-  appStore.cachedPublicSettings?.model_plaza_enabled === true &&
-  (!appStore.backendModeEnabled || authStore.isAdmin)
+const modelPlazaEnabled = computed(
+  () =>
+    appStore.cachedPublicSettings?.model_plaza_enabled === true &&
+    (!appStore.backendModeEnabled || authStore.isAdmin)
 )
 const headerAnnouncements = computed(() => announcementStore.announcements)
 
@@ -286,6 +311,55 @@ function toggleDropdown() {
   dropdownOpen.value = !dropdownOpen.value
 }
 
+async function closeLocaleMenu() {
+  // LocaleSwitcher owns its popover; remount only on Escape to dismiss its local state.
+  localeMenuKey.value++
+  await nextTick()
+  localeRef.value?.querySelector('button')?.focus()
+}
+
+async function openUserWithFocus() {
+  dropdownOpen.value = true
+  await nextTick()
+  dropdownRef.value
+    ?.querySelector<HTMLElement>('#console-user-panel a, #console-user-panel button')
+    ?.focus()
+}
+
+function handlePanelKeys(event: KeyboardEvent) {
+  const container = event.currentTarget as HTMLElement
+  const items = Array.from(
+    container.querySelectorAll<HTMLElement>('a[href], button:not([disabled])')
+  )
+  const index = items.indexOf(document.activeElement as HTMLElement)
+  let next = index
+  if (event.key === 'ArrowDown') next = (index + 1) % items.length
+  else if (event.key === 'ArrowUp') next = (index - 1 + items.length) % items.length
+  else if (event.key === 'Home') next = 0
+  else if (event.key === 'End') next = items.length - 1
+  else if (event.key === 'Escape') {
+    event.preventDefault()
+    closeDropdown()
+    userButton.value?.focus()
+    return
+  } else return
+  event.preventDefault()
+  items[next]?.focus()
+}
+
+function handleEscape(event: KeyboardEvent) {
+  if (event.key !== 'Escape') return
+  if (dropdownOpen.value) {
+    closeDropdown()
+    userButton.value?.focus()
+  }
+}
+
+function handleFocusOutside(event: FocusEvent) {
+  const target = event.target as Node
+  if (!dropdownRef.value?.contains(target)) closeDropdown()
+}
+
 function closeDropdown() {
   dropdownOpen.value = false
 }
@@ -318,10 +392,14 @@ function handleClickOutside(event: MouseEvent) {
 onMounted(() => {
   void pelicanMetadata.load().catch(() => {})
   document.addEventListener('click', handleClickOutside)
+  document.addEventListener('keydown', handleEscape)
+  document.addEventListener('focusin', handleFocusOutside)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('keydown', handleEscape)
+  document.removeEventListener('focusin', handleFocusOutside)
 })
 </script>
 

@@ -15,11 +15,11 @@ const mocks = vi.hoisted(() => ({
   getDashboardModels: vi.fn(),
   getByDateRange: vi.fn(),
   getAccountUsageSummary: vi.fn(),
-  getWelfareOverview: vi.fn(),
+  getWelfareOverview: vi.fn()
 }))
 
 vi.mock('vue-router', () => ({
-  useRouter: () => ({ push: mocks.push }),
+  useRouter: () => ({ push: mocks.push })
 }))
 
 vi.mock('vue-i18n', () => ({
@@ -27,8 +27,8 @@ vi.mock('vue-i18n', () => ({
     global: {
       locale: { value: 'en' },
       setLocaleMessage: vi.fn(),
-      t: (key: string) => key,
-    },
+      t: (key: string) => key
+    }
   }),
   useI18n: () => ({
     t: (key: string, params?: Record<string, unknown>) => {
@@ -36,8 +36,8 @@ vi.mock('vue-i18n', () => ({
         return `${key}:${params.count}/${params.total}`
       }
       return key
-    },
-  }),
+    }
+  })
 }))
 
 vi.mock('@/stores/auth', () => ({
@@ -45,10 +45,10 @@ vi.mock('@/stores/auth', () => ({
     user: {
       id: 1,
       role: 'user',
-      balance: 0,
+      balance: 0
     },
-    refreshUser: mocks.refreshUser,
-  }),
+    refreshUser: mocks.refreshUser
+  })
 }))
 
 vi.mock('@/api/usage', () => ({
@@ -56,26 +56,70 @@ vi.mock('@/api/usage', () => ({
     getDashboardStats: mocks.getDashboardStats,
     getDashboardTrend: mocks.getDashboardTrend,
     getDashboardModels: mocks.getDashboardModels,
-    getByDateRange: mocks.getByDateRange,
-  },
+    query: mocks.getByDateRange
+  }
 }))
 
 vi.mock('@/api/user', () => ({
   userAPI: {
-    getAccountUsageSummary: mocks.getAccountUsageSummary,
-  },
+    getAccountUsageSummary: mocks.getAccountUsageSummary
+  }
 }))
 
 vi.mock('@/api/welfare', () => ({
   welfareAPI: {
-    getWelfareOverview: mocks.getWelfareOverview,
-  },
+    getWelfareOverview: mocks.getWelfareOverview
+  }
 }))
 
-const stubComponent = (name: string) => defineComponent({
-  name,
-  template: `<div data-test-stub="${name}" />`,
-})
+const stubComponent = (name: string) =>
+  defineComponent({
+    name,
+    template: `<div data-test-stub="${name}" />`
+  })
+
+const dataStubs = {
+  AppLayout: defineComponent({ template: '<main><slot /></main>' }),
+  Icon: true,
+  LoadingSpinner: true,
+  UserDashboardStats: true,
+  UserDashboardPerformanceStats: true,
+  UserDashboardCharts: defineComponent({
+    name: 'UserDashboardCharts',
+    props: ['trend', 'loading', 'error', 'startDate', 'endDate'],
+    emits: ['dateRangeChange', 'update:startDate', 'update:endDate'],
+    template: '<div />'
+  }),
+  UserDashboardModels: defineComponent({
+    name: 'UserDashboardModels',
+    props: ['models', 'loading', 'error'],
+    template: '<div />'
+  }),
+  UserDashboardTokenTrend: true,
+  UserDashboardRecentUsage: defineComponent({
+    name: 'UserDashboardRecentUsage',
+    props: ['data', 'loading', 'error'],
+    template: '<div />'
+  }),
+  UserDashboardAccountUsage: defineComponent({
+    name: 'UserDashboardAccountUsage',
+    props: ['summary', 'loading'],
+    template: '<div />'
+  }),
+  UserDashboardPlatformBreakdown: true,
+  UserDashboardQuickActions: true,
+  UserApiKeyOnboardingDialog: true
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((yes, no) => {
+    resolve = yes
+    reject = no
+  })
+  return { promise, resolve, reject }
+}
 
 const makeStats = (overrides: Record<string, unknown> = {}) => ({
   total_api_keys: 1,
@@ -100,7 +144,7 @@ const makeStats = (overrides: Record<string, unknown> = {}) => ({
   rpm: 1,
   tpm: 100,
   by_platform: [],
-  ...overrides,
+  ...overrides
 })
 
 describe('User DashboardView data loading', () => {
@@ -118,69 +162,77 @@ describe('User DashboardView data loading', () => {
     mocks.getWelfareOverview.mockResolvedValue({ enabled: false })
   })
 
-  it.each([true, false, undefined])('loads account usage only when sharing is enabled (%s)', async (enabled) => {
-    const appStore = useAppStore()
-    appStore.cachedPublicSettings = enabled === undefined
-      ? null
-      : { account_share_enabled: enabled } as PublicSettings
-    const wrapper = mount(DashboardView, {
-      global: {
-        stubs: {
-          AppLayout: defineComponent({
-            name: 'AppLayout',
-            template: '<main><slot /></main>',
-          }),
-          LoadingSpinner: true,
-          UserDashboardStats: stubComponent('UserDashboardStats'),
-          UserDashboardPerformanceStats: stubComponent('UserDashboardPerformanceStats'),
-          UserDashboardCharts: stubComponent('UserDashboardCharts'),
-          UserDashboardPlatformBreakdown: stubComponent('UserDashboardPlatformBreakdown'),
-          UserDashboardAccountUsage: stubComponent('UserDashboardAccountUsage'),
-          UserDashboardRecentUsage: stubComponent('UserDashboardRecentUsage'),
-          UserDashboardQuickActions: stubComponent('UserDashboardQuickActions'),
-          UserApiKeyOnboardingDialog: stubComponent('UserApiKeyOnboardingDialog'),
-        },
-      },
-    })
+  it.each([true, false, undefined])(
+    'loads account usage only when sharing is enabled (%s)',
+    async (enabled) => {
+      const appStore = useAppStore()
+      appStore.cachedPublicSettings =
+        enabled === undefined ? null : ({ account_share_enabled: enabled } as PublicSettings)
+      const wrapper = mount(DashboardView, {
+        global: {
+          stubs: {
+            AppLayout: defineComponent({
+              name: 'AppLayout',
+              template: '<main><slot /></main>'
+            }),
+            LoadingSpinner: true,
+            UserDashboardStats: stubComponent('UserDashboardStats'),
+            UserDashboardPerformanceStats: stubComponent('UserDashboardPerformanceStats'),
+            UserDashboardCharts: stubComponent('UserDashboardCharts'),
+            UserDashboardModels: stubComponent('UserDashboardModels'),
+            UserDashboardTokenTrend: stubComponent('UserDashboardTokenTrend'),
+            UserDashboardPlatformBreakdown: stubComponent('UserDashboardPlatformBreakdown'),
+            UserDashboardAccountUsage: stubComponent('UserDashboardAccountUsage'),
+            UserDashboardRecentUsage: stubComponent('UserDashboardRecentUsage'),
+            UserDashboardQuickActions: stubComponent('UserDashboardQuickActions'),
+            UserApiKeyOnboardingDialog: stubComponent('UserApiKeyOnboardingDialog')
+          }
+        }
+      })
 
-    await flushPromises()
+      await flushPromises()
 
-    expect(mocks.refreshUser).toHaveBeenCalledTimes(1)
-    expect(mocks.getDashboardStats).toHaveBeenCalledTimes(1)
-    expect(mocks.getDashboardTrend).toHaveBeenCalledTimes(1)
-    expect(mocks.getByDateRange).toHaveBeenCalledTimes(1)
-    expect(mocks.getAccountUsageSummary).toHaveBeenCalledTimes(enabled === true ? 1 : 0)
-    expect(wrapper.find('[data-test-stub="UserDashboardAccountUsage"]').exists()).toBe(enabled === true)
-    expect(mocks.getWelfareOverview).toHaveBeenCalledTimes(1)
-    expect(mocks.getDashboardModels).not.toHaveBeenCalled()
+      expect(mocks.refreshUser).toHaveBeenCalledTimes(1)
+      expect(mocks.getDashboardStats).toHaveBeenCalledTimes(1)
+      expect(mocks.getDashboardTrend).toHaveBeenCalledTimes(1)
+      expect(mocks.getByDateRange).toHaveBeenCalledTimes(1)
+      expect(mocks.getAccountUsageSummary).toHaveBeenCalledTimes(enabled === true ? 1 : 0)
+      expect(wrapper.find('[data-test-stub="UserDashboardAccountUsage"]').exists()).toBe(
+        enabled === true
+      )
+      expect(mocks.getWelfareOverview).toHaveBeenCalledTimes(1)
+      expect(mocks.getDashboardModels).toHaveBeenCalledTimes(1)
 
-    // Public settings may arrive after the dashboard mounts or be refreshed later.
-    appStore.cachedPublicSettings = { account_share_enabled: true } as PublicSettings
-    await flushPromises()
-    expect(wrapper.find('[data-test-stub="UserDashboardAccountUsage"]').exists()).toBe(true)
-    expect(mocks.getAccountUsageSummary).toHaveBeenCalledTimes(1)
+      // Public settings may arrive after the dashboard mounts or be refreshed later.
+      appStore.cachedPublicSettings = { account_share_enabled: true } as PublicSettings
+      await flushPromises()
+      expect(wrapper.find('[data-test-stub="UserDashboardAccountUsage"]').exists()).toBe(true)
+      expect(mocks.getAccountUsageSummary).toHaveBeenCalledTimes(1)
 
-    appStore.cachedPublicSettings = { account_share_enabled: false } as PublicSettings
-    await flushPromises()
-    expect(wrapper.find('[data-test-stub="UserDashboardAccountUsage"]').exists()).toBe(false)
-    wrapper.findComponent({ name: 'UserDashboardCharts' }).vm.$emit('dateRangeChange')
-    await flushPromises()
-    expect(mocks.getAccountUsageSummary).toHaveBeenCalledTimes(1)
-    wrapper.unmount()
-  })
+      appStore.cachedPublicSettings = { account_share_enabled: false } as PublicSettings
+      await flushPromises()
+      expect(wrapper.find('[data-test-stub="UserDashboardAccountUsage"]').exists()).toBe(false)
+      wrapper.findComponent({ name: 'UserDashboardCharts' }).vm.$emit('dateRangeChange')
+      await flushPromises()
+      expect(mocks.getAccountUsageSummary).toHaveBeenCalledTimes(1)
+      wrapper.unmount()
+    }
+  )
 
   it('shows onboarding for unused default key and opens the key page', async () => {
-    mocks.getDashboardStats.mockResolvedValue(makeStats({
-      total_api_keys: 1,
-      active_api_keys: 1,
-      total_requests: 0,
-    }))
+    mocks.getDashboardStats.mockResolvedValue(
+      makeStats({
+        total_api_keys: 1,
+        active_api_keys: 1,
+        total_requests: 0
+      })
+    )
 
     const onboardingStub = defineComponent({
       name: 'UserApiKeyOnboardingDialog',
       props: {
         show: Boolean,
-        hasApiKey: Boolean,
+        hasApiKey: Boolean
       },
       emits: ['create'],
       template: `
@@ -192,7 +244,7 @@ describe('User DashboardView data loading', () => {
         >
           onboarding
         </button>
-      `,
+      `
     })
 
     const wrapper = mount(DashboardView, {
@@ -200,19 +252,21 @@ describe('User DashboardView data loading', () => {
         stubs: {
           AppLayout: defineComponent({
             name: 'AppLayout',
-            template: '<main><slot /></main>',
+            template: '<main><slot /></main>'
           }),
           LoadingSpinner: true,
           UserDashboardStats: stubComponent('UserDashboardStats'),
           UserDashboardPerformanceStats: stubComponent('UserDashboardPerformanceStats'),
           UserDashboardCharts: stubComponent('UserDashboardCharts'),
+          UserDashboardModels: stubComponent('UserDashboardModels'),
+          UserDashboardTokenTrend: stubComponent('UserDashboardTokenTrend'),
           UserDashboardPlatformBreakdown: stubComponent('UserDashboardPlatformBreakdown'),
           UserDashboardAccountUsage: stubComponent('UserDashboardAccountUsage'),
           UserDashboardRecentUsage: stubComponent('UserDashboardRecentUsage'),
           UserDashboardQuickActions: stubComponent('UserDashboardQuickActions'),
-          UserApiKeyOnboardingDialog: onboardingStub,
-        },
-      },
+          UserApiKeyOnboardingDialog: onboardingStub
+        }
+      }
     })
 
     await flushPromises()
@@ -231,7 +285,8 @@ describe('User DashboardView data loading', () => {
     const onboardingStub = defineComponent({
       props: { show: Boolean },
       emits: ['skip'],
-      template: '<button data-test="setup-state" :data-show="String(show)" @click="$emit(\'skip\')">close</button>',
+      template:
+        '<button data-test="setup-state" :data-show="String(show)" @click="$emit(\'skip\')">close</button>'
     })
     const wrapper = mount(DashboardView, {
       global: {
@@ -242,13 +297,15 @@ describe('User DashboardView data loading', () => {
           UserDashboardStats: true,
           UserDashboardPerformanceStats: true,
           UserDashboardCharts: true,
+          UserDashboardModels: true,
+          UserDashboardTokenTrend: true,
           UserDashboardPlatformBreakdown: true,
           UserDashboardAccountUsage: true,
           UserDashboardRecentUsage: true,
           UserDashboardQuickActions: true,
-          UserApiKeyOnboardingDialog: onboardingStub,
-        },
-      },
+          UserApiKeyOnboardingDialog: onboardingStub
+        }
+      }
     })
     await flushPromises()
     expect(wrapper.get('[data-test="setup-state"]').attributes('data-show')).toBe('false')
@@ -259,4 +316,82 @@ describe('User DashboardView data loading', () => {
     await wrapper.get('[data-testid="quick-setup"]').trigger('click')
     expect(wrapper.get('[data-test="setup-state"]').attributes('data-show')).toBe('true')
   })
+
+  it('uses the same default seven calendar days and timezone for every range consumer', async () => {
+    const wrapper = mount(DashboardView, { global: { stubs: dataStubs } })
+    await flushPromises()
+    const trendParams = mocks.getDashboardTrend.mock.calls[0][0]
+    const start = Date.parse(`${trendParams.start_date}T00:00:00Z`)
+    const end = Date.parse(`${trendParams.end_date}T00:00:00Z`)
+    expect((end - start) / 86400000 + 1).toBe(7)
+    expect(trendParams.timezone).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone)
+    const expected = {
+      start_date: trendParams.start_date,
+      end_date: trendParams.end_date,
+      timezone: trendParams.timezone
+    }
+    expect(mocks.getDashboardModels).toHaveBeenCalledWith(expected)
+    expect(mocks.getByDateRange).toHaveBeenCalledWith({ ...expected, page: 1, page_size: 5 })
+    expect(mocks.getAccountUsageSummary).toHaveBeenCalledWith(expected)
+    wrapper.unmount()
+  })
+
+  it.each(['success', 'failure'])(
+    'ignores late old-range %s for trend, models, logs and shared summaries',
+    async (outcome) => {
+      const oldTrend = deferred<{ trend: unknown[] }>()
+      const oldModels = deferred<{ models: unknown[] }>()
+      const oldRecent = deferred<{ items: unknown[] }>()
+      const oldAccount = deferred<unknown>()
+      mocks.getDashboardTrend
+        .mockReturnValueOnce(oldTrend.promise)
+        .mockResolvedValue({ trend: [{ date: 'latest', requests: 9 }] })
+      mocks.getDashboardModels
+        .mockReturnValueOnce(oldModels.promise)
+        .mockResolvedValue({ models: [{ model: 'latest' }] })
+      mocks.getByDateRange
+        .mockReturnValueOnce(oldRecent.promise)
+        .mockResolvedValue({ items: [{ id: 22 }] })
+      mocks.getAccountUsageSummary
+        .mockReturnValueOnce(oldAccount.promise)
+        .mockResolvedValue({ total_accounts: 22 })
+      const wrapper = mount(DashboardView, { global: { stubs: dataStubs } })
+      await flushPromises()
+      const chart = wrapper.findComponent({ name: 'UserDashboardCharts' })
+      chart.vm.$emit('update:startDate', '2026-10-01')
+      chart.vm.$emit('update:endDate', '2026-10-30')
+      chart.vm.$emit('dateRangeChange')
+      await flushPromises()
+      if (outcome === 'success') {
+        oldTrend.resolve({ trend: [{ date: 'obsolete' }] })
+        oldModels.resolve({ models: [{ model: 'obsolete' }] })
+        oldRecent.resolve({ items: [{ id: 1 }] })
+        oldAccount.resolve({ total_accounts: 1 })
+      } else {
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+        oldTrend.reject(new Error('old range failed'))
+        oldModels.reject(new Error('old range failed'))
+        oldRecent.reject(new Error('old range failed'))
+        oldAccount.reject(new Error('old range failed'))
+        await flushPromises()
+        consoleSpy.mockRestore()
+      }
+      await flushPromises()
+      expect(chart.props('trend')).toEqual([{ date: 'latest', requests: 9 }])
+      expect(chart.props('error')).toBe(false)
+      expect(chart.props('loading')).toBe(false)
+      expect(wrapper.findComponent({ name: 'UserDashboardModels' }).props('models')).toEqual([
+        { model: 'latest' }
+      ])
+      expect(wrapper.findComponent({ name: 'UserDashboardModels' }).props('error')).toBe(false)
+      expect(wrapper.findComponent({ name: 'UserDashboardRecentUsage' }).props('data')).toEqual([
+        { id: 22 }
+      ])
+      expect(wrapper.findComponent({ name: 'UserDashboardRecentUsage' }).props('error')).toBe(false)
+      expect(wrapper.findComponent({ name: 'UserDashboardAccountUsage' }).props('summary')).toEqual(
+        { total_accounts: 22 }
+      )
+      wrapper.unmount()
+    }
+  )
 })

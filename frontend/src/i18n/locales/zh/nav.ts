@@ -1,4 +1,8 @@
 export default {
+    consoleWorkspace: '工作空间',
+    consoleBilling: '积分与权益',
+    consoleAccount: '账户与服务',
+    consoleMore: '更多',
     dashboard: '仪表盘',
     announcements: '公告',
     tutorials: '教程管理',

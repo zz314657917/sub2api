@@ -1,142 +1,80 @@
 <template>
-  <section class="dashboard-stats-grid">
+  <section class="dashboard-stats-grid" :aria-label="t('dashboard.console.accountOverview')">
     <article
-      v-for="card in statCards"
+      v-for="card in cards"
       :key="card.key"
       class="dashboard-stat-card"
+      :class="{ 'dashboard-stat-card--balance': card.key === 'balance' }"
     >
       <div class="dashboard-stat-header">
         <p class="dashboard-stat-label">{{ card.label }}</p>
-        <span class="dashboard-stat-badge" :class="card.badgeClass">
-          {{ card.badge }}
-        </span>
+        <Icon :name="card.icon" size="sm" />
       </div>
       <p class="dashboard-stat-value">{{ card.value }}</p>
-      <p class="dashboard-stat-trend" :class="card.trendClass">
-        {{ card.trend }}
-        <Icon :name="card.trendIcon" size="xs" />
-      </p>
       <p class="dashboard-stat-note">{{ card.note }}</p>
+      <router-link
+        v-if="card.key === 'balance'"
+        :to="canPurchase ? '/purchase' : '/profile'"
+        class="dashboard-inline-link"
+        >{{ t(canPurchase ? 'nav.buySubscription' : 'nav.profile') }}
+        <Icon name="arrowRight" size="xs"
+      /></router-link>
+      <router-link v-if="card.key === 'keys'" to="/keys" class="dashboard-inline-link"
+        >{{ t('dashboard.apiKeys') }} <Icon name="arrowRight" size="xs"
+      /></router-link>
     </article>
   </section>
 </template>
-
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import { formatCreditAmount } from '@/utils/credits'
-import type { UserDashboardStats as UserStatsType } from '@/api/usage'
-
-type TrendIcon = 'trendingUp' | 'arrowDown' | 'checkCircle'
-
-const props = defineProps<{
-  stats: UserStatsType
-}>()
-
+import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
+import { useAuthStore } from '@/stores/auth'
+import type { UserDashboardStats } from '@/api/usage'
+const props = defineProps<{ stats: UserDashboardStats; balance?: number }>()
 const { t } = useI18n()
-
-const formatCompact = (value: number): string =>
-  new Intl.NumberFormat(undefined, {
-    notation: 'compact',
-    maximumFractionDigits: value >= 1000 ? 1 : 0,
-  }).format(Number(value) || 0)
-
-const formatCost = (value: number): string =>
-  formatCreditAmount(value, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 4,
-  })
-
-const formatPercent = (value: number): string =>
-  `${new Intl.NumberFormat(undefined, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 1,
-  }).format(Number(value) || 0)}%`
-
-const averageCost = computed(() => {
-  const requests = props.stats.total_requests || 0
-  if (requests <= 0) return 0
-  return (props.stats.total_actual_cost || 0) / requests
-})
-
-const successTrend = computed(() => t('dashboard.overview.trendStable'))
-const activeApiKeyNote = computed(() =>
-  t('dashboard.overview.activeApiKeys', {
-    count: props.stats.active_api_keys || 0,
-    total: props.stats.total_api_keys || 0,
-  })
+const authStore = useAuthStore()
+const canPurchase = computed(
+  () => isFeatureFlagEnabled(FeatureFlags.payment) && !authStore.isSimpleMode
 )
-
-const tokenBreakdownNote = computed(() =>
-  `${activeApiKeyNote.value} · ${t('dashboard.input')}: ${formatCompact(props.stats.total_input_tokens || 0)} / ${t('dashboard.output')}: ${formatCompact(props.stats.total_output_tokens || 0)} / ${t('dashboard.cache')}: ${formatCompact((props.stats.total_cache_creation_tokens || 0) + (props.stats.total_cache_read_tokens || 0))}`
-)
-
-const statCards = computed<Array<{
-  key: string
-  label: string
-  value: string
-  badge: string
-  badgeClass: string
-  trend: string
-  trendClass: string
-  trendIcon: TrendIcon
-  note: string
-}>>(() => [
+const cost = (value: number) =>
+  formatCreditAmount(value, { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+const number = (value: number) => new Intl.NumberFormat().format(value)
+const tokens = (value: number) =>
+  new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(value)
+const cards = computed(() => [
   {
-    key: 'total-cost',
-    label: t('dashboard.overview.totalCost'),
-    value: formatCost(props.stats.total_actual_cost || 0),
-    badge: formatCost(props.stats.today_actual_cost || 0),
-    badgeClass: 'dashboard-stat-badge--neutral',
-    trend: successTrend.value,
-    trendClass: 'dashboard-stat-trend--positive',
-    trendIcon: 'trendingUp',
-    note: t('dashboard.overview.recentConsumption'),
+    key: 'balance',
+    label: t('dashboard.balance'),
+    icon: 'creditCard' as const,
+    value: cost(props.balance ?? 0),
+    note: t('dashboard.console.availableBalance')
   },
   {
-    key: 'total-tokens',
-    label: t('dashboard.overview.totalTokens'),
-    value: formatCompact(props.stats.total_tokens || 0),
-    badge: formatCompact(props.stats.today_tokens || 0),
-    badgeClass: 'dashboard-stat-badge--neutral',
-    trend: successTrend.value,
-    trendClass: 'dashboard-stat-trend--positive',
-    trendIcon: 'trendingUp',
-    note: tokenBreakdownNote.value,
+    key: 'today-cost',
+    label: t('dashboard.todayCost'),
+    icon: 'creditCard' as const,
+    value: cost(props.stats.today_actual_cost),
+    note: t('dashboard.console.serverDayActual')
   },
   {
-    key: 'total-requests',
-    label: t('dashboard.overview.totalRequests'),
-    value: formatCompact(props.stats.total_requests || 0),
-    badge: formatCompact(props.stats.today_requests || 0),
-    badgeClass: 'dashboard-stat-badge--neutral',
-    trend: successTrend.value,
-    trendClass: 'dashboard-stat-trend--positive',
-    trendIcon: 'trendingUp',
-    note: t('dashboard.overview.userRetentionNote'),
+    key: 'today-tokens',
+    label: t('dashboard.todayTokens'),
+    icon: 'chart' as const,
+    value: tokens(props.stats.today_tokens),
+    note: t('dashboard.console.serverDayTokens')
   },
   {
-    key: 'failure-rate',
-    label: t('dashboard.overview.failureRate'),
-    value: formatPercent(0),
-    badge: formatPercent(0),
-    badgeClass: 'dashboard-stat-badge--neutral',
-    trend: t('dashboard.overview.performanceStable'),
-    trendClass: 'dashboard-stat-trend--positive',
-    trendIcon: 'checkCircle',
-    note: t('dashboard.overview.failureRateNote'),
-  },
-  {
-    key: 'avg-cost',
-    label: t('dashboard.overview.averageRequestCost'),
-    value: formatCost(averageCost.value),
-    badge: formatCost(props.stats.today_actual_cost || 0),
-    badgeClass: 'dashboard-stat-badge--neutral',
-    trend: successTrend.value,
-    trendClass: 'dashboard-stat-trend--positive',
-    trendIcon: 'trendingUp',
-    note: t('dashboard.overview.averageRequestCostNote'),
-  },
+    key: 'keys',
+    label: t('dashboard.console.activeKeys'),
+    icon: 'key' as const,
+    value: number(props.stats.active_api_keys),
+    note: t('dashboard.overview.activeApiKeys', {
+      count: props.stats.active_api_keys,
+      total: props.stats.total_api_keys
+    })
+  }
 ])
 </script>

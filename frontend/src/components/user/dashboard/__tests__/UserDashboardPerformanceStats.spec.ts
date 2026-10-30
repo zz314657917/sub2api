@@ -100,4 +100,12 @@ describe('UserDashboardPerformanceStats', () => {
     expect(wrapper.text()).toContain('N/A')
     expect(wrapper.text()).toContain('250ms')
   })
+  it('shows a dash for unavailable duration rather than a successful-looking zero', () => {
+    const wrapper = mount(UserDashboardPerformanceStats, {
+      props: { stats: makeStats({ average_duration_ms: 0 }) },
+      global: { stubs: { Icon: true } },
+    })
+    expect(wrapper.text()).toContain('—')
+    expect(wrapper.text()).not.toContain('0ms')
+  })
 })

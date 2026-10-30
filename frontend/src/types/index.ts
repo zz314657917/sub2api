@@ -2120,6 +2120,13 @@ export interface TrendDataPoint {
   total_tokens: number
   cost: number // 标准计费
   actual_cost: number // 实际扣除
+  actual_cost_breakdown?: {
+    input: number
+    output: number
+    cache_creation: number
+    cache_read: number
+    other: number
+  }
 }
 
 export interface ModelStat {

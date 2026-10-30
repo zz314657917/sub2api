@@ -1,349 +1,307 @@
 <template>
   <section class="dashboard-charts-stack">
-    <article class="dashboard-panel dashboard-panel--large">
+    <article class="dashboard-panel">
       <div class="dashboard-panel-header">
         <div>
+          <p class="dashboard-eyebrow">{{ t('dashboard.console.usageAnalysis') }}</p>
           <h2 class="dashboard-panel-title">{{ t('dashboard.overview.dailyCostTrend') }}</h2>
-          <p class="dashboard-panel-subtitle">{{ t('dashboard.overview.dailyCostTrendDescription') }}</p>
+          <p class="dashboard-panel-subtitle">{{ startDate }} — {{ endDate }} · {{ timezone }}</p>
         </div>
-        <div class="dashboard-range-tabs" aria-label="Dashboard range">
+        <div class="dashboard-range-tabs" role="group" :aria-label="t('dashboard.timeRange')">
           <button
-            v-for="preset in rangePresets"
-            :key="preset.key"
+            v-for="days in [7, 30, 90]"
+            :key="days"
             type="button"
             class="dashboard-range-tab"
-            :class="{ 'dashboard-range-tab--active': activeRange === preset.key }"
-            @click="applyRange(preset.key)"
+            :aria-pressed="activeDays === days"
+            :class="{ 'dashboard-range-tab--active': activeDays === days }"
+            @click="applyRange(days)"
           >
-            {{ preset.label }}
+            {{ t(`dashboard.overview.last${days}Days`) }}
           </button>
         </div>
       </div>
-
-      <div v-if="loading" class="dashboard-chart-state dashboard-chart-state--large">
+      <div v-if="loading" class="dashboard-chart-state" role="status">
         <LoadingSpinner size="md" />
       </div>
-      <div v-else-if="hasCostData && costChartData" class="dashboard-main-chart">
-        <Line :data="costChartData" :options="costLineOptions" />
+      <div v-else-if="error" class="dashboard-chart-state" role="alert">
+        <p>{{ t('dashboard.console.loadError') }}</p>
+        <button type="button" class="btn btn-secondary" @click="emit('retry')">
+          {{ t('dashboard.console.retry') }}
+        </button>
       </div>
-      <div v-else class="dashboard-chart-state dashboard-chart-state--large">
-        {{ t('dashboard.noDataAvailable') }}
-      </div>
+      <template v-else>
+        <div class="dashboard-cost-layout">
+          <div class="min-w-0">
+            <div class="dashboard-chart-total">
+              <span>{{ t('dashboard.console.intervalActual') }}</span
+              ><strong>{{ formatCost(totals.actual) }}</strong
+              ><small>{{ t('dashboard.standard') }} {{ formatCost(totals.standard) }}</small>
+            </div>
+            <div v-if="hasRequests" class="dashboard-main-chart">
+              <Bar
+                :data="costChart"
+                :options="barOptions"
+                role="img"
+                :aria-label="t('dashboard.overview.dailyCostTrend')"
+              />
+            </div>
+            <div v-else class="dashboard-chart-state">
+              <Icon name="chart" size="lg" />
+              <p>
+                {{
+                  t(
+                    firstUse
+                      ? 'dashboard.console.firstUseTitle'
+                      : 'dashboard.console.rangeEmptyTitle'
+                  )
+                }}
+              </p>
+              <span>{{
+                t(
+                  firstUse
+                    ? 'dashboard.console.firstUseDescription'
+                    : 'dashboard.console.rangeEmptyDescription'
+                )
+              }}</span
+              ><router-link
+                :to="firstUse ? '/tutorial/getting-started' : '/usage'"
+                class="dashboard-inline-link"
+                >{{ t(firstUse ? 'dashboard.console.readGuide' : 'dashboard.viewAllUsage') }}
+                <Icon name="arrowRight" size="xs"
+              /></router-link>
+            </div>
+            <p v-if="hasRequests && totals.actual === 0" class="dashboard-panel-subtitle">
+              {{ t('dashboard.console.zeroCost') }}
+            </p>
+          </div>
+          <div class="dashboard-range-summary">
+            <div>
+              <span>{{ t('dashboard.console.cacheRate') }}</span
+              ><strong :title="t('dashboard.console.cacheRateFormula')">{{ cacheRate }}</strong
+              ><small>{{ t('dashboard.console.rangeCacheRate') }}</small>
+            </div>
+            <div>
+              <span>{{ t('dashboard.tokens') }}</span
+              ><strong>{{ compact(totals.tokens) }}</strong
+              ><small>{{ t('dashboard.console.reportedTokens') }}</small>
+            </div>
+            <router-link to="/usage" class="dashboard-inline-link"
+              >{{ t('dashboard.viewUsage') }} <Icon name="arrowRight" size="xs"
+            /></router-link>
+          </div>
+        </div>
+        <div class="dashboard-token-analysis">
+          <div class="dashboard-panel-header">
+            <h3 class="dashboard-panel-title">{{ t('dashboard.console.tokenAnalysis') }}</h3>
+            <span class="dashboard-panel-subtitle">{{
+              t('dashboard.console.tokenDescription')
+            }}</span>
+          </div>
+          <div class="dashboard-token-grid">
+            <div v-for="item in tokenBreakdown" :key="item.key" :data-category="item.costKey">
+              <span class="dashboard-token-dot" :style="{ background: item.color }" /><span>{{
+                item.label
+              }}</span
+              ><strong v-if="item.value !== null">{{ compact(item.value) }} Token</strong>
+              <div class="dashboard-token-spend">
+                <template v-if="spendBreakdown">
+                  <strong>{{ formatCost(item.spend) }}</strong>
+                  <span>{{ formatShare(item.share) }}</span>
+                </template>
+                <span v-else>{{ t('dashboard.console.spendUnavailable') }}</span>
+              </div>
+              <div class="dashboard-token-track">
+                <i
+                  :style="{
+                    width: `${item.share}%`,
+                    background: item.color
+                  }"
+                />
+              </div>
+            </div>
+          </div>
+          <p class="dashboard-panel-subtitle dashboard-spend-explanation">
+            {{ t('dashboard.console.spendAllocation') }}
+          </p>
+        </div>
+      </template>
     </article>
-
-    <div class="dashboard-chart-grid">
-      <article class="dashboard-panel">
-        <div class="dashboard-panel-header dashboard-panel-header--compact">
-          <div>
-            <h3 class="dashboard-panel-title">{{ t('dashboard.overview.tokenTrend') }}</h3>
-            <p class="dashboard-panel-subtitle">{{ t('dashboard.overview.tokenTrendDescription') }}</p>
-          </div>
-        </div>
-        <div v-if="loading" class="dashboard-chart-state">
-          <LoadingSpinner size="md" />
-        </div>
-        <div v-else-if="hasTokenData && tokenChartData" class="dashboard-small-chart">
-          <Line :data="tokenChartData" :options="smallLineOptions" />
-        </div>
-        <div v-else class="dashboard-chart-state">
-          {{ t('dashboard.noDataAvailable') }}
-        </div>
-      </article>
-
-      <article class="dashboard-panel">
-        <div class="dashboard-panel-header dashboard-panel-header--compact">
-          <div>
-            <h3 class="dashboard-panel-title">{{ t('dashboard.overview.requestTrend') }}</h3>
-            <p class="dashboard-panel-subtitle">{{ t('dashboard.overview.requestTrendDescription') }}</p>
-          </div>
-        </div>
-        <div v-if="loading" class="dashboard-chart-state">
-          <LoadingSpinner size="md" />
-        </div>
-        <div v-else-if="hasRequestData && requestChartData" class="dashboard-small-chart">
-          <Line :data="requestChartData" :options="smallLineOptions" />
-        </div>
-        <div v-else class="dashboard-chart-state">
-          {{ t('dashboard.noDataAvailable') }}
-        </div>
-      </article>
-    </div>
-
   </section>
 </template>
-
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
+  BarElement,
   CategoryScale,
   Chart as ChartJS,
-  Filler,
-  Legend,
   LinearScale,
-  LineElement,
-  PointElement,
   Tooltip,
+  type TooltipItem
 } from 'chart.js'
-import { Line } from 'vue-chartjs'
+import { Bar } from 'vue-chartjs'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import Icon from '@/components/icons/Icon.vue'
 import { formatCreditAmount } from '@/utils/credits'
+import { calendarDayCount, calendarRange } from './dashboardRange'
 import type { TrendDataPoint } from '@/types'
-
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler)
-
-type RangePreset = '90d' | '30d' | '7d'
-
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip)
 const props = defineProps<{
   loading: boolean
+  error?: boolean
+  firstUse?: boolean
   startDate: string
   endDate: string
   granularity: string
   trend: TrendDataPoint[]
 }>()
-
 const emit = defineEmits<{
   'update:startDate': [value: string]
   'update:endDate': [value: string]
   'update:granularity': [value: string]
-  dateRangeChange: [range: { startDate: string; endDate: string; preset: RangePreset }]
+  dateRangeChange: [range: { startDate: string; endDate: string; preset: '7d' | '30d' | '90d' }]
+  retry: []
 }>()
-
 const { t } = useI18n()
-
-const formatLD = (d: Date) => {
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+const activeDays = computed(() => calendarDayCount(props.startDate, props.endDate))
+function applyRange(days: number) {
+  const range = calendarRange(days)
+  emit('update:startDate', range.startDate)
+  emit('update:endDate', range.endDate)
+  emit('update:granularity', 'day')
+  emit('dateRangeChange', { ...range, preset: `${days}d` as '7d' | '30d' | '90d' })
 }
-
-const daysBetweenInclusive = computed(() => {
-  const start = new Date(`${props.startDate}T00:00:00`).getTime()
-  const end = new Date(`${props.endDate}T00:00:00`).getTime()
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return 0
-  return Math.round((end - start) / 86400000) + 1
+const totals = computed(() =>
+  props.trend.reduce(
+    (a, d) => ({
+      actual: a.actual + Number(d.actual_cost ?? 0),
+      standard: a.standard + Number(d.cost ?? 0),
+      requests: a.requests + Number(d.requests ?? 0),
+      tokens: a.tokens + Number(d.total_tokens ?? 0),
+      input: a.input + Number(d.input_tokens ?? 0),
+      cacheRead: a.cacheRead + Number(d.cache_read_tokens ?? 0)
+    }),
+    { actual: 0, standard: 0, requests: 0, tokens: 0, input: 0, cacheRead: 0 }
+  )
+)
+const cacheRate = computed(() => {
+  const inputTotal = totals.value.input + totals.value.cacheRead
+  if (inputTotal <= 0) return '—'
+  return `${new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
+  }).format((totals.value.cacheRead / inputTotal) * 100)}%`
 })
-
-const activeRange = computed<RangePreset>(() => {
-  const days = daysBetweenInclusive.value
-  if (days <= 8) return '7d'
-  if (days <= 31) return '30d'
-  return '90d'
-})
-
-const rangePresets = computed(() => [
-  { key: '90d' as const, label: t('dashboard.overview.last90Days') },
-  { key: '30d' as const, label: t('dashboard.overview.last30Days') },
-  { key: '7d' as const, label: t('dashboard.overview.last7Days') },
-])
-
-const applyRange = (preset: RangePreset) => {
-  const days = preset === '90d' ? 90 : preset === '30d' ? 30 : 7
-  const end = new Date()
-  const start = new Date()
-  start.setDate(end.getDate() - days + 1)
-  const startValue = formatLD(start)
-  const endValue = formatLD(end)
-  emit('update:startDate', startValue)
-  emit('update:endDate', endValue)
-  if (props.granularity !== 'day') {
-    emit('update:granularity', 'day')
+const hasRequests = computed(() => totals.value.requests > 0)
+const compact = (v: number) =>
+  new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(v)
+const formatCost = (v: number) =>
+  formatCreditAmount(v, { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+const spendKeys = ['input', 'output', 'cache_read', 'cache_creation', 'other'] as const
+const spendBreakdown = computed(() => {
+  const sums = { input: 0, output: 0, cache_read: 0, cache_creation: 0, other: 0 }
+  for (const point of props.trend) {
+    const breakdown = point.actual_cost_breakdown
+    if (!breakdown || !Number.isFinite(point.actual_cost) || point.actual_cost < 0) return null
+    let sum = 0
+    for (const key of spendKeys) {
+      const value = breakdown[key]
+      if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return null
+      sum += value
+      sums[key] += value
+    }
+    if (Math.abs(sum - point.actual_cost) > Math.max(1e-8, Math.abs(point.actual_cost) * 1e-9)) return null
   }
-  emit('dateRangeChange', { startDate: startValue, endDate: endValue, preset })
-}
-
-const chartLabels = computed(() => props.trend.map((d) => d.date))
-const hasCostData = computed(() => props.trend.some((d) => Number(d.actual_cost || d.cost || 0) > 0))
-const hasTokenData = computed(() => props.trend.some((d) => Number(d.total_tokens || d.input_tokens || d.output_tokens || 0) > 0))
-const hasRequestData = computed(() => props.trend.some((d) => Number(d.requests || 0) > 0))
-
-const chartColors = computed(() => {
-  const isDark = document.documentElement.classList.contains('dark')
-  return {
-    grid: isDark ? 'rgba(148, 163, 184, 0.13)' : 'rgba(148, 163, 184, 0.22)',
-    text: isDark ? '#cbd5e1' : '#64748b',
-    title: isDark ? '#f8fafc' : '#0f172a',
-    tooltipBg: isDark ? 'rgba(15, 23, 42, 0.98)' : 'rgba(255, 255, 255, 0.98)',
-    tooltipBorder: isDark ? 'rgba(148, 163, 184, 0.28)' : 'rgba(100, 116, 139, 0.18)',
-    actual: '#14b8a6',
-    standard: '#f59e0b',
-    input: '#a78bfa',
-    output: '#22d3ee',
-    request: '#60a5fa',
-  }
+  const total = totals.value.actual
+  const sum = spendKeys.reduce((value, key) => value + sums[key], 0)
+  if (!Number.isFinite(total) || !Number.isFinite(sum) ||
+      spendKeys.some((key) => !Number.isFinite(sums[key])) ||
+      Math.abs(sum - total) > Math.max(1e-8, Math.abs(total) * 1e-9)) return null
+  return sums
 })
-
-const costChartData = computed(() => {
-  if (!hasCostData.value) return null
-  return {
-    labels: chartLabels.value,
-    datasets: [
-      {
-        label: t('dashboard.actual'),
-        data: props.trend.map((d) => d.actual_cost),
-        borderColor: chartColors.value.actual,
-        backgroundColor: `${chartColors.value.actual}30`,
-        fill: true,
-        borderWidth: 1.8,
-        pointRadius: 0,
-        pointHoverRadius: 3,
-        tension: 0.38,
-      },
-      {
-        label: t('dashboard.standard'),
-        data: props.trend.map((d) => d.cost),
-        borderColor: chartColors.value.standard,
-        backgroundColor: `${chartColors.value.standard}24`,
-        fill: true,
-        borderWidth: 1.4,
-        pointRadius: 0,
-        pointHoverRadius: 3,
-        tension: 0.38,
-      },
-    ],
-  }
+const formatShare = (share: number) => share > 0 && share < 0.1
+  ? '<0.1%'
+  : `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(share)}%`
+const tokenBreakdown = computed(() => {
+  const categories = [
+    { key: 'input_tokens', costKey: 'input' as const, label: t('dashboard.input'), color: '#ad684f' },
+    { key: 'output_tokens', costKey: 'output' as const, label: t('dashboard.output'), color: '#648374' },
+    { key: 'cache_read_tokens', costKey: 'cache_read' as const, label: t('dashboard.cacheReadTokens'), color: '#8b7ca0' },
+    { key: 'cache_creation_tokens', costKey: 'cache_creation' as const, label: t('dashboard.console.cacheWrite'), color: '#b18b4f' }
+  ]
+  const items = categories.map((item) => ({
+    ...item,
+    value: props.trend.reduce((sum, d) => sum + Number(d[item.key as keyof TrendDataPoint] ?? 0), 0),
+    spend: spendBreakdown.value?.[item.costKey] ?? 0
+  }))
+  const other = spendBreakdown.value?.other ?? 0
+  const all: { key: string; costKey: string; label: string; color: string; value: number | null; spend: number }[] = items
+  if (other > 0) all.push({ key: 'other', costKey: 'other', label: t('dashboard.console.otherSpend'), color: '#7c858e', value: null, spend: other })
+  return all.map((item) => ({
+    ...item,
+    share: totals.value.actual > 0 ? Math.min(100, Math.max(0, item.spend / totals.value.actual * 100)) : 0
+  }))
 })
-
-const tokenChartData = computed(() => {
-  if (!hasTokenData.value) return null
-  return {
-    labels: chartLabels.value,
-    datasets: [
-      {
-        label: t('dashboard.input'),
-        data: props.trend.map((d) => d.input_tokens + d.cache_read_tokens + d.cache_creation_tokens),
-        borderColor: chartColors.value.input,
-        backgroundColor: `${chartColors.value.input}24`,
-        fill: true,
-        borderWidth: 1.5,
-        pointRadius: 0,
-        tension: 0.36,
-      },
-      {
-        label: t('dashboard.output'),
-        data: props.trend.map((d) => d.output_tokens),
-        borderColor: chartColors.value.output,
-        backgroundColor: `${chartColors.value.output}20`,
-        fill: true,
-        borderWidth: 1.5,
-        pointRadius: 0,
-        tension: 0.36,
-      },
-    ],
-  }
+const dark = ref(document.documentElement.classList.contains('dark'))
+const observer = new MutationObserver(() => {
+  dark.value = document.documentElement.classList.contains('dark')
 })
-
-const requestChartData = computed(() => {
-  if (!hasRequestData.value) return null
-  return {
-    labels: chartLabels.value,
-    datasets: [
-      {
-        label: t('dashboard.requests'),
-        data: props.trend.map((d) => d.requests),
-        borderColor: chartColors.value.request,
-        backgroundColor: `${chartColors.value.request}26`,
-        fill: true,
-        borderWidth: 1.6,
-        pointRadius: 0,
-        tension: 0.34,
-      },
-    ],
-  }
-})
-
-const sharedLineOptions = {
+onMounted(() =>
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+)
+onBeforeUnmount(() => observer.disconnect())
+const costChart = computed(() => ({
+  labels: props.trend.map((d) => d.date),
+  datasets: [
+    {
+      label: t('dashboard.actual'),
+      data: props.trend.map((d) => Number(d.actual_cost ?? 0)),
+      backgroundColor: dark.value ? '#d79a7e' : '#bd775e',
+      hoverBackgroundColor: '#a9583e',
+      borderRadius: 3,
+      maxBarThickness: 28
+    }
+  ]
+}))
+const barOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
-  interaction: {
-    intersect: false,
-    mode: 'index' as const,
+  animation: {
+    duration: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 0 : 250
   },
-}
-
-const costLineOptions = computed(() => ({
-  ...sharedLineOptions,
-  plugins: {
-    legend: {
-      display: true,
-      position: 'top' as const,
-      align: 'end' as const,
-      labels: {
-        color: chartColors.value.text,
-        usePointStyle: true,
-        pointStyle: 'circle',
-        boxWidth: 7,
-        boxHeight: 7,
-        font: { size: 11, weight: 600 },
-      },
-    },
-    tooltip: tooltipOptions.value,
-  },
-  scales: axisOptions.value,
-}))
-
-const smallLineOptions = computed(() => ({
-  ...sharedLineOptions,
   plugins: {
     legend: { display: false },
-    tooltip: tooltipOptions.value,
-  },
-  scales: axisOptions.value,
-}))
-
-const tooltipOptions = computed(() => ({
-  backgroundColor: chartColors.value.tooltipBg,
-  borderColor: chartColors.value.tooltipBorder,
-  borderWidth: 1,
-  titleColor: chartColors.value.title,
-  bodyColor: chartColors.value.title,
-  padding: 10,
-  callbacks: {
-    label: (context: any) => {
-      const value = Number(context.raw) || 0
-      if (context.dataset.label === t('dashboard.actual') || context.dataset.label === t('dashboard.standard')) {
-        return `${context.dataset.label}: ${formatCost(value)}`
+    tooltip: {
+      callbacks: {
+        label: (ctx: TooltipItem<'bar'>) =>
+          `${t('dashboard.actual')}: ${formatCost(Number(ctx.raw))}`
       }
-      return `${context.dataset.label}: ${formatCompact(value)}`
-    },
+    }
   },
+  scales: {
+    x: {
+      grid: { display: false },
+      ticks: {
+        color: dark.value ? '#b9b3a8' : '#6c6a64',
+        maxTicksLimit: 7,
+        maxRotation: 0,
+        font: { size: 11 }
+      },
+      border: { display: false }
+    },
+    y: {
+      beginAtZero: true,
+      grid: { color: dark.value ? '#36322d' : '#ece6dd' },
+      border: { display: false },
+      ticks: {
+        color: dark.value ? '#b9b3a8' : '#6c6a64',
+        maxTicksLimit: 4,
+        callback: (v: string | number) => formatCost(Number(v)),
+        font: { size: 11 }
+      }
+    }
+  }
 }))
-
-const axisOptions = computed(() => ({
-  x: {
-    grid: {
-      color: chartColors.value.grid,
-      drawBorder: false,
-    },
-    ticks: {
-      color: chartColors.value.text,
-      maxTicksLimit: 9,
-      font: { size: 10, weight: 500 },
-    },
-  },
-  y: {
-    grid: {
-      color: chartColors.value.grid,
-      drawBorder: false,
-    },
-    ticks: {
-      color: chartColors.value.text,
-      font: { size: 10, weight: 500 },
-      callback: (value: string | number) => formatCompact(Number(value)),
-    },
-  },
-}))
-
-const formatCompact = (value: number): string =>
-  new Intl.NumberFormat(undefined, {
-    notation: 'compact',
-    maximumFractionDigits: Number(value) >= 1000 ? 1 : 0,
-  }).format(Number(value) || 0)
-
-const formatCost = (value: number): string =>
-  formatCreditAmount(value, {
-    minimumFractionDigits: Number(value) >= 1 ? 2 : 4,
-    maximumFractionDigits: 4,
-  })
 </script>

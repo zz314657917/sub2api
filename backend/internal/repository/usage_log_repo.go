@@ -4889,7 +4889,7 @@ func (r *usageLogRepository) GetUserUsageTrendByUserID(ctx context.Context, user
 			COALESCE(SUM(cache_read_tokens), 0) as cache_read_tokens,
 			COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) as total_tokens,
 			COALESCE(SUM(total_cost), 0) as cost,
-			`+usageLogAppliedActualCostExpr+` as actual_cost
+			`+usageLogAppliedActualCostExpr+` as actual_cost`+userTrendSpendColumns()+`
 		FROM usage_logs
 		WHERE user_id = $1 AND created_at >= $2 AND created_at < $3
 		GROUP BY date
@@ -4909,7 +4909,7 @@ func (r *usageLogRepository) GetUserUsageTrendByUserID(ctx context.Context, user
 		}
 	}()
 
-	results, err = scanTrendRows(rows)
+	results, err = scanUserTrendRows(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -5179,6 +5179,10 @@ func (r *usageLogRepository) getUsageTrendWithFilters(ctx context.Context, start
 	}
 
 	dateFormat := safeDateFormat(granularity)
+	spendColumns := ""
+	if userID > 0 {
+		spendColumns = userTrendSpendColumns()
+	}
 
 	query := fmt.Sprintf(`
 		SELECT
@@ -5190,7 +5194,7 @@ func (r *usageLogRepository) getUsageTrendWithFilters(ctx context.Context, start
 			COALESCE(SUM(cache_read_tokens), 0) as cache_read_tokens,
 			COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) as total_tokens,
 			COALESCE(SUM(total_cost), 0) as cost,
-			`+usageLogAppliedActualCostExpr+` as actual_cost
+			`+usageLogAppliedActualCostExpr+` as actual_cost`+spendColumns+`
 		FROM usage_logs
 		WHERE created_at >= $1 AND created_at < $2
 	`, dateFormat)
@@ -5236,7 +5240,11 @@ func (r *usageLogRepository) getUsageTrendWithFilters(ctx context.Context, start
 		}
 	}()
 
-	results, err = scanTrendRows(rows)
+	if userID > 0 {
+		results, err = scanUserTrendRows(rows)
+	} else {
+		results, err = scanTrendRows(rows)
+	}
 	if err != nil {
 		return nil, err
 	}

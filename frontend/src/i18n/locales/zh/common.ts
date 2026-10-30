@@ -1,4 +1,5 @@
 export default {
+    consoleHelp: '帮助与资源',
     loading: '加载中...',
     submitting: '提交中...',
     justNow: '刚刚',

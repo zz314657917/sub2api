@@ -29,6 +29,7 @@
 
 <script setup lang="ts">
 import '@/styles/onboarding.css'
+import '@/styles/console-design.css'
 import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAppStore } from '@/stores'

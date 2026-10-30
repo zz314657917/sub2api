@@ -1,4 +1,8 @@
 export default {
+    consoleWorkspace: 'Workspace',
+    consoleBilling: 'Credits & benefits',
+    consoleAccount: 'Account & service',
+    consoleMore: 'More',
     dashboard: 'Dashboard',
     announcements: 'Announcements',
     tutorials: 'Tutorials',

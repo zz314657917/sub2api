@@ -233,8 +233,11 @@
 
       <!-- Regular User View -->
       <template v-else-if="!appStore.backendModeEnabled">
-        <div class="sidebar-section">
-          <template v-for="item in userNavItems" :key="item.path">
+        <div v-for="section in userNavSections" :key="section.key" class="sidebar-section">
+          <p class="sidebar-section-title console-nav-heading" :class="{ 'sidebar-section-title-collapsed': sidebarCollapsed }">
+            <span class="sidebar-section-title-text" :class="{ 'sidebar-section-title-text-collapsed': sidebarCollapsed }">{{ section.label }}</span>
+          </p>
+          <template v-for="item in section.items" :key="item.path">
             <template v-if="item.children?.length">
               <button
                 type="button"
@@ -589,6 +592,21 @@ function finalizeNav(items: NavItem[]): NavItem[] {
 
 // User navigation items (for regular users)
 const userNavItems = computed((): NavItem[] => finalizeNav(buildSelfNavItems(true)))
+// Group the already filtered list; custom entries and every gated item retain their handlers.
+const userNavSections = computed(() => {
+  const groups = [
+    { key: 'workspace', label: t('nav.consoleWorkspace'), paths: ['/dashboard', '/keys', '/usage', '/chat-images', '/pelican-tests'] },
+    { key: 'billing', label: t('nav.consoleBilling'), paths: ['/purchase', '/group-buy', '/welfare', '/affiliate'] },
+    { key: 'account', label: t('nav.consoleAccount'), paths: ['/tickets', '/leaderboard', '/available-channels', '/monitor', '/my-accounts', '/profile'] },
+    { key: 'custom', label: t('nav.consoleMore'), paths: [] as string[] },
+  ]
+  const known = new Set(groups.flatMap(group => group.paths))
+  return groups.map(group => ({
+    key: group.key,
+    label: group.label,
+    items: userNavItems.value.filter(item => group.key === 'custom' ? !known.has(item.path) : group.paths.includes(item.path)),
+  })).filter(group => group.items.length > 0)
+})
 
 // Personal navigation items (for admin's "My Account" section, without Dashboard).
 // Admins access 可用渠道 from this section just like regular users — there is no
