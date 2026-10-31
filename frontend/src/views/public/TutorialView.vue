@@ -10,8 +10,8 @@
       <section v-if="showQuickstart" class="tutorial-quickstart" aria-labelledby="tutorial-quickstart-title">
         <div class="tutorial-quickstart-head">
           <div>
-            <h1 id="tutorial-quickstart-title">{{ quickstartConfig.header.title }}</h1>
-            <p>{{ quickstartConfig.header.description }}</p>
+            <h1 id="tutorial-quickstart-title">{{ useWindowsHelper ? '第一次使用，跟着这四步' : quickstartConfig.header.title }}</h1>
+            <p>{{ useWindowsHelper ? 'Windows 用户从这里开始。先安装官方 ChatGPT，再用配置助手填入密钥，发送第一条消息。' : quickstartConfig.header.description }}</p>
           </div>
           <div class="tutorial-actions">
             <router-link :to="{ path: '/tutorial', query: { view: 'library' } }" class="guide-action-link">
@@ -37,7 +37,19 @@
             </div>
           </div>
 
-          <div class="tutorial-quickstart-control">
+          <div v-if="quickstartPlatform === 'codex'" class="tutorial-quickstart-control">
+            <span>你想怎么配置？</span>
+            <div class="tutorial-segmented-control" role="group" aria-label="选择配置方式">
+              <button type="button" :class="{ 'is-active': setupMethod === 'helper' }" :aria-pressed="setupMethod === 'helper'" @click="setupMethod = 'helper'">
+                Windows 助手（推荐）
+              </button>
+              <button type="button" :class="{ 'is-active': setupMethod === 'manual' }" :aria-pressed="setupMethod === 'manual'" @click="setupMethod = 'manual'">
+                Mac / Linux / 手动配置
+              </button>
+            </div>
+          </div>
+
+          <div v-if="!useWindowsHelper" class="tutorial-quickstart-control">
             <span>{{ quickstartConfig.header.terminal_control_label }}</span>
             <div class="tutorial-segmented-control" role="group" aria-label="选择系统和终端">
               <button
@@ -54,6 +66,104 @@
           </div>
         </div>
 
+        <div v-if="useWindowsHelper" class="tutorial-beginner">
+          <p class="tutorial-quickstart-hint">
+            <strong>先安装，再配置：</strong>官方 ChatGPT 是你要使用的应用；“ChatGPT 配置助手”是本站提供的独立工具，实际配置的是 Codex 桌面功能。先完成第 1 步安装，再使用助手填写设置。
+          </p>
+          <div class="tutorial-helper-steps">
+            <article class="tutorial-helper-step">
+              <header>
+                <span class="tutorial-quickstart-step-number">01</span>
+                <div>
+                  <h2>先下载安装官方 ChatGPT</h2>
+                  <p>打开官方下载页面，选择 Windows，按页面提示下载安装。已经安装的用户可以直接看第 2 步。</p>
+                </div>
+              </header>
+              <a href="https://chatgpt.com/download/" target="_blank" rel="noopener noreferrer" class="tutorial-helper-action" data-testid="tutorial-official-download">前往官方下载 ChatGPT ↗</a>
+              <p class="tutorial-helper-note">官方地址：chatgpt.com/download/。这是官方应用的下载入口，本站配置助手在第 3 步下载。</p>
+              <p class="tutorial-helper-result">安装完成后，确认能从开始菜单打开官方 ChatGPT，再继续下一步。</p>
+            </article>
+
+            <article class="tutorial-helper-step">
+              <header>
+                <span class="tutorial-quickstart-step-number">02</span>
+                <div>
+                  <h2>登录网站，复制你的密钥</h2>
+                  <p>点击下方入口并登录。在左侧找到“API 密钥”，复制可用密钥的完整内容；列表为空时，再点“创建密钥”。</p>
+                </div>
+              </header>
+              <router-link to="/keys" class="tutorial-helper-action">打开 API 密钥页面</router-link>
+              <img class="tutorial-key-entry" src="/tutorial/api-key/sidebar-api-key.png" alt="登录后，在左侧菜单点击“API 密钥”" width="278" height="176" loading="lazy">
+              <p class="tutorial-helper-result">复制完成后，继续第 3 步，下载配置助手并粘贴密钥。</p>
+              <p class="tutorial-helper-note">API 密钥就是连接服务用的凭证。只粘贴到你信任的工具里，不要发给别人，也不要贴到聊天消息中。账户还需要可用额度。</p>
+            </article>
+
+            <article class="tutorial-helper-step tutorial-helper-step--configure">
+              <header>
+                <span class="tutorial-quickstart-step-number">03</span>
+                <div>
+                  <h2>下载配置助手，粘贴密钥并保存</h2>
+                  <p>下载后双击打开助手。点击“API 密钥”输入框，按 Ctrl + V 粘贴。默认先保留 CN 直连节点，再点击“保存并打开应用”。</p>
+                </div>
+              </header>
+              <div class="tutorial-helper-product">
+                <img src="/onboarding/config-helper-logo.png" alt="" width="40" height="40">
+                <div><strong>ChatGPT 配置助手</strong><span>Windows · 单个 EXE 文件</span></div>
+              </div>
+              <a :href="helperDownloadUrl" download="ChatGPT配置助手.exe" class="tutorial-helper-action" data-testid="tutorial-helper-download">下载 Windows 配置助手</a>
+              <p class="tutorial-helper-note">助手未签名，可能被系统或安全软件拦截。遇到拦截请联系客服，或切换上方“手动配置”。</p>
+              <figure
+                class="tutorial-helper-screenshot"
+                role="button"
+                tabindex="0"
+                aria-label="放大查看配置助手截图"
+                @click="openImagePreview($event.currentTarget as HTMLElement)"
+                @keydown.enter.prevent="openImagePreview($event.currentTarget as HTMLElement)"
+                @keydown.space.prevent="openImagePreview($event.currentTarget as HTMLElement)"
+              >
+                <img src="/tutorial/config-helper/windows-setup.png" alt="配置助手实际界面：上方是 API 密钥输入框，下方绿色按钮为“保存并打开应用”，右侧可选择 CN 直连节点" width="1046" height="584" loading="lazy">
+                <figcaption>先填上方密钥输入框，再点绿色按钮。点击图片可放大；图中没有真实密钥。</figcaption>
+              </figure>
+              <p class="tutorial-helper-result">助手提示“配置已保存”，并打开应用后，继续第 4 步。应用已经运行时，请先完全退出，再重新打开。</p>
+              <details class="tutorial-disclosure">
+                <summary>还没安装应用，或商店打不开？</summary>
+                <div class="tutorial-disclosure-body">
+                  <p>尚未安装时，主按钮会显示“安装、配置并打开”。按提示完成安装；也可以点“前往官方商店安装”，安装后回到助手点“重新检测”。</p>
+                  <p>商店打不开时，助手上方有“商店打不开？使用 CLI”。这是终端备用方式，需要按窗口提示准备 Node.js；想使用桌面界面时，请先联系支持协助安装。</p>
+                  <p>“测试节点”可以跳过；主动测试会发送短请求，可能消耗额度。US 节点需要你自行准备代理。</p>
+                </div>
+              </details>
+            </article>
+
+            <article class="tutorial-helper-step">
+              <header>
+                <span class="tutorial-quickstart-step-number">04</span>
+                <div>
+                  <h2>发送第一条消息</h2>
+                  <p>在打开的应用里进入 Codex，按界面提示选择项目文件夹、新建会话，在输入框里发送下面这句话。</p>
+                </div>
+              </header>
+              <div class="tutorial-helper-message">
+                <span>你好，请用一句话介绍你能帮我做什么。</span>
+                <button type="button" data-copy-label="复制这句话" @click="copyQuickstartCommand('你好，请用一句话介绍你能帮我做什么。', $event)">复制这句话</button>
+              </div>
+              <p class="tutorial-helper-result"><strong>收到正常文字回复，才算接入成功。</strong>只看到“配置已保存”，还需要完成这一步。</p>
+            </article>
+          </div>
+          <details class="tutorial-disclosure tutorial-helper-help">
+            <summary>卡住了？按你看到的情况处理</summary>
+            <div class="tutorial-disclosure-body tutorial-helper-help-list">
+              <div><strong>下载后打不开 / 被拦截</strong><p>记录提示内容，联系网站支持；也可以切换上方“手动配置”。</p></div>
+              <div><strong>找不到密钥 / 复制不了</strong><p>确认已登录，进入“API 密钥”页面检查密钥是否可用；列表为空再创建。</p></div>
+              <div><strong>保存了，但没有打开应用</strong><p>从开始菜单手动打开。应用已运行时，完全退出后重新打开；仍失败就记录助手提示。</p></div>
+              <div><strong>发送消息后报错 / 一直没回复</strong><p>先检查密钥是否完整、账户是否有可用额度，以及是否选择了适合当前网络的节点。把错误提示发给支持，请勿附带密钥。</p></div>
+              <button type="button" class="tutorial-quickstart-link" @click="openSupportPopup">联系网站支持</button>
+            </div>
+          </details>
+        </div>
+
+        <template v-else>
+        <p v-if="quickstartPlatform === 'codex'" class="tutorial-quickstart-hint">这是手动配置路线。先展开“尚未安装？”完成安装，再按下面三步填写配置；已有文件请保留其他设置。</p>
         <details :key="quickstartPlatform" class="tutorial-disclosure tutorial-install">
           <summary>尚未安装？</summary>
           <div class="tutorial-disclosure-body">
@@ -105,8 +215,9 @@
             </router-link>
           </article>
         </div>
+        </template>
 
-        <div class="tutorial-quickstart-followup">
+        <div v-if="!useWindowsHelper" class="tutorial-quickstart-followup">
           <details class="tutorial-disclosure tutorial-api">
             <summary>{{ quickstartConfig.api.title }}</summary>
             <div class="tutorial-disclosure-body">
@@ -318,6 +429,13 @@
                 </button>
               </header>
 
+              <router-link
+                v-if="activePage.slug === 'codex' || activePage.slug === 'getting-started'"
+                to="/tutorial"
+                class="tutorial-quickstart-hint tutorial-article-beginner-link"
+                @click="setupMethod = 'helper'; quickstartPlatform = 'codex'"
+              >第一次使用 Windows？打开四步图文教程，用配置助手完成接入 →</router-link>
+
               <div class="tutorial-content-shell">
                 <details v-if="tocItems.length" class="tutorial-mobile-toc">
                   <summary>
@@ -432,6 +550,7 @@ import { useAppStore } from '@/stores/app'
 import tutorialsAPI from '@/api/tutorials'
 import type { TutorialPage, TutorialPageSummary } from '@/types'
 import { DEFAULT_CODEX_MODEL } from '@/utils/codexConfig'
+import { openSupportPopup } from '@/utils/supportPopup'
 import { renderTutorialMarkdown, type TutorialTocItem } from '@/utils/tutorialMarkdown'
 import PublicRevealBackdrop from './components/PublicRevealBackdrop.vue'
 import PublicTopNav from './components/PublicTopNav.vue'
@@ -504,6 +623,9 @@ const quickstartTerminals = [
   { value: 'unix', label: 'macOS / Linux' }
 ] as const
 const quickstartPlatform = ref<QuickstartPlatformID>('codex')
+const setupMethod = ref<'helper' | 'manual'>('helper')
+const useWindowsHelper = computed(() => quickstartPlatform.value === 'codex' && setupMethod.value === 'helper')
+const helperDownloadUrl = `${import.meta.env.BASE_URL}downloads/chatgpt-config-windows.exe`
 const quickstartTerminal = ref<QuickstartTerminal>('cmd')
 const quickstartErrors = computed(() => quickstartConfig.value.errors)
 
@@ -2597,6 +2719,181 @@ onUnmounted(() => {
 .tutorial-quickstart-followup {
   display: grid;
   gap: 1rem;
+}
+
+.tutorial-helper-steps {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.tutorial-helper-step {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.85rem;
+  min-width: 0;
+  padding: 1.15rem;
+  border: 1px solid var(--tutorial-border);
+  border-radius: 10px;
+  background: var(--tutorial-panel);
+}
+
+.tutorial-helper-step--configure {
+  grid-column: 1 / -1;
+}
+
+.tutorial-helper-step:last-child {
+  grid-column: 1 / -1;
+}
+
+.tutorial-helper-step > header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.tutorial-helper-step .tutorial-quickstart-step-number {
+  flex-shrink: 0;
+}
+
+.tutorial-helper-step h2 {
+  margin: 0.2rem 0 0.5rem;
+  font-size: 1.08rem;
+  font-weight: 600;
+  color: var(--tutorial-text);
+}
+
+.tutorial-helper-step p,
+.tutorial-helper-help-list p {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.75;
+  color: var(--tutorial-muted);
+  overflow-wrap: anywhere;
+}
+
+.tutorial-helper-product {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.tutorial-helper-product span {
+  display: block;
+  color: var(--tutorial-muted);
+  font-size: 0.78rem;
+  margin-top: 0.2rem;
+}
+
+.tutorial-helper-action {
+  display: inline-flex;
+  justify-content: center;
+  padding: 0.7rem 1rem;
+  border-radius: 7px;
+  background: var(--public-accent-strong);
+  color: #fff;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.tutorial-helper-action:hover {
+  filter: brightness(1.08);
+}
+
+.tutorial-helper-action:focus-visible,
+.tutorial-helper-message button:focus-visible {
+  outline: 2px solid var(--public-accent-strong);
+  outline-offset: 3px;
+}
+
+.tutorial-helper-step .tutorial-helper-result {
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--public-accent-strong);
+  color: var(--tutorial-text);
+}
+
+.tutorial-helper-step .tutorial-helper-note {
+  font-size: 0.78rem;
+}
+
+.tutorial-key-entry {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--tutorial-border);
+  border-radius: 6px;
+}
+
+.tutorial-helper-screenshot {
+  width: 100%;
+  max-width: 46rem;
+  margin: 0;
+  cursor: zoom-in;
+}
+
+.tutorial-helper-screenshot:focus-visible {
+  outline: 2px solid var(--public-accent-strong);
+  outline-offset: 3px;
+}
+
+.tutorial-helper-screenshot img {
+  width: 100%;
+  height: auto;
+  border-radius: 7px;
+  border: 1px solid var(--tutorial-border);
+}
+
+.tutorial-helper-screenshot figcaption {
+  margin-top: 0.5rem;
+  color: var(--tutorial-muted);
+  font-size: 0.78rem;
+}
+
+.tutorial-helper-message {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.85rem;
+  border: 1px solid var(--tutorial-border);
+  border-radius: 7px;
+  color: var(--tutorial-text);
+  font-size: 0.88rem;
+}
+
+.tutorial-helper-message button {
+  flex-shrink: 0;
+  color: var(--public-accent-strong);
+  font-weight: 600;
+}
+
+.tutorial-helper-help-list strong {
+  color: var(--tutorial-text);
+  font-size: 0.88rem;
+}
+
+.tutorial-article-beginner-link {
+  display: block;
+  margin-top: 1rem;
+  color: var(--public-accent-strong);
+}
+
+@media (max-width: 640px) {
+  .tutorial-quickstart-head h1 {
+    font-size: clamp(1.25rem, 6vw, 1.7rem);
+    line-height: 1.25;
+  }
+
+  .tutorial-helper-steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tutorial-helper-step {
+    padding: 1rem;
+  }
 }
 
 .tutorial-quickstart-section {

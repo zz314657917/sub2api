@@ -213,6 +213,7 @@ describe('TutorialView reading flow', () => {
 
     const { wrapper } = await mountTutorial('/tutorial')
 
+    await wrapper.findAll('button').find(button => button.text() === 'Mac / Linux / 手动配置')!.trigger('click')
     expect(wrapper.find('.tutorial-quickstart-steps').text()).toContain('base_url = "https://ai.3zapi.cc"')
     expect(wrapper.find('.tutorial-quickstart-code--large').text()).toContain('curl https://ai.3zapi.cc/responses')
   })
@@ -246,6 +247,7 @@ describe('TutorialView reading flow', () => {
 
   it('keeps three primary steps and collapses optional help', async () => {
     const { wrapper } = await mountTutorial('/tutorial')
+    await wrapper.findAll('button').find(button => button.text() === 'Mac / Linux / 手动配置')!.trigger('click')
     expect(wrapper.findAll('.tutorial-quickstart-step')).toHaveLength(3)
     expect(wrapper.find('.tutorial-quickstart-facts').exists()).toBe(false)
     expect(wrapper.find('.tutorial-quickstart-tile-grid').exists()).toBe(false)
@@ -286,6 +288,7 @@ describe('TutorialView reading flow', () => {
 
   it('copies quick-start commands and shows feedback', async () => {
     const { wrapper } = await mountTutorial('/tutorial')
+    await wrapper.findAll('button').find(button => button.text() === 'Mac / Linux / 手动配置')!.trigger('click')
     const button = wrapper.find<HTMLButtonElement>('.tutorial-quickstart-step > .tutorial-quickstart-code .tutorial-quickstart-code-head button')
 
     await button.trigger('click')
@@ -293,6 +296,90 @@ describe('TutorialView reading flow', () => {
 
     expect(button.text()).toBe('已复制')
     expect(showSuccessMock).toHaveBeenCalledWith('已复制命令')
+  })
+
+  it('starts with four illustrated Windows helper steps and keeps technical setup out of the beginner flow', async () => {
+    const { wrapper } = await mountTutorial('/tutorial')
+
+    expect(wrapper.get('h1').text()).toBe('第一次使用，跟着这四步')
+    expect(wrapper.findAll('.tutorial-helper-step h2').map(heading => heading.text())).toEqual([
+      '先下载安装官方 ChatGPT',
+      '登录网站，复制你的密钥',
+      '下载配置助手，粘贴密钥并保存',
+      '发送第一条消息',
+    ])
+    const steps = wrapper.findAll('.tutorial-helper-step')
+    const officialDownload = steps[0].get('[data-testid="tutorial-official-download"]')
+    expect(officialDownload.attributes('href')).toBe('https://chatgpt.com/download/')
+    expect(officialDownload.attributes('target')).toBe('_blank')
+    expect(officialDownload.attributes('rel')).toBe('noopener noreferrer')
+    expect(steps[0].find('[data-testid="tutorial-helper-download"]').exists()).toBe(false)
+    expect(steps[2].find('[data-testid="tutorial-helper-download"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="tutorial-helper-download"]').attributes('href')).toBe('/downloads/chatgpt-config-windows.exe')
+    expect(wrapper.get('[data-testid="tutorial-helper-download"]').attributes('download')).toBe('ChatGPT配置助手.exe')
+    expect(wrapper.get('.tutorial-helper-step a[href="/keys"]').exists()).toBe(true)
+    expect(wrapper.find('.tutorial-quickstart-steps').exists()).toBe(false)
+    expect(wrapper.find('[aria-label="选择系统和终端"]').exists()).toBe(false)
+    expect(wrapper.find('.tutorial-api').exists()).toBe(false)
+    expect(wrapper.get('.tutorial-helper-screenshot img').attributes('src')).toBe('/tutorial/config-helper/windows-setup.png')
+    expect(wrapper.get('.tutorial-beginner').text()).toContain('实际配置的是 Codex 桌面功能')
+    expect(wrapper.get('.tutorial-beginner').text()).toContain('收到正常文字回复，才算接入成功')
+    expect(wrapper.get<HTMLDetailsElement>('.tutorial-helper-help').element.open).toBe(false)
+
+    await wrapper.get('.tutorial-helper-message button').trigger('click')
+    await flushPromises()
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('你好，请用一句话介绍你能帮我做什么。')
+    expect(wrapper.get('.tutorial-helper-message button').text()).toBe('已复制')
+
+    await wrapper.get('.tutorial-helper-screenshot').trigger('keydown', { key: 'Enter' })
+    expect(wrapper.get('[role="dialog"] img').attributes('src')).toBe(new URL('/tutorial/config-helper/windows-setup.png', window.location.href).href)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await nextTick()
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+  })
+
+  it('switches between helper, manual Codex and Claude without losing configured API settings', async () => {
+    const config = JSON.parse(JSON.stringify(defaultQuickstartTutorialConfig))
+    config.platforms[0].base_url = 'https://example.com/custom'
+    getQuickstartConfigMock.mockResolvedValue(config)
+    const { wrapper } = await mountTutorial('/tutorial')
+    const click = async (label: string) => {
+      await wrapper.findAll('button').find(button => button.text() === label)!.trigger('click')
+    }
+
+    await click('Claude')
+    expect(wrapper.find('.tutorial-beginner').exists()).toBe(false)
+    expect(wrapper.findAll('.tutorial-quickstart-step')).toHaveLength(3)
+    expect(wrapper.get('.tutorial-quickstart-step:nth-child(2) pre code').text()).toContain('ANTHROPIC_AUTH_TOKEN')
+    await click('ChatGPT / Codex')
+    expect(wrapper.findAll('.tutorial-helper-step')).toHaveLength(4)
+
+    await click('Mac / Linux / 手动配置')
+    expect(wrapper.get('.tutorial-quickstart-steps').text()).toContain('base_url = "https://example.com/custom"')
+    await click('macOS / Linux')
+    expect(wrapper.get('.tutorial-directory').text()).toContain('~/.codex')
+    await click('Windows 助手（推荐）')
+    expect(wrapper.find('[aria-label="选择系统和终端"]').exists()).toBe(false)
+    expect(wrapper.findAll('.tutorial-helper-step')).toHaveLength(4)
+    await click('Mac / Linux / 手动配置')
+    expect(wrapper.get('[aria-label="选择系统和终端"] button[aria-pressed="true"]').text()).toBe('macOS / Linux')
+  })
+
+  it('offers the beginner route above a CMS-managed Codex article without replacing its content', async () => {
+    const page = { ...tutorialPages[1], slug: 'codex', title: 'Codex', content_md: '# Codex\n\n管理员自定义内容。' }
+    listMock.mockResolvedValue([{ ...summaries[1], slug: 'codex', title: 'Codex' }])
+    getBySlugMock.mockResolvedValue(page)
+    const { wrapper, router } = await mountTutorial('/tutorial')
+    await wrapper.findAll('button').find(button => button.text() === 'Mac / Linux / 手动配置')!.trigger('click')
+    await router.push('/tutorial/codex')
+    await flushPromises()
+
+    expect(wrapper.get('.tutorial-content').text()).toContain('管理员自定义内容')
+    expect(wrapper.get('.tutorial-article-beginner-link').attributes('href')).toBe('/tutorial')
+    await wrapper.get('.tutorial-article-beginner-link').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/tutorial')
+    expect(wrapper.findAll('.tutorial-helper-step')).toHaveLength(4)
   })
 
   it('opens detail without the index hero and keeps progress, mobile directory, toc, and hash history in sync', async () => {
