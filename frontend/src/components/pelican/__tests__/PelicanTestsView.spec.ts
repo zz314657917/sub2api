@@ -5,14 +5,14 @@ import PelicanTestsView from '@/views/user/PelicanTestsView.vue'
 import PelicanPlansPanel from '../PelicanPlansPanel.vue'
 
 const api = vi.hoisted(() => ({
-  list: vi.fn(), history: vi.fn(), result: vi.fn(), plans: vi.fn(), groups: vi.fn(), models: vi.fn(), accounts: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn(), run: vi.fn(), resume: vi.fn(), cleanup: vi.fn(), settings: vi.fn(), saveSettings: vi.fn(), reference: vi.fn(), catalog: vi.fn()
+  list: vi.fn(), result: vi.fn(), plans: vi.fn(), groups: vi.fn(), models: vi.fn(), accounts: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn(), run: vi.fn(), resume: vi.fn(), cleanup: vi.fn(), settings: vi.fn(), saveSettings: vi.fn(), reference: vi.fn(), catalog: vi.fn()
 }))
 const auth = reactive({ isAdmin: true, user: { id: 1 } })
 const metadata = reactive({ displayName: '鹈鹕测试', load: vi.fn(() => Promise.resolve()), applySavedName: vi.fn((name: string) => { metadata.displayName = name }) })
 const app = reactive({ siteName: 'Sub2API' })
 vi.mock('@/api/pelicanTests', () => ({
   buildPelicanListParams: (group: number | '', account: string, page: number, pageSize: number) => ({ group_id: group || undefined, account_id: account ? Number(account) : undefined, page, page_size: pageSize }),
-  listPelicanTests: api.list, listPelicanHistory: api.history, getPelicanResult: api.result,
+  listPelicanTests: api.list, getPelicanResult: api.result,
   listPelicanPlans: api.plans, listPelicanPlanModels: api.models, listPelicanPlanAccounts: api.accounts, createPelicanPlan: api.create, updatePelicanPlan: api.update, deletePelicanPlan: api.remove, runPelicanPlan: api.run, resumePelicanPlan: api.resume, cleanupPelicanPlan: api.cleanup,
   getPelicanTestSettings: api.settings, updatePelicanTestSettings: api.saveSettings,
   getPelicanReferenceScores: api.reference, getPelicanReferenceCatalog: api.catalog
@@ -22,7 +22,7 @@ vi.mock('@/stores/auth', () => ({ useAuthStore: () => auth }))
 vi.mock('@/stores/pelicanMetadata', () => ({ usePelicanMetadataStore: () => metadata }))
 vi.mock('@/stores/app', () => ({ useAppStore: () => app }))
 
-const item = (id: number, resultID = id) => ({ plan_id: 1, group_id: 3, group_name: '授权组', account_id: id, model_id: 'gpt-test', status: 'success', latency_ms: 100, char_count: 10000, min_chars: 9366, finished_at: '2026-09-15T00:00:00Z', history_count: 1, result_id: resultID, artwork_result_id: resultID })
+const item = (id: number, resultID = id) => ({ plan_id: 1, group_id: 3, group_name: '授权组', account_id: id, model_id: 'gpt-test', status: 'success', latency_ms: 100, char_count: 10000, min_chars: 9366, finished_at: '2026-09-15T00:00:00Z', result_id: resultID, artwork_result_id: resultID })
 const result = (id: number) => ({ id, plan_id: 1, group_id: 3, account_id: 27131, model_id: 'gpt-test', prompt_version: 'pelican-v1', status: 'success', latency_ms: 100, char_count: 10000, min_chars: 9366, started_at: '', finished_at: '', html: '<p>safe</p>' })
 const stubs = { AppLayout: { template: '<div><slot /></div>' }, Icon: true, PelicanSandboxFrame: true, BaseDialog: { props: ['show'], template: '<div v-if="show" role="dialog"><button aria-label="close" @click="$emit(\'close\')">close</button><slot /></div>' } }
 
@@ -34,11 +34,11 @@ describe('PelicanTestsView', () => {
     api.reference.mockResolvedValue({ enabled: false, status: 'disabled', items: [] })
     api.catalog.mockResolvedValue({ models: [], status: 'unavailable', synced_at: null })
     api.list.mockResolvedValue({ items: [item(27131)], total: 7, page: 1, page_size: 6, groups: [{ id: 3, name: '授权组' }] })
-    api.result.mockResolvedValue(result(27131)); api.history.mockResolvedValue([result(27131)])
+    api.result.mockResolvedValue(result(27131))
     api.plans.mockResolvedValue([]); api.groups.mockResolvedValue([{ id: 3, name: '授权组', status: 'active' }]); api.models.mockResolvedValue(['gpt-kept']); api.create.mockResolvedValue({}); api.update.mockResolvedValue({}); api.remove.mockResolvedValue(undefined); api.run.mockResolvedValue({ queued: true }); api.resume.mockResolvedValue({}); api.cleanup.mockResolvedValue({ deleted_count: 2 }); api.settings.mockResolvedValue({ display_name: '鹈鹕测试', prompt: '默认提示词' }); api.saveSettings.mockResolvedValue({ display_name: '新页面名', prompt: '自定义提示词' }); metadata.displayName = '鹈鹕测试'
   })
   afterEach(() => vi.restoreAllMocks())
-  async function view() { const wrapper = mount(PelicanTestsView, { global: { stubs } }); await flushPromises(); return wrapper }
+  async function view() { const wrapper = mount(PelicanTestsView, { attachTo: document.body, global: { stubs } }); await flushPromises(); return wrapper }
 
   it('reuses route metadata on mount and refreshes at most once on returning visible without overlapping a pending list', async () => {
     vi.useFakeTimers()
@@ -108,27 +108,34 @@ describe('PelicanTestsView', () => {
     } finally { wrapper.unmount() }
   })
 
-  it('stacks models from separate plans in one group and keeps model-scoped history after refresh', async () => {
+  it('renders each group as one horizontal model rail', async () => {
     const entries = [
       { ...item(1), model_id: 'gpt-a' },
-      { ...item(2), model_id: 'gpt-b' },
-      { ...item(3), plan_id: 2, model_id: 'gpt-a' }
+      { ...item(2), model_id: 'gpt-b' }
     ]
     api.list.mockResolvedValue({ items: entries, total: 1, page: 1, page_size: 24, groups: [] })
     const wrapper = await view()
     try {
-      expect(wrapper.findAll('.pelican-card')).toHaveLength(1)
-      expect(wrapper.findAll('.model-artwork')).toHaveLength(3)
-      expect(wrapper.findAll('.model-heading strong').map(node => node.text())).toEqual(['gpt-a', 'gpt-b', 'gpt-a'])
-      await wrapper.findAll('.history-count')[1]!.trigger('click'); await flushPromises()
-      expect(api.history).toHaveBeenLastCalledWith({ plan_id: 1, model_id: 'gpt-b' }, expect.any(AbortSignal))
-      api.list.mockResolvedValue({ items: entries.map(entry => ({ ...entry, result_id: entry.result_id + 100 })), total: 1, page: 1, page_size: 24, groups: [] })
-      await wrapper.get('.refresh-button').trigger('click'); await flushPromises()
-      expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
-      expect(wrapper.get('[role="dialog"]').attributes('title')).toContain('gpt-b')
-      api.list.mockResolvedValue({ items: entries.filter(entry => entry.model_id !== 'gpt-b'), total: 1, page: 1, page_size: 24, groups: [] })
-      await wrapper.get('.refresh-button').trigger('click'); await flushPromises()
-      expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+      const group = wrapper.get('.pelican-card')
+      expect(group.find('.group-heading').exists()).toBe(true)
+      expect(group.findAll('.model-artwork')).toHaveLength(2)
+      expect(wrapper.find('.history-count').exists()).toBe(false)
+      expect(wrapper.find('.gallery-column').exists()).toBe(false)
+    } finally { wrapper.unmount() }
+  })
+
+  it('shows running rounds and focuses search with slash', async () => {
+    api.list.mockResolvedValue({
+      items: [{ ...item(1), status: 'running', artwork_result_id: null, round_number: 4 }],
+      total: 1, page: 1, page_size: 24, groups: []
+    })
+    const wrapper = await view()
+    try {
+      expect(wrapper.get('.status.running').text()).toContain('生成中')
+      expect(wrapper.get('.art-placeholder.running').text()).toContain('正在生成本轮作品')
+      expect(wrapper.get('.round-label').text()).toBe('第 4 轮')
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: '/', bubbles: true }))
+      expect(document.activeElement).toBe(wrapper.get('.search-box input').element)
     } finally { wrapper.unmount() }
   })
 
@@ -159,21 +166,6 @@ describe('PelicanTestsView', () => {
     await wrapper.get('.refresh-button').trigger('click'); await flushPromises()
     expect(wrapper.get('.artwork-preview').element).toBe(preview)
     expect(api.result).toHaveBeenCalledTimes(requests)
-    wrapper.unmount()
-  })
-
-  it('keeps model headings and recorded effort in history without duplicate footer metadata', async () => {
-    api.list.mockResolvedValue({ items: [{ ...item(1), reasoning_effort: 'high' }], total: 1, page: 1, page_size: 24, groups: [] })
-    api.history.mockResolvedValue([{ ...result(1), reasoning_effort: 'low' }, { ...result(2), reasoning_effort: '' }, { ...result(3), reasoning_effort: null }])
-    const wrapper = await view()
-    expect(wrapper.get('.pelican-card .model-heading').text()).toContain('gpt-test')
-    expect(wrapper.find('.pelican-card .html-meta').exists()).toBe(false)
-    await wrapper.get('.history-count').trigger('click'); await flushPromises()
-    const history = wrapper.get('.history-grid')
-    expect(history.text()).toContain('gpt-test · 低')
-    expect(history.text()).toContain('gpt-test · 默认')
-    expect(history.text()).toContain('gpt-test · 强度未记录')
-    expect(history.text()).not.toContain('思考强度：')
     wrapper.unmount()
   })
 
@@ -226,45 +218,6 @@ describe('PelicanTestsView', () => {
     expect(wrapper.text()).toContain('权限已变更')
   })
 
-  it('keeps the history dialog closed when a delayed revision detail resolves', async () => {
-    let resolve!: (value: ReturnType<typeof result>) => void
-    const wrapper = await view()
-    await wrapper.get('button[aria-label*="历史"]').trigger('click'); await flushPromises()
-    expect(api.history).toHaveBeenLastCalledWith({ plan_id: 1, model_id: 'gpt-test' }, expect.any(AbortSignal))
-    api.result.mockImplementationOnce(() => new Promise<ReturnType<typeof result>>(inner => { resolve = inner }))
-    await wrapper.get('[role="dialog"] button:not([aria-label="close"])').trigger('click')
-    await wrapper.get('[role="dialog"] button[aria-label="close"]').trigger('click')
-    resolve(result(27131)); await flushPromises()
-    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
-  })
-
-  it.each([false, true])('restores the gallery opener after historical detail closes (return first: %s)', async (returnFirst) => {
-    const host = document.createElement('div')
-    document.body.append(host)
-    const wrapper = mount(PelicanTestsView, { attachTo: host, global: { stubs } })
-    try {
-      await flushPromises()
-      const opener = wrapper.get<HTMLButtonElement>('.history-count')
-      opener.element.focus()
-      await opener.trigger('click'); await flushPromises()
-      const revision = wrapper.get<HTMLButtonElement>('.history-grid button')
-      revision.element.focus()
-      await revision.trigger('click'); await flushPromises()
-      expect(wrapper.find('.back-button').exists()).toBe(true)
-      expect(revision.element.isConnected).toBe(false)
-      if (returnFirst) {
-        await wrapper.get('.back-button').trigger('click'); await flushPromises()
-        expect(wrapper.find('.history-grid').exists()).toBe(true)
-      }
-      await wrapper.get('[role="dialog"] button[aria-label="close"]').trigger('click'); await flushPromises()
-      expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
-      expect(document.activeElement).toBe(opener.element)
-    } finally {
-      wrapper.unmount()
-      host.remove()
-    }
-  })
-
   it('drops an old list response after the authenticated user changes', async () => {
     let resolveOld!: (value: { items: ReturnType<typeof item>[]; total: number; page: number; page_size: number; groups: { id: number; name: string }[] }) => void
     const wrapper = await view()
@@ -275,7 +228,7 @@ describe('PelicanTestsView', () => {
     expect(wrapper.text()).not.toContain('#99999')
   })
 
-  it('keeps a failed admin form submission editable and supports history return', async () => {
+  it('keeps a failed admin form submission editable', async () => {
     api.create.mockRejectedValueOnce(new Error('保存失败'))
     const wrapper = await view()
     await wrapper.findAll('.admin-toggle')[1].trigger('click'); await flushPromises()
@@ -288,11 +241,6 @@ describe('PelicanTestsView', () => {
     expect((wrapper.get('input[aria-label="gpt-kept"]').element as HTMLInputElement).checked).toBe(true)
     await wrapper.get('.editor-panel').findAll('button').find(button => button.text() === '取消')!.trigger('click'); await flushPromises()
     await wrapper.get('[role="dialog"] button[aria-label="close"]').trigger('click'); await flushPromises()
-    await wrapper.get('button[aria-label*="历史"]').trigger('click'); await flushPromises()
-    await wrapper.get('[role="dialog"] button:not([aria-label="close"])').trigger('click'); await flushPromises()
-    expect(wrapper.text()).toContain('返回历史记录')
-    await wrapper.get('.back-button').trigger('click')
-    expect(wrapper.find('.history-grid').exists()).toBe(true)
   })
 
   it('keeps the settings draft after a failed save and propagates a successful name', async () => {
@@ -367,7 +315,7 @@ describe('PelicanTestsView', () => {
     } finally { wrapper.unmount() }
   })
 
-  it('keeps cards compact and shows Chinese skip reasons in history', async () => {
+  it('keeps cards compact and shows the current skipped status', async () => {
     api.list.mockResolvedValue({ items: [{ ...item(27131), status: 'skipped', error_message: 'account_scheduling_disabled' }, { ...item(27132), status: 'skipped', error_message: 'account unavailable' }, { ...item(27133), status: 'skipped', error_message: 'daily_call_limit_reached' }, { ...item(27134), status: 'skipped', error_message: 'quota_reservation_failed' }, { ...item(27135), status: 'skipped', error_message: 'model_unsupported' }, { ...item(27136), status: 'skipped', error_message: 'account_model_not_allowed' }, { ...item(27137), status: 'skipped', error_message: 'model_not_html_capable' }], total: 7, page: 1, page_size: 24, groups: [{ id: 3, name: '授权组' }] })
     const wrapper = await view()
     const card = wrapper.get('.pelican-card')
@@ -377,19 +325,8 @@ describe('PelicanTestsView', () => {
     expect(card.find('.result-row').exists()).toBe(false)
     expect(card.text()).not.toContain('阈值')
     expect(card.text()).not.toContain('账号已关闭调度')
-    api.history.mockResolvedValue(['account_scheduling_disabled', 'account unavailable', 'daily_call_limit_reached', 'quota_reservation_failed', 'model_unsupported', 'account_model_not_allowed', 'model_not_html_capable'].map((reason, index) => ({ ...result(index + 1), status: 'skipped', error_message: reason })))
-    await card.get('.history-count').trigger('click'); await flushPromises()
-    expect(wrapper.text()).toContain('本轮已跳过（未执行）')
-    expect(wrapper.text()).toContain('账号已关闭调度，已跳过测试')
-    expect(wrapper.text()).toContain('账号当前不可用（历史记录未提供具体原因）')
-    expect(wrapper.text()).toContain('今日调用次数已达到上限（按 UTC+8 日期重置）')
-    expect(wrapper.text()).toContain('调用额度预留失败，已安全跳过本次测试')
-    expect(wrapper.text()).toContain('本轮模型配置检查未通过，已跳过；请检查账号的模型配置')
-    expect(wrapper.text()).toContain('该账号未配置此模型，已跳过')
-    expect(wrapper.findAll('.history-record')).toHaveLength(6)
-    expect(wrapper.find('.history-grid button').exists()).toBe(false)
-    await wrapper.get('.history-pagination').findAll('button').find(button => button.text() === '下一页')!.trigger('click')
-    expect(wrapper.text()).toContain('该账号映射后的模型不适合生成HTML，已跳过')
+    expect(card.text()).toContain('本轮已跳过')
+    expect(card.find('.history-count').exists()).toBe(false)
   })
 
   it('marks retained artwork as a previous success and opens a loaded preview', async () => {

@@ -108,7 +108,7 @@ describe('PelicanPlansPanel', () => {
     expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined()
     await wrapper.get('input[aria-label="gpt-test"]').setValue(true)
     await wrapper.get('form').trigger('submit')
-    expect(wrapper.emitted('save')?.[0]).toEqual([null, expect.objectContaining({ group_id: 3, model_id: 'gpt-test', enabled: false, interval_minutes: 60, max_results: 20, min_chars: 9366, daily_call_limit: 0, failure_pause_threshold: 0, retention_days: 0 })])
+    expect(wrapper.emitted('save')?.[0]).toEqual([null, expect.objectContaining({ group_id: 3, model_id: 'gpt-test', enabled: false, interval_minutes: 60, max_results: 5, min_chars: 9366, daily_call_limit: 0, failure_pause_threshold: 0, retention_days: 0 })])
     expect(wrapper.text()).toContain('每日用量按 UTC+8 重置')
     expect(wrapper.text()).toContain('每轮由分组调度选择一个账号，最多测试一次')
     expect((wrapper.get('select[aria-label="思考强度"]').element as HTMLSelectElement).value).toBe('')

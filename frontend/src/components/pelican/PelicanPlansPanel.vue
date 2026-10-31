@@ -63,7 +63,7 @@
           <label v-if="editingID" class="enabled"><input v-model="draft.enabled" :disabled="editingPaused" type="checkbox"> {{ editingPaused ? '已自动暂停，请使用下方“恢复计划”' : '启用定时测试' }}</label>
         </div></div>
         <div class="form-section"><span class="form-section-title">费用与留存</span><div class="form-grid">
-          <label>保留结果数<input v-model.number="draft.max_results" required type="number" min="1" max="50" aria-label="保留结果数"></label>
+          <label>保留结果数<input v-model.number="draft.max_results" required type="number" min="1" max="20" aria-label="保留结果数"></label>
           <label>每日调用上限（0 为不限）<input v-model.number="draft.daily_call_limit" required type="number" min="0" max="100000" aria-label="每日调用上限"></label>
           <label>连续失败暂停阈值（0 为关闭）<input v-model.number="draft.failure_pause_threshold" required type="number" min="0" max="100" aria-label="连续失败暂停阈值"></label>
           <label>按天保留（0 为关闭）<select v-model="retentionMode" aria-label="按天保留" @change="setRetentionPreset"><option value="0">不按天清理</option><option value="7">保留 7 天</option><option value="30">保留 30 天</option><option value="custom">自定义天数</option></select><input v-if="retentionMode === 'custom'" v-model.number="draft.retention_days" required type="number" min="0" max="3650" aria-label="自定义保留天数"></label>
@@ -133,7 +133,7 @@ let accountsAbort: AbortController | undefined
 let editorSession = 0
 let initializingDraft = false
 const reasoningEffortOptions = [{ value: '', label: '默认' }, { value: 'none', label: '无' }, { value: 'minimal', label: '最低' }, { value: 'low', label: '低' }, { value: 'medium', label: '中' }, { value: 'high', label: '高' }, { value: 'xhigh', label: '极高' }]
-const defaults = (): PelicanPlanInput & { model_ids: string[]; preferred_account_ids: number[] } => ({ group_id: 0, model_id: '', model_ids: [], preferred_account_ids: [], interval_minutes: 60, timeout_seconds: 180, enabled: false, max_results: 20, min_chars: 9366, daily_call_limit: 0, failure_pause_threshold: 0, retention_days: 0, reasoning_effort: '' })
+const defaults = (): PelicanPlanInput & { model_ids: string[]; preferred_account_ids: number[] } => ({ group_id: 0, model_id: '', model_ids: [], preferred_account_ids: [], interval_minutes: 60, timeout_seconds: 180, enabled: false, max_results: 5, min_chars: 9366, daily_call_limit: 0, failure_pause_threshold: 0, retention_days: 0, reasoning_effort: '' })
 const draft = reactive(defaults())
 const unavailableAccountIDs = computed(() => draft.preferred_account_ids.filter(id => !accounts.value.some(account => account.id === id)))
 const isCurrentModel = computed(() => draft.model_ids.length > 0 && draft.model_ids.length <= 10 && draft.model_ids.every(model => models.value.includes(model)))
