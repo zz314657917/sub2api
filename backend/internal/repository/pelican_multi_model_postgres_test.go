@@ -74,6 +74,7 @@ func TestPelicanMultiModelPostgres(t *testing.T) {
 	p := plan(1, []string{"gpt-a", "gpt-b"})
 	p2 := plan(1, []string{"gpt-a"})
 	p3 := plan(2, []string{"gpt-c"})
+	p4 := plan(2, []string{"gpt-d", "gpt-e"})
 	put := func(pid, g, account int64, m, status string, at time.Time) int64 {
 		t.Helper()
 		var id int64
@@ -89,6 +90,11 @@ func TestPelicanMultiModelPostgres(t *testing.T) {
 	put(p.ID, 1, 10, "gpt-b", "success", now.Add(-time.Minute))
 	put(p2.ID, 1, 10, "gpt-a", "success", now.Add(-2*time.Minute))
 	put(p3.ID, 2, 20, "gpt-c", "success", now.Add(-3*time.Minute))
+	p4, e = repo.Claim(c, p4.ID, true, time.Now())
+	if e != nil {
+		t.Fatal(e)
+	}
+	put(p4.ID, 2, 21, "gpt-d", "success", now)
 	gallery, e := repo.ListGallery(c, service.PelicanAuthorization{Admin: true}, 0, 0, 1, 1)
 	if e != nil || gallery.Total != 2 || len(gallery.Items) != 3 {
 		t.Fatalf("group paging=%+v %v", gallery, e)
@@ -104,8 +110,20 @@ func TestPelicanMultiModelPostgres(t *testing.T) {
 		}
 	}
 	gallery, e = repo.ListGallery(c, service.PelicanAuthorization{GroupIDs: []int64{2}}, 0, 0, 1, 1)
-	if e != nil || gallery.Total != 1 || len(gallery.Items) != 1 || gallery.Items[0].GroupID != 2 {
+	if e != nil || gallery.Total != 1 || len(gallery.Items) != 2 || gallery.Items[0].GroupID != 2 {
 		t.Fatalf("authorization=%+v %v", gallery, e)
+	}
+	var runningExistingFound, runningPlaceholderFound bool
+	for _, item := range gallery.Items {
+		if item.PlanID == p4.ID && item.ModelID == "gpt-d" {
+			runningExistingFound = item.Status == "running" && item.AccountID == 21 && item.ResultID != 0 && item.RoundNumber == p4.RunGeneration
+		}
+		if item.PlanID == p4.ID && item.ModelID == "gpt-e" {
+			runningPlaceholderFound = item.Status == "running" && item.AccountID == 0 && item.ResultID == 0 && item.RoundNumber == p4.RunGeneration
+		}
+	}
+	if !runningExistingFound || !runningPlaceholderFound {
+		t.Fatalf("missing first-run running placeholder: %+v", gallery.Items)
 	}
 	gallery, e = repo.ListGallery(c, service.PelicanAuthorization{Admin: true}, 0, 10, 1, 1)
 	if e != nil || len(gallery.Items) != 2 {

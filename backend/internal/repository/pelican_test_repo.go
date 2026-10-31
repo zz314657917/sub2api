@@ -240,9 +240,19 @@ func (r *pelicanTestRepository) ListGallery(c context.Context, a service.Pelican
 		args = append(args, ac)
 		n++
 	}
-	latest := "(SELECT DISTINCT ON (plan_id,group_id,model_id) * FROM pelican_test_results ORDER BY plan_id,group_id,model_id,finished_at DESC,id DESC) r JOIN pelican_test_plans p ON p.id=r.plan_id AND p.group_id=r.group_id AND r.model_id=ANY(p.model_ids) JOIN groups live_g ON live_g.id=r.group_id AND live_g.deleted_at IS NULL "
-	candidates := "WITH candidates AS (SELECT r.* FROM " + latest + where + "), paged_groups AS (SELECT group_id,max(finished_at) newest FROM candidates GROUP BY group_id ORDER BY newest DESC,group_id DESC LIMIT $" + fmt.Sprint(n) + " OFFSET $" + fmt.Sprint(n+1) + ") "
-	q := candidates + "SELECT r.plan_id,r.group_id,live_g.name,live_g.platform,r.account_id,r.model_id,r.status,r.latency_ms,r.char_count,r.min_chars,r.finished_at,(SELECT count(*) FROM pelican_test_results h WHERE h.plan_id=r.plan_id AND h.group_id=r.group_id AND h.model_id=r.model_id),r.id,(SELECT s.id FROM pelican_test_results s WHERE s.plan_id=r.plan_id AND s.group_id=r.group_id AND s.model_id=r.model_id AND s.status='success' ORDER BY s.finished_at DESC,s.id DESC LIMIT 1),r.error_message,r.error_code,r.error_message_safe,r.reasoning_effort,(SELECT s.finished_at FROM pelican_test_results s WHERE s.plan_id=r.plan_id AND s.group_id=r.group_id AND s.model_id=r.model_id AND s.status='success' ORDER BY s.finished_at DESC,s.id DESC LIMIT 1) FROM candidates r JOIN paged_groups pg ON pg.group_id=r.group_id JOIN pelican_test_plans p ON p.id=r.plan_id JOIN groups live_g ON live_g.id=r.group_id ORDER BY pg.newest DESC,r.group_id DESC,r.plan_id DESC,array_position(p.model_ids,r.model_id),r.id DESC"
+	latest := "(SELECT DISTINCT ON (plan_id,group_id,model_id) * FROM pelican_test_results ORDER BY plan_id,group_id,model_id,finished_at DESC,id DESC)"
+	where = strings.ReplaceAll(where, "live_g.", "g.")
+	where = strings.ReplaceAll(where, "r.", "f.")
+	base := "WITH latest_results AS (" + latest + "), candidates AS (" +
+		"SELECT r.plan_id,r.group_id,r.account_id,r.model_id,r.status,r.latency_ms,r.char_count,r.min_chars,r.finished_at,r.error_message,r.error_code,r.error_message_safe,r.reasoning_effort,r.id AS result_id,p.running_until,p.run_generation,FALSE AS synthetic " +
+		"FROM latest_results r JOIN pelican_test_plans p ON p.id=r.plan_id AND p.group_id=r.group_id AND r.model_id=ANY(p.model_ids) " +
+		"UNION ALL " +
+		"SELECT p.id,p.group_id,0::bigint,m.model_id,'running',0::bigint,0::integer,p.min_chars,COALESCE(p.last_run_at,p.updated_at,NOW()),''::text,''::text,''::text,p.reasoning_effort,0::bigint,p.running_until,p.run_generation,TRUE " +
+		"FROM pelican_test_plans p CROSS JOIN LATERAL unnest(p.model_ids) WITH ORDINALITY AS m(model_id,model_order) " +
+		"WHERE p.running_until>NOW() AND NOT EXISTS (SELECT 1 FROM latest_results r WHERE r.plan_id=p.id AND r.group_id=p.group_id AND r.model_id=m.model_id)" +
+		"), filtered AS (SELECT f.*,g.name AS group_name,g.platform FROM candidates f JOIN groups g ON g.id=f.group_id AND g.deleted_at IS NULL" + where + ") "
+	paged := ", paged_groups AS (SELECT group_id,max(finished_at) newest FROM filtered GROUP BY group_id ORDER BY newest DESC,group_id DESC LIMIT $" + fmt.Sprint(n) + " OFFSET $" + fmt.Sprint(n+1) + ") "
+	q := base + paged + "SELECT f.plan_id,f.group_id,f.group_name,f.platform,f.account_id,f.model_id,CASE WHEN p.running_until>NOW() THEN 'running' ELSE f.status END,f.latency_ms,f.char_count,f.min_chars,f.finished_at,(SELECT count(*) FROM pelican_test_results h WHERE h.plan_id=f.plan_id AND h.group_id=f.group_id AND h.model_id=f.model_id),CASE WHEN p.running_until>NOW() THEN p.run_generation ELSE (SELECT count(*) FROM pelican_test_results h2 WHERE h2.plan_id=f.plan_id AND h2.group_id=f.group_id AND h2.model_id=f.model_id) END,f.result_id,(SELECT s.id FROM pelican_test_results s WHERE s.plan_id=f.plan_id AND s.group_id=f.group_id AND s.model_id=f.model_id AND s.status='success' ORDER BY s.finished_at DESC,s.id DESC LIMIT 1),f.error_message,f.error_code,f.error_message_safe,f.reasoning_effort,(SELECT s.finished_at FROM pelican_test_results s WHERE s.plan_id=f.plan_id AND s.group_id=f.group_id AND s.model_id=f.model_id AND s.status='success' ORDER BY s.finished_at DESC,s.id DESC LIMIT 1) FROM filtered f JOIN paged_groups pg ON pg.group_id=f.group_id JOIN pelican_test_plans p ON p.id=f.plan_id ORDER BY pg.newest DESC,f.group_id DESC,f.plan_id DESC,array_position(p.model_ids,f.model_id),f.result_id DESC"
 	args = append(args, size, (page-1)*size)
 	rows, e := r.db.QueryContext(c, q, args...)
 	if e != nil {
@@ -251,7 +261,7 @@ func (r *pelicanTestRepository) ListGallery(c context.Context, a service.Pelican
 	defer rows.Close()
 	for rows.Next() {
 		var x service.PelicanEntry
-		e = rows.Scan(&x.PlanID, &x.GroupID, &x.GroupName, &x.Platform, &x.AccountID, &x.ModelID, &x.Status, &x.LatencyMS, &x.CharCount, &x.MinChars, &x.FinishedAt, &x.HistoryCount, &x.ResultID, &x.ArtworkResultID, &x.ErrorMessage, &x.ErrorCode, &x.ErrorMessageSafe, &x.ReasoningEffort, &x.ArtworkFinishedAt)
+		e = rows.Scan(&x.PlanID, &x.GroupID, &x.GroupName, &x.Platform, &x.AccountID, &x.ModelID, &x.Status, &x.LatencyMS, &x.CharCount, &x.MinChars, &x.FinishedAt, &x.HistoryCount, &x.RoundNumber, &x.ResultID, &x.ArtworkResultID, &x.ErrorMessage, &x.ErrorCode, &x.ErrorMessageSafe, &x.ReasoningEffort, &x.ArtworkFinishedAt)
 		if e != nil {
 			return nil, e
 		}
@@ -263,11 +273,11 @@ func (r *pelicanTestRepository) ListGallery(c context.Context, a service.Pelican
 	if e = rows.Close(); e != nil {
 		return nil, e
 	}
-	countQ := "SELECT count(DISTINCT r.group_id) FROM " + latest + where
+	countQ := base + "SELECT count(DISTINCT f.group_id) FROM filtered f"
 	if e := r.db.QueryRowContext(c, countQ, args[:len(args)-2]...).Scan(&out.Total); e != nil {
 		return nil, e
 	}
-	groupsQ := "SELECT DISTINCT g.id,g.name,g.platform FROM groups g JOIN pelican_test_results r ON r.group_id=g.id JOIN pelican_test_plans p ON p.id=r.plan_id AND p.group_id=r.group_id WHERE g.deleted_at IS NULL"
+	groupsQ := "SELECT DISTINCT g.id,g.name,g.platform FROM groups g WHERE g.deleted_at IS NULL AND (EXISTS (SELECT 1 FROM pelican_test_results r JOIN pelican_test_plans p ON p.id=r.plan_id AND p.group_id=r.group_id WHERE r.group_id=g.id AND r.model_id=ANY(p.model_ids)) OR EXISTS (SELECT 1 FROM pelican_test_plans p WHERE p.group_id=g.id AND p.running_until>NOW()))"
 	var groupArgs []any
 	if !a.Admin {
 		groupsQ += " AND g.status='active' AND g.id=ANY($1)"

@@ -216,6 +216,7 @@ type PelicanEntry struct {
 	MinChars          int        `json:"min_chars"`
 	FinishedAt        *time.Time `json:"finished_at,omitempty"`
 	HistoryCount      int        `json:"history_count"`
+	RoundNumber       int64      `json:"round_number,omitempty"`
 	ResultID          int64      `json:"result_id"`
 	ArtworkResultID   *int64     `json:"artwork_result_id"`
 	ArtworkFinishedAt *time.Time `json:"artwork_finished_at,omitempty"`
