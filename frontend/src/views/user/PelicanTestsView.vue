@@ -51,14 +51,11 @@
             <div class="model-heading"><ModelIcon :model="item.model_id" size="22px" /><strong>{{ item.model_id }}</strong><span class="plan-reference">计划 #{{ item.plan_id }}</span></div>
             <button class="history-count" type="button" :aria-label="`${item.group_name} 计划 ${item.plan_id} 历史 ${item.history_count} 次`" @click="openHistory(item, $event)"><Icon name="clock" size="xs" /> {{ item.history_count }}</button>
           </header>
-          <button v-if="cardHtml[item.result_id]" class="artwork-preview" type="button" :aria-label="`放大查看${item.group_name} 计划 ${item.plan_id} 的作品`" @click="openArtwork(item, $event)" @keydown.enter.prevent="openArtwork(item, $event)" @keydown.space.prevent="openArtwork(item, $event)">
-            <PelicanSandboxFrame :html="cardHtml[item.result_id]" :replay-key="replayVersions[`card-${item.result_id}`] ?? 0" />
-            <span class="preview-overlay" aria-hidden="true" />
-          </button>
-          <div v-else class="artwork-placeholder">{{ item.artwork_result_id ? (artworkLoading[item.result_id] ? '正在加载作品…' : '作品当前不可访问') : '本次暂无可展示的成功作品' }}</div>
+          <PelicanLazyArtwork v-if="item.artwork_result_id" :result-id="item.artwork_result_id" :root="resultsRegion" :replay-key="replayVersions[`card-${item.result_id}`] ?? 0" @enlarge="openArtwork(item, $event)" />
+          <div v-else class="artwork-placeholder">本次暂无可展示的成功作品</div>
           <p v-if="item.artwork_result_id && item.artwork_result_id !== item.result_id" class="last-success">上次成功作品</p>
           <div class="card-actions">
-            <button :disabled="!cardHtml[item.result_id]" type="button" aria-label="放大播放" title="放大播放" @click="openArtwork(item, $event)"><Icon name="eye" size="sm" /></button>
+            <button :disabled="!item.artwork_result_id" type="button" aria-label="放大播放" title="放大播放" @click="openArtwork(item, $event)"><Icon name="eye" size="sm" /></button>
             <button :disabled="!item.artwork_result_id" type="button" aria-label="重新播放" title="重新播放" @click="replay(`card-${item.result_id}`)"><Icon name="refresh" size="sm" /></button>
           </div>
           <p class="generation-time" :title="formatTimestamp(item.artwork_finished_at ?? (item.status === 'success' ? item.finished_at : null))"><Icon name="clock" size="sm" />生成于 {{ formatDate(item.artwork_finished_at ?? (item.status === 'success' ? item.finished_at : null)) }}</p>
@@ -87,7 +84,7 @@
               <article v-for="revision in visibleHistory" :key="revision.id" class="history-record">
                 <div class="result-row"><span :class="statusClass(revision.status)">● {{ statusText(revision.status) }}</span><span>{{ formatDate(revision.finished_at) }}</span></div>
                 <p class="dialog-note">{{ revision.model_id }} · {{ effortText(revision.reasoning_effort) }} · {{ formatDuration(revision.latency_ms) }}</p>
-                <PelicanHistoryPreview v-if="revision.status === 'success'" :result-id="revision.id" @enlarge="openRevision(revision)" />
+                <PelicanLazyArtwork v-if="revision.status === 'success'" :result-id="revision.id" :min-height="180" :replay-key="replayVersions[`history-${revision.id}`] ?? 0" @enlarge="openRevision(revision)" /><div v-if="revision.status === 'success'" class="history-actions"><button type="button" @click="openRevision(revision)">放大播放</button><button type="button" @click="replay(`history-${revision.id}`)">重新播放</button></div>
                 <div v-else class="history-unavailable">{{ revision.status === 'failed' ? '本轮生成失败，没有可播放的作品' : '本轮未执行，没有生成作品' }}<p v-if="revision.error_message || revision.error_code || revision.error_message_safe">{{ resultReasonText(revision) }}</p></div>
               </article>
             </div>
@@ -98,7 +95,7 @@
           </template>
           <template v-else-if="selectedRevision">
             <button v-if="fromHistory" class="back-button" type="button" @click="backToHistory">← 返回历史记录</button>
-            <div class="enlarged-art"><PelicanSandboxFrame v-if="selectedRevision.html" interactive :html="selectedRevision.html" :replay-key="replayVersions[`large-${selectedRevision.id}`] ?? 0" /></div>
+            <div class="enlarged-art"><PelicanLazyArtwork interactive :result-id="selectedRevision.id" :replay-key="replayVersions[`large-${selectedRevision.id}`] ?? 0" /></div>
             <div class="history-actions"><span class="success">● 成功作品 · {{ formatDuration(selectedRevision.latency_ms) }}</span><button type="button" @click="replay(`large-${selectedRevision.id}`)">重新播放</button></div>
           </template>
         </div>
@@ -113,12 +110,12 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ModelIcon from '@/components/common/ModelIcon.vue'
-import PelicanSandboxFrame from '@/components/pelican/PelicanSandboxFrame.vue'
+import PelicanLazyArtwork from '@/components/pelican/PelicanLazyArtwork.vue'
+import { createPelicanArtwork, providePelicanArtwork, artworkStatus } from '@/components/pelican/usePelicanArtwork'
 import PelicanPlansPanel from '@/components/pelican/PelicanPlansPanel.vue'
-import PelicanHistoryPreview from '@/components/pelican/PelicanHistoryPreview.vue'
 import PelicanReferenceScores from '@/components/pelican/PelicanReferenceScores.vue'
 import PelicanReferenceSettings from '@/components/pelican/PelicanReferenceSettings.vue'
-import { buildPelicanListParams, cleanupPelicanPlan, createPelicanPlan, deletePelicanPlan, getPelicanResult, getPelicanTestSettings, getPelicanReferenceScores, getPelicanReferenceCatalog, listPelicanHistory, listPelicanPlans, listPelicanTests, resumePelicanPlan, runPelicanPlan, updatePelicanPlan, updatePelicanTestSettings, type PelicanEntry, type PelicanPlan, type PelicanPlanInput, type PelicanResult, type PelicanTestSettings, type PelicanReferenceScores as ReferenceScores, type PelicanReferenceCatalog, type PelicanReferenceSettings as ReferenceSettings } from '@/api/pelicanTests'
+import { buildPelicanListParams, cleanupPelicanPlan, createPelicanPlan, deletePelicanPlan, getPelicanTestSettings, getPelicanReferenceScores, getPelicanReferenceCatalog, listPelicanHistory, listPelicanPlans, listPelicanTests, resumePelicanPlan, runPelicanPlan, updatePelicanPlan, updatePelicanTestSettings, type PelicanEntry, type PelicanPlan, type PelicanPlanInput, type PelicanResult, type PelicanTestSettings, type PelicanReferenceScores as ReferenceScores, type PelicanReferenceCatalog, type PelicanReferenceSettings as ReferenceSettings } from '@/api/pelicanTests'
 import { getAll as getAllAdminGroups } from '@/api/admin/groups'
 import { useAuthStore } from '@/stores/auth'
 import { usePelicanMetadataStore } from '@/stores/pelicanMetadata'
@@ -151,9 +148,13 @@ const visibleHistory = computed(() => history.value.slice((historyPage.value - 1
 watch(historyPages, pages => { historyPage.value = Math.min(historyPage.value, pages) })
 const historyLoading = ref(false)
 const historyError = ref('')
-const cardHtml = ref<Record<number, string>>({})
-const cardArtworkIDs = ref<Record<number, number | null>>({})
-const artworkLoading = ref<Record<number, boolean>>({})
+const artwork = createPelicanArtwork(() => {
+  listRequestVersion++; historyRequestVersion++; dialogRequestVersion++
+  listAbort?.abort(); dialogAbort?.abort()
+  items.value = []; total.value = 0; groups.value = []; closeDialog()
+  error.value = '作品访问权限已变更，请刷新列表。'
+})
+providePelicanArtwork(artwork)
 const showPlans = ref(false)
 const plans = ref<PelicanPlan[]>([])
 const plansLoading = ref(false)
@@ -179,6 +180,7 @@ let historyRequestVersion = 0
 let dialogRequestVersion = 0
 let listAbort: AbortController | undefined
 let dialogAbort: AbortController | undefined
+let refreshing = false
 let disposed = false
 let settingsRequestVersion = 0
 const saveVersion = ref(0)
@@ -264,10 +266,17 @@ watch([groupFilter, pageSize], () => { closeDialog(); if (page.value !== 1) page
 watch(page, () => void refresh({ resetView: true }))
 watch([() => authStore.user?.id, () => authStore.isAdmin], () => { invalidatePlansSession(); resetReferenceSession(); listRequestVersion++; listAbort?.abort(); clearArtworkCache(); items.value = []; total.value = 0; groups.value = []; loading.value = false; closeDialog(); plans.value = []; adminGroups.value = []; showPlans.value = false; cleanupConfirmation.value = null; showSettings.value = false; settingsRequestVersion++; settingsLoaded.value = false; settingsLoading.value = false; settingsSaving.value = false; settingsError.value = ''; settingsDraft.value = { ...defaultSettings }; pelicanMetadata.reset?.(); void Promise.resolve(pelicanMetadata.load(true)).then(() => { if (authStore.isAdmin || pelicanMetadata.enabled) { void loadReferenceScores(); return refresh({ resetView: true }) } }).catch(() => { if (authStore.isAdmin) { void loadReferenceScores(); return refresh({ resetView: true }) } }) }, { flush: 'sync' })
 watch([() => pelicanMetadata.displayName, () => appStore.siteName], ([name, siteName]) => { document.title = `${name} - ${siteName || 'Sub2API'}` }, { immediate: true })
-watch(refreshSeconds, seconds => {
+function canPoll(): boolean { return !document.hidden && !showPlans.value && !showSettings.value && !dialogMode.value && !refreshing && (authStore.isAdmin || pelicanMetadata.enabled) }
+function configurePolling(): void {
   if (interval) clearInterval(interval)
-  interval = seconds ? setInterval(() => { if (!showPlans.value && !showSettings.value && !dialogMode.value) void refresh() }, seconds * 1000) : undefined
-})
+  interval = refreshSeconds.value && !document.hidden ? setInterval(() => { if (canPoll()) void refresh() }, refreshSeconds.value * 1000) : undefined
+}
+function visibilityChanged(): void {
+  artwork.setPaused(document.hidden)
+  configurePolling()
+  if (!document.hidden && refreshSeconds.value && canPoll()) void refresh()
+}
+watch(refreshSeconds, configurePolling)
 watch(() => pelicanMetadata.enabled, enabled => {
   if (!authStore.isAdmin && !enabled) { resetReferenceSession(); listRequestVersion++; listAbort?.abort(); clearArtworkCache(); items.value = []; total.value = 0; groups.value = []; closeDialog() }
 })
@@ -277,6 +286,8 @@ function updateGalleryColumnCount(): void {
 }
 onMounted(() => {
   document.addEventListener('keydown', trapFocus)
+  document.addEventListener('visibilitychange', visibilityChanged)
+  artwork.setPaused(document.hidden)
   updateGalleryColumnCount()
   if (typeof ResizeObserver !== 'undefined' && resultsRegion.value) {
     galleryResizeObserver = new ResizeObserver(updateGalleryColumnCount)
@@ -284,10 +295,11 @@ onMounted(() => {
   } else {
     window.addEventListener('resize', updateGalleryColumnCount)
   }
-  void Promise.resolve(pelicanMetadata.load(true)).then(() => { if (authStore.isAdmin || pelicanMetadata.enabled) { void loadReferenceScores(); return refresh() } }).catch(() => { if (authStore.isAdmin) { void loadReferenceScores(); return refresh() } })
+  void Promise.resolve(pelicanMetadata.load()).then(() => { if (authStore.isAdmin || pelicanMetadata.enabled) { void loadReferenceScores(); return refresh() } }).catch(() => { if (authStore.isAdmin) { void loadReferenceScores(); return refresh() } })
 })
 onBeforeUnmount(() => {
   disposed = true
+  artwork.dispose()
   resetReferenceSession()
   invalidatePlansSession()
   settingsRequestVersion++
@@ -297,6 +309,7 @@ onBeforeUnmount(() => {
   galleryResizeObserver?.disconnect()
   window.removeEventListener('resize', updateGalleryColumnCount)
   document.removeEventListener('keydown', trapFocus)
+  document.removeEventListener('visibilitychange', visibilityChanged)
 })
 
 function formatNow(): string {
@@ -312,16 +325,17 @@ function statusClass(status: PelicanEntry['status']): string { return status ===
 function formatDate(value?: string | null): string { const date = value ? new Date(value) : null; return date && !Number.isNaN(date.getTime()) ? new Intl.DateTimeFormat('zh-CN', { dateStyle: 'short', timeStyle: 'short' }).format(date) : '时间未知' }
 function formatTimestamp(value?: string | null): string { const date = value ? new Date(value) : null; return date && !Number.isNaN(date.getTime()) ? `${date.toISOString()} (UTC)` : '时间未知' }
 function formatDuration(value: number): string { return value > 1000 ? `${(value / 1000).toFixed(1)} 秒` : `${value} 毫秒` }
-function clearArtworkCache(): void { cardHtml.value = {}; cardArtworkIDs.value = {}; artworkLoading.value = {} }
+function clearArtworkCache(): void { artwork.invalidate() }
 async function refresh({ resetView = false }: { resetView?: boolean } = {}): Promise<void> {
   if (disposed) return
   const version = ++listRequestVersion
+  refreshing = true
   const previousScrollTop = resetView ? 0 : resultsRegion.value?.scrollTop
   listAbort?.abort()
   const controller = new AbortController()
   listAbort = controller
   if (resetView) {
-    clearArtworkCache(); items.value = []; total.value = 0; groups.value = []
+    artwork.allowed.value = false; artwork.cancelPending(); items.value = []; total.value = 0; groups.value = []
     if (resultsRegion.value) resultsRegion.value.scrollTop = 0
   }
   loading.value = !items.value.length; error.value = ''
@@ -330,34 +344,13 @@ async function refresh({ resetView = false }: { resetView?: boolean } = {}): Pro
     if (version !== listRequestVersion) return
     const lastPage = Math.max(1, Math.ceil(data.total / pageSize.value))
     if (page.value > lastPage) { total.value = data.total; page.value = lastPage; return }
-    const currentArtworkIDs = new Map(data.items.map(entry => [entry.result_id, entry.artwork_result_id]))
-    // A new failed attempt can still display the same last successful artwork.
-    const cachedArtwork = new Map(Object.entries(cardArtworkIDs.value).map(([id, artworkID]) => [artworkID, cardHtml.value[Number(id)]]))
-    for (const entry of data.items) {
-      const html = cachedArtwork.get(entry.artwork_result_id)
-      if (entry.artwork_result_id && html) {
-        cardHtml.value[entry.result_id] = html
-        cardArtworkIDs.value[entry.result_id] = entry.artwork_result_id
-      }
-    }
-    cardHtml.value = Object.fromEntries(Object.entries(cardHtml.value).filter(([id]) => cardArtworkIDs.value[Number(id)] === currentArtworkIDs.get(Number(id))))
-    cardArtworkIDs.value = Object.fromEntries(Object.entries(cardArtworkIDs.value).filter(([id, artworkID]) => artworkID === currentArtworkIDs.get(Number(id))))
-    artworkLoading.value = Object.fromEntries(Object.entries(artworkLoading.value).filter(([id]) => currentArtworkIDs.has(Number(id))))
+    const incomingIDs = new Set(data.items.map(item => item.artwork_result_id))
+    if (items.value.some(item => item.artwork_result_id && !incomingIDs.has(item.artwork_result_id))) clearArtworkCache()
+    artwork.resume()
     items.value = data.items; groups.value = data.groups; total.value = data.total; page.value = data.page; refreshedAt.value = formatNow()
     if (!resetView && previousScrollTop != null) void nextTick(() => { if (version === listRequestVersion && resultsRegion.value) resultsRegion.value.scrollTop = previousScrollTop })
     if (selectedEntry.value && !data.items.some(item => item.plan_id === selectedEntry.value?.plan_id && item.group_id === selectedEntry.value?.group_id && item.model_id === selectedEntry.value?.model_id)) closeDialog()
-    void loadVisibleArtwork(data.items, version, controller.signal)
-  } catch (reason) { if (version === listRequestVersion) { const status = (reason as { status?: number; response?: { status?: number } })?.status ?? (reason as { response?: { status?: number } })?.response?.status; if (status === 403) pelicanMetadata.reset?.(); error.value = messageOf(reason); if (status === 401 || status === 403) { clearArtworkCache(); items.value = []; total.value = 0; groups.value = []; closeDialog() } } } finally { if (version === listRequestVersion) loading.value = false }
-}
-async function loadVisibleArtwork(entries: PelicanEntry[], version: number, signal: AbortSignal): Promise<void> {
-  const queue = entries.filter(entry => entry.artwork_result_id && !cardHtml.value[entry.result_id])
-  queue.forEach(entry => { artworkLoading.value[entry.result_id] = true })
-  await Promise.all(Array.from({ length: Math.min(3, queue.length) }, async () => {
-    while (queue.length && version === listRequestVersion) {
-      const entry = queue.shift()!
-      try { const result = await getPelicanResult(entry.artwork_result_id!, signal); if (version === listRequestVersion && result.html) { cardHtml.value[entry.result_id] = result.html; cardArtworkIDs.value[entry.result_id] = entry.artwork_result_id } } catch { /* authorization may change between list and detail */ } finally { if (version === listRequestVersion) artworkLoading.value[entry.result_id] = false }
-    }
-  }))
+  } catch (reason) { if (version === listRequestVersion) { const status = (reason as { status?: number; response?: { status?: number } })?.status ?? (reason as { response?: { status?: number } })?.response?.status; if (status === 403) pelicanMetadata.reset?.(); error.value = messageOf(reason); if (status === 401 || status === 403) { clearArtworkCache(); items.value = []; total.value = 0; groups.value = []; closeDialog() } } } finally { if (version === listRequestVersion) { loading.value = false; refreshing = false } }
 }
 function clearFilters(): void { groupFilter.value = '' }
 function replay(id: string): void { replayVersions.value[id] = (replayVersions.value[id] ?? 0) + 1 }
@@ -370,21 +363,21 @@ async function openHistory(entry: PelicanEntry, event: MouseEvent): Promise<void
   dialogMode.value = 'history'
   const version = ++historyRequestVersion
   historyPage.value = 1; history.value = []; historyLoading.value = true; historyError.value = ''
-  try { const result = await listPelicanHistory({ plan_id: entry.plan_id, model_id: entry.model_id }, dialogAbort.signal); if (version === historyRequestVersion) history.value = result } catch (reason) { if (version === historyRequestVersion) historyError.value = messageOf(reason) } finally { if (version === historyRequestVersion) historyLoading.value = false }
+  try { const result = await listPelicanHistory({ plan_id: entry.plan_id, model_id: entry.model_id }, dialogAbort.signal); if (version === historyRequestVersion) history.value = result.map(item => ({ ...item, html: undefined })) } catch (reason) { if (version === historyRequestVersion) { historyError.value = messageOf(reason); if ([401, 403].includes(artworkStatus(reason) ?? 0)) { clearArtworkCache(); closeDialog() } } } finally { if (version === historyRequestVersion) historyLoading.value = false }
 }
 async function openArtwork(entry: PelicanEntry, event: MouseEvent | KeyboardEvent): Promise<void> {
   const version = ++dialogRequestVersion
   historyRequestVersion++; dialogAbort?.abort(); dialogAbort = new AbortController()
   opener = event.currentTarget as HTMLElement; selectedEntry.value = entry; fromHistory.value = false
-  if (!entry.artwork_result_id || !cardHtml.value[entry.result_id]) return
-  try { const result = await getPelicanResult(entry.artwork_result_id, dialogAbort.signal); if (version !== dialogRequestVersion) return; selectedRevision.value = result; dialogMode.value = 'artwork' } catch (reason) { if (version === dialogRequestVersion) error.value = messageOf(reason) }
+  if (!entry.artwork_result_id) return
+  try { const result = await artwork.request(entry.artwork_result_id, dialogAbort.signal, true); if (version !== dialogRequestVersion) return; selectedRevision.value = { ...result, html: undefined }; dialogMode.value = 'artwork' } catch (reason) { if (version === dialogRequestVersion) error.value = messageOf(reason) }
   void nextTick(() => dialogContent.value?.querySelector<HTMLButtonElement>('button')?.focus())
 }
 async function openRevision(revision: PelicanResult): Promise<void> {
   const version = ++dialogRequestVersion
   dialogAbort?.abort(); dialogAbort = new AbortController()
   fromHistory.value = true
-  try { const result = await getPelicanResult(revision.id, dialogAbort.signal); if (version !== dialogRequestVersion) return; selectedRevision.value = result; dialogMode.value = 'artwork' } catch (reason) { if (version === dialogRequestVersion) historyError.value = messageOf(reason); return }
+  try { const result = await artwork.request(revision.id, dialogAbort.signal, true); if (version !== dialogRequestVersion) return; selectedRevision.value = { ...result, html: undefined }; dialogMode.value = 'artwork' } catch (reason) { if (version === dialogRequestVersion) historyError.value = messageOf(reason); return }
   void nextTick(() => dialogContent.value?.querySelector<HTMLButtonElement>('button')?.focus())
 }
 function backToHistory(): void {
@@ -490,7 +483,7 @@ async function savePlan(id: number | null, input: PelicanPlanInput): Promise<voi
     if (isCurrent() && editor === planEditorVersion) planSaveError.value = messageOf(reason)
   } finally { if (isCurrent()) planBusyId.value = null }
 }
-async function removePlan(id: number): Promise<void> { await mutatePlan(id, () => deletePelicanPlan(id)) }
+async function removePlan(id: number): Promise<void> { await mutatePlan(id, async () => { await deletePelicanPlan(id); clearArtworkCache(); closeDialog(); await refresh() }) }
 function requestCleanup(plan: PelicanPlan, scope: 'failed' | 'expired'): void { if (planBusyId.value != null || planEditorOpen.value || isPlanRunning(plan)) return; cleanupOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null; cleanupConfirmation.value = { plan, scope } }
 function cancelCleanup(): void { if (cleanupBusy.value) return; cleanupConfirmation.value = null; const target = cleanupOpener; cleanupOpener = null; void nextTick(() => target?.focus()) }
 function closePlans(): void { if (!cleanupConfirmation.value && !planEditorOpen.value && planBusyId.value == null) showPlans.value = false }
@@ -506,11 +499,12 @@ async function confirmCleanup(): Promise<void> {
     if (!isCurrent()) return
     cleanupNotice.value = `已删除 ${deleted_count} 条${request.scope === 'failed' ? '失败或跳过' : '过期'}记录。`
     cleanupConfirmation.value = null; cleanupOpener = null
+    clearArtworkCache()
     await Promise.all([loadPlans(session), refresh(), refreshOpenHistory()])
   } catch (reason) { if (isCurrent()) plansError.value = messageOf(reason) }
   finally { if (isCurrent()) { cleanupBusy.value = false; planBusyId.value = null } }
 }
-async function refreshOpenHistory(): Promise<void> { if (dialogMode.value !== 'history' || !selectedEntry.value) return; const entry = selectedEntry.value; const version = ++historyRequestVersion; historyLoading.value = true; historyError.value = ''; try { const data = await listPelicanHistory({ plan_id: entry.plan_id, model_id: entry.model_id }); if (version === historyRequestVersion) history.value = data } catch (reason) { if (version === historyRequestVersion) historyError.value = messageOf(reason) } finally { if (version === historyRequestVersion) historyLoading.value = false } }
+async function refreshOpenHistory(): Promise<void> { if (dialogMode.value !== 'history' || !selectedEntry.value) return; const entry = selectedEntry.value; const version = ++historyRequestVersion; historyLoading.value = true; historyError.value = ''; try { const data = await listPelicanHistory({ plan_id: entry.plan_id, model_id: entry.model_id }); if (version === historyRequestVersion) history.value = data.map(item => ({ ...item, html: undefined })) } catch (reason) { if (version === historyRequestVersion) { historyError.value = messageOf(reason); if ([401, 403].includes(artworkStatus(reason) ?? 0)) { clearArtworkCache(); closeDialog() } } } finally { if (version === historyRequestVersion) historyLoading.value = false } }
 function isPlanRunning(plan: PelicanPlan): boolean { return Boolean(plan.running_until && new Date(plan.running_until).getTime() > Date.now()) }
 function closeDialog(): void {
   historyRequestVersion++; dialogRequestVersion++; dialogAbort?.abort()

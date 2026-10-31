@@ -20,7 +20,7 @@ import (
 const (
 	pelicanReferenceDataURL   = "https://codexradar.com/data/codex-four-task-results.json"
 	PelicanReferenceSourceURL = "https://codexradar.com/#stationmaster-round"
-	pelicanReferenceTTL       = 30 * time.Minute
+	pelicanReferenceTTL       = 2 * time.Hour
 	pelicanReferenceBackoff   = time.Minute
 	pelicanReferenceTimeout   = 10 * time.Second
 	pelicanReferenceBodyLimit = 2 << 20

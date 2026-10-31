@@ -8,6 +8,24 @@ vi.mock('@/api/pelicanTests', () => ({ getPelicanTestMetadata: vi.fn() }))
 describe('usePelicanMetadataStore', () => {
   beforeEach(() => { setActivePinia(createPinia()); vi.clearAllMocks() })
 
+  it('coalesces pending forced loads but performs a fresh check on the next navigation', async () => {
+    let resolve!: (value: { display_name: string; enabled: boolean }) => void
+    vi.mocked(getPelicanTestMetadata).mockImplementationOnce(() => new Promise(inner => { resolve = inner }))
+    const store = usePelicanMetadataStore()
+    const guard = store.load(true)
+    const duplicate = store.load(true)
+    const mounted = store.load()
+    expect(getPelicanTestMetadata).toHaveBeenCalledTimes(1)
+    resolve({ display_name: '当前名称', enabled: true })
+    await Promise.all([guard, duplicate, mounted])
+    await store.load()
+    expect(getPelicanTestMetadata).toHaveBeenCalledTimes(1)
+    vi.mocked(getPelicanTestMetadata).mockResolvedValueOnce({ display_name: '导航新检查', enabled: false })
+    await store.load(true)
+    expect(getPelicanTestMetadata).toHaveBeenCalledTimes(2)
+    expect(store.enabled).toBe(false)
+  })
+
   it('does not let an older metadata response replace a saved name', async () => {
     let resolve!: (value: { display_name: string; enabled: boolean }) => void
     vi.mocked(getPelicanTestMetadata).mockImplementationOnce(() => new Promise(inner => { resolve = inner }))

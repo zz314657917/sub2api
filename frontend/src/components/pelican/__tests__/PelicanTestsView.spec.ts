@@ -1,6 +1,6 @@
 import { DOMWrapper, flushPromises, mount } from '@vue/test-utils'
 import { nextTick, reactive } from 'vue'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import PelicanTestsView from '@/views/user/PelicanTestsView.vue'
 import PelicanPlansPanel from '../PelicanPlansPanel.vue'
 
@@ -28,6 +28,7 @@ const stubs = { AppLayout: { template: '<div><slot /></div>' }, Icon: true, Peli
 
 describe('PelicanTestsView', () => {
   beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ top: 100, bottom: 600, left: 0, right: 700, width: 700, height: 500, x: 0, y: 100, toJSON: () => ({}) })
     vi.clearAllMocks(); auth.isAdmin = true; auth.user = { id: 1 }
     api.accounts.mockResolvedValue([])
     api.reference.mockResolvedValue({ enabled: false, status: 'disabled', items: [] })
@@ -36,7 +37,54 @@ describe('PelicanTestsView', () => {
     api.result.mockResolvedValue(result(27131)); api.history.mockResolvedValue([result(27131)])
     api.plans.mockResolvedValue([]); api.groups.mockResolvedValue([{ id: 3, name: '授权组', status: 'active' }]); api.models.mockResolvedValue(['gpt-kept']); api.create.mockResolvedValue({}); api.update.mockResolvedValue({}); api.remove.mockResolvedValue(undefined); api.run.mockResolvedValue({ queued: true }); api.resume.mockResolvedValue({}); api.cleanup.mockResolvedValue({ deleted_count: 2 }); api.settings.mockResolvedValue({ display_name: '鹈鹕测试', prompt: '默认提示词' }); api.saveSettings.mockResolvedValue({ display_name: '新页面名', prompt: '自定义提示词' }); metadata.displayName = '鹈鹕测试'
   })
+  afterEach(() => vi.restoreAllMocks())
   async function view() { const wrapper = mount(PelicanTestsView, { global: { stubs } }); await flushPromises(); return wrapper }
+
+  it('reuses route metadata on mount and refreshes at most once on returning visible without overlapping a pending list', async () => {
+    vi.useFakeTimers()
+    let hidden = false
+    vi.spyOn(document, 'hidden', 'get').mockImplementation(() => hidden)
+    const wrapper = await view()
+    try {
+      expect(metadata.load).toHaveBeenCalledWith()
+      await wrapper.get('select[aria-label="自动刷新间隔"]').setValue('15')
+      const calls = api.list.mock.calls.length
+      hidden = true; document.dispatchEvent(new Event('visibilitychange'))
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(api.list).toHaveBeenCalledTimes(calls)
+      let finish!: (value: unknown) => void
+      api.list.mockReturnValueOnce(new Promise(resolve => { finish = resolve }))
+      hidden = false; document.dispatchEvent(new Event('visibilitychange'))
+      await flushPromises()
+      expect(api.list).toHaveBeenCalledTimes(calls + 1)
+      hidden = true; document.dispatchEvent(new Event('visibilitychange'))
+      hidden = false; document.dispatchEvent(new Event('visibilitychange'))
+      await vi.advanceTimersByTimeAsync(30_000)
+      expect(api.list).toHaveBeenCalledTimes(calls + 1)
+      finish({ items: [item(27131)], total: 1, page: 1, groups: [] })
+      await flushPromises()
+    } finally { wrapper.unmount(); vi.useRealTimers() }
+  })
+
+  it('does not request offscreen results and releases a removed result before reusing a newly authorized list', async () => {
+    const geometry = vi.mocked(HTMLElement.prototype.getBoundingClientRect)
+    geometry.mockImplementation(function () {
+      return { top: this.classList.contains('lazy-artwork') ? 1400 : 100, bottom: this.classList.contains('lazy-artwork') ? 1620 : 600, left: 0, right: 700, width: 700, height: 500, x: 0, y: 100, toJSON: () => ({}) }
+    })
+    const wrapper = await view()
+    try {
+      expect(wrapper.text()).toContain('gpt-test')
+      expect(api.result).not.toHaveBeenCalled()
+      geometry.mockReturnValue({ top: 100, bottom: 600, left: 0, right: 700, width: 700, height: 500, x: 0, y: 100, toJSON: () => ({}) })
+      await wrapper.get('.results-region').trigger('scroll'); await flushPromises()
+      expect(api.result).toHaveBeenCalledTimes(1)
+      api.list.mockResolvedValueOnce({ items: [], total: 0, page: 1, groups: [] })
+      await wrapper.get('.refresh-button').trigger('click'); await flushPromises()
+      expect(wrapper.find('.artwork-preview').exists()).toBe(false)
+      await wrapper.get('.refresh-button').trigger('click'); await flushPromises()
+      expect(api.result).toHaveBeenCalledTimes(2)
+    } finally { wrapper.unmount() }
+  })
 
   it('shows complete generation timestamps with seconds and timezone for success and fallback artwork', async () => {
     api.list.mockResolvedValue({

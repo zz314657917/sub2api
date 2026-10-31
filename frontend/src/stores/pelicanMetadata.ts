@@ -13,9 +13,8 @@ export const usePelicanMetadataStore = defineStore('pelicanMetadata', () => {
   let pending: Promise<void> | null = null
 
   async function load(force = false): Promise<void> {
+    if (pending) return pending
     if (loaded.value && !force) return
-    if (pending && !force) return pending
-    if (force) { requestVersion++; pending = null }
     const version = ++requestVersion
     loading.value = true
     const task = getPelicanTestMetadata().then(metadata => {

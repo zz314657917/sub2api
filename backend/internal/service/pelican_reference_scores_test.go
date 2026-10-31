@@ -272,7 +272,8 @@ func TestPelicanReferenceCacheTTLStaleBackoffAndRecovery(t *testing.T) {
 		t.Fatalf("initial=%v state=%s", initial, state)
 	}
 	pelicanReferenceAwait(t, started)
-	clock.Add(int64(pelicanReferenceTTL - time.Nanosecond))
+	// Independent user-duration oracle: never derive this boundary from the TTL constant.
+	clock.Add(int64(2*time.Hour - time.Nanosecond))
 	if got, state := cache.get(context.Background()); got != initial || state != "ready" || requests.Load() != 1 {
 		t.Fatalf("cache expired early: state=%s requests=%d", state, requests.Load())
 	}
