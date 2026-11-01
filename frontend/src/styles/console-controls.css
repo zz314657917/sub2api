@@ -1,0 +1,161 @@
+/* Root tokens exist only while AppLayout is mounted, including body portals.
+   Specificity deliberately exceeds lazy component/scoped dark styles. */
+:root:has(.console-shell) {
+  --console-control-surface: #fffdf9;
+  --console-control-surface-soft: #f4f0e9;
+  --console-control-border: #d8cec2;
+  --console-control-text: #3d3d3a;
+  --console-control-muted: #6c6a64;
+  --console-control-accent: #a9583e;
+  --console-control-selected: #f3e7df;
+  --console-control-ring: rgba(204, 120, 92, 0.16);
+  --console-control-error: #ef4444;
+  --console-control-error-ring: rgba(239, 68, 68, 0.3);
+}
+
+:root.dark:has(.console-shell) {
+  --console-control-surface: #211f1c;
+  --console-control-surface-soft: #292621;
+  --console-control-border: #51493f;
+  --console-control-text: #f3efe7;
+  --console-control-muted: #b9b3a8;
+  --console-control-accent: #e3a58c;
+  --console-control-selected: #362a24;
+  --console-control-ring: rgba(227, 165, 140, 0.28);
+}
+
+:root:has(.console-shell) :is(.console-shell, .console-modal-content) :is(.select-trigger, .date-picker-trigger),
+:root:has(.console-shell) :is(.select-dropdown-portal, .date-picker-dropdown, .date-picker-dropdown .date-picker-input) {
+  border-color: var(--console-control-border);
+  background: var(--console-control-surface);
+  color: var(--console-control-text);
+}
+
+:root:has(.console-shell) :is(.console-shell, .console-modal-content) :is(.select-trigger, .date-picker-trigger):hover:not(:disabled) {
+  border-color: var(--console-control-accent);
+}
+
+:root:has(.console-shell) :is(.console-shell, .console-modal-content) :is(.select-trigger-open, .date-picker-trigger-open, .select-trigger:focus-visible, .date-picker-trigger:focus-visible):not(:disabled),
+:root:has(.console-shell) .date-picker-dropdown .date-picker-input:focus {
+  border-color: var(--console-control-accent);
+  box-shadow: 0 0 0 3px var(--console-control-ring);
+  outline-color: var(--console-control-accent);
+}
+
+/* Keep error red above ordinary hover/open/focus, including console-design's outline. */
+:root:has(.console-shell) :is(.console-shell, .console-modal-content) .select-trigger.select-trigger-error,
+:root:has(.console-shell) :is(.console-shell, .console-modal-content) .select-trigger.select-trigger-error:is(:hover, :focus, :focus-visible, .select-trigger-open) {
+  border-color: var(--console-control-error);
+  outline-color: var(--console-control-error);
+}
+
+:root:has(.console-shell) :is(.console-shell, .console-modal-content) .select-trigger.select-trigger-error:is(:focus, :focus-visible, .select-trigger-open) {
+  box-shadow: 0 0 0 3px var(--console-control-error-ring);
+}
+
+:root:has(.console-shell) :is(.console-shell, .console-modal-content) .select-trigger.select-trigger-disabled {
+  background: var(--console-control-surface-soft);
+  border-color: var(--console-control-border);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+:root:has(.console-shell) :is(.console-shell, .console-modal-content) :is(.select-icon, .date-picker-icon, .date-picker-chevron),
+:root:has(.console-shell) .select-dropdown-portal .select-search-input::placeholder,
+:root:has(.console-shell) :is(.date-picker-label, .date-picker-preset, .select-empty) {
+  color: var(--console-control-muted);
+}
+
+:root:has(.console-shell) .select-dropdown-portal :is(.select-option, .select-search-input) {
+  color: var(--console-control-text);
+}
+
+:root:has(.console-shell) :is(.select-dropdown-portal .select-search, .date-picker-divider) {
+  border-color: var(--console-control-border);
+}
+
+:root:has(.console-shell) .select-dropdown-portal :is(.select-option:hover, .select-option-focused):not(.select-option-disabled),
+:root:has(.console-shell) .select-dropdown-portal .select-option-group,
+:root:has(.console-shell) .date-picker-dropdown .date-picker-preset:hover {
+  background: var(--console-control-surface-soft);
+  color: var(--console-control-text);
+}
+
+:root:has(.console-shell) .select-dropdown-portal .select-option-selected,
+:root:has(.console-shell) .select-dropdown-portal .select-option-selected:is(:hover, .select-option-focused):not(.select-option-disabled),
+:root:has(.console-shell) .date-picker-dropdown .date-picker-preset-active,
+:root:has(.console-shell) .date-picker-dropdown .date-picker-preset-active:hover {
+  background: var(--console-control-selected);
+  color: var(--console-control-accent);
+}
+
+:root:has(.console-shell) .select-dropdown-portal .select-option-selected .text-primary-500 {
+  color: var(--console-control-accent);
+}
+
+:root:has(.console-shell) .select-dropdown-portal .select-option-disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+:root:has(.console-shell) .select-dropdown-portal .select-option-disabled:not(.select-option-selected):hover {
+  background: transparent;
+  color: var(--console-control-muted);
+}
+
+:root:has(.console-shell) .date-picker-dropdown .date-picker-apply {
+  background: var(--console-control-accent);
+  color: var(--console-control-surface);
+}
+
+:root:has(.console-shell) .date-picker-dropdown .date-picker-apply:hover {
+  background: var(--console-control-accent);
+  filter: brightness(0.94);
+}
+
+/* Shared by dashboard and Usage; standalone charts keep component fallbacks. */
+:root:has(.console-shell) .console-shell :is(.dashboard-segmented, .dashboard-panel-chip) {
+  border-color: var(--console-control-border);
+  background: var(--console-control-surface-soft);
+  color: var(--console-control-muted);
+}
+
+:root:has(.console-shell) .console-shell .dashboard-segmented {
+  display: inline-flex;
+  border-width: 1px;
+  border-radius: 0.5rem;
+  padding: 0.125rem;
+}
+
+:root:has(.console-shell) .console-shell .dashboard-segmented-button {
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+:root:has(.console-shell) .console-shell .dashboard-segmented-button--active {
+  background: var(--console-control-selected);
+  color: var(--console-control-accent);
+  box-shadow: none;
+}
+
+:root:has(.console-shell) .console-shell .dashboard-segmented-button--idle {
+  color: var(--console-control-muted);
+}
+
+:root:has(.console-shell) .console-shell .dashboard-segmented-button--idle:hover {
+  background: var(--console-control-surface-soft);
+  color: var(--console-control-text);
+}
+
+/* Account cost is an accent value, not the semantic error/warning palette. */
+:root:has(.console-shell) .console-shell td.text-orange-500 {
+  color: var(--console-control-accent);
+}
+
+/* Usage summary cost shares the accent without recoloring warning utilities elsewhere. */
+:root:has(.console-shell) .console-shell .console-usage-stats .text-orange-500 {
+  color: var(--console-control-accent);
+}

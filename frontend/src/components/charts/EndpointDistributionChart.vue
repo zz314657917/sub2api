@@ -7,34 +7,34 @@
       <div class="flex flex-wrap items-center justify-end gap-2">
         <div
           v-if="showSourceToggle"
-          class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-gray-700 dark:bg-dark-800"
+          class="dashboard-segmented inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-gray-700 dark:bg-dark-800"
         >
           <button
             type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
+            class="dashboard-segmented-button rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
             :class="source === 'inbound'
-              ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
+              ? 'dashboard-segmented-button--active bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
+              : 'dashboard-segmented-button--idle text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
             @click="emit('update:source', 'inbound')"
           >
             {{ t('usage.inbound') }}
           </button>
           <button
             type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
+            class="dashboard-segmented-button rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
             :class="source === 'upstream'
-              ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
+              ? 'dashboard-segmented-button--active bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
+              : 'dashboard-segmented-button--idle text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
             @click="emit('update:source', 'upstream')"
           >
             {{ t('usage.upstream') }}
           </button>
           <button
             type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
+            class="dashboard-segmented-button rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
             :class="source === 'path'
-              ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
+              ? 'dashboard-segmented-button--active bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
+              : 'dashboard-segmented-button--idle text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
             @click="emit('update:source', 'path')"
           >
             {{ t('usage.path') }}
@@ -43,24 +43,24 @@
 
         <div
           v-if="showMetricToggle"
-          class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-gray-700 dark:bg-dark-800"
+          class="dashboard-segmented inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-gray-700 dark:bg-dark-800"
         >
           <button
             type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
+            class="dashboard-segmented-button rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
             :class="metric === 'tokens'
-              ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
+              ? 'dashboard-segmented-button--active bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
+              : 'dashboard-segmented-button--idle text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
             @click="emit('update:metric', 'tokens')"
           >
             {{ t('admin.dashboard.metricTokens') }}
           </button>
           <button
             type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
+            class="dashboard-segmented-button rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
             :class="metric === 'actual_cost'
-              ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
+              ? 'dashboard-segmented-button--active bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
+              : 'dashboard-segmented-button--idle text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
             @click="emit('update:metric', 'actual_cost')"
           >
             {{ t('admin.dashboard.metricActualCost') }}
@@ -144,6 +144,7 @@ import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import UserBreakdownSubTable from './UserBreakdownSubTable.vue'
 import type { EndpointStat, UserBreakdownItem } from '@/types'
 import { getUserBreakdown } from '@/api/admin/dashboard'
+import { usageChartPalette } from '@/utils/usageChartPalette'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
@@ -214,20 +215,7 @@ const toggleBreakdown = async (endpoint: string) => {
   }
 }
 
-const chartColors = [
-  '#cc785c',
-  '#8e8b82',
-  '#f59e0b',
-  '#ef4444',
-  '#a9583e',
-  '#d8cec2',
-  '#7a4635',
-  '#f97316',
-  '#504f49',
-  '#b8aa9d',
-  '#9a6a2f',
-  '#6c6a64'
-]
+const chartColors = usageChartPalette
 
 const displayEndpointStats = computed(() => {
   const sourceStats = props.source === 'upstream'

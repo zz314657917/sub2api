@@ -75,8 +75,8 @@ const chartColors = computed(() => ({
   tooltipText: isDarkMode.value ? '#fffaf5' : '#26251e',
   input: '#cc785c',
   output: '#8f8072',
-  cacheCreation: '#d9a441',
-  cacheRead: '#7f9d8a',
+  cacheCreation: '#d1b99b',
+  cacheRead: '#9b7a55',
   cacheHitRate: '#6f6a5f'
 }))
 

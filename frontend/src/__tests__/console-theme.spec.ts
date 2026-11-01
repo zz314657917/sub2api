@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { usageChartPalette } from '@/utils/usageChartPalette'
 
 const consoleUi = readFileSync(resolve(process.cwd(), 'src/styles/console-ui.css'), 'utf8')
+const consoleControls = readFileSync(resolve(process.cwd(), 'src/styles/console-controls.css'), 'utf8')
 const appSidebar = readFileSync(resolve(process.cwd(), 'src/components/layout/AppSidebar.vue'), 'utf8')
 const appHeader = readFileSync(resolve(process.cwd(), 'src/components/layout/AppHeader.vue'), 'utf8')
 const headerAnnouncementCarousel = readFileSync(resolve(process.cwd(), 'src/components/layout/HeaderAnnouncementCarousel.vue'), 'utf8')
@@ -98,16 +100,17 @@ describe('console visual direction', () => {
     expect(consoleUi).not.toContain('pixel-glyph')
   })
 
-  it('defines warm light console surfaces and keeps slate dark mode available', () => {
+  it('defines warm light and dark console surfaces', () => {
     expect(consoleUi).toContain('.console-shell {')
     expect(consoleUi).toContain('--console-bg: #faf9f5')
-    expect(consoleUi).toContain('--console-accent: #cc785c')
+    expect(consoleUi).toContain('--console-accent: #a9583e')
     expect(consoleUi).toContain('--console-text: #141413')
-    expect(consoleUi).toContain('linear-gradient(180deg, #faf9f5 0%, #f5f0e8 52%, #faf9f5 100%)')
+    expect(consoleUi).toContain('--console-surface: #fffdf9')
     expect(consoleUi).toContain('.console-shell .btn-primary')
     expect(consoleUi).not.toContain('.console-shell .btn-primary,\n.console-shell .btn-success')
     expect(consoleUi).toContain('.dark .console-shell {')
-    expect(consoleUi).toContain('linear-gradient(180deg, #020617')
+    expect(consoleUi).toContain('--console-bg: #181715')
+    expect(consoleUi).toContain('--console-surface: #211f1c')
     expect(consoleUi).toContain('.dark .console-sidebar')
     expect(consoleUi).toContain('.dark .console-header')
   })
@@ -125,11 +128,12 @@ describe('console visual direction', () => {
     expect(dataTable).not.toContain('background-color: white;')
   })
 
-  it('keeps decorative console backdrop layers behind content', () => {
+  it('isolates console content without obsolete decorative backdrop layers', () => {
     expect(consoleUi).toContain('isolation: isolate')
-    expect(consoleUi).toContain('z-index: -1')
-    expect(consoleUi).toContain('z-index: -2')
     expect(consoleUi).toContain('z-index: 0')
+    expect(consoleUi).toContain('z-index: 1')
+    expect(consoleUi).not.toContain('.console-shell::before')
+    expect(consoleUi).not.toContain('.console-shell::after')
   })
 
   it('defaults new visitors to light mode unless they explicitly chose dark', () => {
@@ -141,23 +145,18 @@ describe('console visual direction', () => {
     expect(keyUsageView).not.toContain("prefers-color-scheme: dark")
   })
 
-  it('keeps console dark palette on slate surfaces without overriding semantic success color', () => {
+  it('keeps standalone slate fallbacks and scopes warm console controls without overriding success', () => {
     expect(tailwindConfig).toContain("800: '#1e293b'")
     expect(tailwindConfig).toContain("900: '#0f172a'")
     expect(tailwindConfig).toContain("950: '#020617'")
-    expect(consoleUi).toContain('background: rgba(8, 15, 29, 0.82)')
-    expect(consoleUi).toContain('background: rgba(8, 15, 29, 0.84)')
-    expect(consoleUi).toContain('background: rgba(10, 18, 32, 0.86)')
-    expect(consoleUi).toContain('.dark .console-shell .select-trigger')
-    expect(consoleUi).toContain('.dark .select-dropdown-portal')
-    expect(consoleUi).toContain('--dashboard-success: #a9583e')
-    expect(consoleUi).toContain('--dashboard-success: #f0b89e')
+    expect(consoleUi).toContain('--console-surface-soft: #292621')
+    expect(consoleControls).toContain(':root.dark:has(.console-shell)')
+    expect(consoleControls).toContain('--console-control-surface: #211f1c')
+    expect(consoleControls).toContain('.select-dropdown-portal')
+    expect(consoleUi).not.toContain('.dark .select-dropdown-portal')
+    expect(consoleUi).toContain('.console-stat-icon--green')
+    expect(consoleControls).not.toContain('.btn-success')
     expect(consoleUi).not.toContain('.dark .console-shell .btn-primary,\n.dark .console-shell .btn-success')
-    expect(consoleUi).not.toContain('#33251b')
-    expect(consoleUi).not.toContain('#463225')
-    expect(consoleUi).not.toContain('#1d130d')
-    expect(consoleUi).not.toContain('rgba(139, 111, 71')
-    expect(consoleUi).not.toContain('rgba(91, 78, 60')
   })
 
   it('maps legacy purple and indigo utility accents onto the warm console palette', () => {
@@ -267,7 +266,6 @@ describe('console visual direction', () => {
 
   it('keeps admin dashboard first-screen charts on warm muted accents', () => {
     for (const source of [adminDashboard, modelDistributionChart, tokenUsageTrend]) {
-      expect(source).toContain('#cc785c')
       expect(source).toContain('rgba(204, 120, 92')
       expect(source).not.toContain('#3b82f6')
       expect(source).not.toContain('#06b6d4')
@@ -278,7 +276,14 @@ describe('console visual direction', () => {
     }
 
     expect(adminDashboard).toContain("text-[#a9583e] dark:text-[#f0b89e]")
-    expect(modelDistributionChart).toContain("hover:bg-[#f8efe8]")
+    expect(modelDistributionChart).toContain("import { usageChartPalette } from '@/utils/usageChartPalette'")
+    expect(modelDistributionChart).toContain('const chartColors = usageChartPalette')
+    expect(modelDistributionChart).toContain('backgroundColor: chartColors.slice')
+    expect(usageChartPalette).toEqual([
+      '#cc785c', '#b89a78', '#8f8072', '#d1b99b', '#a9583e', '#8e8b82',
+      '#c89174', '#9b7a55', '#b8aa9d', '#6f6a5f', '#e0c9b8', '#7a5948'
+    ])
+    expect(tokenUsageTrend).toContain("input: '#cc785c'")
     expect(tokenUsageTrend).toContain("cacheHitRate: '#6f6a5f'")
   })
 
@@ -291,7 +296,7 @@ describe('console visual direction', () => {
 
     expect(consoleUi).toContain('.console-balance')
     expect(consoleUi).toContain('background: rgba(255, 250, 245, 0.9)')
-    expect(consoleUi).toContain('background: #cc785c')
+    expect(consoleUi).toContain('background: linear-gradient(180deg, #cc785c, #a9583e)')
     expect(appSidebar).toContain('background: #f3e7df')
     expect(appSidebar).toContain('color: #a9583e')
     expect(appSidebar).not.toContain('rgb(220 252 231)')
@@ -345,8 +350,10 @@ describe('console visual direction', () => {
     }
 
     for (const source of [groupDistributionChart, endpointDistributionChart]) {
-      expect(source).toContain("'#cc785c'")
-      expect(source).toContain("'#8e8b82'")
+      expect(source).toContain("import { usageChartPalette } from '@/utils/usageChartPalette'")
+      expect(source).toContain('const chartColors = usageChartPalette')
+      expect(source).toContain('backgroundColor: chartColors.slice')
+      expect(source).toContain('dashboard-segmented-button--active')
       expect(source).not.toContain("'#3b82f6'")
       expect(source).not.toContain("'#10b981'")
       expect(source).not.toContain("'#14b8a6'")

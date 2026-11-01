@@ -269,6 +269,7 @@ import UserBreakdownSubTable from './UserBreakdownSubTable.vue'
 import type { ModelStat, UserSpendingRankingItem, UserBreakdownItem } from '@/types'
 import { getUserBreakdown } from '@/api/admin/dashboard'
 import { displayModelLabel } from '@/utils/modelDisplay'
+import { usageChartPalette } from '@/utils/usageChartPalette'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
@@ -360,24 +361,10 @@ const isDarkMode = computed(() => {
   return document.documentElement.classList.contains('dark')
 })
 const segmentBorderColor = computed(() =>
-  isDarkMode.value ? 'rgba(15, 23, 42, 0.82)' : 'rgba(248, 250, 252, 0.9)'
+  isDarkMode.value ? '#211f1c' : '#fffdf9'
 )
 
-const chartColors = [
-  '#cc785c',
-  '#b88a5a',
-  '#8f8072',
-  '#d9a441',
-  '#7f9d8a',
-  '#a9583e',
-  '#6f6a5f',
-  '#c89174',
-  '#9b7a55',
-  '#8e8b82',
-  '#d2a679',
-  '#b4604b',
-  '#a0a0a0'
-]
+const chartColors = usageChartPalette
 
 const displayModelStats = computed(() => {
   const sourceStats = props.source === 'upstream'

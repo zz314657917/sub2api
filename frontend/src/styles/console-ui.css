@@ -648,39 +648,6 @@
     color: #e5e7eb;
 }
 
-.dark .console-shell .select-trigger {
-    border-color: #3b362f;
-    background: #211f1c;
-    color: var(--console-text);
-}
-
-.dark .console-shell .select-trigger:hover,
-.dark .console-shell .select-trigger-open {
-    border-color: #362a24;
-    background: #211f1c;
-}
-
-.dark .select-dropdown-portal {
-    border-color: rgba(71, 85, 105, 0.82);
-    background: rgba(10, 18, 32, 0.98);
-    color: #e5e7eb;
-}
-
-.dark .select-dropdown-portal .select-option {
-    color: #cbd5e1;
-}
-
-.dark .select-dropdown-portal .select-option:hover,
-.dark .select-dropdown-portal .select-option-focused {
-    background: rgba(51, 65, 85, 0.76);
-    color: #f8fafc;
-}
-
-.dark .select-dropdown-portal .select-option-selected {
-    background: rgba(79, 70, 229, 0.24);
-    color: #e0e7ff;
-}
-
 .dark .console-shell [class*="bg-dark-800"],
 .dark .console-shell [class*="bg-dark-900"] {
     background-color: #211f1c;
@@ -911,16 +878,18 @@
 }
 
 .console-tooltip-surface {
+    --console-tooltip-background: #fffaf5;
     border: 1px solid rgba(216, 206, 194, 0.86);
     border-radius: 0.5rem;
-    background: #fffaf5;
+    background: var(--console-tooltip-background);
     box-shadow: 0 14px 32px rgba(75, 52, 40, 0.11);
     color: #26251e;
 }
 
 .dark .console-tooltip-surface {
+    --console-tooltip-background: var(--console-control-surface, #211f1c);
     border-color: #3b362f;
-    background: var(--console-surface);
+    background: var(--console-tooltip-background);
     box-shadow: 0 20px 48px rgba(0, 0, 0, 0.32);
     color: #e5e7eb;
 }
@@ -934,19 +903,19 @@
 }
 
 .console-tooltip-arrow-down {
-    border-top-color: #fffaf5;
+    border-top-color: var(--console-tooltip-background, #fffaf5);
 }
 
 .dark .console-tooltip-arrow-down {
-    border-top-color: rgb(15 23 42);
+    border-top-color: var(--console-tooltip-background, #211f1c);
 }
 
 .console-tooltip-arrow-up {
-    border-bottom-color: #fffaf5;
+    border-bottom-color: var(--console-tooltip-background, #fffaf5);
 }
 
 .dark .console-tooltip-arrow-up {
-    border-bottom-color: rgb(15 23 42);
+    border-bottom-color: var(--console-tooltip-background, #211f1c);
 }
 
 .console-note-accent {
