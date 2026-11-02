@@ -54,8 +54,8 @@ export interface PelicanReferenceCatalog {
   status: 'ready' | 'stale' | 'unavailable'
   synced_at: string | null
 }
-export interface PelicanTestSettings extends PelicanTestMetadata { prompt: string; radar?: PelicanReferenceSettings }
-export interface PelicanTestSettingsUpdate { display_name: string; prompt: string; enabled?: boolean; radar?: PelicanReferenceSettings }
+export interface PelicanTestSettings extends PelicanTestMetadata { prompt: string; radar?: PelicanReferenceSettings; group_order?: number[] }
+export interface PelicanTestSettingsUpdate { display_name: string; prompt: string; enabled?: boolean; radar?: PelicanReferenceSettings; group_order?: number[] }
 export interface PelicanPlanModelsResponse { models: string[] }
 
 export function buildPelicanListParams(groupID: number | '', accountQuery: string, page: number, pageSize: number): { group_id?: number; account_id?: number; page: number; page_size: number } {

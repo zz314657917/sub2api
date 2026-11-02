@@ -10,6 +10,7 @@
           <label class="settings-enabled"><input v-model="settingsDraft.enabled" :disabled="settingsLoading || settingsSaving" type="checkbox" aria-label="启用鹈鹕广场" /> 启用鹈鹕广场</label><small v-if="!settingsDraft.enabled">保存关闭后会隐藏普通用户入口，阻止普通用户访问结果与新的手动/定时运行。</small>
           <label>页面名称<input v-model="settingsDraft.display_name" :disabled="settingsLoading || settingsSaving" maxlength="40" aria-label="页面名称" /></label>
           <label>共享测试提示词<textarea v-model="settingsDraft.prompt" :disabled="settingsLoading || settingsSaving" maxlength="20000" rows="8" aria-label="共享测试提示词" /></label>
+          <PelicanGroupOrderSettings v-model="groupOrderDraft" :groups="orderGroups" :loading="orderGroupsLoading" :error="orderGroupsFailed" :disabled="!settingsLoaded || settingsLoading || settingsSaving" @retry="loadOrderGroups" />
           <PelicanReferenceSettings v-model="radarDraft" :catalog="referenceCatalog" :loading="referenceCatalogLoading" :disabled="!settingsLoaded || settingsLoading || settingsSaving" @validity-change="referenceSettingsValid = $event" />
           <p v-if="settingsError" role="alert">{{ settingsError }}</p>
           <div><button v-if="!settingsLoaded" type="button" :disabled="settingsLoading" @click="loadSettings">重新加载</button><button type="button" :disabled="!settingsLoaded || settingsLoading || settingsSaving" @click="restoreDefaultSettings">恢复默认</button><button type="button" :disabled="!settingsLoaded || settingsLoading || settingsSaving || !referenceSettingsValid" @click="saveSettings">{{ settingsSaving ? '保存中…' : '保存设置' }}</button></div>
@@ -72,23 +73,23 @@
           <div class="row-content">
             <div class="rail" tabindex="0" role="region" :aria-label="`${group.name}作品列表`" @scroll="updateRailNavigation(group.id, $event)">
               <template v-if="group.entries.length">
-                <article v-for="item in group.entries" :key="`${item.plan_id}-${item.group_id}-${item.model_id}`" class="model-artwork result-card" :aria-label="`${item.model_id} · 计划 ${item.plan_id}`">
+                <article v-for="item in group.entries" :key="entryKey(item)" class="model-artwork result-card" :aria-label="`${item.model_id} · 计划 ${item.plan_id} · 第 ${item.round_number || item.history_count || 1} 轮`">
                   <div class="artwork-shell">
-                    <PelicanLazyArtwork v-if="item.artwork_result_id" :result-id="item.artwork_result_id" :root="resultsRegion" :min-height="154" :replay-key="replayVersions[`card-${item.result_id}`] ?? 0" @enlarge="openArtwork(item, $event)" />
+                    <PelicanLazyArtwork v-if="item.artwork_result_id" :result-id="item.artwork_result_id" :root="resultsRegion" :min-height="154" :replay-key="replayVersions[`card-${entryKey(item)}`] ?? 0" @enlarge="openArtwork(item, $event)" />
                     <div v-else class="artwork-placeholder art-placeholder" :class="item.status">
                       <span v-if="item.status === 'running'" class="running-orbit" aria-hidden="true"></span>
                       <Icon v-else :name="item.status === 'failed' ? 'exclamationCircle' : 'clock'" size="md" />
                       <strong>{{ item.status === 'running' ? '正在生成本轮作品' : item.status === 'failed' ? '本轮未完成' : '本轮暂无作品' }}</strong>
                       <small>{{ item.status === 'running' ? '完成后会自动出现在这里' : item.status === 'failed' ? '生成失败 · 可查看其他轮次' : '等待作品进入可视区域' }}</small>
                     </div>
+                    <span v-if="item.round_number || item.history_count" class="round-label">第 {{ item.round_number || item.history_count }} 轮</span>
                     <div class="card-actions">
                       <button :disabled="!item.artwork_result_id" type="button" aria-label="放大播放" title="放大播放" @click="openArtwork(item, $event)"><Icon name="eye" size="sm" /></button>
-                      <button :disabled="!item.artwork_result_id" type="button" aria-label="重新播放" title="重新播放" @click="replay(`card-${item.result_id}`)"><Icon name="refresh" size="sm" /></button>
+                      <button :disabled="!item.artwork_result_id" type="button" aria-label="重新播放" title="重新播放" @click="replay(`card-${entryKey(item)}`)"><Icon name="refresh" size="sm" /></button>
                     </div>
                   </div>
                   <div class="card-copy">
                     <h3 class="model-title model-heading"><ModelIcon :model="item.model_id" size="17px" /><strong class="model-name" :title="item.model_id">{{ item.model_id }}</strong><span class="status" :class="statusClass(item.status)"><i></i>{{ previewStatusText(item.status) }}</span></h3>
-                    <span v-if="item.round_number || item.history_count" class="round-label">第 {{ item.round_number || item.history_count }} 轮</span>
                     <p v-if="item.artwork_result_id && item.artwork_result_id !== item.result_id" class="last-success">上次成功作品</p>
                     <div class="card-footer">
                       <time class="generation-time" :title="formatTimestamp(item.artwork_finished_at ?? (item.status === 'success' ? item.finished_at : null))">{{ formatCompactDate(item.artwork_finished_at ?? (item.status === 'success' ? item.finished_at : null)) }}</time>
@@ -137,6 +138,7 @@ import { createPelicanArtwork, providePelicanArtwork } from '@/components/pelica
 import PelicanPlansPanel from '@/components/pelican/PelicanPlansPanel.vue'
 import PelicanReferenceScores from '@/components/pelican/PelicanReferenceScores.vue'
 import PelicanReferenceSettings from '@/components/pelican/PelicanReferenceSettings.vue'
+import PelicanGroupOrderSettings from '@/components/pelican/PelicanGroupOrderSettings.vue'
 import { buildPelicanListParams, cleanupPelicanPlan, createPelicanPlan, deletePelicanPlan, getPelicanTestSettings, getPelicanReferenceScores, getPelicanReferenceCatalog, listPelicanPlans, listPelicanTests, resumePelicanPlan, runPelicanPlan, updatePelicanPlan, updatePelicanTestSettings, type PelicanEntry, type PelicanPlan, type PelicanPlanInput, type PelicanResult, type PelicanTestSettings, type PelicanReferenceScores as ReferenceScores, type PelicanReferenceCatalog, type PelicanReferenceSettings as ReferenceSettings } from '@/api/pelicanTests'
 import { getAll as getAllAdminGroups } from '@/api/admin/groups'
 import { useAuthStore } from '@/stores/auth'
@@ -206,6 +208,14 @@ const settingsLoaded = ref(false)
 const settingsError = ref('')
 const defaultSettings: PelicanTestSettings = { display_name: '鹈鹕测试', prompt: '请生成一个精致、完整、独立的中文海边鹈鹕骑自行车动画 HTML：鹈鹕双脚连续踩踏，车轮持续转动，海浪和云层轻轻移动，循环流畅。使用内联 CSS keyframes 和 SVG，支持不同屏幕宽度。不得包含 JavaScript、外部资源、链接或网络请求。仅输出完整 HTML 文档，不加 Markdown 代码围栏或解释。', enabled: true }
 const settingsDraft = ref<PelicanTestSettings>({ ...defaultSettings })
+const orderGroups = ref<{ id: number; name: string }[]>([])
+const orderGroupsLoading = ref(false)
+const orderGroupsFailed = ref(false)
+let orderGroupsVersion = 0
+const groupOrderDraft = computed<number[]>({
+  get: () => settingsDraft.value.group_order ?? [],
+  set: group_order => { settingsDraft.value = { ...settingsDraft.value, group_order } }
+})
 const radarDraft = computed<ReferenceSettings>({
   get: () => settingsDraft.value.radar ?? { enabled: false, selections: [] },
   set: radar => { settingsDraft.value = { ...settingsDraft.value, radar } }
@@ -222,7 +232,7 @@ let referenceAbort: AbortController | undefined
 let referenceCatalogAbort: AbortController | undefined
 
 function copySettings(settings: PelicanTestSettings): PelicanTestSettings {
-  return { ...settings, ...(settings.radar ? { radar: { enabled: settings.radar.enabled, selections: settings.radar.selections.map(item => ({ ...item })) } } : {}) }
+  return { ...settings, group_order: [...(settings.group_order ?? [])], ...(settings.radar ? { radar: { enabled: settings.radar.enabled, selections: settings.radar.selections.map(item => ({ ...item })) } } : {}) }
 }
 function resetReferenceSession(): void {
   referenceRequestVersion++; referenceCatalogVersion++
@@ -262,6 +272,9 @@ async function loadReferenceCatalog(): Promise<void> {
 
 const hasFilters = computed(() => groupFilter.value !== '' || searchQuery.value !== '' || statusFilter.value !== 'all' || Object.values(selectedModels.value).some(model => model !== 'all'))
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
+function entryKey(entry: PelicanEntry): string {
+  return `${entry.plan_id}-${entry.group_id}-${entry.model_id}-${entry.result_id || `running-${entry.round_number}`}`
+}
 const dialogTitle = computed(() => `${selectedEntry.value?.group_name} · ${selectedEntry.value?.model_id} · 计划 #${selectedEntry.value?.plan_id} · 放大播放`)
 const galleryGroups = computed(() => {
   const grouped = new Map<number, { id: number; name: string; platform?: string; entries: PelicanEntry[]; models: string[] }>()
@@ -295,7 +308,10 @@ const visibleResultCount = computed(() => visibleGalleryGroups.value.reduce((cou
 watch([groupFilter, pageSize], () => { closeDialog(); if (page.value !== 1) page.value = 1; else void refresh({ resetView: true }) })
 watch([searchQuery, statusFilter], () => { closeDialog(); if (resultsRegion.value) resultsRegion.value.scrollTop = 0; void nextTick(updateAllRailNavigation) })
 watch(page, () => void refresh({ resetView: true }))
-watch([() => authStore.user?.id, () => authStore.isAdmin], () => { invalidatePlansSession(); resetReferenceSession(); listRequestVersion++; listAbort?.abort(); clearArtworkCache(); items.value = []; total.value = 0; groups.value = []; selectedModels.value = {}; railNavigation.value = {}; loading.value = false; closeDialog(); plans.value = []; adminGroups.value = []; showPlans.value = false; cleanupConfirmation.value = null; showSettings.value = false; settingsRequestVersion++; settingsLoaded.value = false; settingsLoading.value = false; settingsSaving.value = false; settingsError.value = ''; settingsDraft.value = { ...defaultSettings }; pelicanMetadata.reset?.(); void Promise.resolve(pelicanMetadata.load(true)).then(() => { if (authStore.isAdmin || pelicanMetadata.enabled) { void loadReferenceScores(); return refresh({ resetView: true }) } }).catch(() => { if (authStore.isAdmin) { void loadReferenceScores(); return refresh({ resetView: true }) } }) }, { flush: 'sync' })
+watch([() => authStore.user?.id, () => authStore.isAdmin], () => {
+  orderGroupsVersion++; orderGroups.value = []; orderGroupsLoading.value = false; orderGroupsFailed.value = false
+  invalidatePlansSession(); resetReferenceSession(); listRequestVersion++; listAbort?.abort(); clearArtworkCache(); items.value = []; total.value = 0; groups.value = []; selectedModels.value = {}; railNavigation.value = {}; loading.value = false; closeDialog(); plans.value = []; adminGroups.value = []; showPlans.value = false; cleanupConfirmation.value = null; showSettings.value = false; settingsRequestVersion++; settingsLoaded.value = false; settingsLoading.value = false; settingsSaving.value = false; settingsError.value = ''; settingsDraft.value = { ...defaultSettings }; pelicanMetadata.reset?.(); void Promise.resolve(pelicanMetadata.load(true)).then(() => { if (authStore.isAdmin || pelicanMetadata.enabled) { void loadReferenceScores(); return refresh({ resetView: true }) } }).catch(() => { if (authStore.isAdmin) { void loadReferenceScores(); return refresh({ resetView: true }) } })
+}, { flush: 'sync' })
 watch([() => pelicanMetadata.displayName, () => appStore.siteName], ([name, siteName]) => { document.title = `${name} - ${siteName || 'Sub2API'}` }, { immediate: true })
 function canPoll(): boolean { return !document.hidden && !showPlans.value && !showSettings.value && !dialogMode.value && !refreshing && (authStore.isAdmin || pelicanMetadata.enabled) }
 function configurePolling(): void {
@@ -381,12 +397,14 @@ function updateAllRailNavigation(): void {
   })
 }
 function scrollGroupRail(event: MouseEvent, direction: -1 | 1): void {
-  const rail = (event.currentTarget as HTMLElement).closest('.group-row')?.querySelector<HTMLElement>('.rail')
+  const row = (event.currentTarget as HTMLElement).closest('.group-row')
+  const rail = row?.querySelector<HTMLElement>('.rail')
   if (!rail) return
+  const groupID = Number(row?.getAttribute('data-group'))
   const left = direction * Math.max(rail.clientWidth * .85, 220)
   if (typeof rail.scrollBy === 'function') rail.scrollBy({ left, behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
   else rail.scrollLeft += left
-  window.setTimeout(() => updateRailNavigation(Number((event.currentTarget as HTMLElement).closest('.group-row')?.getAttribute('data-group')), rail), 180)
+  window.setTimeout(() => updateRailNavigation(groupID, rail), 180)
 }
 function clearArtworkCache(): void { artwork.invalidate() }
 async function refresh({ resetView = false }: { resetView?: boolean } = {}): Promise<void> {
@@ -413,7 +431,8 @@ async function refresh({ resetView = false }: { resetView?: boolean } = {}): Pro
     items.value = data.items; groups.value = data.groups; total.value = data.total; page.value = data.page; refreshedAt.value = formatNow()
     void nextTick(updateAllRailNavigation)
     if (!resetView && previousScrollTop != null) void nextTick(() => { if (version === listRequestVersion && resultsRegion.value) resultsRegion.value.scrollTop = previousScrollTop })
-    if (selectedEntry.value && !data.items.some(item => item.plan_id === selectedEntry.value?.plan_id && item.group_id === selectedEntry.value?.group_id && item.model_id === selectedEntry.value?.model_id)) closeDialog()
+    const selected = selectedEntry.value
+    if (selected && !data.items.some(item => entryKey(item) === entryKey(selected) && item.artwork_result_id === selected.artwork_result_id)) closeDialog()
   } catch (reason) { if (version === listRequestVersion) { const status = (reason as { status?: number; response?: { status?: number } })?.status ?? (reason as { response?: { status?: number } })?.response?.status; if (status === 403) pelicanMetadata.reset?.(); error.value = messageOf(reason); if (status === 401 || status === 403) { clearArtworkCache(); items.value = []; total.value = 0; groups.value = []; closeDialog() } } } finally { if (version === listRequestVersion) { loading.value = false; refreshing = false } }
 }
 function clearFilters(): void { groupFilter.value = ''; searchQuery.value = ''; statusFilter.value = 'all'; selectedModels.value = {} }
@@ -458,16 +477,30 @@ async function loadSettings(): Promise<void> {
   const version = ++settingsRequestVersion
   settingsLoading.value = true; settingsError.value = ''
   void loadReferenceCatalog()
+  void loadOrderGroups()
   try { const loaded = await getPelicanTestSettings(); if (!disposed && version === settingsRequestVersion && authStore.isAdmin) { settingsDraft.value = copySettings(loaded); settingsLoaded.value = true } } catch (reason) { if (version === settingsRequestVersion) { settingsLoaded.value = false; settingsError.value = messageOf(reason) } } finally { if (version === settingsRequestVersion) settingsLoading.value = false }
 }
-function restoreDefaultSettings(): void { settingsDraft.value = { ...defaultSettings, ...(settingsDraft.value.radar ? { radar: copySettings(settingsDraft.value).radar } : {}) }; settingsError.value = '' }
+async function loadOrderGroups(): Promise<void> {
+  if (!authStore.isAdmin || disposed) return
+  const version = ++orderGroupsVersion
+  orderGroupsLoading.value = true; orderGroupsFailed.value = false
+  try {
+    const loaded = await getAllAdminGroups()
+    if (!disposed && version === orderGroupsVersion && authStore.isAdmin) orderGroups.value = loaded.map(group => ({ id: group.id, name: group.name }))
+  } catch {
+    if (!disposed && version === orderGroupsVersion) orderGroupsFailed.value = true
+  } finally {
+    if (!disposed && version === orderGroupsVersion) orderGroupsLoading.value = false
+  }
+}
+function restoreDefaultSettings(): void { settingsDraft.value = { ...defaultSettings, group_order: [...groupOrderDraft.value], ...(settingsDraft.value.radar ? { radar: copySettings(settingsDraft.value).radar } : {}) }; settingsError.value = '' }
 async function saveSettings(): Promise<void> {
   if (!settingsLoaded.value || settingsLoading.value || settingsSaving.value || !referenceSettingsValid.value || !authStore.isAdmin) return
 	const version = ++settingsRequestVersion
   settingsSaving.value = true; settingsError.value = ''
 	try {
 		const saved = await updatePelicanTestSettings(copySettings(settingsDraft.value))
-		if (version === settingsRequestVersion && authStore.isAdmin && !disposed) { settingsDraft.value = copySettings(saved); if (pelicanMetadata.applySavedSettings) pelicanMetadata.applySavedSettings(saved.display_name, saved.enabled); else pelicanMetadata.applySavedName?.(saved.display_name); void loadReferenceScores() }
+		if (version === settingsRequestVersion && authStore.isAdmin && !disposed) { settingsDraft.value = copySettings(saved); if (pelicanMetadata.applySavedSettings) pelicanMetadata.applySavedSettings(saved.display_name, saved.enabled); else pelicanMetadata.applySavedName?.(saved.display_name); void loadReferenceScores(); closeDialog(); if (page.value !== 1) page.value = 1; else void refresh({ resetView: true }) }
 	} catch (reason) {
 		if (version === settingsRequestVersion && !disposed) settingsError.value = messageOf(reason)
 	} finally {
@@ -637,7 +670,7 @@ function focusSearch(event: KeyboardEvent): void {
 .model-artwork.result-card { overflow: hidden; border: 1px solid var(--pelican-border); border-radius: 9px; background: var(--pelican-surface); scroll-snap-align: start; box-shadow: var(--console-shadow, none); transition: border-color .18s, box-shadow .18s; }
 .model-artwork.result-card:hover { border-color: color-mix(in srgb, var(--pelican-accent) 35%, var(--pelican-border)); box-shadow: 0 4px 18px color-mix(in srgb, var(--pelican-text) 7%, transparent); }
 .artwork-shell { position: relative; width: 100%; }
-.model-artwork .lazy-artwork { min-height: 0 !important; }
+.model-artwork .lazy-artwork { min-height: 150px !important; }
 :global(.model-artwork .artwork-preview) { position: relative; display: block; width: 100%; aspect-ratio: 16 / 10; overflow: hidden; border: 0; border-radius: 0; padding: 0; cursor: zoom-in; background: var(--pelican-accent-soft); }
 :global(.model-artwork .artwork-preview .pelican-frame) { position: absolute; inset: 0; width: 100%; height: 100% !important; max-height: none; border-radius: 0; pointer-events: none; }
 .preview-overlay { position: absolute; inset: 0; z-index: 1; }
@@ -648,7 +681,7 @@ function focusSearch(event: KeyboardEvent): void {
 @keyframes pelican-spin { to { transform: rotate(360deg); } }
 .art-placeholder strong { font-size: 11px; font-weight: 500; }
 .art-placeholder small { color: var(--pelican-muted); font-size: 9px; }
-.card-copy { padding: 9px 10px 8px; }
+.card-copy { padding: 7px 10px 7px; }
 .model-title { display: flex; align-items: center; gap: 6px; min-width: 0; margin: 0; color: var(--pelican-text); font-size: 11px; font-weight: 600; letter-spacing: -.1px; }
 .model-title :deep(svg) { width: 17px; height: 17px; flex: 0 0 17px; }
 .model-name { min-width: 0; flex: 1 1 auto; overflow: hidden; color: inherit; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
@@ -658,8 +691,8 @@ function focusSearch(event: KeyboardEvent): void {
 .status.failed { color: #b56d59; }
 .status.running { color: var(--pelican-accent); }
 .status.skipped { color: var(--pelican-muted); }
-.round-label { display: inline-block; margin-top: 6px; color: var(--pelican-muted); font-size: 9px; font-variant-numeric: tabular-nums; }
-.card-footer { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 7px; border-top: 1px solid var(--pelican-border); padding-top: 6px; color: var(--pelican-muted); font-size: 9px; font-variant-numeric: tabular-nums; }
+.round-label { position: absolute; z-index: 2; top: 9px; left: 9px; max-width: calc(100% - 18px); overflow: hidden; border: 1px solid var(--pelican-border); border-radius: 4px; padding: 1px 5px; background: color-mix(in srgb, var(--pelican-surface) 88%, transparent); color: var(--pelican-text); font-size: 9px; line-height: 1.5; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; backdrop-filter: blur(6px); }
+.card-footer { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 5px; border-top: 1px solid var(--pelican-border); padding-top: 4px; color: var(--pelican-muted); font-size: 9px; font-variant-numeric: tabular-nums; }
 .card-footer time { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .duration { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; white-space: nowrap; }
 .duration svg { width: 12px; height: 12px; }

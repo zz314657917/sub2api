@@ -124,6 +124,129 @@ describe('PelicanTestsView', () => {
     } finally { wrapper.unmount() }
   })
 
+  it('saves shared group priority, keeps the draft on failure and reloads the first gallery page', async () => {
+    api.groups.mockResolvedValue([{ id: 3, name: '授权组' }, { id: 4, name: '优先组' }])
+    api.settings.mockResolvedValue({ display_name: '鹈鹕测试', prompt: 'x', enabled: true, group_order: [3] })
+    api.saveSettings.mockImplementation(async input => ({ ...input }))
+    const wrapper = await view()
+    try {
+      await wrapper.get('select[aria-label="每页条数"]').setValue('6'); await flushPromises()
+      await wrapper.findAll('button').find(button => button.text() === '下一页')!.trigger('click'); await flushPromises()
+      await wrapper.findAll('.admin-toggle')[0]!.trigger('click'); await flushPromises()
+      await wrapper.get('select[aria-label="添加优先分组"]').setValue('4')
+      await wrapper.get('.group-order-settings').findAll('button').find(button => button.text() === '添加')!.trigger('click')
+      await wrapper.get('button[aria-label="上移 优先组"]').trigger('click')
+      api.saveSettings.mockRejectedValueOnce(new Error('保存失败'))
+      await wrapper.findAll('button').find(button => button.text() === '保存设置')!.trigger('click'); await flushPromises()
+      expect(wrapper.findAll('.group-order-list li').map(row => row.text())).toEqual([expect.stringContaining('优先组'), expect.stringContaining('授权组')])
+      await wrapper.findAll('button').find(button => button.text() === '恢复默认')!.trigger('click')
+      expect(wrapper.findAll('.group-order-list li')).toHaveLength(2)
+      const before = api.list.mock.calls.length
+      await wrapper.findAll('button').find(button => button.text() === '保存设置')!.trigger('click'); await flushPromises()
+      expect(api.saveSettings).toHaveBeenLastCalledWith(expect.objectContaining({ group_order: [4, 3] }))
+      expect(api.list.mock.calls.length).toBe(before + 1)
+      expect(api.list.mock.lastCall?.[0]).toEqual(expect.objectContaining({ page: 1 }))
+      await wrapper.get('.group-order-settings').findAll('button').find(button => button.text() === '恢复默认排序')!.trigger('click')
+      await wrapper.findAll('button').find(button => button.text() === '保存设置')!.trigger('click'); await flushPromises()
+      expect(api.saveSettings).toHaveBeenLastCalledWith(expect.objectContaining({ group_order: [] }))
+    } finally { wrapper.unmount() }
+  })
+
+  it('preserves unavailable priorities and ignores a late admin group directory after role change', async () => {
+    let finish!: (value: unknown) => void
+    api.groups.mockReturnValueOnce(new Promise(resolve => { finish = resolve }))
+    api.settings.mockResolvedValue({ display_name: '鹈鹕测试', prompt: 'x', enabled: true, group_order: [99] })
+    const wrapper = await view()
+    try {
+      await wrapper.findAll('.admin-toggle')[0]!.trigger('click'); await flushPromises()
+      expect(wrapper.get('.group-order-list').text()).toContain('分组 #99（暂不可用）')
+      auth.isAdmin = false; await flushPromises()
+      finish([{ id: 99, name: '管理员私有分组' }]); await flushPromises()
+      expect(wrapper.find('.group-order-settings').exists()).toBe(false)
+      expect(wrapper.text()).not.toContain('管理员私有分组')
+    } finally { wrapper.unmount() }
+  })
+
+  it('keeps distinct rounds of one model stable when a new round arrives and opens the exact older artwork', async () => {
+    const rounds = Array.from({ length: 5 }, (_, i) => ({
+      ...item(1, 105 - i), round_number: 5 - i, history_count: 5
+    }))
+    api.list.mockResolvedValue({ items: [...rounds, { ...item(2, 201), model_id: 'gpt-other', round_number: 1 }], total: 1, page: 1, page_size: 24, groups: [] })
+    api.result.mockImplementation(async (id: number) => result(id))
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const wrapper = await view()
+    try {
+      expect(wrapper.findAll('.model-artwork')).toHaveLength(6)
+      expect(wrapper.findAll('.round-label').slice(0, 5).map(label => label.text())).toEqual(['第 5 轮', '第 4 轮', '第 3 轮', '第 2 轮', '第 1 轮'])
+      const keptCard = wrapper.findAll('.model-artwork')[0]!.element
+      await wrapper.findAll('.model-artwork')[4]!.get('.artwork-preview').trigger('click')
+      await flushPromises()
+      expect(wrapper.get('[role="dialog"]').findComponent({ name: 'PelicanLazyArtwork' }).props('resultId')).toBe(101)
+      // The same model remains, but round one's removal must close its dialog.
+      api.list.mockResolvedValueOnce({ items: [{ ...item(1, 106), round_number: 6, history_count: 5 }, ...rounds.slice(0, 4)], total: 1, page: 1, page_size: 24, groups: [] })
+      await wrapper.get('.refresh-button').trigger('click'); await flushPromises()
+      expect(wrapper.findAll('.model-artwork')).toHaveLength(5)
+      expect(wrapper.findAll('.model-artwork')[1]!.element).toBe(keptCard)
+      expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+      expect(warning.mock.calls.flat().join(' ')).not.toContain('Duplicate keys')
+    } finally { wrapper.unmount() }
+  })
+
+  it('filters all retained rounds of a model and keeps the running round separate from its successes', async () => {
+    api.list.mockResolvedValue({
+      items: [
+        { ...item(0, 0), status: 'running', artwork_result_id: null, round_number: 6 },
+        ...Array.from({ length: 5 }, (_, i) => ({ ...item(1, 105 - i), round_number: 5 - i })),
+        { ...item(2, 201), model_id: 'gpt-other', round_number: 1 }
+      ], total: 1, page: 1, page_size: 24, groups: []
+    })
+    const wrapper = await view()
+    try {
+      await wrapper.findAll('.model-filter').find(button => button.text().includes('gpt-test'))!.trigger('click')
+      expect(wrapper.findAll('.model-artwork')).toHaveLength(6)
+      expect(wrapper.findAll('.status.running')).toHaveLength(1)
+      expect(wrapper.findAll('.status.success')).toHaveLength(5)
+      await wrapper.get('select[aria-label="筛选状态"]').setValue('running')
+      expect(wrapper.findAll('.model-artwork')).toHaveLength(1)
+      expect(wrapper.get('.round-label').text()).toBe('第 6 轮')
+    } finally { wrapper.unmount() }
+  })
+
+  it('replays running placeholders independently even though their result IDs are both zero', async () => {
+    api.list.mockResolvedValue({
+      items: [
+        { ...item(1, 0), status: 'running', artwork_result_id: 105, round_number: 6 },
+        { ...item(2, 0), status: 'running', model_id: 'gpt-other', artwork_result_id: 201, round_number: 8 }
+      ], total: 1, page: 1, page_size: 24, groups: []
+    })
+    api.result.mockImplementation(async (id: number) => result(id))
+    const wrapper = await view()
+    try {
+      await wrapper.findAll('.model-artwork')[0]!.get('button[aria-label="重新播放"]').trigger('click')
+      const previews = wrapper.findAllComponents({ name: 'PelicanLazyArtwork' })
+      expect(previews[0]!.props('replayKey')).toBe(1)
+      expect(previews[1]!.props('replayKey')).toBe(0)
+    } finally { wrapper.unmount() }
+  })
+
+  it('updates multi-round rail navigation after the click event has finished', async () => {
+    vi.useFakeTimers()
+    const wrapper = await view()
+    try {
+      const rail = wrapper.get('.rail').element as HTMLElement
+      Object.defineProperties(rail, {
+        clientWidth: { configurable: true, value: 500 },
+        scrollWidth: { configurable: true, value: 1500 },
+        scrollBy: { configurable: true, value: ({ left }: ScrollToOptions) => { rail.scrollLeft += left || 0 } }
+      })
+      await wrapper.get('.rail').trigger('scroll')
+      await wrapper.get('button[aria-label="向后浏览授权组"]').trigger('click')
+      await vi.advanceTimersByTimeAsync(180)
+      expect(rail.scrollLeft).toBe(425)
+      expect(wrapper.get('button[aria-label="向前浏览授权组"]').attributes('disabled')).toBeUndefined()
+    } finally { wrapper.unmount(); vi.useRealTimers() }
+  })
+
   it('shows running rounds and focuses search with slash', async () => {
     api.list.mockResolvedValue({
       items: [{ ...item(1), status: 'running', artwork_result_id: null, round_number: 4 }],
@@ -134,6 +257,8 @@ describe('PelicanTestsView', () => {
       expect(wrapper.get('.status.running').text()).toContain('生成中')
       expect(wrapper.get('.art-placeholder.running').text()).toContain('正在生成本轮作品')
       expect(wrapper.get('.round-label').text()).toBe('第 4 轮')
+      expect(wrapper.get('.artwork-shell .round-label').text()).toBe('第 4 轮')
+      expect(wrapper.find('.card-copy .round-label').exists()).toBe(false)
       document.dispatchEvent(new KeyboardEvent('keydown', { key: '/', bubbles: true }))
       expect(document.activeElement).toBe(wrapper.get('.search-box input').element)
     } finally { wrapper.unmount() }
@@ -164,7 +289,8 @@ describe('PelicanTestsView', () => {
     expect(wrapper.get('.artwork-preview').element).toBe(preview)
     api.list.mockResolvedValueOnce({ items: [{ ...item(27131, 999), status: 'failed', artwork_result_id: 27131 }], total: 1, page: 1, page_size: 24, groups: [] })
     await wrapper.get('.refresh-button').trigger('click'); await flushPromises()
-    expect(wrapper.get('.artwork-preview').element).toBe(preview)
+    expect(wrapper.get('.artwork-preview').exists()).toBe(true)
+    expect(wrapper.get('.status.failed').text()).toContain('生成失败')
     expect(api.result).toHaveBeenCalledTimes(requests)
     wrapper.unmount()
   })
