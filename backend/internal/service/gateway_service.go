@@ -28,6 +28,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
 	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
 	"github.com/Wei-Shaw/sub2api/internal/util/urlvalidator"
@@ -10965,17 +10966,15 @@ func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64,
 
 	// Collect unique models from all accounts and the active channel.
 	modelSet := make(map[string]struct{})
+	hasUnmappedOpenAIAccount := false
 
 	for _, acc := range accounts {
-		// Passthrough routing accepts models independently of model_mapping. A stale
-		// mapping on any eligible passthrough account therefore cannot define the
-		// public whitelist; return nil so the handler uses its default model set.
+		// Passthrough routing accepts models independently of model_mapping. Treat
+		// it like an unmapped OpenAI account so its defaults do not hide mappings
+		// from ordinary accounts in the same group.
 		if platform == PlatformOpenAI && acc.IsOpenAIPassthroughEnabled() {
-			if s.modelsListCache != nil {
-				s.modelsListCache.Set(cacheKey, []string(nil), s.modelsListCacheTTL)
-				modelsListCacheStoreTotal.Add(1)
-			}
-			return nil
+			hasUnmappedOpenAIAccount = true
+			continue
 		}
 
 		mapping := acc.GetModelMapping()
@@ -10983,10 +10982,17 @@ func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64,
 			for model := range mapping {
 				modelSet[model] = struct{}{}
 			}
+		} else if platform == PlatformOpenAI {
+			hasUnmappedOpenAIAccount = true
 		}
 	}
 	if len(accounts) > 0 {
 		s.addChannelSupportedModels(ctx, groupID, platform, modelSet)
+	}
+	if platform == PlatformOpenAI && hasUnmappedOpenAIAccount && len(modelSet) > 0 {
+		for _, model := range openai.DefaultModelIDs() {
+			modelSet[model] = struct{}{}
+		}
 	}
 
 	// If neither source provides explicit models, return nil (use defaults).

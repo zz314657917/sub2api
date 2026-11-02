@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
 	gocache "github.com/patrickmn/go-cache"
 	"github.com/stretchr/testify/require"
@@ -617,7 +619,7 @@ func TestGetAvailableModels_IncludesChannelSupportedModels(t *testing.T) {
 		require.Equal(t, []string{"gpt-5.4", "kimi-k3"}, models)
 	})
 
-	t.Run("pricing only", func(t *testing.T) {
+	t.Run("pricing supplements unmapped account defaults", func(t *testing.T) {
 		repo := &modelsListAccountRepoStub{
 			byGroup: map[int64][]Account{
 				groupID: {{ID: 2, Platform: PlatformOpenAI}},
@@ -626,11 +628,19 @@ func TestGetAvailableModels_IncludesChannelSupportedModels(t *testing.T) {
 		svc := &GatewayService{accountRepo: repo, channelService: channelSvc}
 
 		models := svc.GetAvailableModels(context.Background(), &groupID, PlatformOpenAI)
-		require.Equal(t, []string{"kimi-k3"}, models)
+		require.Equal(t, dedupeAndSortModelIDs(append([]string{"kimi-k3"}, openai.DefaultModelIDs()...)), models)
 
 		catalog := svc.GetAvailableModelCatalog(context.Background(), &groupID, PlatformOpenAI)
-		require.Equal(t, []string{"kimi-k3"}, catalog.ChatModels)
-		require.Empty(t, catalog.ImageModels)
+		wantChat, wantImages := []string{"kimi-k3"}, []string{}
+		for _, model := range openai.DefaultModelIDs() {
+			if strings.HasPrefix(model, "gpt-image-") {
+				wantImages = append(wantImages, model)
+			} else {
+				wantChat = append(wantChat, model)
+			}
+		}
+		require.Equal(t, dedupeAndSortModelIDs(wantChat), catalog.ChatModels)
+		require.Equal(t, dedupeAndSortModelIDs(wantImages), catalog.ImageModels)
 		require.Empty(t, catalog.VideoModels)
 	})
 
@@ -644,6 +654,96 @@ func TestGetAvailableModels_IncludesChannelSupportedModels(t *testing.T) {
 
 		require.Nil(t, svc.GetAvailableModels(context.Background(), &groupID, PlatformOpenAI))
 	})
+}
+
+func TestGetAvailableModels_OpenAIUnmappedAccounts(t *testing.T) {
+	groupID := int64(20)
+	mapped := Account{
+		ID:          1,
+		Platform:    PlatformOpenAI,
+		Credentials: map[string]any{"model_mapping": map[string]any{"configured-model": "configured-upstream"}},
+	}
+	unmapped := Account{ID: 2, Platform: PlatformOpenAI}
+	emptyMapping := Account{
+		ID:          3,
+		Platform:    PlatformOpenAI,
+		Credentials: map[string]any{"model_mapping": map[string]any{}},
+	}
+	anthropic := Account{
+		ID:          4,
+		Platform:    PlatformAnthropic,
+		Credentials: map[string]any{"model_mapping": map[string]any{"claude-mapped": "claude-upstream"}},
+	}
+	tests := []struct {
+		name         string
+		platform     string
+		accounts     []Account
+		channelModel string
+		want         []string
+	}{
+		{
+			name: "ordinary unmapped supplements mapped whitelist", platform: PlatformOpenAI,
+			accounts: []Account{mapped, unmapped},
+			want:     dedupeAndSortModelIDs(append([]string{"configured-model"}, openai.DefaultModelIDs()...)),
+		},
+		{
+			name: "empty mapping supplements mapped whitelist in reverse order", platform: PlatformOpenAI,
+			accounts: []Account{emptyMapping, mapped},
+			want:     dedupeAndSortModelIDs(append([]string{"configured-model"}, openai.DefaultModelIDs()...)),
+		},
+		{
+			name: "ordinary unmapped supplements concrete channel models", platform: PlatformOpenAI,
+			accounts: []Account{unmapped}, channelModel: "channel-model",
+			want: dedupeAndSortModelIDs(append([]string{"channel-model"}, openai.DefaultModelIDs()...)),
+		},
+		{
+			name: "mapped account and channel remain whitelist", platform: PlatformOpenAI,
+			accounts: []Account{mapped}, channelModel: "channel-model",
+			want: []string{"channel-model", "configured-model"},
+		},
+		{
+			name: "ordinary unmapped only retains nil fallback", platform: PlatformOpenAI,
+			accounts: []Account{unmapped, emptyMapping},
+		},
+		{
+			name:     "global list does not add OpenAI defaults",
+			accounts: []Account{mapped, unmapped, anthropic}, want: []string{"claude-mapped", "configured-model"},
+		},
+		{
+			name: "other platform does not add OpenAI defaults", platform: PlatformAnthropic,
+			accounts: []Account{unmapped, anthropic, {ID: 5, Platform: PlatformAnthropic}},
+			want:     []string{"claude-mapped"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &modelsListAccountRepoStub{byGroup: map[int64][]Account{groupID: tt.accounts}}
+			channelSvc := &ChannelService{}
+			channelSvc.cache.Store(&channelCache{
+				channelByGroupID: map[int64]*Channel{
+					groupID: {
+						ID: 8, Status: StatusActive,
+						ModelPricing: []ChannelModelPricing{{Platform: PlatformOpenAI, Models: []string{tt.channelModel, "openai-*", " "}}},
+					},
+				},
+				loadedAt: time.Now(),
+			})
+			svc := &GatewayService{
+				accountRepo: repo, channelService: channelSvc,
+				modelsListCache: gocache.New(time.Minute, time.Minute), modelsListCacheTTL: time.Minute,
+			}
+			actual := svc.GetAvailableModels(context.Background(), &groupID, tt.platform)
+			require.Equal(t, tt.want, actual)
+			if len(actual) > 0 {
+				actual[0] = "caller-mutation"
+			}
+			require.Equal(t, tt.want, svc.GetAvailableModels(context.Background(), &groupID, tt.platform))
+			require.Equal(t, int64(1), repo.listByGroupCalls.Load())
+			svc.InvalidateAvailableModelsCache(&groupID, tt.platform)
+			require.Equal(t, tt.want, svc.GetAvailableModels(context.Background(), &groupID, tt.platform))
+			require.Equal(t, int64(2), repo.listByGroupCalls.Load())
+		})
+	}
 }
 
 func TestGetAvailableModels_OpenAIPassthroughUsesDefaultFallback(t *testing.T) {
@@ -665,12 +765,12 @@ func TestGetAvailableModels_OpenAIPassthroughUsesDefaultFallback(t *testing.T) {
 			want: nil,
 		},
 		{
-			name: "passthrough wins over ordinary account mapping",
+			name: "passthrough supplements ordinary account mapping with defaults",
 			accounts: []Account{
 				{ID: 2, Platform: PlatformOpenAI, Credentials: map[string]any{"model_mapping": map[string]any{"configured-model": "configured-upstream"}}},
 				{ID: 3, Platform: PlatformOpenAI, Credentials: map[string]any{"model_mapping": map[string]any{"stale-model": "upstream-model"}}, Extra: map[string]any{"openai_passthrough": true}},
 			},
-			want: nil,
+			want: dedupeAndSortModelIDs(append([]string{"configured-model"}, openai.DefaultModelIDs()...)),
 		},
 		{
 			name: "ordinary accounts preserve mapped whitelist",
