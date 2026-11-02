@@ -1238,21 +1238,13 @@ function formToAPI(): { group_ids: number[], model_pricing: ChannelModelPricing[
     }
   }
 
-  // Collect web_search_emulation (only anthropic platform supports it)
-  // Always write the key so that disabling in the UI correctly sets platform to false,
-  // rather than leaving a stale true value from the cloned features_config.
-  const wsEmulation: Record<string, boolean> = {}
-  for (const section of form.platforms) {
-    if (!section.enabled) continue
-    if (section.platform === 'anthropic') {
-      wsEmulation[section.platform] = !!section.web_search_emulation
-    }
+  // Only Anthropic is editable here; preserve hidden and future dimensions.
+  const wsEmulation: Record<string, unknown> = {
+    ...(featuresConfig.web_search_emulation as Record<string, unknown> | undefined)
   }
-  if (Object.keys(wsEmulation).length > 0) {
-    featuresConfig.web_search_emulation = wsEmulation
-  } else {
-    delete featuresConfig.web_search_emulation
-  }
+  const anthropicSection = form.platforms.find(section => section.platform === 'anthropic')
+  wsEmulation.anthropic = !!(anthropicSection?.enabled && anthropicSection.web_search_emulation)
+  featuresConfig.web_search_emulation = wsEmulation
 
   const codexImageGenerationBridge: Record<string, boolean> = {}
   for (const section of form.platforms) {

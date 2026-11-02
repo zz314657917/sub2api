@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -849,7 +850,27 @@ func (s *ChannelService) applyUpdateInput(ctx context.Context, channel *Channel,
 		channel.BillingModelSource = input.BillingModelSource
 	}
 	if input.FeaturesConfig != nil {
-		channel.FeaturesConfig = input.FeaturesConfig
+		featuresConfig := maps.Clone(input.FeaturesConfig)
+		existing, hasExisting := channel.FeaturesConfig[featureKeyWebSearchEmulation]
+		incoming, supplied := input.FeaturesConfig[featureKeyWebSearchEmulation]
+		if !supplied && hasExisting {
+			featuresConfig[featureKeyWebSearchEmulation] = existing
+			if dimensions, ok := existing.(map[string]any); ok {
+				featuresConfig[featureKeyWebSearchEmulation] = maps.Clone(dimensions)
+			}
+		} else if dimensions, ok := incoming.(map[string]any); ok {
+			merged := make(map[string]any)
+			// An explicit empty map clears the search config; only a nonempty
+			// update inherits omitted platform dimensions.
+			if len(dimensions) > 0 {
+				if previous, ok := existing.(map[string]any); ok {
+					maps.Copy(merged, previous)
+				}
+				maps.Copy(merged, dimensions)
+			}
+			featuresConfig[featureKeyWebSearchEmulation] = merged
+		}
+		channel.FeaturesConfig = featuresConfig
 	}
 	if input.ApplyPricingToAccountStats != nil {
 		channel.ApplyPricingToAccountStats = *input.ApplyPricingToAccountStats
