@@ -1977,6 +1977,12 @@ func defaultModelsListCandidateIDs(platform string) []string {
 		return ids
 	case PlatformGrok:
 		return xai.DefaultModelIDs()
+	case PlatformKimi:
+		return []string{"kimi-k2.6", "kimi-k2.5", "kimi-k2", "kimi-k3"}
+	case PlatformZhipu:
+		return []string{"glm-5.3", "glm-5.2", "glm-4.7", "glm-4.5-air"}
+	case PlatformDeepseek:
+		return []string{"deepseek-chat", "deepseek-reasoner", "deepseek-v4-pro", "deepseek-v4-flash"}
 	default:
 		ids := make([]string, 0, len(claude.DefaultModels))
 		for _, model := range claude.DefaultModels {
