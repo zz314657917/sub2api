@@ -4041,7 +4041,11 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 		if normalized {
 			body = normalizedBody
 		}
-		reqStream = gjson.GetBytes(body, "stream").Bool()
+		// OAuth requires stream=true upstream, but downstream still follows
+		// the client's original flag. Compact retains its non-streaming bridge.
+		if isOpenAIResponsesCompactPath(c) {
+			reqStream = false
+		}
 
 		if !isOpenAIResponsesCompactPath(c) {
 			accountScopedBody, scoped, scopeErr := applyCodexAccountIdentityClientMetadataRaw(body, codexAccountIdentitySource(c, account), getAPIKeyIDFromContext(c))
@@ -5535,7 +5539,7 @@ func (s *OpenAIGatewayService) handleNonStreamingResponsePassthrough(
 	// Some upstreams (e.g. other sub2api instances) may return SSE even when
 	// stream=false was requested. Without this conversion the client would
 	// receive raw SSE text or a terminal event with empty output.
-	if isEventStreamResponse(resp.Header) {
+	if isEventStreamResponse(resp.Header) || (account != nil && account.Type == AccountTypeOAuth && bodyHasSSEFraming(body)) {
 		return s.handlePassthroughSSEToJSON(resp, c, account, body, originalModel, mappedModel)
 	}
 
@@ -5593,23 +5597,29 @@ func (s *OpenAIGatewayService) handleNonStreamingResponsePassthrough(
 func (s *OpenAIGatewayService) handlePassthroughSSEToJSON(resp *http.Response, c *gin.Context, account *Account, body []byte, originalModel string, mappedModel string) (*openaiNonStreamingResultPassthrough, error) {
 	observeOpenAISSEBody(upstreamResponseModelObserverFromContext(c), string(body))
 	bodyText := string(body)
-	finalResponse, ok := extractCodexFinalResponse(bodyText)
+	terminalType, terminalPayload, terminalOK := extractOpenAISSETerminalEvent(bodyText)
+	finalResponse, ok := extractOpenAINonStreamingTerminalResponse(terminalType, terminalPayload)
+	if terminalOK && !ok && terminalType != "response.failed" && terminalType != "error" {
+		return nil, s.writeOpenAINonStreamingProtocolError(resp, c, "Upstream terminal event has an invalid response object")
+	}
 
+	aggregateBody := bodyText
 	usage := &OpenAIUsage{}
 	if ok {
+		aggregateBody = openAINonStreamingSSEThroughTerminal(bodyText, terminalPayload)
 		if parsedUsage, parsed := extractOpenAIUsageFromJSONBytes(finalResponse); parsed {
 			*usage = parsedUsage
 		}
 		// When the terminal event has an empty output array, reconstruct
 		// output from accumulated delta events so the client gets full content.
 		if len(gjson.GetBytes(finalResponse, "output").Array()) == 0 {
-			if outputJSON, reconstructed := reconstructResponseOutputFromSSE(bodyText); reconstructed {
+			if outputJSON, reconstructed := reconstructResponseOutputFromSSE(aggregateBody); reconstructed {
 				if patched, err := sjson.SetRawBytes(finalResponse, "output", outputJSON); err == nil {
 					finalResponse = patched
 				}
 			}
 		}
-		finalResponse = supplementCompactionItemFromSSE(c, finalResponse, bodyText)
+		finalResponse = supplementCompactionItemFromSSE(c, finalResponse, aggregateBody)
 		body = finalResponse
 		if originalModel != "" && mappedModel != "" && originalModel != mappedModel {
 			body = s.replaceModelInResponseBody(body, mappedModel, originalModel)
@@ -5625,7 +5635,6 @@ func (s *OpenAIGatewayService) handlePassthroughSSEToJSON(resp *http.Response, c
 			body = restored
 		}
 	} else {
-		terminalType, terminalPayload, terminalOK := extractOpenAISSETerminalEvent(bodyText)
 		if terminalOK && (terminalType == "response.failed" || terminalType == "error") {
 			if hit, code, msg := detectOpenAICyberPolicy(terminalPayload); hit {
 				usage = s.parseSSEUsageFromBody(bodyText)
@@ -5658,16 +5667,22 @@ func (s *OpenAIGatewayService) handlePassthroughSSEToJSON(resp *http.Response, c
 		}
 	}
 	if !writeOpenAICompactSSEBridge(c, resp.StatusCode, body) {
+		c.Writer.Header().Set("Content-Type", contentType)
 		c.Data(resp.StatusCode, contentType, body)
 	}
 	s.noteOpenAICodexTurnStateCommitted(c, account, turnState)
 
+	imageOutputs := newOpenAIImageOutputCounter()
+	imageOutputs.AddSSEBody(aggregateBody)
+	if ok {
+		imageOutputs.AddJSONResponse(body)
+	}
 	return &openaiNonStreamingResultPassthrough{
 		OpenAIUsage:      usage,
 		usage:            usage,
 		responseID:       extractOpenAIResponseIDFromJSONBytes(body),
-		imageCount:       countOpenAIImageOutputsFromSSEBody(bodyText),
-		imageOutputSizes: collectOpenAIImageOutputSizesFromSSEBody(bodyText),
+		imageCount:       imageOutputs.Count(),
+		imageOutputSizes: imageOutputs.Sizes(),
 	}, nil
 }
 
@@ -7221,10 +7236,16 @@ func bodyHasSSEFraming(body []byte) bool {
 func (s *OpenAIGatewayService) handleSSEToJSON(resp *http.Response, c *gin.Context, account *Account, body []byte, originalModel, mappedModel string) (*openaiNonStreamingResult, error) {
 	observeOpenAISSEBody(upstreamResponseModelObserverFromContext(c), string(body))
 	bodyText := string(body)
-	finalResponse, ok := extractCodexFinalResponse(bodyText)
+	terminalType, terminalPayload, terminalOK := extractOpenAISSETerminalEvent(bodyText)
+	finalResponse, ok := extractOpenAINonStreamingTerminalResponse(terminalType, terminalPayload)
+	if terminalOK && !ok && terminalType != "response.failed" && terminalType != "error" {
+		return nil, s.writeOpenAINonStreamingProtocolError(resp, c, "Upstream terminal event has an invalid response object")
+	}
 
+	aggregateBody := bodyText
 	usage := &OpenAIUsage{}
 	if ok {
+		aggregateBody = openAINonStreamingSSEThroughTerminal(bodyText, terminalPayload)
 		if parsedUsage, parsed := extractOpenAIUsageFromJSONBytes(finalResponse); parsed {
 			*usage = parsedUsage
 		}
@@ -7232,13 +7253,13 @@ func (s *OpenAIGatewayService) handleSSEToJSON(resp *http.Response, c *gin.Conte
 		// output from accumulated delta events so the client gets full content.
 		// gjson Array() returns empty slice for null, missing, or empty arrays.
 		if len(gjson.GetBytes(finalResponse, "output").Array()) == 0 {
-			if outputJSON, reconstructed := reconstructResponseOutputFromSSE(bodyText); reconstructed {
+			if outputJSON, reconstructed := reconstructResponseOutputFromSSE(aggregateBody); reconstructed {
 				if patched, err := sjson.SetRawBytes(finalResponse, "output", outputJSON); err == nil {
 					finalResponse = patched
 				}
 			}
 		}
-		finalResponse = supplementCompactionItemFromSSE(c, finalResponse, bodyText)
+		finalResponse = supplementCompactionItemFromSSE(c, finalResponse, aggregateBody)
 		body = finalResponse
 		if originalModel != mappedModel {
 			body = s.replaceModelInResponseBody(body, mappedModel, originalModel)
@@ -7247,7 +7268,6 @@ func (s *OpenAIGatewayService) handleSSEToJSON(resp *http.Response, c *gin.Conte
 		body = s.correctToolCallsInResponseBody(body)
 		body = restoreCodexToolNamesFromContext(c, body)
 	} else {
-		terminalType, terminalPayload, terminalOK := extractOpenAISSETerminalEvent(bodyText)
 		if terminalOK && (terminalType == "response.failed" || terminalType == "error") {
 			if hit, code, msg := detectOpenAICyberPolicy(terminalPayload); hit {
 				usage = s.parseSSEUsageFromBody(bodyText)
@@ -7280,17 +7300,42 @@ func (s *OpenAIGatewayService) handleSSEToJSON(resp *http.Response, c *gin.Conte
 		}
 	}
 	if !writeOpenAICompactSSEBridge(c, resp.StatusCode, body) {
+		c.Writer.Header().Set("Content-Type", contentType)
 		c.Data(resp.StatusCode, contentType, body)
 	}
 	s.noteOpenAICodexTurnStateCommitted(c, account, turnState)
 
+	imageOutputs := newOpenAIImageOutputCounter()
+	imageOutputs.AddSSEBody(aggregateBody)
+	if ok {
+		imageOutputs.AddJSONResponse(body)
+	}
 	return &openaiNonStreamingResult{
 		OpenAIUsage:      usage,
 		usage:            usage,
 		responseID:       extractOpenAIResponseIDFromJSONBytes(body),
-		imageCount:       countOpenAIImageOutputsFromSSEBody(bodyText),
-		imageOutputSizes: collectOpenAIImageOutputSizesFromSSEBody(bodyText),
+		imageCount:       imageOutputs.Count(),
+		imageOutputSizes: imageOutputs.Sizes(),
 	}, nil
+}
+
+// openAINonStreamingSSEThroughTerminal bounds reconstruction and image accounting
+// to the same first terminal payload already selected for the JSON response.
+// Re-encode parsed payloads so multiline data and compatibility framing retain
+// the shared SSE parser's semantics. Raw-SSE fallback never uses this helper.
+func openAINonStreamingSSEThroughTerminal(body string, terminalPayload []byte) string {
+	var bounded strings.Builder
+	stopped := false
+	forEachOpenAISSEDataPayload(body, func(data []byte) {
+		if stopped {
+			return
+		}
+		bounded.WriteString("data: ")
+		bounded.WriteString(strings.ReplaceAll(string(data), "\n", "\ndata: "))
+		bounded.WriteString("\n\n")
+		stopped = bytes.Equal(data, terminalPayload)
+	})
+	return bounded.String()
 }
 
 func extractOpenAISSETerminalEvent(body string) (string, []byte, bool) {
@@ -7429,6 +7474,23 @@ func (s *OpenAIGatewayService) writeOpenAINonStreamingCyberPolicyError(
 		c.Data(http.StatusBadRequest, "application/json; charset=utf-8", body)
 	}
 	return errOpenAICyberPolicyForwarded
+}
+
+// The first terminal event is authoritative, including failures. Only valid
+// object responses can enter the shared non-streaming reconstruction path.
+func extractOpenAINonStreamingTerminalResponse(terminalType string, payload []byte) ([]byte, bool) {
+	switch terminalType {
+	case "response.completed", "response.done", "response.incomplete", "response.cancelled", "response.canceled":
+	default:
+		return nil, false
+	}
+	if !json.Valid(payload) {
+		return nil, false
+	}
+	if response := gjson.GetBytes(payload, "response"); response.IsObject() {
+		return []byte(response.Raw), true
+	}
+	return nil, false
 }
 
 func extractCodexFinalResponse(body string) ([]byte, bool) {
