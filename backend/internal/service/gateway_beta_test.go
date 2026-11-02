@@ -1,8 +1,10 @@
 package service
 
 import (
+	"net/http"
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 
 	"github.com/stretchr/testify/require"
@@ -131,6 +133,22 @@ func TestFullClaudeCodeMimicryBetas_DoesNotDefaultRedactThinking(t *testing.T) {
 	require.Contains(t, required, claude.BetaClaudeCode)
 	require.Contains(t, required, claude.BetaOAuth)
 	require.Contains(t, required, claude.BetaInterleavedThinking)
+}
+
+func TestComputeFinalAnthropicBeta_PreservesExplicitStructuredOutputsBeta(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.Gateway.InjectBetaForAPIKey = false
+	s := &GatewayService{cfg: cfg}
+	header := http.Header{}
+	header.Set("anthropic-beta", claude.BetaStructuredOutputs+",custom-beta")
+
+	got, shouldSet := s.computeFinalAnthropicBeta(
+		"oauth", true, "claude-sonnet-5", header, []byte(`{"output_format":{"type":"json_schema"}}`), droppedBetaSet(),
+	)
+
+	require.True(t, shouldSet)
+	require.Contains(t, got, claude.BetaStructuredOutputs)
+	require.NotContains(t, got, "custom-beta")
 }
 
 func TestMergeAnthropicBetaDropping_PreservesIncomingRedactThinking(t *testing.T) {

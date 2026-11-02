@@ -55,17 +55,14 @@ func AnthropicToResponses(req *AnthropicRequest) (*ResponsesRequest, error) {
 		out.Tools = convertAnthropicToolsToResponses(req.Tools)
 	}
 
-	// Determine reasoning effort: only output_config.effort controls the
-	// level; thinking.type is ignored. Default follows Codex CLI / airgate's
-	// Anthropic bridge shape, which uses medium when unset.
-	// Anthropic levels map 1:1 to OpenAI: low→low, medium→medium, high→high, max→xhigh.
-	effort := "medium"
-	if req.OutputConfig != nil && req.OutputConfig.Effort != "" {
-		effort = req.OutputConfig.Effort
-	}
+	// Explicitly disabled thinking must win over output_config.effort. This is
+	// important for clients that send both fields while opting out of reasoning.
+	effort := anthropicReasoningEffort(req)
 	out.Reasoning = &ResponsesReasoning{
-		Effort:  mapAnthropicEffortToResponses(effort),
-		Summary: "auto",
+		Effort: effort,
+	}
+	if effort != "none" {
+		out.Reasoning.Summary = "auto"
 	}
 
 	// Convert tool_choice
@@ -78,6 +75,17 @@ func AnthropicToResponses(req *AnthropicRequest) (*ResponsesRequest, error) {
 	}
 
 	return out, nil
+}
+
+func anthropicReasoningEffort(req *AnthropicRequest) string {
+	if req.Thinking != nil && req.Thinking.Type == "disabled" {
+		return "none"
+	}
+	effort := "medium"
+	if req.OutputConfig != nil && req.OutputConfig.Effort != "" {
+		effort = req.OutputConfig.Effort
+	}
+	return mapAnthropicEffortToResponses(effort)
 }
 
 // convertAnthropicToolChoiceToResponses maps Anthropic tool_choice to Responses format.

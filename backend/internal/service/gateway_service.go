@@ -6953,13 +6953,17 @@ func (s *GatewayService) computeFinalAnthropicBeta(
 
 	if tokenType == "oauth" {
 		if mimicClaudeCode {
-			// mimic 路径：原代码跳过白名单透传，incomingBeta 总是空字符串。
-			// 这里传空 string 以严格对齐原行为。
+			// Mimicry keeps the fixed Claude Code beta set, with a narrow opt-in
+			// for the legacy structured-output beta explicitly requested by clients.
+			incomingBeta := ""
+			if containsBetaToken(clientBeta, claude.BetaStructuredOutputs) {
+				incomingBeta = claude.BetaStructuredOutputs
+			}
 			requiredBetas := []string{claude.BetaOAuth, claude.BetaInterleavedThinking}
 			if !strings.Contains(strings.ToLower(modelID), "haiku") {
 				requiredBetas = claude.FullClaudeCodeMimicryBetas()
 			}
-			return mergeAnthropicBetaDropping(requiredBetas, "", effectiveDropSet), true
+			return mergeAnthropicBetaDropping(requiredBetas, incomingBeta, effectiveDropSet), true
 		}
 		// 真 Claude Code 客户端透传路径
 		return stripBetaTokensWithSet(s.getBetaHeader(modelID, clientBeta), effectiveDropSet), true
