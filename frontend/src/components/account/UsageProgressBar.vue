@@ -63,7 +63,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { useIntervalFn } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import type { WindowStats } from '@/types'
@@ -102,6 +102,14 @@ watch(
     }
   },
 )
+
+const refreshVisibleClock = () => {
+  if (document.visibilityState === 'visible' && props.resetsAt) {
+    now.value = new Date()
+  }
+}
+onMounted(() => document.addEventListener('visibilitychange', refreshVisibleClock))
+onUnmounted(() => document.removeEventListener('visibilitychange', refreshVisibleClock))
 
 // Label background colors
 const labelClass = computed(() => {
@@ -155,11 +163,10 @@ const shouldShowResetTime = computed(() => {
 // Format reset time
 const formatResetTime = computed(() => {
   // For rolling windows, when utilization is 0%, treat as immediately available.
-  if (props.showNowWhenIdle && props.utilization <= 0) {
-    return t('usage.resetNow')
+  if (!props.resetsAt) {
+    // Without a known reset time, an idle rolling window can still show Now.
+    return props.showNowWhenIdle && props.utilization <= 0 ? t('usage.resetNow') : '-'
   }
-
-  if (!props.resetsAt) return '-'
 
   const date = new Date(props.resetsAt)
   const diffMs = date.getTime() - now.value.getTime()
