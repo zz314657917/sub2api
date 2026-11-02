@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -66,7 +67,7 @@ func TestPelicanSettingsDefaultAndWriteFailures(t *testing.T) {
 	s := NewPelicanTestService(nil, nil, nil, nil)
 	s.SetSettingsRepository(repo)
 	settings, err := s.GetSettings(context.Background())
-	if err != nil || settings != defaultPelicanTestSettings() {
+	if err != nil || !reflect.DeepEqual(settings, defaultPelicanTestSettings()) {
 		t.Fatalf("settings=%+v err=%v", settings, err)
 	}
 	repo.err = nil

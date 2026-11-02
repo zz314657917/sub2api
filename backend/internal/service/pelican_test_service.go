@@ -44,6 +44,7 @@ type PelicanTestSettings struct {
 	Prompt      string                    `json:"prompt"`
 	Enabled     bool                      `json:"enabled"`
 	Radar       *PelicanReferenceSettings `json:"radar,omitempty"`
+	GroupOrder  []int64                   `json:"group_order,omitempty"`
 }
 
 // PelicanTestSettingsUpdate keeps enabled presence-aware: an older client that
@@ -53,6 +54,7 @@ type PelicanTestSettingsUpdate struct {
 	Prompt      string                    `json:"prompt"`
 	Enabled     *bool                     `json:"enabled"`
 	Radar       *PelicanReferenceSettings `json:"radar,omitempty"`
+	GroupOrder  *[]int64                  `json:"group_order,omitempty"`
 }
 
 type PelicanTestMetadata struct {
@@ -438,6 +440,16 @@ func validatePelicanTestSettings(settings PelicanTestSettings) error {
 	if strings.TrimSpace(settings.DisplayName) == "" || utf8.RuneCountInString(settings.DisplayName) > 40 || strings.TrimSpace(settings.Prompt) == "" || utf8.RuneCountInString(settings.Prompt) > 20000 {
 		return ErrPelicanInvalid
 	}
+	if len(settings.GroupOrder) > 1000 {
+		return ErrPelicanInvalid
+	}
+	seen := make(map[int64]bool, len(settings.GroupOrder))
+	for _, id := range settings.GroupOrder {
+		if id <= 0 || seen[id] {
+			return ErrPelicanInvalid
+		}
+		seen[id] = true
+	}
 	return nil
 }
 
@@ -482,6 +494,9 @@ func (s *PelicanTestService) UpdateSettings(ctx context.Context, input PelicanTe
 	}
 	settings.DisplayName = strings.TrimSpace(input.DisplayName)
 	settings.Prompt = input.Prompt
+	if input.GroupOrder != nil {
+		settings.GroupOrder = append([]int64(nil), (*input.GroupOrder)...)
+	}
 	if input.Enabled != nil {
 		settings.Enabled = *input.Enabled
 	}
@@ -540,8 +555,21 @@ func (s *PelicanTestService) allowUserAccess(ctx context.Context, auth PelicanAu
 	return nil
 }
 func (s *PelicanTestService) ListGallery(c context.Context, a PelicanAuthorization, g, ac int64, p, ps int) (*PelicanListResponse, error) {
-	if err := s.allowUserAccess(c, a); err != nil {
+	settings, err := s.GetSettings(c)
+	if err != nil {
 		return nil, err
+	}
+	if !a.Admin && !settings.Enabled {
+		return nil, ErrPelicanDisabled
+	}
+	if len(settings.GroupOrder) > 0 {
+		ordered, ok := s.repo.(interface {
+			ListGalleryWithGroupOrder(context.Context, PelicanAuthorization, int64, int64, int, int, []int64) (*PelicanListResponse, error)
+		})
+		if !ok {
+			return nil, errors.New("pelican gallery ordering repository unavailable")
+		}
+		return ordered.ListGalleryWithGroupOrder(c, a, g, ac, p, ps, settings.GroupOrder)
 	}
 	return s.repo.ListGallery(c, a, g, ac, p, ps)
 }

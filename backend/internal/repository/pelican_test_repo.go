@@ -210,6 +210,12 @@ func authClause(a service.PelicanAuthorization, col string) (string, []any) {
 	return " AND " + col + " = ANY($1)", []any{pq.Array(a.GroupIDs)}
 }
 func (r *pelicanTestRepository) ListGallery(c context.Context, a service.PelicanAuthorization, g, ac int64, page, size int) (*service.PelicanListResponse, error) {
+	return r.ListGalleryWithGroupOrder(c, a, g, ac, page, size, nil)
+}
+
+// ListGalleryWithGroupOrder applies the display priority before group pagination.
+// The order never expands the caller's authorized or filtered group set.
+func (r *pelicanTestRepository) ListGalleryWithGroupOrder(c context.Context, a service.PelicanAuthorization, g, ac int64, page, size int, groupOrder []int64) (*service.PelicanListResponse, error) {
 	out := &service.PelicanListResponse{Items: make([]service.PelicanEntry, 0), Groups: make([]service.PelicanGroup, 0), Page: page, PageSize: size}
 	if !a.Admin && len(a.GroupIDs) == 0 {
 		return out, nil
@@ -240,19 +246,71 @@ func (r *pelicanTestRepository) ListGallery(c context.Context, a service.Pelican
 		args = append(args, ac)
 		n++
 	}
-	latest := "(SELECT DISTINCT ON (plan_id,group_id,model_id) * FROM pelican_test_results ORDER BY plan_id,group_id,model_id,finished_at DESC,id DESC)"
 	where = strings.ReplaceAll(where, "live_g.", "g.")
 	where = strings.ReplaceAll(where, "r.", "f.")
-	base := "WITH latest_results AS (" + latest + "), candidates AS (" +
-		"SELECT r.plan_id,r.group_id,r.account_id,r.model_id,r.status,r.latency_ms,r.char_count,r.min_chars,r.finished_at,r.error_message,r.error_code,r.error_message_safe,r.reasoning_effort,r.id AS result_id,p.running_until,p.run_generation,FALSE AS synthetic " +
-		"FROM latest_results r JOIN pelican_test_plans p ON p.id=r.plan_id AND p.group_id=r.group_id AND r.model_id=ANY(p.model_ids) " +
-		"UNION ALL " +
-		"SELECT p.id,p.group_id,0::bigint,m.model_id,'running',0::bigint,0::integer,p.min_chars,COALESCE(p.last_run_at,p.updated_at,NOW()),''::text,''::text,''::text,p.reasoning_effort,0::bigint,p.running_until,p.run_generation,TRUE " +
-		"FROM pelican_test_plans p CROSS JOIN LATERAL unnest(p.model_ids) WITH ORDINALITY AS m(model_id,model_order) " +
-		"WHERE p.running_until>NOW() AND NOT EXISTS (SELECT 1 FROM latest_results r WHERE r.plan_id=p.id AND r.group_id=p.group_id AND r.model_id=m.model_id)" +
-		"), filtered AS (SELECT f.*,g.name AS group_name,g.platform FROM candidates f JOIN groups g ON g.id=f.group_id AND g.deleted_at IS NULL" + where + ") "
-	paged := ", paged_groups AS (SELECT group_id,max(finished_at) newest FROM filtered GROUP BY group_id ORDER BY newest DESC,group_id DESC LIMIT $" + fmt.Sprint(n) + " OFFSET $" + fmt.Sprint(n+1) + ") "
-	q := base + paged + "SELECT f.plan_id,f.group_id,f.group_name,f.platform,f.account_id,f.model_id,CASE WHEN p.running_until>NOW() THEN 'running' ELSE f.status END,f.latency_ms,f.char_count,f.min_chars,f.finished_at,(SELECT count(*) FROM pelican_test_results h WHERE h.plan_id=f.plan_id AND h.group_id=f.group_id AND h.model_id=f.model_id),CASE WHEN p.running_until>NOW() THEN p.run_generation ELSE (SELECT count(*) FROM pelican_test_results h2 WHERE h2.plan_id=f.plan_id AND h2.group_id=f.group_id AND h2.model_id=f.model_id) END,f.result_id,(SELECT s.id FROM pelican_test_results s WHERE s.plan_id=f.plan_id AND s.group_id=f.group_id AND s.model_id=f.model_id AND s.status='success' ORDER BY s.finished_at DESC,s.id DESC LIMIT 1),f.error_message,f.error_code,f.error_message_safe,f.reasoning_effort,(SELECT s.finished_at FROM pelican_test_results s WHERE s.plan_id=f.plan_id AND s.group_id=f.group_id AND s.model_id=f.model_id AND s.status='success' ORDER BY s.finished_at DESC,s.id DESC LIMIT 1) FROM filtered f JOIN paged_groups pg ON pg.group_id=f.group_id JOIN pelican_test_plans p ON p.id=f.plan_id ORDER BY pg.newest DESC,f.group_id DESC,f.plan_id DESC,array_position(p.model_ids,f.model_id),f.result_id DESC"
+	// Keep metadata only in the ranked relation: HTML is still loaded on demand.
+	// Rank before account filtering so the per-model retention limit is consistent
+	// for every viewer, and never expose more than 20 saved rounds per model.
+	base := `WITH ranked_results AS (
+		SELECT r.plan_id,r.group_id,r.account_id,r.model_id,r.status,r.latency_ms,
+			r.char_count,r.min_chars,r.finished_at,r.error_message,r.error_code,
+			r.error_message_safe,r.reasoning_effort,r.id AS result_id,r.run_generation,
+			p.max_results,
+			row_number() OVER w AS result_rank,count(*) OVER (
+				PARTITION BY r.plan_id,r.group_id,r.model_id) AS history_count
+		FROM pelican_test_results r
+		JOIN pelican_test_plans p ON p.id=r.plan_id AND p.group_id=r.group_id
+			AND r.model_id=ANY(p.model_ids)
+		WINDOW w AS (PARTITION BY r.plan_id,r.group_id,r.model_id
+			ORDER BY r.finished_at DESC NULLS LAST,r.id DESC)
+	), candidates AS (
+		SELECT r.plan_id,r.group_id,r.account_id,r.model_id,r.status,r.latency_ms,
+			r.char_count,r.min_chars,r.finished_at,r.error_message,r.error_code,
+			r.error_message_safe,r.reasoning_effort,r.result_id,r.history_count,
+			COALESCE(NULLIF(r.run_generation,0),r.history_count-r.result_rank+1) AS round_number,
+			r.result_rank,FALSE AS synthetic
+		FROM ranked_results r WHERE r.result_rank<=LEAST(r.max_results,20)
+		UNION ALL
+		SELECT p.id,p.group_id,0::bigint,m.model_id,'running',0::bigint,0::integer,
+			p.min_chars,COALESCE(p.last_run_at,p.updated_at,NOW()),''::text,''::text,
+			''::text,p.reasoning_effort,0::bigint,COALESCE(r.history_count,0),
+			p.run_generation,0::bigint,TRUE
+		FROM pelican_test_plans p CROSS JOIN LATERAL unnest(p.model_ids) AS m(model_id)
+		LEFT JOIN ranked_results r ON r.plan_id=p.id AND r.group_id=p.group_id
+			AND r.model_id=m.model_id AND r.result_rank=1
+		WHERE p.running_until>NOW() AND NOT EXISTS (
+			SELECT 1 FROM pelican_test_results current_round
+			WHERE current_round.plan_id=p.id AND current_round.group_id=p.group_id
+				AND current_round.model_id=m.model_id AND current_round.run_generation=p.run_generation)
+	), filtered AS (
+		SELECT f.*,g.name AS group_name,g.platform FROM candidates f
+		JOIN groups g ON g.id=f.group_id AND g.deleted_at IS NULL` + where + ") "
+	filterArgs := append([]any(nil), args...)
+	priority := "NULL::integer"
+	if len(groupOrder) > 0 {
+		priority = fmt.Sprintf("array_position($%d::bigint[],group_id)", n)
+		args = append(args, pq.Array(groupOrder))
+		n++
+	}
+	paged := ", paged_groups AS (SELECT group_id,max(finished_at) newest," + priority + " priority FROM filtered GROUP BY group_id ORDER BY priority ASC NULLS LAST,newest DESC,group_id DESC LIMIT $" + fmt.Sprint(n) + " OFFSET $" + fmt.Sprint(n+1) + ") "
+	q := base + paged + `SELECT f.plan_id,f.group_id,f.group_name,f.platform,f.account_id,
+		f.model_id,f.status,f.latency_ms,f.char_count,f.min_chars,f.finished_at,
+		f.history_count,f.round_number,f.result_id,
+		CASE WHEN f.status='success' THEN f.result_id ELSE last_success.id END,
+		f.error_message,f.error_code,f.error_message_safe,f.reasoning_effort,
+		CASE WHEN f.status='success' THEN f.finished_at ELSE last_success.finished_at END
+		FROM filtered f JOIN paged_groups pg ON pg.group_id=f.group_id
+		JOIN pelican_test_plans p ON p.id=f.plan_id
+		LEFT JOIN LATERAL (
+			SELECT s.id,s.finished_at FROM pelican_test_results s
+			WHERE (f.synthetic OR (f.result_rank=1 AND f.status<>'success'))
+				AND s.plan_id=f.plan_id AND s.group_id=f.group_id
+				AND s.model_id=f.model_id AND s.status='success'
+			ORDER BY s.finished_at DESC NULLS LAST,s.id DESC LIMIT 1
+		) last_success ON TRUE
+		ORDER BY pg.priority ASC NULLS LAST,pg.newest DESC,f.group_id DESC,f.plan_id DESC,
+			array_position(p.model_ids,f.model_id),f.synthetic DESC,
+			f.finished_at DESC NULLS LAST,f.result_id DESC`
 	args = append(args, size, (page-1)*size)
 	rows, e := r.db.QueryContext(c, q, args...)
 	if e != nil {
@@ -274,7 +332,7 @@ func (r *pelicanTestRepository) ListGallery(c context.Context, a service.Pelican
 		return nil, e
 	}
 	countQ := base + "SELECT count(DISTINCT f.group_id) FROM filtered f"
-	if e := r.db.QueryRowContext(c, countQ, args[:len(args)-2]...).Scan(&out.Total); e != nil {
+	if e := r.db.QueryRowContext(c, countQ, filterArgs...).Scan(&out.Total); e != nil {
 		return nil, e
 	}
 	groupsQ := "SELECT DISTINCT g.id,g.name,g.platform FROM groups g WHERE g.deleted_at IS NULL AND (EXISTS (SELECT 1 FROM pelican_test_results r JOIN pelican_test_plans p ON p.id=r.plan_id AND p.group_id=r.group_id WHERE r.group_id=g.id AND r.model_id=ANY(p.model_ids)) OR EXISTS (SELECT 1 FROM pelican_test_plans p WHERE p.group_id=g.id AND p.running_until>NOW()))"
