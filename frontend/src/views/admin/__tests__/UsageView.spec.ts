@@ -335,6 +335,8 @@ describe('admin UsageView distribution metric toggles', () => {
 
     const usageColumns = wrapper.find('[data-test="usage-columns"]').text()
     expect(usageColumns).toContain('latency')
+    expect(usageColumns).toContain('tokens')
+    expect(usageColumns).not.toContain('cache_read')
     expect(usageColumns).not.toContain('first_token')
     expect(usageColumns).not.toContain('duration')
 
@@ -475,6 +477,40 @@ describe('admin UsageView detail tabs', () => {
   afterEach(() => {
     vi.clearAllTimers()
     vi.useRealTimers()
+  })
+
+  it.each([
+    { hidden: ['tokens'], visible: true },
+    { hidden: ['cache_read'], visible: true },
+    { hidden: ['tokens', 'cache_read'], visible: false },
+  ])('migrates the combined column from hidden columns $hidden', async ({ hidden, visible }) => {
+    vi.mocked(localStorage.getItem).mockImplementation(key =>
+      key === 'usage-hidden-columns' ? JSON.stringify([...hidden, 'user_agent']) : null
+    )
+    try {
+      const wrapper = mountRouteFilteredUsageView()
+      await flushPromises()
+      const columns = (wrapper.vm as any).visibleColumns.map((column: { key: string }) => column.key)
+      expect(columns.includes('tokens')).toBe(visible)
+      expect(columns).not.toContain('cache_read')
+      expect(columns).not.toContain('user_agent')
+      expect(localStorage.setItem).toHaveBeenCalledWith('usage-hidden-columns:v2', expect.any(String))
+    } finally {
+      vi.mocked(localStorage.getItem).mockImplementation(() => null)
+    }
+  })
+
+  it('keeps the combined column hidden after saving the new settings', async () => {
+    vi.mocked(localStorage.getItem).mockImplementation(key =>
+      key === 'usage-hidden-columns:v2' ? '["tokens","user_agent"]' : null
+    )
+    try {
+      const wrapper = mountRouteFilteredUsageView()
+      await flushPromises()
+      expect((wrapper.vm as any).visibleColumns.map((column: { key: string }) => column.key)).not.toContain('tokens')
+    } finally {
+      vi.mocked(localStorage.getItem).mockImplementation(() => null)
+    }
   })
 
   it('loads errors lazily and propagates server-side sorting', async () => {

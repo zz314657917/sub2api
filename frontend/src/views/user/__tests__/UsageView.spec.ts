@@ -132,6 +132,7 @@ const messages: Record<string, string> = {
   'usage.endpoint': 'Endpoint',
   'usage.type': 'Type',
   'usage.tokens': 'Tokens',
+  'usage.tokensWithCache': 'Tokens / Cache',
   'usage.cost': 'Cost',
   'usage.firstToken': 'First Token',
   'usage.duration': 'Duration',
@@ -150,6 +151,8 @@ const messages: Record<string, string> = {
   'usage.out': 'Out',
   'usage.cacheRead': 'Cache Read',
   'usage.cacheWrite': 'Write',
+  'usage.cacheReadShort': 'Read',
+  'usage.cacheWriteShort': 'Write',
   'usage.imageUnit': ' images',
   'usage.imageCount': 'Image count',
   'usage.imageBillingSize': 'Billing size',
@@ -908,7 +911,7 @@ describe('user UsageView', () => {
     expect(text).not.toContain('Average Duration')
   })
 
-  it('shows cache read percentage in the cache read column', async () => {
+  it('shows cache read percentage once in the combined token column', async () => {
     const wrapper = await mountUsageView([
       baseUsageLog({
         input_tokens: 100,
@@ -918,11 +921,51 @@ describe('user UsageView', () => {
       }),
     ])
 
-    const cacheReadCell = wrapper.find('.table-cell[data-column="cache_read"]')
+    const cacheReadCell = wrapper.get('.table-cell[data-column="tokens"] [data-testid="cache-read"]')
     expect(cacheReadCell.text()).toContain('700')
     expect(cacheReadCell.text()).toContain('87.5%')
-    expect(cacheReadCell.find('[title]').attributes('title')).toBe('700 (87.5%)')
-    expect(cacheReadCell.find('[title]').classes()).toContain('flex-col')
+    expect(cacheReadCell.attributes('title')).toBe('Cache Read: 700 (87.5%)')
+    expect(wrapper.findAll('[data-testid="cache-read"]')).toHaveLength(1)
+    expect(wrapper.find('.table-header[data-column="cache_read"]').exists()).toBe(false)
+    expect(wrapper.get('.table-header[data-column="tokens"]').text()).toBe('Tokens / Cache')
+  })
+
+  it.each([
+    { read: 0, write: 0 },
+    { read: 700, write: 0 },
+    { read: 0, write: 300 },
+    { read: 700, write: 300 },
+  ])('keeps read/write and TTL markers distinct with read=$read and write=$write', async ({ read, write }) => {
+    const wrapper = await mountUsageView([baseUsageLog({
+      input_tokens: 100,
+      cache_read_tokens: read,
+      cache_creation_tokens: write,
+      cache_creation_1h_tokens: write,
+      cache_ttl_overridden: true,
+    })])
+    const tokenCell = wrapper.get('.table-cell[data-column="tokens"]')
+    expect(tokenCell.findAll('[data-testid="cache-read"]')).toHaveLength(read > 0 ? 1 : 0)
+    expect(tokenCell.find('[data-testid="cache-tokens"]').exists()).toBe(read > 0 || write > 0)
+    expect(tokenCell.find('[data-testid="cache-write"]').exists()).toBe(write > 0)
+    if (write > 0) {
+      const writeCell = tokenCell.get('[data-testid="cache-write"]')
+      expect(writeCell.text()).toBe('Write3001hR')
+      expect(writeCell.text()).not.toContain('%')
+    }
+  })
+
+  it('migrates a cache-only v3 selection without restoring other hidden columns', async () => {
+    window.localStorage.setItem('usage-visible-columns:v3', JSON.stringify([
+      'api_key', 'cache_read', 'created_at', 'actions',
+    ]))
+    const wrapper = await mountUsageView()
+    expect(wrapper.find('.table-header[data-column="tokens"]').exists()).toBe(true)
+    expect(wrapper.find('.table-header[data-column="cache_read"]').exists()).toBe(false)
+    expect(wrapper.find('.table-header[data-column="model"]').exists()).toBe(false)
+    expect(wrapper.find('.table-header[data-column="latency"]').exists()).toBe(false)
+    const saved = JSON.parse(window.localStorage.getItem('usage-visible-columns:v3')!)
+    expect(saved).toContain('tokens')
+    expect(saved).not.toContain('cache_read')
   })
 
   it('renders studio bridge rows with null timing values', async () => {
@@ -1000,7 +1043,8 @@ describe('user UsageView', () => {
     const headerText = () => wrapper.find('.table-headers').text()
 
     expect(headerText()).toContain('Billing Group')
-    expect(headerText()).toContain('Cache Read')
+    expect(headerText()).toContain('Tokens / Cache')
+    expect(wrapper.find('.table-header[data-column="cache_read"]').exists()).toBe(false)
     expect(headerText()).toContain('Latency Health')
     expect(headerText()).not.toContain('First Token')
     expect(headerText()).not.toContain('Endpoint')

@@ -745,7 +745,8 @@ const exportToExcel = async () => {
 // Column visibility
 const ALWAYS_VISIBLE = ['user', 'created_at']
 const DEFAULT_HIDDEN_COLUMNS = ['reasoning_effort', 'user_agent']
-const HIDDEN_COLUMNS_KEY = 'usage-hidden-columns'
+const HIDDEN_COLUMNS_KEY = 'usage-hidden-columns:v2'
+const LEGACY_HIDDEN_COLUMNS_KEY = 'usage-hidden-columns'
 
 const allColumns = computed(() => [
   { key: 'user', label: t('admin.usage.user'), sortable: false },
@@ -757,8 +758,7 @@ const allColumns = computed(() => [
   { key: 'group', label: t('admin.usage.group'), sortable: false },
   { key: 'stream', label: t('usage.type'), sortable: false },
   { key: 'billing_mode', label: t('admin.usage.billingMode'), sortable: false },
-  { key: 'tokens', label: t('usage.tokens'), sortable: false },
-  { key: 'cache_read', label: t('usage.cacheRead'), sortable: false },
+  { key: 'tokens', label: t('usage.tokensWithCache'), sortable: false },
   { key: 'cost', label: t('usage.cost'), sortable: false },
   { key: 'latency', label: t('usage.latency'), sortable: false },
   { key: 'created_at', label: t('usage.time'), sortable: true },
@@ -845,11 +845,19 @@ const toggleCurrentColumn = (key: string) => activeTab.value === 'errors' ? togg
 
 const loadSavedColumns = () => {
   try {
-    const saved = localStorage.getItem(HIDDEN_COLUMNS_KEY)
+    const current = localStorage.getItem(HIDDEN_COLUMNS_KEY)
+    const saved = current ?? localStorage.getItem(LEGACY_HIDDEN_COLUMNS_KEY)
     if (saved) {
-      (JSON.parse(saved) as string[]).forEach((key) => {
-        hiddenColumns.add(key)
+      const parsed = JSON.parse(saved) as string[]
+      const valid = new Set(allColumns.value.map((column) => column.key))
+      parsed.forEach((key) => {
+        if (valid.has(key) && (current || key !== 'tokens' || parsed.includes('cache_read'))) {
+          hiddenColumns.add(key)
+        }
       })
+      if (!current) {
+        localStorage.setItem(HIDDEN_COLUMNS_KEY, JSON.stringify([...hiddenColumns]))
+      }
     } else {
       DEFAULT_HIDDEN_COLUMNS.forEach((key) => {
         hiddenColumns.add(key)

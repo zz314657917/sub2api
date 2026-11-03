@@ -6,6 +6,10 @@ import UsageTable from '../UsageTable.vue'
 
 const messages: Record<string, string> = {
   'usage.outputTps': 'Output TPS',
+  'usage.cacheRead': 'Cache Read',
+  'usage.cacheReadShort': 'Read',
+  'usage.cacheWriteShort': 'Write',
+  'admin.usage.cacheCreationTokens': 'Cache Creation Tokens',
   'admin.usage.longContext': 'Long context',
   'usage.costDetails': 'Cost Breakdown',
   'admin.usage.inputCost': 'Input Cost',
@@ -82,7 +86,6 @@ const DataTableStub = {
         <slot name="cell-model" :row="row" :value="row.model" />
         <slot name="cell-billing_mode" :row="row" />
         <slot name="cell-tokens" :row="row" />
-        <slot name="cell-cache_read" :row="row" />
         <slot name="cell-cost" :row="row" />
         <slot name="cell-latency" :row="row" />
       </div>
@@ -296,11 +299,44 @@ describe('admin UsageTable tooltip', () => {
       global: { stubs: { DataTable: DataTableStub, EmptyState: true, Icon: true, Teleport: true } },
     })
 
-    expect(wrapper.get('[data-testid="cache-read-percent"]').text()).toBe('20.0%')
+    expect(wrapper.get('[data-testid="cache-read-percent"]').text()).toBe('(20.0%)')
     expect(wrapper.get('[data-testid="cache-read-percent"]').element.parentElement?.getAttribute('title'))
-      .toBe('100 (20.0%)')
-    expect(wrapper.get('[data-testid="cache-read-percent"]').element.parentElement?.classList.contains('flex-col'))
-      .toBe(true)
+      .toBe('Cache Read: 100 (20.0%)')
+    expect(wrapper.findAll('[data-testid="cache-read"]')).toHaveLength(1)
+    expect(wrapper.get('[data-testid="cache-write"]').text()).toBe('Write300')
+  })
+
+  it.each([
+    { read: 0, write: 0 },
+    { read: 700, write: 0 },
+    { read: 0, write: 300 },
+    { read: 700, write: 300 },
+  ])('shows only recorded cache amounts with read=$read and write=$write', ({ read, write }) => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{
+          ...baseImageRow,
+          billing_mode: 'token',
+          input_tokens: 100,
+          cache_read_tokens: read,
+          cache_creation_tokens: write,
+          cache_creation_1h_tokens: write,
+          cache_ttl_overridden: true,
+        }],
+        loading: false,
+        columns: [],
+      },
+      global: { stubs: { DataTable: DataTableStub, EmptyState: true, Icon: true, Teleport: true } },
+    })
+    expect(wrapper.findAll('[data-testid="cache-read"]')).toHaveLength(read > 0 ? 1 : 0)
+    expect(wrapper.find('[data-testid="cache-tokens"]').exists()).toBe(read > 0 || write > 0)
+    expect(wrapper.find('[data-testid="cache-write"]').exists()).toBe(write > 0)
+    if (write > 0) {
+      const writeCell = wrapper.get('[data-testid="cache-write"]')
+      expect(writeCell.text()).toBe('Write3001hR')
+      expect(writeCell.text()).not.toContain('%')
+      expect(writeCell.attributes('title')).toBe('Cache Creation Tokens: 300')
+    }
   })
 
   it('splits image input and output token usage from text usage', async () => {

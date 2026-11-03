@@ -418,7 +418,7 @@
             </div>
             <!-- Token 请求 -->
             <div v-else class="flex items-center gap-1.5">
-              <div class="space-y-1.5 text-sm">
+              <div class="min-w-0 space-y-1 text-sm">
                 <!-- Input / Output Tokens -->
                 <div class="flex items-center gap-2">
                   <!-- Input -->
@@ -439,21 +439,24 @@
                 <!-- Cache Read / Write Tokens -->
                 <div
                   v-if="hasPositiveNumber(row.cache_read_tokens) || hasPositiveNumber(row.cache_creation_tokens)"
-                  class="flex items-center gap-2"
+                  class="flex max-w-[18rem] flex-wrap items-center gap-x-3 gap-y-1 text-xs"
+                  data-testid="cache-tokens"
                 >
                   <div
                     v-if="hasPositiveNumber(row.cache_read_tokens)"
-                    class="inline-flex items-center gap-1"
+                    class="inline-flex items-center gap-1 whitespace-nowrap"
+                    data-testid="cache-read"
                     :title="`${t('usage.cacheRead')}: ${formatNumber(row.cache_read_tokens)} (${formatCacheReadPercent(row)})`"
                   >
-                    <svg class="h-3.5 w-3.5 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                    <span class="text-gray-500 dark:text-gray-400">{{ t('usage.cacheReadShort') }}</span>
                     <span class="font-medium text-sky-600 dark:text-sky-400">{{
                       formatCacheTokens(toFiniteNumber(row.cache_read_tokens))
                     }}</span>
+                    <span data-testid="cache-read-percent" class="text-gray-500 dark:text-gray-400">({{ formatCacheReadPercent(row) }})</span>
                   </div>
                   <!-- Cache Write -->
-                  <div v-if="hasPositiveNumber(row.cache_creation_tokens)" class="inline-flex items-center gap-1">
-                    <Icon name="edit" size="sm" class="text-amber-500" />
+                  <div v-if="hasPositiveNumber(row.cache_creation_tokens)" class="inline-flex items-center gap-1 whitespace-nowrap" data-testid="cache-write" :title="`${t('admin.usage.cacheCreationTokens')}: ${formatNumber(row.cache_creation_tokens)}`">
+                    <span class="text-gray-500 dark:text-gray-400">{{ t('usage.cacheWriteShort') }}</span>
                     <span class="font-medium text-amber-600 dark:text-amber-400">{{
                       formatCacheTokens(toFiniteNumber(row.cache_creation_tokens))
                     }}</span>
@@ -476,7 +479,7 @@
               </div>
               <!-- Token Detail Tooltip -->
               <div
-                class="group relative"
+                class="group relative shrink-0"
                 @mouseenter="showTokenTooltip($event, row)"
                 @mouseleave="hideTokenTooltip"
               >
@@ -491,25 +494,6 @@
                 </div>
               </div>
             </div>
-          </template>
-
-          <template #cell-cache_read="{ row }">
-            <div
-              v-if="!isImageUsage(row) && hasPositiveNumber(row.cache_read_tokens)"
-              class="inline-flex flex-col items-start gap-0.5 text-sm leading-tight"
-              :title="`${formatNumber(row.cache_read_tokens)} (${formatCacheReadPercent(row)})`"
-            >
-              <div class="inline-flex items-center gap-1">
-                <Icon name="database" size="sm" class="h-3.5 w-3.5 text-[#8e8b82] dark:text-[#f0b89e]" />
-                <span class="font-medium text-[#6c6a64] dark:text-[#f0b89e]">
-                  {{ formatCacheTokens(toFiniteNumber(row.cache_read_tokens)) }}
-                </span>
-              </div>
-              <span class="text-xs font-medium text-[#8e8b82] dark:text-[#d8cec2]/80">
-                {{ formatCacheReadPercent(row) }}
-              </span>
-            </div>
-            <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
           </template>
 
           <template #cell-cost="{ row }">
@@ -1129,7 +1113,7 @@ watch(errorViewEnabled, (enabled) => {
 
 const COLUMN_VISIBILITY_KEY = 'usage-visible-columns:v3'
 const LEGACY_COLUMN_VISIBILITY_KEYS = ['usage-visible-columns:v2', 'usage-visible-columns:v1']
-const MIGRATED_DEFAULT_VISIBLE_COLUMNS = ['cache_read', 'latency']
+const MIGRATED_DEFAULT_VISIBLE_COLUMNS = ['tokens', 'latency']
 const DEFAULT_VISIBLE_COLUMNS = [
   'api_key',
   'group',
@@ -1137,7 +1121,6 @@ const DEFAULT_VISIBLE_COLUMNS = [
   'stream',
   'billing_mode',
   'tokens',
-  'cache_read',
   'cost',
   'latency',
   'created_at',
@@ -1153,8 +1136,7 @@ const allColumns = computed<Column[]>(() => [
   { key: 'endpoint', label: t('usage.endpoint'), sortable: false },
   { key: 'stream', label: t('usage.type'), sortable: false },
   { key: 'billing_mode', label: t('admin.usage.billingMode'), sortable: false },
-  { key: 'tokens', label: t('usage.tokens'), sortable: false },
-  { key: 'cache_read', label: t('usage.cacheRead'), sortable: false },
+  { key: 'tokens', label: t('usage.tokensWithCache'), sortable: false },
   { key: 'cost', label: t('usage.cost'), sortable: false },
   { key: 'latency', label: t('usage.latency'), sortable: false },
   { key: 'created_at', label: t('usage.time'), sortable: true },
@@ -1540,7 +1522,7 @@ const loadVisibleColumns = () => {
     if (!raw) return
     const parsed = JSON.parse(raw) as string[]
     const valid = new Set(allColumns.value.map((column) => column.key))
-    const next = parsed.filter((key) => valid.has(key))
+    const next = parsed.map((key) => key === 'cache_read' ? 'tokens' : key).filter((key) => valid.has(key))
     if (next.length > 0) {
       const nextKeys = normalizeVisibleColumnKeys(next)
       if (migratedFromLegacy) {
@@ -1551,7 +1533,7 @@ const loadVisibleColumns = () => {
         })
       }
       visibleColumnKeys.value = nextKeys
-      if (migratedFromLegacy) {
+      if (migratedFromLegacy || parsed.includes('cache_read')) {
         persistVisibleColumns()
       }
     }
