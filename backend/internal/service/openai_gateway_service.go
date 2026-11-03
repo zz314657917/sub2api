@@ -1852,12 +1852,13 @@ func resolveOpenAIQuotaUtilization(extra map[string]any, window string, now time
 	if !ok || usedPercent <= 0 {
 		return 0, false
 	}
-	if openAIQuotaWindowReset(extra, window, now) {
+	resetAt, hasReset := openAIQuotaWindowResetAt(extra, window)
+	if hasReset && !now.Before(resetAt) {
 		return 0, false
 	}
 	// 快照过于陈旧（账号长期未收到流量刷新）时，不再据此暂停。放行后下一次响应头
 	// 会刷新快照实现自愈，避免账号在错误/过期的 used% 上被永久跳过（issue #2994）。
-	if openAICodexSnapshotStaleForPause(extra, now) {
+	if !hasReset && openAICodexSnapshotStaleForPause(extra, now) {
 		return 0, false
 	}
 	return usedPercent / 100, true
@@ -1890,25 +1891,29 @@ func openAICodexSnapshotStaleForPause(extra map[string]any, now time.Time) bool 
 // timestamp and falls back to codex_<window>_reset_after_seconds anchored at
 // codex_usage_updated_at, mirroring AccountUsageService's window-progress logic.
 func openAIQuotaWindowReset(extra map[string]any, window string, now time.Time) bool {
+	resetAt, ok := openAIQuotaWindowResetAt(extra, window)
+	return ok && !now.Before(resetAt)
+}
+
+func openAIQuotaWindowResetAt(extra map[string]any, window string) (time.Time, bool) {
 	if len(extra) == 0 {
-		return false
+		return time.Time{}, false
 	}
 	if resetAtRaw, ok := extra["codex_"+window+"_reset_at"]; ok {
 		if resetAt, err := parseTime(fmt.Sprint(resetAtRaw)); err == nil {
-			return !now.Before(resetAt)
+			return resetAt, true
 		}
 	}
 	resetAfter := parseExtraInt(extra["codex_"+window+"_reset_after_seconds"])
 	if resetAfter <= 0 {
-		return false
+		return time.Time{}, false
 	}
-	base := now
 	if updatedRaw, ok := extra["codex_usage_updated_at"]; ok {
 		if updatedAt, err := parseTime(fmt.Sprint(updatedRaw)); err == nil {
-			base = updatedAt
+			return updatedAt.Add(time.Duration(resetAfter) * time.Second), true
 		}
 	}
-	return !now.Before(base.Add(time.Duration(resetAfter) * time.Second))
+	return time.Time{}, false
 }
 
 type openAIQuotaAutoPauseCtxKey struct{}
@@ -8546,9 +8551,13 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 
 	// 计算账号统计定价费用（使用最终上游模型匹配自定义规则）
 	if apiKey.GroupID != nil {
+		disableAccountStatsLongContext := modelLongContextExempt
+		if gate := openAIAccountLongContextBillingGate(account); gate != nil && !*gate {
+			disableAccountStatsLongContext = true
+		}
 		applyAccountStatsCost(ctx, usageLog, s.channelService, s.billingService,
 			account.ID, *apiKey.GroupID, result.UpstreamModel, result.Model,
-			tokens, cost.TotalCost, modelLongContextExempt,
+			tokens, cost.TotalCost, disableAccountStatsLongContext,
 		)
 	}
 

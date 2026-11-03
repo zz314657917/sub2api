@@ -917,34 +917,47 @@ func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_FreshUsageWind
 // Issue #2994: an account poisoned with an inflated used% (e.g. from the reverted #2918
 // inversion) gets excluded from scheduling, and a paused account never receives traffic to
 // refresh its snapshot. When the snapshot is stale (codex_usage_updated_at older than the
-// staleness bound) the account must be allowed a request so it can self-heal from the real
-// response headers — independent of the window's reset time.
+// staleness bound) and there is no known future reset, allow a request to self-heal
+// from real response headers. A known future reset must keep the account paused.
 func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_StaleUsageSnapshotSkipsPause_Issue2994(t *testing.T) {
-	ctx := context.Background()
-	primary := Account{
-		ID:          35901,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
-		Priority:    0,
-		Extra: map[string]any{
-			"codex_5h_used_percent":   99.0,
-			"auto_pause_5h_threshold": 0.95,
-			// Window has NOT reset yet, so the reset guard stays inactive.
-			"codex_5h_reset_at": time.Now().Add(time.Hour).Format(time.RFC3339),
-			// Snapshot is stale: older than openAICodexAutoPauseStaleAfter (2h).
-			"codex_usage_updated_at": time.Now().Add(-3 * time.Hour).Format(time.RFC3339),
-		},
-	}
-	secondary := Account{ID: 35902, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5}
-	svc := &OpenAIGatewayService{accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{primary, secondary}}, cfg: &config.Config{}}
+	for _, tc := range []struct {
+		name        string
+		futureReset bool
+		wantID      int64
+	}{
+		{"without_known_future_reset_self_heals", false, 35901},
+		{"with_known_future_reset_stays_paused", true, 35902},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			now := time.Now()
+			primary := Account{
+				ID:          35901,
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeAPIKey,
+				Status:      StatusActive,
+				Schedulable: true,
+				Concurrency: 1,
+				Priority:    0,
+				Extra: map[string]any{
+					"codex_5h_used_percent":   99.0,
+					"auto_pause_5h_threshold": 0.95,
+					// Snapshot is stale: older than openAICodexAutoPauseStaleAfter (2h).
+					"codex_usage_updated_at": now.Add(-3 * time.Hour).Format(time.RFC3339),
+				},
+			}
+			if tc.futureReset {
+				primary.Extra["codex_5h_reset_at"] = now.Add(time.Hour).Format(time.RFC3339)
+			}
+			secondary := Account{ID: 35902, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5}
+			svc := &OpenAIGatewayService{accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{primary, secondary}}, cfg: &config.Config{}}
 
-	account, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gpt-5.1", nil)
-	require.NoError(t, err)
-	require.NotNil(t, account)
-	require.Equal(t, int64(35901), account.ID)
+			account, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gpt-5.1", nil)
+			require.NoError(t, err)
+			require.NotNil(t, account)
+			require.Equal(t, tc.wantID, account.ID)
+		})
+	}
 }
 
 // Issue #2994 guardrail: a genuinely-exhausted account whose snapshot was refreshed recently

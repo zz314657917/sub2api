@@ -186,9 +186,9 @@ func TestOpenAISubscriptionGPT61SettlementMatrix(t *testing.T) {
 									wc := float64(write) * 2.5e-6 * im * tm
 									rc := float64(read) * .1e-6 * im * tm
 									statsIn, statsOut := 1.0, 1.0
-									// Model-file account stats historically do not use account/group
-									// billing gates or the request service tier; only exemption is new.
-									if credential == AccountTypeAPIKey && n > 272000 {
+									// Model-file account stats honor the account gate and OAuth exemption,
+									// independently of the group gate and request service tier.
+									if credential == AccountTypeAPIKey && n > 272000 && accountGate {
 										statsIn, statsOut = 2, 1.5
 									}
 									stats := (float64(n-write-read)*2e-6+float64(write)*2.5e-6+float64(read)*.1e-6)*statsIn + .01*statsOut
