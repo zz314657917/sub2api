@@ -239,6 +239,11 @@ export default {
         allowLive: 'Allow ChatGPT Live',
         allowLiveHint: 'When enabled, API keys in this OpenAI group can create realtime sessions through /v1/live.'
       },
+      openaiFast: {
+        title: 'OpenAI Fast mode',
+        force: 'Force Fast (priority)',
+        hint: 'Forces service_tier=priority on OpenAI requests in this group. The global Fast/Flex policy can still filter or block it. New requests update immediately after saving; existing WebSocket sessions must reconnect.',
+      },
       invalidRequestFallback: {
         title: 'Invalid Request Fallback Group',
         hint: 'Triggered only when upstream explicitly returns prompt too long. Leave empty to disable fallback.',

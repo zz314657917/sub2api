@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 19 // v19: preserve Group.LongContextPricingEnabled in auth snapshots
+const apiKeyAuthSnapshotVersion = 20 // v20: preserve Group.ForceOpenAIFast in primary and route-group auth snapshots
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -359,6 +359,7 @@ func apiKeyAuthGroupSnapshotFromGroup(group *Group) *APIKeyAuthGroupSnapshot {
 		ModelMatchPatterns:              NormalizeGroupModelMatchPatterns(group.ModelMatchPatterns),
 		MCPXMLInject:                    group.MCPXMLInject,
 		SupportedModelScopes:            group.SupportedModelScopes,
+		ForceOpenAIFast:                 group.ForceOpenAIFast,
 		AllowMessagesDispatch:           group.AllowMessagesDispatch,
 		AllowLive:                       group.AllowLive,
 		DefaultMappedModel:              group.DefaultMappedModel,
@@ -463,6 +464,7 @@ func groupFromAPIKeyAuthSnapshot(snapshot *APIKeyAuthGroupSnapshot) *Group {
 		ModelMatchPatterns:              NormalizeGroupModelMatchPatterns(snapshot.ModelMatchPatterns),
 		MCPXMLInject:                    snapshot.MCPXMLInject,
 		SupportedModelScopes:            snapshot.SupportedModelScopes,
+		ForceOpenAIFast:                 snapshot.ForceOpenAIFast,
 		AllowMessagesDispatch:           snapshot.AllowMessagesDispatch,
 		AllowLive:                       snapshot.AllowLive,
 		DefaultMappedModel:              snapshot.DefaultMappedModel,

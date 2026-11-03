@@ -743,6 +743,8 @@ export interface Group {
 }
 
 export interface AdminGroup extends Group {
+  // Older group responses omit this flag; forms default to false.
+  force_openai_fast?: boolean
   model_pricing: import('@/api/admin/channels').ChannelModelPricing[]
   // 模型路由配置（仅管理员可见，内部信息）
   model_routing: Record<string, number[]> | null
@@ -861,6 +863,7 @@ export interface UpdateApiKeyRequest {
 }
 
 export interface CreateGroupRequest {
+  force_openai_fast?: boolean
   name: string
   description?: string | null
   platform?: GroupPlatform
@@ -905,6 +908,7 @@ export interface CreateGroupRequest {
 }
 
 export interface UpdateGroupRequest {
+  force_openai_fast?: boolean
   name?: string
   description?: string | null
   platform?: GroupPlatform

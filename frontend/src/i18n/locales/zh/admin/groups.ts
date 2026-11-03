@@ -270,6 +270,11 @@ export default {
         allowLive: '允许 ChatGPT Live',
         allowLiveHint: '启用后，此 OpenAI 分组的 API Key 可以通过 /v1/live 建立实时会话。'
       },
+      openaiFast: {
+        title: 'OpenAI Fast 模式',
+        force: '强制使用 Fast（priority）',
+        hint: '强制将本分组的 OpenAI 请求设为 service_tier=priority。全局 Fast/Flex 策略仍可过滤或拦截。保存后新请求立即生效，已有 WebSocket 会话需重连。',
+      },
       invalidRequestFallback: {
         title: '无效请求兜底分组',
         hint: '仅当上游明确返回 prompt too long 时才会触发，留空表示不兜底',

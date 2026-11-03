@@ -84,6 +84,7 @@ type Group struct {
 	SortOrder int
 
 	// OpenAI Messages 调度配置（仅 openai 平台使用）
+	ForceOpenAIFast             bool
 	AllowMessagesDispatch       bool
 	AllowLive                   bool
 	RequireOAuthOnly            bool // 仅允许非 apikey 类型账号关联（OpenAI/Antigravity/Anthropic/Gemini）
@@ -454,4 +455,15 @@ func usageRateMultiplier(mode string, imageCount int, token, perRequest, image f
 		return perRequest
 	}
 	return token
+}
+
+// groupSupportsOpenAIFast limits the administrator-owned Fast flag to compatible groups.
+func groupSupportsOpenAIFast(platform string) bool {
+	return platform == PlatformOpenAI || platform == PlatformComposite
+}
+
+func sanitizeGroupOpenAIFast(group *Group) {
+	if group != nil && !groupSupportsOpenAIFast(group.Platform) {
+		group.ForceOpenAIFast = false
+	}
 }
