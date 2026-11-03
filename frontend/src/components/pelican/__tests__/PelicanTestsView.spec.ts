@@ -27,7 +27,24 @@ const result = (id: number) => ({ id, plan_id: 1, group_id: 3, account_id: 27131
 const stubs = { AppLayout: { template: '<div><slot /></div>' }, Icon: true, PelicanSandboxFrame: true, BaseDialog: { props: ['show'], template: '<div v-if="show" role="dialog"><button aria-label="close" @click="$emit(\'close\')">close</button><slot /></div>' } }
 
 describe('PelicanTestsView', () => {
+  const layoutStorageKey = 'pelican-gallery-layout'
+  const frames = new Map<number, FrameRequestCallback>()
+  let frameId = 0
+  async function flushFrame() {
+    await flushPromises()
+    const callbacks = [...frames.values()]
+    frames.clear()
+    callbacks.forEach(callback => callback(16))
+    await flushPromises()
+  }
+  async function chooseLayout(wrapper: ReturnType<typeof mount>, label: string) {
+    await wrapper.get('.layout-choice').findAll('button').find(button => button.text() === label)!.trigger('click')
+    await flushFrame()
+  }
   beforeEach(() => {
+    localStorage.clear(); frames.clear(); frameId = 0
+    vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => { frames.set(++frameId, callback); return frameId }))
+    vi.stubGlobal('cancelAnimationFrame', vi.fn((id: number) => frames.delete(id)))
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ top: 100, bottom: 600, left: 0, right: 700, width: 700, height: 500, x: 0, y: 100, toJSON: () => ({}) })
     vi.clearAllMocks(); auth.isAdmin = true; auth.user = { id: 1 }
     api.accounts.mockResolvedValue([])
@@ -37,8 +54,102 @@ describe('PelicanTestsView', () => {
     api.result.mockResolvedValue(result(27131))
     api.plans.mockResolvedValue([]); api.groups.mockResolvedValue([{ id: 3, name: '授权组', status: 'active' }]); api.models.mockResolvedValue(['gpt-kept']); api.create.mockResolvedValue({}); api.update.mockResolvedValue({}); api.remove.mockResolvedValue(undefined); api.run.mockResolvedValue({ queued: true }); api.resume.mockResolvedValue({}); api.cleanup.mockResolvedValue({ deleted_count: 2 }); api.settings.mockResolvedValue({ display_name: '鹈鹕测试', prompt: '默认提示词' }); api.saveSettings.mockResolvedValue({ display_name: '新页面名', prompt: '自定义提示词' }); metadata.displayName = '鹈鹕测试'
   })
-  afterEach(() => vi.restoreAllMocks())
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
   async function view() { const wrapper = mount(PelicanTestsView, { attachTo: document.body, global: { stubs } }); await flushPromises(); return wrapper }
+
+  it.each([null, '', 'invalid', 'vertical'])('defaults to responsive vertical groups for preference %s', async preference => {
+    if (preference !== null) localStorage.setItem(layoutStorageKey, preference)
+    const wrapper = await view()
+    try {
+      expect(wrapper.get('.results-region').classes()).toContain('layout-vertical')
+      expect(wrapper.get('.layout-choice button[aria-pressed="true"]').text()).toBe('上下排列')
+      expect(wrapper.findAll('.gallery')).toHaveLength(1)
+      expect(wrapper.find('.row-navigation').exists()).toBe(false)
+      expect(wrapper.find('.history-count').exists()).toBe(false)
+      expect(wrapper.get('.scroll-tip').text()).toContain('组内作品上下排列')
+    } finally { wrapper.unmount() }
+  })
+
+  it('persists the personal choice across remounts without reading or updating shared settings', async () => {
+    const wrapper = await view()
+    await chooseLayout(wrapper, '横向浏览')
+    expect(localStorage.getItem(layoutStorageKey)).toBe('horizontal')
+    expect(wrapper.get('.layout-choice button[aria-pressed="true"]').text()).toBe('横向浏览')
+    expect(api.settings).not.toHaveBeenCalled()
+    expect(api.saveSettings).not.toHaveBeenCalled()
+    wrapper.unmount()
+    const restored = await view()
+    try {
+      expect(restored.get('.results-region').classes()).toContain('layout-horizontal')
+      expect(restored.findAll('.gallery')).toHaveLength(1)
+      await chooseLayout(restored, '上下排列')
+      expect(localStorage.getItem(layoutStorageKey)).toBe('vertical')
+    } finally { restored.unmount() }
+  })
+
+  it('renders and switches when storage reads and writes throw', async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked') })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota') })
+    const wrapper = await view()
+    try {
+      expect(wrapper.get('.results-region').classes()).toContain('layout-vertical')
+      const lists = api.list.mock.calls.length
+      await chooseLayout(wrapper, '横向浏览')
+      expect(wrapper.get('.results-region').classes()).toContain('layout-horizontal')
+      await chooseLayout(wrapper, '上下排列')
+      expect(wrapper.get('.results-region').classes()).toContain('layout-vertical')
+      expect(api.list).toHaveBeenCalledTimes(lists)
+    } finally { wrapper.unmount() }
+  })
+
+  it('retains filters, pagination, all rounds, exact enlarge and replay while remounting only preview consumers', async () => {
+    api.list.mockImplementation(async (params: { page: number; page_size: number }) => ({
+      items: [
+        ...[103, 102, 101].map((id, index) => ({ ...item(1, id), round_number: 3 - index })),
+        { ...item(2, 201), model_id: 'gpt-other' }
+      ],
+      total: 12, page: params.page, page_size: params.page_size, groups: [{ id: 3, name: '授权组' }]
+    }))
+    api.result.mockImplementation(async (id: number) => result(id))
+    const wrapper = await view()
+    try {
+      await wrapper.get('select[aria-label="每页条数"]').setValue('6'); await flushPromises()
+      await wrapper.findAll('button').find(button => button.text() === '下一页')!.trigger('click'); await flushPromises()
+      await wrapper.get('input[aria-label="搜索分组或模型"]').setValue('gpt')
+      await wrapper.get('select[aria-label="筛选状态"]').setValue('success')
+      await wrapper.get('.model-filters').findAll('button').find(button => button.text() === 'gpt-test')!.trigger('click')
+      await flushFrame()
+      expect(wrapper.findAll('.result-card')).toHaveLength(3)
+      const cards = wrapper.findAll('.result-card').map(card => card.element)
+      const previews = wrapper.findAllComponents({ name: 'PelicanLazyArtwork' }).map(preview => preview.vm)
+      const requests = api.result.mock.calls.length
+      const lists = api.list.mock.calls.length
+      const pageLabel = wrapper.get('.page-controls').text()
+      await wrapper.findAll('.result-card')[1]!.get('button[aria-label="重新播放"]').trigger('click')
+      await chooseLayout(wrapper, '横向浏览')
+      expect(wrapper.findAll('.gallery')).toHaveLength(1)
+      expect(wrapper.findAll('.result-card').map(card => card.element)).toEqual(cards)
+      const remounted = wrapper.findAllComponents({ name: 'PelicanLazyArtwork' })
+      expect(remounted.every((preview, i) => preview.vm !== previews[i])).toBe(true)
+      expect(remounted.map(preview => preview.props('replayKey'))).toEqual([0, 1, 0])
+      expect(wrapper.get('.model-filter.active').text()).toBe('gpt-test')
+      expect(wrapper.get('input[aria-label="搜索分组或模型"]').element).toHaveProperty('value', 'gpt')
+      expect(wrapper.get('select[aria-label="筛选状态"]').element).toHaveProperty('value', 'success')
+      expect(wrapper.get('.page-controls').text()).toBe(pageLabel)
+      expect(api.list).toHaveBeenCalledTimes(lists)
+      expect(api.settings).not.toHaveBeenCalled()
+      expect(api.saveSettings).not.toHaveBeenCalled()
+      expect(api.result).toHaveBeenCalledTimes(requests)
+      await wrapper.findAll('.result-card')[2]!.get('.artwork-preview').trigger('click')
+      await flushPromises()
+      expect(wrapper.get('[role="dialog"]').findComponent({ name: 'PelicanLazyArtwork' }).props('resultId')).toBe(101)
+      await chooseLayout(wrapper, '上下排列')
+      expect(wrapper.get('[role="dialog"]').findComponent({ name: 'PelicanLazyArtwork' }).props('resultId')).toBe(101)
+      expect(wrapper.findAll('.result-card')).toHaveLength(3)
+      expect(wrapper.find('.row-navigation').exists()).toBe(false)
+      expect(api.list).toHaveBeenCalledTimes(lists)
+    } finally { wrapper.unmount() }
+  })
 
   it('reuses route metadata on mount and refreshes at most once on returning visible without overlapping a pending list', async () => {
     vi.useFakeTimers()
@@ -76,7 +187,7 @@ describe('PelicanTestsView', () => {
       expect(wrapper.text()).toContain('gpt-test')
       expect(api.result).not.toHaveBeenCalled()
       geometry.mockReturnValue({ top: 100, bottom: 600, left: 0, right: 700, width: 700, height: 500, x: 0, y: 100, toJSON: () => ({}) })
-      await wrapper.get('.results-region').trigger('scroll'); await flushPromises()
+      await wrapper.get('.results-region').trigger('scroll'); await flushFrame()
       expect(api.result).toHaveBeenCalledTimes(1)
       api.list.mockResolvedValueOnce({ items: [], total: 0, page: 1, groups: [] })
       await wrapper.get('.refresh-button').trigger('click'); await flushPromises()
@@ -116,6 +227,7 @@ describe('PelicanTestsView', () => {
     api.list.mockResolvedValue({ items: entries, total: 1, page: 1, page_size: 24, groups: [] })
     const wrapper = await view()
     try {
+      await chooseLayout(wrapper, '横向浏览')
       const group = wrapper.get('.pelican-card')
       expect(group.find('.group-heading').exists()).toBe(true)
       expect(group.findAll('.model-artwork')).toHaveLength(2)
@@ -233,6 +345,7 @@ describe('PelicanTestsView', () => {
     vi.useFakeTimers()
     const wrapper = await view()
     try {
+      await chooseLayout(wrapper, '横向浏览')
       const rail = wrapper.get('.rail').element as HTMLElement
       Object.defineProperties(rail, {
         clientWidth: { configurable: true, value: 500 },
@@ -240,11 +353,56 @@ describe('PelicanTestsView', () => {
         scrollBy: { configurable: true, value: ({ left }: ScrollToOptions) => { rail.scrollLeft += left || 0 } }
       })
       await wrapper.get('.rail').trigger('scroll')
+      await flushFrame()
       await wrapper.get('button[aria-label="向后浏览授权组"]').trigger('click')
       await vi.advanceTimersByTimeAsync(180)
+      await flushFrame()
       expect(rail.scrollLeft).toBe(425)
       expect(wrapper.get('button[aria-label="向前浏览授权组"]').attributes('disabled')).toBeUndefined()
     } finally { wrapper.unmount(); vi.useRealTimers() }
+  })
+
+  it('coalesces rail scroll and resize work and cancels the queued frame and navigation timer on unmount', async () => {
+    vi.useFakeTimers()
+    api.list.mockResolvedValue({ items: [item(1), { ...item(2), group_id: 4, group_name: '另一组' }], total: 2, page: 1, groups: [] })
+    const wrapper = await view()
+    try {
+      await chooseLayout(wrapper, '横向浏览')
+      await flushFrame()
+      const rail = wrapper.get('.rail').element as HTMLElement
+      const width = vi.fn(() => 500)
+      const otherWidth = vi.fn(() => 500)
+      Object.defineProperty(wrapper.findAll('.rail')[1]!.element, 'clientWidth', { configurable: true, get: otherWidth })
+      Object.defineProperties(rail, {
+        clientWidth: { configurable: true, get: width },
+        scrollWidth: { configurable: true, value: 1500 },
+        scrollBy: { configurable: true, value: ({ left }: ScrollToOptions) => { rail.scrollLeft += left || 0 } }
+      })
+      for (let i = 0; i < 12; i++) rail.dispatchEvent(new Event('scroll'))
+      await flushFrame()
+      expect(width).toHaveBeenCalledTimes(1)
+      expect(otherWidth).not.toHaveBeenCalled()
+      width.mockClear()
+      for (let i = 0; i < 12; i++) {
+        rail.dispatchEvent(new Event('scroll'))
+        window.dispatchEvent(new Event('resize'))
+      }
+      expect(width).not.toHaveBeenCalled()
+      await flushFrame()
+      expect(width).toHaveBeenCalledTimes(1)
+      expect(otherWidth).toHaveBeenCalledTimes(1)
+      await wrapper.get('button[aria-label="向后浏览授权组"]').trigger('click')
+      window.dispatchEvent(new Event('resize'))
+      const queued = [...frames.values()]
+      expect(queued.length).toBeGreaterThan(0)
+      wrapper.unmount()
+      width.mockClear()
+      expect(frames.size).toBe(0)
+      queued.forEach(callback => callback(32))
+      await vi.advanceTimersByTimeAsync(200)
+      await flushFrame()
+      expect(width).not.toHaveBeenCalled()
+    } finally { if (wrapper.exists()) wrapper.unmount(); vi.useRealTimers() }
   })
 
   it('shows running rounds and focuses search with slash', async () => {
@@ -455,11 +613,12 @@ describe('PelicanTestsView', () => {
     expect(card.find('.history-count').exists()).toBe(false)
   })
 
-  it('marks retained artwork as a previous success and opens a loaded preview', async () => {
+  it('opens retained artwork without an extra previous-success caption', async () => {
     api.list.mockResolvedValue({ items: [{ ...item(27131), status: 'skipped', result_id: 101, artwork_result_id: 88 }], total: 1, page: 1, page_size: 24, groups: [{ id: 3, name: '授权组' }] })
     api.result.mockResolvedValue(result(88))
     const wrapper = await view()
-    expect(wrapper.text()).toContain('上次成功作品')
+    expect(wrapper.text()).not.toContain('上次成功作品')
+    expect(wrapper.get('.result-card .status').text()).toBe('本轮已跳过')
     const preview = wrapper.get('.artwork-preview')
     await preview.trigger('click'); await flushPromises()
     expect(api.result).toHaveBeenLastCalledWith(88, expect.any(AbortSignal))

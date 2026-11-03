@@ -22,6 +22,10 @@
       <PelicanReferenceScores v-if="authStore.isAdmin || pelicanMetadata.enabled" :data="referenceScores" :loading="referenceLoading" :failed="referenceFailed" />
       <section class="toolbar" :aria-label="`筛选${pelicanMetadata.displayName}`">
         <div class="browse-left">
+          <div class="layout-choice" role="group" aria-label="作品排列方式">
+            <button type="button" :aria-pressed="layoutMode === 'vertical'" @click="setLayout('vertical')">上下排列</button>
+            <button type="button" :aria-pressed="layoutMode === 'horizontal'" @click="setLayout('horizontal')">横向浏览</button>
+          </div>
           <label class="search-box"><Icon name="search" size="sm" /><input v-model.trim="searchQuery" type="search" placeholder="搜索分组或模型" aria-label="搜索分组或模型" /></label>
           <label class="select-field"><select v-model.number="groupFilter" aria-label="筛选分组">
             <option value="">全部分组</option>
@@ -47,11 +51,11 @@
           <button class="refresh-button" type="button" :aria-label="`刷新${pelicanMetadata.displayName}列表`" :title="`刷新${pelicanMetadata.displayName}结果`" @click="refresh()"><Icon name="refresh" size="sm" /></button>
         </div>
       </section>
-      <div class="list-summary"><span><strong>{{ visibleGroupCount }}</strong> 个分组 <i>/</i> <strong>{{ visibleResultCount }}</strong> 条测试结果</span><span class="scroll-tip"><span aria-hidden="true">↔</span>每组独立横向浏览</span></div>
+      <div class="list-summary"><span><strong>{{ visibleGroupCount }}</strong> 个分组 <i>/</i> <strong>{{ visibleResultCount }}</strong> 条测试结果</span><span class="scroll-tip"><span aria-hidden="true">{{ layoutMode === 'horizontal' ? '↔' : '↕' }}</span>{{ layoutMode === 'horizontal' ? '每组独立横向浏览' : '组内作品上下排列' }}</span></div>
       <p v-if="error && items.length" class="refresh-error" role="alert">{{ error }}</p>
       </div>
 
-      <div ref="resultsRegion" class="results-region">
+      <div ref="resultsRegion" class="results-region" :class="`layout-${layoutMode}`">
       <div v-if="loading && !items.length" class="empty-state" aria-live="polite">正在加载测试结果…</div>
       <div v-else-if="error && !items.length" class="empty-state" role="alert"><h2>无法加载测试结果</h2><p>{{ error }}</p><button type="button" @click="refresh()">重试</button></div>
       <div v-else-if="visibleGalleryGroups.length" class="gallery">
@@ -64,18 +68,18 @@
               <button type="button" class="model-filter" :class="{ active: selectedModels[group.id] === 'all' }" :aria-pressed="selectedModels[group.id] === 'all'" @click="selectGroupModel(group.id, 'all')">全部模型<Icon name="check" size="xs" /></button>
               <button v-for="model in group.models" :key="model" type="button" class="model-filter" :class="{ active: selectedModels[group.id] === model }" :aria-pressed="selectedModels[group.id] === model" @click="selectGroupModel(group.id, model)">{{ model }}<Icon name="check" size="xs" /></button>
             </nav>
-            <div class="row-navigation">
+            <div v-if="layoutMode === 'horizontal'" class="row-navigation">
               <button class="icon-button" type="button" :disabled="!railNavigation[group.id]?.canScrollLeft" :aria-label="`向前浏览${group.name}`" @click="scrollGroupRail($event, -1)"><Icon name="chevronLeft" size="sm" /></button>
               <button class="icon-button" type="button" :disabled="!railNavigation[group.id]?.canScrollRight" :aria-label="`向后浏览${group.name}`" @click="scrollGroupRail($event, 1)"><Icon name="chevronRight" size="sm" /></button>
               <span class="position-label">{{ railNavigation[group.id]?.position || '' }}</span>
             </div>
           </aside>
           <div class="row-content">
-            <div class="rail" tabindex="0" role="region" :aria-label="`${group.name}作品列表`" @scroll="updateRailNavigation(group.id, $event)">
+            <div class="rail" tabindex="0" role="region" :aria-label="`${group.name}作品列表`" @scroll="scheduleRailNavigation">
               <template v-if="group.entries.length">
                 <article v-for="item in group.entries" :key="entryKey(item)" class="model-artwork result-card" :aria-label="`${item.model_id} · 计划 ${item.plan_id} · 第 ${item.round_number || item.history_count || 1} 轮`">
                   <div class="artwork-shell">
-                    <PelicanLazyArtwork v-if="item.artwork_result_id" :result-id="item.artwork_result_id" :root="resultsRegion" :min-height="154" :replay-key="replayVersions[`card-${entryKey(item)}`] ?? 0" @enlarge="openArtwork(item, $event)" />
+                    <PelicanLazyArtwork v-if="item.artwork_result_id" :key="`${layoutMode}-${entryKey(item)}`" :result-id="item.artwork_result_id" :root="resultsRegion" :min-height="154" :replay-key="replayVersions[`card-${entryKey(item)}`] ?? 0" @enlarge="openArtwork(item, $event)" />
                     <div v-else class="artwork-placeholder art-placeholder" :class="item.status">
                       <span v-if="item.status === 'running'" class="running-orbit" aria-hidden="true"></span>
                       <Icon v-else :name="item.status === 'failed' ? 'exclamationCircle' : 'clock'" size="md" />
@@ -90,7 +94,6 @@
                   </div>
                   <div class="card-copy">
                     <h3 class="model-title model-heading"><ModelIcon :model="item.model_id" size="17px" /><strong class="model-name" :title="item.model_id">{{ item.model_id }}</strong><span class="status" :class="statusClass(item.status)"><i></i>{{ previewStatusText(item.status) }}</span></h3>
-                    <p v-if="item.artwork_result_id && item.artwork_result_id !== item.result_id" class="last-success">上次成功作品</p>
                     <div class="card-footer">
                       <time class="generation-time" :title="formatTimestamp(item.artwork_finished_at ?? (item.status === 'success' ? item.finished_at : null))">{{ formatCompactDate(item.artwork_finished_at ?? (item.status === 'success' ? item.finished_at : null)) }}</time>
                       <span class="duration"><Icon name="clock" size="xs" />{{ formatCompactDuration(item.latency_ms) }}</span>
@@ -145,6 +148,17 @@ import { useAuthStore } from '@/stores/auth'
 import { usePelicanMetadataStore } from '@/stores/pelicanMetadata'
 import { useAppStore } from '@/stores/app'
 
+type LayoutMode = 'vertical' | 'horizontal'
+const layoutStorageKey = 'pelican-gallery-layout'
+function readLayout(): LayoutMode {
+  try { return localStorage.getItem(layoutStorageKey) === 'horizontal' ? 'horizontal' : 'vertical' }
+  catch { return 'vertical' }
+}
+const layoutMode = ref<LayoutMode>(readLayout())
+function setLayout(mode: LayoutMode): void {
+  layoutMode.value = mode
+  try { localStorage.setItem(layoutStorageKey, mode) } catch { /* Keep the current choice usable when storage is blocked. */ }
+}
 const groupFilter = ref<number | ''>('')
 const searchQuery = ref('')
 const statusFilter = ref<'all' | PelicanEntry['status']>('all')
@@ -199,6 +213,10 @@ let listAbort: AbortController | undefined
 let dialogAbort: AbortController | undefined
 let refreshing = false
 let disposed = false
+let railFrame: number | undefined
+const railTimers = new Set<number>()
+const dirtyRails = new Set<HTMLElement>()
+let allRailsDirty = false
 let settingsRequestVersion = 0
 const saveVersion = ref(0)
 const showSettings = ref(false)
@@ -306,7 +324,11 @@ const visibleGroupCount = computed(() => visibleGalleryGroups.value.length)
 const visibleResultCount = computed(() => visibleGalleryGroups.value.reduce((count, group) => count + group.entries.length, 0))
 
 watch([groupFilter, pageSize], () => { closeDialog(); if (page.value !== 1) page.value = 1; else void refresh({ resetView: true }) })
-watch([searchQuery, statusFilter], () => { closeDialog(); if (resultsRegion.value) resultsRegion.value.scrollTop = 0; void nextTick(updateAllRailNavigation) })
+watch([searchQuery, statusFilter], () => { closeDialog(); if (resultsRegion.value) resultsRegion.value.scrollTop = 0; void nextTick(scheduleRailNavigation) })
+watch(layoutMode, () => void nextTick(() => {
+  resultsRegion.value?.querySelectorAll<HTMLElement>('.rail').forEach(rail => { rail.scrollLeft = 0 })
+  scheduleRailNavigation()
+}))
 watch(page, () => void refresh({ resetView: true }))
 watch([() => authStore.user?.id, () => authStore.isAdmin], () => {
   orderGroupsVersion++; orderGroups.value = []; orderGroupsLoading.value = false; orderGroupsFailed.value = false
@@ -328,6 +350,7 @@ watch(() => pelicanMetadata.enabled, enabled => {
   if (!authStore.isAdmin && !enabled) { resetReferenceSession(); listRequestVersion++; listAbort?.abort(); clearArtworkCache(); items.value = []; total.value = 0; groups.value = []; closeDialog() }
 })
 onMounted(() => {
+  window.addEventListener('resize', scheduleRailNavigation)
   document.addEventListener('keydown', trapFocus)
   document.addEventListener('keydown', focusSearch)
   document.addEventListener('visibilitychange', visibilityChanged)
@@ -336,6 +359,11 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   disposed = true
+  if (railFrame !== undefined) cancelAnimationFrame(railFrame)
+  dirtyRails.clear()
+  railTimers.forEach(timer => window.clearTimeout(timer))
+  railTimers.clear()
+  window.removeEventListener('resize', scheduleRailNavigation)
   artwork.dispose()
   resetReferenceSession()
   invalidatePlansSession()
@@ -375,11 +403,9 @@ function platformColor(platform?: string): string {
 function selectGroupModel(groupID: number, model: string): void {
   selectedModels.value = { ...selectedModels.value, [groupID]: model }
   closeDialog()
-  void nextTick(() => updateAllRailNavigation())
+  void nextTick(scheduleRailNavigation)
 }
-function updateRailNavigation(groupID: number, event: Event | HTMLElement): void {
-  const rail = event instanceof HTMLElement ? event : event.currentTarget instanceof HTMLElement ? event.currentTarget : null
-  if (!rail) return
+function updateRailNavigation(groupID: number, rail: HTMLElement): void {
   const cards = rail.querySelectorAll<HTMLElement>('.result-card')
   const max = Math.max(0, rail.scrollWidth - rail.clientWidth)
   const step = cards[0] ? cards[0].offsetWidth + 14 : 1
@@ -388,6 +414,25 @@ function updateRailNavigation(groupID: number, event: Event | HTMLElement): void
     ...railNavigation.value,
     [groupID]: { canScrollLeft: rail.scrollLeft > 2, canScrollRight: max > 2 && rail.scrollLeft < max - 2, position: cards.length ? `${first} / ${cards.length}` : '' }
   }
+}
+function scheduleRailNavigation(event?: Event): void {
+  if (disposed || layoutMode.value !== 'horizontal') return
+  const rail = event?.type === 'scroll' && event.currentTarget instanceof HTMLElement ? event.currentTarget : null
+  if (rail) dirtyRails.add(rail)
+  else allRailsDirty = true
+  if (railFrame !== undefined) return
+  railFrame = requestAnimationFrame(() => {
+    railFrame = undefined
+    if (!disposed && layoutMode.value === 'horizontal') {
+      if (allRailsDirty) updateAllRailNavigation()
+      else dirtyRails.forEach(rail => {
+        const groupID = Number(rail.closest('.group-row')?.getAttribute('data-group'))
+        if (rail.isConnected && Number.isFinite(groupID)) updateRailNavigation(groupID, rail)
+      })
+    }
+    dirtyRails.clear()
+    allRailsDirty = false
+  })
 }
 function updateAllRailNavigation(): void {
   resultsRegion.value?.querySelectorAll<HTMLElement>('.group-row').forEach(row => {
@@ -400,11 +445,11 @@ function scrollGroupRail(event: MouseEvent, direction: -1 | 1): void {
   const row = (event.currentTarget as HTMLElement).closest('.group-row')
   const rail = row?.querySelector<HTMLElement>('.rail')
   if (!rail) return
-  const groupID = Number(row?.getAttribute('data-group'))
   const left = direction * Math.max(rail.clientWidth * .85, 220)
   if (typeof rail.scrollBy === 'function') rail.scrollBy({ left, behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
   else rail.scrollLeft += left
-  window.setTimeout(() => updateRailNavigation(groupID, rail), 180)
+  const timer = window.setTimeout(() => { railTimers.delete(timer); scheduleRailNavigation() }, 180)
+  railTimers.add(timer)
 }
 function clearArtworkCache(): void { artwork.invalidate() }
 async function refresh({ resetView = false }: { resetView?: boolean } = {}): Promise<void> {
@@ -429,7 +474,7 @@ async function refresh({ resetView = false }: { resetView?: boolean } = {}): Pro
     if (items.value.some(item => item.artwork_result_id && !incomingIDs.has(item.artwork_result_id))) clearArtworkCache()
     artwork.resume()
     items.value = data.items; groups.value = data.groups; total.value = data.total; page.value = data.page; refreshedAt.value = formatNow()
-    void nextTick(updateAllRailNavigation)
+    void nextTick(scheduleRailNavigation)
     if (!resetView && previousScrollTop != null) void nextTick(() => { if (version === listRequestVersion && resultsRegion.value) resultsRegion.value.scrollTop = previousScrollTop })
     const selected = selectedEntry.value
     if (selected && !data.items.some(item => entryKey(item) === entryKey(selected) && item.artwork_result_id === selected.artwork_result_id)) closeDialog()
@@ -633,6 +678,8 @@ function focusSearch(event: KeyboardEvent): void {
 .refresh-controls select { height: 35px; min-width: 140px; padding: 0 10px; color: inherit; font: inherit; font-size: 11px; cursor: pointer; }
 .toolbar button { min-height: 35px; color: inherit; padding: 0 11px; cursor: pointer; font: inherit; font-size: 11px; }
 .toolbar button:disabled { opacity: .4; cursor: default; }
+.layout-choice { display: inline-flex; gap: 3px; }
+.layout-choice button[aria-pressed="true"] { border-color: var(--pelican-accent); background: var(--pelican-accent-soft); color: var(--pelican-accent); }
 .refresh-button { display: inline-flex; align-items: center; justify-content: center; width: 35px; padding: 0 !important; }
 .list-summary { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: var(--pelican-muted); margin: 13px 0 0; font-size: 11px; }
 .list-summary strong { color: var(--pelican-text); font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -667,6 +714,15 @@ function focusSearch(event: KeyboardEvent): void {
 .rail::-webkit-scrollbar { height: 5px; }
 .rail::-webkit-scrollbar-thumb { background: var(--pelican-border); border-radius: 6px; }
 .rail::-webkit-scrollbar-track { background: transparent; }
+.layout-vertical .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); align-items: start; gap: 14px; padding-top: 14px; }
+.layout-vertical .group-row { display: block; padding: 12px; border: 1px solid var(--pelican-border); border-radius: 9px; background: var(--pelican-surface); }
+.layout-vertical .group-meta { padding-top: 0; }
+.layout-vertical .group-title { padding-right: 0; overflow-wrap: anywhere; }
+.layout-vertical .group-count { position: static; margin: 6px 0 10px; }
+.layout-vertical .model-filters { flex-direction: row; flex-wrap: wrap; gap: 5px; margin: 0 0 12px; overflow: visible; }
+.layout-vertical .model-filter { width: auto; max-width: 100%; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.layout-vertical .rail { flex-direction: column; overflow: visible; padding: 0; scroll-snap-type: none; }
+.layout-vertical .model-artwork { width: 100%; flex: 0 0 auto; }
 .model-artwork.result-card { overflow: hidden; border: 1px solid var(--pelican-border); border-radius: 9px; background: var(--pelican-surface); scroll-snap-align: start; box-shadow: var(--console-shadow, none); transition: border-color .18s, box-shadow .18s; }
 .model-artwork.result-card:hover { border-color: color-mix(in srgb, var(--pelican-accent) 35%, var(--pelican-border)); box-shadow: 0 4px 18px color-mix(in srgb, var(--pelican-text) 7%, transparent); }
 .artwork-shell { position: relative; width: 100%; }
@@ -704,7 +760,6 @@ function focusSearch(event: KeyboardEvent): void {
 .success { @apply text-emerald-700 dark:text-emerald-400; }
 .skipped { color: var(--pelican-muted); }
 .stars { color: var(--pelican-accent); letter-spacing: 1px; white-space: nowrap; }
-.last-success { margin: 6px 0 0; color: var(--pelican-muted); font-size: 9px; }
 .rail-empty { display: grid; width: 100%; min-height: 154px; align-content: center; justify-items: center; gap: 7px; border: 1px dashed var(--pelican-border); border-radius: 8px; color: var(--pelican-muted); font-size: 11px; }
 .text-button { border: 0; background: transparent; color: var(--pelican-accent); padding: 3px 0; cursor: pointer; font: inherit; font-size: 11px; }
 .pagination { display: flex; flex: 0 0 auto; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 12px; color: var(--pelican-muted); }

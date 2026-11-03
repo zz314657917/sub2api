@@ -9,8 +9,19 @@ const rectangle = (top: number, bottom: number) => ({ top, bottom, left: 0, righ
 describe('lazy artwork real geometry', () => {
   let top = 1200
   let hidden = false
+  let frameId = 0
+  const frames = new Map<number, FrameRequestCallback>()
+  async function flushFrame() {
+    await flushPromises()
+    const callbacks = [...frames.values()]
+    frames.clear()
+    callbacks.forEach(callback => callback(16))
+    await flushPromises()
+  }
   beforeEach(() => {
-    top = 1200; hidden = false
+    top = 1200; hidden = false; frameId = 0; frames.clear()
+    vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => { frames.set(++frameId, callback); return frameId }))
+    vi.stubGlobal('cancelAnimationFrame', vi.fn((id: number) => frames.delete(id)))
     vi.stubGlobal('IntersectionObserver', undefined)
     vi.spyOn(document, 'hidden', 'get').mockImplementation(() => hidden)
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
@@ -30,14 +41,14 @@ describe('lazy artwork real geometry', () => {
     const { wrapper, store, fetcher, root } = setup()
     await flushPromises()
     expect(fetcher).not.toHaveBeenCalled()
-    top = 700; root.dispatchEvent(new Event('scroll')); await flushPromises()
+    top = 700; root.dispatchEvent(new Event('scroll')); await flushFrame()
     expect(fetcher).toHaveBeenCalledTimes(1)
     expect(wrapper.find('iframe').exists()).toBe(false)
-    top = 599; root.dispatchEvent(new Event('scroll')); await flushPromises()
+    top = 599; root.dispatchEvent(new Event('scroll')); await flushFrame()
     expect(wrapper.find('iframe').exists()).toBe(true)
-    top = 1200; root.dispatchEvent(new Event('scroll')); await flushPromises()
+    top = 1200; root.dispatchEvent(new Event('scroll')); await flushFrame()
     expect(wrapper.find('iframe').exists()).toBe(false)
-    top = 150; root.dispatchEvent(new Event('scroll')); await flushPromises()
+    top = 150; root.dispatchEvent(new Event('scroll')); await flushFrame()
     expect(wrapper.find('iframe').exists()).toBe(true)
     expect(fetcher).toHaveBeenCalledTimes(1)
     wrapper.unmount(); store.dispose()
@@ -70,6 +81,88 @@ describe('lazy artwork real geometry', () => {
     expect(wrapper.find('iframe').exists()).toBe(false)
     root.dispatchEvent(new Event('scroll')); await flushPromises()
     expect(fetcher).toHaveBeenCalledTimes(1)
+    wrapper.unmount(); store.dispose()
+  })
+
+  it('coalesces root, capture scroll, resize and both IO callbacks into one geometry pass per frame', async () => {
+    const observers: IntersectionObserverCallback[] = []
+    const disconnect = vi.fn()
+    vi.stubGlobal('IntersectionObserver', class {
+      constructor(callback: IntersectionObserverCallback) { observers.push(callback) }
+      observe() {}
+      disconnect = disconnect
+    })
+    const resizeCallbacks: ResizeObserverCallback[] = []
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback: ResizeObserverCallback) { resizeCallbacks.push(callback) }
+      observe() {}
+      disconnect = disconnect
+    })
+    const { wrapper, store, root, fetcher } = setup()
+    await flushFrame()
+    const geometry = vi.mocked(HTMLElement.prototype.getBoundingClientRect)
+    geometry.mockClear()
+    top = 700
+    for (let i = 0; i < 12; i++) {
+      root.dispatchEvent(new Event('scroll'))
+      window.dispatchEvent(new Event('scroll'))
+      window.dispatchEvent(new Event('resize'))
+      observers.forEach(callback => callback([], {} as IntersectionObserver))
+      resizeCallbacks.forEach(callback => callback([], {} as ResizeObserver))
+    }
+    expect(frames.size).toBe(1)
+    expect(geometry).not.toHaveBeenCalled()
+    await flushFrame()
+    expect(geometry.mock.instances.filter(element => element === wrapper.get('.lazy-artwork').element)).toHaveLength(1)
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('iframe').exists()).toBe(false)
+    wrapper.unmount(); store.dispose()
+    expect(disconnect).toHaveBeenCalled()
+  })
+
+  it('cancels a queued geometry callback on unmount, including a late observer delivery', async () => {
+    const callbacks: IntersectionObserverCallback[] = []
+    vi.stubGlobal('IntersectionObserver', class {
+      constructor(callback: IntersectionObserverCallback) { callbacks.push(callback) }
+      observe() {}
+      disconnect() {}
+    })
+    const { wrapper, store, root, fetcher } = setup()
+    await flushFrame()
+    top = 150
+    root.dispatchEvent(new Event('scroll'))
+    const queued = [...frames.values()][0]!
+    expect(frames.size).toBe(1)
+    wrapper.unmount()
+    expect(cancelAnimationFrame).toHaveBeenCalled()
+    expect(frames.size).toBe(0)
+    const geometry = vi.mocked(HTMLElement.prototype.getBoundingClientRect)
+    geometry.mockClear()
+    queued(16)
+    callbacks.forEach(callback => callback([], {} as IntersectionObserver))
+    await flushFrame()
+    expect(geometry).not.toHaveBeenCalled()
+    expect(fetcher).not.toHaveBeenCalled()
+    store.dispose()
+  })
+
+  it.each(['hidden', 'authorization'])('clears mounted artwork immediately before a queued frame (%s)', async reason => {
+    top = 150
+    const { wrapper, store, root } = setup()
+    await flushFrame()
+    expect(wrapper.find('iframe').exists()).toBe(true)
+    root.dispatchEvent(new Event('scroll'))
+    const queued = [...frames.values()][0]!
+    if (reason === 'hidden') {
+      hidden = true
+      document.dispatchEvent(new Event('visibilitychange'))
+    } else store.invalidate()
+    await flushPromises()
+    expect(wrapper.find('iframe').exists()).toBe(false)
+    expect(frames.size).toBe(0)
+    queued(16)
+    await flushPromises()
+    expect(wrapper.find('iframe').exists()).toBe(false)
     wrapper.unmount(); store.dispose()
   })
 })

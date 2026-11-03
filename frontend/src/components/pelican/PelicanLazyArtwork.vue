@@ -34,6 +34,19 @@ let prefetchObserver: IntersectionObserver | undefined
 let resizeObserver: ResizeObserver | undefined
 let disposed = false
 let listeningRoot: HTMLElement | null = null
+let geometryFrame: number | undefined
+
+function cancelGeometry() {
+  if (geometryFrame !== undefined) cancelAnimationFrame(geometryFrame)
+  geometryFrame = undefined
+}
+function scheduleGeometry() {
+  if (disposed || !documentVisible.value || !artwork.allowed.value || geometryFrame !== undefined) return
+  geometryFrame = requestAnimationFrame(() => {
+    geometryFrame = undefined
+    if (!disposed) measure()
+  })
+}
 
 function stop() { requestVersion++; controller?.abort(); controller = undefined; loading.value = false }
 async function load() {
@@ -51,7 +64,7 @@ async function load() {
   } finally { if (version === requestVersion) loading.value = false }
 }
 function update() {
-  if (!host.value) return
+  if (disposed || !host.value) return
   const rect = host.value.getBoundingClientRect()
   const root = props.root?.getBoundingClientRect()
   let top = Math.max(0, root?.top ?? 0)
@@ -74,7 +87,11 @@ function update() {
   else void load()
 }
 function retry() { failed.value = false; void load() }
-function visibilityChanged() { documentVisible.value = !document.hidden; update() }
+function visibilityChanged() {
+  documentVisible.value = !document.hidden
+  if (!documentVisible.value) { cancelGeometry(); html.value = ''; stop() }
+  else update()
+}
 function measure() {
   // Read only the sandbox's validated host dimensions; never trust window messages here.
   const frame = host.value?.querySelector('iframe')
@@ -86,44 +103,45 @@ function measure() {
 }
 function observe() {
   displayObserver?.disconnect(); prefetchObserver?.disconnect()
-  listeningRoot?.removeEventListener('scroll', update)
+  listeningRoot?.removeEventListener('scroll', scheduleGeometry)
   listeningRoot = props.root
-  listeningRoot?.addEventListener('scroll', update, { passive: true })
+  listeningRoot?.addEventListener('scroll', scheduleGeometry, { passive: true })
   if (typeof IntersectionObserver !== 'undefined' && host.value) {
-    displayObserver = new IntersectionObserver(update, { root: props.root, rootMargin: '0px' })
-    prefetchObserver = new IntersectionObserver(update, { root: props.root, rootMargin: '240px 0px' })
+    displayObserver = new IntersectionObserver(scheduleGeometry, { root: props.root, rootMargin: '0px' })
+    prefetchObserver = new IntersectionObserver(scheduleGeometry, { root: props.root, rootMargin: '240px 0px' })
     displayObserver.observe(host.value); prefetchObserver.observe(host.value)
   }
   update()
 }
 watch(() => props.root, () => observe())
 watch(() => [props.resultId, artwork.revision.value, artwork.allowed.value], () => {
-  stop(); html.value = ''
+  cancelGeometry(); stop(); html.value = ''
   height.value = artwork.height(props.resultId) ?? props.minHeight
-  void nextTick(update)
+  void nextTick(() => { if (artwork.allowed.value) scheduleGeometry() })
 }, { flush: 'sync' })
 watch(() => props.resultId, () => { failed.value = false })
 watch(html, () => void nextTick(() => {
+  if (disposed) return
   resizeObserver?.disconnect()
   const frame = host.value?.querySelector('iframe')
   if (frame) resizeObserver?.observe(frame)
-  measure()
+  scheduleGeometry()
 }))
 onMounted(() => {
-  if (typeof ResizeObserver !== 'undefined') resizeObserver = new ResizeObserver(measure)
+  if (typeof ResizeObserver !== 'undefined') resizeObserver = new ResizeObserver(scheduleGeometry)
   document.addEventListener('visibilitychange', visibilityChanged)
   // Capture scroll also covers dialog scroll ancestors; geometry fallback works without IO.
-  window.addEventListener('scroll', update, true)
-  window.addEventListener('resize', update)
+  window.addEventListener('scroll', scheduleGeometry, true)
+  window.addEventListener('resize', scheduleGeometry)
   observe()
 })
 onBeforeUnmount(() => {
-  disposed = true; stop(); html.value = ''
+  disposed = true; cancelGeometry(); stop(); html.value = ''
   displayObserver?.disconnect(); prefetchObserver?.disconnect(); resizeObserver?.disconnect()
-  listeningRoot?.removeEventListener('scroll', update)
+  listeningRoot?.removeEventListener('scroll', scheduleGeometry)
   document.removeEventListener('visibilitychange', visibilityChanged)
-  window.removeEventListener('scroll', update, true)
-  window.removeEventListener('resize', update)
+  window.removeEventListener('scroll', scheduleGeometry, true)
+  window.removeEventListener('resize', scheduleGeometry)
 })
 </script>
 
