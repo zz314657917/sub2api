@@ -5,6 +5,8 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -176,8 +178,8 @@ func TestSettingService_GetModelMarketCatalog_FallsBackToDefault(t *testing.T) {
 	require.Equal(t, "¥0.137/秒", requireModelMarketRow(t, wan27.Rows, "1080p").OurPrice)
 	veoFast := requireModelMarketGroup(t, catalog.Groups, "veo3-1-fast")
 	require.Len(t, veoFast.Rows, 4)
-	require.Equal(t, "¥0.225/秒", requireModelMarketRow(t, veoFast.Rows, "default").OurPrice)
-	require.Equal(t, "¥0.3/秒", requireModelMarketRow(t, veoFast.Rows, "extend-4k").OurPrice)
+	require.Equal(t, "¥0.175/次", requireModelMarketRow(t, veoFast.Rows, "default").OurPrice)
+	require.Equal(t, "¥0.8/次", requireModelMarketRow(t, veoFast.Rows, "extend-4k").OurPrice)
 	doubaoImage := requireModelMarketGroup(t, catalog.Groups, "doubao-seedance-image")
 	require.Equal(t, ModelMarketCategoryImage, doubaoImage.Category)
 	require.True(t, doubaoImage.HideOfficialPrice)
@@ -187,14 +189,14 @@ func TestSettingService_GetModelMarketCatalog_FallsBackToDefault(t *testing.T) {
 	require.Equal(t, "¥0.035", requireModelMarketRow(t, doubaoImage.Rows, "doubao-seedance-4-5-default").OurPrice)
 	doubaoVideo := requireModelMarketGroup(t, catalog.Groups, "doubao-seedance-video")
 	require.Equal(t, ModelMarketCategoryVideo, doubaoVideo.Category)
-	require.Equal(t, 1.0, doubaoVideo.PriceMultiplier)
+	require.Equal(t, 7.0, doubaoVideo.PriceMultiplier)
 	require.True(t, doubaoVideo.HideOfficialPrice)
 	require.True(t, doubaoVideo.HideSaving)
 	require.Len(t, doubaoVideo.Rows, 29)
 	require.Equal(t, "doubao-seedance-2-0-fast-480p-input", doubaoVideo.Rows[0].ID)
 	require.Equal(t, "doubao-seedance-1-0-pro-quality-1080p", doubaoVideo.Rows[len(doubaoVideo.Rows)-1].ID)
-	require.Equal(t, "¥0.0435", requireModelMarketRow(t, doubaoVideo.Rows, "doubao-seedance-2-0-fast-480p-input").OurPrice)
-	require.Equal(t, "¥0.625", requireModelMarketRow(t, doubaoVideo.Rows, "doubao-seedance-2-0-face-1080p").OurPrice)
+	require.Equal(t, "¥0.0296/秒", requireModelMarketRow(t, doubaoVideo.Rows, "doubao-seedance-2-0-fast-480p-input").OurPrice)
+	require.Equal(t, "¥0.625/秒", requireModelMarketRow(t, doubaoVideo.Rows, "doubao-seedance-2-0-face-1080p").OurPrice)
 	require.Empty(t, requireModelMarketRow(t, doubaoVideo.Rows, "doubao-seedance-2-0-face-1080p").OfficialPrice)
 	require.Empty(t, requireModelMarketRow(t, doubaoVideo.Rows, "doubao-seedance-2-0-face-1080p").Saving)
 }
@@ -526,8 +528,8 @@ func TestNormalizeModelMarketCatalog_MigratesVersion6DoubaoSeedanceGroups(t *tes
 	require.Len(t, doubaoVideo.Rows, 29)
 	require.Equal(t, "doubao-seedance-2-0-fast-480p-input", doubaoVideo.Rows[0].ID)
 	require.Equal(t, "doubao-seedance-1-0-pro-quality-1080p", doubaoVideo.Rows[len(doubaoVideo.Rows)-1].ID)
-	require.Equal(t, "¥0.011", requireModelMarketRow(t, doubaoVideo.Rows, "doubao-seedance-1-0-pro-fast-480p").OurPrice)
-	require.Equal(t, "¥0.625", requireModelMarketRow(t, doubaoVideo.Rows, "doubao-seedance-2-0-face-1080p").OurPrice)
+	require.Equal(t, "¥0.011/秒", requireModelMarketRow(t, doubaoVideo.Rows, "doubao-seedance-1-0-pro-fast-480p").OurPrice)
+	require.Equal(t, "¥0.625/秒", requireModelMarketRow(t, doubaoVideo.Rows, "doubao-seedance-2-0-face-1080p").OurPrice)
 }
 
 func TestNormalizeModelMarketCatalog_MigratesVersion7OfficialVideoPrices(t *testing.T) {
@@ -594,8 +596,8 @@ func TestNormalizeModelMarketCatalog_MigratesVersion7OfficialVideoPrices(t *test
 	require.Equal(t, "¥0.137/秒", requireModelMarketRow(t, wan27.Rows, "1080p").OurPrice)
 	veoFast := requireModelMarketGroup(t, catalog.Groups, "veo3-1-fast")
 	require.Len(t, veoFast.Rows, 4)
-	require.Equal(t, "¥0.225/秒", requireModelMarketRow(t, veoFast.Rows, "default").OurPrice)
-	require.Equal(t, "¥0.3/秒", requireModelMarketRow(t, veoFast.Rows, "extend-4k").OurPrice)
+	require.Equal(t, "¥0.175/次", requireModelMarketRow(t, veoFast.Rows, "default").OurPrice)
+	require.Equal(t, "¥0.8/次", requireModelMarketRow(t, veoFast.Rows, "extend-4k").OurPrice)
 	doubaoVideo := requireModelMarketGroup(t, catalog.Groups, "doubao-seedance-video")
 	require.Len(t, doubaoVideo.Rows, 29)
 }
@@ -626,7 +628,7 @@ func TestNormalizeModelMarketCatalog_MigratesVersion8DoubaoSeedanceVideoOrder(t 
 	require.Len(t, doubaoVideo.Rows, 29)
 	require.Equal(t, "doubao-seedance-2-0-fast-480p-input", doubaoVideo.Rows[0].ID)
 	require.Equal(t, "doubao-seedance-2.0-fast · 480P-input", doubaoVideo.Rows[0].Spec)
-	require.Equal(t, "¥0.0435", doubaoVideo.Rows[0].OurPrice)
+	require.Equal(t, "¥0.0296/秒", doubaoVideo.Rows[0].OurPrice)
 	require.Equal(t, "doubao-seedance-1-5-pro-480p", doubaoVideo.Rows[20].ID)
 	require.Equal(t, "doubao-seedance-1-0-pro-quality-1080p", doubaoVideo.Rows[len(doubaoVideo.Rows)-1].ID)
 }
@@ -660,6 +662,147 @@ func TestNormalizeModelMarketCatalog_MigratesVersion10GPTImage2OfficialDisplayPr
 	require.Equal(t, "¥0.1408", requireModelMarketRow(t, official.Rows, "2576x3216:medium").OurPrice)
 	require.True(t, official.HideOfficialPrice)
 	require.True(t, official.HideSaving)
+}
+
+func TestDefaultModelMarketCatalog_OfficialVideoPricesX7(t *testing.T) {
+	catalog := DefaultModelMarketCatalog()
+	videoGroups, videoRows := 0, 0
+	for _, group := range catalog.Groups {
+		if group.Category != ModelMarketCategoryVideo {
+			require.Equal(t, 1.0, group.PriceMultiplier, group.ID)
+			continue
+		}
+		videoGroups++
+		require.Equal(t, 7.0, group.PriceMultiplier, group.ID)
+		unit := "/秒"
+		if group.ID == "veo3-1-fast" {
+			unit = "/次"
+		}
+		for _, row := range group.Rows {
+			videoRows++
+			require.True(t, strings.HasSuffix(row.OurPrice, unit), "%s/%s: %s", group.ID, row.ID, row.OurPrice)
+		}
+	}
+	require.Equal(t, 7, videoGroups)
+	require.Equal(t, 57, videoRows)
+
+	// Golden examples use APIMart's original_price, never its membership prices.
+	for _, tc := range []struct {
+		groupID string
+		rowID   string
+		base    string
+		display float64
+	}{
+		{"doubao-seedance-video", "doubao-seedance-2-0-fast-720p", "¥0.107/秒", 0.749},
+		{"doubao-seedance-video", "doubao-seedance-2-0-1080p", "¥0.443/秒", 3.101},
+		{"group-1783505248249", "row-1783505306521", "¥0.048793/秒", 0.341551},
+		{"seedance-2-5", "row-1786974745545", "¥0.66825/秒", 4.67775},
+		{"kling-v2-6", "pro", "¥0.078125/秒", 0.546875},
+		{"veo3-1-fast", "default", "¥0.175/次", 1.225},
+		{"veo3-1-fast", "extend-4k", "¥0.8/次", 5.6},
+	} {
+		t.Run(tc.groupID+"/"+tc.rowID, func(t *testing.T) {
+			group := requireModelMarketGroup(t, catalog.Groups, tc.groupID)
+			row := requireModelMarketRow(t, group.Rows, tc.rowID)
+			require.Equal(t, tc.base, row.OurPrice)
+			base, err := strconv.ParseFloat(strings.Split(strings.TrimPrefix(row.OurPrice, "¥"), "/")[0], 64)
+			require.NoError(t, err)
+			require.InDelta(t, tc.display, base*group.PriceMultiplier, 1e-10)
+		})
+	}
+}
+
+func TestNormalizeModelMarketCatalog_MigratesOfficialVideoPricesX7PreservingConfiguration(t *testing.T) {
+	for version := 11; version < modelMarketCatalogVersion; version++ {
+		t.Run(strconv.Itoa(version), func(t *testing.T) {
+			input, err := NormalizeModelMarketCatalog(DefaultModelMarketCatalog())
+			require.NoError(t, err)
+			input.Version = version
+			input.UpdatedAt = "2026-10-27"
+			for i := range input.Groups {
+				group := &input.Groups[i]
+				if group.Category != ModelMarketCategoryVideo {
+					continue
+				}
+				group.PriceMultiplier = 7.2
+				group.Enabled = false
+				group.Description = "保留管理员说明"
+				group.SupportedGroupIDs = []int64{20, 10}
+				group.SortOrder += 10
+				for j := range group.Rows {
+					group.Rows[j].OurPrice = "¥99/旧单位"
+					group.Rows[j].Enabled = false
+					group.Rows[j].Note = "保留规格说明"
+				}
+			}
+			video := &input.Groups[6]
+			require.Equal(t, "kling-v3-omni", video.ID)
+			video.Rows = append(video.Rows, ModelMarketPriceRow{
+				ID: "custom", Spec: "自定义规格", OurPrice: "¥3/次", SortOrder: 9999, Enabled: true,
+			})
+			// Administrators may use their own IDs for existing model cards and rows.
+			mini := &input.Groups[len(input.Groups)-2]
+			mini.ID = "custom-mini"
+			mini.Rows[3].ID = "custom-720p"
+
+			catalog, err := NormalizeModelMarketCatalog(input)
+			require.NoError(t, err)
+			require.Equal(t, modelMarketCatalogVersion, catalog.Version)
+			require.Equal(t, input.UpdatedAt, catalog.UpdatedAt)
+			require.Len(t, catalog.Groups, len(input.Groups))
+			expected := DefaultModelMarketCatalog()
+			for _, before := range input.Groups {
+				got := requireModelMarketGroup(t, catalog.Groups, before.ID)
+				if before.Category != ModelMarketCategoryVideo {
+					require.Equal(t, before, got)
+					continue
+				}
+				priceGroupID := before.ID
+				if before.ID == "custom-mini" {
+					priceGroupID = "group-1783505248249"
+				}
+				prices := requireModelMarketGroup(t, expected.Groups, priceGroupID)
+				require.Equal(t, 7.0, got.PriceMultiplier)
+				require.Equal(t, before.Enabled, got.Enabled)
+				require.Equal(t, before.Description, got.Description)
+				require.Equal(t, before.SupportedGroupIDs, got.SupportedGroupIDs)
+				require.Equal(t, before.SortOrder, got.SortOrder)
+				require.Len(t, got.Rows, len(before.Rows))
+				for _, row := range got.Rows {
+					if row.ID == "custom" {
+						require.Equal(t, "¥3/次", row.OurPrice)
+						continue
+					}
+					priceID := row.ID
+					if row.ID == "custom-720p" {
+						priceID = "row-1783505306521"
+					}
+					require.Equal(t, requireModelMarketRow(t, prices.Rows, priceID).OurPrice, row.OurPrice)
+					require.False(t, row.Enabled)
+					require.Equal(t, "保留规格说明", row.Note)
+				}
+			}
+			encoded, err := json.Marshal(catalog)
+			require.NoError(t, err)
+			again, err := ParseModelMarketCatalog(string(encoded))
+			require.NoError(t, err)
+			require.Equal(t, catalog, again)
+		})
+	}
+}
+
+func TestNormalizeModelMarketCatalog_CurrentVersionPreservesEditedVideoPrices(t *testing.T) {
+	catalog, err := NormalizeModelMarketCatalog(DefaultModelMarketCatalog())
+	require.NoError(t, err)
+	for i := range catalog.Groups {
+		if catalog.Groups[i].Category == ModelMarketCategoryVideo {
+			catalog.Groups[i].PriceMultiplier = 1.5
+			catalog.Groups[i].Rows[0].OurPrice = "¥2/次"
+		}
+	}
+	normalized, err := NormalizeModelMarketCatalog(catalog)
+	require.NoError(t, err)
+	require.Equal(t, catalog, normalized)
 }
 
 func requireModelMarketGroup(t *testing.T, groups []ModelMarketGroup, id string) ModelMarketGroup {

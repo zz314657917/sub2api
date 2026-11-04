@@ -17,7 +17,10 @@ const (
 	ModelMarketCategoryImage = "image"
 	ModelMarketCategoryVideo = "video"
 
-	modelMarketCatalogVersion = 11
+	modelMarketCatalogVersion = 16
+
+	// Public catalog display only: APIMart original USD price multiplied by 7.
+	modelMarketVideoPriceMultiplier = 7
 )
 
 type ModelMarketCatalog struct {
@@ -390,6 +393,9 @@ func migrateModelMarketCatalog(catalog *ModelMarketCatalog) {
 	if catalog.Version < 11 {
 		refreshModelMarketGroup(catalog, gptImage2OfficialModelMarketGroup())
 	}
+	if catalog.Version < 16 {
+		applyOfficialVideoModelMarketPricingX7Migration(catalog)
+	}
 	applyModelMarketPriceMultiplierDefaults(catalog)
 	applyModelMarketOurPriceCurrency(catalog)
 	if catalog.Version < modelMarketCatalogVersion {
@@ -442,6 +448,50 @@ func applyOfficialVideoModelMarketPricingMigration(catalog *ModelMarketCatalog) 
 	refreshModelMarketGroup(catalog, wan27ModelMarketGroup())
 	refreshModelMarketGroup(catalog, veo31FastModelMarketGroup())
 	refreshModelMarketGroup(catalog, doubaoSeedanceVideoModelMarketGroup())
+}
+
+func applyOfficialVideoModelMarketPricingX7Migration(catalog *ModelMarketCatalog) {
+	if catalog == nil {
+		return
+	}
+	candidates := []ModelMarketGroup{
+		klingV3OmniModelMarketGroup(),
+		klingV26ModelMarketGroup(),
+		wan27ModelMarketGroup(),
+		veo31FastModelMarketGroup(),
+		doubaoSeedanceVideoModelMarketGroup(),
+		doubaoSeedanceMiniModelMarketGroup(),
+		doubaoSeedance25ModelMarketGroup(),
+	}
+	for _, candidate := range candidates {
+		found := false
+		for i := range catalog.Groups {
+			group := &catalog.Groups[i]
+			if group.Category != ModelMarketCategoryVideo {
+				continue
+			}
+			if normalizeModelMarketID(group.ID) != candidate.ID &&
+				normalizeModelMarketID(group.Title) != candidate.ID &&
+				!strings.EqualFold(strings.TrimSpace(group.Title), candidate.Title) {
+				continue
+			}
+			group.PriceMultiplier = modelMarketVideoPriceMultiplier
+			for j := range group.Rows {
+				row := &group.Rows[j]
+				for _, price := range candidate.Rows {
+					if row.ID == price.ID || strings.EqualFold(row.Spec, price.Spec) {
+						row.OurPrice = price.OurPrice
+						break
+					}
+				}
+			}
+			found = true
+			break
+		}
+		if !found {
+			catalog.Groups = append(catalog.Groups, candidate)
+		}
+	}
 }
 
 func ensureModelMarketGroup(catalog *ModelMarketCatalog, candidate ModelMarketGroup) {
@@ -673,7 +723,7 @@ func doubaoSeedanceVideoModelMarketGroup() ModelMarketGroup {
 		Description:       "豆包 Seedance 1.x/2.0，按模型变体和分辨率计费",
 		HideOfficialPrice: true,
 		HideSaving:        true,
-		PriceMultiplier:   1,
+		PriceMultiplier:   modelMarketVideoPriceMultiplier,
 		SortOrder:         900,
 		Enabled:           true,
 		Rows:              doubaoSeedanceVideoModelMarketRows(),
@@ -682,35 +732,35 @@ func doubaoSeedanceVideoModelMarketGroup() ModelMarketGroup {
 
 func doubaoSeedanceVideoModelMarketRows() []ModelMarketPriceRow {
 	return []ModelMarketPriceRow{
-		{ID: "doubao-seedance-2-0-fast-480p-input", Spec: "doubao-seedance-2.0-fast · 480P-input", OurPrice: modelMarketOurPrice(0.0435), SortOrder: 100, Enabled: true},
-		{ID: "doubao-seedance-2-0-fast-480p", Spec: "doubao-seedance-2.0-fast · 480P", OurPrice: modelMarketOurPrice(0.073), SortOrder: 200, Enabled: true},
-		{ID: "doubao-seedance-2-0-fast-720p-input", Spec: "doubao-seedance-2.0-fast · 720P-input", OurPrice: modelMarketOurPrice(0.094), SortOrder: 300, Enabled: true},
-		{ID: "doubao-seedance-2-0-fast-720p", Spec: "doubao-seedance-2.0-fast · 720P", OurPrice: modelMarketOurPrice(0.157), SortOrder: 400, Enabled: true},
-		{ID: "doubao-seedance-2-0-fast-face-480p-input", Spec: "doubao-seedance-2.0-fast-face · 480P-input", OurPrice: modelMarketOurPrice(0.06), SortOrder: 500, Enabled: true},
-		{ID: "doubao-seedance-2-0-fast-face-480p", Spec: "doubao-seedance-2.0-fast-face · 480P", OurPrice: modelMarketOurPrice(0.1), SortOrder: 600, Enabled: true},
-		{ID: "doubao-seedance-2-0-fast-face-720p-input", Spec: "doubao-seedance-2.0-fast-face · 720P-input", OurPrice: modelMarketOurPrice(0.129), SortOrder: 700, Enabled: true},
-		{ID: "doubao-seedance-2-0-fast-face-720p", Spec: "doubao-seedance-2.0-fast-face · 720P", OurPrice: modelMarketOurPrice(0.215), SortOrder: 800, Enabled: true},
-		{ID: "doubao-seedance-2-0-480p-input", Spec: "doubao-seedance-2.0 · 480P-input", OurPrice: modelMarketOurPrice(0.055), SortOrder: 900, Enabled: true},
-		{ID: "doubao-seedance-2-0-480p", Spec: "doubao-seedance-2.0 · 480P", OurPrice: modelMarketOurPrice(0.0907), SortOrder: 1000, Enabled: true},
-		{ID: "doubao-seedance-2-0-720p-input", Spec: "doubao-seedance-2.0 · 720P-input", OurPrice: modelMarketOurPrice(0.118), SortOrder: 1100, Enabled: true},
-		{ID: "doubao-seedance-2-0-720p", Spec: "doubao-seedance-2.0 · 720P", OurPrice: modelMarketOurPrice(0.1952), SortOrder: 1200, Enabled: true},
-		{ID: "doubao-seedance-2-0-1080p-input", Spec: "doubao-seedance-2.0 · 1080P-input", OurPrice: modelMarketOurPrice(0.267), SortOrder: 1300, Enabled: true},
-		{ID: "doubao-seedance-2-0-1080p", Spec: "doubao-seedance-2.0 · 1080P", OurPrice: modelMarketOurPrice(0.44), SortOrder: 1400, Enabled: true},
-		{ID: "doubao-seedance-2-0-face-480p-input", Spec: "doubao-seedance-2.0-face · 480P-input", OurPrice: modelMarketOurPrice(0.075), SortOrder: 1500, Enabled: true},
-		{ID: "doubao-seedance-2-0-face-480p", Spec: "doubao-seedance-2.0-face · 480P", OurPrice: modelMarketOurPrice(0.124), SortOrder: 1600, Enabled: true},
-		{ID: "doubao-seedance-2-0-face-720p-input", Spec: "doubao-seedance-2.0-face · 720P-input", OurPrice: modelMarketOurPrice(0.161), SortOrder: 1700, Enabled: true},
-		{ID: "doubao-seedance-2-0-face-720p", Spec: "doubao-seedance-2.0-face · 720P", OurPrice: modelMarketOurPrice(0.267), SortOrder: 1800, Enabled: true},
-		{ID: "doubao-seedance-2-0-face-1080p-input", Spec: "doubao-seedance-2.0-face · 1080P-input", OurPrice: modelMarketOurPrice(0.375), SortOrder: 1900, Enabled: true},
-		{ID: "doubao-seedance-2-0-face-1080p", Spec: "doubao-seedance-2.0-face · 1080P", OurPrice: modelMarketOurPrice(0.625), SortOrder: 2000, Enabled: true},
-		{ID: "doubao-seedance-1-5-pro-480p", Spec: "doubao-seedance-1.5-pro · 480P", OurPrice: modelMarketOurPrice(0.0255), SortOrder: 2100, Enabled: true},
-		{ID: "doubao-seedance-1-5-pro-720p", Spec: "doubao-seedance-1.5-pro · 720P", OurPrice: modelMarketOurPrice(0.055), SortOrder: 2200, Enabled: true},
-		{ID: "doubao-seedance-1-5-pro-1080p", Spec: "doubao-seedance-1.5-pro · 1080P", OurPrice: modelMarketOurPrice(0.135), SortOrder: 2300, Enabled: true},
-		{ID: "doubao-seedance-1-0-pro-fast-480p", Spec: "doubao-seedance-1.0-pro-fast · 480P", OurPrice: modelMarketOurPrice(0.011), SortOrder: 2400, Enabled: true},
-		{ID: "doubao-seedance-1-0-pro-fast-720p", Spec: "doubao-seedance-1.0-pro-fast · 720P", OurPrice: modelMarketOurPrice(0.025), SortOrder: 2500, Enabled: true},
-		{ID: "doubao-seedance-1-0-pro-fast-1080p", Spec: "doubao-seedance-1.0-pro-fast · 1080P", OurPrice: modelMarketOurPrice(0.052), SortOrder: 2600, Enabled: true},
-		{ID: "doubao-seedance-1-0-pro-quality-480p", Spec: "doubao-seedance-1.0-pro-quality · 480P", OurPrice: modelMarketOurPrice(0.0255), SortOrder: 2700, Enabled: true},
-		{ID: "doubao-seedance-1-0-pro-quality-720p", Spec: "doubao-seedance-1.0-pro-quality · 720P", OurPrice: modelMarketOurPrice(0.055), SortOrder: 2800, Enabled: true},
-		{ID: "doubao-seedance-1-0-pro-quality-1080p", Spec: "doubao-seedance-1.0-pro-quality · 1080P", OurPrice: modelMarketOurPrice(0.13), SortOrder: 2900, Enabled: true},
+		{ID: "doubao-seedance-2-0-fast-480p-input", Spec: "doubao-seedance-2.0-fast · 480P-input", OurPrice: modelMarketOurPrice(0.0296) + "/秒", SortOrder: 100, Enabled: true},
+		{ID: "doubao-seedance-2-0-fast-480p", Spec: "doubao-seedance-2.0-fast · 480P", OurPrice: modelMarketOurPrice(0.0498) + "/秒", SortOrder: 200, Enabled: true},
+		{ID: "doubao-seedance-2-0-fast-720p-input", Spec: "doubao-seedance-2.0-fast · 720P-input", OurPrice: modelMarketOurPrice(0.0641) + "/秒", SortOrder: 300, Enabled: true},
+		{ID: "doubao-seedance-2-0-fast-720p", Spec: "doubao-seedance-2.0-fast · 720P", OurPrice: modelMarketOurPrice(0.107) + "/秒", SortOrder: 400, Enabled: true},
+		{ID: "doubao-seedance-2-0-fast-face-480p-input", Spec: "doubao-seedance-2.0-fast-face · 480P-input", OurPrice: modelMarketOurPrice(0.06) + "/秒", SortOrder: 500, Enabled: true},
+		{ID: "doubao-seedance-2-0-fast-face-480p", Spec: "doubao-seedance-2.0-fast-face · 480P", OurPrice: modelMarketOurPrice(0.1) + "/秒", SortOrder: 600, Enabled: true},
+		{ID: "doubao-seedance-2-0-fast-face-720p-input", Spec: "doubao-seedance-2.0-fast-face · 720P-input", OurPrice: modelMarketOurPrice(0.129) + "/秒", SortOrder: 700, Enabled: true},
+		{ID: "doubao-seedance-2-0-fast-face-720p", Spec: "doubao-seedance-2.0-fast-face · 720P", OurPrice: modelMarketOurPrice(0.215) + "/秒", SortOrder: 800, Enabled: true},
+		{ID: "doubao-seedance-2-0-480p-input", Spec: "doubao-seedance-2.0 · 480P-input", OurPrice: modelMarketOurPrice(0.05) + "/秒", SortOrder: 900, Enabled: true},
+		{ID: "doubao-seedance-2-0-480p", Spec: "doubao-seedance-2.0 · 480P", OurPrice: modelMarketOurPrice(0.0825) + "/秒", SortOrder: 1000, Enabled: true},
+		{ID: "doubao-seedance-2-0-720p-input", Spec: "doubao-seedance-2.0 · 720P-input", OurPrice: modelMarketOurPrice(0.1073) + "/秒", SortOrder: 1100, Enabled: true},
+		{ID: "doubao-seedance-2-0-720p", Spec: "doubao-seedance-2.0 · 720P", OurPrice: modelMarketOurPrice(0.1775) + "/秒", SortOrder: 1200, Enabled: true},
+		{ID: "doubao-seedance-2-0-1080p-input", Spec: "doubao-seedance-2.0 · 1080P-input", OurPrice: modelMarketOurPrice(0.2696) + "/秒", SortOrder: 1300, Enabled: true},
+		{ID: "doubao-seedance-2-0-1080p", Spec: "doubao-seedance-2.0 · 1080P", OurPrice: modelMarketOurPrice(0.443) + "/秒", SortOrder: 1400, Enabled: true},
+		{ID: "doubao-seedance-2-0-face-480p-input", Spec: "doubao-seedance-2.0-face · 480P-input", OurPrice: modelMarketOurPrice(0.075) + "/秒", SortOrder: 1500, Enabled: true},
+		{ID: "doubao-seedance-2-0-face-480p", Spec: "doubao-seedance-2.0-face · 480P", OurPrice: modelMarketOurPrice(0.124) + "/秒", SortOrder: 1600, Enabled: true},
+		{ID: "doubao-seedance-2-0-face-720p-input", Spec: "doubao-seedance-2.0-face · 720P-input", OurPrice: modelMarketOurPrice(0.161) + "/秒", SortOrder: 1700, Enabled: true},
+		{ID: "doubao-seedance-2-0-face-720p", Spec: "doubao-seedance-2.0-face · 720P", OurPrice: modelMarketOurPrice(0.267) + "/秒", SortOrder: 1800, Enabled: true},
+		{ID: "doubao-seedance-2-0-face-1080p-input", Spec: "doubao-seedance-2.0-face · 1080P-input", OurPrice: modelMarketOurPrice(0.375) + "/秒", SortOrder: 1900, Enabled: true},
+		{ID: "doubao-seedance-2-0-face-1080p", Spec: "doubao-seedance-2.0-face · 1080P", OurPrice: modelMarketOurPrice(0.625) + "/秒", SortOrder: 2000, Enabled: true},
+		{ID: "doubao-seedance-1-5-pro-480p", Spec: "doubao-seedance-1.5-pro · 480P", OurPrice: modelMarketOurPrice(0.0255) + "/秒", SortOrder: 2100, Enabled: true},
+		{ID: "doubao-seedance-1-5-pro-720p", Spec: "doubao-seedance-1.5-pro · 720P", OurPrice: modelMarketOurPrice(0.055) + "/秒", SortOrder: 2200, Enabled: true},
+		{ID: "doubao-seedance-1-5-pro-1080p", Spec: "doubao-seedance-1.5-pro · 1080P", OurPrice: modelMarketOurPrice(0.135) + "/秒", SortOrder: 2300, Enabled: true},
+		{ID: "doubao-seedance-1-0-pro-fast-480p", Spec: "doubao-seedance-1.0-pro-fast · 480P", OurPrice: modelMarketOurPrice(0.011) + "/秒", SortOrder: 2400, Enabled: true},
+		{ID: "doubao-seedance-1-0-pro-fast-720p", Spec: "doubao-seedance-1.0-pro-fast · 720P", OurPrice: modelMarketOurPrice(0.025) + "/秒", SortOrder: 2500, Enabled: true},
+		{ID: "doubao-seedance-1-0-pro-fast-1080p", Spec: "doubao-seedance-1.0-pro-fast · 1080P", OurPrice: modelMarketOurPrice(0.052) + "/秒", SortOrder: 2600, Enabled: true},
+		{ID: "doubao-seedance-1-0-pro-quality-480p", Spec: "doubao-seedance-1.0-pro-quality · 480P", OurPrice: modelMarketOurPrice(0.0255) + "/秒", SortOrder: 2700, Enabled: true},
+		{ID: "doubao-seedance-1-0-pro-quality-720p", Spec: "doubao-seedance-1.0-pro-quality · 720P", OurPrice: modelMarketOurPrice(0.055) + "/秒", SortOrder: 2800, Enabled: true},
+		{ID: "doubao-seedance-1-0-pro-quality-1080p", Spec: "doubao-seedance-1.0-pro-quality · 1080P", OurPrice: modelMarketOurPrice(0.13) + "/秒", SortOrder: 2900, Enabled: true},
 	}
 }
 
@@ -757,7 +807,7 @@ func klingV3OmniModelMarketGroup() ModelMarketGroup {
 		Description:       "可灵 3.0 Omni，按能力规格计费",
 		HideOfficialPrice: true,
 		HideSaving:        true,
-		PriceMultiplier:   1,
+		PriceMultiplier:   modelMarketVideoPriceMultiplier,
 		SortOrder:         500,
 		Enabled:           true,
 		Rows: []ModelMarketPriceRow{
@@ -782,7 +832,7 @@ func klingV26ModelMarketGroup() ModelMarketGroup {
 		Description:       "可灵 2.6，按默认和专业档计费",
 		HideOfficialPrice: true,
 		HideSaving:        true,
-		PriceMultiplier:   1,
+		PriceMultiplier:   modelMarketVideoPriceMultiplier,
 		SortOrder:         600,
 		Enabled:           true,
 		Rows: []ModelMarketPriceRow{
@@ -803,7 +853,7 @@ func wan27ModelMarketGroup() ModelMarketGroup {
 		Description:       "Wan 视频模型，按分辨率档计费",
 		HideOfficialPrice: true,
 		HideSaving:        true,
-		PriceMultiplier:   1,
+		PriceMultiplier:   modelMarketVideoPriceMultiplier,
 		SortOrder:         700,
 		Enabled:           true,
 		Rows: []ModelMarketPriceRow{
@@ -822,14 +872,58 @@ func veo31FastModelMarketGroup() ModelMarketGroup {
 		Description:       "Google Veo fast 档，按视频规格计费",
 		HideOfficialPrice: true,
 		HideSaving:        true,
-		PriceMultiplier:   1,
+		PriceMultiplier:   modelMarketVideoPriceMultiplier,
 		SortOrder:         800,
 		Enabled:           true,
 		Rows: []ModelMarketPriceRow{
-			{ID: "default", Spec: "默认", OurPrice: modelMarketOurPrice(0.225) + "/秒", SortOrder: 100, Enabled: true},
-			{ID: "extend", Spec: "extend", OurPrice: modelMarketOurPrice(0.1) + "/秒", SortOrder: 200, Enabled: true},
-			{ID: "4k", Spec: "4K", OurPrice: modelMarketOurPrice(0.3) + "/秒", SortOrder: 300, Enabled: true},
-			{ID: "extend-4k", Spec: "EXTEND-4K", OurPrice: modelMarketOurPrice(0.3) + "/秒", SortOrder: 400, Enabled: true},
+			{ID: "default", Spec: "默认", OurPrice: modelMarketOurPrice(0.175) + "/次", SortOrder: 100, Enabled: true},
+			{ID: "extend", Spec: "extend", OurPrice: modelMarketOurPrice(0.175) + "/次", SortOrder: 200, Enabled: true},
+			{ID: "4k", Spec: "4K", OurPrice: modelMarketOurPrice(0.8) + "/次", SortOrder: 300, Enabled: true},
+			{ID: "extend-4k", Spec: "EXTEND-4K", OurPrice: modelMarketOurPrice(0.8) + "/次", SortOrder: 400, Enabled: true},
+		},
+	}
+}
+
+func doubaoSeedanceMiniModelMarketGroup() ModelMarketGroup {
+	return ModelMarketGroup{
+		ID:                "group-1783505248249",
+		Title:             "Doubao-Seedance-2.0-mini",
+		Category:          ModelMarketCategoryVideo,
+		Platform:          "bytedance",
+		Description:       "豆包 Seedance 2.0 Mini，按分辨率和输入规格计费",
+		HideOfficialPrice: true,
+		HideSaving:        true,
+		PriceMultiplier:   modelMarketVideoPriceMultiplier,
+		SortOrder:         950,
+		Enabled:           true,
+		Rows: []ModelMarketPriceRow{
+			{ID: "row-1783505313753", Spec: "480P-input", OurPrice: modelMarketOurPrice(0.01381) + "/秒", SortOrder: 100, Enabled: true},
+			{ID: "row-1783505307724", Spec: "480P", OurPrice: modelMarketOurPrice(0.022689) + "/秒", SortOrder: 200, Enabled: true},
+			{ID: "row-1783505307543", Spec: "720P-input", OurPrice: modelMarketOurPrice(0.0297) + "/秒", SortOrder: 300, Enabled: true},
+			{ID: "row-1783505306521", Spec: "720P", OurPrice: modelMarketOurPrice(0.048793) + "/秒", SortOrder: 400, Enabled: true},
+		},
+	}
+}
+
+func doubaoSeedance25ModelMarketGroup() ModelMarketGroup {
+	return ModelMarketGroup{
+		ID:                "seedance-2-5",
+		Title:             "Doubao Seedance 2.5",
+		Category:          ModelMarketCategoryVideo,
+		Platform:          "bytedance",
+		Description:       "豆包 Seedance 2.5，按分辨率和输入规格计费",
+		HideOfficialPrice: true,
+		HideSaving:        true,
+		PriceMultiplier:   modelMarketVideoPriceMultiplier,
+		SortOrder:         1000,
+		Enabled:           true,
+		Rows: []ModelMarketPriceRow{
+			{ID: "row-1786974751659", Spec: "480P-input", OurPrice: modelMarketOurPrice(0.072) + "/秒", SortOrder: 100, Enabled: true},
+			{ID: "row-1786974751489", Spec: "480P", OurPrice: modelMarketOurPrice(0.1201) + "/秒", SortOrder: 200, Enabled: true},
+			{ID: "row-1786974751152", Spec: "720P-input", OurPrice: modelMarketOurPrice(0.162) + "/秒", SortOrder: 300, Enabled: true},
+			{ID: "row-1786974750959", Spec: "720P", OurPrice: modelMarketOurPrice(0.27) + "/秒", SortOrder: 400, Enabled: true},
+			{ID: "row-1786974750779", Spec: "1080P-input", OurPrice: modelMarketOurPrice(0.399) + "/秒", SortOrder: 500, Enabled: true},
+			{ID: "row-1786974745545", Spec: "1080P", OurPrice: modelMarketOurPrice(0.66825) + "/秒", SortOrder: 600, Enabled: true},
 		},
 	}
 }
@@ -922,6 +1016,8 @@ func DefaultModelMarketCatalog() *ModelMarketCatalog {
 			wan27ModelMarketGroup(),
 			veo31FastModelMarketGroup(),
 			doubaoSeedanceVideoModelMarketGroup(),
+			doubaoSeedanceMiniModelMarketGroup(),
+			doubaoSeedance25ModelMarketGroup(),
 		},
 	}
 }
