@@ -54,6 +54,61 @@ describe('API Client', () => {
 
   // --- 请求拦截器 ---
 
+  it.each([
+    ['17', 17],
+    ['0', 0],
+    [' 60 ', 60],
+    ['61', 61],
+    ['0002', 2],
+    ['9007199254740992', 9007199254740992],
+    [undefined, undefined],
+    ['', undefined],
+    [' ', undefined],
+    ['-1', undefined],
+    ['1.5', undefined],
+    ['1.0', undefined],
+    ['+1', undefined],
+    ['1e2', undefined],
+    ['0x10', undefined],
+    ['NaN', undefined],
+    ['Infinity', undefined],
+    ['9'.repeat(400), undefined],
+    ['Wed, 21 Oct 2026 07:28:00 GMT', undefined],
+  ])('UpstreamFive: preserves only finite integer Retry-After delta-seconds (%s)', async (retryAfter, expected) => {
+    const adapter = vi.fn().mockRejectedValue({
+      response: {
+        status: 429,
+        data: { code: 'RATE_LIMITED', message: 'Too many requests', metadata: { scope: 'user' } },
+        headers: retryAfter === undefined ? {} : new axios.AxiosHeaders({ 'Retry-After': retryAfter }),
+      },
+      config: { url: '/usage', headers: {} },
+    })
+    apiClient.defaults.adapter = adapter
+    const error = await apiClient.get('/usage').catch((err) => err)
+    expect(error).toMatchObject({
+      status: 429, code: 'RATE_LIMITED', message: 'Too many requests', metadata: { scope: 'user' },
+    })
+    expect(error.retry_after_seconds).toBe(expected)
+    expect(adapter).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    [{ 'retry-after': '2' }, 2],
+    [{ 'Retry-After': '3' }, 3],
+    // Axios normalizes numeric adapter headers to strings before the interceptor.
+    [{ 'retry-after': 2 }, 2],
+    [{ 'retry-after': ['2', '3'] }, undefined],
+    [undefined, undefined],
+  ])('UpstreamFive: accepts plain headers and handles absent or invalid header values (%j)', async (headers, expected) => {
+    apiClient.defaults.adapter = vi.fn().mockRejectedValue({
+      response: { status: 429, data: {}, headers },
+      config: { url: '/usage', headers: {} },
+    })
+    const error = await apiClient.get('/usage').catch((err) => err)
+    expect(error.status).toBe(429)
+    expect(error.retry_after_seconds).toBe(expected)
+  })
+
   describe('请求拦截器', () => {
     it('规范化相对 API base，避免在回调页拼出相对 v1 路径', async () => {
       vi.resetModules()

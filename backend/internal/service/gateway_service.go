@@ -5372,6 +5372,8 @@ func (s *GatewayService) forwardAnthropicAPIKeyPassthroughWithInput(
 	}
 	// Pre-filter: strip empty text blocks (including nested in tool_result) to prevent upstream 400.
 	input.Body = StripEmptyTextBlocks(input.Body)
+	// Apply the mapped upstream model's thinking protocol before the first send.
+	input.Body = FilterThinkingBlocks(input.Body, input.RequestModel)
 
 	// 重试间复用同一请求体，避免每次 string(body) 产生额外分配。
 	setOpsUpstreamRequestBody(c, input.Body)

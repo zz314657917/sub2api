@@ -1,4 +1,5 @@
 export default {
+    exportRateLimited: '请求过于频繁，{seconds} 秒后自动继续导出',
     console: {
       workspace: '我的工作空间',
       accountOverview: '账户概览',

@@ -1928,22 +1928,45 @@ const escapeCSVValue = (value: unknown): string => {
   return str
 }
 
+const EXPORT_PAGE_SIZE = 1000
+const EXPORT_RATE_LIMIT_MAX_RETRIES = 3
+const EXPORT_RATE_LIMIT_MAX_WAIT_SECONDS = 60
+
+const queryExportPage = async (params: UsageTableQueryParams) => {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await usageAPI.query({ ...params })
+    } catch (error) {
+      const rateLimit = error as { status?: number; retry_after_seconds?: unknown } | null
+      if (rateLimit?.status !== 429 || attempt >= EXPORT_RATE_LIMIT_MAX_RETRIES) throw error
+      const seconds = rateLimit.retry_after_seconds
+      const waitSeconds = typeof seconds === 'number' && Number.isFinite(seconds) &&
+        Number.isInteger(seconds) && seconds >= 0
+        ? Math.min(Math.max(seconds, 1), EXPORT_RATE_LIMIT_MAX_WAIT_SECONDS)
+        : EXPORT_RATE_LIMIT_MAX_WAIT_SECONDS
+      appStore.showInfo(t('dashboard.exportRateLimited', { seconds: waitSeconds }))
+      await new Promise((resolve) => setTimeout(resolve, waitSeconds * 1000))
+    }
+  }
+}
+
 const exportToCSV = async () => {
+  if (exporting.value) return
   if (pagination.total === 0) {
     appStore.showWarning(t('usage.noDataToExport'))
     return
   }
 
   exporting.value = true
-  appStore.showInfo(t('usage.preparingExport'))
-
   try {
+    const exportParams = buildUsageQueryParams(1, EXPORT_PAGE_SIZE)
+    const totalRequests = Math.ceil(pagination.total / EXPORT_PAGE_SIZE)
+    const filename = `usage_${exportParams.start_date}_to_${exportParams.end_date}.csv`
+    appStore.showInfo(t('usage.preparingExport'))
     const allLogs: UsageLog[] = []
-    const pageSize = 100 // Use a larger page size for export to reduce requests
-    const totalRequests = Math.ceil(pagination.total / pageSize)
 
     for (let page = 1; page <= totalRequests; page++) {
-      const response = await usageAPI.query(buildUsageQueryParams(page, pageSize))
+      const response = await queryExportPage({ ...exportParams, page })
       allLogs.push(...response.items)
     }
 
@@ -2014,11 +2037,14 @@ const exportToCSV = async () => {
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `usage_${filters.value.start_date}_to_${filters.value.end_date}.csv`
-    link.click()
-    window.URL.revokeObjectURL(url)
+    try {
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      link.click()
+    } finally {
+      window.URL.revokeObjectURL(url)
+    }
 
     appStore.showSuccess(t('usage.exportSuccess'))
   } catch (error) {

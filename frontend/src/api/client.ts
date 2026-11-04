@@ -62,6 +62,16 @@ apiClient.interceptors.request.use(
 
 // ==================== Response Interceptor ====================
 
+// Only delta-seconds are supported; HTTP-date and malformed values use the caller's default.
+const parseRetryAfterSeconds = (headers: AxiosResponse['headers'] | undefined): number | undefined => {
+  const raw = headers instanceof axios.AxiosHeaders
+    ? headers.get('retry-after')
+    : headers?.['retry-after'] ?? headers?.['Retry-After']
+  if (typeof raw !== 'string' || !/^\d+$/.test(raw.trim())) return undefined
+  const seconds = Number(raw.trim())
+  return Number.isFinite(seconds) && Number.isInteger(seconds) ? seconds : undefined
+}
+
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => {
     // Unwrap standard API response format { code, message, data }
@@ -226,6 +236,7 @@ apiClient.interceptors.response.use(
         error: apiData.error,
         message: apiData.message || apiData.detail || error.message,
         metadata: apiData.metadata,
+        retry_after_seconds: parseRetryAfterSeconds(error.response.headers),
       })
     }
 

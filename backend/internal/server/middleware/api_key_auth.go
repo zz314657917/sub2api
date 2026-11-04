@@ -75,6 +75,9 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 				AbortWithError(c, 401, "INVALID_API_KEY", "Invalid API key")
 				return
 			}
+			if abortIfAPIKeyLookupClientGone(c) {
+				return
+			}
 			AbortWithError(c, 500, "INTERNAL_ERROR", "Failed to validate API key")
 			return
 		}
@@ -240,6 +243,16 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 			applyAPIKeyRouteCooldownAfterRequest(c, apiKeyService, currentAPIKeyFromContext(c, apiKey))
 		}
 	}
+}
+
+// Only cancellation of the original request identifies a disconnect. Request
+// and lookup deadlines remain internal errors.
+func abortIfAPIKeyLookupClientGone(c *gin.Context) bool {
+	if errors.Is(c.Request.Context().Err(), context.Canceled) {
+		c.AbortWithStatus(499)
+		return true
+	}
+	return false
 }
 
 func withUnavailableSubscriptionRouteGroups(ctx context.Context, apiKey *service.APIKey, subscriptionService *service.SubscriptionService) *service.APIKey {

@@ -1,4 +1,5 @@
 export default {
+    exportRateLimited: 'Too many requests, export will resume in {seconds} seconds',
     console: {
       workspace: 'YOUR WORKSPACE',
       accountOverview: 'Account overview',

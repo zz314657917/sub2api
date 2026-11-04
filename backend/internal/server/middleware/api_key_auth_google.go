@@ -40,6 +40,9 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 				abortWithGoogleError(c, 401, "Invalid API key")
 				return
 			}
+			if abortIfAPIKeyLookupClientGone(c) {
+				return
+			}
 			abortWithGoogleError(c, 500, "Failed to validate API key")
 			return
 		}

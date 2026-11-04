@@ -1,6 +1,8 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
+import enDashboard from '@/i18n/locales/en/dashboard'
+import zhDashboard from '@/i18n/locales/zh/dashboard'
 
 import UsageView from '../UsageView.vue'
 import type { UserSubscription } from '@/types'
@@ -124,6 +126,7 @@ const messages: Record<string, string> = {
   'usage.preparingExport': 'Preparing export...',
   'usage.exportSuccess': 'Export success',
   'usage.exportFailed': 'Export failed',
+  'dashboard.exportRateLimited': 'Export resumes in {seconds} seconds',
   'usage.noDataToExport': 'No data',
   'usage.failedToLoad': 'Failed to load',
   'usage.noRecords': 'No records',
@@ -246,7 +249,8 @@ vi.mock('vue-i18n', async () => {
   return {
     ...actual,
     useI18n: () => ({
-      t: (key: string) => messages[key] ?? key,
+      t: (key: string, params?: Record<string, unknown>) =>
+        (messages[key] ?? key).replace(/\{(\w+)\}/g, (match, name) => String(params?.[name] ?? match)),
       te: (key: string) => key in messages,
     }),
   }
@@ -560,6 +564,7 @@ describe('user UsageView', () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.restoreAllMocks()
   })
 
@@ -1161,6 +1166,10 @@ describe('user UsageView', () => {
       const row = Object.fromEntries(headers.map((header, index) => [header, values[index]]))
       expect(row['Billed Cost']).toBe('0.09288300')
       expect(row['Original Cost']).toBe('0.09288300')
+      expect(row['Input Tokens']).toBe('4057')
+      expect(row['Output Tokens']).toBe('101')
+      expect(row['Cache Read Tokens']).toBe('278272')
+      expect(row['Cache Creation Tokens']).toBe('0')
       expect(row['Billed Cost']).not.toContain('$')
       expect(row['Billed Cost']).not.toContain('✪')
       expect(row['Original Cost']).not.toContain('$')
@@ -1168,7 +1177,7 @@ describe('user UsageView', () => {
       expect(
         query.mock.calls.some((call) => {
           const params = call[0] as Record<string, unknown> | undefined
-          return params?.page_size === 100 && params?.group_id === 9
+          return params?.page_size === 1000 && params?.group_id === 9
         })
       ).toBe(true)
       expect(csvExport.clickSpy).toHaveBeenCalled()
@@ -1177,6 +1186,240 @@ describe('user UsageView', () => {
       csvExport.restore()
     }
   })
+
+  it('UpstreamFive: provides both locale notices with the duration placeholder', () => {
+    expect(enDashboard.exportRateLimited).toBe('Too many requests, export will resume in {seconds} seconds')
+    expect(zhDashboard.exportRateLimited).toBe('请求过于频繁，{seconds} 秒后自动继续导出')
+  })
+
+  it.each([
+    [0, 1000], [1, 1000], [2, 2000], [60, 60000], [61, 60000],
+    [Number.MAX_VALUE, 60000], [undefined, 60000], [null, 60000],
+    [NaN, 60000], [Infinity, 60000], [-1, 60000], [1.5, 60000],
+    ['2', 60000], ['Wed, 21 Oct 2026 07:28:00 GMT', 60000],
+  ])('UpstreamFive: waits exactly the bounded delay for %s', async (retryAfter, delay) => {
+    const wrapper = await mountUsageView()
+    const state = (wrapper.vm as any).$?.setupState
+    const csv = captureCsvExport()
+    query.mockClear()
+    query.mockRejectedValueOnce({ status: 429, retry_after_seconds: retryAfter })
+    vi.useFakeTimers()
+    try {
+      const pending = state.exportToCSV()
+      await vi.advanceTimersByTimeAsync(delay - 1)
+      expect(query).toHaveBeenCalledTimes(1)
+      expect(csv.getBlob()).toBeNull()
+      expect(state.exporting).toBe(true)
+      expect(showInfo).toHaveBeenCalledWith(`Export resumes in ${delay / 1000} seconds`)
+      await vi.advanceTimersByTimeAsync(1)
+      await pending
+      expect(query).toHaveBeenCalledTimes(2)
+      expect(query.mock.calls[1]).toEqual(query.mock.calls[0])
+      expect(query.mock.calls[0][0].page_size).toBe(1000)
+      expect(csv.clickSpy).toHaveBeenCalledTimes(1)
+      expect(state.exporting).toBe(false)
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      csv.restore()
+      wrapper.unmount()
+    }
+  })
+
+  it.each([[1, 1], [1000, 1], [1001, 2], [2000, 2], [2001, 3]])(
+    'UpstreamFive: exports %i total rows using %i fixed 1000-row pages',
+    async (total, pages) => {
+      const wrapper = await mountUsageView()
+      const state = (wrapper.vm as any).$?.setupState
+      const csv = captureCsvExport()
+      state.pagination.total = total
+      query.mockClear()
+      try {
+        await state.exportToCSV()
+        expect(query).toHaveBeenCalledTimes(pages)
+        expect(query.mock.calls.map(([params]) => [params.page, params.page_size])).toEqual(
+          Array.from({ length: pages }, (_, index) => [index + 1, 1000])
+        )
+        expect(csv.clickSpy).toHaveBeenCalledTimes(1)
+      } finally {
+        csv.restore()
+        wrapper.unmount()
+      }
+    }
+  )
+
+  it('UpstreamFive: freezes all filters, ordering, dates, page count and filename across UI changes and retries', async () => {
+    const wrapper = await mountUsageView()
+    const state = (wrapper.vm as any).$?.setupState
+    state.filters = {
+      api_key_id: 3, group_id: 9, model: 'initial-model', request_type: 'stream',
+      native_compaction_v2: true, billing_type: 1, billing_mode: 'token',
+      start_date: '2026-03-01', end_date: '2026-03-08',
+    }
+    state.pagination.total = 1001
+    state.sortState.sort_by = 'created_at'
+    state.sortState.sort_order = 'asc'
+    query.mockClear()
+    query.mockRejectedValueOnce({ status: 429, retry_after_seconds: 2 })
+    const csv = captureCsvExport()
+    vi.useFakeTimers()
+    try {
+      const pending = state.exportToCSV()
+      await vi.advanceTimersByTimeAsync(0)
+      const initial = { ...query.mock.calls[0][0] }
+      expect(initial).toMatchObject({
+        page: 1, page_size: 1000, api_key_id: 3, group_id: 9, model: 'initial-model',
+        request_type: 'stream', native_compaction_v2: true, billing_type: 1, billing_mode: 'token',
+        start_date: '2026-03-01', end_date: '2026-03-08', sort_by: 'created_at', sort_order: 'asc',
+      })
+      expect(initial.timezone).toEqual(expect.any(String))
+      // Real mounted controls still work while export is waiting.
+      await wrapper.find('select[data-placeholder="All Groups"]').setValue('')
+      state.filters = {
+        api_key_id: 88, group_id: 77, model: 'later-model', request_type: 'sync',
+        native_compaction_v2: false, billing_type: 0, billing_mode: 'image',
+        start_date: '2030-01-01', end_date: '2030-01-02',
+      }
+      state.sortState.sort_by = 'model'
+      state.sortState.sort_order = 'desc'
+      state.pagination.total = 9001
+      state.pagination.pages = 10
+      state.pagination.page_size = 10
+      state.pagination.page = 9
+      await nextTick()
+      const button = wrapper.findAll('button').find((item) => item.text() === 'Exporting...')!
+      expect(button.attributes('disabled')).toBeDefined()
+      await state.exportToCSV()
+      const beforeRetry = query.mock.calls.filter(([params]) => params.page_size === 1000)
+      expect(beforeRetry).toHaveLength(1)
+      await vi.advanceTimersByTimeAsync(2000)
+      await pending
+      const exports = query.mock.calls.filter(([params]) => params.page_size === 1000)
+      expect(exports.map(([params]) => params)).toEqual([initial, initial, { ...initial, page: 2 }])
+      expect(csv.clickSpy).toHaveBeenCalledTimes(1)
+      expect((csv.clickSpy.mock.instances[0] as HTMLAnchorElement).download)
+        .toBe('usage_2026-03-01_to_2026-03-08.csv')
+      expect(state.exporting).toBe(false)
+    } finally {
+      csv.restore()
+      wrapper.unmount()
+    }
+  })
+
+  it('UpstreamFive: resets the three-retry budget for each page and downloads once after all pages succeed', async () => {
+    const wrapper = await mountUsageView()
+    const state = (wrapper.vm as any).$?.setupState
+    state.pagination.total = 1001
+    const attempts = new Map<number, number>()
+    query.mockClear()
+    query.mockImplementation(async (params) => {
+      const attempt = (attempts.get(params.page) ?? 0) + 1
+      attempts.set(params.page, attempt)
+      if (attempt <= 3) throw { status: 429, retry_after_seconds: 1 }
+      return { items: [baseUsageLog()], total: 1, pages: 1 }
+    })
+    const csv = captureCsvExport()
+    vi.useFakeTimers()
+    try {
+      const pending = state.exportToCSV()
+      await vi.advanceTimersByTimeAsync(5999)
+      expect(csv.getBlob()).toBeNull()
+      expect(query).toHaveBeenCalledTimes(7)
+      await vi.advanceTimersByTimeAsync(1)
+      await pending
+      expect(query.mock.calls.map(([params]) => params.page)).toEqual([1, 1, 1, 1, 2, 2, 2, 2])
+      expect(csv.clickSpy).toHaveBeenCalledTimes(1)
+      expect(state.exporting).toBe(false)
+    } finally {
+      csv.restore()
+      wrapper.unmount()
+    }
+  })
+
+  it.each([0, 400, 401, 403, 500, 503])('UpstreamFive: never retries status %i, discards partial pages and unlocks', async (status) => {
+    const wrapper = await mountUsageView()
+    const state = (wrapper.vm as any).$?.setupState
+    state.pagination.total = 1001
+    query.mockClear()
+    query.mockResolvedValueOnce({ items: [baseUsageLog()], total: 1001, pages: 2 })
+      .mockRejectedValueOnce({ status })
+    const csv = captureCsvExport()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.useFakeTimers()
+    try {
+      await state.exportToCSV()
+      expect(query).toHaveBeenCalledTimes(2)
+      expect(csv.getBlob()).toBeNull()
+      expect(csv.clickSpy).not.toHaveBeenCalled()
+      expect(showError).toHaveBeenCalledWith('Export failed')
+      expect(state.exporting).toBe(false)
+      expect(vi.getTimerCount()).toBe(0)
+      await state.exportToCSV()
+      expect(csv.clickSpy).toHaveBeenCalledTimes(1)
+    } finally {
+      csv.restore()
+      wrapper.unmount()
+    }
+  })
+
+  it('UpstreamFive: stops after four attempts on the same page, produces no partial download and unlocks', async () => {
+    const wrapper = await mountUsageView()
+    const state = (wrapper.vm as any).$?.setupState
+    state.pagination.total = 2001
+    query.mockClear()
+    query.mockResolvedValueOnce({ items: [baseUsageLog()], total: 2001, pages: 3 })
+      .mockRejectedValue({ status: 429, retry_after_seconds: 1 })
+    const csv = captureCsvExport()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.useFakeTimers()
+    try {
+      const pending = state.exportToCSV()
+      await vi.advanceTimersByTimeAsync(3000)
+      await pending
+      expect(query.mock.calls.map(([params]) => params.page)).toEqual([1, 2, 2, 2, 2])
+      expect(showInfo.mock.calls.filter(([message]) => message === 'Export resumes in 1 seconds')).toHaveLength(3)
+      expect(csv.getBlob()).toBeNull()
+      expect(csv.clickSpy).not.toHaveBeenCalled()
+      expect(state.exporting).toBe(false)
+      expect(vi.getTimerCount()).toBe(0)
+      query.mockResolvedValue({ items: [baseUsageLog()], total: 1, pages: 1 })
+      state.pagination.total = 1
+      await state.exportToCSV()
+      expect(csv.clickSpy).toHaveBeenCalledTimes(1)
+    } finally {
+      csv.restore()
+      wrapper.unmount()
+    }
+  })
+
+  it.each(['no-total', 'empty-page', 'query-throws', 'notice-throws', 'download-throws'])(
+    'UpstreamFive: releases export lock on %s exit',
+    async (exit) => {
+      const wrapper = await mountUsageView()
+      const state = (wrapper.vm as any).$?.setupState
+      const csv = captureCsvExport()
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      query.mockClear()
+      if (exit === 'no-total') state.pagination.total = 0
+      if (exit === 'empty-page') query.mockResolvedValueOnce({ items: [], total: 0, pages: 0 })
+      if (exit === 'query-throws') query.mockImplementationOnce(() => { throw new Error('query failed') })
+      if (exit === 'notice-throws') showInfo.mockImplementationOnce(() => { throw new Error('notice failed') })
+      if (exit === 'download-throws') csv.clickSpy.mockImplementationOnce(() => { throw new Error('download failed') })
+      try {
+        await state.exportToCSV()
+        expect(state.exporting).toBe(false)
+        if (exit === 'download-throws') expect(window.URL.revokeObjectURL).toHaveBeenCalledWith('blob:usage-export')
+        else expect(csv.getBlob()).toBeNull()
+        if (exit === 'no-total') expect(query).not.toHaveBeenCalled()
+        state.pagination.total = 1
+        await state.exportToCSV()
+        expect(state.exporting).toBe(false)
+        expect(showSuccess).toHaveBeenCalledWith('Export success')
+      } finally {
+        csv.restore()
+        wrapper.unmount()
+      }
+    }
+  )
 
   it('exports pricing, balance conversion, and composite multipliers', async () => {
     const wrapper = await mountUsageView([baseUsageLog({

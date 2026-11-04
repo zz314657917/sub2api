@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
@@ -1127,6 +1128,10 @@ func (s *APIKeyService) GetByID(ctx context.Context, id int64) (*APIKey, error) 
 
 // GetByKey 根据Key字符串获取API Key（用于认证）
 func (s *APIKeyService) GetByKey(ctx context.Context, key string) (*APIKey, error) {
+	// Invalid UTF-8 cannot be a stored credential and must not reach caches or SQL.
+	if !utf8.ValidString(key) {
+		return nil, ErrAPIKeyNotFound
+	}
 	cacheKey := s.authCacheKey(key)
 
 	if entry, ok := s.getAuthCacheEntry(ctx, cacheKey); ok {
