@@ -785,6 +785,7 @@ export interface ApiKey {
   group_id: number | null
   multi_group_routes: ApiKeyMultiGroupRoute[]
   account_pool_strategy: AccountPoolStrategy
+  openai_fast_policy?: OpenAIFastPolicy
   status: 'active' | 'inactive' | 'quota_exhausted' | 'expired'
   ip_whitelist: string[]
   ip_blacklist: string[]
@@ -814,6 +815,8 @@ export interface ApiKey {
 
 export type AccountPoolStrategy = 'shared_only' | 'private_first' | 'private_only'
 
+export type OpenAIFastPolicy = 'passthrough' | 'force' | 'filter'
+
 export type ApiKeyRoutingPreset = 'optimal' | 'auto' | 'cost' | 'speed' | 'stability' | 'manual'
 
 export interface ApiKeyMultiGroupRoute {
@@ -833,6 +836,7 @@ export interface CreateApiKeyRequest {
   group_id?: number | null
   multi_group_routes?: ApiKeyMultiGroupRoute[]
   account_pool_strategy?: AccountPoolStrategy
+  openai_fast_policy?: OpenAIFastPolicy
   custom_key?: string // Optional custom API Key
   ip_whitelist?: string[]
   ip_blacklist?: string[]
@@ -849,6 +853,7 @@ export interface UpdateApiKeyRequest {
   group_id?: number | null
   multi_group_routes?: ApiKeyMultiGroupRoute[]
   account_pool_strategy?: AccountPoolStrategy
+  openai_fast_policy?: OpenAIFastPolicy
   status?: 'active' | 'inactive'
   ip_whitelist?: string[]
   ip_blacklist?: string[]

@@ -7,6 +7,7 @@ import { apiClient } from './client'
 import type {
   ApiKey,
   AccountPoolStrategy,
+  OpenAIFastPolicy,
   ApiKeyMultiGroupRoute,
   CreateApiKeyRequest,
   UpdateApiKeyRequest,
@@ -64,6 +65,8 @@ export async function getById(id: number): Promise<ApiKey> {
  * @param rateLimitData - Optional rate limit fields
  * @param multiGroupRoutes - Optional multi-group routing fields
  * @param accountPoolStrategy - Optional account pool scheduling strategy
+ * @param tokenMultiplierCap - Optional token multiplier cap
+ * @param openaiFastPolicy - Optional OpenAI Fast policy (omission defaults to passthrough)
  * @returns Created API key
  */
 export async function create(
@@ -77,7 +80,8 @@ export async function create(
   rateLimitData?: { rate_limit_5h?: number; rate_limit_1d?: number; rate_limit_7d?: number },
   multiGroupRoutes?: ApiKeyMultiGroupRoute[],
   accountPoolStrategy?: AccountPoolStrategy,
-  tokenMultiplierCap?: number
+  tokenMultiplierCap?: number,
+  openaiFastPolicy?: OpenAIFastPolicy
 ): Promise<ApiKey> {
   const payload: CreateApiKeyRequest = { name }
   if (groupId !== undefined) {
@@ -114,6 +118,7 @@ export async function create(
     payload.account_pool_strategy = accountPoolStrategy
   }
   if (tokenMultiplierCap !== undefined) payload.token_multiplier_cap = tokenMultiplierCap
+  if (openaiFastPolicy !== undefined) payload.openai_fast_policy = openaiFastPolicy
 
   const { data } = await apiClient.post<ApiKey>('/keys', payload)
   return data

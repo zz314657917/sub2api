@@ -958,6 +958,22 @@
           </summary>
 
           <div class="mt-4 space-y-5">
+            <fieldset data-testid="key-openai-fast-policy">
+              <legend id="key-openai-fast-policy-label" class="input-label">
+                {{ t('keys.openaiFastPolicyLabel') }}
+              </legend>
+              <Select
+                v-model="formData.openai_fast_policy"
+                :options="openaiFastPolicyOptions"
+                :searchable="false"
+                aria-labelledby="key-openai-fast-policy-label"
+                aria-describedby="key-openai-fast-policy-hint"
+              />
+              <p id="key-openai-fast-policy-hint" class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                {{ t('keys.openaiFastPolicyHint') }}
+              </p>
+            </fieldset>
+
             <div v-if="accountShareEnabled" data-testid="account-pool-strategy">
               <label class="input-label">{{ t('keys.accountPoolStrategyLabel') }}</label>
               <Select
@@ -1595,6 +1611,7 @@ import { useOnboardingStore } from '@/stores/onboarding'
 import { useClipboard } from '@/composables/useClipboard'
 import type {
   AccountPoolStrategy,
+  OpenAIFastPolicy,
   ApiKey,
   ApiKeyMultiGroupRoute,
   Group,
@@ -1811,6 +1828,7 @@ const formData = ref({
   multi_group_routes: [] as ApiKeyMultiGroupRouteForm[],
   first_response_timeout_seconds: 30,
   account_pool_strategy: 'shared_only' as AccountPoolStrategy,
+  openai_fast_policy: 'passthrough' as OpenAIFastPolicy,
   status: 'active' as 'active' | 'inactive',
   use_custom_key: false,
   custom_key: '',
@@ -2027,6 +2045,12 @@ const statusFilterOptions = computed(() => [
   { value: 'inactive', label: t('keys.status.inactive') },
   { value: 'quota_exhausted', label: t('keys.status.quota_exhausted') },
   { value: 'expired', label: t('keys.status.expired') }
+])
+
+const openaiFastPolicyOptions = computed(() => [
+  { value: 'passthrough', label: t('keys.openaiFastPolicy.passthrough') },
+  { value: 'force', label: t('keys.openaiFastPolicy.force') },
+  { value: 'filter', label: t('keys.openaiFastPolicy.filter') }
 ])
 
 const accountPoolStrategyOptions = computed(() => [
@@ -2322,6 +2346,7 @@ const editKey = (key: ApiKey) => {
     multi_group_routes: multiGroupRoutes,
     first_response_timeout_seconds: multiGroupRoutes.find((route) => route.first_response_timeout_seconds > 0)?.first_response_timeout_seconds || 30,
     account_pool_strategy: key.account_pool_strategy || 'shared_only',
+    openai_fast_policy: key.openai_fast_policy || 'passthrough',
     status: key.status === 'quota_exhausted' || key.status === 'expired' ? 'inactive' : key.status,
     use_custom_key: false,
     custom_key: '',
@@ -2500,6 +2525,9 @@ const handleSubmit = async () => {
         group_id: formData.value.group_id,
         multi_group_routes: multiGroupRoutes,
         account_pool_strategy: formData.value.account_pool_strategy,
+        ...(formData.value.openai_fast_policy !== (selectedKey.value.openai_fast_policy || 'passthrough')
+          ? { openai_fast_policy: formData.value.openai_fast_policy }
+          : {}),
         status: formData.value.status,
         ip_whitelist: ipWhitelist,
         ip_blacklist: ipBlacklist,
@@ -2513,7 +2541,7 @@ const handleSubmit = async () => {
       appStore.showSuccess(t('keys.keyUpdatedSuccess'))
     } else {
       const customKey = formData.value.use_custom_key ? formData.value.custom_key : undefined
-      await keysAPI.create(
+      const createArgs: Parameters<typeof keysAPI.create> = [
         formData.value.name,
         formData.value.group_id,
         customKey,
@@ -2525,7 +2553,12 @@ const handleSubmit = async () => {
         multiGroupRoutes,
         formData.value.account_pool_strategy,
         formData.value.enable_token_multiplier_cap && formData.value.token_multiplier_cap && formData.value.token_multiplier_cap > 0 ? formData.value.token_multiplier_cap : 0
-      )
+      ]
+      // Omitted policy keeps legacy callers and the server's passthrough default.
+      if (formData.value.openai_fast_policy !== 'passthrough') {
+        createArgs.push(formData.value.openai_fast_policy)
+      }
+      await keysAPI.create(...createArgs)
       appStore.showSuccess(t('keys.keyCreatedSuccess'))
       // Only advance tour if active, on submit step, and creation succeeded
       if (onboardingStore.isCurrentStep('[data-tour="key-form-submit"]')) {
@@ -2597,6 +2630,7 @@ const closeModals = () => {
     multi_group_routes: [],
     first_response_timeout_seconds: 30,
     account_pool_strategy: 'shared_only',
+    openai_fast_policy: 'passthrough',
     status: 'active',
     use_custom_key: false,
     custom_key: '',

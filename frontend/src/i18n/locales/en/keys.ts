@@ -122,6 +122,13 @@ export default {
     groupChangedSuccess: 'Group changed successfully',
     failedToChangeGroup: 'Failed to change group',
     groupRequired: 'Please select a group',
+    openaiFastPolicyLabel: 'OpenAI Fast policy',
+    openaiFastPolicy: {
+      passthrough: 'Passthrough (default)',
+      force: 'Force enable',
+      filter: 'Filter'
+    },
+    openaiFastPolicyHint: 'Only affects OpenAI requests. Fast means priority. Passthrough keeps the client choice; force sets the service tier to priority; filter removes only Fast/priority and preserves other tiers. Administrator group enforcement takes precedence over the key policy; global policy has final authority. priority uses the existing priority prices. Reconnect existing WebSocket (WS) sessions after changes.',
     accountPoolStrategyLabel: 'Account Pool Strategy',
     accountPoolStrategyHint: 'When another group is selected, the key can still try your private accounts first and fall back to the selected shared pool.',
     accountPoolStrategy: {

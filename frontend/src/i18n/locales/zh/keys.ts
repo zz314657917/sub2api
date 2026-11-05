@@ -122,6 +122,13 @@ export default {
     groupChangedSuccess: '分组更换成功',
     failedToChangeGroup: '更换分组失败',
     groupRequired: '请选择分组',
+    openaiFastPolicyLabel: 'OpenAI Fast 策略',
+    openaiFastPolicy: {
+      passthrough: '透传（默认）',
+      force: '强制启用',
+      filter: '过滤'
+    },
+    openaiFastPolicyHint: '仅影响 OpenAI 请求，Fast 即 priority。透传保留客户端选择；强制启用将服务等级设为 priority；过滤仅移除 Fast/priority，保留其他服务等级。管理员分组强制策略优先于密钥策略，全局策略最终生效。priority 沿用既有 priority 价格。修改后，已有 WebSocket（WS）会话需重新连接。',
     accountPoolStrategyLabel: '账号池策略',
     accountPoolStrategyHint: '选其他分组时也可以先用自己的私有账号；私有池不可用时，按所选分组共享池兜底。',
     accountPoolStrategy: {
