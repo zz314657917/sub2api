@@ -3,6 +3,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"math"
 	"strconv"
@@ -37,6 +38,7 @@ type CreateAPIKeyRequest struct {
 	GroupID             *int64                         `json:"group_id"`           // nullable
 	MultiGroupRoutes    []domain.APIKeyMultiGroupRoute `json:"multi_group_routes"` // 多分组路由配置
 	AccountPoolStrategy string                         `json:"account_pool_strategy" binding:"omitempty,oneof=shared_only private_first private_only"`
+	OpenAIFastPolicy    json.RawMessage                `json:"openai_fast_policy"`
 	CustomKey           *string                        `json:"custom_key"`      // 可选的自定义key
 	IPWhitelist         []string                       `json:"ip_whitelist"`    // IP 白名单
 	IPBlacklist         []string                       `json:"ip_blacklist"`    // IP 黑名单
@@ -56,6 +58,7 @@ type UpdateAPIKeyRequest struct {
 	GroupID             *int64                         `json:"group_id"`
 	MultiGroupRoutes    []domain.APIKeyMultiGroupRoute `json:"multi_group_routes"`
 	AccountPoolStrategy string                         `json:"account_pool_strategy" binding:"omitempty,oneof=shared_only private_first private_only"`
+	OpenAIFastPolicy    json.RawMessage                `json:"openai_fast_policy"`
 	Status              string                         `json:"status" binding:"omitempty,oneof=active inactive"`
 	IPWhitelist         *[]string                      `json:"ip_whitelist"` // IP 白名单（nil 不修改，空数组清空）
 	IPBlacklist         *[]string                      `json:"ip_blacklist"` // IP 黑名单（nil 不修改，空数组清空）
@@ -73,6 +76,19 @@ type UpdateAPIKeyRequest struct {
 
 func validAPIKeyLimit(v float64) bool {
 	return !math.IsNaN(v) && !math.IsInf(v, 0) && v >= 0
+}
+
+// RawMessage distinguishes omission from null. Only an explicit valid string
+// may change the policy; null and all other JSON types are invalid.
+func parseAPIKeyOpenAIFastPolicy(raw json.RawMessage) (*string, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	var policy string
+	if err := json.Unmarshal(raw, &policy); err != nil || !service.IsValidAPIKeyOpenAIFastPolicy(policy) {
+		return nil, service.ErrAPIKeyOpenAIFastPolicyInvalid
+	}
+	return &policy, nil
 }
 
 func validateAPIKeyCreateRequest(req CreateAPIKeyRequest) error {
@@ -208,6 +224,11 @@ func (h *APIKeyHandler) Create(c *gin.Context) {
 		response.BadRequest(c, "Invalid request: numeric limits must be finite and non-negative, and expires_in_days must be greater than zero")
 		return
 	}
+	fastPolicy, err := parseAPIKeyOpenAIFastPolicy(req.OpenAIFastPolicy)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 
 	svcReq := service.CreateAPIKeyRequest{
 		Name:                req.Name,
@@ -218,6 +239,9 @@ func (h *APIKeyHandler) Create(c *gin.Context) {
 		IPWhitelist:         req.IPWhitelist,
 		IPBlacklist:         req.IPBlacklist,
 		ExpiresInDays:       req.ExpiresInDays,
+	}
+	if fastPolicy != nil {
+		svcReq.OpenAIFastPolicy = *fastPolicy
 	}
 	if req.Quota != nil {
 		svcReq.Quota = *req.Quota
@@ -269,6 +293,11 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 		response.BadRequest(c, "Invalid request: numeric limits must be finite and non-negative")
 		return
 	}
+	fastPolicy, err := parseAPIKeyOpenAIFastPolicy(req.OpenAIFastPolicy)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 
 	svcReq := service.UpdateAPIKeyRequest{
 		MultiGroupRoutes:    req.MultiGroupRoutes,
@@ -281,6 +310,7 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 		RateLimit7d:         req.RateLimit7d,
 		TokenMultiplierCap:  req.TokenMultiplierCap,
 		ResetRateLimitUsage: req.ResetRateLimitUsage,
+		OpenAIFastPolicy:    fastPolicy,
 	}
 	if req.Name != "" {
 		svcReq.Name = &req.Name

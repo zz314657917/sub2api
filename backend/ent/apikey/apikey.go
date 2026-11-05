@@ -71,6 +71,8 @@ const (
 	FieldManagedSourceType = "managed_source_type"
 	// FieldManagedSourceID holds the string denoting the managed_source_id field in the database.
 	FieldManagedSourceID = "managed_source_id"
+	// FieldOpenaiFastPolicy holds the string denoting the openai_fast_policy field in the database.
+	FieldOpenaiFastPolicy = "openai_fast_policy"
 	// EdgeUser holds the string denoting the user edge name in mutations.
 	EdgeUser = "user"
 	// EdgeGroup holds the string denoting the group edge name in mutations.
@@ -160,6 +162,7 @@ var Columns = []string{
 	FieldMultiGroupRoutes,
 	FieldManagedSourceType,
 	FieldManagedSourceID,
+	FieldOpenaiFastPolicy,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -220,6 +223,10 @@ var (
 	DefaultManagedSourceType string
 	// ManagedSourceTypeValidator is a validator for the "managed_source_type" field. It is called by the builders before save.
 	ManagedSourceTypeValidator func(string) error
+	// DefaultOpenaiFastPolicy holds the default value on creation for the "openai_fast_policy" field.
+	DefaultOpenaiFastPolicy string
+	// OpenaiFastPolicyValidator is a validator for the "openai_fast_policy" field. It is called by the builders before save.
+	OpenaiFastPolicyValidator func(string) error
 )
 
 // OrderOption defines the ordering options for the APIKey queries.
@@ -353,6 +360,11 @@ func ByManagedSourceType(opts ...sql.OrderTermOption) OrderOption {
 // ByManagedSourceID orders the results by the managed_source_id field.
 func ByManagedSourceID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldManagedSourceID, opts...).ToFunc()
+}
+
+// ByOpenaiFastPolicy orders the results by the openai_fast_policy field.
+func ByOpenaiFastPolicy(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldOpenaiFastPolicy, opts...).ToFunc()
 }
 
 // ByUserField orders the results by user field.

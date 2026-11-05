@@ -81,7 +81,8 @@ func (r *apiKeyRepository) Create(ctx context.Context, key *service.APIKey) erro
 		SetRateLimit5h(key.RateLimit5h).
 		SetRateLimit1d(key.RateLimit1d).
 		SetRateLimit7d(key.RateLimit7d).
-		SetTokenMultiplierCap(key.TokenMultiplierCap)
+		SetTokenMultiplierCap(key.TokenMultiplierCap).
+		SetOpenaiFastPolicy(service.NormalizeAPIKeyOpenAIFastPolicy(key.OpenAIFastPolicy))
 	if key.ManagedSourceType != "" {
 		builder.SetManagedSourceType(key.ManagedSourceType)
 	}
@@ -199,6 +200,7 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 			apikey.FieldRateLimit1d,
 			apikey.FieldRateLimit7d,
 			apikey.FieldTokenMultiplierCap,
+			apikey.FieldOpenaiFastPolicy,
 			apikey.FieldManagedSourceType,
 			apikey.FieldManagedSourceID,
 		).
@@ -363,6 +365,9 @@ func (r *apiKeyRepository) Update(ctx context.Context, key *service.APIKey, fiel
 	}
 	if fields.TokenMultiplierCap {
 		builder.SetTokenMultiplierCap(key.TokenMultiplierCap)
+	}
+	if fields.OpenAIFastPolicy {
+		builder.SetOpenaiFastPolicy(service.NormalizeAPIKeyOpenAIFastPolicy(key.OpenAIFastPolicy))
 	}
 	if fields.RateLimitUsage {
 		builder.SetUsage5h(key.Usage5h).SetUsage1d(key.Usage1d).SetUsage7d(key.Usage7d)
@@ -1342,6 +1347,7 @@ func apiKeyEntityToService(m *dbent.APIKey) *service.APIKey {
 		RateLimit1d:         m.RateLimit1d,
 		RateLimit7d:         m.RateLimit7d,
 		TokenMultiplierCap:  m.TokenMultiplierCap,
+		OpenAIFastPolicy:    service.NormalizeAPIKeyOpenAIFastPolicy(m.OpenaiFastPolicy),
 		Usage5h:             m.Usage5h,
 		Usage1d:             m.Usage1d,
 		Usage7d:             m.Usage7d,

@@ -77,6 +77,8 @@ type APIKey struct {
 	ManagedSourceType string `json:"managed_source_type,omitempty"`
 	// ManagedSourceID holds the value of the "managed_source_id" field.
 	ManagedSourceID *int64 `json:"managed_source_id,omitempty"`
+	// OpenAI Fast preference: passthrough, force or filter
+	OpenaiFastPolicy string `json:"openai_fast_policy,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the APIKeyQuery when eager-loading is set.
 	Edges        APIKeyEdges `json:"edges"`
@@ -171,7 +173,7 @@ func (*APIKey) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullFloat64)
 		case apikey.FieldID, apikey.FieldUserID, apikey.FieldGroupID, apikey.FieldManagedSourceID:
 			values[i] = new(sql.NullInt64)
-		case apikey.FieldKey, apikey.FieldName, apikey.FieldAccountPoolStrategy, apikey.FieldStatus, apikey.FieldManagedSourceType:
+		case apikey.FieldKey, apikey.FieldName, apikey.FieldAccountPoolStrategy, apikey.FieldStatus, apikey.FieldManagedSourceType, apikey.FieldOpenaiFastPolicy:
 			values[i] = new(sql.NullString)
 		case apikey.FieldCreatedAt, apikey.FieldUpdatedAt, apikey.FieldDeletedAt, apikey.FieldLastUsedAt, apikey.FieldExpiresAt, apikey.FieldWindow5hStart, apikey.FieldWindow1dStart, apikey.FieldWindow7dStart:
 			values[i] = new(sql.NullTime)
@@ -378,6 +380,12 @@ func (_m *APIKey) assignValues(columns []string, values []any) error {
 				_m.ManagedSourceID = new(int64)
 				*_m.ManagedSourceID = value.Int64
 			}
+		case apikey.FieldOpenaiFastPolicy:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field openai_fast_policy", values[i])
+			} else if value.Valid {
+				_m.OpenaiFastPolicy = value.String
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -543,6 +551,9 @@ func (_m *APIKey) String() string {
 		builder.WriteString("managed_source_id=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
+	builder.WriteString(", ")
+	builder.WriteString("openai_fast_policy=")
+	builder.WriteString(_m.OpenaiFastPolicy)
 	builder.WriteByte(')')
 	return builder.String()
 }

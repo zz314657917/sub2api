@@ -536,6 +536,20 @@ func (_u *APIKeyUpdate) ClearManagedSourceID() *APIKeyUpdate {
 	return _u
 }
 
+// SetOpenaiFastPolicy sets the "openai_fast_policy" field.
+func (_u *APIKeyUpdate) SetOpenaiFastPolicy(v string) *APIKeyUpdate {
+	_u.mutation.SetOpenaiFastPolicy(v)
+	return _u
+}
+
+// SetNillableOpenaiFastPolicy sets the "openai_fast_policy" field if the given value is not nil.
+func (_u *APIKeyUpdate) SetNillableOpenaiFastPolicy(v *string) *APIKeyUpdate {
+	if v != nil {
+		_u.SetOpenaiFastPolicy(*v)
+	}
+	return _u
+}
+
 // SetUser sets the "user" edge to the User entity.
 func (_u *APIKeyUpdate) SetUser(v *User) *APIKeyUpdate {
 	return _u.SetUserID(v.ID)
@@ -776,6 +790,11 @@ func (_u *APIKeyUpdate) check() error {
 			return &ValidationError{Name: "managed_source_type", err: fmt.Errorf(`ent: validator failed for field "APIKey.managed_source_type": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.OpenaiFastPolicy(); ok {
+		if err := apikey.OpenaiFastPolicyValidator(v); err != nil {
+			return &ValidationError{Name: "openai_fast_policy", err: fmt.Errorf(`ent: validator failed for field "APIKey.openai_fast_policy": %w`, err)}
+		}
+	}
 	if _u.mutation.UserCleared() && len(_u.mutation.UserIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "APIKey.user"`)
 	}
@@ -943,6 +962,9 @@ func (_u *APIKeyUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.ManagedSourceIDCleared() {
 		_spec.ClearField(apikey.FieldManagedSourceID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.OpenaiFastPolicy(); ok {
+		_spec.SetField(apikey.FieldOpenaiFastPolicy, field.TypeString, value)
 	}
 	if _u.mutation.UserCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1702,6 +1724,20 @@ func (_u *APIKeyUpdateOne) ClearManagedSourceID() *APIKeyUpdateOne {
 	return _u
 }
 
+// SetOpenaiFastPolicy sets the "openai_fast_policy" field.
+func (_u *APIKeyUpdateOne) SetOpenaiFastPolicy(v string) *APIKeyUpdateOne {
+	_u.mutation.SetOpenaiFastPolicy(v)
+	return _u
+}
+
+// SetNillableOpenaiFastPolicy sets the "openai_fast_policy" field if the given value is not nil.
+func (_u *APIKeyUpdateOne) SetNillableOpenaiFastPolicy(v *string) *APIKeyUpdateOne {
+	if v != nil {
+		_u.SetOpenaiFastPolicy(*v)
+	}
+	return _u
+}
+
 // SetUser sets the "user" edge to the User entity.
 func (_u *APIKeyUpdateOne) SetUser(v *User) *APIKeyUpdateOne {
 	return _u.SetUserID(v.ID)
@@ -1955,6 +1991,11 @@ func (_u *APIKeyUpdateOne) check() error {
 			return &ValidationError{Name: "managed_source_type", err: fmt.Errorf(`ent: validator failed for field "APIKey.managed_source_type": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.OpenaiFastPolicy(); ok {
+		if err := apikey.OpenaiFastPolicyValidator(v); err != nil {
+			return &ValidationError{Name: "openai_fast_policy", err: fmt.Errorf(`ent: validator failed for field "APIKey.openai_fast_policy": %w`, err)}
+		}
+	}
 	if _u.mutation.UserCleared() && len(_u.mutation.UserIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "APIKey.user"`)
 	}
@@ -2139,6 +2180,9 @@ func (_u *APIKeyUpdateOne) sqlSave(ctx context.Context) (_node *APIKey, err erro
 	}
 	if _u.mutation.ManagedSourceIDCleared() {
 		_spec.ClearField(apikey.FieldManagedSourceID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.OpenaiFastPolicy(); ok {
+		_spec.SetField(apikey.FieldOpenaiFastPolicy, field.TypeString, value)
 	}
 	if _u.mutation.UserCleared() {
 		edge := &sqlgraph.EdgeSpec{

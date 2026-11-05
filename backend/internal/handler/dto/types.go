@@ -76,6 +76,7 @@ type APIKey struct {
 	RateLimit1d        float64    `json:"rate_limit_1d"`
 	RateLimit7d        float64    `json:"rate_limit_7d"`
 	TokenMultiplierCap float64    `json:"token_multiplier_cap"`
+	OpenAIFastPolicy   string     `json:"openai_fast_policy"`
 	Usage5h            float64    `json:"usage_5h"`
 	Usage1d            float64    `json:"usage_1d"`
 	Usage7d            float64    `json:"usage_7d"`

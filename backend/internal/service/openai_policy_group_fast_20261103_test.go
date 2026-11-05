@@ -138,7 +138,7 @@ func TestGroupFast20261103AuthSnapshotAndDuplicate(t *testing.T) {
 	svc := &APIKeyService{}
 	key := &APIKey{ID: 1, User: &User{ID: 2}, Group: group, MultiGroupRouteGroups: []*Group{group}}
 	snapshot := svc.snapshotFromAPIKey(ctx, key)
-	require.Equal(t, 20, snapshot.Version)
+	require.Equal(t, 21, snapshot.Version)
 	wire, err := json.Marshal(snapshot)
 	require.NoError(t, err)
 	var decoded APIKeyAuthSnapshot

@@ -166,6 +166,7 @@ type APIKeyMutation struct {
 	managed_source_type           *string
 	managed_source_id             *int64
 	addmanaged_source_id          *int64
+	openai_fast_policy            *string
 	clearedFields                 map[string]struct{}
 	user                          *int64
 	cleareduser                   bool
@@ -1686,6 +1687,42 @@ func (m *APIKeyMutation) ResetManagedSourceID() {
 	delete(m.clearedFields, apikey.FieldManagedSourceID)
 }
 
+// SetOpenaiFastPolicy sets the "openai_fast_policy" field.
+func (m *APIKeyMutation) SetOpenaiFastPolicy(s string) {
+	m.openai_fast_policy = &s
+}
+
+// OpenaiFastPolicy returns the value of the "openai_fast_policy" field in the mutation.
+func (m *APIKeyMutation) OpenaiFastPolicy() (r string, exists bool) {
+	v := m.openai_fast_policy
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOpenaiFastPolicy returns the old "openai_fast_policy" field's value of the APIKey entity.
+// If the APIKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyMutation) OldOpenaiFastPolicy(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOpenaiFastPolicy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOpenaiFastPolicy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOpenaiFastPolicy: %w", err)
+	}
+	return oldValue.OpenaiFastPolicy, nil
+}
+
+// ResetOpenaiFastPolicy resets all changes to the "openai_fast_policy" field.
+func (m *APIKeyMutation) ResetOpenaiFastPolicy() {
+	m.openai_fast_policy = nil
+}
+
 // ClearUser clears the "user" edge to the User entity.
 func (m *APIKeyMutation) ClearUser() {
 	m.cleareduser = true
@@ -1990,7 +2027,7 @@ func (m *APIKeyMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *APIKeyMutation) Fields() []string {
-	fields := make([]string, 0, 28)
+	fields := make([]string, 0, 29)
 	if m.created_at != nil {
 		fields = append(fields, apikey.FieldCreatedAt)
 	}
@@ -2075,6 +2112,9 @@ func (m *APIKeyMutation) Fields() []string {
 	if m.managed_source_id != nil {
 		fields = append(fields, apikey.FieldManagedSourceID)
 	}
+	if m.openai_fast_policy != nil {
+		fields = append(fields, apikey.FieldOpenaiFastPolicy)
+	}
 	return fields
 }
 
@@ -2139,6 +2179,8 @@ func (m *APIKeyMutation) Field(name string) (ent.Value, bool) {
 		return m.ManagedSourceType()
 	case apikey.FieldManagedSourceID:
 		return m.ManagedSourceID()
+	case apikey.FieldOpenaiFastPolicy:
+		return m.OpenaiFastPolicy()
 	}
 	return nil, false
 }
@@ -2204,6 +2246,8 @@ func (m *APIKeyMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldManagedSourceType(ctx)
 	case apikey.FieldManagedSourceID:
 		return m.OldManagedSourceID(ctx)
+	case apikey.FieldOpenaiFastPolicy:
+		return m.OldOpenaiFastPolicy(ctx)
 	}
 	return nil, fmt.Errorf("unknown APIKey field %s", name)
 }
@@ -2408,6 +2452,13 @@ func (m *APIKeyMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetManagedSourceID(v)
+		return nil
+	case apikey.FieldOpenaiFastPolicy:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOpenaiFastPolicy(v)
 		return nil
 	}
 	return fmt.Errorf("unknown APIKey field %s", name)
@@ -2733,6 +2784,9 @@ func (m *APIKeyMutation) ResetField(name string) error {
 		return nil
 	case apikey.FieldManagedSourceID:
 		m.ResetManagedSourceID()
+		return nil
+	case apikey.FieldOpenaiFastPolicy:
+		m.ResetOpenaiFastPolicy()
 		return nil
 	}
 	return fmt.Errorf("unknown APIKey field %s", name)

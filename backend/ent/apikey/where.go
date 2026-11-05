@@ -180,6 +180,11 @@ func ManagedSourceID(v int64) predicate.APIKey {
 	return predicate.APIKey(sql.FieldEQ(FieldManagedSourceID, v))
 }
 
+// OpenaiFastPolicy applies equality check predicate on the "openai_fast_policy" field. It's identical to OpenaiFastPolicyEQ.
+func OpenaiFastPolicy(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldOpenaiFastPolicy, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.APIKey {
 	return predicate.APIKey(sql.FieldEQ(FieldCreatedAt, v))
@@ -1373,6 +1378,71 @@ func ManagedSourceIDIsNil() predicate.APIKey {
 // ManagedSourceIDNotNil applies the NotNil predicate on the "managed_source_id" field.
 func ManagedSourceIDNotNil() predicate.APIKey {
 	return predicate.APIKey(sql.FieldNotNull(FieldManagedSourceID))
+}
+
+// OpenaiFastPolicyEQ applies the EQ predicate on the "openai_fast_policy" field.
+func OpenaiFastPolicyEQ(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldOpenaiFastPolicy, v))
+}
+
+// OpenaiFastPolicyNEQ applies the NEQ predicate on the "openai_fast_policy" field.
+func OpenaiFastPolicyNEQ(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNEQ(FieldOpenaiFastPolicy, v))
+}
+
+// OpenaiFastPolicyIn applies the In predicate on the "openai_fast_policy" field.
+func OpenaiFastPolicyIn(vs ...string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldIn(FieldOpenaiFastPolicy, vs...))
+}
+
+// OpenaiFastPolicyNotIn applies the NotIn predicate on the "openai_fast_policy" field.
+func OpenaiFastPolicyNotIn(vs ...string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotIn(FieldOpenaiFastPolicy, vs...))
+}
+
+// OpenaiFastPolicyGT applies the GT predicate on the "openai_fast_policy" field.
+func OpenaiFastPolicyGT(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGT(FieldOpenaiFastPolicy, v))
+}
+
+// OpenaiFastPolicyGTE applies the GTE predicate on the "openai_fast_policy" field.
+func OpenaiFastPolicyGTE(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGTE(FieldOpenaiFastPolicy, v))
+}
+
+// OpenaiFastPolicyLT applies the LT predicate on the "openai_fast_policy" field.
+func OpenaiFastPolicyLT(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLT(FieldOpenaiFastPolicy, v))
+}
+
+// OpenaiFastPolicyLTE applies the LTE predicate on the "openai_fast_policy" field.
+func OpenaiFastPolicyLTE(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLTE(FieldOpenaiFastPolicy, v))
+}
+
+// OpenaiFastPolicyContains applies the Contains predicate on the "openai_fast_policy" field.
+func OpenaiFastPolicyContains(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldContains(FieldOpenaiFastPolicy, v))
+}
+
+// OpenaiFastPolicyHasPrefix applies the HasPrefix predicate on the "openai_fast_policy" field.
+func OpenaiFastPolicyHasPrefix(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldHasPrefix(FieldOpenaiFastPolicy, v))
+}
+
+// OpenaiFastPolicyHasSuffix applies the HasSuffix predicate on the "openai_fast_policy" field.
+func OpenaiFastPolicyHasSuffix(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldHasSuffix(FieldOpenaiFastPolicy, v))
+}
+
+// OpenaiFastPolicyEqualFold applies the EqualFold predicate on the "openai_fast_policy" field.
+func OpenaiFastPolicyEqualFold(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEqualFold(FieldOpenaiFastPolicy, v))
+}
+
+// OpenaiFastPolicyContainsFold applies the ContainsFold predicate on the "openai_fast_policy" field.
+func OpenaiFastPolicyContainsFold(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldContainsFold(FieldOpenaiFastPolicy, v))
 }
 
 // HasUser applies the HasEdge predicate on the "user" edge.

@@ -78,6 +78,7 @@ type APIKeyUpdateFields struct {
 	RateLimits, RateLimitUsage, IPRules                bool
 	TokenMultiplierCap                                 bool
 	MultiGroupRoutes, AccountPoolStrategy              bool
+	OpenAIFastPolicy                                   bool
 }
 
 func (f APIKeyUpdateFields) IsEmpty() bool { return f == APIKeyUpdateFields{} }
@@ -207,6 +208,7 @@ type CreateAPIKeyRequest struct {
 	GroupID                  *int64                         `json:"group_id"`
 	MultiGroupRoutes         []domain.APIKeyMultiGroupRoute `json:"multi_group_routes"` // 多分组路由配置
 	AccountPoolStrategy      string                         `json:"account_pool_strategy"`
+	OpenAIFastPolicy         string                         `json:"openai_fast_policy"`
 	SkipGroupPermissionCheck bool                           `json:"-"`            // system-created keys may bind admin defaults directly
 	CustomKey                *string                        `json:"custom_key"`   // 可选的自定义key
 	IPWhitelist              []string                       `json:"ip_whitelist"` // IP 白名单
@@ -229,6 +231,7 @@ type UpdateAPIKeyRequest struct {
 	GroupID             *int64                         `json:"group_id"`
 	MultiGroupRoutes    []domain.APIKeyMultiGroupRoute `json:"multi_group_routes"` // nil=不修改, 空数组=清空
 	AccountPoolStrategy *string                        `json:"account_pool_strategy"`
+	OpenAIFastPolicy    *string                        `json:"openai_fast_policy"`
 	Status              *string                        `json:"status"`
 	IPWhitelist         *[]string                      `json:"ip_whitelist"` // IP 白名单（nil 不修改，空数组清空）
 	IPBlacklist         *[]string                      `json:"ip_blacklist"` // IP 黑名单（nil 不修改，空数组清空）
@@ -264,6 +267,9 @@ func validateAPIKeyFirstResponseTimeouts(routes []domain.APIKeyMultiGroupRoute) 
 }
 
 func validateCreateAPIKeyRequest(req CreateAPIKeyRequest) error {
+	if req.OpenAIFastPolicy != "" && !IsValidAPIKeyOpenAIFastPolicy(req.OpenAIFastPolicy) {
+		return ErrAPIKeyOpenAIFastPolicyInvalid
+	}
 	for _, v := range []float64{req.Quota, req.RateLimit5h, req.RateLimit1d, req.RateLimit7d, req.TokenMultiplierCap} {
 		if err := validateAPIKeyLimit(v); err != nil {
 			return err
@@ -276,6 +282,9 @@ func validateCreateAPIKeyRequest(req CreateAPIKeyRequest) error {
 }
 
 func validateUpdateAPIKeyRequest(req UpdateAPIKeyRequest) error {
+	if req.OpenAIFastPolicy != nil && !IsValidAPIKeyOpenAIFastPolicy(*req.OpenAIFastPolicy) {
+		return ErrAPIKeyOpenAIFastPolicyInvalid
+	}
 	for _, v := range []*float64{req.Quota, req.RateLimit5h, req.RateLimit1d, req.RateLimit7d, req.TokenMultiplierCap} {
 		if v != nil {
 			if err := validateAPIKeyLimit(*v); err != nil {
@@ -855,6 +864,7 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 		GroupID:             req.GroupID,
 		MultiGroupRoutes:    multiGroupRoutes,
 		AccountPoolStrategy: accountPoolStrategy,
+		OpenAIFastPolicy:    NormalizeAPIKeyOpenAIFastPolicy(req.OpenAIFastPolicy),
 		Status:              StatusActive,
 		IPWhitelist:         req.IPWhitelist,
 		IPBlacklist:         req.IPBlacklist,
@@ -1210,6 +1220,10 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 	}
 	originalStatus := apiKey.Status
 	var fields APIKeyUpdateFields
+	if req.OpenAIFastPolicy != nil {
+		apiKey.OpenAIFastPolicy = *req.OpenAIFastPolicy
+		fields.OpenAIFastPolicy = true
+	}
 
 	if err := validateAPIKeyIPRestrictions(req); err != nil {
 		return nil, err
@@ -1478,6 +1492,7 @@ func isCafeManagedAPIKeySafeUpdate(req UpdateAPIKeyRequest) bool {
 	return req.GroupID == nil &&
 		req.MultiGroupRoutes == nil &&
 		req.AccountPoolStrategy == nil &&
+		req.OpenAIFastPolicy == nil &&
 		req.Quota == nil &&
 		req.ExpiresAt == nil &&
 		!req.ClearExpiration &&

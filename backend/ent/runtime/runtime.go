@@ -170,6 +170,26 @@ func init() {
 	apikey.DefaultManagedSourceType = apikeyDescManagedSourceType.Default.(string)
 	// apikey.ManagedSourceTypeValidator is a validator for the "managed_source_type" field. It is called by the builders before save.
 	apikey.ManagedSourceTypeValidator = apikeyDescManagedSourceType.Validators[0].(func(string) error)
+	// apikeyDescOpenaiFastPolicy is the schema descriptor for openai_fast_policy field.
+	apikeyDescOpenaiFastPolicy := apikeyFields[25].Descriptor()
+	// apikey.DefaultOpenaiFastPolicy holds the default value on creation for the openai_fast_policy field.
+	apikey.DefaultOpenaiFastPolicy = apikeyDescOpenaiFastPolicy.Default.(string)
+	// apikey.OpenaiFastPolicyValidator is a validator for the "openai_fast_policy" field. It is called by the builders before save.
+	apikey.OpenaiFastPolicyValidator = func() func(string) error {
+		validators := apikeyDescOpenaiFastPolicy.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(openai_fast_policy string) error {
+			for _, fn := range fns {
+				if err := fn(openai_fast_policy); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
 	apikeyaccountbindingMixin := schema.APIKeyAccountBinding{}.Mixin()
 	apikeyaccountbindingMixinFields0 := apikeyaccountbindingMixin[0].Fields()
 	_ = apikeyaccountbindingMixinFields0

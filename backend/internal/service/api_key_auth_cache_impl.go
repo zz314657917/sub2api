@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 20 // v20: preserve Group.ForceOpenAIFast in primary and route-group auth snapshots
+const apiKeyAuthSnapshotVersion = 21 // v21: reload authenticated API-key OpenAI Fast policy
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -126,6 +126,11 @@ func (s *APIKeyService) getAuthCacheEntry(ctx context.Context, cacheKey string) 
 	}
 	entry, err := s.cache.GetAuthCache(ctx, cacheKey)
 	if err != nil {
+		return nil, false
+	}
+	// Do not promote an obsolete snapshot into L1 while a fresh repository
+	// snapshot is being loaded. Ristretto admission is asynchronous.
+	if entry != nil && entry.Snapshot != nil && entry.Snapshot.Version != apiKeyAuthSnapshotVersion {
 		return nil, false
 	}
 	if authCacheEntryExpired(entry, time.Now()) {
@@ -274,6 +279,7 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 		GroupID:                 apiKey.GroupID,
 		MultiGroupRoutes:        apiKey.MultiGroupRoutes,
 		AccountPoolStrategy:     NormalizeAccountPoolStrategy(apiKey.AccountPoolStrategy),
+		OpenAIFastPolicy:        NormalizeAPIKeyOpenAIFastPolicy(apiKey.OpenAIFastPolicy),
 		Name:                    apiKey.Name,
 		Status:                  apiKey.Status,
 		IPWhitelist:             apiKey.IPWhitelist,
@@ -389,6 +395,7 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 		GroupID:                 snapshot.GroupID,
 		MultiGroupRoutes:        snapshot.MultiGroupRoutes,
 		AccountPoolStrategy:     NormalizeAccountPoolStrategy(snapshot.AccountPoolStrategy),
+		OpenAIFastPolicy:        NormalizeAPIKeyOpenAIFastPolicy(snapshot.OpenAIFastPolicy),
 		Key:                     key,
 		Name:                    snapshot.Name,
 		Status:                  snapshot.Status,

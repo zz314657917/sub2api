@@ -350,6 +350,8 @@ func SetAPIKeyContext(c *gin.Context, apiKey *service.APIKey) {
 		return
 	}
 	c.Set(string(ContextKeyAPIKey), apiKey)
+	ctx := context.WithValue(c.Request.Context(), ctxkey.APIKeyOpenAIFastPolicy, service.NormalizeAPIKeyOpenAIFastPolicy(apiKey.OpenAIFastPolicy))
+	c.Request = c.Request.WithContext(ctx)
 	setAPIKeyAccountPoolContext(c, apiKey)
 	if apiKey.PinnedAccountID > 0 {
 		ctx := context.WithValue(c.Request.Context(), ctxkey.APIKeyPinnedAccountID, apiKey.PinnedAccountID)

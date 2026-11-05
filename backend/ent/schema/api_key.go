@@ -1,6 +1,8 @@
 package schema
 
 import (
+	"fmt"
+
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 
@@ -133,6 +135,18 @@ func (APIKey) Fields() []ent.Field {
 		field.Int64("managed_source_id").
 			Optional().
 			Nillable(),
+		field.String("openai_fast_policy").
+			MaxLen(16).
+			Default("passthrough").
+			Validate(func(value string) error {
+				switch value {
+				case "passthrough", "force", "filter":
+					return nil
+				default:
+					return fmt.Errorf("invalid openai_fast_policy: %q", value)
+				}
+			}).
+			Comment("OpenAI Fast preference: passthrough, force or filter"),
 	}
 }
 

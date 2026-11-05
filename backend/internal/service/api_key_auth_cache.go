@@ -19,6 +19,7 @@ type APIKeyAuthSnapshot struct {
 	GroupID                 *int64                         `json:"group_id,omitempty"`
 	MultiGroupRoutes        []domain.APIKeyMultiGroupRoute `json:"multi_group_routes,omitempty"`
 	AccountPoolStrategy     string                         `json:"account_pool_strategy,omitempty"`
+	OpenAIFastPolicy        string                         `json:"openai_fast_policy"`
 	Name                    string                         `json:"name"`
 	Status                  string                         `json:"status"`
 	IPWhitelist             []string                       `json:"ip_whitelist,omitempty"`

@@ -373,6 +373,20 @@ func (_c *APIKeyCreate) SetNillableManagedSourceID(v *int64) *APIKeyCreate {
 	return _c
 }
 
+// SetOpenaiFastPolicy sets the "openai_fast_policy" field.
+func (_c *APIKeyCreate) SetOpenaiFastPolicy(v string) *APIKeyCreate {
+	_c.mutation.SetOpenaiFastPolicy(v)
+	return _c
+}
+
+// SetNillableOpenaiFastPolicy sets the "openai_fast_policy" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillableOpenaiFastPolicy(v *string) *APIKeyCreate {
+	if v != nil {
+		_c.SetOpenaiFastPolicy(*v)
+	}
+	return _c
+}
+
 // SetUser sets the "user" edge to the User entity.
 func (_c *APIKeyCreate) SetUser(v *User) *APIKeyCreate {
 	return _c.SetUserID(v.ID)
@@ -542,6 +556,10 @@ func (_c *APIKeyCreate) defaults() error {
 		v := apikey.DefaultManagedSourceType
 		_c.mutation.SetManagedSourceType(v)
 	}
+	if _, ok := _c.mutation.OpenaiFastPolicy(); !ok {
+		v := apikey.DefaultOpenaiFastPolicy
+		_c.mutation.SetOpenaiFastPolicy(v)
+	}
 	return nil
 }
 
@@ -621,6 +639,14 @@ func (_c *APIKeyCreate) check() error {
 	if v, ok := _c.mutation.ManagedSourceType(); ok {
 		if err := apikey.ManagedSourceTypeValidator(v); err != nil {
 			return &ValidationError{Name: "managed_source_type", err: fmt.Errorf(`ent: validator failed for field "APIKey.managed_source_type": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.OpenaiFastPolicy(); !ok {
+		return &ValidationError{Name: "openai_fast_policy", err: errors.New(`ent: missing required field "APIKey.openai_fast_policy"`)}
+	}
+	if v, ok := _c.mutation.OpenaiFastPolicy(); ok {
+		if err := apikey.OpenaiFastPolicyValidator(v); err != nil {
+			return &ValidationError{Name: "openai_fast_policy", err: fmt.Errorf(`ent: validator failed for field "APIKey.openai_fast_policy": %w`, err)}
 		}
 	}
 	if len(_c.mutation.UserIDs()) == 0 {
@@ -756,6 +782,10 @@ func (_c *APIKeyCreate) createSpec() (*APIKey, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.ManagedSourceID(); ok {
 		_spec.SetField(apikey.FieldManagedSourceID, field.TypeInt64, value)
 		_node.ManagedSourceID = &value
+	}
+	if value, ok := _c.mutation.OpenaiFastPolicy(); ok {
+		_spec.SetField(apikey.FieldOpenaiFastPolicy, field.TypeString, value)
+		_node.OpenaiFastPolicy = value
 	}
 	if nodes := _c.mutation.UserIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -1357,6 +1387,18 @@ func (u *APIKeyUpsert) ClearManagedSourceID() *APIKeyUpsert {
 	return u
 }
 
+// SetOpenaiFastPolicy sets the "openai_fast_policy" field.
+func (u *APIKeyUpsert) SetOpenaiFastPolicy(v string) *APIKeyUpsert {
+	u.Set(apikey.FieldOpenaiFastPolicy, v)
+	return u
+}
+
+// UpdateOpenaiFastPolicy sets the "openai_fast_policy" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateOpenaiFastPolicy() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldOpenaiFastPolicy)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create.
 // Using this option is equivalent to using:
 //
@@ -1924,6 +1966,20 @@ func (u *APIKeyUpsertOne) UpdateManagedSourceID() *APIKeyUpsertOne {
 func (u *APIKeyUpsertOne) ClearManagedSourceID() *APIKeyUpsertOne {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.ClearManagedSourceID()
+	})
+}
+
+// SetOpenaiFastPolicy sets the "openai_fast_policy" field.
+func (u *APIKeyUpsertOne) SetOpenaiFastPolicy(v string) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetOpenaiFastPolicy(v)
+	})
+}
+
+// UpdateOpenaiFastPolicy sets the "openai_fast_policy" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateOpenaiFastPolicy() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateOpenaiFastPolicy()
 	})
 }
 
@@ -2660,6 +2716,20 @@ func (u *APIKeyUpsertBulk) UpdateManagedSourceID() *APIKeyUpsertBulk {
 func (u *APIKeyUpsertBulk) ClearManagedSourceID() *APIKeyUpsertBulk {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.ClearManagedSourceID()
+	})
+}
+
+// SetOpenaiFastPolicy sets the "openai_fast_policy" field.
+func (u *APIKeyUpsertBulk) SetOpenaiFastPolicy(v string) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetOpenaiFastPolicy(v)
+	})
+}
+
+// UpdateOpenaiFastPolicy sets the "openai_fast_policy" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateOpenaiFastPolicy() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateOpenaiFastPolicy()
 	})
 }
 

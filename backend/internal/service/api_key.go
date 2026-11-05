@@ -44,6 +44,7 @@ type APIKey struct {
 	// model-aware routing. It must never be cached or persisted.
 	RouteBreakerLease   *APIKeyRouteBreakerLease `json:"-"`
 	AccountPoolStrategy string
+	OpenAIFastPolicy    string
 	Status              string
 	IPWhitelist         []string
 	IPBlacklist         []string

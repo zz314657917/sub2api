@@ -3384,11 +3384,17 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	//      否则 native /responses 入口透传 "fast" 给上游会被拒。chat-
 	//      completions 入口由 normalizeResponsesBodyServiceTier 完成同一
 	//      行为，这里手工实现等效逻辑。
-	// Apply the trusted group override before the existing global filter/block.
-	if openAIGroupForcesFast(ctx, account) {
+	// Apply key/group overrides before the final global filter/block.
+	rawRequestTier, _ := reqBody["service_tier"].(string)
+	switch openAIRequestFastOverride(ctx, account, rawRequestTier) {
+	case APIKeyOpenAIFastPolicyForce:
 		reqBody["service_tier"] = "priority"
 		bodyModified = true
 		markPatchSet("service_tier", "priority")
+	case APIKeyOpenAIFastPolicyFilter:
+		delete(reqBody, "service_tier")
+		bodyModified = true
+		disablePatch()
 	}
 	if rawTier, ok := reqBody["service_tier"].(string); ok {
 		if normTier := normalizedOpenAIServiceTierValue(rawTier); normTier != "" {
@@ -9664,10 +9670,17 @@ func (s *OpenAIGatewayService) applyOpenAIFastPolicyToBody(ctx context.Context, 
 	if len(body) == 0 {
 		return body, nil
 	}
-	if openAIGroupForcesFast(ctx, account) {
+	switch openAIRequestFastOverride(ctx, account, gjson.GetBytes(body, "service_tier").String()) {
+	case APIKeyOpenAIFastPolicyForce:
 		updated, err := sjson.SetBytes(body, "service_tier", "priority")
 		if err != nil {
 			return body, fmt.Errorf("force group service_tier priority on body: %w", err)
+		}
+		body = updated
+	case APIKeyOpenAIFastPolicyFilter:
+		updated, err := sjson.DeleteBytes(body, "service_tier")
+		if err != nil {
+			return body, fmt.Errorf("strip key service_tier from body: %w", err)
 		}
 		body = updated
 	}
@@ -9773,10 +9786,17 @@ func (s *OpenAIGatewayService) applyOpenAIFastPolicyToWSResponseCreate(
 	if frameType != "response.create" {
 		return frame, nil, nil
 	}
-	if openAIGroupForcesFast(ctx, account) {
+	switch openAIRequestFastOverride(ctx, account, gjson.GetBytes(frame, "service_tier").String()) {
+	case APIKeyOpenAIFastPolicyForce:
 		updated, err := sjson.SetBytes(frame, "service_tier", "priority")
 		if err != nil {
 			return frame, nil, fmt.Errorf("force group service_tier priority in ws frame: %w", err)
+		}
+		frame = updated
+	case APIKeyOpenAIFastPolicyFilter:
+		updated, err := sjson.DeleteBytes(frame, "service_tier")
+		if err != nil {
+			return frame, nil, fmt.Errorf("strip key service_tier from ws frame: %w", err)
 		}
 		frame = updated
 	}
