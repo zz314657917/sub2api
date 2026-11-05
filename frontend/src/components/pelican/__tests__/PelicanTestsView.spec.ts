@@ -66,7 +66,7 @@ describe('PelicanTestsView', () => {
       expect(wrapper.findAll('.gallery')).toHaveLength(1)
       expect(wrapper.find('.row-navigation').exists()).toBe(false)
       expect(wrapper.find('.history-count').exists()).toBe(false)
-      expect(wrapper.get('.scroll-tip').text()).toContain('组内作品上下排列')
+      expect(wrapper.get('.scroll-tip').text()).toContain('每个模型仅展示最新作品')
     } finally { wrapper.unmount() }
   })
 
@@ -102,7 +102,7 @@ describe('PelicanTestsView', () => {
     } finally { wrapper.unmount() }
   })
 
-  it('retains filters, pagination, all rounds, exact enlarge and replay while remounting only preview consumers', async () => {
+  it('retains filters, pagination and exact artwork when switching between model summaries and all rounds', async () => {
     api.list.mockImplementation(async (params: { page: number; page_size: number }) => ({
       items: [
         ...[103, 102, 101].map((id, index) => ({ ...item(1, id), round_number: 3 - index })),
@@ -119,19 +119,20 @@ describe('PelicanTestsView', () => {
       await wrapper.get('select[aria-label="筛选状态"]').setValue('success')
       await wrapper.get('.model-filters').findAll('button').find(button => button.text() === 'gpt-test')!.trigger('click')
       await flushFrame()
-      expect(wrapper.findAll('.result-card')).toHaveLength(3)
-      const cards = wrapper.findAll('.result-card').map(card => card.element)
-      const previews = wrapper.findAllComponents({ name: 'PelicanLazyArtwork' }).map(preview => preview.vm)
+      expect(wrapper.findAll('.result-card')).toHaveLength(1)
+      const card = wrapper.get('.result-card').element
+      const preview = wrapper.findComponent({ name: 'PelicanLazyArtwork' }).vm
       const requests = api.result.mock.calls.length
       const lists = api.list.mock.calls.length
       const pageLabel = wrapper.get('.page-controls').text()
-      await wrapper.findAll('.result-card')[1]!.get('button[aria-label="重新播放"]').trigger('click')
+      await wrapper.get('.result-card button[aria-label="重新播放"]').trigger('click')
       await chooseLayout(wrapper, '横向浏览')
       expect(wrapper.findAll('.gallery')).toHaveLength(1)
-      expect(wrapper.findAll('.result-card').map(card => card.element)).toEqual(cards)
+      expect(wrapper.findAll('.result-card')).toHaveLength(3)
+      expect(wrapper.findAll('.result-card')[0]!.element).toBe(card)
       const remounted = wrapper.findAllComponents({ name: 'PelicanLazyArtwork' })
-      expect(remounted.every((preview, i) => preview.vm !== previews[i])).toBe(true)
-      expect(remounted.map(preview => preview.props('replayKey'))).toEqual([0, 1, 0])
+      expect(remounted[0]!.vm).not.toBe(preview)
+      expect(remounted.map(preview => preview.props('replayKey'))).toEqual([1, 0, 0])
       expect(wrapper.get('.model-filter.active').text()).toBe('gpt-test')
       expect(wrapper.get('input[aria-label="搜索分组或模型"]').element).toHaveProperty('value', 'gpt')
       expect(wrapper.get('select[aria-label="筛选状态"]').element).toHaveProperty('value', 'success')
@@ -139,15 +140,80 @@ describe('PelicanTestsView', () => {
       expect(api.list).toHaveBeenCalledTimes(lists)
       expect(api.settings).not.toHaveBeenCalled()
       expect(api.saveSettings).not.toHaveBeenCalled()
-      expect(api.result).toHaveBeenCalledTimes(requests)
+      expect(api.result.mock.calls.slice(requests).map(call => call[0])).toEqual(expect.arrayContaining([102, 101]))
       await wrapper.findAll('.result-card')[2]!.get('.artwork-preview').trigger('click')
       await flushPromises()
       expect(wrapper.get('[role="dialog"]').findComponent({ name: 'PelicanLazyArtwork' }).props('resultId')).toBe(101)
       await chooseLayout(wrapper, '上下排列')
       expect(wrapper.get('[role="dialog"]').findComponent({ name: 'PelicanLazyArtwork' }).props('resultId')).toBe(101)
-      expect(wrapper.findAll('.result-card')).toHaveLength(3)
+      expect(wrapper.findAll('.result-card')).toHaveLength(1)
       expect(wrapper.find('.row-navigation').exists()).toBe(false)
       expect(api.list).toHaveBeenCalledTimes(lists)
+    } finally { wrapper.unmount() }
+  })
+
+  it('shows one current artwork per model inside each group and leaves retained rounds to horizontal browsing', async () => {
+    api.list.mockResolvedValue({
+      items: [
+        { ...item(1, 105), group_id: 4, group_name: '优先组', round_number: 5 },
+        { ...item(1, 104), group_id: 4, group_name: '优先组', round_number: 4 },
+        { ...item(2, 201), group_id: 4, group_name: '优先组', model_id: 'gpt-other' },
+        { ...item(3, 301), round_number: 3 },
+        { ...item(3, 300), round_number: 2 },
+        { ...item(4, 299), plan_id: 2 },
+      ],
+      total: 2, page: 1, page_size: 24, groups: []
+    })
+    api.result.mockImplementation(async (id: number) => result(id))
+    const wrapper = await view()
+    try {
+      await flushFrame()
+      const groups = wrapper.findAll('.pelican-card')
+      expect(groups.map(group => group.attributes('data-group'))).toEqual(['4', '3'])
+      expect(groups.map(group => group.findAll('.result-card').length)).toEqual([2, 1])
+      expect(wrapper.get('.list-summary').text()).toContain('3 个模型结果')
+      expect(groups[0]!.get('.group-count').text()).toBe('2 个模型结果')
+      expect(wrapper.findAllComponents({ name: 'PelicanLazyArtwork' }).map(preview => preview.props('resultId'))).toEqual([105, 201, 301])
+      expect(api.result.mock.calls.map(call => call[0])).not.toContain(104)
+      expect(api.result.mock.calls.map(call => call[0])).not.toContain(300)
+      const lists = api.list.mock.calls.length
+      await groups[0]!.findAll('.result-card')[0]!.get('.artwork-preview').trigger('click')
+      await flushPromises()
+      expect(wrapper.get('[role="dialog"]').findComponent({ name: 'PelicanLazyArtwork' }).props('resultId')).toBe(105)
+      await wrapper.get('[aria-label="close"]').trigger('click')
+      await chooseLayout(wrapper, '横向浏览')
+      expect(wrapper.findAll('.result-card')).toHaveLength(6)
+      expect(wrapper.get('.list-summary').text()).toContain('6 条测试结果')
+      await chooseLayout(wrapper, '上下排列')
+      expect(wrapper.findAll('.result-card')).toHaveLength(3)
+      expect(api.list).toHaveBeenCalledTimes(lists)
+    } finally { wrapper.unmount() }
+  })
+
+  it.each(['running', 'failed', 'skipped'] as const)('keeps the latest %s status with one previous successful artwork per model', async status => {
+    const entries = [
+      { ...item(0, status === 'running' ? 0 : 106), status, artwork_result_id: null, finished_at: '2026-11-03T12:00:00Z', round_number: 6 },
+      { ...item(1, 105), finished_at: '2026-11-03T11:00:00Z', round_number: 5 },
+      { ...item(1, 104), finished_at: '2026-11-03T10:00:00Z', round_number: 4 }
+    ]
+    api.list.mockResolvedValue({ items: entries, total: 1, page: 1, page_size: 24, groups: [] })
+    api.result.mockImplementation(async (id: number) => result(id))
+    const wrapper = await view()
+    try {
+      expect(wrapper.findAll('.result-card')).toHaveLength(1)
+      expect(wrapper.get('.result-card .status').classes()).toContain(status)
+      expect(wrapper.get('.generation-time').attributes('title')).toBe('2026-11-03T11:00:00.000Z (UTC)')
+      expect(wrapper.findComponent({ name: 'PelicanLazyArtwork' }).props('resultId')).toBe(105)
+      await wrapper.get('.artwork-preview').trigger('click'); await flushPromises()
+      expect(wrapper.get('[role="dialog"]').findComponent({ name: 'PelicanLazyArtwork' }).props('resultId')).toBe(105)
+      await wrapper.get('.refresh-button').trigger('click'); await flushPromises()
+      expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
+      await wrapper.get('[aria-label="close"]').trigger('click')
+      await wrapper.get('select[aria-label="筛选状态"]').setValue('success')
+      expect(wrapper.findAll('.result-card')).toHaveLength(0)
+      expect(entries[0]!.artwork_result_id).toBeNull()
+      await chooseLayout(wrapper, '横向浏览')
+      expect(wrapper.findAll('.result-card')).toHaveLength(2)
     } finally { wrapper.unmount() }
   })
 
@@ -208,6 +274,7 @@ describe('PelicanTestsView', () => {
     })
     const wrapper = await view()
     try {
+      await chooseLayout(wrapper, '横向浏览')
       const timestamps = wrapper.findAll('.generation-time')
       expect(timestamps.map(node => node.attributes('title'))).toEqual([
         '2026-10-07T02:00:37.000Z (UTC)',
@@ -288,6 +355,7 @@ describe('PelicanTestsView', () => {
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const wrapper = await view()
     try {
+      await chooseLayout(wrapper, '横向浏览')
       expect(wrapper.findAll('.model-artwork')).toHaveLength(6)
       expect(wrapper.findAll('.round-label').slice(0, 5).map(label => label.text())).toEqual(['第 5 轮', '第 4 轮', '第 3 轮', '第 2 轮', '第 1 轮'])
       const keptCard = wrapper.findAll('.model-artwork')[0]!.element
@@ -314,6 +382,7 @@ describe('PelicanTestsView', () => {
     })
     const wrapper = await view()
     try {
+      await chooseLayout(wrapper, '横向浏览')
       await wrapper.findAll('.model-filter').find(button => button.text().includes('gpt-test'))!.trigger('click')
       expect(wrapper.findAll('.model-artwork')).toHaveLength(6)
       expect(wrapper.findAll('.status.running')).toHaveLength(1)

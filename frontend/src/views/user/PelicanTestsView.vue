@@ -51,7 +51,7 @@
           <button class="refresh-button" type="button" :aria-label="`刷新${pelicanMetadata.displayName}列表`" :title="`刷新${pelicanMetadata.displayName}结果`" @click="refresh()"><Icon name="refresh" size="sm" /></button>
         </div>
       </section>
-      <div class="list-summary"><span><strong>{{ visibleGroupCount }}</strong> 个分组 <i>/</i> <strong>{{ visibleResultCount }}</strong> 条测试结果</span><span class="scroll-tip"><span aria-hidden="true">{{ layoutMode === 'horizontal' ? '↔' : '↕' }}</span>{{ layoutMode === 'horizontal' ? '每组独立横向浏览' : '组内作品上下排列' }}</span></div>
+      <div class="list-summary"><span><strong>{{ visibleGroupCount }}</strong> 个分组 <i>/</i> <strong>{{ visibleResultCount }}</strong> {{ layoutMode === 'horizontal' ? '条测试结果' : '个模型结果' }}</span><span class="scroll-tip"><span aria-hidden="true">{{ layoutMode === 'horizontal' ? '↔' : '↕' }}</span>{{ layoutMode === 'horizontal' ? '每组独立横向浏览' : '每个模型仅展示最新作品' }}</span></div>
       <p v-if="error && items.length" class="refresh-error" role="alert">{{ error }}</p>
       </div>
 
@@ -63,7 +63,7 @@
           <aside class="group-heading group-meta">
             <div class="platform" :style="{ '--brand-color': platformColor(group.platform) }">{{ group.platform || 'MODEL GROUP' }}</div>
             <h2 class="group-title">{{ group.name }}<span>{{ groupSubtitle(group) }}</span></h2>
-            <p class="group-count"><strong>{{ group.entries.length }}</strong> 条测试记录</p>
+            <p class="group-count"><strong>{{ group.entries.length }}</strong> {{ layoutMode === 'horizontal' ? '条测试记录' : '个模型结果' }}</p>
             <nav class="model-filters" :aria-label="`${group.name}模型筛选`">
               <button type="button" class="model-filter" :class="{ active: selectedModels[group.id] === 'all' }" :aria-pressed="selectedModels[group.id] === 'all'" @click="selectGroupModel(group.id, 'all')">全部模型<Icon name="check" size="xs" /></button>
               <button v-for="model in group.models" :key="model" type="button" class="model-filter" :class="{ active: selectedModels[group.id] === model }" :aria-pressed="selectedModels[group.id] === model" @click="selectGroupModel(group.id, model)">{{ model }}<Icon name="check" size="xs" /></button>
@@ -84,7 +84,7 @@
                       <span v-if="item.status === 'running'" class="running-orbit" aria-hidden="true"></span>
                       <Icon v-else :name="item.status === 'failed' ? 'exclamationCircle' : 'clock'" size="md" />
                       <strong>{{ item.status === 'running' ? '正在生成本轮作品' : item.status === 'failed' ? '本轮未完成' : '本轮暂无作品' }}</strong>
-                      <small>{{ item.status === 'running' ? '完成后会自动出现在这里' : item.status === 'failed' ? '生成失败 · 可查看其他轮次' : '等待作品进入可视区域' }}</small>
+                      <small>{{ item.status === 'running' ? '完成后会自动出现在这里' : item.status === 'failed' ? (layoutMode === 'horizontal' ? '生成失败 · 可查看其他轮次' : '等待下次成功生成') : '等待作品进入可视区域' }}</small>
                     </div>
                     <span v-if="item.round_number || item.history_count" class="round-label">第 {{ item.round_number || item.history_count }} 轮</span>
                     <div class="card-actions">
@@ -304,13 +304,30 @@ const galleryGroups = computed(() => {
   }
   return [...grouped.values()]
 })
+function latestModelEntries(entries: PelicanEntry[]): PelicanEntry[] {
+  // The API orders each model's current round before its retained history.
+  const latest = new Map<string, PelicanEntry>()
+  for (const entry of entries) {
+    const current = latest.get(entry.model_id)
+    if (!current) latest.set(entry.model_id, entry)
+    else if (!current.artwork_result_id && entry.status === 'success' && entry.artwork_result_id) {
+      latest.set(entry.model_id, {
+        ...current,
+        artwork_result_id: entry.artwork_result_id,
+        artwork_finished_at: entry.artwork_finished_at ?? entry.finished_at,
+      })
+    }
+  }
+  return [...latest.values()]
+}
 const visibleGalleryGroups = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
   return galleryGroups.value
     .map(group => {
       const groupMatches = !query || group.name.toLowerCase().includes(query) || group.models.some(model => model.toLowerCase().includes(query))
       const selectedModel = selectedModels.value[group.id] || 'all'
-      const entries = group.entries.filter(entry => {
+      const modelEntries = layoutMode.value === 'vertical' ? latestModelEntries(group.entries) : group.entries
+      const entries = modelEntries.filter(entry => {
         const matchesModel = selectedModel === 'all' || entry.model_id === selectedModel
         const matchesStatus = statusFilter.value === 'all' || entry.status === statusFilter.value
         const matchesQuery = !query || group.name.toLowerCase().includes(query) || entry.model_id.toLowerCase().includes(query)
@@ -477,7 +494,10 @@ async function refresh({ resetView = false }: { resetView?: boolean } = {}): Pro
     void nextTick(scheduleRailNavigation)
     if (!resetView && previousScrollTop != null) void nextTick(() => { if (version === listRequestVersion && resultsRegion.value) resultsRegion.value.scrollTop = previousScrollTop })
     const selected = selectedEntry.value
-    if (selected && !data.items.some(item => entryKey(item) === entryKey(selected) && item.artwork_result_id === selected.artwork_result_id)) closeDialog()
+    if (selected) {
+      const matchesSelected = (item: PelicanEntry) => entryKey(item) === entryKey(selected) && item.artwork_result_id === selected.artwork_result_id
+      if (!data.items.some(matchesSelected) && !visibleGalleryGroups.value.some(group => group.entries.some(matchesSelected))) closeDialog()
+    }
   } catch (reason) { if (version === listRequestVersion) { const status = (reason as { status?: number; response?: { status?: number } })?.status ?? (reason as { response?: { status?: number } })?.response?.status; if (status === 403) pelicanMetadata.reset?.(); error.value = messageOf(reason); if (status === 401 || status === 403) { clearArtworkCache(); items.value = []; total.value = 0; groups.value = []; closeDialog() } } } finally { if (version === listRequestVersion) { loading.value = false; refreshing = false } }
 }
 function clearFilters(): void { groupFilter.value = ''; searchQuery.value = ''; statusFilter.value = 'all'; selectedModels.value = {} }
