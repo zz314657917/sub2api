@@ -2156,8 +2156,8 @@ onMounted(async () => {
 :global(.dark .pricing-subpanel),
 :global(.dark .pricing-summary),
 :global(.dark .pricing-subscription-card) {
-  border-color: rgba(51, 65, 85, 0.9);
-  background: rgba(17, 24, 39, 0.84);
+  border-color: var(--console-border, #3b362f);
+  background: var(--console-surface, #211f1c);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
 }
 
@@ -2167,8 +2167,8 @@ onMounted(async () => {
 }
 
 :global(.dark .pricing-section-tag) {
-  background: rgba(30, 41, 59, 0.94);
-  color: #cbd5e1;
+  background: var(--console-surface-soft, #292621);
+  color: var(--console-muted-strong, #d9d2c6);
 }
 
 .pricing-refresh-button {
@@ -2184,9 +2184,9 @@ onMounted(async () => {
 }
 
 :global(.dark .pricing-refresh-button) {
-  border-color: rgba(148, 163, 184, 0.22);
-  background: rgba(15, 23, 42, 0.72);
-  color: #cbd5e1;
+  border-color: var(--console-border, #3b362f);
+  background: var(--console-surface, #211f1c);
+  color: var(--console-muted-strong, #d9d2c6);
   box-shadow: none;
 }
 
@@ -2223,16 +2223,16 @@ onMounted(async () => {
 :global(.dark .pricing-method-option),
 :global(.dark .pricing-stepper),
 :global(.dark .pricing-input) {
-  border-color: rgba(51, 65, 85, 0.94);
-  background: rgba(15, 23, 42, 0.82);
-  color: #f8fafc;
+  border-color: var(--console-border, #3b362f);
+  background: var(--console-input, #211f1c);
+  color: var(--console-text, #f3efe7);
 }
 
 :global(.dark .pricing-preset--idle:hover),
 :global(.dark .pricing-method-option--idle:hover),
 :global(.dark .pricing-stepper-button:hover) {
-  border-color: rgba(100, 116, 139, 0.92);
-  background: rgba(30, 41, 59, 0.86);
+  border-color: var(--console-border-strong, #51493f);
+  background: var(--console-surface-hover, #302b25);
 }
 
 :global(.dark .pricing-preset--selected),
@@ -2272,7 +2272,7 @@ onMounted(async () => {
 }
 
 :global(.dark .pricing-summary) {
-  background: rgba(18, 28, 43, 0.92);
+  background: var(--console-surface-soft, #292621);
 }
 
 .pricing-recharge-summary {
@@ -2282,8 +2282,8 @@ onMounted(async () => {
 }
 
 :global(.dark .pricing-recharge-summary) {
-  border-color: rgba(71, 85, 105, 0.7);
-  background: rgba(15, 23, 42, 0.48);
+  border-color: var(--console-border, #3b362f);
+  background: var(--console-surface-soft, #292621);
 }
 
 .pricing-side-stack {

@@ -817,9 +817,9 @@ onMounted(() => {
 
 .dark .dashboard-overview :deep(.dashboard-panel),
 .dark .dashboard-panel {
-  border-color: rgba(55, 65, 81, 0.9);
+  border-color: var(--console-border);
   background:
-    linear-gradient(135deg, rgba(13, 20, 33, 0.96), rgba(9, 14, 26, 0.9)),
+    linear-gradient(135deg, var(--console-surface), var(--console-bg)),
     radial-gradient(circle at 100% 0%, rgba(240, 184, 158, 0.08), transparent 19rem);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.25);
 }
@@ -894,8 +894,8 @@ onMounted(() => {
 }
 
 .dark .dashboard-panel-chip {
-  border-color: rgba(71, 85, 105, 0.74);
-  background: rgba(15, 23, 42, 0.64);
-  color: #94a3b8;
+  border-color: var(--console-border);
+  background: var(--console-surface-soft);
+  color: var(--console-muted);
 }
 </style>

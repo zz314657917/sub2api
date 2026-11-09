@@ -727,9 +727,9 @@ onMounted(loadTutorials)
 }
 
 .dark .tutorial-preview {
-  border-color: rgb(55 65 81);
-  background: rgb(17 24 39);
-  color: rgb(243 244 246);
+  border-color: var(--console-border, #3b362f);
+  background: var(--console-surface, #211f1c);
+  color: var(--console-text, #f3efe7);
 }
 
 .tutorial-preview :deep(h1),
@@ -757,7 +757,7 @@ onMounted(loadTutorials)
   overflow: hidden;
   border: 1px solid rgb(51 65 85);
   border-radius: 8px;
-  background: rgb(15 23 42);
+  background: #211f1c;
   color: rgb(248 250 252);
 }
 

@@ -878,14 +878,14 @@ async function copyReply(text: string): Promise<void> {
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  border: 1px solid rgb(229 231 235);
-  background: rgb(255 255 255);
+  border: 1px solid var(--console-border);
+  background: var(--console-surface);
 }
 
 .dark .chat-sessions,
 .dark .chat-main {
-  border-color: rgb(55 65 81);
-  background: rgb(31 41 55 / 0.8);
+  border-color: var(--console-border);
+  background: var(--console-surface);
 }
 
 .chat-sessions {
@@ -907,7 +907,7 @@ async function copyReply(text: string): Promise<void> {
 
 .dark .chat-sessions-header,
 .dark .chat-main-header {
-  border-color: rgb(55 65 81);
+  border-color: var(--console-border);
 }
 
 .chat-settings {
@@ -919,7 +919,7 @@ async function copyReply(text: string): Promise<void> {
 }
 
 .dark .chat-settings {
-  border-color: rgb(55 65 81);
+  border-color: var(--console-border);
 }
 
 .chat-session-list {
@@ -975,8 +975,8 @@ async function copyReply(text: string): Promise<void> {
 
 .chat-session-item:hover,
 .chat-session-item-active {
-  background: rgb(239 246 255);
-  color: rgb(29 78 216);
+  background: var(--console-accent-soft);
+  color: var(--console-accent);
 }
 
 .dark .chat-session-item {
@@ -994,8 +994,8 @@ async function copyReply(text: string): Promise<void> {
 
 .dark .chat-session-item:hover,
 .dark .chat-session-item-active {
-  background: rgb(30 64 175 / 0.22);
-  color: rgb(191 219 254);
+  background: var(--console-accent-soft);
+  color: var(--console-accent);
 }
 
 .chat-main {
@@ -1028,13 +1028,13 @@ async function copyReply(text: string): Promise<void> {
   align-items: center;
   justify-content: center;
   border-radius: 1rem;
-  background: rgb(239 246 255);
-  color: rgb(37 99 235);
+  background: var(--console-accent-soft);
+  color: var(--console-accent);
 }
 
 .dark .chat-empty-icon {
-  background: rgb(30 64 175 / 0.22);
-  color: rgb(147 197 253);
+  background: var(--console-accent-soft);
+  color: var(--console-accent);
 }
 
 .chat-message {
@@ -1063,23 +1063,23 @@ async function copyReply(text: string): Promise<void> {
 }
 
 .chat-avatar-user {
-  background: rgb(229 231 235);
-  color: rgb(55 65 81);
+  background: var(--console-surface-soft);
+  color: var(--console-muted-strong);
 }
 
 .chat-avatar-assistant {
-  background: rgb(219 234 254);
-  color: rgb(37 99 235);
+  background: var(--console-accent-soft);
+  color: var(--console-accent);
 }
 
 .dark .chat-avatar-user {
-  background: rgb(55 65 81);
-  color: rgb(229 231 235);
+  background: var(--console-surface-soft);
+  color: var(--console-muted-strong);
 }
 
 .dark .chat-avatar-assistant {
-  background: rgb(30 64 175 / 0.35);
-  color: rgb(147 197 253);
+  background: var(--console-accent-soft);
+  color: var(--console-accent);
 }
 
 .chat-assistant-body {
@@ -1093,14 +1093,14 @@ async function copyReply(text: string): Promise<void> {
   max-width: min(720px, 78%);
   border-radius: 1rem;
   border-top-right-radius: 0.375rem;
-  background: rgb(239 246 255);
+  background: var(--console-accent-soft);
   padding: 0.75rem 1rem;
-  color: rgb(30 41 59);
+  color: var(--console-text);
 }
 
 .dark .chat-user-bubble {
-  background: rgb(30 64 175 / 0.35);
-  color: rgb(239 246 255);
+  background: var(--console-accent-soft);
+  color: var(--console-text);
 }
 
 .chat-message-toolbar {
@@ -1129,8 +1129,8 @@ async function copyReply(text: string): Promise<void> {
 }
 
 .chat-copy-button:hover {
-  background: rgb(241 245 249);
-  color: rgb(30 41 59);
+  background: var(--console-surface-hover);
+  color: var(--console-text);
 }
 
 .dark .chat-copy-button {
@@ -1138,8 +1138,8 @@ async function copyReply(text: string): Promise<void> {
 }
 
 .dark .chat-copy-button:hover {
-  background: rgb(51 65 85 / 0.65);
-  color: rgb(226 232 240);
+  background: var(--console-surface-hover);
+  color: var(--console-text);
 }
 
 .chat-message-content {
@@ -1173,15 +1173,15 @@ async function copyReply(text: string): Promise<void> {
 
 .chat-composer-box {
   border-radius: 1rem;
-  border: 1px solid rgb(209 213 219);
-  background: rgb(255 255 255);
+  border: 1px solid var(--console-border);
+  background: var(--console-input);
   padding: 0.75rem 0.875rem;
   box-shadow: 0 12px 34px rgb(15 23 42 / 0.08);
 }
 
 .dark .chat-composer-box {
-  border-color: rgb(75 85 99);
-  background: rgb(17 24 39 / 0.55);
+  border-color: var(--console-border-strong);
+  background: var(--console-input);
 }
 
 .chat-input {
@@ -1232,7 +1232,7 @@ async function copyReply(text: string): Promise<void> {
     inset: 0;
     z-index: 58;
     display: block;
-    background: rgb(15 23 42 / 0.42);
+    background: rgb(20 20 19 / 0.42);
     backdrop-filter: blur(2px);
   }
 

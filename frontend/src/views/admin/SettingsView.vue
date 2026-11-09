@@ -12540,11 +12540,8 @@ watch(
 }
 
 .settings-tabs-shell:is(.dark *) {
-  border-color: rgb(51 65 85 / 0.78);
-  background-color: rgb(2 6 23 / 0.95);
-  background:
-    linear-gradient(180deg, rgb(15 23 42 / 0.96), rgb(2 6 23 / 0.9)),
-    rgb(2 6 23 / 0.92) !important;
+  border-color: var(--console-border);
+  background: var(--console-surface);
   box-shadow:
     0 16px 36px rgb(0 0 0 / 0.34),
     0 1px 0 rgb(255 255 255 / 0.06) inset;
@@ -12558,7 +12555,7 @@ watch(
 }
 
 .settings-tabs-scroll:is(.dark *) {
-  background: rgb(2 6 23 / 0.42);
+  background: var(--console-surface);
 }
 
 .settings-tabs-scroll::-webkit-scrollbar {
@@ -12575,13 +12572,13 @@ watch(
 
 .settings-tab:is(.dark *) {
   background: transparent;
-  color: rgb(148 163 184);
+  color: var(--console-muted);
 }
 
 .settings-tab::before {
   @apply absolute inset-0 -z-10 rounded-xl opacity-0 transition-opacity duration-200;
   content: "";
-  background: linear-gradient(135deg, rgb(248 250 252 / 0.95), rgb(241 245 249 / 0.8));
+  background: var(--console-surface-hover);
 }
 
 .settings-tab:hover::before,
@@ -12590,12 +12587,12 @@ watch(
 }
 
 .settings-tab:is(.dark *)::before {
-  background: linear-gradient(135deg, rgb(30 41 59 / 0.86), rgb(15 23 42 / 0.7));
+  background: var(--console-surface-hover);
 }
 
 .settings-tab:is(.dark *):hover,
 .settings-tab:is(.dark *):focus-visible {
-  color: rgb(226 232 240);
+  color: var(--console-text);
 }
 
 .settings-tab:focus-visible {
@@ -12610,11 +12607,9 @@ watch(
 }
 
 .settings-tab-active:is(.dark *) {
-  border-color: rgb(204 120 92 / 0.55);
-  background:
-    linear-gradient(180deg, rgb(204 120 92 / 0.18), rgb(15 23 42 / 0.92)),
-    rgb(15 23 42 / 0.96) !important;
-  color: rgb(255 247 237);
+  border-color: var(--console-accent);
+  background: var(--console-accent-soft);
+  color: var(--console-accent);
   box-shadow:
     0 14px 30px rgb(0 0 0 / 0.32),
     0 1px 0 rgb(255 255 255 / 0.1) inset;
@@ -12719,15 +12714,15 @@ watch(
    because Vue's scoped-CSS compiler was dropping the `:global(.dark) ...`
    rules in the production build, leaving inactive settings tabs unreadable on dark. */
 .dark .settings-tabs-shell {
-  border-color: rgb(51 65 85 / 0.65);
-  background: rgb(15 23 42 / 0.86);
+  border-color: var(--console-border);
+  background: var(--console-surface);
   box-shadow:
     0 16px 36px rgb(0 0 0 / 0.28),
     0 1px 0 rgb(255 255 255 / 0.06) inset;
 }
 
 .dark .settings-tab::before {
-  background: linear-gradient(135deg, rgb(30 41 59 / 0.9), rgb(51 65 85 / 0.62));
+  background: var(--console-surface-hover);
 }
 
 .dark .settings-tab-active {

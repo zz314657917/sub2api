@@ -606,7 +606,7 @@ onMounted(() => {
 }
 
 .dark .ticket-list-panel {
-  border-right-color: rgb(55 65 81);
+  border-right-color: var(--console-border);
 }
 
 .ticket-list-item {
@@ -665,7 +665,7 @@ onMounted(() => {
 }
 
 .dark .ticket-list-item {
-  border-bottom-color: rgb(55 65 81);
+  border-bottom-color: var(--console-border);
 }
 
 .dark .ticket-title {
@@ -673,12 +673,12 @@ onMounted(() => {
 }
 
 .dark .ticket-list-preview {
-  color: rgb(156 163 175);
+  color: var(--console-muted);
 }
 
 .dark .ticket-list-item:hover,
 .dark .ticket-list-item-active {
-  background: rgb(31 41 55);
+  background: var(--console-accent-soft);
 }
 
 .unread-pill {
@@ -776,14 +776,14 @@ onMounted(() => {
 }
 
 .dark .message-bubble-system {
-  border-color: rgba(204, 120, 92, 0.32);
-  background: rgba(204, 120, 92, 0.12);
-  color: rgb(240 184 158);
+  border-color: var(--console-border-strong);
+  background: var(--console-accent-soft);
+  color: var(--console-accent);
 }
 
 .dark .message-bubble-peer {
-  background: rgb(31 41 55);
-  color: rgb(243 244 246);
+  background: var(--console-surface-soft);
+  color: var(--console-text);
 }
 
 @media (max-width: 767px) {

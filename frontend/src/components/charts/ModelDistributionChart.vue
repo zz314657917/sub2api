@@ -655,7 +655,7 @@ const formatCost = (value: number | null | undefined): string => {
 }
 
 .dark .dashboard-table-row {
-  border-top-color: rgba(51, 65, 85, 0.78);
+  border-top-color: var(--console-border, #3b362f);
 }
 
 .dashboard-color-dot {
@@ -693,8 +693,8 @@ const formatCost = (value: number | null | undefined): string => {
 }
 
 .dark .dashboard-segmented {
-  border-color: rgba(51, 65, 85, 0.86);
-  background: rgba(15, 23, 42, 0.76);
+  border-color: var(--console-border, #3b362f);
+  background: var(--console-surface-soft, #292621);
 }
 
 .dashboard-segmented-button {
@@ -712,8 +712,8 @@ const formatCost = (value: number | null | undefined): string => {
 }
 
 .dark .dashboard-segmented-button--active {
-  background: rgba(30, 41, 59, 0.96);
-  color: #f8fafc;
+  background: var(--console-accent-soft, #362a24);
+  color: var(--console-text, #f3efe7);
   box-shadow: none;
 }
 
@@ -726,11 +726,11 @@ const formatCost = (value: number | null | undefined): string => {
 }
 
 .dark .dashboard-segmented-button--idle {
-  color: #94a3b8;
+  color: var(--console-muted, #b9b3a8);
 }
 
 .dark .dashboard-segmented-button--idle:hover {
-  color: #f8fafc;
+  color: var(--console-text, #f3efe7);
 }
 
 @media (max-width: 767px) {

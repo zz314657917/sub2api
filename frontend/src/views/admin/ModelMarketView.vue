@@ -789,16 +789,16 @@ onMounted(loadCatalog)
 }
 
 .model-market-group-card.is-active {
-  border-color: rgb(59 130 246);
-  background: rgb(239 246 255);
+  border-color: var(--console-accent);
+  background: var(--console-accent-soft);
 }
 
 .dark .model-market-group-card {
-  border-color: rgb(55 65 81);
+  border-color: var(--console-border);
 }
 
 .dark .model-market-group-list {
-  border-color: rgb(55 65 81);
+  border-color: var(--console-border);
 }
 
 .dark .model-market-group-card strong {
@@ -810,8 +810,8 @@ onMounted(loadCatalog)
 }
 
 .dark .model-market-group-card.is-active {
-  border-color: rgb(96 165 250);
-  background: rgba(37, 99, 235, 0.16);
+  border-color: var(--console-accent);
+  background: var(--console-accent-soft);
 }
 
 .dark .model-market-group-drag-handle,
@@ -821,8 +821,8 @@ onMounted(loadCatalog)
 
 .dark .model-market-group-drag-handle:hover,
 .dark .model-market-group-order-actions button:hover:not(:disabled) {
-  background: rgb(55 65 81);
-  color: rgb(229 231 235);
+  background: var(--console-surface-hover);
+  color: var(--console-text);
 }
 
 .model-market-supported-groups {
@@ -856,8 +856,8 @@ onMounted(loadCatalog)
 }
 
 .dark .model-market-supported-group {
-  border-color: rgb(55 65 81);
-  color: rgb(229 231 235);
+  border-color: var(--console-border);
+  color: var(--console-text);
 }
 
 .dark .model-market-supported-group small {
@@ -924,23 +924,23 @@ onMounted(loadCatalog)
   position: sticky;
   top: 0;
   z-index: 1;
-  background: rgb(249 250 251);
-  color: rgb(107 114 128);
+  background: var(--console-surface-soft);
+  color: var(--console-muted);
   font-size: 0.75rem;
   font-weight: 700;
 }
 
 .dark .model-market-row-table-wrap {
-  border-color: rgb(55 65 81);
+  border-color: var(--console-border);
 }
 
 .dark .model-market-admin-table th {
-  background: rgb(31 41 55);
+  background: var(--console-surface-soft);
 }
 
 .dark .model-market-admin-table th,
 .dark .model-market-admin-table td {
-  border-color: rgb(55 65 81);
+  border-color: var(--console-border);
 }
 
 .dark .model-market-row-drag-handle {
@@ -948,8 +948,8 @@ onMounted(loadCatalog)
 }
 
 .dark .model-market-row-drag-handle:hover {
-  background: rgb(55 65 81);
-  color: rgb(229 231 235);
+  background: var(--console-surface-hover);
+  color: var(--console-text);
 }
 
 .model-market-json-overlay {
@@ -958,7 +958,7 @@ onMounted(loadCatalog)
   z-index: 50;
   display: flex;
   justify-content: flex-end;
-  background: rgb(15 23 42 / 0.28);
+  background: rgb(20 20 19 / 0.28);
 }
 
 .model-market-json-panel {
@@ -973,12 +973,12 @@ onMounted(loadCatalog)
 }
 
 .dark .model-market-json-overlay {
-  background: rgb(2 6 23 / 0.48);
+  background: rgb(20 20 19 / 0.48);
 }
 
 .dark .model-market-json-panel {
-  border-color: rgb(55 65 81);
-  background: rgb(17 24 39);
+  border-color: var(--console-border);
+  background: var(--console-surface);
 }
 
 .model-market-group-list::-webkit-scrollbar,

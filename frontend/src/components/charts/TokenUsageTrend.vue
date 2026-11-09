@@ -301,8 +301,8 @@ const formatCost = (value: number): string => {
 }
 
 .dark .dashboard-panel-chip {
-  border-color: rgba(71, 85, 105, 0.74);
-  background: rgba(15, 23, 42, 0.64);
-  color: #94a3b8;
+  border-color: var(--console-border, #3b362f);
+  background: var(--console-surface-soft, #292621);
+  color: var(--console-muted, #b9b3a8);
 }
 </style>

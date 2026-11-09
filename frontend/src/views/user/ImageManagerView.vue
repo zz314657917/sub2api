@@ -523,15 +523,15 @@ function revokeObjectUrls(): void {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 0.75rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--console-border);
   border-radius: 0.5rem;
-  background: rgb(255 255 255 / 0.84);
+  background: var(--console-surface);
   padding: 0.85rem;
 }
 
 .dark .image-manager-filters {
-  border-color: rgb(55 65 81);
-  background: rgb(17 24 39 / 0.72);
+  border-color: var(--console-border);
+  background: var(--console-surface);
 }
 
 .image-manager-field {
@@ -574,29 +574,29 @@ function revokeObjectUrls(): void {
 
 .image-manager-toolbar {
   min-height: 3rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--console-border);
   border-radius: 0.5rem;
-  background: rgb(255 255 255 / 0.84);
+  background: var(--console-surface);
   padding: 0.65rem 0.85rem;
 }
 
 .dark .image-manager-toolbar {
-  border-color: rgb(55 65 81);
-  background: rgb(17 24 39 / 0.72);
+  border-color: var(--console-border);
+  background: var(--console-surface);
 }
 
 .image-manager-selection {
   border-radius: 9999px;
-  background: rgb(239 246 255);
+  background: var(--console-accent-soft);
   padding: 0.35rem 0.55rem 0.35rem 0.75rem;
-  color: rgb(30 64 175);
+  color: var(--console-accent);
   font-size: 0.75rem;
   font-weight: 600;
 }
 
 .dark .image-manager-selection {
-  background: rgb(30 64 175 / 0.18);
-  color: rgb(191 219 254);
+  background: var(--console-accent-soft);
+  color: var(--console-accent);
 }
 
 .image-manager-text-button,
@@ -614,15 +614,16 @@ function revokeObjectUrls(): void {
 }
 
 .image-manager-text-button:hover {
-  background: rgb(219 234 254);
+  background: var(--console-surface-hover);
 }
 
 .dark .image-manager-text-button:hover {
-  background: rgb(30 64 175 / 0.26);
+  background: var(--console-surface-hover);
 }
 
 .image-manager-text-button.danger,
-.image-manager-icon-button.danger {
+.image-manager-icon-button.danger,
+.image-manager-icon-button.danger:hover {
   color: rgb(220 38 38);
 }
 
@@ -635,20 +636,24 @@ function revokeObjectUrls(): void {
 .image-manager-card {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--console-border);
   border-radius: 0.5rem;
-  background: white;
+  background: var(--console-surface);
   box-shadow: 0 12px 30px rgb(15 23 42 / 0.08);
 }
 
 .image-manager-card.selected {
-  border-color: rgb(37 99 235);
-  box-shadow: 0 0 0 3px rgb(59 130 246 / 0.18);
+  border-color: var(--console-accent);
+  box-shadow: 0 0 0 3px var(--console-ring);
 }
 
 .dark .image-manager-card {
-  border-color: rgb(55 65 81);
-  background: rgb(17 24 39 / 0.72);
+  border-color: var(--console-border);
+  background: var(--console-surface);
+}
+
+.dark .image-manager-card.selected {
+  border-color: var(--console-accent);
 }
 
 .image-manager-preview {
@@ -657,11 +662,11 @@ function revokeObjectUrls(): void {
   aspect-ratio: 1 / 1;
   align-items: center;
   justify-content: center;
-  background: rgb(241 245 249);
+  background: var(--console-bg);
 }
 
 .dark .image-manager-preview {
-  background: rgb(15 23 42 / 0.75);
+  background: var(--console-bg);
 }
 
 .image-manager-preview img {
@@ -682,12 +687,12 @@ function revokeObjectUrls(): void {
   justify-content: center;
   border-radius: 9999px;
   border: 1px solid rgb(255 255 255 / 0.88);
-  background: rgb(15 23 42 / 0.42);
+  background: rgb(20 20 19 / 0.42);
   color: white;
 }
 
 .image-manager-select.active {
-  background: rgb(37 99 235);
+  background: #a9583e;
 }
 
 .image-manager-card-body {
@@ -699,16 +704,16 @@ function revokeObjectUrls(): void {
 
 .image-manager-format {
   border-radius: 9999px;
-  background: rgb(241 245 249);
+  background: var(--console-surface-soft);
   padding: 0.18rem 0.5rem;
   font-size: 0.68rem;
   font-weight: 700;
-  color: rgb(71 85 105);
+  color: var(--console-muted-strong);
 }
 
 .dark .image-manager-format {
-  background: rgb(30 41 59);
-  color: rgb(203 213 225);
+  background: var(--console-surface-soft);
+  color: var(--console-muted-strong);
 }
 
 .image-manager-prompt {
@@ -745,20 +750,29 @@ function revokeObjectUrls(): void {
 .image-manager-icon-button {
   height: 2rem;
   width: 2rem;
-  border: 1px solid rgb(226 232 240);
-  background: white;
-  color: rgb(71 85 105);
+  border: 1px solid var(--console-border);
+  background: var(--console-surface);
+  color: var(--console-muted-strong);
 }
 
 .image-manager-icon-button:hover {
-  border-color: rgb(147 197 253);
-  color: rgb(37 99 235);
+  border-color: var(--console-accent);
+  color: var(--console-accent);
 }
 
 .dark .image-manager-icon-button {
-  border-color: rgb(55 65 81);
-  background: rgb(15 23 42 / 0.6);
-  color: rgb(203 213 225);
+  border-color: var(--console-border);
+  background: var(--console-surface);
+  color: var(--console-muted-strong);
+}
+
+.dark .image-manager-icon-button:hover {
+  border-color: var(--console-accent);
+  color: var(--console-accent);
+}
+
+.dark .image-manager-icon-button.danger {
+  color: rgb(248 113 113);
 }
 
 .image-manager-state {
@@ -799,8 +813,8 @@ function revokeObjectUrls(): void {
 }
 
 .dark .image-manager-lightbox-close {
-  background: rgb(31 41 55 / 0.95);
-  color: rgb(243 244 246);
+  background: var(--console-surface);
+  color: var(--console-text);
 }
 
 @media (max-width: 640px) {

@@ -186,7 +186,7 @@
           </div>
         </div>
 
-        <div v-if="selectedTicket" ref="messageListRef" class="min-h-0 flex-1 space-y-4 overflow-y-auto bg-gray-50 p-4 dark:bg-dark-950">
+        <div v-if="selectedTicket" ref="messageListRef" class="min-h-0 flex-1 space-y-4 overflow-y-auto bg-[#f5f0e8]/45 p-4 dark:bg-dark-950">
           <div
             v-for="message in messages"
             :key="message.id"
@@ -226,7 +226,7 @@
           {{ t('admin.tickets.systemReadOnly') }}
         </div>
 
-        <div v-else class="flex flex-1 flex-col items-center justify-center bg-gray-50 p-6 text-center text-gray-500 dark:bg-dark-950 dark:text-dark-400">
+        <div v-else class="flex flex-1 flex-col items-center justify-center bg-[#f5f0e8]/45 p-6 text-center text-gray-500 dark:bg-dark-950 dark:text-dark-400">
           <Icon name="ticket" size="xl" class="mb-3 text-gray-300 dark:text-dark-600" />
           <p>{{ t('admin.tickets.noTicketSelected') }}</p>
         </div>
@@ -586,7 +586,7 @@ onMounted(() => {
 }
 
 .dark .ticket-list-panel {
-  border-right-color: rgb(55 65 81);
+  border-right-color: var(--console-border);
 }
 
 .ticket-list-item {
@@ -648,11 +648,12 @@ onMounted(() => {
 
 .ticket-list-item:hover,
 .ticket-list-item-active {
-  background: rgb(249 250 251);
+  background: var(--console-accent-soft);
+  box-shadow: inset 3px 0 0 var(--console-accent);
 }
 
 .dark .ticket-list-item {
-  border-bottom-color: rgb(55 65 81);
+  border-bottom-color: var(--console-border);
 }
 
 .dark .ticket-title {
@@ -661,12 +662,12 @@ onMounted(() => {
 
 .dark .ticket-list-user,
 .dark .ticket-list-preview {
-  color: rgb(156 163 175);
+  color: var(--console-muted);
 }
 
 .dark .ticket-list-item:hover,
 .dark .ticket-list-item-active {
-  background: rgb(31 41 55);
+  background: var(--console-accent-soft);
 }
 
 .unread-pill {
@@ -723,14 +724,14 @@ onMounted(() => {
 }
 
 .dark .message-bubble-system {
-  border-color: rgba(204, 120, 92, 0.32);
-  background: rgba(204, 120, 92, 0.12);
-  color: rgb(240 184 158);
+  border-color: var(--console-border-strong);
+  background: var(--console-accent-soft);
+  color: var(--console-accent);
 }
 
 .dark .message-bubble-peer {
-  background: rgb(31 41 55);
-  color: rgb(243 244 246);
+  background: var(--console-surface-soft);
+  color: var(--console-text);
 }
 
 @media (max-width: 767px) {

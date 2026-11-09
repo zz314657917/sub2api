@@ -662,6 +662,38 @@
     background-color: #292621;
 }
 
+/* Neutral utility surfaces only; preserve semantic status and danger colors. */
+.dark .console-shell :is(
+    [class~="dark:bg-dark-950"],
+    [class*="dark:bg-dark-950/"],
+    [class~="dark:bg-gray-900"],
+    [class*="dark:bg-gray-900/"],
+    [class~="dark:bg-slate-900"],
+    [class*="dark:bg-slate-900/"],
+    [class~="dark:bg-slate-950"],
+    [class*="dark:bg-slate-950/"]
+) {
+    background-color: var(--console-bg);
+}
+
+.dark .console-shell :is(
+    [class~="dark:bg-gray-800"],
+    [class*="dark:bg-gray-800/"],
+    [class~="dark:bg-slate-800"],
+    [class*="dark:bg-slate-800/"]
+) {
+    background-color: var(--console-surface);
+}
+
+.dark .console-shell :is(
+    [class~="dark:bg-gray-700"],
+    [class*="dark:bg-gray-700/"],
+    [class~="dark:bg-slate-700"],
+    [class*="dark:bg-slate-700/"]
+) {
+    background-color: var(--console-surface-soft);
+}
+
 .console-shell .dropdown {
     border: 1px solid var(--console-border);
     border-radius: 0.5rem;
@@ -949,10 +981,51 @@
 }
 
 .dark .console-modal-content {
-    background: var(--console-surface);
+    background: var(--console-surface, var(--console-control-surface, #211f1c));
     border-color: #3b362f;
     box-shadow: 0 28px 72px rgba(0, 0, 0, 0.36);
     color: #e5e7eb;
+}
+
+/* Teleported forms inherit the root control palette while the console is mounted. */
+:root:has(.console-shell) .console-modal-content .input {
+    border-color: var(--console-control-border);
+    background: var(--console-control-surface);
+    color: var(--console-control-text);
+    box-shadow: none;
+}
+
+:root:has(.console-shell) .console-modal-content .input:focus {
+    border-color: var(--console-control-accent);
+    box-shadow: 0 0 0 3px var(--console-control-ring);
+}
+
+:root:has(.console-shell) .console-modal-content .input:disabled {
+    background: var(--console-control-surface-soft);
+}
+
+:root:has(.console-shell) .console-modal-content .input.input-error,
+:root:has(.console-shell) .console-modal-content .input.input-error:focus {
+    border-color: var(--console-control-error);
+}
+
+:root:has(.console-shell) .console-modal-content .input.input-error:focus {
+    box-shadow: 0 0 0 3px var(--console-control-error-ring);
+}
+
+:root:has(.console-shell) .console-modal-content :is(.input-label, .input-hint),
+:root:has(.console-shell) .console-modal-content .input::placeholder {
+    color: var(--console-control-muted);
+}
+
+:root:has(.console-shell) .console-modal-content :is(.btn-secondary, .btn-ghost) {
+    border-color: var(--console-control-border);
+    background: var(--console-control-surface);
+    color: var(--console-control-text);
+}
+
+:root:has(.console-shell) .console-modal-content :is(.btn-secondary, .btn-ghost):hover:not(:disabled) {
+    background: var(--console-control-surface-soft);
 }
 
 .console-modal-content .modal-header,
