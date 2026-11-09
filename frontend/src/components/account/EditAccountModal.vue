@@ -1336,25 +1336,25 @@
               )
             }}
           </p>
-          <div
-            v-if="account?.type === 'apikey'"
-            class="mt-3 flex items-center justify-between gap-3"
-          >
-            <div class="min-w-0">
-              <p class="text-xs font-medium text-gray-700 dark:text-gray-200">
-                {{ t('admin.accounts.upstreamBilling.syncRate') }}
-              </p>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {{ t('admin.accounts.upstreamBilling.syncRateHint') }}
-              </p>
-            </div>
-            <Toggle
-              :model-value="upstreamBillingRateSyncEnabled"
-              data-testid="upstream-billing-rate-sync"
-              :aria-label="t('admin.accounts.upstreamBilling.syncRate')"
-              @update:model-value="handleUpstreamBillingRateSyncChange"
-            />
+        </div>
+        <div
+          v-if="account?.type === 'apikey'"
+          class="col-span-full flex items-start justify-between gap-3"
+        >
+          <div class="min-w-0 flex-1">
+            <p class="text-xs font-medium text-gray-700 dark:text-gray-200">
+              {{ t('admin.accounts.upstreamBilling.syncRate') }}
+            </p>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.upstreamBilling.syncRateHint') }}
+            </p>
           </div>
+          <Toggle
+            :model-value="upstreamBillingRateSyncEnabled"
+            data-testid="upstream-billing-rate-sync"
+            :aria-label="t('admin.accounts.upstreamBilling.syncRate')"
+            @update:model-value="handleUpstreamBillingRateSyncChange"
+          />
         </div>
       </div>
       <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
