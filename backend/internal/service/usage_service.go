@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +22,10 @@ var (
 )
 
 const leaderboardStatsCacheTTL = time.Hour
+
+// leaderboardFullRankingLimit asks the repository for every ranked user so a
+// single cached ranking can serve all callers.
+const leaderboardFullRankingLimit = math.MaxInt32
 
 // CreateUsageLogRequest 创建使用日志请求
 type CreateUsageLogRequest struct {
@@ -402,28 +407,74 @@ func (s *UsageService) GetAPIKeyDashboardStats(ctx context.Context, apiKeyID int
 }
 
 // GetUserLeaderboard returns the user dashboard leaderboard for a time range.
+// The full ranking for a window is cached once and shared by all users; the
+// per-user view (top N plus the caller's own entry) is derived from it.
 func (s *UsageService) GetUserLeaderboard(ctx context.Context, startTime, endTime time.Time, limit int, currentUserID int64) (*usagestats.UserLeaderboardResponse, error) {
-	cacheKey := userLeaderboardStatsCacheKey(startTime, endTime, limit, currentUserID)
-	if cached := s.getCachedUserLeaderboard(cacheKey, time.Now()); cached != nil {
-		return cached, nil
+	if limit <= 0 {
+		limit = 10
+	}
+	cacheKey := leaderboardStatsCacheKey(startTime, endTime, 0)
+	if full := s.getCachedUserLeaderboard(cacheKey, time.Now()); full != nil {
+		return userLeaderboardView(full, limit, currentUserID), nil
 	}
 
 	value, err, _ := s.leaderboardCacheSF.Do("user:"+cacheKey, func() (any, error) {
-		if cached := s.getCachedUserLeaderboard(cacheKey, time.Now()); cached != nil {
-			return cached, nil
+		if full := s.getCachedUserLeaderboard(cacheKey, time.Now()); full != nil {
+			return full, nil
 		}
-		leaderboard, err := s.usageRepo.GetUserLeaderboard(ctx, startTime, endTime, limit, currentUserID)
+		full, err := s.usageRepo.GetUserLeaderboard(ctx, startTime, endTime, leaderboardFullRankingLimit, 0)
 		if err != nil {
 			return nil, err
 		}
-		s.setCachedUserLeaderboard(cacheKey, leaderboard, time.Now())
-		return cloneUserLeaderboardResponse(leaderboard), nil
+		if full == nil {
+			full = &usagestats.UserLeaderboardResponse{}
+		}
+		s.setCachedUserLeaderboard(cacheKey, full, time.Now())
+		return full, nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("get user leaderboard: %w", err)
 	}
-	leaderboard, _ := value.(*usagestats.UserLeaderboardResponse)
-	return cloneUserLeaderboardResponse(leaderboard), nil
+	full, _ := value.(*usagestats.UserLeaderboardResponse)
+	if full == nil {
+		full = &usagestats.UserLeaderboardResponse{}
+	}
+	return userLeaderboardView(full, limit, currentUserID), nil
+}
+
+// userLeaderboardView builds a caller-owned response containing the top
+// `limit` rows of a cached full ranking plus the current user's entry.
+func userLeaderboardView(full *usagestats.UserLeaderboardResponse, limit int, currentUserID int64) *usagestats.UserLeaderboardResponse {
+	base := *full
+	base.Ranking = nil
+	base.CurrentUserEntry = nil
+	view := cloneUserLeaderboardResponse(&base)
+
+	top := limit
+	if top > len(full.Ranking) {
+		top = len(full.Ranking)
+	}
+	view.Ranking = make([]usagestats.UserLeaderboardItem, 0, top)
+	for _, item := range full.Ranking {
+		inTop := item.Rank <= int64(limit)
+		isCurrent := currentUserID > 0 && item.UserID == currentUserID
+		if !inTop && !isCurrent {
+			if currentUserID <= 0 || view.CurrentUserEntry != nil {
+				break
+			}
+			continue
+		}
+		row := cloneUserLeaderboardItem(item)
+		row.IsCurrentUser = isCurrent
+		if inTop {
+			view.Ranking = append(view.Ranking, row)
+		}
+		if isCurrent {
+			current := cloneUserLeaderboardItem(row)
+			view.CurrentUserEntry = &current
+		}
+	}
+	return view
 }
 
 // GetLeaderboardModelRanking returns global model usage ranking for the leaderboard period.
@@ -587,6 +638,8 @@ func (s *UsageService) setCachedLeaderboardBadgeLeaders(key string, leaders *usa
 	}
 }
 
+// getCachedUserLeaderboard returns the shared full ranking. Callers must treat
+// it as read-only and derive their own copy via userLeaderboardView.
 func (s *UsageService) getCachedUserLeaderboard(key string, now time.Time) *usagestats.UserLeaderboardResponse {
 	if s == nil || key == "" {
 		return nil
@@ -597,7 +650,7 @@ func (s *UsageService) getCachedUserLeaderboard(key string, now time.Time) *usag
 	if !ok || entry.leaderboard == nil || !now.Before(entry.expiresAt) {
 		return nil
 	}
-	return cloneUserLeaderboardResponse(entry.leaderboard)
+	return entry.leaderboard
 }
 
 func (s *UsageService) setCachedUserLeaderboard(key string, leaderboard *usagestats.UserLeaderboardResponse, now time.Time) {
@@ -616,7 +669,7 @@ func (s *UsageService) setCachedUserLeaderboard(key string, leaderboard *usagest
 	}
 	s.userLeaderboardCache[key] = leaderboardUserCacheEntry{
 		expiresAt:   now.Add(leaderboardStatsCacheTTL),
-		leaderboard: cloneUserLeaderboardResponse(leaderboard),
+		leaderboard: leaderboard,
 	}
 }
 
@@ -718,13 +771,6 @@ func (s *UsageService) setCachedLeaderboardDailyChampions(key string, champions 
 		expiresAt: now.Add(leaderboardStatsCacheTTL),
 		champions: cloneLeaderboardDailyChampions(champions),
 	}
-}
-
-func userLeaderboardStatsCacheKey(startTime, endTime time.Time, limit int, currentUserID int64) string {
-	return strings.Join([]string{
-		leaderboardStatsCacheKey(startTime, endTime, limit),
-		fmt.Sprintf("user:%d", currentUserID),
-	}, "|")
 }
 
 func leaderboardStatsCacheKey(startTime, endTime time.Time, limit int) string {

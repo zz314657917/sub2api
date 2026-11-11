@@ -102,25 +102,47 @@ func TestUsageServiceGetUserLeaderboardCachesStatsAndReturnsClones(t *testing.T)
 	require.Equal(t, int64(100), second.DailyRewards.TopUsers[0].Tokens)
 }
 
-func TestUsageServiceGetUserLeaderboardCacheKeyIncludesCurrentUser(t *testing.T) {
+func TestUsageServiceGetUserLeaderboardSharesRankingAcrossUsers(t *testing.T) {
 	repo := &leaderboardStatsCacheUsageRepo{
 		userResponses: []*usagestats.UserLeaderboardResponse{
-			{CurrentUserEntry: &usagestats.UserLeaderboardItem{UserID: 42, Tokens: 100}},
-			{CurrentUserEntry: &usagestats.UserLeaderboardItem{UserID: 99, Tokens: 200}},
+			{
+				TotalTokens: 600,
+				Ranking: []usagestats.UserLeaderboardItem{
+					{Rank: 1, UserID: 7, Tokens: 300},
+					{Rank: 2, UserID: 42, Tokens: 200},
+					{Rank: 3, UserID: 99, Tokens: 100},
+				},
+			},
 		},
 	}
 	svc := NewUsageService(repo, nil, nil, nil)
 	start := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
 	end := start.Add(24 * time.Hour)
 
-	first, err := svc.GetUserLeaderboard(context.Background(), start, end, 10, 42)
+	first, err := svc.GetUserLeaderboard(context.Background(), start, end, 2, 42)
 	require.NoError(t, err)
-	second, err := svc.GetUserLeaderboard(context.Background(), start, end, 10, 99)
+	second, err := svc.GetUserLeaderboard(context.Background(), start, end, 2, 99)
+	require.NoError(t, err)
+	anonymous, err := svc.GetUserLeaderboard(context.Background(), start, end, 1, 0)
 	require.NoError(t, err)
 
-	require.Equal(t, 2, repo.userCalls)
-	require.Equal(t, int64(42), first.CurrentUserEntry.UserID)
-	require.Equal(t, int64(99), second.CurrentUserEntry.UserID)
+	require.Equal(t, 1, repo.userCalls)
+
+	require.Len(t, first.Ranking, 2)
+	require.False(t, first.Ranking[0].IsCurrentUser)
+	require.True(t, first.Ranking[1].IsCurrentUser)
+	require.NotNil(t, first.CurrentUserEntry)
+	require.Equal(t, int64(2), first.CurrentUserEntry.Rank)
+
+	require.Len(t, second.Ranking, 2)
+	require.False(t, second.Ranking[1].IsCurrentUser)
+	require.NotNil(t, second.CurrentUserEntry)
+	require.Equal(t, int64(3), second.CurrentUserEntry.Rank)
+	require.True(t, second.CurrentUserEntry.IsCurrentUser)
+
+	require.Len(t, anonymous.Ranking, 1)
+	require.Nil(t, anonymous.CurrentUserEntry)
+	require.Equal(t, int64(600), anonymous.TotalTokens)
 }
 
 func TestUsageServiceGetLeaderboardModelRankingAndRecentTrendUseCache(t *testing.T) {

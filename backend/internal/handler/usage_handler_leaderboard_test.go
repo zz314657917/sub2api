@@ -2,9 +2,11 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -17,6 +19,7 @@ import (
 
 type userLeaderboardUsageRepo struct {
 	service.UsageLogRepository
+	mu               sync.Mutex
 	start            time.Time
 	end              time.Time
 	trendStart       time.Time
@@ -53,6 +56,8 @@ func (r *leaderboardHandlerUserRepo) GetByID(context.Context, int64) (*service.U
 }
 
 func (r *userLeaderboardUsageRepo) GetUserLeaderboard(ctx context.Context, startTime, endTime time.Time, limit int, currentUserID int64) (*usagestats.UserLeaderboardResponse, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.start = startTime
 	r.end = endTime
 	r.limit = limit
@@ -66,6 +71,8 @@ func (r *userLeaderboardUsageRepo) GetUserLeaderboard(ctx context.Context, start
 }
 
 func (r *userLeaderboardUsageRepo) GetUsageTrendWithFilters(ctx context.Context, startTime, endTime time.Time, granularity string, userID, apiKeyID, accountID, groupID int64, model string, requestType *int16, stream *bool, billingType *int8) ([]usagestats.TrendDataPoint, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.trendStart = startTime
 	r.trendEnd = endTime
 	r.trendGranularity = granularity
@@ -86,6 +93,8 @@ func (r *userLeaderboardUsageRepo) GetUserLeaderboardBadgeLeaders(ctx context.Co
 }
 
 func (r *userLeaderboardUsageRepo) GetLeaderboardModelRanking(ctx context.Context, startTime, endTime time.Time, limit int) ([]usagestats.UserLeaderboardModelItem, int64, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.modelStart = startTime
 	r.modelEnd = endTime
 	r.modelLimit = limit
@@ -99,6 +108,8 @@ func (r *userLeaderboardUsageRepo) GetLeaderboardModelRanking(ctx context.Contex
 }
 
 func (r *userLeaderboardUsageRepo) GetLeaderboardDailyChampions(ctx context.Context, startTime, endTime time.Time) ([]usagestats.UserLeaderboardDailyChampion, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.championStart = startTime
 	r.championEnd = endTime
 	if r.dailyChampions != nil {
@@ -193,7 +204,11 @@ func TestUsageHandlerDashboardLeaderboardInvalidPeriod(t *testing.T) {
 }
 
 func TestUsageHandlerDashboardLeaderboardLimitClamp(t *testing.T) {
-	repo := &userLeaderboardUsageRepo{}
+	ranking := make([]usagestats.UserLeaderboardItem, 0, 12)
+	for i := 1; i <= 12; i++ {
+		ranking = append(ranking, usagestats.UserLeaderboardItem{Rank: int64(i), UserID: int64(100 + i), Tokens: int64(1000 - i)})
+	}
+	repo := &userLeaderboardUsageRepo{response: &usagestats.UserLeaderboardResponse{Ranking: ranking}}
 	router := newUserLeaderboardRouter(repo, 42)
 
 	req := httptest.NewRequest(http.MethodGet, "/usage/dashboard/leaderboard?limit=250", nil)
@@ -202,17 +217,21 @@ func TestUsageHandlerDashboardLeaderboardLimitClamp(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Contains(t, rec.Body.String(), `"daily_rewards"`)
 	require.Contains(t, rec.Body.String(), `"enabled":false`)
-	require.NotEmpty(t, repo.limits)
-	require.Equal(t, 10, repo.limits[0])
+	var payload struct {
+		Data usagestats.UserLeaderboardResponse `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &payload))
+	require.Len(t, payload.Data.Ranking, 10)
 	require.NotEmpty(t, repo.currentUserIDs)
-	require.Equal(t, int64(42), repo.currentUserIDs[0])
+	require.Equal(t, int64(0), repo.currentUserIDs[0], "shared ranking cache must not be per-user")
 
 	req = httptest.NewRequest(http.MethodGet, "/usage/dashboard/leaderboard?period=week&limit=0", nil)
 	rec = httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Len(t, repo.limits, 3)
-	require.Equal(t, 10, repo.limits[2])
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &payload))
+	require.Len(t, payload.Data.Ranking, 10)
 }
 
 func TestUsageHandlerDashboardLeaderboardMasksEmailAndDisplayName(t *testing.T) {

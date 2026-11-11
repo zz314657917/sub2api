@@ -19,6 +19,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/sync/errgroup"
 )
 
 var leaderboardSampleModelRanking = []usagestats.UserLeaderboardModelItem{
@@ -1037,35 +1038,56 @@ func (h *UsageHandler) DashboardLeaderboard(c *gin.Context) {
 	}
 	limit := parseDashboardLeaderboardLimit(c.DefaultQuery("limit", strconv.Itoa(defaultLeaderboardLimit)))
 
-	leaderboard, err := h.usageService.GetUserLeaderboard(c.Request.Context(), startTime, endTime, limit, subject.UserID)
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
+	ctx := c.Request.Context()
 	now := timezone.NowInUserLocation(userTZ)
 	weekStart, weekEnd := dashboardLeaderboardWeekWindow(userTZ, now)
 	monthStart, monthEnd := dashboardLeaderboardMonthWindow(userTZ, now)
-	leaders, err := h.usageService.GetUserLeaderboardBadgeLeaders(c.Request.Context(), weekStart, weekEnd, monthStart, monthEnd, startTime, endTime, userTZ)
-	if err != nil {
+	recentTrendStart, recentTrendEnd := dashboardLeaderboardRecentTrendWindow(userTZ, now)
+	championCalendarStart, championCalendarEnd := dashboardLeaderboardChampionCalendarWindow(userTZ, now)
+
+	var (
+		leaderboard    *usagestats.UserLeaderboardResponse
+		leaders        *usagestats.UserLeaderboardBadgeLeaders
+		recentTrend    []usagestats.UserLeaderboardTokenTrendPoint
+		dailyChampions []usagestats.UserLeaderboardDailyChampion
+		modelRanking   []usagestats.UserLeaderboardModelItem
+		totalModels    int64
+		dailyRewards   *usagestats.LeaderboardDailyRewards
+	)
+	g, gctx := errgroup.WithContext(ctx)
+	g.Go(func() (err error) {
+		leaderboard, err = h.usageService.GetUserLeaderboard(gctx, startTime, endTime, limit, subject.UserID)
+		return err
+	})
+	g.Go(func() (err error) {
+		leaders, err = h.usageService.GetUserLeaderboardBadgeLeaders(gctx, weekStart, weekEnd, monthStart, monthEnd, startTime, endTime, userTZ)
+		return err
+	})
+	g.Go(func() (err error) {
+		recentTrend, err = h.usageService.GetLeaderboardRecentTokenTrend(gctx, recentTrendStart, recentTrendEnd)
+		return err
+	})
+	g.Go(func() (err error) {
+		dailyChampions, err = h.usageService.GetLeaderboardDailyChampions(gctx, championCalendarStart, championCalendarEnd)
+		return err
+	})
+	g.Go(func() error {
+		modelRanking, totalModels = h.getOptionalLeaderboardModelRanking(gctx, startTime, endTime, limit)
+		return nil
+	})
+	g.Go(func() (err error) {
+		dailyRewards, err = h.usageService.GetLeaderboardDailyRewards(gctx, subject.UserID, userTZ)
+		return err
+	})
+	if err := g.Wait(); err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
+
 	if leaderboard == nil {
 		leaderboard = &usagestats.UserLeaderboardResponse{}
 	}
-	recentTrendStart, recentTrendEnd := dashboardLeaderboardRecentTrendWindow(userTZ, now)
-	recentTrend, err := h.usageService.GetLeaderboardRecentTokenTrend(c.Request.Context(), recentTrendStart, recentTrendEnd)
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
 	recentTrend = fillLeaderboardRecentTokenTrend(recentTrend, recentTrendStart, recentTrendEnd)
-	championCalendarStart, championCalendarEnd := dashboardLeaderboardChampionCalendarWindow(userTZ, now)
-	dailyChampions, err := h.usageService.GetLeaderboardDailyChampions(c.Request.Context(), championCalendarStart, championCalendarEnd)
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
 	leaderboard.Period = period
 	leaderboard.StartDate = startDate
 	leaderboard.EndDate = endDate
@@ -1075,7 +1097,6 @@ func (h *UsageHandler) DashboardLeaderboard(c *gin.Context) {
 	if leaderboard.Ranking == nil {
 		leaderboard.Ranking = []usagestats.UserLeaderboardItem{}
 	}
-	modelRanking, totalModels := h.getOptionalLeaderboardModelRanking(c.Request.Context(), startTime, endTime, limit)
 	leaderboard.ModelRanking = modelRanking
 	leaderboard.TotalModels = totalModels
 	if leaderboard.ModelRanking == nil {
@@ -1086,11 +1107,6 @@ func (h *UsageHandler) DashboardLeaderboard(c *gin.Context) {
 		leaderboard.TotalModels = int64(len(leaderboard.ModelRanking))
 	}
 	applyUserLeaderboardBadges(leaderboard, leaders)
-	dailyRewards, err := h.usageService.GetLeaderboardDailyRewards(c.Request.Context(), subject.UserID, userTZ)
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
 	leaderboard.DailyRewards = dailyRewards
 	finalizeUserLeaderboardResponse(leaderboard)
 
