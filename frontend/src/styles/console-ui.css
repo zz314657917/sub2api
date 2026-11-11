@@ -665,33 +665,51 @@
 /* Neutral utility surfaces only; preserve semantic status and danger colors. */
 .dark .console-shell :is(
     [class~="dark:bg-dark-950"],
-    [class*="dark:bg-dark-950/"],
     [class~="dark:bg-gray-900"],
-    [class*="dark:bg-gray-900/"],
     [class~="dark:bg-slate-900"],
-    [class*="dark:bg-slate-900/"],
-    [class~="dark:bg-slate-950"],
-    [class*="dark:bg-slate-950/"]
+    [class~="dark:bg-slate-950"]
 ) {
     background-color: var(--console-bg);
 }
 
 .dark .console-shell :is(
     [class~="dark:bg-gray-800"],
-    [class*="dark:bg-gray-800/"],
-    [class~="dark:bg-slate-800"],
-    [class*="dark:bg-slate-800/"]
+    [class~="dark:bg-slate-800"]
 ) {
     background-color: var(--console-surface);
 }
 
 .dark .console-shell :is(
     [class~="dark:bg-gray-700"],
-    [class*="dark:bg-gray-700/"],
-    [class~="dark:bg-slate-700"],
-    [class*="dark:bg-slate-700/"]
+    [class~="dark:bg-slate-700"]
 ) {
     background-color: var(--console-surface-soft);
+}
+
+/* Translucent neutrals keep their alpha and only take the warm hue. CSS cannot
+   read the alpha out of a class name, so each class in use is listed; an
+   unlisted one keeps Tailwind's own translucent colour. */
+.dark .console-shell [class~="dark:bg-slate-900/20"] {
+    background-color: color-mix(in srgb, var(--console-bg) 20%, transparent);
+}
+
+.dark .console-shell :is(
+    [class~="dark:bg-gray-900/30"],
+    [class~="dark:bg-slate-900/30"]
+) {
+    background-color: color-mix(in srgb, var(--console-bg) 30%, transparent);
+}
+
+.dark .console-shell [class~="dark:bg-dark-950/60"] {
+    background-color: color-mix(in srgb, var(--console-bg) 60%, transparent);
+}
+
+.dark .console-shell [class~="dark:bg-slate-800/50"] {
+    background-color: color-mix(in srgb, var(--console-surface) 50%, transparent);
+}
+
+.dark .console-shell [class~="dark:bg-gray-800/80"] {
+    background-color: color-mix(in srgb, var(--console-surface) 80%, transparent);
 }
 
 .console-shell .dropdown {

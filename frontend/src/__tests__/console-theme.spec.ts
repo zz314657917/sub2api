@@ -159,6 +159,14 @@ describe('console visual direction', () => {
     expect(consoleUi).not.toContain('.dark .console-shell .btn-primary,\n.dark .console-shell .btn-success')
   })
 
+  it('warms translucent neutral surfaces without flattening their alpha', () => {
+    expect(consoleUi).not.toMatch(/\[class\*="dark:bg-(gray|slate)-\d+\/"\]/)
+    expect(consoleUi).not.toContain('[class*="dark:bg-dark-950/"]')
+    expect(consoleUi).toContain('[class~="dark:bg-gray-900/30"]')
+    expect(consoleUi).toContain('color-mix(in srgb, var(--console-bg) 30%, transparent)')
+    expect(consoleUi).toContain('color-mix(in srgb, var(--console-surface) 80%, transparent)')
+  })
+
   it('maps legacy purple and indigo utility accents onto the warm console palette', () => {
     expect(consoleUi).toContain('.console-shell .bg-purple-50')
     expect(consoleUi).toContain('.console-shell .text-indigo-600')
