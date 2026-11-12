@@ -433,12 +433,14 @@ const handleClickOutside = (event: MouseEvent) => {
   }
 }
 
+// Capture phase: dialogs stop click propagation (BaseDialog @click.stop), which would
+// otherwise keep this dropdown open when another Select in the same dialog is clicked.
 onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
+  document.addEventListener('click', handleClickOutside, true)
 })
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('click', handleClickOutside, true)
   window.removeEventListener('scroll', updateTriggerRect, { capture: true })
   window.removeEventListener('resize', calculateDropdownPosition)
 })
