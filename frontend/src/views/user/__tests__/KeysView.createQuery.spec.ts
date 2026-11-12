@@ -129,7 +129,7 @@ describe('KeysView create query', () => {
   it.each([
     ['disabled', { account_share_enabled: false }, false],
     ['enabled', { account_share_enabled: true }, true],
-    ['missing for backwards compatibility', {}, true],
+    ['missing (fails closed)', {}, false],
   ])('controls account-pool strategy visibility when sharing is %s', async (_case, settings, expected) => {
     getPublicSettings.mockResolvedValue(settings)
 

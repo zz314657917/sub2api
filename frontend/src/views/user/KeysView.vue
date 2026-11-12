@@ -212,7 +212,7 @@
                   </span>
                 </div>
                 <span
-                  v-if="row.account_pool_strategy && row.account_pool_strategy !== 'shared_only'"
+                  v-if="accountShareEnabled && row.account_pool_strategy && row.account_pool_strategy !== 'shared_only'"
                   class="inline-flex items-center rounded-md bg-[#fffaf5] px-2 py-0.5 text-xs font-medium text-[#a9583e] ring-1 ring-[#d8cec2] dark:bg-[#cc785c]/10 dark:text-[#f0b89e] dark:ring-[#cc785c]/30"
                 >
                   {{ accountPoolStrategyLabel(row.account_pool_strategy) }}
@@ -1782,7 +1782,8 @@ const selectedKey = ref<ApiKey | null>(null)
 const copiedKeyId = ref<number | null>(null)
 const groupSelectorKeyId = ref<number | null>(null)
 const publicSettings = ref<PublicSettings | null>(null)
-const accountShareEnabled = computed(() => publicSettings.value?.account_share_enabled !== false)
+// Fail closed: hide account-pool controls until the server explicitly enables sharing.
+const accountShareEnabled = computed(() => publicSettings.value?.account_share_enabled === true)
 const dropdownRef = ref<HTMLElement | null>(null)
 const dropdownPosition = ref<{ top?: number; bottom?: number; left: number } | null>(null)
 const groupButtonRefs = ref<Map<number, HTMLElement>>(new Map())
