@@ -152,6 +152,9 @@ type GroupStat struct {
 	Cost        float64 `json:"cost"`         // 标准计费
 	ActualCost  float64 `json:"actual_cost"`  // 实际扣除
 	AccountCost float64 `json:"account_cost"` // 账号成本
+	// InputTokens/CacheReadTokens 用于计算分组缓存命中率：read / (input + read)。
+	InputTokens     int64 `json:"input_tokens"`
+	CacheReadTokens int64 `json:"cache_read_tokens"`
 }
 
 // UserUsageTrendPoint represents user usage trend data point

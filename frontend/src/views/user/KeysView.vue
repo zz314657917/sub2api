@@ -513,12 +513,15 @@
     <BaseDialog
       :show="showCreateModal || showEditModal"
       :title="showEditModal ? t('keys.editKey') : t('keys.createKey')"
-      width="full"
+      :width="formData.enable_multi_group_routing ? 'full' : 'wide'"
       @close="closeModals"
     >
       <form
         id="key-form"
-        class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(32rem,44rem)] lg:items-start"
+        :class="[
+          'grid gap-5',
+          formData.enable_multi_group_routing && 'lg:grid-cols-[minmax(0,1fr)_minmax(32rem,44rem)] lg:items-start'
+        ]"
         @submit.prevent="handleSubmit"
       >
         <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900/40 lg:col-start-1">
@@ -620,10 +623,18 @@
                     :peak-end="(option as unknown as GroupOption).peakEnd"
                     :peak-rate-multiplier="(option as unknown as GroupOption).peakRateMultiplier"
                     :description="(option as unknown as GroupOption).description"
+                    :health="groupHealthFor((option as unknown as GroupOption).value, (option as unknown as GroupOption).label)"
                     :selected="selected"
                   />
                 </template>
               </Select>
+              <div
+                v-if="selectedFormGroupHealth"
+                class="mt-2 rounded-lg bg-gray-50 px-3 py-2 dark:bg-dark-800/60"
+                data-testid="selected-group-health"
+              >
+                <GroupHealthStrip :health="selectedFormGroupHealth" :points="30" />
+              </div>
               <p
                 v-if="formData.enable_multi_group_routing"
                 class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400"
@@ -635,7 +646,14 @@
           </div>
         </section>
 
-        <aside class="key-route-panel flex min-h-0 flex-col rounded-xl border border-gray-200 bg-gray-50/70 p-4 dark:border-dark-700 dark:bg-dark-800/40 lg:sticky lg:top-0 lg:col-start-2 lg:row-start-1 lg:row-span-3">
+        <aside
+          :class="[
+            'key-route-panel flex min-h-0 flex-col rounded-xl border border-gray-200 bg-gray-50/70 dark:border-dark-700 dark:bg-dark-800/40',
+            formData.enable_multi_group_routing
+              ? 'p-4 lg:sticky lg:top-0 lg:col-start-2 lg:row-start-1 lg:row-span-3'
+              : 'px-4 py-3'
+          ]"
+        >
           <div class="flex items-center justify-between gap-3">
             <div class="key-route-heading flex min-w-0 items-center gap-2">
               <label class="input-label mb-0 flex-shrink-0">{{ t('keys.multiGroupRouting') }}</label>
@@ -692,6 +710,20 @@
           </div>
 
           <div v-if="formData.enable_multi_group_routing" class="mt-3 min-h-0">
+            <dl class="mb-3 grid grid-cols-2 gap-2" data-testid="key-route-summary">
+              <div class="min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2 dark:border-dark-700 dark:bg-dark-900/40">
+                <dt class="text-[11px] text-gray-500 dark:text-gray-400">{{ t('keys.routeSummary.fallbackGroup') }}</dt>
+                <dd class="mt-0.5 truncate text-sm font-semibold text-gray-900 dark:text-white" :title="selectedFormGroup?.label">
+                  {{ selectedFormGroup?.label ?? t('keys.routeSummary.notSet') }}
+                </dd>
+              </div>
+              <div class="min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2 dark:border-dark-700 dark:bg-dark-900/40">
+                <dt class="text-[11px] text-gray-500 dark:text-gray-400">{{ t('keys.routeSummary.activeRoutes') }}</dt>
+                <dd class="mt-0.5 text-sm font-semibold tabular-nums text-gray-900 dark:text-white">
+                  {{ enabledRouteCount }} / {{ formData.multi_group_routes.length }}
+                </dd>
+              </div>
+            </dl>
             <div class="mb-3 rounded-lg border border-gray-200 bg-white p-3 dark:border-dark-700 dark:bg-dark-900/40">
               <div class="flex flex-wrap items-center gap-2">
                 <label class="inline-flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
@@ -813,6 +845,7 @@
                         :peak-end="(option as unknown as GroupOption).peakEnd"
                         :peak-rate-multiplier="(option as unknown as GroupOption).peakRateMultiplier"
                         :description="(option as unknown as GroupOption).description"
+                        :health="groupHealthFor((option as unknown as GroupOption).value, (option as unknown as GroupOption).label)"
                         :selected="selected"
                       />
                     </template>
@@ -1605,6 +1638,8 @@ import UseKeyModal from '@/components/keys/UseKeyModal.vue'
 import EndpointPopover from '@/components/keys/EndpointPopover.vue'
 import GroupBadge from '@/components/common/GroupBadge.vue'
 import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
+import GroupHealthStrip from '@/components/common/GroupHealthStrip.vue'
+import { useGroupHealth } from '@/composables/useGroupHealth'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { useAppStore } from '@/stores/app'
 import { useOnboardingStore } from '@/stores/onboarding'
@@ -1709,6 +1744,13 @@ const now = ref(new Date())
 let resetTimer: ReturnType<typeof setInterval> | null = null
 const usageStats = ref<Record<string, BatchApiKeyUsageStats>>({})
 const userGroupRates = ref<Record<number, number>>({})
+const { load: loadGroupHealth, healthFor: groupHealthFor } = useGroupHealth()
+let groupHealthLoaded = false
+const ensureGroupHealth = () => {
+  if (groupHealthLoaded) return
+  groupHealthLoaded = true
+  void loadGroupHealth()
+}
 
 const pagination = ref({
   page: 1,
@@ -2110,6 +2152,16 @@ const groupOptions = computed(() =>
   groups.value.map((group) => groupOptionFromGroup(group))
 )
 
+const selectedFormGroup = computed(() =>
+  groupOptions.value.find((group) => group.value === formData.value.group_id) ?? null
+)
+const selectedFormGroupHealth = computed(() =>
+  selectedFormGroup.value ? groupHealthFor(selectedFormGroup.value.value, selectedFormGroup.value.label) : null
+)
+const enabledRouteCount = computed(() =>
+  formData.value.multi_group_routes.filter((route) => route.enabled && route.group_id).length
+)
+
 const createProvider = ref<KeyGroupProvider>('anthropic')
 const createProviderOptions = computed(() => KEY_GROUP_PROVIDERS.map((value) => ({
   value,
@@ -2130,6 +2182,7 @@ const selectCreateProvider = (provider: KeyGroupProvider) => {
 
 watch([showCreateModal, createProviderOptions], ([isOpen, providers], [wasOpen]) => {
   if (!isOpen) return
+  ensureGroupHealth()
   if (!wasOpen || !providers.some((provider) => provider.value === createProvider.value && provider.count > 0)) {
     selectCreateProvider(providers.find((provider) => provider.count > 0)?.value ?? 'anthropic')
   }
@@ -2365,6 +2418,7 @@ const editKey = (key: ApiKey) => {
     expiration_preset: 'custom',
     expiration_date: key.expires_at ? formatDateTimeLocal(key.expires_at) : ''
   }
+  ensureGroupHealth()
   showEditModal.value = true
 }
 

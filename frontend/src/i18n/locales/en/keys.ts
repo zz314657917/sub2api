@@ -34,6 +34,16 @@ export default {
     noGroup: 'No group',
     searchGroup: 'Search groups...',
     noGroupFound: 'No groups found',
+    groupHealth: {
+      availability: 'Uptime',
+      cacheRate: 'Cache',
+      cacheRateHint: 'Your 7-day cache hit rate in this group: cache read / (input + cache read)'
+    },
+    routeSummary: {
+      fallbackGroup: 'Fallback group',
+      activeRoutes: 'Active routes',
+      notSet: 'Not set'
+    },
     created: 'Created',
     copyToClipboard: 'Copy to clipboard',
     copied: 'Copied!',

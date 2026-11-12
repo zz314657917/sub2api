@@ -53,6 +53,9 @@ type userGroupStat struct {
 	TotalTokens int64   `json:"total_tokens"`
 	Cost        float64 `json:"cost"`
 	ActualCost  float64 `json:"actual_cost"`
+	// Exposed so the key editor can show the caller's own cache hit rate per group.
+	InputTokens     int64 `json:"input_tokens"`
+	CacheReadTokens int64 `json:"cache_read_tokens"`
 }
 
 // UsageHandler handles usage-related requests
@@ -498,18 +501,18 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 	}
 
 	filters := usagestats.UsageLogFilters{
-		UserID:            subject.UserID,
-		APIKeyID:          apiKeyID,
-		GroupID:           groupID,
-		Model:             model,
-		ModelFilterSource: usagestats.ModelSourceRequested,
-		RequestType:       requestType,
-		Stream:            stream,
+		UserID:             subject.UserID,
+		APIKeyID:           apiKeyID,
+		GroupID:            groupID,
+		Model:              model,
+		ModelFilterSource:  usagestats.ModelSourceRequested,
+		RequestType:        requestType,
+		Stream:             stream,
 		NativeCompactionV2: nativeCompactionV2,
-		BillingType:       billingType,
-		BillingMode:       billingMode,
-		StartTime:         &startTime,
-		EndTime:           &endTime,
+		BillingType:        billingType,
+		BillingMode:        billingMode,
+		StartTime:          &startTime,
+		EndTime:            &endTime,
 	}
 	stats, err := h.usageService.GetStatsWithFilters(c.Request.Context(), filters)
 	if err != nil {
@@ -1264,6 +1267,7 @@ func userGroupStatsFromUsageStats(stats []usagestats.GroupStat) []userGroupStat 
 		out = append(out, userGroupStat{
 			GroupID: stat.GroupID, GroupName: stat.GroupName, Requests: stat.Requests,
 			TotalTokens: stat.TotalTokens, Cost: stat.Cost, ActualCost: stat.ActualCost,
+			InputTokens: stat.InputTokens, CacheReadTokens: stat.CacheReadTokens,
 		})
 	}
 	return out

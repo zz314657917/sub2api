@@ -5435,7 +5435,9 @@ func (r *usageLogRepository) getGroupStatsWithFilters(ctx context.Context, start
 			COALESCE(SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens), 0) as total_tokens,
 			COALESCE(SUM(ul.total_cost), 0) as cost,
 			` + usageLogAppliedActualCostExprUL + ` as actual_cost,
-			COALESCE(SUM(COALESCE(ul.account_stats_cost, ul.total_cost) * COALESCE(ul.account_rate_multiplier, 1)), 0) as account_cost
+			COALESCE(SUM(COALESCE(ul.account_stats_cost, ul.total_cost) * COALESCE(ul.account_rate_multiplier, 1)), 0) as account_cost,
+			COALESCE(SUM(ul.input_tokens), 0) as input_tokens,
+			COALESCE(SUM(ul.cache_read_tokens), 0) as cache_read_tokens
 		FROM usage_logs ul
 		LEFT JOIN groups g ON g.id = ul.group_id
 		WHERE ul.created_at >= $1 AND ul.created_at < $2
@@ -5495,6 +5497,8 @@ func (r *usageLogRepository) getGroupStatsWithFilters(ctx context.Context, start
 			&row.Cost,
 			&row.ActualCost,
 			&row.AccountCost,
+			&row.InputTokens,
+			&row.CacheReadTokens,
 		); err != nil {
 			return nil, err
 		}

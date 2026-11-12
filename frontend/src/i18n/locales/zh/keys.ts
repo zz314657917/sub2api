@@ -34,6 +34,16 @@ export default {
     noGroup: '无分组',
     searchGroup: '搜索分组...',
     noGroupFound: '未找到匹配的分组',
+    groupHealth: {
+      availability: '可用',
+      cacheRate: '缓存',
+      cacheRateHint: '你近 7 天在该分组的缓存命中率：缓存读取 /（输入 + 缓存读取）'
+    },
+    routeSummary: {
+      fallbackGroup: '兜底分组',
+      activeRoutes: '启用路由',
+      notSet: '未设置'
+    },
     created: '创建时间',
     copyToClipboard: '复制到剪贴板',
     copied: '已复制！',

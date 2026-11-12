@@ -20,6 +20,7 @@
       >
         {{ description }}
       </span>
+      <GroupHealthStrip v-if="health" :health="health" class="mt-1.5" />
     </div>
 
     <!-- Right: rate pill + checkmark (vertically centered to first row) -->
@@ -62,7 +63,9 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import GroupBadge from './GroupBadge.vue'
+import GroupHealthStrip from './GroupHealthStrip.vue'
 import type { SubscriptionType, GroupPlatform } from '@/types'
+import type { GroupHealth } from '@/composables/useGroupHealth'
 import { useAppStore } from '@/stores/app'
 import { formatPeakRateWindow, serverTimezoneLabel } from '@/utils/peak-rate'
 
@@ -79,6 +82,7 @@ interface Props {
   description?: string | null
   selected?: boolean
   showCheckmark?: boolean
+  health?: GroupHealth | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -86,7 +90,8 @@ const props = withDefaults(defineProps<Props>(), {
   selected: false,
   showCheckmark: true,
   userRateMultiplier: null,
-  peakRateEnabled: false
+  peakRateEnabled: false,
+  health: null
 })
 
 const { t } = useI18n()
