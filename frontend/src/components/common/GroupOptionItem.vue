@@ -136,7 +136,7 @@ const ratePillClass = computed(() => {
     case 'openai':
       return 'bg-[#fffaf5] text-[#a9583e] ring-1 ring-[#d8cec2] dark:bg-[#cc785c]/10 dark:text-[#f0b89e] dark:ring-[#cc785c]/30'
     case 'gemini':
-      return 'bg-[#f5f0e8] text-[#6c6a64] dark:bg-[#8e8b82]/12 dark:text-[#d8cec2]'
+      return 'bg-[#f5f0e8] text-[#6c6a64] dark:bg-[#8e8b82]/[0.12] dark:text-[#d8cec2]'
     default: // antigravity and others
       return 'console-badge-accent'
   }

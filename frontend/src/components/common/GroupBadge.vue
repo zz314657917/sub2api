@@ -191,7 +191,7 @@ const badgeClass = computed(() => {
   if (props.platform === 'gemini') {
     return isSubscription.value
       ? 'bg-[#fffaf5] text-[#6c6a64] ring-1 ring-[#d8cec2] dark:bg-[#8e8b82]/15 dark:text-[#d8cec2] dark:ring-[#8e8b82]/40'
-      : 'bg-[#f5f0e8] text-[#6c6a64] dark:bg-[#8e8b82]/12 dark:text-[#d8cec2]'
+      : 'bg-[#f5f0e8] text-[#6c6a64] dark:bg-[#8e8b82]/[0.12] dark:text-[#d8cec2]'
   }
   if (props.platform === 'kimi') {
     return isSubscription.value
