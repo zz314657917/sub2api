@@ -39,6 +39,17 @@ export default {
       cacheRate: 'Cache',
       cacheRateHint: 'Your 7-day cache hit rate in this group: cache read / (input + cache read)'
     },
+    groupPricing: {
+      title: 'Model pricing',
+      model: 'Model',
+      input: 'Input',
+      output: 'Output',
+      cacheRead: 'Cache read',
+      cacheWrite: 'Cache write',
+      perRequest: '/ request',
+      empty: 'No model pricing configured for this group',
+      rateNote: 'Base model prices; charges are multiplied by the group rate {rate}x'
+    },
     routeSummary: {
       fallbackGroup: 'Fallback group',
       activeRoutes: 'Active routes',

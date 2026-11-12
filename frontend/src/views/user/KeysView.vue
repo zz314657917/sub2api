@@ -141,20 +141,30 @@
                   :ref="(el) => setGroupButtonRef(row.id, el)"
                   @click="openGroupSelector(row)"
                   class="-mx-2 -my-1 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-dark-700"
-                  :title="t('keys.clickToChangeGroup')"
+                  :title="groupPricingEnabled ? undefined : t('keys.clickToChangeGroup')"
                 >
-                  <GroupBadge
+                  <GroupPricingPopover
                     v-if="row.group"
-                    :name="row.group.name"
+                    :group-name="row.group.name"
                     :platform="row.group.platform"
-                    :subscription-type="row.group.subscription_type"
-                    :rate-multiplier="row.group.rate_multiplier"
-                    :user-rate-multiplier="userGroupRates[row.group.id]"
-                    :peak-rate-enabled="row.group.peak_rate_enabled"
-                    :peak-start="row.group.peak_start"
-                    :peak-end="row.group.peak_end"
-                    :peak-rate-multiplier="row.group.peak_rate_multiplier"
-                  />
+                    :models="groupModelsFor(row.group.id)"
+                    :loading="groupPricingLoading"
+                    :rate-multiplier="userGroupRates[row.group.id] ?? row.group.rate_multiplier"
+                    :disabled="!groupPricingEnabled || groupSelectorKeyId === row.id"
+                    @open="ensureGroupPricing"
+                  >
+                    <GroupBadge
+                      :name="row.group.name"
+                      :platform="row.group.platform"
+                      :subscription-type="row.group.subscription_type"
+                      :rate-multiplier="row.group.rate_multiplier"
+                      :user-rate-multiplier="userGroupRates[row.group.id]"
+                      :peak-rate-enabled="row.group.peak_rate_enabled"
+                      :peak-start="row.group.peak_start"
+                      :peak-end="row.group.peak_end"
+                      :peak-rate-multiplier="row.group.peak_rate_multiplier"
+                    />
+                  </GroupPricingPopover>
                   <span v-else class="text-sm text-gray-400 dark:text-dark-500">{{
                     t('keys.noGroup')
                   }}</span>
@@ -191,19 +201,29 @@
                   v-if="smartRoutePreviewGroups(row).length > 0"
                   class="flex max-w-[20rem] flex-wrap gap-1"
                 >
-                  <GroupBadge
+                  <GroupPricingPopover
                     v-for="item in smartRoutePreviewGroups(row)"
                     :key="`${row.id}-${item.index}-${item.route.group_id}`"
-                    :name="item.group.name"
+                    :group-name="item.group.name"
                     :platform="item.group.platform"
-                    :subscription-type="item.group.subscription_type"
-                    :rate-multiplier="item.group.rate_multiplier"
-                    :user-rate-multiplier="userGroupRates[item.group.id]"
-                    :peak-rate-enabled="item.group.peak_rate_enabled"
-                    :peak-start="item.group.peak_start"
-                    :peak-end="item.group.peak_end"
-                    :peak-rate-multiplier="item.group.peak_rate_multiplier"
-                  />
+                    :models="groupModelsFor(item.group.id)"
+                    :loading="groupPricingLoading"
+                    :rate-multiplier="userGroupRates[item.group.id] ?? item.group.rate_multiplier"
+                    :disabled="!groupPricingEnabled"
+                    @open="ensureGroupPricing"
+                  >
+                    <GroupBadge
+                      :name="item.group.name"
+                      :platform="item.group.platform"
+                      :subscription-type="item.group.subscription_type"
+                      :rate-multiplier="item.group.rate_multiplier"
+                      :user-rate-multiplier="userGroupRates[item.group.id]"
+                      :peak-rate-enabled="item.group.peak_rate_enabled"
+                      :peak-start="item.group.peak_start"
+                      :peak-end="item.group.peak_end"
+                      :peak-rate-multiplier="item.group.peak_rate_multiplier"
+                    />
+                  </GroupPricingPopover>
                   <span
                     v-if="smartRouteOverflowCount(row) > 0"
                     class="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500 dark:bg-dark-700 dark:text-gray-300"
@@ -612,20 +632,32 @@
                   <span v-else class="text-gray-400">{{ t('keys.selectGroup') }}</span>
                 </template>
                 <template #option="{ option, selected }">
-                  <GroupOptionItem
-                    :name="(option as unknown as GroupOption).label"
+                  <GroupPricingPopover
+                    class="flex-1"
+                  placement="side"
+                    :group-name="(option as unknown as GroupOption).label"
                     :platform="(option as unknown as GroupOption).platform"
-                    :subscription-type="(option as unknown as GroupOption).subscriptionType"
-                    :rate-multiplier="(option as unknown as GroupOption).rate"
-                    :user-rate-multiplier="(option as unknown as GroupOption).userRate"
-                    :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
-                    :peak-start="(option as unknown as GroupOption).peakStart"
-                    :peak-end="(option as unknown as GroupOption).peakEnd"
-                    :peak-rate-multiplier="(option as unknown as GroupOption).peakRateMultiplier"
-                    :description="(option as unknown as GroupOption).description"
-                    :health="groupHealthFor((option as unknown as GroupOption).value, (option as unknown as GroupOption).label)"
-                    :selected="selected"
-                  />
+                    :models="groupModelsFor((option as unknown as GroupOption).value)"
+                    :loading="groupPricingLoading"
+                    :rate-multiplier="(option as unknown as GroupOption).userRate ?? (option as unknown as GroupOption).rate"
+                    :disabled="!groupPricingEnabled"
+                    @open="ensureGroupPricing"
+                  >
+                    <GroupOptionItem
+                      :name="(option as unknown as GroupOption).label"
+                      :platform="(option as unknown as GroupOption).platform"
+                      :subscription-type="(option as unknown as GroupOption).subscriptionType"
+                      :rate-multiplier="(option as unknown as GroupOption).rate"
+                      :user-rate-multiplier="(option as unknown as GroupOption).userRate"
+                      :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
+                      :peak-start="(option as unknown as GroupOption).peakStart"
+                      :peak-end="(option as unknown as GroupOption).peakEnd"
+                      :peak-rate-multiplier="(option as unknown as GroupOption).peakRateMultiplier"
+                      :description="(option as unknown as GroupOption).description"
+                      :health="groupHealthFor((option as unknown as GroupOption).value, (option as unknown as GroupOption).label)"
+                      :selected="selected"
+                    />
+                  </GroupPricingPopover>
                 </template>
               </Select>
               <div
@@ -833,21 +865,33 @@
                         <Icon name="exclamationCircle" size="sm" class="flex-shrink-0" />
                         <span class="truncate text-sm font-medium">{{ (option as unknown as GroupOption).label }}</span>
                       </span>
-                      <GroupOptionItem
+                      <GroupPricingPopover
                         v-else
-                        :name="(option as unknown as GroupOption).label"
+                        class="flex-1"
+                        placement="side"
+                        :group-name="(option as unknown as GroupOption).label"
                         :platform="(option as unknown as GroupOption).platform"
-                        :subscription-type="(option as unknown as GroupOption).subscriptionType"
-                        :rate-multiplier="(option as unknown as GroupOption).rate"
-                        :user-rate-multiplier="(option as unknown as GroupOption).userRate"
-                        :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
-                        :peak-start="(option as unknown as GroupOption).peakStart"
-                        :peak-end="(option as unknown as GroupOption).peakEnd"
-                        :peak-rate-multiplier="(option as unknown as GroupOption).peakRateMultiplier"
-                        :description="(option as unknown as GroupOption).description"
-                        :health="groupHealthFor((option as unknown as GroupOption).value, (option as unknown as GroupOption).label)"
-                        :selected="selected"
-                      />
+                        :models="groupModelsFor((option as unknown as GroupOption).value)"
+                        :loading="groupPricingLoading"
+                        :rate-multiplier="(option as unknown as GroupOption).userRate ?? (option as unknown as GroupOption).rate"
+                        :disabled="!groupPricingEnabled"
+                        @open="ensureGroupPricing"
+                      >
+                        <GroupOptionItem
+                          :name="(option as unknown as GroupOption).label"
+                          :platform="(option as unknown as GroupOption).platform"
+                          :subscription-type="(option as unknown as GroupOption).subscriptionType"
+                          :rate-multiplier="(option as unknown as GroupOption).rate"
+                          :user-rate-multiplier="(option as unknown as GroupOption).userRate"
+                          :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
+                          :peak-start="(option as unknown as GroupOption).peakStart"
+                          :peak-end="(option as unknown as GroupOption).peakEnd"
+                          :peak-rate-multiplier="(option as unknown as GroupOption).peakRateMultiplier"
+                          :description="(option as unknown as GroupOption).description"
+                          :health="groupHealthFor((option as unknown as GroupOption).value, (option as unknown as GroupOption).label)"
+                          :selected="selected"
+                        />
+                      </GroupPricingPopover>
                     </template>
                   </Select>
                 </div>
@@ -1552,6 +1596,7 @@
       <div
         v-if="groupSelectorKeyId !== null && dropdownPosition"
         ref="dropdownRef"
+        data-pricing-anchor
         class="animate-in fade-in slide-in-from-top-2 fixed z-[100000020] w-max min-w-[380px] overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-black/5 duration-200 dark:bg-dark-800 dark:ring-white/10"
         style="pointer-events: auto !important;"
         :style="{
@@ -1589,24 +1634,36 @@
                 ? 'bg-primary-50 dark:bg-primary-900/20'
                 : 'hover:bg-gray-100 dark:hover:bg-dark-700'
             ]"
-            :title="option.description || undefined"
+            :title="groupPricingEnabled ? undefined : option.description || undefined"
           >
-            <GroupOptionItem
-              :name="option.label"
+            <GroupPricingPopover
+              class="flex-1"
+              placement="side"
+              :group-name="option.label"
               :platform="option.platform"
-              :subscription-type="option.subscriptionType"
-              :rate-multiplier="option.rate"
-              :user-rate-multiplier="option.userRate"
-              :peak-rate-enabled="option.peakRateEnabled"
-              :peak-start="option.peakStart"
-              :peak-end="option.peakEnd"
-              :peak-rate-multiplier="option.peakRateMultiplier"
-              :description="option.description"
-              :selected="
-                selectedKeyForGroup?.group_id === option.value ||
-                (!selectedKeyForGroup?.group_id && option.value === null)
-              "
-            />
+              :models="groupModelsFor(option.value)"
+              :loading="groupPricingLoading"
+              :rate-multiplier="option.userRate ?? option.rate"
+              :disabled="!groupPricingEnabled || option.value === null"
+              @open="ensureGroupPricing"
+            >
+              <GroupOptionItem
+                :name="option.label"
+                :platform="option.platform"
+                :subscription-type="option.subscriptionType"
+                :rate-multiplier="option.rate"
+                :user-rate-multiplier="option.userRate"
+                :peak-rate-enabled="option.peakRateEnabled"
+                :peak-start="option.peakStart"
+                :peak-end="option.peakEnd"
+                :peak-rate-multiplier="option.peakRateMultiplier"
+                :description="option.description"
+                :selected="
+                  selectedKeyForGroup?.group_id === option.value ||
+                  (!selectedKeyForGroup?.group_id && option.value === null)
+                "
+              />
+            </GroupPricingPopover>
           </button>
           <!-- Empty state when search has no results -->
           <div v-if="filteredGroupOptions.length === 0" class="py-4 text-center text-sm text-gray-400 dark:text-gray-500">
@@ -1639,7 +1696,9 @@ import EndpointPopover from '@/components/keys/EndpointPopover.vue'
 import GroupBadge from '@/components/common/GroupBadge.vue'
 import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
 import GroupHealthStrip from '@/components/common/GroupHealthStrip.vue'
+import GroupPricingPopover from '@/components/keys/GroupPricingPopover.vue'
 import { useGroupHealth } from '@/composables/useGroupHealth'
+import { useGroupModelPricing } from '@/composables/useGroupModelPricing'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { useAppStore } from '@/stores/app'
 import { useOnboardingStore } from '@/stores/onboarding'
@@ -1784,6 +1843,13 @@ const groupSelectorKeyId = ref<number | null>(null)
 const publicSettings = ref<PublicSettings | null>(null)
 // Fail closed: hide account-pool controls until the server explicitly enables sharing.
 const accountShareEnabled = computed(() => publicSettings.value?.account_share_enabled === true)
+// Group model pricing comes from the "available channels" API, which is empty when that feature is off.
+const groupPricingEnabled = computed(() => publicSettings.value?.available_channels_enabled === true)
+const {
+  ensureLoaded: ensureGroupPricing,
+  modelsFor: groupModelsFor,
+  loading: groupPricingLoading
+} = useGroupModelPricing()
 const dropdownRef = ref<HTMLElement | null>(null)
 const dropdownPosition = ref<{ top?: number; bottom?: number; left: number } | null>(null)
 const groupButtonRefs = ref<Map<number, HTMLElement>>(new Map())

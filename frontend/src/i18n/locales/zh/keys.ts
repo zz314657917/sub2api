@@ -39,6 +39,17 @@ export default {
       cacheRate: '缓存',
       cacheRateHint: '你近 7 天在该分组的缓存命中率：缓存读取 /（输入 + 缓存读取）'
     },
+    groupPricing: {
+      title: '模型价格',
+      model: '模型',
+      input: '输入',
+      output: '输出',
+      cacheRead: '缓存读',
+      cacheWrite: '缓存写',
+      perRequest: '/ 次',
+      empty: '该分组暂未配置模型价格',
+      rateNote: '以上为模型基础价，实际扣费再乘以分组倍率 {rate}x'
+    },
     routeSummary: {
       fallbackGroup: '兜底分组',
       activeRoutes: '启用路由',
