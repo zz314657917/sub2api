@@ -183,7 +183,7 @@ func (s *UsageService) GetLeaderboardDailyRewards(ctx context.Context, userID in
 
 func (s *UsageService) getLeaderboardDailyRewards(ctx context.Context, userID int64, now time.Time) (*usagestats.LeaderboardDailyRewards, error) {
 	start, end, rewardDate, settlementTZ, defaultAvailableAt := leaderboardRewardWindow(now)
-	leaderboard, err := s.GetUserLeaderboard(ctx, start, end, leaderboardRewardTopLimit, userID)
+	leaderboard, err := s.getUserLeaderboard(ctx, start, end, leaderboardRewardTopLimit, userID, false)
 	if err != nil {
 		return nil, err
 	}
@@ -312,7 +312,7 @@ func (s *UsageService) SettleDueLeaderboardLotteryRewards(ctx context.Context, n
 	if now.Before(leaderboardLotteryDrawAt(end, settings.LotteryCron)) {
 		return nil
 	}
-	leaderboard, err := s.GetUserLeaderboard(ctx, start, end, leaderboardRewardTopLimit, 0)
+	leaderboard, err := s.getUserLeaderboard(ctx, start, end, leaderboardRewardTopLimit, 0, false)
 	if err != nil {
 		return err
 	}
@@ -382,7 +382,7 @@ func (s *UsageService) claimLeaderboardDailyReward(ctx context.Context, userID i
 
 func (s *UsageService) prepareLeaderboardRewardClaim(ctx context.Context, userID int64, now time.Time) (*usagestats.LeaderboardDailyRewards, leaderboardDailyRewardSettings, []usagestats.LeaderboardDailyRewardTopUser, error) {
 	start, end, rewardDate, _, defaultAvailableAt := leaderboardRewardWindow(now)
-	leaderboard, err := s.GetUserLeaderboard(ctx, start, end, leaderboardRewardTopLimit, userID)
+	leaderboard, err := s.getUserLeaderboard(ctx, start, end, leaderboardRewardTopLimit, userID, false)
 	if err != nil {
 		return nil, leaderboardDailyRewardSettings{}, nil, err
 	}

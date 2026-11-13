@@ -1078,9 +1078,17 @@ func (h *UsageHandler) DashboardLeaderboard(c *gin.Context) {
 		modelRanking, totalModels = h.getOptionalLeaderboardModelRanking(gctx, startTime, endTime, limit)
 		return nil
 	})
-	g.Go(func() (err error) {
-		dailyRewards, err = h.usageService.GetLeaderboardDailyRewards(gctx, subject.UserID, userTZ)
-		return err
+	g.Go(func() error {
+		// Reward status may settle payouts, so it requires a fresh ranking.
+		// Its failure must not hide the display-only cached leaderboard.
+		rewardCtx, cancel := context.WithTimeout(gctx, 3*time.Second)
+		defer cancel()
+		var rewardErr error
+		dailyRewards, rewardErr = h.usageService.GetLeaderboardDailyRewards(rewardCtx, subject.UserID, userTZ)
+		if rewardErr != nil {
+			dailyRewards = nil
+		}
+		return nil
 	})
 	if err := g.Wait(); err != nil {
 		response.ErrorFrom(c, err)
@@ -1094,7 +1102,7 @@ func (h *UsageHandler) DashboardLeaderboard(c *gin.Context) {
 	leaderboard.Period = period
 	leaderboard.StartDate = startDate
 	leaderboard.EndDate = endDate
-	leaderboard.GeneratedAt = time.Now().UTC().Format(time.RFC3339)
+	// GeneratedAt comes from the cached ranking, including during refresh failures.
 	leaderboard.RecentTokenTrend = recentTrend
 	leaderboard.DailyChampions = dailyChampions
 	if leaderboard.Ranking == nil {

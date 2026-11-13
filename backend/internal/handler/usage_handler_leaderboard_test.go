@@ -28,6 +28,7 @@ type userLeaderboardUsageRepo struct {
 	limit            int
 	currentUserID    int64
 	response         *usagestats.UserLeaderboardResponse
+	userErr          func(time.Time, time.Time) error
 	trend            []usagestats.TrendDataPoint
 	trendFromWindow  bool
 	limits           []int
@@ -64,6 +65,11 @@ func (r *userLeaderboardUsageRepo) GetUserLeaderboard(ctx context.Context, start
 	r.currentUserID = currentUserID
 	r.limits = append(r.limits, limit)
 	r.currentUserIDs = append(r.currentUserIDs, currentUserID)
+	if r.userErr != nil {
+		if err := r.userErr(startTime, endTime); err != nil {
+			return nil, err
+		}
+	}
 	if r.response != nil {
 		return r.response, nil
 	}
@@ -339,6 +345,29 @@ func TestUsageHandlerDashboardLeaderboardReturnsRankingWhenModelRankingFails(t *
 	require.Contains(t, body, `"display_name":"w***r"`)
 	require.Contains(t, body, `"model_ranking":[]`)
 	require.Contains(t, body, `"total_models":0`)
+}
+
+func TestUsageHandlerDashboardLeaderboardReturnsRankingWhenRewardQueryFails(t *testing.T) {
+	repo := &userLeaderboardUsageRepo{
+		response: &usagestats.UserLeaderboardResponse{TotalTokens: 100},
+		userErr: func(start, end time.Time) error {
+			if end.Sub(start) > 24*time.Hour {
+				return errors.New("reward ranking unavailable")
+			}
+			return nil
+		},
+	}
+	router := newUserLeaderboardRouter(repo, 42)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/usage/dashboard/leaderboard?period=day&timezone=UTC", nil))
+	require.Equal(t, http.StatusOK, rec.Code)
+	var response struct {
+		Data usagestats.UserLeaderboardResponse `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+	require.Equal(t, int64(100), response.Data.TotalTokens)
+	require.Nil(t, response.Data.DailyRewards)
+	require.NotEmpty(t, response.Data.GeneratedAt)
 }
 
 func TestUsageHandlerDashboardLeaderboardIncludesMaskedDailyChampions(t *testing.T) {

@@ -36,7 +36,7 @@ func (r *leaderboardBadgeUsageRepo) GetUserLeaderboardBadgeLeaders(context.Conte
 	return &leaders, nil
 }
 
-func TestUsageServiceGetUserLeaderboardBadgeLeadersCachesUntilNextMidnight(t *testing.T) {
+func TestUsageServiceGetUserLeaderboardBadgeLeadersCachesAndReturnsClones(t *testing.T) {
 	repo := &leaderboardBadgeUsageRepo{
 		leaders: &usagestats.UserLeaderboardBadgeLeaders{WeeklyTokenKingUserID: 42},
 	}
@@ -55,7 +55,7 @@ func TestUsageServiceGetUserLeaderboardBadgeLeadersCachesUntilNextMidnight(t *te
 	require.Equal(t, 1, repo.calls)
 }
 
-func TestUsageServiceGetUserLeaderboardBadgeLeadersDoesNotCacheEmptyResult(t *testing.T) {
+func TestUsageServiceGetUserLeaderboardBadgeLeadersBrieflyCachesEmptyResult(t *testing.T) {
 	repo := &leaderboardBadgeUsageRepo{
 		callLeaders: []*usagestats.UserLeaderboardBadgeLeaders{
 			nil,
@@ -72,8 +72,13 @@ func TestUsageServiceGetUserLeaderboardBadgeLeadersDoesNotCacheEmptyResult(t *te
 
 	second, err := svc.GetUserLeaderboardBadgeLeaders(context.Background(), start, end, start, end, start, end, "Asia/Shanghai")
 	require.NoError(t, err)
-	require.Equal(t, int64(42), second.WeeklyTokenKingUserID)
-	require.Equal(t, 2, repo.calls)
+	require.Equal(t, int64(0), second.WeeklyTokenKingUserID)
+	require.Equal(t, 1, repo.calls)
+	key := leaderboardBadgeCacheKey(start, end, start, end, start, end, "Asia/Shanghai")
+	svc.badgeCacheMu.Lock()
+	expiresAt := svc.badgeCache[key].expiresAt
+	svc.badgeCacheMu.Unlock()
+	require.WithinDuration(t, time.Now().Add(leaderboardEmptyBadgeCacheTTL), expiresAt, time.Second)
 }
 
 func TestUsageServiceInvalidateUsageCachesKeepsLeaderboardBadgeCache(t *testing.T) {
