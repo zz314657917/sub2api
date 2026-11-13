@@ -13,6 +13,8 @@ import (
 )
 
 const (
+	usageBillingAtomicBalanceSQL   = `(?s)UPDATE users\s+SET balance = balance - \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$2 AND deleted_at IS NULL AND balance >= \$1\s+RETURNING balance$`
+	usageBillingAtomicOverdraftSQL = `(?s)UPDATE users\s+SET balance = balance - \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$2 AND deleted_at IS NULL\s+RETURNING balance$`
 	usageBillingUserBalanceSQL     = `(?s)SELECT balance::double precision\s+FROM users\s+WHERE id = \$1 AND deleted_at IS NULL\s+FOR UPDATE`
 	usageBillingVoucherSummarySQL  = `(?s)SELECT\s+u\.balance::double precision,\s+COALESCE\(voucher\.available_amount, 0\)::double precision,\s+voucher\.next_expires_at\s+FROM users u`
 	usageBillingVoucherRowsSQL     = `(?s)SELECT id, remaining_amount::double precision\s+FROM welfare_vouchers\s+WHERE user_id = \$1`
@@ -56,13 +58,10 @@ func TestApplyUsageBillingEffects_FlagsBalanceOverdraft(t *testing.T) {
 	mock.ExpectBegin()
 	tx, err := db.BeginTx(ctx, nil)
 	require.NoError(t, err)
-	mock.ExpectQuery(usageBillingUserBalanceSQL).
-		WithArgs(int64(42)).
-		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(0.0007))
-	mock.ExpectQuery(usageBillingVoucherRowsSQL).
-		WithArgs(int64(42)).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "remaining_amount"}))
-	mock.ExpectQuery(usageBillingOverdraftUpdateSQL).
+	mock.ExpectQuery(usageBillingAtomicBalanceSQL).
+		WithArgs(0.06, int64(42)).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery(usageBillingAtomicOverdraftSQL).
 		WithArgs(0.06, int64(42)).
 		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(-0.0593))
 	mock.ExpectCommit()

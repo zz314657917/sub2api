@@ -191,10 +191,7 @@ func expectDeletedKeyBillingClaim(mock sqlmock.Sqlmock, cmd *service.UsageBillin
 }
 
 func expectDeletedKeyBalanceDeduction(mock sqlmock.Sqlmock) {
-	mock.ExpectQuery(usageBillingUserBalanceSQL).
-		WithArgs(int64(42)).
-		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(100.0))
-	mock.ExpectQuery(usageBillingOverdraftUpdateSQL).
+	mock.ExpectQuery(usageBillingAtomicBalanceSQL).
 		WithArgs(10.0, int64(42)).
 		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(90.0))
 }

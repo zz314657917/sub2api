@@ -4,6 +4,8 @@ package repository
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -14,6 +16,97 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
+
+// Acquire both ledger foreign-key locks before either deduction. Without this
+// barrier, concurrent requests may serialize by chance and hide lock upgrades.
+func TestUsageBillingRepositoryApply_ConcurrentLedgerBalance(t *testing.T) {
+	for _, tc := range []struct {
+		name                 string
+		initial, wantBalance float64
+		strict               bool
+		wantApplied          int
+	}{
+		{name: "balance", initial: 40, wantBalance: 20, wantApplied: 2},
+		{name: "completed usage debt", initial: 5, wantBalance: -15, wantApplied: 2},
+		{name: "strict reservation", initial: 10, wantBalance: 0, strict: true, wantApplied: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			client := testEntClient(t)
+			repo := &usageBillingRepository{db: integrationDB}
+			user := mustCreateUser(t, client, &service.User{Email: uuid.NewString() + "@example.com", PasswordHash: "hash", Balance: tc.initial})
+			key := mustCreateApiKey(t, client, &service.APIKey{UserID: user.ID, Key: "sk-" + uuid.NewString(), Name: "concurrent-billing"})
+			account := mustCreateAccount(t, client, &service.Account{Name: uuid.NewString(), Type: service.AccountTypeAPIKey})
+			logs := newUsageLogRepositoryWithSQL(client, integrationDB)
+			var commands [2]*service.UsageBillingCommand
+			var transactions [2]*sql.Tx
+			// Create both usage rows before holding any user locks.
+			for i := range commands {
+				log := &service.UsageLog{UserID: user.ID, APIKeyID: key.ID, AccountID: account.ID, RequestID: uuid.NewString(), Model: "test", CreatedAt: time.Now()}
+				_, err := logs.createSingle(ctx, integrationDB, log)
+				require.NoError(t, err)
+				commands[i] = &service.UsageBillingCommand{RequestID: log.RequestID, UsageLogID: log.ID, UserID: user.ID, APIKeyID: key.ID, BalanceCost: 10, RequireBalanceCheck: tc.strict}
+				commands[i].Normalize()
+			}
+			for i, cmd := range commands {
+				tx, err := integrationDB.BeginTx(ctx, nil)
+				require.NoError(t, err)
+				defer tx.Rollback()
+				transactions[i] = tx
+				claimed, err := repo.claimUsageBillingKey(ctx, tx, cmd)
+				require.NoError(t, err)
+				require.True(t, claimed)
+				inserted, err := repo.insertUsageBillingEntry(ctx, tx, cmd)
+				require.NoError(t, err)
+				require.True(t, inserted)
+			}
+			type outcome struct {
+				index int
+				err   error
+			}
+			done := make(chan outcome, 2)
+			for i, tx := range transactions {
+				go func(i int, tx *sql.Tx) {
+					err := repo.applyUsageBillingEffects(ctx, tx, commands[i], &service.UsageBillingApplyResult{})
+					if err == nil {
+						err = tx.Commit()
+					} else {
+						_ = tx.Rollback()
+					}
+					done <- outcome{i, err}
+				}(i, tx)
+			}
+			applied := 0
+			var failures []error
+			var successful []*service.UsageBillingCommand
+			for range transactions {
+				result := <-done
+				if result.err == nil {
+					applied++
+					successful = append(successful, commands[result.index])
+				} else if !tc.strict || !errors.Is(result.err, service.ErrInsufficientBalance) {
+					failures = append(failures, result.err)
+				}
+			}
+			require.Empty(t, failures, "concurrent ledger settlement must not deadlock")
+			require.Equal(t, tc.wantApplied, applied)
+			for _, cmd := range successful {
+				replayed, err := repo.Apply(ctx, cmd)
+				require.NoError(t, err)
+				require.False(t, replayed.Applied)
+			}
+			var balance float64
+			require.NoError(t, integrationDB.QueryRowContext(ctx, `SELECT balance FROM users WHERE id=$1`, user.ID).Scan(&balance))
+			require.InDelta(t, tc.wantBalance, balance, 0.000001)
+			var entries, dedup int
+			require.NoError(t, integrationDB.QueryRowContext(ctx, `SELECT count(*) FROM billing_usage_entries WHERE user_id=$1`, user.ID).Scan(&entries))
+			require.NoError(t, integrationDB.QueryRowContext(ctx, `SELECT count(*) FROM usage_billing_dedup WHERE api_key_id=$1`, key.ID).Scan(&dedup))
+			require.Equal(t, tc.wantApplied, entries)
+			require.Equal(t, tc.wantApplied, dedup)
+		})
+	}
+}
 
 func TestUsageBillingRepositoryApply_DeduplicatesBalanceBilling(t *testing.T) {
 	ctx := context.Background()
@@ -128,7 +221,7 @@ func TestUsageBillingRepositoryApply_DeduplicatesSubscriptionBilling(t *testing.
 	require.InDelta(t, 2.5, dailyUsage, 0.000001)
 }
 
-func TestUsageBillingRepositoryApply_ConsumesVoucherBeforeBalance(t *testing.T) {
+func TestUsageBillingRepositoryApply_LeavesVoucherUntouched(t *testing.T) {
 	ctx := context.Background()
 	client := testEntClient(t)
 	repo := NewUsageBillingRepository(client, integrationDB)
@@ -167,14 +260,14 @@ func TestUsageBillingRepositoryApply_ConsumesVoucherBeforeBalance(t *testing.T) 
 	})
 	require.NoError(t, err)
 	require.True(t, result.Applied)
-	require.InDelta(t, 1.5, result.VoucherCost, 0.000001)
-	require.InDelta(t, 0.75, result.BalanceCost, 0.000001)
+	require.Zero(t, result.VoucherCost)
+	require.InDelta(t, 2.25, result.BalanceCost, 0.000001)
 	require.NotNil(t, result.NewBalance)
-	require.InDelta(t, 1.25, *result.NewBalance, 0.000001)
+	require.InDelta(t, -0.25, *result.NewBalance, 0.000001)
 
 	var balance float64
 	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT balance FROM users WHERE id = $1", user.ID).Scan(&balance))
-	require.InDelta(t, 1.25, balance, 0.000001)
+	require.InDelta(t, -0.25, balance, 0.000001)
 
 	var remaining float64
 	require.NoError(t, integrationDB.QueryRowContext(ctx, `
@@ -182,7 +275,7 @@ func TestUsageBillingRepositoryApply_ConsumesVoucherBeforeBalance(t *testing.T) 
 		FROM welfare_vouchers
 		WHERE user_id = $1
 	`, user.ID).Scan(&remaining))
-	require.InDelta(t, 0, remaining, 0.000001)
+	require.InDelta(t, 1.5, remaining, 0.000001)
 }
 
 func TestUsageBillingRepositoryApply_IgnoresExpiredVoucherAndUsesBalance(t *testing.T) {
@@ -316,15 +409,15 @@ func TestUsageBillingRepositoryApply_RecordsOverdraftByDefault(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.True(t, result.Applied)
-	require.InDelta(t, 0.25, result.VoucherCost, 0.000001)
-	require.InDelta(t, 0.75, result.BalanceCost, 0.000001)
+	require.Zero(t, result.VoucherCost)
+	require.InDelta(t, 1, result.BalanceCost, 0.000001)
 	require.NotNil(t, result.NewBalance)
-	require.InDelta(t, -0.25, *result.NewBalance, 0.000001)
+	require.InDelta(t, -0.5, *result.NewBalance, 0.000001)
 	require.True(t, result.BalanceOverdrafted)
 
 	var balance float64
 	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT balance FROM users WHERE id = $1", user.ID).Scan(&balance))
-	require.InDelta(t, -0.25, balance, 0.000001)
+	require.InDelta(t, -0.5, balance, 0.000001)
 
 	var remaining float64
 	require.NoError(t, integrationDB.QueryRowContext(ctx, `
@@ -332,7 +425,7 @@ func TestUsageBillingRepositoryApply_RecordsOverdraftByDefault(t *testing.T) {
 		FROM welfare_vouchers
 		WHERE user_id = $1
 	`, user.ID).Scan(&remaining))
-	require.InDelta(t, 0, remaining, 0.000001)
+	require.InDelta(t, 0.25, remaining, 0.000001)
 }
 
 func TestUsageBillingRepositoryApply_RequestFingerprintConflict(t *testing.T) {

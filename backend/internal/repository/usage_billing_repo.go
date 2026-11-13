@@ -225,14 +225,21 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 	}
 
 	if cmd.BalanceCost > 0 {
-		deducted, err := deductBalanceOnly(ctx, tx, cmd.UserID, cmd.BalanceCost, cmd.RequireBalanceCheck)
-		if err != nil {
-			return err
+		if cmd.RequireBalanceCheck {
+			deducted, err := deductBalanceOnly(ctx, tx, cmd.UserID, cmd.BalanceCost, true)
+			if err != nil {
+				return err
+			}
+			result.NewBalance = &deducted.BalanceAfter
+		} else {
+			newBalance, sufficient, err := deductUsageBillingBalance(ctx, tx, cmd.UserID, cmd.BalanceCost)
+			if err != nil {
+				return err
+			}
+			result.NewBalance = &newBalance
+			result.BalanceOverdrafted = !sufficient
 		}
-		result.VoucherCost = deducted.VoucherAmount
-		result.BalanceCost = deducted.BalanceAmount
-		result.NewBalance = &deducted.BalanceAfter
-		result.BalanceOverdrafted = deducted.BalanceAfter < 0
+		result.BalanceCost = cmd.BalanceCost
 	}
 	if cmd.PrepaidBalanceCost > 0 {
 		result.PrepaidBalanceCost = cmd.PrepaidBalanceCost
@@ -271,23 +278,69 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 	return nil
 }
 
-// deductBalanceOnly is the billing path while welfare vouchers are disabled.
-// It deliberately touches only the users row, avoiding voucher locks and the
-// cross-table lock ordering that previously caused PostgreSQL deadlocks.
-func deductBalanceOnly(ctx context.Context, tx *sql.Tx, userID int64, amount float64, requireSufficient bool) (*welfareVoucherDeductResult, error) {
-	var balance float64
-	err := tx.QueryRowContext(ctx, `SELECT balance::double precision FROM users WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`, userID).Scan(&balance)
+// deductUsageBillingBalance follows upstream's atomic post-response deduction.
+// Keep it free of SELECT FOR UPDATE: ledger foreign keys already hold KEY SHARE.
+func deductUsageBillingBalance(ctx context.Context, tx *sql.Tx, userID int64, amount float64) (float64, bool, error) {
+	var newBalance float64
+	err := tx.QueryRowContext(ctx, `
+		UPDATE users
+		SET balance = balance - $1,
+			updated_at = NOW()
+		WHERE id = $2 AND deleted_at IS NULL AND balance >= $1
+		RETURNING balance
+	`, amount, userID).Scan(&newBalance)
+	if err == nil {
+		return newBalance, true, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return 0, false, err
+	}
+
+	err = tx.QueryRowContext(ctx, `
+		UPDATE users
+		SET balance = balance - $1,
+			updated_at = NOW()
+		WHERE id = $2 AND deleted_at IS NULL
+		RETURNING balance
+	`, amount, userID).Scan(&newBalance)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, service.ErrUserNotFound
+		return 0, false, service.ErrUserNotFound
 	}
 	if err != nil {
-		return nil, err
+		return 0, false, err
 	}
-	if requireSufficient && balance+1e-9 < amount {
-		return nil, service.ErrInsufficientBalance
+	return newBalance, false, nil
+}
+
+// deductBalanceOnly retains strict reservations for local image/video flows.
+// The balance predicate and deduction must run in the same atomic UPDATE.
+func deductBalanceOnly(ctx context.Context, tx *sql.Tx, userID int64, amount float64, requireSufficient bool) (*welfareVoucherDeductResult, error) {
+	if !requireSufficient {
+		after, _, err := deductUsageBillingBalance(ctx, tx, userID, amount)
+		if err != nil {
+			return nil, err
+		}
+		return &welfareVoucherDeductResult{BalanceAmount: amount, BalanceAfter: after}, nil
 	}
 	var after float64
-	err = tx.QueryRowContext(ctx, `UPDATE users SET balance = balance - $1, updated_at = NOW() WHERE id = $2 AND deleted_at IS NULL RETURNING balance::double precision`, amount, userID).Scan(&after)
+	err := tx.QueryRowContext(ctx, `
+		UPDATE users
+		SET balance = balance - $1,
+			updated_at = NOW()
+		WHERE id = $2 AND deleted_at IS NULL AND balance >= $1
+		RETURNING balance
+	`, amount, userID).Scan(&after)
+	if errors.Is(err, sql.ErrNoRows) {
+		var exists int
+		err = tx.QueryRowContext(ctx, `SELECT 1 FROM users WHERE id = $1 AND deleted_at IS NULL`, userID).Scan(&exists)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, service.ErrUserNotFound
+		}
+		if err != nil {
+			return nil, err
+		}
+		return nil, service.ErrInsufficientBalance
+	}
 	if err != nil {
 		return nil, err
 	}
