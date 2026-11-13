@@ -35,6 +35,36 @@ type refreshTokenCache struct {
 	rdb *redis.Client
 }
 
+var _ service.RefreshTokenConsumer = (*refreshTokenCache)(nil)
+
+// The exact opaque token's hash identifies the single redemption authority.
+// Redis executes this script atomically across clients and service instances.
+const consumeRefreshTokenScript = `
+local value = redis.call('GET', KEYS[1])
+if value then
+    redis.call('DEL', KEYS[1])
+end
+return value
+`
+
+func (c *refreshTokenCache) ConsumeRefreshToken(ctx context.Context, tokenHash string) (*service.RefreshTokenData, error) {
+	val, err := c.rdb.Eval(ctx, consumeRefreshTokenScript, []string{refreshTokenKey(tokenHash)}).Text()
+	if err != nil {
+		if err == redis.Nil {
+			return nil, service.ErrRefreshTokenNotFound
+		}
+		return nil, err
+	}
+	var data *service.RefreshTokenData
+	if err := json.Unmarshal([]byte(val), &data); err != nil {
+		return nil, fmt.Errorf("unmarshal consumed refresh token data: %w", err)
+	}
+	if data == nil {
+		return nil, fmt.Errorf("unmarshal consumed refresh token data: null data")
+	}
+	return data, nil
+}
+
 // NewRefreshTokenCache creates a new RefreshTokenCache implementation.
 func NewRefreshTokenCache(rdb *redis.Client) service.RefreshTokenCache {
 	return &refreshTokenCache{rdb: rdb}

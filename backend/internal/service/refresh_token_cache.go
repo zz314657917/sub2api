@@ -20,6 +20,13 @@ type RefreshTokenData struct {
 	ExpiresAt    time.Time `json:"expires_at"`
 }
 
+// RefreshTokenConsumer is the optional atomic rotation capability.
+// A missing token must return ErrRefreshTokenNotFound; execution errors must
+// never authorize issuance of a replacement token.
+type RefreshTokenConsumer interface {
+	ConsumeRefreshToken(ctx context.Context, tokenHash string) (*RefreshTokenData, error)
+}
+
 // RefreshTokenCache 管理Refresh Token的Redis缓存
 // 用于JWT Token刷新机制，支持Token轮转和防重放攻击
 //

@@ -35,7 +35,6 @@ import (
 const geminiStickySessionTTL = time.Hour
 
 const (
-	geminiMaxRetries     = 5
 	geminiRetryBaseDelay = 1 * time.Second
 	geminiRetryMaxDelay  = 16 * time.Second
 )
@@ -834,7 +833,8 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 	errorPolicy := ErrorPolicyNone
 	policyChecked := false
 	signatureRetryStage := 0
-	for attempt := 1; attempt <= geminiMaxRetries; attempt++ {
+	maxAttempts := geminiSameAccountMaxAttempts(s.cfg)
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		policyChecked = false
 		upstreamReq, idHeader, err := buildReq(ctx)
 		if err != nil {
@@ -871,8 +871,8 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 				Kind:               "request_error",
 				Message:            safeErr,
 			})
-			if attempt < geminiMaxRetries {
-				logger.LegacyPrintf("service.gemini_messages_compat", "Gemini account %d: upstream request failed, retry %d/%d: %v", account.ID, attempt, geminiMaxRetries, err)
+			if attempt < maxAttempts {
+				logger.LegacyPrintf("service.gemini_messages_compat", "Gemini account %d: upstream request failed, retry %d/%d: %v", account.ID, attempt, maxAttempts-1, err)
 				sleepGeminiBackoff(attempt)
 				continue
 			}
@@ -932,7 +932,9 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 				if txErr == nil {
 					logger.LegacyPrintf("service.gemini_messages_compat", "Gemini account %d: detected signature-related 400, retrying with downgraded Claude blocks (%s)", account.ID, stageName)
 					geminiReq = retryGeminiReq
-					// Consume one retry budget attempt and continue with the updated request payload.
+					// A successful downgrade adds a request without consuming or resetting
+					// the shared ordinary transport/status retry budget.
+					attempt--
 					sleepGeminiBackoff(1)
 					continue
 				}
@@ -970,7 +972,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 				// Mark as rate-limited early so concurrent requests avoid this account.
 				s.handleGeminiUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
 			}
-			if attempt < geminiMaxRetries {
+			if attempt < maxAttempts {
 				upstreamReqID := resp.Header.Get(requestIDHeader)
 				if upstreamReqID == "" {
 					upstreamReqID = resp.Header.Get("x-goog-request-id")
@@ -998,7 +1000,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 					Detail:             upstreamDetail,
 				})
 
-				logger.LegacyPrintf("service.gemini_messages_compat", "Gemini account %d: upstream status %d, retry %d/%d", account.ID, resp.StatusCode, attempt, geminiMaxRetries)
+				logger.LegacyPrintf("service.gemini_messages_compat", "Gemini account %d: upstream status %d, retry %d/%d", account.ID, resp.StatusCode, attempt, maxAttempts-1)
 				sleepGeminiBackoff(attempt)
 				continue
 			}
@@ -1403,7 +1405,8 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 	errorPolicy := ErrorPolicyNone
 	policyChecked := false
 	cachedContentNotFound := false
-	for attempt := 1; attempt <= geminiMaxRetries; attempt++ {
+	maxAttempts := geminiSameAccountMaxAttempts(s.cfg)
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		policyChecked = false
 		upstreamReq, idHeader, err := buildReq(ctx)
 		if err != nil {
@@ -1440,8 +1443,8 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 				Kind:               "request_error",
 				Message:            safeErr,
 			})
-			if attempt < geminiMaxRetries {
-				logger.LegacyPrintf("service.gemini_messages_compat", "Gemini account %d: upstream request failed, retry %d/%d: %v", account.ID, attempt, geminiMaxRetries, err)
+			if attempt < maxAttempts {
+				logger.LegacyPrintf("service.gemini_messages_compat", "Gemini account %d: upstream request failed, retry %d/%d: %v", account.ID, attempt, maxAttempts-1, err)
 				sleepGeminiBackoff(attempt)
 				continue
 			}
@@ -1493,7 +1496,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 			if resp.StatusCode == 429 {
 				s.handleGeminiUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
 			}
-			if attempt < geminiMaxRetries {
+			if attempt < maxAttempts {
 				upstreamReqID := resp.Header.Get(requestIDHeader)
 				if upstreamReqID == "" {
 					upstreamReqID = resp.Header.Get("x-goog-request-id")
@@ -1521,7 +1524,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 					Detail:             upstreamDetail,
 				})
 
-				logger.LegacyPrintf("service.gemini_messages_compat", "Gemini account %d: upstream status %d, retry %d/%d", account.ID, resp.StatusCode, attempt, geminiMaxRetries)
+				logger.LegacyPrintf("service.gemini_messages_compat", "Gemini account %d: upstream status %d, retry %d/%d", account.ID, resp.StatusCode, attempt, maxAttempts-1)
 				sleepGeminiBackoff(attempt)
 				continue
 			}
@@ -3184,7 +3187,7 @@ func convertGeminiToClaudeMessage(geminiResp map[string]any, originalModel strin
 						if !ok {
 							continue
 						}
-						if text, ok := pm["text"].(string); ok && text != "" {
+						if text, ok := pm["text"].(string); ok && text != "" && !isGeminiThoughtPart(pm) {
 							contentBlocks = append(contentBlocks, map[string]any{
 								"type": "text",
 								"text": text,

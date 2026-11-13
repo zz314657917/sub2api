@@ -75,6 +75,7 @@ func newGeminiSingleCheckService(responses ...geminiSingleCheckResponse) (*Gemin
 	repo := &geminiSingleCheckRepo{}
 	upstream := &geminiSingleCheckUpstream{responses: responses}
 	cfg := &config.Config{}
+	cfg.Gateway.MaxSameAccountRetriesGemini = 4
 	return &GeminiMessagesCompatService{
 		httpUpstream: upstream, accountRepo: repo, cfg: cfg,
 		rateLimitService: NewRateLimitService(repo, nil, cfg, nil, nil),

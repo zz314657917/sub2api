@@ -1526,6 +1526,9 @@ func (s *AuthService) RefreshTokenPair(ctx context.Context, refreshToken string)
 		logger.LegacyPrintf("service.auth", "[Auth] Error getting refresh token: %v", err)
 		return nil, ErrServiceUnavailable
 	}
+	if data == nil {
+		return nil, ErrRefreshTokenInvalid
+	}
 
 	// 检查Token是否过期
 	if time.Now().After(data.ExpiresAt) {
@@ -1571,10 +1574,22 @@ func (s *AuthService) RefreshTokenPair(ctx context.Context, refreshToken string)
 		return nil, ErrTokenRevoked
 	}
 
-	// Token轮转：立即使旧Token失效
-	if err := s.refreshTokenCache.DeleteRefreshToken(ctx, tokenHash); err != nil {
-		logger.LegacyPrintf("service.auth", "[Auth] Failed to delete old refresh token: %v", err)
-		// 继续处理，不影响主流程
+	// Validation must finish before atomic consumption. Only its single winner
+	// may issue a replacement; interface-only injected caches fail closed.
+	consumer, ok := s.refreshTokenCache.(RefreshTokenConsumer)
+	if !ok {
+		return nil, ErrServiceUnavailable
+	}
+	consumed, err := consumer.ConsumeRefreshToken(ctx, tokenHash)
+	if err != nil {
+		if errors.Is(err, ErrRefreshTokenNotFound) {
+			return nil, ErrRefreshTokenInvalid
+		}
+		logger.LegacyPrintf("service.auth", "[Auth] Error consuming refresh token: %v", err)
+		return nil, ErrServiceUnavailable
+	}
+	if consumed == nil {
+		return nil, ErrRefreshTokenInvalid
 	}
 
 	// 生成新的Token对，保持同一个家族ID

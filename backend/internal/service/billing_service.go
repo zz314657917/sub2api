@@ -525,6 +525,12 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 		}
 		return s.modelPricingFromLiteLLM(model, newModelStaticPricing(key))
 	}
+	if pricing, reserved := geminiUpstreamDefaultPricing(modelLower); reserved {
+		if pricing == nil {
+			return nil
+		}
+		return s.modelPricingFromLiteLLM(model, pricing)
+	}
 	if known := deepseekPricingModel(modelLower); known != "" {
 		if strings.HasPrefix(known, "deepseek-v4-pro") {
 			return s.fallbackPrices["deepseek-v4-pro"]
@@ -816,6 +822,12 @@ func (s *BillingService) GetModelPricing(model string) (*ModelPricing, error) {
 	if strings.HasPrefix(model, "deepseek-") {
 		return nil, fmt.Errorf("%w for model: %s", ErrModelPricingUnavailable, model)
 	}
+	if pricing, reserved := geminiUpstreamDefaultPricing(model); reserved {
+		if pricing == nil {
+			return nil, fmt.Errorf("%w for model: %s", ErrModelPricingUnavailable, model)
+		}
+		return s.modelPricingFromLiteLLM(model, pricing), nil
+	}
 	// 2. 使用硬编码回退价格
 	fallback := s.getFallbackPricing(model)
 	if fallback != nil {
@@ -833,6 +845,8 @@ func (s *BillingService) modelPricingFromLiteLLM(model string, litellmPricing *L
 	if key != "" {
 		litellmPricing = supplementNewModelPricing(litellmPricing, key)
 	}
+	fallback, _ := geminiUpstreamDefaultPricing(model)
+	knownGemini := fallback != nil
 	isOpus55 := claude.IsOpus55(model) || key == "claude-opus-5-5"
 	// 启用 5m/1h 分类计费的条件：
 	// 1. 存在 1h 价格
@@ -856,9 +870,9 @@ func (s *BillingService) modelPricingFromLiteLLM(model string, litellmPricing *L
 		cacheRead = litellmPricing.InputCostPerToken * 0.05
 	}
 	return s.applyModelSpecificPricingPolicy(model, &ModelPricing{
-		InputPricePriorityExplicit:         key != "" && litellmPricing.InputCostPerTokenPriorityExplicit,
-		OutputPricePriorityExplicit:        key != "" && litellmPricing.OutputCostPerTokenPriorityExplicit,
-		CacheReadPricePriorityExplicit:     key != "" && litellmPricing.CacheReadInputTokenCostPriorityExplicit,
+		InputPricePriorityExplicit:         (key != "" || knownGemini) && litellmPricing.InputCostPerTokenPriorityExplicit,
+		OutputPricePriorityExplicit:        (key != "" || knownGemini) && litellmPricing.OutputCostPerTokenPriorityExplicit,
+		CacheReadPricePriorityExplicit:     (key != "" || knownGemini) && litellmPricing.CacheReadInputTokenCostPriorityExplicit,
 		InputPricePerToken:                 litellmPricing.InputCostPerToken,
 		InputPricePerTokenPriority:         litellmPricing.InputCostPerTokenPriority,
 		OutputPricePerToken:                litellmPricing.OutputCostPerToken,
@@ -1649,6 +1663,24 @@ func (s *BillingService) getImageUnitPrice(model string, imageSize string, group
 
 // getDefaultImagePrice 获取 LiteLLM 默认图片价格
 func (s *BillingService) getDefaultImagePrice(model string, imageSize string) float64 {
+	// Only the finite new image cards use this fallback and explicit-zero policy.
+	if fallback, _ := geminiUpstreamDefaultPricing(model); fallback != nil && fallback.Mode == "image_generation" {
+		basePrice := fallback.OutputCostPerImage
+		if s.pricingService != nil {
+			if pricing := s.pricingService.GetModelPricing(model); pricing != nil &&
+				(pricing.OutputCostPerImageExplicit || pricing.OutputCostPerImage > 0) {
+				basePrice = pricing.OutputCostPerImage
+			}
+		}
+		switch imageSize {
+		case "2K":
+			return basePrice * 1.5
+		case "4K":
+			return basePrice * 2
+		default:
+			return basePrice
+		}
+	}
 	basePrice := 0.0
 
 	// 从 PricingService 获取 output_cost_per_image

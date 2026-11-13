@@ -61,7 +61,7 @@ func TestNewModelBilling20261022Cards(t *testing.T) {
 			{"gemini-3.8-flash-medium", .75, 3.75, .075},
 			{"gemini-4-argon", 2, 10, .1},
 			{"gemini-4-argon-cyber-permissive-low", 4, 20, .2},
-			{"claude-sonnet-5.5-high", 2, 10, .2},
+			{"claude-sonnet-5.5-high", 2, 10, .1},
 			{"claude-haiku-5-5-low", .1, .5, .01},
 			{"claude-opus-5.5-medium", 4, 20, .2},
 		} {

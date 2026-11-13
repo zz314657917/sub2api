@@ -862,6 +862,8 @@ type GatewayConfig struct {
 	MaxAccountSwitches int `mapstructure:"max_account_switches"`
 	// Gemini 账户切换最大次数（Gemini 平台单独配置，因 API 限制更严格）
 	MaxAccountSwitchesGemini int `mapstructure:"max_account_switches_gemini"`
+	// Same-account retries exclude the initial Gemini request.
+	MaxSameAccountRetriesGemini int `mapstructure:"max_same_account_retries_gemini"`
 
 	// Antigravity 429 fallback 限流时间（分钟），解析重置时间失败时使用
 	AntigravityFallbackCooldownMinutes int `mapstructure:"antigravity_fallback_cooldown_minutes"`
@@ -2050,6 +2052,7 @@ func setDefaults() {
 	viper.SetDefault("gateway.failover_on_400", false)
 	viper.SetDefault("gateway.max_account_switches", 10)
 	viper.SetDefault("gateway.max_account_switches_gemini", 3)
+	viper.SetDefault("gateway.max_same_account_retries_gemini", 4)
 	viper.SetDefault("gateway.force_codex_cli", false)
 	viper.SetDefault("gateway.disable_codex_originator_normalization", false)
 	viper.SetDefault("gateway.codex_image_generation_bridge_enabled", false)
@@ -2208,6 +2211,9 @@ func setDefaults() {
 func (c *Config) Validate() error {
 	if c == nil {
 		return fmt.Errorf("config must not be nil")
+	}
+	if c.Gateway.MaxSameAccountRetriesGemini < 0 || c.Gateway.MaxSameAccountRetriesGemini > 10 {
+		return fmt.Errorf("gateway.max_same_account_retries_gemini must be between 0 and 10")
 	}
 	if c.APIKeyCreate.MaxActivePerUser < 0 {
 		return fmt.Errorf("api_key_create.max_active_per_user must not be negative")

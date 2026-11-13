@@ -183,6 +183,8 @@ type LiteLLMModelPricing struct {
 	LiteLLMProvider                             string  `json:"litellm_provider"`
 	Mode                                        string  `json:"mode"`
 	SupportsPromptCaching                       bool    `json:"supports_prompt_caching"`
+	InputCostPerImage                           float64 `json:"input_cost_per_image"`
+	OutputCostPerImageExplicit                  bool    `json:"-"`
 	OutputCostPerImage                          float64 `json:"output_cost_per_image"`       // 图片生成模型每张图片价格
 	OutputCostPerImageToken                     float64 `json:"output_cost_per_image_token"` // 图片输出 token 价格
 	InputCostPerImageToken                      float64 `json:"input_cost_per_image_token"`  // 图片输入 token 价格（如 gpt-image-2 图片编辑）
@@ -220,6 +222,7 @@ type LiteLLMRawEntry struct {
 	LiteLLMProvider                     string   `json:"litellm_provider"`
 	Mode                                string   `json:"mode"`
 	SupportsPromptCaching               bool     `json:"supports_prompt_caching"`
+	InputCostPerImage                   *float64 `json:"input_cost_per_image"`
 	OutputCostPerImage                  *float64 `json:"output_cost_per_image"`
 	OutputCostPerImageToken             *float64 `json:"output_cost_per_image_token"`
 	InputCostPerImageToken              *float64 `json:"input_cost_per_image_token"`
@@ -423,7 +426,7 @@ func (s *PricingService) downloadPricingData() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// 获取远程哈希（用于同步锚点，不作为完整性校验）
+	// 获取远程哈希；只有与下载正文一致时才可作为同步锚点。
 	var remoteHash string
 	if strings.TrimSpace(s.cfg.Pricing.HashURL) != "" {
 		remoteHash, err = s.fetchRemoteHash()
@@ -458,10 +461,10 @@ func (s *PricingService) downloadPricingData() error {
 		logger.LegacyPrintf("service.pricing", "[Pricing] Failed to save file: %v", err)
 	}
 
-	// 使用远程哈希作为同步锚点，防止重复下载
-	// 当远程哈希不可用时，回退到数据本身的哈希
+	// Never acknowledge a remote version whose body was not downloaded.
+	// Retaining the body hash on mismatch makes the next sync retry.
 	syncHash := dataHashStr
-	if remoteHash != "" {
+	if remoteHash != "" && strings.EqualFold(remoteHash, dataHashStr) {
 		syncHash = remoteHash
 	}
 	hashFile := s.getHashFilePath()
@@ -505,7 +508,7 @@ func (s *PricingService) parsePricingData(body []byte) (map[string]*LiteLLMModel
 		}
 
 		// 只保留有有效价格的条目
-		if entry.InputCostPerToken == nil && entry.OutputCostPerToken == nil && entry.OutputCostPerImage == nil && entry.OutputCostPerImageToken == nil && entry.InputCostPerImageToken == nil {
+		if entry.InputCostPerToken == nil && entry.OutputCostPerToken == nil && entry.InputCostPerImage == nil && entry.OutputCostPerImage == nil && entry.OutputCostPerImageToken == nil && entry.InputCostPerImageToken == nil {
 			continue
 		}
 
@@ -566,8 +569,12 @@ func (s *PricingService) parsePricingData(body []byte) (map[string]*LiteLLMModel
 		if entry.LongContextOutputCostMultiplier != nil {
 			pricing.LongContextOutputCostMultiplier = *entry.LongContextOutputCostMultiplier
 		}
+		if entry.InputCostPerImage != nil {
+			pricing.InputCostPerImage = *entry.InputCostPerImage
+		}
 		if entry.OutputCostPerImage != nil {
 			pricing.OutputCostPerImage = *entry.OutputCostPerImage
+			pricing.OutputCostPerImageExplicit = true
 		}
 		if entry.OutputCostPerImageToken != nil {
 			pricing.OutputCostPerImageToken = *entry.OutputCostPerImageToken
@@ -811,7 +818,7 @@ func newModelStaticPricing(key string) *LiteLLMModelPricing {
 			p.CacheReadInputTokenCostPriority *= 2
 		}
 	case "claude-sonnet-5-5":
-		p.InputCostPerToken, p.OutputCostPerToken, p.CacheReadInputTokenCost = 2e-6, 10e-6, .2e-6
+		p.InputCostPerToken, p.OutputCostPerToken, p.CacheReadInputTokenCost = 2e-6, 10e-6, .1e-6
 		p.CacheCreationInputTokenCost, p.CacheCreationInputTokenCostAbove1hr = 2.5e-6, 4e-6
 	case "claude-haiku-5-5":
 		p.InputCostPerToken, p.OutputCostPerToken, p.CacheReadInputTokenCost = .1e-6, .5e-6, .01e-6
@@ -921,6 +928,10 @@ func (s *PricingService) GetModelPricing(modelName string) *LiteLLMModelPricing 
 		if pricing, ok := s.pricingData[candidate]; ok {
 			return pricing
 		}
+	}
+
+	if pricing, reserved := geminiUpstreamDefaultPricing(modelLower); reserved {
+		return pricing
 	}
 
 	// 2. 处理常见的模型名称变体
