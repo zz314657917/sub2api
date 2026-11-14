@@ -47,23 +47,30 @@ type userModelStat struct {
 }
 
 type userGroupStat struct {
-	GroupID     int64   `json:"group_id"`
-	GroupName   string  `json:"group_name"`
-	Requests    int64   `json:"requests"`
-	TotalTokens int64   `json:"total_tokens"`
-	Cost        float64 `json:"cost"`
-	ActualCost  float64 `json:"actual_cost"`
-	// Exposed so the key editor can show the caller's own cache hit rate per group.
-	InputTokens     int64 `json:"input_tokens"`
-	CacheReadTokens int64 `json:"cache_read_tokens"`
+	GroupID         int64   `json:"group_id"`
+	GroupName       string  `json:"group_name"`
+	Requests        int64   `json:"requests"`
+	TotalTokens     int64   `json:"total_tokens"`
+	Cost            float64 `json:"cost"`
+	ActualCost      float64 `json:"actual_cost"`
+	InputTokens     int64   `json:"input_tokens"`
+	CacheReadTokens int64   `json:"cache_read_tokens"`
+}
+
+type userGroupHealthStat struct {
+	GroupID         int64  `json:"group_id"`
+	GroupName       string `json:"group_name"`
+	InputTokens     int64  `json:"input_tokens"`
+	CacheReadTokens int64  `json:"cache_read_tokens"`
 }
 
 // UsageHandler handles usage-related requests
 type UsageHandler struct {
-	usageService   *service.UsageService
-	apiKeyService  *service.APIKeyService
-	opsService     *service.OpsService
-	settingService *service.SettingService
+	usageService     *service.UsageService
+	apiKeyService    *service.APIKeyService
+	opsService       *service.OpsService
+	settingService   *service.SettingService
+	groupHealthCache groupHealthCache
 }
 
 // NewUsageHandler creates a new UsageHandler
@@ -1254,6 +1261,47 @@ func (h *UsageHandler) DashboardSnapshotV2(c *gin.Context) {
 		payload["groups"] = userGroupStatsFromUsageStats(groups)
 	}
 	response.Success(c, payload)
+}
+
+// DashboardGroupHealth returns aggregate server cache statistics by group.
+// GET /api/v1/usage/dashboard/group-health
+func (h *UsageHandler) DashboardGroupHealth(c *gin.Context) {
+	parsed, ok := h.parseUserUsageFilters(c, true)
+	if !ok {
+		return
+	}
+
+	// This endpoint is authenticated for access control, but deliberately does
+	// not apply the caller's user filter: the key editor shows server-wide
+	// group health. Only cache-related aggregate fields are exposed.
+	groups, err := h.groupHealthCache.getOrLoad(parsed.StartTime, parsed.EndTime, func() ([]usagestats.GroupStat, error) {
+		return h.usageService.GetGroupStatsWithFilters(
+			c.Request.Context(), parsed.StartTime, parsed.EndTime, usagestats.UsageLogFilters{},
+		)
+	})
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	items := make([]userGroupHealthStat, 0, len(groups))
+	for _, stat := range groups {
+		if stat.GroupID <= 0 || stat.InputTokens+stat.CacheReadTokens <= 0 {
+			continue
+		}
+		items = append(items, userGroupHealthStat{
+			GroupID:         stat.GroupID,
+			GroupName:       stat.GroupName,
+			InputTokens:     stat.InputTokens,
+			CacheReadTokens: stat.CacheReadTokens,
+		})
+	}
+
+	response.Success(c, gin.H{
+		"groups":     items,
+		"start_date": parsed.StartTime.Format("2006-01-02"),
+		"end_date":   parsed.EndTime.AddDate(0, 0, -1).Format("2006-01-02"),
+	})
 }
 
 func userModelStatsFromUsageStats(stats []usagestats.ModelStat) []userModelStat {

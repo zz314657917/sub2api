@@ -37,7 +37,7 @@ export default {
     groupHealth: {
       availability: 'Uptime',
       cacheRate: 'Cache',
-      cacheRateHint: 'Your 7-day cache hit rate in this group: cache read / (input + cache read)'
+      cacheRateHint: 'Server-wide 7-day cache hit rate for this group: cache read / (input + cache read)'
     },
     groupPricing: {
       title: 'Model pricing',
@@ -149,7 +149,7 @@ export default {
       force: 'Force enable',
       filter: 'Filter'
     },
-    openaiFastPolicyHint: 'Only affects OpenAI requests. Fast means priority. Passthrough keeps the client choice; force sets the service tier to priority; filter removes only Fast/priority and preserves other tiers. Administrator group enforcement takes precedence over the key policy; global policy has final authority. priority uses the existing priority prices. Reconnect existing WebSocket (WS) sessions after changes.',
+    openaiFastPolicyHint: 'OpenAI only: follow the client, force Fast, or filter it out. Fast uses priority pricing. Group/global policies take precedence; reconnect WS after changes.',
     accountPoolStrategyLabel: 'Account Pool Strategy',
     accountPoolStrategyHint: 'When another group is selected, the key can still try your private accounts first and fall back to the selected shared pool.',
     accountPoolStrategy: {

@@ -7,7 +7,7 @@ export interface GroupHealth {
   availability: number | null
   /** Newest-first probe points of the first matching monitor. */
   timeline: MonitorTimelinePoint[]
-  /** Caller's own 7-day cache hit rate in this group (0-100): read / (input + read). */
+  /** Server-wide 7-day cache hit rate in this group (0-100): read / (input + read). */
   cacheRate: number | null
 }
 
@@ -48,12 +48,9 @@ export function useGroupHealth() {
     const end = new Date()
     const start = new Date(end)
     start.setDate(end.getDate() - (HEALTH_WINDOW_DAYS - 1))
-    const snapshot = await usageAPI.getDashboardSnapshotV2({
+    const snapshot = await usageAPI.getDashboardGroupHealth({
       start_date: formatDate(start),
-      end_date: formatDate(end),
-      include_trend: false,
-      include_model_stats: false,
-      include_group_stats: true
+      end_date: formatDate(end)
     })
     const next = new Map<number, number>()
     for (const stat of snapshot.groups ?? []) {

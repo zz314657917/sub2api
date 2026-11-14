@@ -37,7 +37,7 @@ export default {
     groupHealth: {
       availability: '可用',
       cacheRate: '缓存',
-      cacheRateHint: '你近 7 天在该分组的缓存命中率：缓存读取 /（输入 + 缓存读取）'
+      cacheRateHint: '该分组近 7 天服务器缓存命中率：缓存读取 /（输入 + 缓存读取）'
     },
     groupPricing: {
       title: '模型价格',
@@ -149,7 +149,7 @@ export default {
       force: '强制启用',
       filter: '过滤'
     },
-    openaiFastPolicyHint: '仅影响 OpenAI 请求，Fast 即 priority。透传保留客户端选择；强制启用将服务等级设为 priority；过滤仅移除 Fast/priority，保留其他服务等级。管理员分组强制策略优先于密钥策略，全局策略最终生效。priority 沿用既有 priority 价格。修改后，已有 WebSocket（WS）会话需重新连接。',
+    openaiFastPolicyHint: '仅限 OpenAI：透传跟随客户端，强制开启 Fast，过滤移除 Fast。Fast 按 priority 计费；分组/全局策略优先，WS 需重连。',
     accountPoolStrategyLabel: '账号池策略',
     accountPoolStrategyHint: '选其他分组时也可以先用自己的私有账号；私有池不可用时，按所选分组共享池兜底。',
     accountPoolStrategy: {

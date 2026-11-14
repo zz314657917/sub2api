@@ -135,6 +135,19 @@ export interface UsageDashboardSnapshotV2Response {
   groups?: GroupStat[]
 }
 
+export interface ServerGroupHealthStat {
+  group_id: number
+  group_name: string
+  input_tokens: number
+  cache_read_tokens: number
+}
+
+export interface ServerGroupHealthResponse {
+  groups: ServerGroupHealthStat[]
+  start_date: string
+  end_date: string
+}
+
 /**
  * List usage logs with optional filters
  * @param page - Page number (default: 1)
@@ -385,6 +398,11 @@ export async function getDashboardSnapshotV2(
   return data
 }
 
+export async function getDashboardGroupHealth(params?: Pick<TrendParams, 'start_date' | 'end_date'>): Promise<ServerGroupHealthResponse> {
+  const { data } = await apiClient.get<ServerGroupHealthResponse>('/usage/dashboard/group-health', { params })
+  return data
+}
+
 export interface BatchApiKeyUsageStats {
   api_key_id: number
   today_actual_cost: number
@@ -448,6 +466,7 @@ export const usageAPI = {
   claimDashboardLeaderboardDailyReward,
   getMyApiKeyDailyUsage,
   getDashboardSnapshotV2,
+  getDashboardGroupHealth,
   getDashboardApiKeysUsage,
   listMyErrorRequests,
   getMyErrorDetail

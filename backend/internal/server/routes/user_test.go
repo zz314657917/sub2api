@@ -17,6 +17,7 @@ func TestUserUsageStaticRoutesRegisteredBeforeIDWildcard(t *testing.T) {
 	errors := strings.Index(text, `usage.GET("/errors"`)
 	errorDetail := strings.Index(text, `usage.GET("/errors/:id"`)
 	snapshot := strings.Index(text, `usage.GET("/dashboard/snapshot-v2"`)
+	groupHealth := strings.Index(text, `usage.GET("/dashboard/group-health"`)
 	wildcard := strings.Index(text, `usage.GET("/:id"`)
 	if dashboard < 0 {
 		t.Fatal("dashboard leaderboard route is not registered")
@@ -30,6 +31,9 @@ func TestUserUsageStaticRoutesRegisteredBeforeIDWildcard(t *testing.T) {
 	if snapshot < 0 {
 		t.Fatal("usage snapshot-v2 route is not registered")
 	}
+	if groupHealth < 0 {
+		t.Fatal("usage group-health route is not registered")
+	}
 	if wildcard < 0 {
 		t.Fatal("usage id wildcard route is not registered")
 	}
@@ -39,7 +43,7 @@ func TestUserUsageStaticRoutesRegisteredBeforeIDWildcard(t *testing.T) {
 	if dailyRewardClaim > wildcard {
 		t.Fatal("dashboard leaderboard daily reward claim route must be registered before /:id wildcard")
 	}
-	if errors > wildcard || errorDetail > wildcard || snapshot > wildcard {
+	if errors > wildcard || errorDetail > wildcard || snapshot > wildcard || groupHealth > wildcard {
 		t.Fatal("usage static routes must be registered before /:id wildcard")
 	}
 }
