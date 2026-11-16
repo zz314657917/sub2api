@@ -3,18 +3,20 @@
     <div class="pelican-page">
       <div class="pelican-controls">
       <template v-if="authStore.isAdmin">
-        <button class="admin-toggle" type="button" @click="showSettings = !showSettings">{{ showSettings ? '收起' : '管理' }}页面设置</button>
+        <button class="admin-toggle" type="button" @click="showSettings = true">管理页面设置</button>
         <p v-if="!pelicanMetadata.enabled" class="settings-disabled-banner" role="status">鹈鹕广场当前已关闭。普通用户入口、结果访问和新的手动/定时运行均已停用；进行中的轮次会完成，现有数据和配置会保留。</p>
-        <section v-if="showSettings" class="settings-editor" :aria-label="`${pelicanMetadata.displayName}页面设置`">
-          <p>所有测试计划共用此提示词。当前只渲染 HTML，仍会在受限沙箱中展示。</p>
-          <label class="settings-enabled"><input v-model="settingsDraft.enabled" :disabled="settingsLoading || settingsSaving" type="checkbox" aria-label="启用鹈鹕广场" /> 启用鹈鹕广场</label><small v-if="!settingsDraft.enabled">保存关闭后会隐藏普通用户入口，阻止普通用户访问结果与新的手动/定时运行。</small>
-          <label>页面名称<input v-model="settingsDraft.display_name" :disabled="settingsLoading || settingsSaving" maxlength="40" aria-label="页面名称" /></label>
-          <label>共享测试提示词<textarea v-model="settingsDraft.prompt" :disabled="settingsLoading || settingsSaving" maxlength="20000" rows="8" aria-label="共享测试提示词" /></label>
-          <PelicanGroupOrderSettings v-model="groupOrderDraft" :groups="orderGroups" :loading="orderGroupsLoading" :error="orderGroupsFailed" :disabled="!settingsLoaded || settingsLoading || settingsSaving" @retry="loadOrderGroups" />
-          <PelicanReferenceSettings v-model="radarDraft" :catalog="referenceCatalog" :loading="referenceCatalogLoading" :disabled="!settingsLoaded || settingsLoading || settingsSaving" @validity-change="referenceSettingsValid = $event" />
-          <p v-if="settingsError" role="alert">{{ settingsError }}</p>
-          <div><button v-if="!settingsLoaded" type="button" :disabled="settingsLoading" @click="loadSettings">重新加载</button><button type="button" :disabled="!settingsLoaded || settingsLoading || settingsSaving" @click="restoreDefaultSettings">恢复默认</button><button type="button" :disabled="!settingsLoaded || settingsLoading || settingsSaving || !referenceSettingsValid" @click="saveSettings">{{ settingsSaving ? '保存中…' : '保存设置' }}</button></div>
-        </section>
+        <BaseDialog :show="showSettings" :title="`${pelicanMetadata.displayName} · 页面设置`" width="wide" :close-on-escape="!settingsSaving" @close="closeSettings">
+          <section class="settings-editor" :aria-label="`${pelicanMetadata.displayName}页面设置`">
+            <p>所有测试计划共用此提示词。当前只渲染 HTML，仍会在受限沙箱中展示。</p>
+            <label class="settings-enabled"><input v-model="settingsDraft.enabled" :disabled="settingsLoading || settingsSaving" type="checkbox" aria-label="启用鹈鹕广场" /> 启用鹈鹕广场</label><small v-if="!settingsDraft.enabled">保存关闭后会隐藏普通用户入口，阻止普通用户访问结果与新的手动/定时运行。</small>
+            <label>页面名称<input v-model="settingsDraft.display_name" :disabled="settingsLoading || settingsSaving" maxlength="40" aria-label="页面名称" /></label>
+            <label>共享测试提示词<textarea v-model="settingsDraft.prompt" :disabled="settingsLoading || settingsSaving" maxlength="20000" rows="8" aria-label="共享测试提示词" /></label>
+            <PelicanGroupOrderSettings v-model="groupOrderDraft" :groups="orderGroups" :loading="orderGroupsLoading" :error="orderGroupsFailed" :disabled="!settingsLoaded || settingsLoading || settingsSaving" @retry="loadOrderGroups" />
+            <PelicanReferenceSettings v-model="radarDraft" :catalog="referenceCatalog" :loading="referenceCatalogLoading" :disabled="!settingsLoaded || settingsLoading || settingsSaving" @validity-change="referenceSettingsValid = $event" />
+            <p v-if="settingsError" role="alert">{{ settingsError }}</p>
+            <div><button v-if="!settingsLoaded" type="button" :disabled="settingsLoading" @click="loadSettings">重新加载</button><button type="button" :disabled="!settingsLoaded || settingsLoading || settingsSaving" @click="restoreDefaultSettings">恢复默认</button><button type="button" :disabled="!settingsLoaded || settingsLoading || settingsSaving || !referenceSettingsValid" @click="saveSettings">{{ settingsSaving ? '保存中…' : '保存设置' }}</button></div>
+          </section>
+        </BaseDialog>
         <button class="admin-toggle" type="button" @click="showPlans = true">管理测试计划</button>
         <BaseDialog :show="showPlans" :title="`${pelicanMetadata.displayName} · 测试计划`" width="wide" :close-on-escape="!cleanupConfirmation && !planEditorOpen && planBusyId == null" @close="closePlans"><p v-if="cleanupNotice" class="cleanup-notice" role="status">{{ cleanupNotice }}</p><PelicanPlansPanel v-if="showPlans" :plans="plans" :groups="adminGroups" :loading="plansLoading" :error="plansError" :save-error="planSaveError" :busy-id="planBusyId" :save-version="saveVersion" :pelican-enabled="pelicanMetadata.enabled" @editor-change="onPlanEditorChange" @run="runPlan" @resume="resumePlan" @save="savePlan" @delete="removePlan" @cleanup-request="requestCleanup" /></BaseDialog>
         <BaseDialog :show="Boolean(cleanupConfirmation)" title="确认清理测试记录" width="narrow" :z-index="60" :close-on-escape="!cleanupBusy" @close="cancelCleanup"><div v-if="cleanupConfirmation" class="cleanup-confirmation"><p>{{ cleanupConfirmation.scope === 'failed' ? '将永久删除该计划的失败和已跳过记录，成功记录不会删除。' : '将按当前保留天数和结果数量永久删除过期记录，并始终保留最新成功记录。' }}</p><p>此操作不可撤销。删除后会刷新画廊和已打开的作品预览。</p><div><button type="button" :disabled="cleanupBusy" @click="cancelCleanup">取消</button><button type="button" :disabled="cleanupBusy" @click="confirmCleanup">{{ cleanupBusy ? '正在清理…' : '确认清理' }}</button></div></div></BaseDialog>
@@ -605,6 +607,7 @@ async function removePlan(id: number): Promise<void> { await mutatePlan(id, asyn
 function requestCleanup(plan: PelicanPlan, scope: 'failed' | 'expired'): void { if (planBusyId.value != null || planEditorOpen.value || isPlanRunning(plan)) return; cleanupOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null; cleanupConfirmation.value = { plan, scope } }
 function cancelCleanup(): void { if (cleanupBusy.value) return; cleanupConfirmation.value = null; const target = cleanupOpener; cleanupOpener = null; void nextTick(() => target?.focus()) }
 function closePlans(): void { if (!cleanupConfirmation.value && !planEditorOpen.value && planBusyId.value == null) showPlans.value = false }
+function closeSettings(): void { if (!settingsSaving.value) showSettings.value = false }
 async function confirmCleanup(): Promise<void> {
   const request = cleanupConfirmation.value
   if (!request || cleanupBusy.value || planBusyId.value != null || !isPlansSession(plansSession)) return
@@ -657,7 +660,7 @@ function focusSearch(event: KeyboardEvent): void {
 .model-heading { display: flex !important; flex-direction: row !important; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
 .plan-reference { font-size: 11px; opacity: .75; }
 .generation-time { color: inherit; font-size: inherit; font-weight: inherit; overflow-wrap: anywhere; }
-.pelican-page, .dialog-content {
+.pelican-page, .dialog-content, .settings-editor {
   --pelican-text: var(--console-text, #141413);
   --pelican-muted: var(--console-muted, #6c6a64);
   --pelican-border: var(--console-border, rgba(216, 206, 194, .68));
@@ -671,14 +674,14 @@ function focusSearch(event: KeyboardEvent): void {
 .pelican-page { display: flex; min-width: 0; min-height: 0; height: 100%; flex-direction: column; font-size: 12px; }
 .pelican-controls { flex: 0 0 auto; max-height: 50%; min-height: 0; overflow: auto; padding-right: 2px; }
 .admin-toggle { margin: 0 0 12px; border: 1px solid var(--pelican-border); border-radius: 7px; background: var(--pelican-input); color: var(--pelican-text); padding: 7px 10px; cursor: pointer; }
-.settings-editor { display: grid; gap: 9px; margin: 0 0 12px; padding: 12px; border: 1px solid var(--pelican-border); border-radius: 8px; background: var(--pelican-surface); }
+.settings-editor { display: grid; min-width: 0; gap: 9px; font-size: 12px; }
 .settings-editor p { margin: 0; color: var(--pelican-muted); }
 .settings-editor label { display: grid; gap: 4px; font-weight: 600; }
 .settings-editor input, .settings-editor textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--pelican-border); border-radius: 6px; background: var(--pelican-input); color: var(--pelican-text); padding: 7px; font: inherit; }
 .settings-editor .settings-enabled { display: flex; align-items: center; gap: 8px; }.settings-editor .settings-enabled input { width: auto; }
 .settings-disabled-banner { margin: 0 0 12px; border: 1px solid color-mix(in srgb, var(--pelican-accent) 45%, var(--pelican-border)); border-radius: 8px; background: var(--pelican-accent-soft); color: var(--pelican-text); padding: 9px 12px; font-size: 12px; }
 .settings-editor textarea { resize: vertical; white-space: pre-wrap; }
-.settings-editor div { display: flex; gap: 8px; }
+.settings-editor > div { display: flex; flex-wrap: wrap; gap: 8px; }
 .cleanup-confirmation { --pelican-text: var(--console-text, #141413); --pelican-muted: var(--console-muted, #6c6a64); --pelican-border: var(--console-border, rgba(216, 206, 194, .68)); --pelican-input: var(--console-input, rgba(250, 249, 245, .94)); --pelican-accent: var(--console-accent, theme('colors.primary.500')); display: grid; gap: 10px; color: var(--pelican-text); }.cleanup-confirmation p { margin: 0; color: var(--pelican-muted); }.cleanup-confirmation div { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }.cleanup-confirmation button { border: 1px solid var(--pelican-border); border-radius: 7px; background: var(--pelican-input); color: var(--pelican-text); padding: 7px 10px; cursor: pointer; }.cleanup-confirmation button:last-child { background: var(--pelican-accent); color: #fff; border-color: var(--pelican-accent); }.cleanup-notice { margin: 0 0 8px; color: var(--pelican-accent); }
 .dark .cleanup-confirmation { --pelican-text: theme('colors.dark.50'); --pelican-muted: theme('colors.dark.400'); --pelican-border: rgba(51, 65, 85, .82); --pelican-input: rgba(10, 18, 32, .86); --pelican-accent: theme('colors.indigo.400'); }
 .settings-editor button { border: 1px solid var(--pelican-border); border-radius: 6px; background: var(--pelican-input); color: var(--pelican-text); padding: 7px 10px; cursor: pointer; }
@@ -804,6 +807,13 @@ button:focus-visible, select:focus-visible, .search-box:focus-within { outline: 
   --pelican-hover: rgba(30, 41, 59, .82);
   --pelican-accent: theme('colors.indigo.400');
   --pelican-accent-soft: rgba(129, 140, 248, .12);
+}
+.dark .settings-editor {
+  --pelican-text: #f3efe7;
+  --pelican-muted: #b9b3a8;
+  --pelican-border: #3b362f;
+  --pelican-input: #211f1c;
+  --pelican-accent: #e3a58c;
 }
 @media (max-width: 760px) {
   .toolbar { align-items: stretch; flex-direction: column; gap: 10px; }

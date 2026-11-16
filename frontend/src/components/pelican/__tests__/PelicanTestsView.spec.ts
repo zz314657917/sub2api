@@ -596,6 +596,41 @@ describe('PelicanTestsView', () => {
     await wrapper.get('[role="dialog"] button[aria-label="close"]').trigger('click'); await flushPromises()
   })
 
+  it('opens settings inside a separate dialog, closes it and reloads saved settings on reopen', async () => {
+    const wrapper = await view()
+    try {
+      expect(wrapper.find('.settings-editor').exists()).toBe(false)
+      await wrapper.findAll('.admin-toggle')[0]!.trigger('click'); await flushPromises()
+      expect(wrapper.get('.settings-editor').element.closest('[role="dialog"]')).not.toBeNull()
+      expect(wrapper.findAll('.admin-toggle')[0]!.text()).toBe('管理页面设置')
+      await wrapper.get('input[aria-label="页面名称"]').setValue('未保存草稿')
+      await wrapper.get('[role="dialog"] button[aria-label="close"]').trigger('click'); await flushPromises()
+      expect(wrapper.find('.settings-editor').exists()).toBe(false)
+      expect(api.saveSettings).not.toHaveBeenCalled()
+      await wrapper.findAll('.admin-toggle')[0]!.trigger('click'); await flushPromises()
+      expect(wrapper.get('input[aria-label="页面名称"]').element).toHaveProperty('value', '鹈鹕测试')
+      expect(wrapper.findAll('.pelican-card')).toHaveLength(1)
+    } finally { wrapper.unmount() }
+  })
+
+  it('blocks closing settings during save and keeps a failed draft in the dialog', async () => {
+    let rejectSave!: (reason: Error) => void
+    api.saveSettings.mockReturnValueOnce(new Promise((_, reject) => { rejectSave = reject }))
+    const wrapper = await view()
+    try {
+      await wrapper.findAll('.admin-toggle')[0]!.trigger('click'); await flushPromises()
+      await wrapper.get('input[aria-label="页面名称"]').setValue('保留草稿')
+      await wrapper.findAll('button').find(button => button.text() === '保存设置')!.trigger('click')
+      await wrapper.get('[role="dialog"] button[aria-label="close"]').trigger('click')
+      expect(wrapper.find('.settings-editor').exists()).toBe(true)
+      rejectSave(new Error('设置保存失败')); await flushPromises()
+      expect(wrapper.get('.settings-editor').text()).toContain('设置保存失败')
+      expect(wrapper.get('input[aria-label="页面名称"]').element).toHaveProperty('value', '保留草稿')
+      await wrapper.get('[role="dialog"] button[aria-label="close"]').trigger('click')
+      expect(wrapper.find('.settings-editor').exists()).toBe(false)
+    } finally { wrapper.unmount() }
+  })
+
   it('keeps the settings draft after a failed save and propagates a successful name', async () => {
     const wrapper = await view()
     await wrapper.findAll('.admin-toggle')[0].trigger('click'); await flushPromises()

@@ -7,7 +7,7 @@
     <p v-else-if="!catalog || catalog.status === 'unavailable'" role="status">来源目录暂不可用，已保存的组合会保留，仍可手动编辑。</p>
     <p v-else-if="catalog.status === 'stale'" role="status">来源目录更新延迟，当前显示上次成功同步的目录。</p>
     <datalist id="pelican-reference-models"><option v-for="model in catalog?.models || []" :key="model.model" :value="model.model">{{ model.display_name }}</option></datalist>
-    <ol class="reference-selection-list">
+    <ol class="reference-selection-list" aria-label="参考组合列表" tabindex="0">
       <li v-for="(selection, index) in modelValue.selections" :key="index">
         <span class="reference-order" aria-hidden="true">{{ index + 1 }}</span>
         <label class="reference-model-input">模型<input :value="selection.model" list="pelican-reference-models" maxlength="200" :aria-label="`参考模型 ${index + 1}`" placeholder="输入或选择模型" @input="setModel(index, $event)" /></label>
@@ -109,7 +109,9 @@ function move(index: number, direction: number): void {
 .reference-settings p { margin: 0; color: var(--pelican-muted, #6c6a64); font-size: 11px; line-height: 1.6; }
 label.reference-enabled { display: flex; align-items: center; gap: 7px; font-weight: 500; }
 .reference-enabled input { width: auto; accent-color: var(--pelican-accent, #a34e34); }
-.reference-selection-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; min-width: 0; }
+.reference-selection-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; min-width: 0; max-height: min(320px, 40vh); overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.reference-selection-list:not(:empty) { padding: 8px; border: 1px solid var(--pelican-border, #d8cec2); border-radius: 7px; }
+.reference-selection-list:focus-visible { outline: 2px solid var(--pelican-accent, #a34e34); outline-offset: 2px; }
 .reference-selection-list li { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 7px; min-width: 0; }
 .reference-capacity { flex-basis: 100%; color: var(--pelican-muted, #6c6a64); font-size: 11px; line-height: 1.6; }
 .reference-order { align-self: center; flex-shrink: 0; width: 16px; color: var(--pelican-muted, #6c6a64); font-variant-numeric: tabular-nums; }
