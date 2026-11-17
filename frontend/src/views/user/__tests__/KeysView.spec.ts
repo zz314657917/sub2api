@@ -170,10 +170,10 @@ const TablePageLayoutStub = {
 }
 
 const DataTableStub = {
-  props: ['columns', 'data'],
+  props: ['columns', 'data', 'loading'],
   emits: ['sort'],
   template: `
-    <div>
+    <div :data-loading="String(loading)">
       <div data-test="columns">{{ columns.map((col) => col.key).join(',') }}</div>
       <div v-for="row in data" :key="row.id">
         <slot name="cell-name" :value="row.name" :row="row" />
@@ -181,6 +181,7 @@ const DataTableStub = {
           <slot name="cell-current_concurrency" :value="row.current_concurrency" :row="row" />
         </div>
         <slot name="cell-actions" :row="row" />
+        <div data-test="usage"><slot name="cell-usage" :row="row" /></div>
       </div>
       <slot name="empty" />
     </div>
@@ -245,6 +246,16 @@ afterEach(() => {
 const visibleColumnKeys = (wrapper: VueWrapper) =>
   wrapper.get('[data-test="columns"]').text().split(',').filter(Boolean)
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason: unknown) => void
+  const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej })
+  return { promise, resolve, reject }
+}
+
+const refreshKeys = (wrapper: VueWrapper) =>
+  wrapper.get('button[title="Refresh"]').trigger('click')
+
 describe('user KeysView column settings', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -281,6 +292,141 @@ describe('user KeysView column settings', () => {
     const wrapper = await mountView()
 
     expect(visibleColumnKeys(wrapper)).toContain('current_concurrency')
+  })
+
+  it('renders the list while usage is pending and distinguishes pending from zero', async () => {
+    const usage = deferred<{ stats: Record<string, unknown> }>()
+    getDashboardApiKeysUsage.mockReturnValueOnce(usage.promise)
+    const wrapper = await mountView()
+    expect(wrapper.findComponent(DataTableStub).props('loading')).toBe(false)
+    expect(wrapper.text()).toContain('test-key')
+    expect(wrapper.get('[data-test="usage"]').text()).toContain('…')
+    expect(wrapper.get('[data-test="usage"]').text()).not.toContain('0.0000')
+    usage.resolve({ stats: { '1': { today_actual_cost: 0, total_actual_cost: 0 } } })
+    await flushPromises()
+    expect(wrapper.get('[data-test="usage"]').text()).toContain('0.0000')
+    expect(wrapper.get('[data-test="usage"]').text()).not.toContain('…')
+  })
+
+  it('retains cached usage during refresh and after usage failure', async () => {
+    getDashboardApiKeysUsage.mockResolvedValueOnce({ stats: { '1': { today_actual_cost: 12, total_actual_cost: 34 } } })
+    const wrapper = await mountView()
+    const pending = deferred<{ stats: Record<string, unknown> }>()
+    getDashboardApiKeysUsage.mockReturnValueOnce(pending.promise)
+    await refreshKeys(wrapper)
+    await flushPromises()
+    expect(wrapper.findComponent(DataTableStub).props('loading')).toBe(false)
+    expect(wrapper.get('[data-test="usage"]').text()).toContain('12.0000')
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    pending.reject(new Error('usage unavailable'))
+    await flushPromises()
+    expect(wrapper.get('[data-test="usage"]').text()).toContain('34.0000')
+    log.mockRestore()
+  })
+
+  it('blocks stale usage success and finally after a new request', async () => {
+    const oldUsage = deferred<{ stats: Record<string, unknown> }>()
+    const currentUsage = deferred<{ stats: Record<string, unknown> }>()
+    getDashboardApiKeysUsage.mockReturnValueOnce(oldUsage.promise).mockReturnValueOnce(currentUsage.promise)
+    const wrapper = await mountView()
+    await refreshKeys(wrapper)
+    await flushPromises()
+    oldUsage.resolve({ stats: { '1': { today_actual_cost: 99, total_actual_cost: 99 } } })
+    await flushPromises()
+    expect(wrapper.get('[data-test="usage"]').text()).toContain('…')
+    expect(wrapper.get('[data-test="usage"]').text()).not.toContain('99.0000')
+    currentUsage.resolve({ stats: { '1': { today_actual_cost: 7, total_actual_cost: 8 } } })
+    await flushPromises()
+    expect(wrapper.get('[data-test="usage"]').text()).toContain('7.0000')
+  })
+
+  it('ignores stale usage errors and ends pending state on empty results', async () => {
+    const oldUsage = deferred<never>()
+    getDashboardApiKeysUsage.mockReturnValueOnce(oldUsage.promise)
+    const wrapper = await mountView()
+    listKeys.mockResolvedValueOnce({ items: [], total: 0, pages: 0 })
+    await refreshKeys(wrapper)
+    await flushPromises()
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    oldUsage.reject(new Error('stale error'))
+    await flushPromises()
+    expect(wrapper.findAll('[data-test="usage"]')).toHaveLength(0)
+    expect(wrapper.findComponent(DataTableStub).props('loading')).toBe(false)
+    expect(log).not.toHaveBeenCalled()
+    expect(showError).not.toHaveBeenCalled()
+    log.mockRestore()
+  })
+
+  it('ignores stale list failure/finally and aborts the active request on unmount', async () => {
+    const wrapper = await mountView()
+    const first = deferred<never>()
+    const second = deferred<{ items: ApiKey[]; total: number; pages: number }>()
+    listKeys.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
+    // Two filter/sort requests can overlap even when refresh is disabled.
+    wrapper.findComponent(DataTableStub).vm.$emit('sort', 'name', 'asc')
+    await nextTick()
+    wrapper.findComponent(DataTableStub).vm.$emit('sort', 'name', 'desc')
+    await nextTick()
+    first.reject(new Error('stale list failure'))
+    await flushPromises()
+    expect(showError).not.toHaveBeenCalled()
+    expect(wrapper.findComponent(DataTableStub).props('loading')).toBe(true)
+    const signal = listKeys.mock.calls.at(-1)![3].signal as AbortSignal
+    wrapper.unmount()
+    expect(signal.aborted).toBe(true)
+    second.resolve({ items: [createApiKey()], total: 1, pages: 1 })
+    await flushPromises()
+    expect(getDashboardApiKeysUsage).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows unknown usage after a current list failure cancels prior usage', async () => {
+    const usage = deferred<{ stats: Record<string, unknown> }>()
+    getDashboardApiKeysUsage.mockReturnValueOnce(usage.promise)
+    const wrapper = await mountView()
+    listKeys.mockRejectedValueOnce(new Error('list failed'))
+    await refreshKeys(wrapper)
+    await flushPromises()
+    expect(showError).toHaveBeenCalledTimes(1)
+    expect(wrapper.findComponent(DataTableStub).props('loading')).toBe(false)
+    expect(wrapper.get('[data-test="usage"]').text()).toContain('--')
+    usage.resolve({ stats: { '1': { today_actual_cost: 99, total_actual_cost: 99 } } })
+    await flushPromises()
+    expect(wrapper.get('[data-test="usage"]').text()).not.toContain('99.0000')
+  })
+
+  it('keeps the new page when an old list succeeds late', async () => {
+    const wrapper = await mountView()
+    const oldList = deferred<{ items: ApiKey[]; total: number; pages: number }>()
+    const newUsage = deferred<{ stats: Record<string, unknown> }>()
+    listKeys.mockReturnValueOnce(oldList.promise)
+    listKeys.mockResolvedValueOnce({ items: [{ ...createApiKey(), id: 2, name: 'page-two' }], total: 2, pages: 2 })
+    getDashboardApiKeysUsage.mockReturnValueOnce(newUsage.promise)
+    wrapper.findComponent(DataTableStub).vm.$emit('sort', 'name', 'asc')
+    await nextTick()
+    wrapper.findComponent(DataTableStub).vm.$emit('sort', 'name', 'desc')
+    await flushPromises()
+    expect(wrapper.text()).toContain('page-two')
+    oldList.resolve({ items: [createApiKey()], total: 1, pages: 1 })
+    await flushPromises()
+    expect(wrapper.text()).toContain('page-two')
+    expect(wrapper.get('[data-test="usage"]').text()).toContain('…')
+    newUsage.resolve({ stats: { '2': { today_actual_cost: 2, total_actual_cost: 3 } } })
+    await flushPromises()
+    expect(wrapper.get('[data-test="usage"]').text()).toContain('2.0000')
+  })
+
+  it('aborts pending usage on unmount and ignores its eventual rejection', async () => {
+    const pending = deferred<never>()
+    getDashboardApiKeysUsage.mockReturnValueOnce(pending.promise)
+    const wrapper = await mountView()
+    const signal = getDashboardApiKeysUsage.mock.calls[0][1].signal as AbortSignal
+    wrapper.unmount()
+    expect(signal.aborted).toBe(true)
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    pending.reject(new Error('late usage rejection'))
+    await flushPromises()
+    expect(log).not.toHaveBeenCalled()
+    log.mockRestore()
   })
 
   it('renders the current concurrency value', async () => {

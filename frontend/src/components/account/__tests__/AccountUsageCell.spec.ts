@@ -3,14 +3,17 @@ import { flushPromises, mount } from '@vue/test-utils'
 import AccountUsageCell from '../AccountUsageCell.vue'
 import type { Account } from '@/types'
 
-const { getUsage, queryOpenAIQuota, refreshOpenAIQuota, resetOpenAIQuota, queryCNBalance, queryCNQuota } = vi.hoisted(() => ({
+const { getUsage, getUserUsage, queryOpenAIQuota, refreshOpenAIQuota, resetOpenAIQuota, queryCNBalance, queryCNQuota } = vi.hoisted(() => ({
   getUsage: vi.fn(),
+  getUserUsage: vi.fn(),
   queryOpenAIQuota: vi.fn(),
   refreshOpenAIQuota: vi.fn(),
   resetOpenAIQuota: vi.fn(),
   queryCNBalance: vi.fn(),
   queryCNQuota: vi.fn()
 }))
+
+vi.mock('@/api/user', () => ({ default: { getAccountUsage: getUserUsage } }))
 
 vi.mock('@/api/admin', () => ({
   adminAPI: {
@@ -72,6 +75,7 @@ function makeAccount(overrides: Partial<Account>): Account {
 describe('AccountUsageCell', () => {
   beforeEach(() => {
     getUsage.mockReset()
+    getUserUsage.mockReset()
     queryOpenAIQuota.mockReset()
     refreshOpenAIQuota.mockReset()
     resetOpenAIQuota.mockReset()
@@ -90,6 +94,129 @@ describe('AccountUsageCell', () => {
         dispatchEvent: vi.fn(),
       }))
     })
+  })
+
+  it.each(['anthropic', 'openai'])('保留 %s 刷新中的额度且阻止重复主动查询', async (platform) => {
+    getUsage.mockResolvedValueOnce({
+      five_hour: { utilization: 42, resets_at: '2099-01-01T00:00:00Z' },
+      source: 'passive'
+    })
+    const wrapper = mount(AccountUsageCell, {
+      props: { account: makeAccount({ id: platform === 'anthropic' ? 88201 : 88202, platform, type: 'oauth' }) },
+      global: { stubs: {
+        UsageProgressBar: {
+          props: ['utilization'],
+          template: '<span data-test="usage-value">{{ utilization }}</span>'
+        },
+        AccountQuotaInfo: true
+      } }
+    })
+    await flushPromises()
+    expect(wrapper.text()).toContain('42')
+    let finish!: (value: unknown) => void
+    getUsage.mockReturnValueOnce(new Promise((resolve) => { finish = resolve }))
+    await wrapper.setProps({ manualRefreshToken: 1 })
+    await flushPromises()
+    expect(wrapper.get('[data-test="usage-value"]').text()).toBe('42')
+    if (platform === 'anthropic') {
+      expect(wrapper.get('button').attributes('disabled')).toBeDefined()
+    }
+    finish({ five_hour: { utilization: 55 } })
+    await flushPromises()
+    expect(wrapper.get('[data-test="usage-value"]').text()).toBe('55')
+    wrapper.unmount()
+  })
+
+  it.each([
+    ['passive', 'resolve', 'old-first'], ['passive', 'reject', 'old-first'],
+    ['passive', 'resolve', 'new-first'], ['passive', 'reject', 'new-first'],
+    ['active', 'resolve', 'old-first'], ['active', 'reject', 'old-first'],
+    ['active', 'resolve', 'new-first'], ['active', 'reject', 'new-first']
+  ])('隔离旧 %s 请求的 %s 和 finally（%s）', async (source, ending, order) => {
+    const usage = (value: number) => ({ five_hour: { utilization: value } })
+    const pending = () => {
+      let resolve!: (value: ReturnType<typeof usage>) => void
+      let reject!: (reason: Error) => void
+      const promise = new Promise<ReturnType<typeof usage>>((res, rej) => { resolve = res; reject = rej })
+      return { promise, resolve, reject }
+    }
+    const old = pending()
+    const current = pending()
+    const nextActive = pending()
+    getUsage.mockResolvedValueOnce(usage(42))
+      .mockReturnValueOnce(old.promise).mockReturnValueOnce(current.promise)
+      .mockReturnValueOnce(nextActive.promise)
+    const wrapper = mount(AccountUsageCell, {
+      props: { account: makeAccount({ id: 88301, platform: 'anthropic', type: 'oauth' }) },
+      global: { stubs: {
+        UsageProgressBar: { props: ['utilization'], template: '<span data-test="quota">{{ utilization }}</span>' },
+        AccountQuotaInfo: true
+      } }
+    })
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      await flushPromises()
+      if (source === 'active') await wrapper.get('button').trigger('click')
+      else await wrapper.setProps({ manualRefreshToken: 1 })
+      await flushPromises()
+      await wrapper.setProps({ manualRefreshToken: 2 })
+      await flushPromises()
+      expect(getUsage).toHaveBeenCalledTimes(3)
+      const settleOld = () => ending === 'reject' ? old.reject(new Error('obsolete')) : old.resolve(usage(9))
+      if (order === 'old-first') {
+        settleOld()
+        await flushPromises()
+        expect(wrapper.get('[data-test="quota"]').text()).toBe('42')
+        expect(wrapper.get('button').attributes('disabled')).toBeDefined()
+        current.resolve(usage(55))
+        await flushPromises()
+        expect(wrapper.get('[data-test="quota"]').text()).toBe('55')
+        expect(wrapper.get('button').attributes('disabled')).toBeUndefined()
+      } else {
+        current.resolve(usage(55))
+        await flushPromises()
+        await wrapper.get('button').trigger('click')
+        await flushPromises()
+        expect(getUsage).toHaveBeenCalledTimes(4)
+        settleOld()
+        await flushPromises()
+        expect(wrapper.get('[data-test="quota"]').text()).toBe('55')
+        expect(wrapper.get('button').attributes('disabled')).toBeDefined()
+        nextActive.resolve(usage(77))
+        await flushPromises()
+        expect(wrapper.get('[data-test="quota"]').text()).toBe('77')
+      }
+      expect(wrapper.text()).not.toContain('admin.accounts.usageWindow.activeQueryFailed')
+      expect(log).not.toHaveBeenCalled()
+    } finally {
+      wrapper.unmount()
+      log.mockRestore()
+    }
+  })
+
+  it.each(['resolve', 'reject'])('用户账号额度旧主动请求在卸载后 %s 不再写入或报告错误', async (ending) => {
+    let resolve!: (value: unknown) => void
+    let reject!: (reason: Error) => void
+    getUserUsage.mockResolvedValueOnce({ five_hour: { utilization: 42 } })
+      .mockReturnValueOnce(new Promise((res, rej) => { resolve = res; reject = rej }))
+    const wrapper = mount(AccountUsageCell, {
+      props: { account: makeAccount({ id: 88302, platform: 'anthropic', type: 'oauth' }), usageApiScope: 'user' },
+      global: { stubs: { UsageProgressBar: true, AccountQuotaInfo: true } }
+    })
+    await flushPromises()
+    await wrapper.get('button').trigger('click')
+    expect(getUserUsage).toHaveBeenLastCalledWith(88302, 'active')
+    expect(getUsage).not.toHaveBeenCalled()
+    wrapper.unmount()
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      if (ending === 'reject') reject(new Error('unmounted'))
+      else resolve({ five_hour: { utilization: 9 } })
+      await flushPromises()
+      expect(log).not.toHaveBeenCalled()
+    } finally {
+      log.mockRestore()
+    }
   })
 
   it('只抑制 reset 返回账号对应的 usage refresh key', async () => {

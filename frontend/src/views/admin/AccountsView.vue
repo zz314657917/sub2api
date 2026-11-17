@@ -230,12 +230,12 @@
           @share-status="handleBulkSetShareStatus"
           @share-status-filtered="handleBulkSetShareStatusFiltered"
         />
-        <div ref="accountTableRef" class="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div ref="accountTableRef" class="flex min-h-0 flex-1 flex-col overflow-hidden" :aria-busy="loading" :inert="loading || undefined">
         <DataTable
           ref="dataTableRef"
           :columns="cols"
           :data="numberedAccounts"
-          :loading="loading"
+          :loading="loading && numberedAccounts.length === 0"
           row-key="id"
           :server-side-sort="true"
           @sort="handleSort"

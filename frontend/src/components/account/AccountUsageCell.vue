@@ -8,7 +8,7 @@
       "
     >
       <!-- Loading state -->
-      <div v-if="loading" class="space-y-1.5">
+      <div v-if="loading && !usageInfo" class="space-y-1.5">
         <!-- OAuth: 4 rows, Setup Token: 1 row -->
         <div class="flex items-center gap-1">
           <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
@@ -93,7 +93,7 @@
           <button
             type="button"
             class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium text-[#a9583e] hover:bg-[#fffaf5] dark:text-[#f0b89e] dark:hover:bg-[#cc785c]/12 transition-colors"
-            :disabled="activeQueryLoading"
+            :disabled="activeQueryLoading || loading"
             @click="loadActiveUsage"
           >
             <svg
@@ -152,7 +152,7 @@
             <button
               type="button"
               class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-[#a9583e] transition-colors hover:bg-[#fffaf5] disabled:cursor-not-allowed disabled:opacity-50 dark:text-[#f0b89e] dark:hover:bg-[#cc785c]/12"
-              :disabled="activeQueryLoading"
+              :disabled="activeQueryLoading || loading"
               @click="loadActiveUsage"
             >
               <svg
@@ -174,7 +174,7 @@
           </template>
         </OpenAIQuotaResetCell>
       </div>
-      <div v-else-if="loading" class="space-y-1.5">
+      <div v-else-if="loading && !usageInfo" class="space-y-1.5">
         <div class="flex items-center gap-1">
           <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
           <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"></div>
@@ -281,7 +281,7 @@
       </div>
 
       <!-- Loading state -->
-      <div v-else-if="loading" class="space-y-1.5">
+      <div v-else-if="loading && !usageInfo" class="space-y-1.5">
         <div class="flex items-center gap-1">
           <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
           <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"></div>
@@ -344,7 +344,7 @@
 
     <!-- Grok OAuth accounts: passive xAI quota headers + local Sub2API usage -->
     <template v-else-if="account.platform === 'grok' && account.type === 'oauth'">
-      <div v-if="loading" class="space-y-1.5">
+      <div v-if="loading && !usageInfo" class="space-y-1.5">
         <div class="flex items-center gap-1">
           <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
           <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"></div>
@@ -504,7 +504,7 @@
           <div class="h-3 w-8 animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
           <div class="h-3 w-12 animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
         </div>
-        <div v-if="loading" class="space-y-1">
+        <div v-if="loading && !usageInfo" class="space-y-1">
           <div class="flex items-center gap-1">
             <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
             <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"></div>
@@ -689,6 +689,10 @@ const loading = ref(false)
 const activeQueryLoading = ref(false)
 const error = ref<string | null>(null)
 const usageInfo = ref<AccountUsageInfo | null>(null)
+let usageRequestID = 0
+const ownsUsageRequest = (requestID: number, accountID: number, scope: 'admin' | 'user') =>
+  !unmounted.value && requestID === usageRequestID &&
+  props.account.id === accountID && props.usageApiScope === scope
 const expectedOpenAIUsageRefreshKey = ref<string | null>(null)
 const rootRef = ref<HTMLElement | null>(null)
 const isDesktopViewport = ref(
@@ -1248,11 +1252,15 @@ const isAnthropicOAuthOrSetupToken = computed(() => {
 })
 
 const loadUsage = async (options?: { source?: 'passive' | 'active'; bypassCache?: boolean }) => {
-  if (!shouldFetchUsage.value) return
+  if (!shouldFetchUsage.value || unmounted.value) return
+  const account = props.account
+  const scope = props.usageApiScope
+  const requestID = ++usageRequestID
+  activeQueryLoading.value = false
 
   // Check cache
   if (!options?.bypassCache) {
-    const cached = _usageCache.get(props.account.id)
+    const cached = _usageCache.get(account.id)
     if (cached && Date.now() - cached.ts < USAGE_CACHE_TTL) {
       usageInfo.value = cached.data
       loading.value = false
@@ -1265,30 +1273,30 @@ const loadUsage = async (options?: { source?: 'passive' | 'active'; bypassCache?
 
   try {
     const fetchFn = () =>
-      props.usageApiScope === 'user'
-        ? userAPI.getAccountUsage(props.account.id, options?.source)
-        : adminAPI.accounts.getUsage(props.account.id, options?.source)
-    const result = await enqueueUsageRequest(props.account, fetchFn)
-    if (!unmounted.value) {
+      scope === 'user'
+        ? userAPI.getAccountUsage(account.id, options?.source)
+        : adminAPI.accounts.getUsage(account.id, options?.source)
+    const result = await enqueueUsageRequest(account, fetchFn)
+    if (ownsUsageRequest(requestID, account.id, scope)) {
       usageInfo.value = result
-      _usageCache.set(props.account.id, { data: result, ts: Date.now() })
+      _usageCache.set(account.id, { data: result, ts: Date.now() })
     }
   } catch (e: any) {
-    if (!unmounted.value) {
+    if (ownsUsageRequest(requestID, account.id, scope)) {
       if (usageInfo.value) {
         usageInfo.value = {
           ...usageInfo.value,
           stale: true,
           error: t('admin.accounts.usageWindow.activeQueryFailed')
         }
-        _usageCache.set(props.account.id, { data: usageInfo.value, ts: Date.now() })
+        _usageCache.set(account.id, { data: usageInfo.value, ts: Date.now() })
       } else {
         error.value = t('common.error')
       }
       console.error('Failed to load usage:', e)
     }
   } finally {
-    if (!unmounted.value) loading.value = false
+    if (ownsUsageRequest(requestID, account.id, scope)) loading.value = false
   }
 }
 
@@ -1349,25 +1357,31 @@ const attachVisibilityObserver = () => {
 }
 
 const loadActiveUsage = async () => {
+  if (loading.value || activeQueryLoading.value || unmounted.value || !shouldFetchUsage.value) return
+  const account = props.account
+  const scope = props.usageApiScope
+  const requestID = ++usageRequestID
   activeQueryLoading.value = true
   try {
-    const result = props.usageApiScope === 'user'
-      ? await userAPI.getAccountUsage(props.account.id, 'active')
-      : await adminAPI.accounts.getUsage(props.account.id, 'active', true)
+    const result = scope === 'user'
+      ? await userAPI.getAccountUsage(account.id, 'active')
+      : await adminAPI.accounts.getUsage(account.id, 'active', true)
+    if (!ownsUsageRequest(requestID, account.id, scope)) return
     usageInfo.value = result
-    _usageCache.set(props.account.id, { data: result, ts: Date.now() })
+    _usageCache.set(account.id, { data: result, ts: Date.now() })
   } catch (e: any) {
+    if (!ownsUsageRequest(requestID, account.id, scope)) return
     if (usageInfo.value) {
       usageInfo.value = {
         ...usageInfo.value,
         stale: true,
         error: t('admin.accounts.usageWindow.activeQueryFailed')
       }
-      _usageCache.set(props.account.id, { data: usageInfo.value, ts: Date.now() })
+      _usageCache.set(account.id, { data: usageInfo.value, ts: Date.now() })
     }
     console.error('Failed to load active usage:', e)
   } finally {
-    activeQueryLoading.value = false
+    if (ownsUsageRequest(requestID, account.id, scope)) activeQueryLoading.value = false
   }
 }
 

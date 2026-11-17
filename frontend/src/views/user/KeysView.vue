@@ -255,17 +255,17 @@
           </template>
 
           <template #cell-usage="{ row }">
-            <div class="text-sm">
+            <div class="text-sm" :aria-busy="usageLoading">
               <div class="flex items-center gap-1.5">
                 <span class="text-gray-500 dark:text-gray-400">{{ t('keys.today') }}:</span>
                 <span class="font-medium text-gray-900 dark:text-white">
-                  {{ formatCreditAmount(usageStats[row.id]?.today_actual_cost ?? 0, { minimumFractionDigits: 4, maximumFractionDigits: 4 }) }}
+                  {{ usageStats[row.id] ? formatCreditAmount(usageStats[row.id]!.today_actual_cost, { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : (usageLoading ? '…' : '--') }}
                 </span>
               </div>
               <div class="mt-0.5 flex items-center gap-1.5">
                 <span class="text-gray-500 dark:text-gray-400">{{ t('keys.total') }}:</span>
                 <span class="font-medium text-gray-900 dark:text-white">
-                  {{ formatCreditAmount(usageStats[row.id]?.total_actual_cost ?? 0, { minimumFractionDigits: 4, maximumFractionDigits: 4 }) }}
+                  {{ usageStats[row.id] ? formatCreditAmount(usageStats[row.id]!.total_actual_cost, { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : (usageLoading ? '…' : '--') }}
                 </span>
               </div>
               <!-- Quota progress (if quota is set) -->
@@ -1802,6 +1802,7 @@ const submitting = ref(false)
 const now = ref(new Date())
 let resetTimer: ReturnType<typeof setInterval> | null = null
 const usageStats = ref<Record<string, BatchApiKeyUsageStats>>({})
+const usageLoading = ref(false)
 const userGroupRates = ref<Record<number, number>>({})
 const { load: loadGroupHealth, healthFor: groupHealthFor } = useGroupHealth()
 let groupHealthLoaded = false
@@ -2353,6 +2354,7 @@ const loadApiKeys = async () => {
   abortController = controller
   const { signal } = controller
   loading.value = true
+  usageLoading.value = false
   try {
     // Build filters
     const filters: {
@@ -2371,7 +2373,7 @@ const loadApiKeys = async () => {
     const response = await keysAPI.list(pagination.value.page, pagination.value.page_size, filters, {
       signal
     })
-    if (signal.aborted) return
+    if (signal.aborted || abortController !== controller) return
     apiKeys.value = response.items
     pagination.value.total = response.total
     pagination.value.pages = response.pages
@@ -2379,23 +2381,24 @@ const loadApiKeys = async () => {
     // Load usage stats for all API keys in the list
     if (response.items.length > 0) {
       const keyIds = response.items.map((k) => k.id)
-      try {
-        const usageResponse = await usageAPI.getDashboardApiKeysUsage(keyIds, { signal })
-        if (signal.aborted) return
-        usageStats.value = usageResponse.stats
-      } catch (e) {
-        if (!isAbortError(e)) {
-          console.error('Failed to load usage stats:', e)
-        }
-      }
+      usageLoading.value = true
+      void usageAPI.getDashboardApiKeysUsage(keyIds, { signal }).then((usageResponse) => {
+        if (signal.aborted || abortController !== controller) return
+        usageStats.value = { ...usageStats.value, ...usageResponse.stats }
+      }).catch((error: unknown) => {
+        if (signal.aborted || abortController !== controller || isAbortError(error)) return
+        console.error('Failed to load usage stats:', error)
+      }).finally(() => {
+        if (!signal.aborted && abortController === controller) usageLoading.value = false
+      })
     }
   } catch (error) {
-    if (isAbortError(error)) {
+    if (signal.aborted || abortController !== controller || isAbortError(error)) {
       return
     }
     appStore.showError(t('keys.failedToLoad'))
   } finally {
-    if (abortController === controller) {
+    if (!signal.aborted && abortController === controller) {
       loading.value = false
     }
   }
@@ -3008,6 +3011,8 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  abortController?.abort()
+  abortController = null
   document.removeEventListener('click', closeGroupSelector)
   if (resetTimer) clearInterval(resetTimer)
 })

@@ -4880,7 +4880,8 @@ func (p *openAIStreamLineReader) next(ctx context.Context, keepalive <-chan time
 func openAIStreamEventIsPreamble(eventType string) bool {
 	switch strings.TrimSpace(eventType) {
 	// Queue and moderation metadata do not commit model output.
-	case "response.created", "response.queued", "response.in_progress", "response.metadata":
+	case "response.created", "response.queued", "response.in_progress", "response.metadata",
+		"codex.rate_limits", "codex.response.metadata":
 		return true
 	default:
 		return false
