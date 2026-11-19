@@ -234,6 +234,29 @@ func TestAuthServiceLoginDefersLastLoginTouchUntilRecordSuccessfulLogin(t *testi
 	require.Equal(t, "198.51.100.10", storedUser.LastLoginIP)
 }
 
+func TestAuthServiceRecordSuccessfulLoginWithoutEmailIdentity(t *testing.T) {
+	svc, _, client := newAuthServiceWithEnt(t, map[string]string{
+		service.SettingKeyAuthSourceDefaultEmailBalance:          "8.5",
+		service.SettingKeyAuthSourceDefaultEmailGrantOnFirstBind: "true",
+	}, nil)
+	ctx := context.Background()
+	user, err := client.User.Create().SetEmail("missing@example.com").SetUsername("missing").
+		SetPasswordHash("local").SetRole(service.RoleUser).SetStatus(service.StatusActive).SetBalance(1.5).Save(ctx)
+	require.NoError(t, err)
+	client.AuthIdentity.Intercept(dbent.InterceptFunc(func(dbent.Querier) dbent.Querier {
+		return dbent.QuerierFunc(func(context.Context, dbent.Query) (dbent.Value, error) {
+			return nil, errors.New("identity lookup unavailable")
+		})
+	}))
+
+	svc.RecordSuccessfulLogin(ctx, user.ID)
+	stored, err := client.User.Get(ctx, user.ID)
+	require.NoError(t, err)
+	require.NotNil(t, stored.LastLoginAt)
+	require.Equal(t, 1.5, stored.Balance)
+	require.Zero(t, countProviderGrantRecords(t, client, user.ID, "email", "first_bind"))
+}
+
 func TestAuthServiceRecordSuccessfulLoginBackfillsEmailIdentity(t *testing.T) {
 	svc, repo, client := newAuthServiceWithEnt(t, map[string]string{
 		service.SettingKeyRegistrationEnabled: "true",
