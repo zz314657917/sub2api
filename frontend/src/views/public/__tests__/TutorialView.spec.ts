@@ -318,6 +318,7 @@ describe('TutorialView reading flow', () => {
     expect(wrapper.get('[data-testid="tutorial-helper-download"]').attributes('href')).toBe('/downloads/chatgpt-config-windows.exe')
     expect(wrapper.get('[data-testid="tutorial-helper-download"]').attributes('download')).toBe('ChatGPT配置助手.exe')
     expect(wrapper.get('.tutorial-helper-step a[href="/keys"]').exists()).toBe(true)
+    expect(wrapper.find('img[src^="/tutorial/api-key/"]').exists()).toBe(false)
     expect(wrapper.find('.tutorial-quickstart-steps').exists()).toBe(false)
     expect(wrapper.find('[aria-label="选择系统和终端"]').exists()).toBe(false)
     expect(wrapper.find('.tutorial-api').exists()).toBe(false)
@@ -380,6 +381,26 @@ describe('TutorialView reading flow', () => {
     await flushPromises()
     expect(router.currentRoute.value.path).toBe('/tutorial')
     expect(wrapper.findAll('.tutorial-helper-step')).toHaveLength(4)
+  })
+
+  it('renders the built-in Codex guide when the tutorial list is empty', async () => {
+    listMock.mockResolvedValue([])
+    const { wrapper } = await mountTutorial('/tutorial/codex')
+    const article = wrapper.get('.tutorial-content')
+
+    expect(article.get('a[href="/keys"]').exists()).toBe(true)
+    expect(article.get('a[href="/tutorial"]').exists()).toBe(true)
+    expect(article.get('a[href="https://chatgpt.com/download/"]').exists()).toBe(true)
+    expect(article.find('img[src^="/tutorial/api-key/"]').exists()).toBe(false)
+    expect(article.text()).toContain('厂商选 OpenAI')
+    const commands = article.findAll('pre code').map((code) => code.text())
+    const toml = commands.find((command) => command.includes('wire_api = "responses"'))
+    expect(toml).toContain('base_url = "https://ai.3zapi.com"')
+    expect(toml).toContain('model = "gpt-6.1-sol"')
+    expect(toml).toContain('review_model = "gpt-6.1-sol"')
+    expect(toml).not.toContain('env_key')
+    const auth = commands.find((command) => command.includes('"OPENAI_API_KEY"'))
+    expect(JSON.parse(auth!)).toEqual({ OPENAI_API_KEY: '替换成你的 API Key' })
   })
 
   it('opens detail without the index hero and keeps progress, mobile directory, toc, and hash history in sync', async () => {

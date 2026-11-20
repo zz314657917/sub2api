@@ -93,7 +93,6 @@
                 </div>
               </header>
               <router-link to="/keys" class="tutorial-helper-action">打开 API 密钥页面</router-link>
-              <img class="tutorial-key-entry" src="/tutorial/api-key/sidebar-api-key.png" alt="登录后，在左侧菜单点击“API 密钥”" width="278" height="176" loading="lazy">
               <p class="tutorial-helper-result">复制完成后，继续第 3 步，下载配置助手并粘贴密钥。</p>
               <p class="tutorial-helper-note">API 密钥就是连接服务用的凭证。只粘贴到你信任的工具里，不要发给别人，也不要贴到聊天消息中。账户还需要可用额度。</p>
             </article>
