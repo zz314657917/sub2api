@@ -616,6 +616,59 @@ func isAntigravityOpusHighTierModel(model string) bool {
 		strings.HasPrefix(lower, "claude-opus-4-8")
 }
 
+// carbonThinkingConfig preserves the upstream default when no effort is specified.
+// https://aistudio.google.com/docs/whats-new-gemini-4-carbon
+func carbonThinkingConfig(req *ClaudeRequest, bareModel bool) *GeminiThinkingConfig {
+	cfg := &GeminiThinkingConfig{}
+	if req.Thinking != nil {
+		cfg.IncludeThoughts = req.Thinking.Type == "enabled" || req.Thinking.Type == "adaptive"
+	}
+	if bareModel {
+		if req.OutputConfig != nil {
+			switch strings.ToLower(strings.TrimSpace(req.OutputConfig.Effort)) {
+			case "none", "minimal", "low":
+				cfg.ThinkingLevel = "low"
+			case "medium":
+				cfg.ThinkingLevel = "medium"
+			case "high", "xhigh", "max":
+				cfg.ThinkingLevel = "high"
+			}
+		}
+		if req.Thinking != nil {
+			if req.Thinking.Type == "disabled" {
+				cfg.ThinkingLevel = "low"
+			} else if cfg.ThinkingLevel == "" && req.Thinking.Type == "enabled" && req.Thinking.BudgetTokens > 0 {
+				switch {
+				case req.Thinking.BudgetTokens <= 1024:
+					cfg.ThinkingLevel = "low"
+				case req.Thinking.BudgetTokens <= 8192:
+					cfg.ThinkingLevel = "medium"
+				default:
+					cfg.ThinkingLevel = "high"
+				}
+			}
+		}
+	}
+	if !cfg.IncludeThoughts && cfg.ThinkingLevel == "" {
+		return nil
+	}
+	return cfg
+}
+
+// CarbonThinkingConfig reports whether the upstream model uses Carbon's thinking rules.
+func CarbonThinkingConfig(req *ClaudeRequest, model string) (*GeminiThinkingConfig, bool) {
+	model = strings.ToLower(strings.TrimSpace(model))
+	if i := strings.LastIndexByte(model, '/'); i >= 0 {
+		model = model[i+1:]
+	}
+	switch model {
+	case "gemini-4-carbon", "gemini-4-carbon-low", "gemini-4-carbon-medium", "gemini-4-carbon-high":
+		return carbonThinkingConfig(req, model == "gemini-4-carbon"), true
+	default:
+		return nil, false
+	}
+}
+
 func buildGenerationConfig(req *ClaudeRequest) *GeminiGenerationConfig {
 	maxLimit := maxOutputTokensLimit(req.Model)
 	config := &GeminiGenerationConfig{
@@ -632,8 +685,15 @@ func buildGenerationConfig(req *ClaudeRequest) *GeminiGenerationConfig {
 		config.MaxOutputTokens = req.MaxTokens
 	}
 
+	// Carbon accepts thinking levels rather than token budgets. Tiered IDs, when
+	// supplied by the account catalog, already select the level upstream.
+	carbonConfig, isCarbon := CarbonThinkingConfig(req, req.Model)
+	if isCarbon {
+		config.ThinkingConfig = carbonConfig
+	}
+
 	// Thinking 配置
-	if req.Thinking != nil && (req.Thinking.Type == "enabled" || req.Thinking.Type == "adaptive") {
+	if !isCarbon && req.Thinking != nil && (req.Thinking.Type == "enabled" || req.Thinking.Type == "adaptive") {
 		config.ThinkingConfig = &GeminiThinkingConfig{
 			IncludeThoughts: true,
 		}

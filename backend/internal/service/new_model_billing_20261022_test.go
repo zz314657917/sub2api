@@ -60,6 +60,8 @@ func TestNewModelBilling20261022Cards(t *testing.T) {
 			{"gemini-3.7-flash-high", .75, 3.75, .075},
 			{"gemini-3.8-flash-medium", .75, 3.75, .075},
 			{"gemini-4-argon", 2, 10, .1},
+			{"gemini-4-carbon", 2, 10, .1},
+			{"gemini-4-hydrogen", 1.5, 7.5, .075},
 			{"gemini-4-argon-cyber-permissive-low", 4, 20, .2},
 			{"claude-sonnet-5.5-high", 2, 10, .1},
 			{"claude-haiku-5-5-low", .1, .5, .01},
@@ -216,6 +218,8 @@ func TestNewModelBilling20261022GeminiPriorityAndAliases(t *testing.T) {
 			{"gemini-3.6-flash", 1.35, 6.75, .135},
 			{"antigravity/gemini-3.6-flash-high", 1.35, 6.75, .135},
 			{"google/gemini-4-argon-low", 3.6, 18, .18},
+			{"gemini-4-carbon-high", 3.6, 18, .18},
+			{"gemini-4-hydrogen", 2.7, 13.5, .135},
 			{"models/gemini-4-argon-cyber-permissive-medium", 7.2, 36, .36},
 			{"gemini-3.7-flash-tiered", 1.5, 7.5, .15}, // generic 2x; no invented 1.8x card
 			{"gemini-3.8-flash-high", 1.5, 7.5, .15},
@@ -246,6 +250,7 @@ func TestNewModelBilling20261022ExplicitAliasesZeroAndNonmutation(t *testing.T) 
 	ps := &PricingService{}
 	data, err := ps.parsePricingData([]byte(`{
 		"gemini-3.6-flash-high":{"input_cost_per_token":0,"output_cost_per_token":0,"cache_read_input_token_cost":0},
+		"gemini-4-carbon-high":{"input_cost_per_token":0,"output_cost_per_token":0,"cache_read_input_token_cost":0},
 		"gemini-4-argon-low":{"input_cost_per_token":9e-6,"output_cost_per_token":8e-6,"cache_read_input_token_cost":7e-6,"input_cost_per_token_priority":0,"output_cost_per_token_priority":0,"cache_read_input_token_cost_priority":0},
 		"claude-opus-5.5-high":{"input_cost_per_token":0,"output_cost_per_token":0,"cache_read_input_token_cost":0,"cache_creation_input_token_cost":0,"cache_creation_input_token_cost_above_1hr":0},
 		"claude-sonnet-5-5-low":{"input_cost_per_token":7e-6,"output_cost_per_token":9e-6,"cache_read_input_token_cost":2e-6,"cache_creation_input_token_cost":3e-6,"cache_creation_input_token_cost_above_1hr":4e-6},
@@ -257,7 +262,7 @@ func TestNewModelBilling20261022ExplicitAliasesZeroAndNonmutation(t *testing.T) 
 	require.NoError(t, err)
 	bs := NewBillingService(&config.Config{}, ps)
 	tokens := UsageTokens{InputTokens: 300000, OutputTokens: 1000, CacheReadTokens: 1000}
-	for _, model := range []string{"gemini-3.6-flash-high", "claude-opus-5.5-high", "grok-4.7-fast"} {
+	for _, model := range []string{"gemini-3.6-flash-high", "gemini-4-carbon-high", "claude-opus-5.5-high", "grok-4.7-fast"} {
 		for _, tier := range []string{"", "priority"} {
 			bd, err := bs.CalculateCostWithServiceTier(model, tokens, 1, tier)
 			require.NoError(t, err)

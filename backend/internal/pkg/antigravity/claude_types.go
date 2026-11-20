@@ -9,17 +9,23 @@ import (
 
 // ClaudeRequest Claude Messages API 请求
 type ClaudeRequest struct {
-	Model       string          `json:"model"`
-	Messages    []ClaudeMessage `json:"messages"`
-	MaxTokens   int             `json:"max_tokens,omitempty"`
-	System      json.RawMessage `json:"system,omitempty"` // string 或 []SystemBlock
-	Stream      bool            `json:"stream,omitempty"`
-	Temperature *float64        `json:"temperature,omitempty"`
-	TopP        *float64        `json:"top_p,omitempty"`
-	TopK        *int            `json:"top_k,omitempty"`
-	Tools       []ClaudeTool    `json:"tools,omitempty"`
-	Thinking    *ThinkingConfig `json:"thinking,omitempty"`
-	Metadata    *ClaudeMetadata `json:"metadata,omitempty"`
+	Model        string              `json:"model"`
+	Messages     []ClaudeMessage     `json:"messages"`
+	MaxTokens    int                 `json:"max_tokens,omitempty"`
+	System       json.RawMessage     `json:"system,omitempty"` // string 或 []SystemBlock
+	Stream       bool                `json:"stream,omitempty"`
+	Temperature  *float64            `json:"temperature,omitempty"`
+	TopP         *float64            `json:"top_p,omitempty"`
+	TopK         *int                `json:"top_k,omitempty"`
+	Tools        []ClaudeTool        `json:"tools,omitempty"`
+	Thinking     *ThinkingConfig     `json:"thinking,omitempty"`
+	Metadata     *ClaudeMetadata     `json:"metadata,omitempty"`
+	OutputConfig *ClaudeOutputConfig `json:"output_config,omitempty"`
+}
+
+// ClaudeOutputConfig carries the requested reasoning effort.
+type ClaudeOutputConfig struct {
+	Effort string `json:"effort,omitempty"`
 }
 
 // ClaudeMessage Claude 消息
@@ -180,6 +186,7 @@ var claudeModels = []modelDef{
 
 // Antigravity 支持的 Gemini 模型
 var geminiModels = []modelDef{
+	{ID: "gemini-4-carbon", DisplayName: "Gemini 4 Carbon", CreatedAt: "2026-11-10T00:00:00Z", IsReasoning: true},
 	{ID: "gemini-2.5-flash", DisplayName: "Gemini 2.5 Flash", CreatedAt: "2025-01-01T00:00:00Z"},
 	{ID: "gemini-2.5-flash-image", DisplayName: "Gemini 2.5 Flash Image", CreatedAt: "2025-01-01T00:00:00Z"},
 	{ID: "gemini-2.5-flash-image-preview", DisplayName: "Gemini 2.5 Flash Image Preview", CreatedAt: "2025-01-01T00:00:00Z"},

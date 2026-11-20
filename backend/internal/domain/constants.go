@@ -126,6 +126,7 @@ var DefaultAntigravityModelMapping = map[string]string{
 	"gemini-2.5-flash-thinking":      "gemini-2.5-flash-thinking",
 	"gemini-2.5-pro":                 "gemini-2.5-pro",
 	// Gemini 3 白名单
+	"gemini-4-carbon":   "gemini-4-carbon",
 	"gemini-3-flash":    "gemini-3-flash",
 	"gemini-3-pro-high": "gemini-3-pro-high",
 	"gemini-3-pro-low":  "gemini-3-pro-low",

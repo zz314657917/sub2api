@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/geminicli"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/googleapi"
@@ -664,7 +665,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 		mappedModel = account.GetMappedModel(req.Model)
 	}
 
-	geminiReq, err := convertClaudeMessagesToGeminiGenerateContent(body)
+	geminiReq, err := convertClaudeMessagesToGeminiGenerateContent(body, mappedModel)
 	if err != nil {
 		return nil, s.writeClaudeError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 	}
@@ -926,7 +927,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 					stageName = "thinking+tools"
 					signatureRetryStage = 2
 				}
-				retryGeminiReq, txErr := convertClaudeMessagesToGeminiGenerateContent(strippedClaudeBody)
+				retryGeminiReq, txErr := convertClaudeMessagesToGeminiGenerateContent(strippedClaudeBody, mappedModel)
 				if txErr == nil {
 					logger.LegacyPrintf("service.gemini_messages_compat", "Gemini account %d: detected signature-related 400, retrying with downgraded Claude blocks (%s)", account.ID, stageName)
 					geminiReq = retryGeminiReq
@@ -3519,7 +3520,7 @@ func mapGeminiFinishReasonToClaudeStopReason(finishReason string) string {
 	}
 }
 
-func convertClaudeMessagesToGeminiGenerateContent(body []byte) ([]byte, error) {
+func convertClaudeMessagesToGeminiGenerateContent(body []byte, upstreamModel ...string) ([]byte, error) {
 	var req map[string]any
 	if err := json.Unmarshal(body, &req); err != nil {
 		return nil, err
@@ -3546,6 +3547,21 @@ func convertClaudeMessagesToGeminiGenerateContent(body []byte) ([]byte, error) {
 	}
 
 	generationConfig := convertClaudeGenerationConfig(req)
+	model, _ := req["model"].(string)
+	if len(upstreamModel) > 0 {
+		model = upstreamModel[0]
+	}
+	if strings.Contains(strings.ToLower(model), "gemini-4-carbon") {
+		var thinking antigravity.ClaudeRequest
+		if err := json.Unmarshal(body, &thinking); err == nil {
+			if cfg, _ := antigravity.CarbonThinkingConfig(&thinking, model); cfg != nil {
+				if generationConfig == nil {
+					generationConfig = make(map[string]any)
+				}
+				generationConfig["thinkingConfig"] = cfg
+			}
+		}
+	}
 	if generationConfig != nil {
 		out["generationConfig"] = generationConfig
 	}

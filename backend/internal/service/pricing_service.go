@@ -745,7 +745,7 @@ func newModelPricingKey(model string) (string, bool) {
 	reserved := false
 	for _, base := range []string{"grok-4.7-fast", "grok-4.7-build-fast",
 		"gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash",
-		"gemini-4-argon-cyber-permissive", "gemini-4-argon",
+		"gemini-4-argon-cyber-permissive", "gemini-4-argon", "gemini-4-carbon", "gemini-4-hydrogen",
 		"claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-5-5"} {
 		if !strings.HasPrefix(model, base) {
 			continue
@@ -753,7 +753,7 @@ func newModelPricingKey(model string) (string, bool) {
 		reserved = true
 		suffix := strings.TrimPrefix(model, base)
 		known := suffix == ""
-		if strings.HasPrefix(base, "gemini-") {
+		if strings.HasPrefix(base, "gemini-") && base != "gemini-4-hydrogen" {
 			known = known || suffix == "-low" || suffix == "-medium" || suffix == "-high" || suffix == "-tiered"
 		}
 		if strings.HasPrefix(base, "claude-") {
@@ -771,7 +771,7 @@ func newModelPricingKey(model string) (string, bool) {
 }
 
 // These finite cards come from the pinned upstream catalog audit. Promotions
-// are constants, not scheduled repricing: Argon through Nov 30 2026, Flash
+// are constants, not scheduled repricing: Carbon and Argon through Nov 30 2026, Flash
 // 3.6/3.7/3.8 through Dec 31 2026. No unproven 3.7/3.8 priority card is inferred.
 func newModelStaticPricing(key string) *LiteLLMModelPricing {
 	p := &LiteLLMModelPricing{Mode: "chat", SupportsPromptCaching: true}
@@ -786,6 +786,15 @@ func newModelStaticPricing(key string) *LiteLLMModelPricing {
 		if key == "gemini-3.6-flash" {
 			p.InputCostPerTokenPriority, p.OutputCostPerTokenPriority, p.CacheReadInputTokenCostPriority = 1.35e-6, 6.75e-6, .135e-6
 		}
+	case "gemini-4-carbon":
+		// Introductory card through 2026-11-30; follow published catalog updates after expiry.
+		p.InputCostPerToken, p.OutputCostPerToken, p.CacheReadInputTokenCost = 2e-6, 10e-6, .1e-6
+		p.InputCostPerTokenPriority, p.OutputCostPerTokenPriority, p.CacheReadInputTokenCostPriority = 3.6e-6, 18e-6, .18e-6
+		p.LongContextMetadataPresent, p.LiteLLMProvider = true, "gemini"
+	case "gemini-4-hydrogen":
+		p.InputCostPerToken, p.OutputCostPerToken, p.CacheReadInputTokenCost = 1.5e-6, 7.5e-6, .075e-6
+		p.InputCostPerTokenPriority, p.OutputCostPerTokenPriority, p.CacheReadInputTokenCostPriority = 2.7e-6, 13.5e-6, .135e-6
+		p.LongContextMetadataPresent, p.LiteLLMProvider = true, "gemini"
 	case "gemini-4-argon", "gemini-4-argon-cyber-permissive":
 		p.InputCostPerToken, p.OutputCostPerToken, p.CacheReadInputTokenCost = 2e-6, 10e-6, .1e-6
 		p.InputCostPerTokenPriority, p.OutputCostPerTokenPriority, p.CacheReadInputTokenCostPriority = 3.6e-6, 18e-6, .18e-6

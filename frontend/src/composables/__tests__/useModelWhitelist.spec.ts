@@ -12,6 +12,10 @@ import {
 } from '../useModelWhitelist'
 
 describe('useModelWhitelist', () => {
+  it.each(['gemini', 'antigravity'])('offers Carbon but not billing-only Hydrogen for %s', (platform) => {
+    expect(getModelsByPlatform(platform)).toContain('gemini-4-carbon')
+    expect(getModelsByPlatform(platform)).not.toContain('gemini-4-hydrogen')
+  })
   it('openai 模型列表包含 GPT-5.4 官方快照', () => {
     const models = getModelsByPlatform('openai')
 
