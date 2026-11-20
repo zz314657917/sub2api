@@ -68,6 +68,7 @@ func (k *APIKey) resolveForRequest(path, forcePlatform, requestedModel string, i
 	clone.Group = selected
 	if clone.User != nil {
 		userCopy := *clone.User
+		userCopy.UserGroupRPMOverrideGroupID = 0
 		userCopy.UserGroupRPMOverride = nil
 		clone.User = &userCopy
 	}

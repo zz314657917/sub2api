@@ -18,9 +18,11 @@ func TestAPIKeyResolveForRequestSelectsPlatformRoute(t *testing.T) {
 		UserID:  42,
 		GroupID: &defaultGroupID,
 		User: &User{
-			ID:                   42,
-			UserGroupRPMOverride: apiKeyRoutingIntPtr(25),
-			AllowedGroups:        []int64{defaultGroupID, openAIGroupID, geminiGroupID},
+			ID:                          42,
+			UserGroupRPMOverride:        apiKeyRoutingIntPtr(25),
+			UserGroupRPMOverrideGroupID: defaultGroupID,
+			RPMLimit:                    60,
+			AllowedGroups:               []int64{defaultGroupID, openAIGroupID, geminiGroupID},
 		},
 		Group: &Group{
 			ID:       defaultGroupID,
@@ -46,6 +48,9 @@ func TestAPIKeyResolveForRequestSelectsPlatformRoute(t *testing.T) {
 	require.Equal(t, geminiGroupID, *resolved.GroupID)
 	require.Equal(t, PlatformGemini, resolved.Group.Platform)
 	require.Nil(t, resolved.User.UserGroupRPMOverride)
+	require.Zero(t, resolved.User.UserGroupRPMOverrideGroupID)
+	require.Equal(t, 60, resolved.User.RPMLimit)
+	require.Equal(t, defaultGroupID, key.User.UserGroupRPMOverrideGroupID)
 	require.Equal(t, apiKeyRoutingIntPtr(25), key.User.UserGroupRPMOverride)
 }
 

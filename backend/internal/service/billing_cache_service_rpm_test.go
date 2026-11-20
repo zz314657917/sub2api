@@ -87,6 +87,37 @@ func newBillingServiceForRPM(t *testing.T, cache UserRPMCache, rateRepo UserGrou
 	return svc
 }
 
+func TestBillingCacheService_CheckRPM_ScopedAuthSnapshot(t *testing.T) {
+	ctx := context.Background()
+	groupID := int64(10)
+	repo := &rpmOverrideRepoStub{}
+	auth := &APIKeyService{userGroupRateRepo: repo}
+	original := &APIKey{UserID: 1, GroupID: &groupID, Group: &Group{ID: groupID}, User: &User{ID: 1, RPMLimit: 1}}
+	key := auth.snapshotToAPIKey("local", auth.snapshotFromAPIKey(ctx, original))
+	require.Equal(t, groupID, key.User.UserGroupRPMOverrideGroupID)
+	require.Nil(t, key.User.UserGroupRPMOverride)
+
+	cache := &userRPMCacheStub{userGroupCounts: []int{1, 2}, userCounts: []int{1, 2}}
+	svc := newBillingServiceForRPM(t, cache, repo)
+	require.NoError(t, svc.checkRPM(ctx, key.User, &Group{ID: groupID, RPMLimit: 1}))
+	require.EqualValues(t, 1, repo.calls)
+
+	zero := 0
+	key.User.UserGroupRPMOverride = &zero
+	require.ErrorIs(t, svc.checkRPM(ctx, key.User, &Group{ID: 11, RPMLimit: 1}), ErrGroupRPMExceeded)
+	require.EqualValues(t, 2, repo.calls, "a different group must look up its own override")
+	require.ErrorIs(t, svc.checkRPM(ctx, key.User, &Group{ID: groupID, RPMLimit: 1}), ErrUserRPMExceeded)
+	require.EqualValues(t, 2, repo.calls)
+
+	resolved := *key
+	resolved.Group = &Group{ID: 11}
+	refreshed := auth.refreshResolvedAPIKeyGroupState(ctx, key, &resolved)
+	require.EqualValues(t, 11, refreshed.User.UserGroupRPMOverrideGroupID)
+	require.Nil(t, refreshed.User.UserGroupRPMOverride)
+	require.Equal(t, groupID, resolved.User.UserGroupRPMOverrideGroupID)
+	require.Equal(t, &zero, key.User.UserGroupRPMOverride)
+}
+
 func TestBillingCacheService_CheckRPM_OverrideTakesPrecedenceOverGroup(t *testing.T) {
 	override := 2
 	// user-group 计数: 1, 2, 3；user 计数: 默认返回 1（远小于 RPMLimit=100，不干扰）

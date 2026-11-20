@@ -1593,6 +1593,12 @@ func cloneAPIKeyWithGroup(apiKey *service.APIKey, group *service.Group) *service
 	groupID := group.ID
 	cloned.GroupID = &groupID
 	cloned.Group = group
+	if cloned.User != nil && cloned.User.UserGroupRPMOverrideGroupID != groupID {
+		userCopy := *cloned.User
+		userCopy.UserGroupRPMOverrideGroupID = 0
+		userCopy.UserGroupRPMOverride = nil
+		cloned.User = &userCopy
+	}
 	return &cloned
 }
 

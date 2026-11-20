@@ -1,9 +1,37 @@
 package service
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
+
+func TestAPIKeyService_RejectsV22AndAcceptsScopedV23(t *testing.T) {
+	svc := &APIKeyService{}
+	groupID := int64(9)
+	snapshot := &APIKeyAuthSnapshot{Version: 22, GroupID: &groupID, OpenAIFastPolicy: "filter",
+		Group: &APIKeyAuthGroupSnapshot{ID: groupID, ForceOpenAIUltrafast: true}}
+	key, hit, err := svc.applyAuthCacheEntry("local", &APIKeyAuthCacheEntry{Snapshot: snapshot})
+	require.NoError(t, err)
+	require.False(t, hit)
+	require.Nil(t, key)
+
+	snapshot.Version = 23
+	snapshot.User.UserGroupRPMOverrideGroupID = groupID
+	wire, err := json.Marshal(snapshot)
+	require.NoError(t, err)
+	var decoded APIKeyAuthSnapshot
+	require.NoError(t, json.Unmarshal(wire, &decoded))
+	key, hit, err = svc.applyAuthCacheEntry("local", &APIKeyAuthCacheEntry{Snapshot: &decoded})
+	require.NoError(t, err)
+	require.True(t, hit)
+	require.Equal(t, groupID, key.User.UserGroupRPMOverrideGroupID)
+	require.Nil(t, key.User.UserGroupRPMOverride)
+	require.Equal(t, "filter", key.OpenAIFastPolicy)
+	require.True(t, key.Group.ForceOpenAIUltrafast)
+}
 
 func TestAPIKeyService_RejectsV10AuthSnapshotWithoutModelsListConfig(t *testing.T) {
 	groupID := int64(9)

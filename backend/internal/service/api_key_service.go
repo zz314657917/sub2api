@@ -474,7 +474,12 @@ func (s *APIKeyService) refreshResolvedAPIKeyGroupState(ctx context.Context, ori
 	if original == nil || original.Group == nil || original.Group.ID != resolved.Group.ID {
 		override, err := s.userGroupRateRepo.GetRPMOverrideByUserAndGroup(ctx, resolved.UserID, resolved.Group.ID)
 		if err == nil {
-			resolved.User.UserGroupRPMOverride = override
+			keyCopy := *resolved
+			userCopy := *resolved.User
+			userCopy.UserGroupRPMOverrideGroupID = resolved.Group.ID
+			userCopy.UserGroupRPMOverride = override
+			keyCopy.User = &userCopy
+			return &keyCopy
 		}
 	}
 	return resolved

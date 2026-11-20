@@ -247,7 +247,7 @@ func TestKeyFast20261105CacheVersionRoundTripAndInvalidation(t *testing.T) {
 	t.Cleanup(svc.authCacheL1.Close)
 	ctx := context.Background()
 	snapshot := svc.snapshotFromAPIKey(ctx, repo.key)
-	require.Equal(t, 22, snapshot.Version)
+	require.Equal(t, 23, snapshot.Version)
 	snapshot.Version = 20
 	snapshot.OpenAIFastPolicy = ""
 	cache.entry = &APIKeyAuthCacheEntry{Snapshot: snapshot}

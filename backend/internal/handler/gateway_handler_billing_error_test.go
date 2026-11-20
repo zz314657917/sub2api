@@ -46,6 +46,25 @@ func TestBillingErrorDetails_BillingServiceUnavailableMapsTo503(t *testing.T) {
 	require.Equal(t, 0, retryAfter, "non-RPM errors should not set Retry-After")
 }
 
+func TestCloneAPIKeyWithGroupKeepsRPMOverrideScoped(t *testing.T) {
+	groupID := int64(3)
+	zero := 0
+	key := &service.APIKey{GroupID: &groupID, User: &service.User{
+		RPMLimit: 60, UserGroupRPMOverride: &zero, UserGroupRPMOverrideGroupID: groupID,
+	}}
+	same := cloneAPIKeyWithGroup(key, &service.Group{ID: groupID})
+	require.Same(t, key.User, same.User)
+
+	fallback := cloneAPIKeyWithGroup(key, &service.Group{ID: 4})
+	require.Equal(t, int64(4), *fallback.GroupID)
+	require.NotSame(t, key.User, fallback.User)
+	require.Nil(t, fallback.User.UserGroupRPMOverride)
+	require.Zero(t, fallback.User.UserGroupRPMOverrideGroupID)
+	require.Equal(t, 60, fallback.User.RPMLimit)
+	require.Equal(t, groupID, key.User.UserGroupRPMOverrideGroupID)
+	require.Equal(t, &zero, key.User.UserGroupRPMOverride)
+}
+
 func TestBillingErrorDetails_InsufficientBalanceIncludesRechargeURL(t *testing.T) {
 	status, code, msg, _ := billingErrorDetails(service.ErrInsufficientBalance)
 	require.Equal(t, http.StatusForbidden, status)
