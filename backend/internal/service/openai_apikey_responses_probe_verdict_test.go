@@ -140,6 +140,24 @@ func TestProbeOpenAIAPIKeyResponsesSupport_ConclusiveResponsesStillPersist(t *te
 	}
 }
 
+func TestSevenProbeForceModesSkip(t *testing.T) {
+	for _, mode := range []string{"force_responses", "force_chat_completions", "force_responses", "auto", "invalid"} {
+		t.Run(mode, func(t *testing.T) {
+			repo := &responsesProbeVerdictAccountRepo{stubOpenAIAccountRepo: stubOpenAIAccountRepo{accounts: []Account{{ID: 213, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "sk-test"}, Extra: map[string]any{openai_compat.ExtraKeyResponsesMode: mode, openai_compat.ExtraKeyResponsesSupported: false}}}}}
+			upstream := &httpUpstreamRecorder{resp: &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"status":"completed","output":[{"type":"function_call"}]}`))}}
+			svc := &AccountTestService{accountRepo: repo, cfg: &config.Config{}, httpUpstream: upstream}
+			svc.ProbeOpenAIAPIKeyResponsesSupport(context.Background(), 213)
+			if strings.Contains(strings.ToLower(mode), "force_") {
+				require.Empty(t, upstream.requests)
+				require.Empty(t, repo.updateExtraCalls)
+			} else {
+				require.Len(t, upstream.requests, 1)
+				require.Len(t, repo.updateExtraCalls, 1)
+			}
+		})
+	}
+}
+
 func TestResponsesProbeVerdictIsConclusive(t *testing.T) {
 	t.Parallel()
 

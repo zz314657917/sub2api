@@ -126,6 +126,11 @@ func (s *AccountTestService) ProbeOpenAIAPIKeyResponsesSupport(ctx context.Conte
 		// 仅 OpenAI APIKey 账号需要网络探测；其他账号类型无能力差异。
 		return
 	}
+	modeRaw, _ := account.Extra[openai_compat.ExtraKeyResponsesMode].(string)
+	mode := openai_compat.NormalizeResponsesSupportMode(modeRaw)
+	if mode == openai_compat.ResponsesSupportModeForceResponses || mode == openai_compat.ResponsesSupportModeForceChatCompletions {
+		return
+	}
 
 	apiKey := account.GetOpenAIApiKey()
 	if apiKey == "" {
