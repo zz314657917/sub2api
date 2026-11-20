@@ -1,7 +1,9 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,11 +13,90 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type pricingStartupRemote struct {
+	started, finished chan struct{}
+	release           chan struct{}
+}
+
+func (r *pricingStartupRemote) FetchHashText(ctx context.Context, _ string) (string, error) {
+	close(r.started)
+	defer close(r.finished)
+	select {
+	case <-r.release:
+		return "", errors.New("remote hash unavailable")
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
+}
+
+func (*pricingStartupRemote) FetchPricingJSON(context.Context, string) ([]byte, error) {
+	return nil, errors.New("unexpected price download")
+}
+
+func TestPricingInitializePublishesLocalBeforeHashAndStops(t *testing.T) {
+	for _, remoteFails := range []bool{false, true} {
+		name := "cancel blocked hash"
+		if remoteFails {
+			name = "failed hash keeps local pricing"
+		}
+		t.Run(name, func(t *testing.T) {
+			remote := &pricingStartupRemote{started: make(chan struct{}), finished: make(chan struct{}), release: make(chan struct{})}
+			svc := NewPricingService(&config.Config{Pricing: config.PricingConfig{
+				DataDir: t.TempDir(), RemoteURL: "https://example.invalid/prices", HashURL: "https://example.invalid/hash",
+			}}, remote)
+			t.Cleanup(svc.Stop)
+			require.NoError(t, os.WriteFile(svc.getPricingFilePath(), []byte(`{"local-fixture-model":{"input_cost_per_token":0.000002}}`), 0600))
+			initialized := make(chan error, 1)
+			go func() { initialized <- svc.Initialize() }()
+			select {
+			case <-remote.started:
+			case <-time.After(3 * time.Second):
+				t.Fatal("background hash check never started")
+			}
+			select {
+			case err := <-initialized:
+				require.NoError(t, err)
+			case <-time.After(time.Second):
+				t.Fatal("Initialize waited for the remote hash")
+			}
+			select {
+			case <-remote.finished:
+				t.Fatal("hash no longer blocked")
+			default:
+			}
+			price := svc.GetModelPricing("local-fixture-model")
+			require.NotNil(t, price)
+			require.Equal(t, 2e-6, price.InputCostPerToken)
+			if remoteFails {
+				close(remote.release)
+				select {
+				case <-remote.finished:
+				case <-time.After(time.Second):
+					t.Fatal("failed hash did not return")
+				}
+			}
+			stopped := make(chan struct{})
+			go func() { svc.Stop(); close(stopped) }()
+			select {
+			case <-stopped:
+			case <-time.After(time.Second):
+				t.Fatal("Stop did not cancel and join the worker")
+			}
+			select {
+			case <-remote.finished:
+			default:
+				t.Fatal("Stop returned before the hash check exited")
+			}
+			require.Equal(t, price, svc.GetModelPricing("local-fixture-model"))
+		})
+	}
+}
+
 func TestPricingSchedulerBlankRemoteURLDoesNotStart(t *testing.T) {
 	svc := NewPricingService(&config.Config{Pricing: config.PricingConfig{RemoteURL: "  \t  "}}, nil)
 	defer svc.Stop()
 
-	svc.startUpdateScheduler()
+	svc.startUpdateScheduler(false)
 	done := make(chan struct{})
 	go func() {
 		svc.wg.Wait()

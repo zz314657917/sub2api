@@ -66,6 +66,28 @@ func requireFourFixesPricingAnchor(t *testing.T, svc *PricingService, want strin
 	require.Equal(t, want+"\n", string(persisted))
 }
 
+func TestPricingInitializeRecoversMissingOrCorruptLocalFile(t *testing.T) {
+	body := []byte(`{"recovered-fixture-model":{"input_cost_per_token":0.000003}}`)
+	for _, name := range []string{"missing", "corrupt"} {
+		t.Run(name, func(t *testing.T) {
+			remote := &fourFixesPricingRemote{body: body, hash: fourFixesBodyHash(body)}
+			svc := newFourFixesPricingSync(t, remote)
+			t.Cleanup(svc.Stop)
+			if name == "corrupt" {
+				require.NoError(t, os.WriteFile(svc.getPricingFilePath(), []byte(`{"broken":`), 0600))
+			}
+			require.NoError(t, svc.Initialize())
+			svc.Stop()
+			require.Equal(t, 1, remote.bodyFetches)
+			require.Equal(t, 1, remote.hashFetches)
+			price := svc.GetModelPricing("recovered-fixture-model")
+			require.NotNil(t, price)
+			require.Equal(t, 3e-6, price.InputCostPerToken)
+			requireFourFixesPricingAnchor(t, svc, remote.hash)
+		})
+	}
+}
+
 func TestPricingSyncFourFixesMismatchRetriesAndMatchingHashSuppressesDownload(t *testing.T) {
 	oldBody := []byte(`{"claude-sonnet-5-5":{"input_cost_per_token":0.000002,"output_cost_per_token":0.000010,"cache_read_input_token_cost":0.0000001}}`)
 	newBody := []byte(`{"claude-sonnet-5-5":{"input_cost_per_token":0.000003,"output_cost_per_token":0.000010,"cache_read_input_token_cost":0.0000001}}`)
@@ -73,22 +95,22 @@ func TestPricingSyncFourFixesMismatchRetriesAndMatchingHashSuppressesDownload(t 
 	svc := newFourFixesPricingSync(t, remote)
 	bodyHash := fourFixesBodyHash(oldBody)
 	require.NotEqual(t, remote.hash, bodyHash)
-	require.NoError(t, svc.syncWithRemote())
+	require.NoError(t, svc.syncWithRemote(context.Background()))
 	require.Equal(t, 1, remote.bodyFetches)
 	requireFourFixesPricingAnchor(t, svc, bodyHash)
 	persisted, err := os.ReadFile(svc.getPricingFilePath())
 	require.NoError(t, err)
 	require.Equal(t, oldBody, persisted)
 	// A still-mismatched publication must be downloaded again.
-	require.NoError(t, svc.syncWithRemote())
+	require.NoError(t, svc.syncWithRemote(context.Background()))
 	require.Equal(t, 2, remote.bodyFetches)
 	requireFourFixesPricingAnchor(t, svc, bodyHash)
 	// Once the body catches up, acknowledge that version and suppress retries.
 	remote.body = newBody
-	require.NoError(t, svc.syncWithRemote())
+	require.NoError(t, svc.syncWithRemote(context.Background()))
 	require.Equal(t, 3, remote.bodyFetches)
 	requireFourFixesPricingAnchor(t, svc, remote.hash)
-	require.NoError(t, svc.syncWithRemote())
+	require.NoError(t, svc.syncWithRemote(context.Background()))
 	require.Equal(t, 3, remote.bodyFetches)
 	require.Greater(t, remote.hashFetches, 0)
 	price := svc.GetModelPricing("claude-sonnet-5-5")
@@ -101,21 +123,21 @@ func TestPricingSyncFourFixesMatchingHashCaseAndNoHash(t *testing.T) {
 	t.Run("matching uppercase", func(t *testing.T) {
 		remote := &fourFixesPricingRemote{body: body, hash: strings.ToUpper(fourFixesBodyHash(body))}
 		svc := newFourFixesPricingSync(t, remote)
-		require.NoError(t, svc.downloadPricingData())
+		require.NoError(t, svc.downloadPricingData(context.Background()))
 		// fetchRemoteHash may normalize hexadecimal case.
 		svc.mu.RLock()
 		anchor := svc.localHash
 		svc.mu.RUnlock()
 		require.True(t, strings.EqualFold(remote.hash, anchor))
 		requireFourFixesPricingAnchor(t, svc, anchor)
-		require.NoError(t, svc.syncWithRemote())
+		require.NoError(t, svc.syncWithRemote(context.Background()))
 		require.Equal(t, 1, remote.bodyFetches)
 	})
 	t.Run("no hash URL", func(t *testing.T) {
 		remote := &fourFixesPricingRemote{body: body}
 		svc := newFourFixesPricingSync(t, remote)
 		svc.cfg.Pricing.HashURL = ""
-		require.NoError(t, svc.downloadPricingData())
+		require.NoError(t, svc.downloadPricingData(context.Background()))
 		requireFourFixesPricingAnchor(t, svc, fourFixesBodyHash(body))
 		require.Zero(t, remote.hashFetches)
 	})

@@ -11,6 +11,7 @@ import (
 	"io"
 	"log/slog"
 	mathrand "math/rand"
+	"mime"
 	"net"
 	"net/http"
 	"net/url"
@@ -7678,13 +7679,7 @@ func (s *GatewayService) handleErrorResponse(ctx context.Context, resp *http.Res
 		"upstream_error",
 		"Upstream request failed",
 	); matched {
-		c.JSON(status, gin.H{
-			"type": "error",
-			"error": gin.H{
-				"type":    errType,
-				"message": errMsg,
-			},
-		})
+		writeGatewayHTTPError(c, account, status, errType, errMsg)
 
 		summary := upstreamMsg
 		if summary == "" {
@@ -7702,7 +7697,9 @@ func (s *GatewayService) handleErrorResponse(ctx context.Context, resp *http.Res
 
 	switch resp.StatusCode {
 	case 400:
-		c.Data(http.StatusBadRequest, "application/json", body)
+		if !writeCommittedAnthropicHTTPError(c, account, http.StatusBadRequest, "invalid_request_error", upstreamMsg) {
+			c.Data(http.StatusBadRequest, "application/json", body)
+		}
 		summary := upstreamMsg
 		if summary == "" {
 			summary = truncateForLog(body, 512)
@@ -7738,13 +7735,7 @@ func (s *GatewayService) handleErrorResponse(ctx context.Context, resp *http.Res
 	}
 
 	// 返回自定义错误响应
-	c.JSON(statusCode, gin.H{
-		"type": "error",
-		"error": gin.H{
-			"type":    errType,
-			"message": errMsg,
-		},
-	})
+	writeGatewayHTTPError(c, account, statusCode, errType, errMsg)
 
 	if upstreamMsg == "" {
 		return nil, fmt.Errorf("upstream error: %d", resp.StatusCode)
@@ -7842,13 +7833,7 @@ func (s *GatewayService) handleRetryExhaustedError(ctx context.Context, resp *ht
 		"upstream_error",
 		"Upstream request failed after retries",
 	); matched {
-		c.JSON(status, gin.H{
-			"type": "error",
-			"error": gin.H{
-				"type":    errType,
-				"message": errMsg,
-			},
-		})
+		writeGatewayHTTPError(c, account, status, errType, errMsg)
 
 		summary := upstreamMsg
 		if summary == "" {
@@ -7861,18 +7846,45 @@ func (s *GatewayService) handleRetryExhaustedError(ctx context.Context, resp *ht
 	}
 
 	// 返回统一的重试耗尽错误响应
-	c.JSON(http.StatusBadGateway, gin.H{
-		"type": "error",
-		"error": gin.H{
-			"type":    "upstream_error",
-			"message": "Upstream request failed after retries",
-		},
-	})
+	writeGatewayHTTPError(c, account, http.StatusBadGateway, "upstream_error", "Upstream request failed after retries")
 
 	if upstreamMsg == "" {
 		return nil, fmt.Errorf("upstream error: %d (retries exhausted)", resp.StatusCode)
 	}
 	return nil, fmt.Errorf("upstream error: %d (retries exhausted) message=%s", resp.StatusCode, upstreamMsg)
+}
+
+// OpsAnthropicTerminalStatusKey is set only for local Anthropic HTTP errors
+// rendered as named SSE frames after the response has already been committed.
+const OpsAnthropicTerminalStatusKey = "ops_anthropic_terminal_status"
+
+func writeGatewayHTTPError(c *gin.Context, account *Account, status int, errorType, message string) {
+	if writeCommittedAnthropicHTTPError(c, account, status, errorType, message) {
+		return
+	}
+	c.JSON(status, gin.H{"type": "error", "error": gin.H{"type": errorType, "message": message}})
+}
+
+func writeCommittedAnthropicHTTPError(c *gin.Context, account *Account, status int, errorType, message string) bool {
+	if account.Platform != PlatformAnthropic || !c.Writer.Written() {
+		return false
+	}
+	mediaType, _, err := mime.ParseMediaType(c.Writer.Header().Get("Content-Type"))
+	if err != nil || mediaType != "text/event-stream" {
+		return false
+	}
+	if IsResponseCommitted(c) {
+		return true
+	}
+	if message == "" {
+		message = http.StatusText(status)
+	}
+	body, _ := json.Marshal(gin.H{"type": "error", "error": gin.H{"type": errorType, "message": message}})
+	c.Set(OpsAnthropicTerminalStatusKey, status)
+	MarkResponseCommitted(c)
+	_, _ = fmt.Fprintf(c.Writer, "event: error\ndata: %s\n\n", body)
+	c.Writer.Flush()
+	return true
 }
 
 // streamingResult 流式响应结果

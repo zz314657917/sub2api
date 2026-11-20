@@ -22,6 +22,7 @@ type anthropicWindowLimitRepo struct {
 	lastModelRateLimitReset time.Time
 	sessionWindowCalls      int
 	lastExtraUpdates        map[string]any
+	extraHistory            []map[string]any
 }
 
 func (r *anthropicWindowLimitRepo) SetRateLimited(_ context.Context, _ int64, resetAt time.Time) error {
@@ -49,7 +50,60 @@ func (r *anthropicWindowLimitRepo) UpdateSessionWindow(_ context.Context, _ int6
 
 func (r *anthropicWindowLimitRepo) UpdateExtra(_ context.Context, _ int64, updates map[string]any) error {
 	r.lastExtraUpdates = updates
+	r.extraHistory = append(r.extraHistory, updates)
 	return nil
+}
+
+func TestUpdateSessionWindowPreservesIndependentWeeklyUsage(t *testing.T) {
+	now := time.Now().Truncate(time.Second)
+	for _, tc := range []struct {
+		name      string
+		regular   int64
+		fable     int64
+		keep7d    bool
+		keepFable bool
+	}{
+		{"regular valid and fable at boundary", now.Unix() + 3600, now.Unix(), true, false},
+		{"regular expired and fable valid", now.Unix() - 1, now.Unix() + 3600, false, true},
+		{"both invalid", 0, -1, false, false},
+		{"both valid", now.Unix() + 7200, now.Unix() + 3600, true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &anthropicWindowLimitRepo{}
+			svc := NewRateLimitService(repo, nil, nil, nil, nil)
+			oldEnd := now.Add(-time.Hour)
+			account := &Account{ID: 1, Type: AccountTypeSetupToken, Platform: PlatformAnthropic, SessionWindowEnd: &oldEnd,
+				Extra: map[string]any{"passive_usage_7d_reset": float64(tc.regular), "passive_usage_7d_oi_reset": tc.fable}}
+			headers := http.Header{}
+			headers.Set("anthropic-ratelimit-unified-5h-status", "allowed")
+			headers.Set("anthropic-ratelimit-unified-5h-utilization", "0.15")
+			headers.Set("anthropic-ratelimit-unified-7d-utilization", "0.3")
+			svc.UpdateSessionWindow(context.Background(), account, headers)
+			require.Equal(t, 1, repo.sessionWindowCalls)
+			require.Len(t, repo.extraHistory, 2)
+			clear, sample := repo.extraHistory[0], repo.extraHistory[1]
+			for key, kept := range map[string]bool{
+				"session_window_utilization": false, "passive_usage_7d_reset": tc.keep7d,
+				"passive_usage_7d_utilization": tc.keep7d, "passive_usage_7d_oi_reset": tc.keepFable,
+				"passive_usage_7d_oi_utilization": tc.keepFable, "passive_usage_sampled_at": tc.keep7d || tc.keepFable,
+			} {
+				value, wrote := clear[key]
+				require.Equal(t, !kept, wrote, key)
+				require.Nil(t, value, key)
+			}
+			require.Equal(t, 0.15, sample["session_window_utilization"])
+			require.Equal(t, 0.3, sample["passive_usage_7d_utilization"])
+			require.NotEmpty(t, sample["passive_usage_sampled_at"])
+		})
+	}
+}
+
+func TestAnthropicWindowResetExtraClearsExactlyAtReset(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0)
+	extra := map[string]any{"passive_usage_7d_reset": now.Unix(), "passive_usage_7d_oi_reset": now.Unix() + 1}
+	updates := anthropicWindowResetExtra(extra, now)
+	require.Contains(t, updates, "passive_usage_7d_reset")
+	require.NotContains(t, updates, "passive_usage_7d_oi_reset")
 }
 
 func TestHandleUpstreamError_AnthropicWindowLimitPreemptsTempUnschedRule(t *testing.T) {

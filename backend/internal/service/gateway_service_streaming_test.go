@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -24,6 +25,59 @@ func newStreamingResponseTestGatewayService() *GatewayService {
 			},
 		},
 		rateLimitService: &RateLimitService{},
+	}
+}
+
+func TestGatewayService_AnthropicTerminalHTTPErrorFraming(t *testing.T) {
+	const upstreamBody = ` {"type":"error","error":{"type":"invalid_request_error","message":"fixture error"}} `
+	for _, tt := range []struct {
+		name       string
+		status     int
+		stream     bool
+		retried    bool
+		wantStatus int
+		wantType   string
+	}{
+		{"raw 400", 400, false, false, 400, ""},
+		{"400 after ping", 400, true, false, 400, "invalid_request_error"},
+		{"mapped 401 after ping", 401, true, false, 502, "upstream_error"},
+		{"retry exhausted after ping", 422, true, true, 502, "upstream_error"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+			if tt.stream {
+				c.Header("Content-Type", "text/event-stream; charset=utf-8")
+				_, _ = c.Writer.WriteString("event: ping\ndata: {}\n\n")
+			}
+			svc := &GatewayService{}
+			account := &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey}
+			resp := &http.Response{StatusCode: tt.status, Body: io.NopCloser(strings.NewReader(upstreamBody))}
+			if tt.retried {
+				_, err := svc.handleRetryExhaustedError(c.Request.Context(), resp, c, account)
+				require.Error(t, err)
+			} else {
+				_, err := svc.handleErrorResponse(c.Request.Context(), resp, c, account)
+				require.Error(t, err)
+			}
+			if !tt.stream {
+				require.Equal(t, tt.wantStatus, rec.Code)
+				require.Equal(t, upstreamBody, rec.Body.String())
+				require.False(t, IsResponseCommitted(c))
+				return
+			}
+			require.Equal(t, http.StatusOK, rec.Code)
+			require.True(t, rec.Flushed)
+			require.Equal(t, tt.wantStatus, c.GetInt(OpsAnthropicTerminalStatusKey))
+			require.True(t, IsResponseCommitted(c))
+			writeGatewayHTTPError(c, account, tt.wantStatus, tt.wantType, "duplicate")
+			body := rec.Body.String()
+			require.Equal(t, 1, strings.Count(body, "event: error\n"))
+			require.Contains(t, body, `"type":"`+tt.wantType+`"`)
+			require.NotContains(t, body, "duplicate")
+		})
 	}
 }
 

@@ -1,9 +1,14 @@
 package handler
 
 import (
+	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
+
+	"github.com/Wei-Shaw/sub2api/internal/model"
 	"testing"
 
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
@@ -311,6 +316,112 @@ func TestLogOpsStreamError_UpstreamContextDoesNotDoubleLog(t *testing.T) {
 	require.Equal(t, "upstream", job.entry.ErrorPhase)
 	require.Equal(t, "upstream_error", job.entry.ErrorType)
 	require.Contains(t, job.entry.ErrorMessage, "Upstream request failed")
+}
+
+func TestOpsAnthropicTerminalFramePreservesMapped401(t *testing.T) {
+	setupOpsErrorLogTestQueue(t, 4)
+	gin.SetMode(gin.TestMode)
+	ops := service.NewOpsService(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	r := gin.New()
+	r.POST("/v1/messages", OpsErrorLoggerMiddleware(ops), func(c *gin.Context) {
+		c.Header("Content-Type", "text/event-stream")
+		_, _ = c.Writer.WriteString("event: ping\ndata: {}\n\n")
+		// Forward intentionally fails over on 401. The service-level terminal
+		// test exercises the mapper; here we give Ops its exact status inputs.
+		service.SetOpsUpstreamError(c, http.StatusUnauthorized, "fixture authentication error", "")
+		c.Set(service.OpsAnthropicTerminalStatusKey, http.StatusBadGateway)
+		_, _ = c.Writer.WriteString("event: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"upstream_error\",\"message\":\"Upstream authentication failed, please contact administrator\"}}\n\n")
+		c.Writer.Flush()
+	})
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/v1/messages", nil))
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.True(t, rec.Flushed)
+	require.Equal(t, 1, strings.Count(rec.Body.String(), "event: error\n"))
+	require.Equal(t, int64(1), OpsErrorLogQueueLength())
+	entry := (<-opsErrorLogQueue).entry
+	require.Equal(t, http.StatusBadGateway, entry.StatusCode)
+	require.NotNil(t, entry.UpstreamStatusCode)
+	require.Equal(t, http.StatusUnauthorized, *entry.UpstreamStatusCode)
+}
+
+type opsTerminalPassthroughRepo struct {
+	service.ErrorPassthroughRepository
+	rule *model.ErrorPassthroughRule
+}
+
+func (r opsTerminalPassthroughRepo) List(context.Context) ([]*model.ErrorPassthroughRule, error) {
+	return []*model.ErrorPassthroughRule{r.rule}, nil
+}
+
+func TestOpsAnthropicHTTPErrorAfterPing(t *testing.T) {
+	const ping = "event: ping\ndata: {}\n\n"
+	for _, tt := range []struct {
+		name               string
+		upstream, intended int
+		passthrough, skip  bool
+		message            string
+	}{
+		{"mapped", http.StatusTeapot, http.StatusBadGateway, false, false, "Upstream request failed"},
+		{"custom", http.StatusTeapot, http.StatusUnprocessableEntity, true, false, "custom upstream error"},
+		{"skip monitoring", http.StatusTeapot, http.StatusUnprocessableEntity, true, true, "custom upstream error"},
+		{"failover", http.StatusInternalServerError, 0, false, false, ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			setupOpsErrorLogTestQueue(t, 4)
+			f, h, _ := newStreamBillingGatewayFixture(t, false)
+			f.up.respond = func(*http.Request, int64, int) *http.Response {
+				return &http.Response{StatusCode: tt.upstream, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{"error":{"message":"fixture upstream error"}}`))}
+			}
+			var rules *service.ErrorPassthroughService
+			if tt.passthrough {
+				rules = service.NewErrorPassthroughService(opsTerminalPassthroughRepo{rule: &model.ErrorPassthroughRule{
+					Enabled: true, MatchMode: model.MatchModeAny, ErrorCodes: []int{tt.upstream}, Platforms: []string{service.PlatformAnthropic},
+					ResponseCode: &tt.intended, CustomMessage: &tt.message, SkipMonitoring: tt.skip,
+				}}, nil)
+			}
+			ops := service.NewOpsService(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+			r := gin.New()
+			r.POST("/v1/messages", OpsErrorLoggerMiddleware(ops), func(c *gin.Context) {
+				body, err := io.ReadAll(c.Request.Body)
+				require.NoError(t, err)
+				parsed, err := service.ParseGatewayRequest(body, service.PlatformAnthropic)
+				require.NoError(t, err)
+				service.BindErrorPassthroughService(c, rules)
+				c.Header("Content-Type", "text/event-stream")
+				_, _ = c.Writer.WriteString(ping)
+				_, err = h.gatewayService.Forward(c.Request.Context(), c, &f.repo.accounts[0], parsed)
+				require.Error(t, err)
+				if tt.intended == 0 {
+					var failover *service.UpstreamFailoverError
+					require.ErrorAs(t, err, &failover)
+					require.False(t, service.IsResponseCommitted(c))
+					require.Zero(t, c.GetInt(service.OpsAnthropicTerminalStatusKey))
+					return
+				}
+				require.False(t, h.ensureForwardErrorResponse(c, true), "handler must not emit a second frame")
+			})
+			rec := httptest.NewRecorder()
+			r.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(streamBillingRequests[0].body)))
+			require.Equal(t, http.StatusOK, rec.Code)
+			if tt.intended == 0 {
+				require.Equal(t, ping, rec.Body.String())
+			} else {
+				require.True(t, rec.Flushed)
+				require.Equal(t, 1, strings.Count(rec.Body.String(), "event: error\n"))
+				require.Contains(t, rec.Body.String(), tt.message)
+			}
+			if tt.skip || tt.intended == 0 {
+				require.Zero(t, OpsErrorLogQueueLength())
+				return
+			}
+			require.Equal(t, int64(1), OpsErrorLogQueueLength())
+			entry := (<-opsErrorLogQueue).entry
+			require.Equal(t, tt.intended, entry.StatusCode)
+			require.NotNil(t, entry.UpstreamStatusCode)
+			require.Equal(t, tt.upstream, *entry.UpstreamStatusCode)
+		})
+	}
 }
 
 func TestIsKnownOpsErrorType(t *testing.T) {

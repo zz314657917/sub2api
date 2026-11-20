@@ -676,7 +676,11 @@ func OpsErrorLoggerMiddleware(ops *service.OpsService) gin.HandlerFunc {
 				logOpsStreamError(c, ops, status)
 				return
 			}
-			status = inferStreamFailureStatus(c, parsed)
+			if intended := c.GetInt(service.OpsAnthropicTerminalStatusKey); parsed.NamedSSEError && intended >= http.StatusBadRequest {
+				status = intended
+			} else {
+				status = inferStreamFailureStatus(c, parsed)
+			}
 		}
 
 		// Skip logging if a passthrough rule with skip_monitoring=true matched.
@@ -1092,6 +1096,7 @@ type parsedOpsError struct {
 	Message       string
 	Code          string
 	StreamFailure bool
+	NamedSSEError bool
 }
 
 func parseOpsErrorResponse(body []byte) parsedOpsError {
@@ -1168,6 +1173,7 @@ func parseOpsSSEFailure(body []byte) (parsedOpsError, bool) {
 				dataLines = append(dataLines, strings.TrimSpace(strings.TrimPrefix(line, "data:")))
 			}
 		}
+		namedError := eventType == "error"
 		payload := strings.Join(dataLines, "\n")
 		var event map[string]any
 		if json.Unmarshal([]byte(payload), &event) == nil && eventType == "" {
@@ -1176,7 +1182,7 @@ func parseOpsSSEFailure(body []byte) (parsedOpsError, bool) {
 		if eventType != "response.failed" && eventType != "error" {
 			continue
 		}
-		parsed := parsedOpsError{ErrorType: "upstream_error", StreamFailure: true}
+		parsed := parsedOpsError{ErrorType: "upstream_error", StreamFailure: true, NamedSSEError: namedError}
 		if eventType == "error" {
 			parsed.ErrorType = "api_error"
 		}
