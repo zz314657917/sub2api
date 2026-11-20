@@ -13,6 +13,33 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+func TestSevenBedrockLengthValidation(t *testing.T) {
+	for _, tc := range []struct {
+		name           string
+		total, headers uint32
+		invalid        bool
+	}{
+		{"short", 15, 0, true}, {"header_relation", 16, 1, true},
+		{"headers_over", 16 + (128 << 10) + 1, (128 << 10) + 1, true},
+		{"payload_over", 16 + (16 << 20) + 1, 0, true},
+		{"headers_exact", 16 + (128 << 10), 128 << 10, false},
+		{"payload_exact", 16 + (16 << 20), 0, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			prelude := make([]byte, 12)
+			binary.BigEndian.PutUint32(prelude, tc.total)
+			binary.BigEndian.PutUint32(prelude[4:], tc.headers)
+			binary.BigEndian.PutUint32(prelude[8:], crc32.ChecksumIEEE(prelude[:8]))
+			_, err := newBedrockEventStreamDecoder(bytes.NewReader(prelude)).Decode()
+			if tc.invalid {
+				require.ErrorContains(t, err, "invalid eventstream frame")
+			} else {
+				require.ErrorIs(t, err, io.EOF)
+			}
+		})
+	}
+}
+
 func TestExtractBedrockChunkData(t *testing.T) {
 	t.Run("valid base64 payload", func(t *testing.T) {
 		original := `{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}`
