@@ -4,12 +4,104 @@ import (
 	"bytes"
 	"compress/gzip"
 	"compress/zlib"
+	"errors"
 	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/klauspost/compress/zstd"
 )
+
+func TestSevenDecompressionBoundaries(t *testing.T) {
+	for _, enc := range []string{"gzip", "x-gzip", "deflate", "zstd"} {
+		t.Run(enc, func(t *testing.T) {
+			for _, size := range []int{64 << 20, (64 << 20) + 1} {
+				payload := bytes.Repeat([]byte("x"), size)
+				var buf bytes.Buffer
+				switch enc {
+				case "gzip", "x-gzip":
+					w := gzip.NewWriter(&buf)
+					_, err := w.Write(payload)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if err = w.Close(); err != nil {
+						t.Fatal(err)
+					}
+				case "deflate":
+					w := zlib.NewWriter(&buf)
+					_, err := w.Write(payload)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if err = w.Close(); err != nil {
+						t.Fatal(err)
+					}
+				case "zstd":
+					w, err := zstd.NewWriter(&buf, zstd.WithWindowSize(1<<20))
+					if err != nil {
+						t.Fatal(err)
+					}
+					if _, err = w.Write(payload); err != nil {
+						t.Fatal(err)
+					}
+					if err = w.Close(); err != nil {
+						t.Fatal(err)
+					}
+				}
+				req := newRequestWithBody(t, buf.Bytes(), enc)
+				req.Header.Set("Content-Length", "original")
+				originalLength := req.ContentLength
+				got, err := ReadRequestBodyWithPrealloc(req)
+				if size > 64<<20 {
+					var maxErr *http.MaxBytesError
+					if !errors.As(err, &maxErr) || maxErr.Limit != 64<<20 {
+						t.Fatalf("expected MaxBytesError, got len=%d err=%v", len(got), err)
+					}
+					if req.Header.Get("Content-Encoding") != enc || req.Header.Get("Content-Length") != "original" || req.ContentLength != originalLength {
+						t.Fatal("failed decode changed headers")
+					}
+				} else {
+					if err != nil || !bytes.Equal(got, payload) {
+						t.Fatalf("exact boundary failed: len=%d err=%v", len(got), err)
+					}
+					if req.Header.Get("Content-Encoding") != "" || req.Header.Get("Content-Length") != "" || req.ContentLength != int64(size) {
+						t.Fatal("successful decode headers incorrect")
+					}
+				}
+			}
+			req := newRequestWithBody(t, []byte("corrupt"), enc)
+			if _, err := ReadRequestBodyWithPrealloc(req); err == nil {
+				t.Fatal("corrupt stream accepted")
+			}
+			if req.Header.Get("Content-Encoding") != enc {
+				t.Fatal("corrupt stream changed encoding")
+			}
+		})
+	}
+}
+
+func TestSevenZstdWindowLimit(t *testing.T) {
+	// A streaming frame advertises a 16 MiB window, above the allowed 8 MiB.
+	var buf bytes.Buffer
+	w, err := zstd.NewWriter(&buf, zstd.WithWindowSize(16<<20))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = w.Write(bytes.Repeat([]byte("window"), 2<<20)); err != nil {
+		t.Fatal(err)
+	}
+	if err = w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	req := newRequestWithBody(t, buf.Bytes(), "zstd")
+	if _, err = ReadRequestBodyWithPrealloc(req); err == nil {
+		t.Fatal("oversized zstd window accepted")
+	}
+	if req.Header.Get("Content-Encoding") != "zstd" {
+		t.Fatal("failed decode changed header")
+	}
+}
 
 const samplePayload = `{"model":"gpt-5.5","input":"hi","stream":false}`
 
