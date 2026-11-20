@@ -254,15 +254,17 @@ func TestWaitForSlotWithPingTimeout_AccountAndUserAcquire(t *testing.T) {
 		userSeq:    []bool{false, true},
 	}
 	concurrency := service.NewConcurrencyService(cache)
-	helper := NewConcurrencyHelper(concurrency, SSEPingFormatNone, 5*time.Millisecond)
+	helper := NewConcurrencyHelper(concurrency, SSEPingFormatComment, 0)
 
-	t.Run("account_slot_acquired_after_retry", func(t *testing.T) {
-		c, _ := newHelperTestContext(http.MethodPost, "/v1/messages")
+	t.Run("account_slot_acquired_after_retry_without_ping", func(t *testing.T) {
+		c, rec := newHelperTestContext(http.MethodPost, "/v1/messages")
 		streamStarted := false
-		release, err := helper.waitForSlotWithPingTimeout(c, "account", 101, 2, time.Second, false, &streamStarted, true)
+		release, err := helper.waitForSlotWithPingTimeout(c, "account", 101, 2, time.Second, true, &streamStarted, true)
 		require.NoError(t, err)
 		require.NotNil(t, release)
 		require.False(t, streamStarted)
+		require.False(t, rec.Flushed)
+		require.Empty(t, rec.Header())
 		release()
 		require.GreaterOrEqual(t, cache.accountAcquireCalls, 2)
 		require.GreaterOrEqual(t, cache.accountReleaseCalls, 1)
@@ -336,6 +338,24 @@ func TestWaitForSlotWithPingTimeout_TimeoutAndStreamPing(t *testing.T) {
 		var cErr *ConcurrencyError
 		require.ErrorAs(t, err, &cErr)
 		require.True(t, cErr.IsTimeout)
+	})
+
+	t.Run("zero_interval_preserves_http_429", func(t *testing.T) {
+		helper := NewConcurrencyHelper(concurrency, SSEPingFormatComment, 0)
+		c, rec := newHelperTestContext(http.MethodPost, "/v1/messages")
+		streamStarted := false
+		release, err := helper.waitForSlotWithPingTimeout(c, "account", 101, 2, 25*time.Millisecond, true, &streamStarted, true)
+		require.Nil(t, release)
+		var cErr *ConcurrencyError
+		require.ErrorAs(t, err, &cErr)
+		require.True(t, cErr.IsTimeout)
+		require.Zero(t, helper.pingInterval)
+		require.False(t, streamStarted)
+		require.False(t, c.Writer.Written())
+		require.False(t, rec.Flushed)
+		require.Empty(t, rec.Header())
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": "busy"})
+		require.Equal(t, http.StatusTooManyRequests, rec.Code)
 	})
 
 	t.Run("stream_mode_sends_ping_before_timeout", func(t *testing.T) {
