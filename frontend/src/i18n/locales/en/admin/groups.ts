@@ -240,6 +240,8 @@ export default {
         allowLiveHint: 'When enabled, API keys in this OpenAI group can create realtime sessions through /v1/live.'
       },
       openaiFast: {
+        forceUltrafast: 'Force Ultra Fast',
+        ultrafastHint: 'Uses Ultra Fast for GPT-6 Astra and GPT-6.1 Sol. For other models, the Fast switch and existing policies still apply.',
         title: 'OpenAI Fast mode',
         force: 'Force Fast (priority)',
         hint: 'Forces service_tier=priority on OpenAI requests in this group. The global Fast/Flex policy can still filter or block it. New requests update immediately after saving; existing WebSocket sessions must reconnect.',

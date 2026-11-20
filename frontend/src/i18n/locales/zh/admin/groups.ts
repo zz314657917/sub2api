@@ -271,6 +271,8 @@ export default {
         allowLiveHint: '启用后，此 OpenAI 分组的 API Key 可以通过 /v1/live 建立实时会话。'
       },
       openaiFast: {
+        forceUltrafast: '强制 Ultra Fast',
+        ultrafastHint: '仅对 GPT-6 Astra 和 GPT-6.1 Sol 使用 Ultra Fast。其他模型仍按 Fast 开关及现有策略处理。',
         title: 'OpenAI Fast 模式',
         force: '强制使用 Fast（priority）',
         hint: '强制将本分组的 OpenAI 请求设为 service_tier=priority。全局 Fast/Flex 策略仍可过滤或拦截。保存后新请求立即生效，已有 WebSocket 会话需重连。',

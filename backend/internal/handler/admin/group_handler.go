@@ -138,6 +138,7 @@ type CreateGroupRequest struct {
 	SupportedModelScopes []string `json:"supported_model_scopes"`
 	// OpenAI Messages 调度配置（仅 openai 平台使用）
 	ForceOpenAIFast             bool                                      `json:"force_openai_fast"`
+	ForceOpenAIUltrafast        bool                                      `json:"force_openai_ultrafast"`
 	AllowMessagesDispatch       bool                                      `json:"allow_messages_dispatch"`
 	AllowLive                   bool                                      `json:"allow_live"`
 	RequireOAuthOnly            bool                                      `json:"require_oauth_only"`
@@ -190,6 +191,7 @@ type UpdateGroupRequest struct {
 	SupportedModelScopes *[]string `json:"supported_model_scopes"`
 	// OpenAI Messages 调度配置（仅 openai 平台使用）
 	ForceOpenAIFast             *bool                                      `json:"force_openai_fast"`
+	ForceOpenAIUltrafast        *bool                                      `json:"force_openai_ultrafast"`
 	AllowMessagesDispatch       *bool                                      `json:"allow_messages_dispatch"`
 	AllowLive                   *bool                                      `json:"allow_live"`
 	RequireOAuthOnly            *bool                                      `json:"require_oauth_only"`
@@ -571,6 +573,7 @@ func (h *GroupHandler) Create(c *gin.Context) {
 		MCPXMLInject:                    req.MCPXMLInject,
 		SupportedModelScopes:            req.SupportedModelScopes,
 		ForceOpenAIFast:                 req.ForceOpenAIFast,
+		ForceOpenAIUltrafast:            req.ForceOpenAIUltrafast,
 		AllowMessagesDispatch:           req.AllowMessagesDispatch,
 		AllowLive:                       req.AllowLive,
 		RequireOAuthOnly:                req.RequireOAuthOnly,
@@ -685,6 +688,7 @@ func (h *GroupHandler) Update(c *gin.Context) {
 		MCPXMLInject:                    req.MCPXMLInject,
 		SupportedModelScopes:            req.SupportedModelScopes,
 		ForceOpenAIFast:                 req.ForceOpenAIFast,
+		ForceOpenAIUltrafast:            req.ForceOpenAIUltrafast,
 		AllowMessagesDispatch:           req.AllowMessagesDispatch,
 		AllowLive:                       req.AllowLive,
 		RequireOAuthOnly:                req.RequireOAuthOnly,

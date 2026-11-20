@@ -130,6 +130,7 @@ type Group struct {
 
 	// OpenAI Messages 调度开关（用户侧需要此字段判断是否展示 Claude Code 教程）
 	ForceOpenAIFast       bool `json:"force_openai_fast"`
+	ForceOpenAIUltrafast  bool `json:"force_openai_ultrafast"`
 	AllowMessagesDispatch bool `json:"allow_messages_dispatch"`
 	AllowLive             bool `json:"allow_live"`
 

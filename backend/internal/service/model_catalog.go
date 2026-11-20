@@ -35,9 +35,9 @@ type ModelCatalogItem struct {
 
 func (s *GatewayService) GetAvailableModelCatalog(ctx context.Context, groupID *int64, platform string) ModelCatalog {
 	modelIDs := s.GetAvailableModels(ctx, groupID, platform)
-	if len(modelIDs) > 0 {
+	if modelIDs != nil {
 		catalog := BuildModelCatalog(platform, modelIDs)
-		if len(catalog.Items) > 0 {
+		if len(modelIDs) == 0 || len(catalog.Items) > 0 {
 			return catalog
 		}
 	}

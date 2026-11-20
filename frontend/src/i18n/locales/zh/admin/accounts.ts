@@ -712,7 +712,9 @@ export default {
         testMode: '测试模式',
         testModeDefault: '常规请求',
         testModeCompact: 'Compact 探测',
-        modelRestrictionDisabledByPassthrough: '已开启自动透传：模型白名单/映射不会生效。',
+        passthroughModelFilter: '透传时按账号模型筛选',
+        passthroughModelFilterDesc: '白名单和映射来源名称只用于筛选账号，目标名称不会改写请求。空列表允许全部模型。',
+        modelRestrictionDisabledByPassthrough: '自动透传默认忽略模型限制，开启账号模型筛选后才会用于选择账号。',
       },
       anthropic: {
         apiKeyPassthrough: '自动透传（仅替换认证）',

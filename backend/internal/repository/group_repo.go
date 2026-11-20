@@ -89,6 +89,7 @@ func createGroupRecord(ctx context.Context, client *dbent.Client, groupIn *servi
 		SetModelMatchPatterns(service.NormalizeGroupModelMatchPatterns(groupIn.ModelMatchPatterns)).
 		SetMcpXMLInject(groupIn.MCPXMLInject).
 		SetForceOpenaiFast(groupIn.ForceOpenAIFast).
+		SetForceOpenaiUltrafast(groupIn.ForceOpenAIUltrafast).
 		SetAllowMessagesDispatch(groupIn.AllowMessagesDispatch).
 		SetAllowLive(groupIn.AllowLive).
 		SetRequireOauthOnly(groupIn.RequireOAuthOnly).
@@ -264,6 +265,7 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
 		SetModelMatchPatterns(service.NormalizeGroupModelMatchPatterns(groupIn.ModelMatchPatterns)).
 		SetMcpXMLInject(groupIn.MCPXMLInject).
 		SetForceOpenaiFast(groupIn.ForceOpenAIFast).
+		SetForceOpenaiUltrafast(groupIn.ForceOpenAIUltrafast).
 		SetAllowMessagesDispatch(groupIn.AllowMessagesDispatch).
 		SetAllowLive(groupIn.AllowLive).
 		SetRequireOauthOnly(groupIn.RequireOAuthOnly).

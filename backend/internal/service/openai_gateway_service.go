@@ -1971,7 +1971,10 @@ func prioritizeOpenAICompactAccounts(accounts []*Account) []*Account {
 // would be sent for a given request, honouring compact-only mappings when the
 // caller is on the /responses/compact path.
 func resolveOpenAIAccountUpstreamModelForRequest(account *Account, requestedModel string, requireCompact bool) string {
-	upstreamModel := resolveOpenAIForwardModel(account, requestedModel, "")
+	upstreamModel := requestedModel
+	if !account.IsOpenAIPassthroughModelFilterEnabled() {
+		upstreamModel = resolveOpenAIForwardModel(account, requestedModel, "")
+	}
 	if upstreamModel == "" {
 		return ""
 	}
@@ -2829,6 +2832,17 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		return nil, errors.New("codex_cli_only restriction: only codex official clients are allowed")
 	}
 
+	// Native remote compaction must keep its Responses payload intact.
+	rawChatFallback := account.Type == AccountTypeAPIKey && !isOpenAINativeCompactionV2(c) && !accountUsesResponsesForForward(account)
+	if rawChatFallback && account.IsOpenAIPassthroughModelFilterEnabled() {
+		if err := requireExplicitRawChatFallbackModel(body); err != nil {
+			if c != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"type": "invalid_request_error", "message": err.Error()}})
+			}
+			return nil, err
+		}
+	}
+
 	if sanitizedBody, changed, sanitizeErr := stripOpenAILocalGroupID(body); sanitizeErr != nil {
 		return nil, fmt.Errorf("sanitize OpenAI local-only request fields: %w", sanitizeErr)
 	} else if changed {
@@ -2845,6 +2859,16 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			return nil, fmt.Errorf("sanitize OpenAI Responses input item IDs: %w", sanitizeErr)
 		} else if changed {
 			body = sanitizedBody
+		}
+	}
+
+	requestedModel := gjson.GetBytes(body, "model").String()
+	if !rawChatFallback {
+		if err := validateOpenAIPassthroughModel(account, requestedModel); err != nil {
+			if c != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"type": "invalid_request_error", "message": err.Error()}})
+			}
+			return nil, err
 		}
 	}
 
@@ -2896,10 +2920,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			body, originalBody = normalized, normalized
 		}
 	}
-	// Native remote compaction v2 must keep its Responses payload intact. The
-	// scheduler normally excludes force-chat and Responses-unsupported API keys,
-	// but direct callers must not silently convert a compaction trigger to chat.
-	if account.Type == AccountTypeAPIKey && !isOpenAINativeCompactionV2(c) && !accountUsesResponsesForForward(account) {
+	if rawChatFallback {
 		return s.forwardResponsesViaRawChatCompletions(ctx, c, account, body)
 	}
 	responsesLite := isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader)) || isOpenAIResponsesLiteWebSocketPayload(body)
@@ -2977,7 +2998,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			}
 		}
 		// 透传分支只需要轻量提取字段，避免热路径全量 Unmarshal。
-		mappedModel := account.GetMappedModel(reqModel)
+		mappedModel := resolveOpenAITextForwardModel(account, reqModel, "")
 		reasoningEffort := extractOpenAIReasoningEffortFromBody(body, mappedModel, reqModel)
 		reasoningEffort = ApplyThinkingEnabledFallback(reasoningEffort, body, mappedModel)
 		return s.forwardOpenAIPassthrough(ctx, c, account, originalBody, reqModel, reasoningEffort, reqStream, startTime)
@@ -3386,11 +3407,11 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	//      行为，这里手工实现等效逻辑。
 	// Apply key/group overrides before the final global filter/block.
 	rawRequestTier, _ := reqBody["service_tier"].(string)
-	switch openAIRequestFastOverride(ctx, account, rawRequestTier) {
+	switch action, forcedTier := openAIRequestFastOverride(ctx, account, upstreamModel, rawRequestTier); action {
 	case APIKeyOpenAIFastPolicyForce:
-		reqBody["service_tier"] = "priority"
+		reqBody["service_tier"] = forcedTier
 		bodyModified = true
-		markPatchSet("service_tier", "priority")
+		markPatchSet("service_tier", forcedTier)
 	case APIKeyOpenAIFastPolicyFilter:
 		delete(reqBody, "service_tier")
 		bodyModified = true
@@ -8128,7 +8149,10 @@ func normalizeOpenAICodexCompactReasoningEffortForAccount(c *gin.Context, accoun
 	}
 
 	requestedModel := strings.TrimSpace(gjson.GetBytes(body, "model").String())
-	effectiveModel := account.GetMappedModel(requestedModel)
+	effectiveModel := resolveOpenAITextForwardModel(account, requestedModel, "")
+	if account.IsOpenAIPassthroughModelFilterEnabled() {
+		effectiveModel = resolveOpenAICompactForwardModel(account, effectiveModel)
+	}
 	return normalizeOpenAICodexCompactReasoningEffort(body, effectiveModel)
 }
 
@@ -9649,11 +9673,29 @@ func openAIFastPolicySettingsFromContext(ctx context.Context) *OpenAIFastPolicyS
 // openAIGroupForcesFast accepts only the server-hydrated group context and the
 // actual upstream account; client body fields never confer this policy.
 func openAIGroupForcesFast(ctx context.Context, account *Account) bool {
+	return openAIGroupForcedServiceTier(ctx, account, "") == OpenAIFastTierPriority
+}
+
+func openAIModelSupportsUltrafast(model string) bool {
+	normalized := normalizeKnownOpenAICodexModel(model)
+	return isOpenAIGPT6AstraModel(normalized) || normalized == "gpt-6.1-sol"
+}
+
+func openAIGroupForcedServiceTier(ctx context.Context, account *Account, model string) string {
 	if ctx == nil || account == nil || account.Platform != PlatformOpenAI {
-		return false
+		return ""
 	}
 	group, _ := ctx.Value(ctxkey.Group).(*Group)
-	return IsGroupContextValid(group) && groupSupportsOpenAIFast(group.Platform) && group.ForceOpenAIFast
+	if !IsGroupContextValid(group) || !groupSupportsOpenAIFast(group.Platform) {
+		return ""
+	}
+	if group.ForceOpenAIUltrafast && openAIModelSupportsUltrafast(model) {
+		return OpenAIFastTierUltrafast
+	}
+	if group.ForceOpenAIFast {
+		return OpenAIFastTierPriority
+	}
+	return ""
 }
 
 // applyOpenAIFastPolicyToBody applies the OpenAI fast policy to a raw request
@@ -9671,11 +9713,11 @@ func (s *OpenAIGatewayService) applyOpenAIFastPolicyToBody(ctx context.Context, 
 	if len(body) == 0 {
 		return body, nil
 	}
-	switch openAIRequestFastOverride(ctx, account, gjson.GetBytes(body, "service_tier").String()) {
+	switch action, forcedTier := openAIRequestFastOverride(ctx, account, model, gjson.GetBytes(body, "service_tier").String()); action {
 	case APIKeyOpenAIFastPolicyForce:
-		updated, err := sjson.SetBytes(body, "service_tier", "priority")
+		updated, err := sjson.SetBytes(body, "service_tier", forcedTier)
 		if err != nil {
-			return body, fmt.Errorf("force group service_tier priority on body: %w", err)
+			return body, fmt.Errorf("force service_tier %s on body: %w", forcedTier, err)
 		}
 		body = updated
 	case APIKeyOpenAIFastPolicyFilter:
@@ -9787,11 +9829,11 @@ func (s *OpenAIGatewayService) applyOpenAIFastPolicyToWSResponseCreate(
 	if frameType != "response.create" {
 		return frame, nil, nil
 	}
-	switch openAIRequestFastOverride(ctx, account, gjson.GetBytes(frame, "service_tier").String()) {
+	switch action, forcedTier := openAIRequestFastOverride(ctx, account, model, gjson.GetBytes(frame, "service_tier").String()); action {
 	case APIKeyOpenAIFastPolicyForce:
-		updated, err := sjson.SetBytes(frame, "service_tier", "priority")
+		updated, err := sjson.SetBytes(frame, "service_tier", forcedTier)
 		if err != nil {
-			return frame, nil, fmt.Errorf("force group service_tier priority in ws frame: %w", err)
+			return frame, nil, fmt.Errorf("force service_tier %s in ws frame: %w", forcedTier, err)
 		}
 		frame = updated
 	case APIKeyOpenAIFastPolicyFilter:

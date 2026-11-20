@@ -79,6 +79,17 @@
               ]"
             />
           </button>
+          <label v-if="openaiPassthroughEnabled" class="mt-3 flex items-start gap-2">
+            <input v-model="openaiPassthroughModelFilterEnabled" type="checkbox"
+              data-testid="bulk-openai-passthrough-model-filter"
+              :disabled="!enableOpenAIPassthrough"
+              class="mt-1 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+            <span class="text-sm">{{ t('admin.accounts.openai.passthroughModelFilter') }}
+              <span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">
+                {{ t('admin.accounts.openai.passthroughModelFilterDesc') }}
+              </span>
+            </span>
+          </label>
         </div>
       </div>
 
@@ -1466,6 +1477,7 @@ const rateMultiplier = ref(1)
 const status = ref<'active' | 'inactive'>('active')
 const groupIds = ref<number[]>([])
 const openaiPassthroughEnabled = ref(false)
+const openaiPassthroughModelFilterEnabled = ref(false)
 const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
 const openaiAPIKeyResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
 const upstreamBillingAutoProbeMode = ref<'enabled' | 'disabled'>('enabled')
@@ -1519,7 +1531,8 @@ const isOpenAIModelRestrictionDisabled = computed(
   () =>
     allOpenAIPassthroughCapable.value &&
     enableOpenAIPassthrough.value &&
-    openaiPassthroughEnabled.value
+    openaiPassthroughEnabled.value &&
+    !openaiPassthroughModelFilterEnabled.value
 )
 
 const openAIWSModeOptions = computed(() => [
@@ -1698,6 +1711,7 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
   if (enableOpenAIPassthrough.value) {
     const extra = ensureExtra()
     extra.openai_passthrough = openaiPassthroughEnabled.value
+    extra.openai_passthrough_model_filter = openaiPassthroughEnabled.value && openaiPassthroughModelFilterEnabled.value
     if (!openaiPassthroughEnabled.value) {
       extra.openai_oauth_passthrough = false
     }
@@ -2010,6 +2024,7 @@ watch(
       // Reset all values
       baseUrl.value = ''
       openaiPassthroughEnabled.value = false
+      openaiPassthroughModelFilterEnabled.value = false
       modelRestrictionMode.value = 'whitelist'
       allowedModels.value = []
       modelMappings.value = []

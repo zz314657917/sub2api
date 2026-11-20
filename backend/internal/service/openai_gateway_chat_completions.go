@@ -129,11 +129,15 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 		return nil, fmt.Errorf("parse chat completions request: %w", err)
 	}
 	originalModel := chatReq.Model
+	if err := validateOpenAIPassthroughModel(account, originalModel); err != nil {
+		writeChatCompletionsError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+		return nil, err
+	}
 	clientStream := chatReq.Stream
 
 	// 2. Resolve model mapping early so compat prompt_cache_key injection can
 	// derive a stable seed from the final upstream model family.
-	billingModel := resolveOpenAIForwardModel(account, originalModel, defaultMappedModel)
+	billingModel := resolveOpenAITextForwardModel(account, originalModel, defaultMappedModel)
 	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
 	isResponsesShape := !gjson.GetBytes(body, "messages").Exists() && gjson.GetBytes(body, "input").Exists()
 

@@ -94,6 +94,8 @@ const (
 	FieldAllowLive = "allow_live"
 	// FieldForceOpenaiFast holds the string denoting the force_openai_fast field in the database.
 	FieldForceOpenaiFast = "force_openai_fast"
+	// FieldForceOpenaiUltrafast holds the string denoting the force_openai_ultrafast field in the database.
+	FieldForceOpenaiUltrafast = "force_openai_ultrafast"
 	// FieldRequireOauthOnly holds the string denoting the require_oauth_only field in the database.
 	FieldRequireOauthOnly = "require_oauth_only"
 	// FieldRequirePrivacySet holds the string denoting the require_privacy_set field in the database.
@@ -260,6 +262,7 @@ var Columns = []string{
 	FieldAllowMessagesDispatch,
 	FieldAllowLive,
 	FieldForceOpenaiFast,
+	FieldForceOpenaiUltrafast,
 	FieldRequireOauthOnly,
 	FieldRequirePrivacySet,
 	FieldDefaultMappedModel,
@@ -369,6 +372,8 @@ var (
 	DefaultAllowLive bool
 	// DefaultForceOpenaiFast holds the default value on creation for the "force_openai_fast" field.
 	DefaultForceOpenaiFast bool
+	// DefaultForceOpenaiUltrafast holds the default value on creation for the "force_openai_ultrafast" field.
+	DefaultForceOpenaiUltrafast bool
 	// DefaultRequireOauthOnly holds the default value on creation for the "require_oauth_only" field.
 	DefaultRequireOauthOnly bool
 	// DefaultRequirePrivacySet holds the default value on creation for the "require_privacy_set" field.
@@ -573,6 +578,11 @@ func ByAllowLive(opts ...sql.OrderTermOption) OrderOption {
 // ByForceOpenaiFast orders the results by the force_openai_fast field.
 func ByForceOpenaiFast(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldForceOpenaiFast, opts...).ToFunc()
+}
+
+// ByForceOpenaiUltrafast orders the results by the force_openai_ultrafast field.
+func ByForceOpenaiUltrafast(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldForceOpenaiUltrafast, opts...).ToFunc()
 }
 
 // ByRequireOauthOnly orders the results by the require_oauth_only field.

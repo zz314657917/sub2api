@@ -1170,34 +1170,38 @@ func init() {
 	groupDescForceOpenaiFast := groupFields[35].Descriptor()
 	// group.DefaultForceOpenaiFast holds the default value on creation for the force_openai_fast field.
 	group.DefaultForceOpenaiFast = groupDescForceOpenaiFast.Default.(bool)
+	// groupDescForceOpenaiUltrafast is the schema descriptor for force_openai_ultrafast field.
+	groupDescForceOpenaiUltrafast := groupFields[36].Descriptor()
+	// group.DefaultForceOpenaiUltrafast holds the default value on creation for the force_openai_ultrafast field.
+	group.DefaultForceOpenaiUltrafast = groupDescForceOpenaiUltrafast.Default.(bool)
 	// groupDescRequireOauthOnly is the schema descriptor for require_oauth_only field.
-	groupDescRequireOauthOnly := groupFields[36].Descriptor()
+	groupDescRequireOauthOnly := groupFields[37].Descriptor()
 	// group.DefaultRequireOauthOnly holds the default value on creation for the require_oauth_only field.
 	group.DefaultRequireOauthOnly = groupDescRequireOauthOnly.Default.(bool)
 	// groupDescRequirePrivacySet is the schema descriptor for require_privacy_set field.
-	groupDescRequirePrivacySet := groupFields[37].Descriptor()
+	groupDescRequirePrivacySet := groupFields[38].Descriptor()
 	// group.DefaultRequirePrivacySet holds the default value on creation for the require_privacy_set field.
 	group.DefaultRequirePrivacySet = groupDescRequirePrivacySet.Default.(bool)
 	// groupDescDefaultMappedModel is the schema descriptor for default_mapped_model field.
-	groupDescDefaultMappedModel := groupFields[38].Descriptor()
+	groupDescDefaultMappedModel := groupFields[39].Descriptor()
 	// group.DefaultDefaultMappedModel holds the default value on creation for the default_mapped_model field.
 	group.DefaultDefaultMappedModel = groupDescDefaultMappedModel.Default.(string)
 	// group.DefaultMappedModelValidator is a validator for the "default_mapped_model" field. It is called by the builders before save.
 	group.DefaultMappedModelValidator = groupDescDefaultMappedModel.Validators[0].(func(string) error)
 	// groupDescMessagesDispatchModelConfig is the schema descriptor for messages_dispatch_model_config field.
-	groupDescMessagesDispatchModelConfig := groupFields[39].Descriptor()
+	groupDescMessagesDispatchModelConfig := groupFields[40].Descriptor()
 	// group.DefaultMessagesDispatchModelConfig holds the default value on creation for the messages_dispatch_model_config field.
 	group.DefaultMessagesDispatchModelConfig = groupDescMessagesDispatchModelConfig.Default.(domain.OpenAIMessagesDispatchModelConfig)
 	// groupDescModelsListConfig is the schema descriptor for models_list_config field.
-	groupDescModelsListConfig := groupFields[40].Descriptor()
+	groupDescModelsListConfig := groupFields[41].Descriptor()
 	// group.DefaultModelsListConfig holds the default value on creation for the models_list_config field.
 	group.DefaultModelsListConfig = groupDescModelsListConfig.Default.(domain.GroupModelsListConfig)
 	// groupDescRpmLimit is the schema descriptor for rpm_limit field.
-	groupDescRpmLimit := groupFields[41].Descriptor()
+	groupDescRpmLimit := groupFields[42].Descriptor()
 	// group.DefaultRpmLimit holds the default value on creation for the rpm_limit field.
 	group.DefaultRpmLimit = groupDescRpmLimit.Default.(int)
 	// groupDescLongContextPricingEnabled is the schema descriptor for long_context_pricing_enabled field.
-	groupDescLongContextPricingEnabled := groupFields[42].Descriptor()
+	groupDescLongContextPricingEnabled := groupFields[43].Descriptor()
 	// group.DefaultLongContextPricingEnabled holds the default value on creation for the long_context_pricing_enabled field.
 	group.DefaultLongContextPricingEnabled = groupDescLongContextPricingEnabled.Default.(bool)
 	groupbuyentitlementFields := schema.GroupBuyEntitlement{}.Fields()

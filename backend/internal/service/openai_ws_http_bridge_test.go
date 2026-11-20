@@ -125,6 +125,30 @@ func TestOpenAIWSHTTPBridgeClientToolsInheritAcrossFollowup(t *testing.T) {
 	require.Equal(t, "function_call_output", gjson.GetBytes(upstream.bodies[1], "input.0.type").String())
 }
 
+func TestOpenAIWSHTTPBridgePassthroughWhitelistKeepsWireModelForBilling(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+		Body:       io.NopCloser(strings.NewReader("data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_whitelist\",\"model\":\"gpt-5.5\",\"usage\":{}}}\n\n")),
+	}}
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+	account := &Account{
+		ID: 102, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+		Credentials: map[string]any{"api_key": "test", "model_mapping": map[string]any{"gpt-5.5": "gpt-6.1-sol"}},
+		Extra:       map[string]any{"openai_passthrough": true, "openai_passthrough_model_filter": true},
+	}
+	payload := []byte(`{"type":"response.create","model":"gpt-5.5","service_tier":"priority","stream":true,"input":"test"}`)
+	result, err := svc.proxyOpenAIWSHTTPBridgeTurn(context.Background(), c, account, "test", payload, len(payload), "gpt-5.5", "", "", "", "", 1, func([]byte) error { return nil })
+	require.NoError(t, err)
+	require.Equal(t, "gpt-5.5", gjson.GetBytes(upstream.lastBody, "model").String())
+	require.Equal(t, "gpt-5.5", result.UpstreamModel)
+	require.NotNil(t, result.ServiceTier)
+	require.Equal(t, "priority", *result.ServiceTier)
+}
+
 func TestOpenAIWSHTTPBridgeForwardsResponsesLiteMarker(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	upstream := &httpUpstreamRecorder{resp: &http.Response{

@@ -62,6 +62,44 @@ func TestGroupFast20261103PolicyMatrix(t *testing.T) {
 	}
 }
 
+func TestGroupUltrafastPrecedenceAndBilling(t *testing.T) {
+	ctx := groupFast20261103Context(PlatformComposite, true)
+	ctx.Value(ctxkey.Group).(*Group).ForceOpenAIUltrafast = true
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	svc := newOpenAIGatewayServiceWithSettings(t, DefaultOpenAIFastPolicySettings())
+	billing := NewBillingService(nil, nil)
+	for _, tc := range []struct{ model, want string }{
+		{"gpt-6-astra", "ultrafast"}, {"gpt-6.1-sol", "ultrafast"}, {"gpt-6.1-terra", "priority"},
+		{"gpt-6-sol", "priority"}, {"gpt-5.6-sol", "priority"},
+	} {
+		t.Run(tc.model, func(t *testing.T) {
+			body := []byte(`{"model":"original-alias","service_tier":"flex"}`)
+			got, err := svc.applyOpenAIFastPolicyToBody(ctx, account, tc.model, body)
+			require.NoError(t, err)
+			require.Equal(t, tc.want, gjson.GetBytes(got, "service_tier").String())
+			frame := append([]byte(`{"type":"response.create",`), body[1:]...)
+			ws, blocked, wsErr := svc.applyOpenAIFastPolicyToWSResponseCreate(ctx, account, tc.model, frame)
+			require.NoError(t, wsErr)
+			require.Nil(t, blocked)
+			require.Equal(t, tc.want, gjson.GetBytes(ws, "service_tier").String())
+			if tc.want == "ultrafast" {
+				tokens := UsageTokens{InputTokens: 1000, OutputTokens: 200, CacheReadTokens: 100}
+				base, err := billing.CalculateCost(tc.model, tokens, 1)
+				require.NoError(t, err)
+				effective, err := billing.CalculateCostWithServiceTier(tc.model, tokens, 1, tc.want)
+				require.NoError(t, err)
+				require.InDelta(t, base.TotalCost*6, effective.TotalCost, 1e-12)
+			}
+		})
+	}
+	filtered := newOpenAIGatewayServiceWithSettings(t, &OpenAIFastPolicySettings{Rules: []OpenAIFastPolicyRule{{
+		ServiceTier: OpenAIFastTierUltrafast, Action: BetaPolicyActionFilter, Scope: BetaPolicyScopeAll,
+	}}})
+	got, err := filtered.applyOpenAIFastPolicyToBody(ctx, account, "gpt-6.1-sol", []byte(`{"model":"gpt-6.1-sol"}`))
+	require.NoError(t, err)
+	require.False(t, gjson.GetBytes(got, "service_tier").Exists())
+}
+
 func removeGroupFastFrameType(t *testing.T, raw []byte) []byte {
 	t.Helper()
 	var body map[string]any
@@ -135,10 +173,11 @@ func TestGroupFast20261103AuthSnapshotAndDuplicate(t *testing.T) {
 	ctx := groupFast20261103Context(PlatformOpenAI, true)
 	group := ctx.Value(ctxkey.Group).(*Group)
 	group.LongContextPricingEnabled = true
+	group.ForceOpenAIUltrafast = true
 	svc := &APIKeyService{}
 	key := &APIKey{ID: 1, User: &User{ID: 2}, Group: group, MultiGroupRouteGroups: []*Group{group}}
 	snapshot := svc.snapshotFromAPIKey(ctx, key)
-	require.Equal(t, 21, snapshot.Version)
+	require.Equal(t, 22, snapshot.Version)
 	wire, err := json.Marshal(snapshot)
 	require.NoError(t, err)
 	var decoded APIKeyAuthSnapshot
@@ -147,12 +186,14 @@ func TestGroupFast20261103AuthSnapshotAndDuplicate(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, hit)
 	require.True(t, restored.Group.ForceOpenAIFast)
+	require.True(t, restored.Group.ForceOpenAIUltrafast)
 	require.True(t, restored.Group.LongContextPricingEnabled)
 	require.True(t, restored.Group.Hydrated)
 	require.Len(t, restored.MultiGroupRouteGroups, 1)
 	require.True(t, restored.MultiGroupRouteGroups[0].ForceOpenAIFast)
+	require.True(t, restored.MultiGroupRouteGroups[0].ForceOpenAIUltrafast)
 	require.True(t, restored.MultiGroupRouteGroups[0].Hydrated)
-	decoded.Version = 19
+	decoded.Version = 21
 	stale, hit, err := svc.applyAuthCacheEntry("test", &APIKeyAuthCacheEntry{Snapshot: &decoded})
 	require.NoError(t, err)
 	require.False(t, hit)
@@ -163,5 +204,6 @@ func TestGroupFast20261103AuthSnapshotAndDuplicate(t *testing.T) {
 	duplicate, err := admin.DuplicateGroup(ctx, group.ID, "admin:7", "group-fast-20261103")
 	require.NoError(t, err)
 	require.True(t, duplicate.ForceOpenAIFast)
+	require.True(t, duplicate.ForceOpenAIUltrafast)
 	require.True(t, group.ForceOpenAIFast)
 }

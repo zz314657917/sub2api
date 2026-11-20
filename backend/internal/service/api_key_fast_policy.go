@@ -35,21 +35,21 @@ func NormalizeAPIKeyOpenAIFastPolicy(policy string) string {
 
 // openAIRequestFastOverride reads only authenticated request context. Group
 // enforcement wins over the key; callers must apply global policy afterwards.
-func openAIRequestFastOverride(ctx context.Context, account *Account, tier string) string {
+func openAIRequestFastOverride(ctx context.Context, account *Account, model, tier string) (action, forcedTier string) {
 	if ctx == nil || account == nil || account.Platform != PlatformOpenAI {
-		return APIKeyOpenAIFastPolicyPassthrough
+		return APIKeyOpenAIFastPolicyPassthrough, ""
 	}
-	if openAIGroupForcesFast(ctx, account) {
-		return APIKeyOpenAIFastPolicyForce
+	if forcedTier := openAIGroupForcedServiceTier(ctx, account, model); forcedTier != "" {
+		return APIKeyOpenAIFastPolicyForce, forcedTier
 	}
 	policy, _ := ctx.Value(ctxkey.APIKeyOpenAIFastPolicy).(string)
 	switch policy {
 	case APIKeyOpenAIFastPolicyForce:
-		return APIKeyOpenAIFastPolicyForce
+		return APIKeyOpenAIFastPolicyForce, OpenAIFastTierPriority
 	case APIKeyOpenAIFastPolicyFilter:
 		if normalizedOpenAIServiceTierValue(tier) == OpenAIFastTierPriority {
-			return APIKeyOpenAIFastPolicyFilter
+			return APIKeyOpenAIFastPolicyFilter, ""
 		}
 	}
-	return APIKeyOpenAIFastPolicyPassthrough
+	return APIKeyOpenAIFastPolicyPassthrough, ""
 }

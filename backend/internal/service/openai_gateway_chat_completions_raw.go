@@ -76,10 +76,14 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 		writeChatCompletionsError(c, http.StatusBadRequest, "invalid_request_error", "model is required")
 		return nil, fmt.Errorf("missing model in request")
 	}
+	if err := validateOpenAIPassthroughModel(account, originalModel); err != nil {
+		writeChatCompletionsError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+		return nil, err
+	}
 	clientStream := gjson.GetBytes(body, "stream").Bool()
 
 	// 2. Resolve model mapping (same as ForwardAsChatCompletions)
-	billingModel := resolveOpenAIForwardModel(account, originalModel, defaultMappedModel)
+	billingModel := resolveOpenAITextForwardModel(account, originalModel, defaultMappedModel)
 	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
 	reasoningEffort := extractOpenAIReasoningEffortFromBody(body, upstreamModel, billingModel, originalModel)
 	reasoningEffort = ApplyThinkingEnabledFallback(reasoningEffort, body, upstreamModel)

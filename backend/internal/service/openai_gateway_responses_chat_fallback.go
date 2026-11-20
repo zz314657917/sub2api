@@ -21,6 +21,32 @@ import (
 	"go.uber.org/zap"
 )
 
+// requireExplicitRawChatFallbackModel checks the original request before any
+// normalization can collapse ambiguous model fields.
+func requireExplicitRawChatFallbackModel(body []byte) error {
+	if !json.Valid(body) {
+		return errors.New("Failed to parse request body")
+	}
+	root := gjson.ParseBytes(body)
+	if !root.IsObject() {
+		return errors.New("Failed to parse request body")
+	}
+	modelFields := 0
+	valid := false
+	root.ForEach(func(key, value gjson.Result) bool {
+		if !strings.EqualFold(key.String(), "model") {
+			return true
+		}
+		modelFields++
+		valid = key.String() == "model" && value.Type == gjson.String && strings.TrimSpace(value.String()) != ""
+		return modelFields == 1
+	})
+	if modelFields != 1 || !valid {
+		return errors.New("model must be a single non-empty string field")
+	}
+	return nil
+}
+
 // forwardResponsesViaRawChatCompletions serves /v1/responses clients through an
 // upstream that only supports /v1/chat/completions.
 func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
@@ -79,8 +105,13 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 		return nil, fmt.Errorf("convert responses to chat completions: %w", err)
 	}
 
-	billingModel := resolveOpenAIForwardModel(account, originalModel, "")
+	billingModel := resolveOpenAITextForwardModel(account, originalModel, "")
 	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
+	// Authorize the same value that is assigned to chatReq.Model below.
+	if err := validateOpenAIPassthroughModel(account, upstreamModel); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"type": "invalid_request_error", "message": err.Error()}})
+		return nil, err
+	}
 	reasoningEffort := extractOpenAIReasoningEffortFromFallbackCandidates(body, upstreamModel, billingModel, originalModel)
 	reasoningEffort = ApplyThinkingEnabledFallback(reasoningEffort, body, billingModel)
 	chatReq.Model = upstreamModel

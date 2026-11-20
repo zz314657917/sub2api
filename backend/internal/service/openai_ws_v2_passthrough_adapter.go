@@ -81,9 +81,8 @@ func (c *openAIWSPolicyEnforcingFrameConn) Close() error {
 
 // openAIWSPassthroughPolicyModelForFrame returns the upstream-perspective
 // model name that should be passed to evaluateOpenAIFastPolicy for a single
-// passthrough WS frame. Mirrors the HTTP-side normalization
-// (account.GetMappedModel + normalizeOpenAIModelForUpstream) so the WS path
-// matches model whitelists identically.
+// passthrough WS frame. The account mapping is an allowlist, not a rewrite,
+// so use only the model actually sent upstream.
 func openAIWSPassthroughPolicyModelForFrame(account *Account, payload []byte) string {
 	if account == nil || len(payload) == 0 {
 		return ""
@@ -92,7 +91,7 @@ func openAIWSPassthroughPolicyModelForFrame(account *Account, payload []byte) st
 	if original == "" {
 		return ""
 	}
-	return normalizeOpenAIModelForUpstream(account, account.GetMappedModel(original))
+	return original
 }
 
 // openAIWSPassthroughPolicyModelFromSessionFrame returns the upstream model
@@ -124,7 +123,7 @@ func openAIWSPassthroughPolicyModelFromSessionFrame(account *Account, payload []
 	if original == "" {
 		return ""
 	}
-	return normalizeOpenAIModelForUpstream(account, account.GetMappedModel(original))
+	return original
 }
 
 type openAIWSPassthroughUsageMeta struct {
@@ -368,6 +367,9 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 		firstClientMessage = normalized
 	}
 	requestModel := strings.TrimSpace(gjson.GetBytes(firstClientMessage, "model").String())
+	if account.IsOpenAIPassthroughModelFilterEnabled() && !account.IsModelSupported(requestModel) {
+		return NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "model is not supported by the connected account", nil)
+	}
 	requestPreviousResponseID := strings.TrimSpace(gjson.GetBytes(firstClientMessage, "previous_response_id").String())
 	clientPromptCacheKey := strings.TrimSpace(gjson.GetBytes(firstClientMessage, "prompt_cache_key").String())
 	logOpenAIWSV2Passthrough(
@@ -571,6 +573,15 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 				return payload, nil, nil
 			}
 			eventType := strings.TrimSpace(gjson.GetBytes(payload, "type").String())
+			if account.IsOpenAIPassthroughModelFilterEnabled() {
+				model := openAIWSPassthroughRequestModelFromSessionFrame(payload)
+				if eventType == "response.create" {
+					model = usageMeta.requestModelForFrame(payload)
+				}
+				if model != "" && !account.IsModelSupported(model) {
+					return nil, nil, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "model is not supported by the connected account", nil)
+				}
+			}
 			if msgType == coderws.MessageBinary && eventType != "response.create" {
 				// Binary control frames remain byte-for-byte transparent. Keep the
 				// session model capture side effect so a later binary response.create

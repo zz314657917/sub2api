@@ -595,6 +595,24 @@ func TestOpenAIResponses_SetsClientTransportHTTP(t *testing.T) {
 	require.Equal(t, service.OpenAIClientTransportHTTP, service.GetOpenAIClientTransport(c))
 }
 
+func TestOpenAIResponses_RejectsWhitespaceOnlyModelBeforeUpstream(t *testing.T) {
+	f := newRetryHandlerFixture(t, 1, 0, true)
+	account := &f.repo.accounts[0]
+	account.Extra["openai_responses_mode"] = "force_chat_completions"
+	account.Extra["openai_passthrough_model_filter"] = true
+	account.Credentials["model_mapping"] = map[string]any{"gpt-5.1": "gpt-5.1"}
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(`{"model":" \t\n ","input":"hello"}`))
+	r.Header.Set("Content-Type", "application/json")
+	f.router.ServeHTTP(w, r)
+
+	require.Equal(t, http.StatusBadRequest, w.Code, w.Body.String())
+	require.Equal(t, "invalid_request_error", gjson.GetBytes(w.Body.Bytes(), "error.type").String())
+	require.Equal(t, "model is required", gjson.GetBytes(w.Body.Bytes(), "error.message").String())
+	require.Empty(t, f.up.ids, "the invalid request must not reach upstream transport")
+}
+
 func TestOpenAIResponses_RejectsMessageIDAsPreviousResponseID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

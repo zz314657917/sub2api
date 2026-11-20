@@ -227,6 +227,7 @@ func groupFromServiceBase(g *service.Group) Group {
 		FallbackGroupID:                 g.FallbackGroupID,
 		FallbackGroupIDOnInvalidRequest: g.FallbackGroupIDOnInvalidRequest,
 		ForceOpenAIFast:                 g.ForceOpenAIFast,
+		ForceOpenAIUltrafast:            g.ForceOpenAIUltrafast,
 		AllowMessagesDispatch:           g.AllowMessagesDispatch,
 		AllowLive:                       g.AllowLive,
 		RequireOAuthOnly:                g.RequireOAuthOnly,

@@ -2977,6 +2977,9 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 				)
 			}
 		}
+		if account.IsOpenAIPassthroughModelFilterEnabled() && !account.IsModelSupported(originalModel) {
+			return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "model is not supported by the connected account", nil)
+		}
 		promptCacheKey := strings.TrimSpace(values[2].String())
 		previousResponseID := strings.TrimSpace(values[3].String())
 		previousResponseIDKind := ClassifyOpenAIPreviousResponseIDKind(previousResponseID)
@@ -3001,7 +3004,10 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		if changed {
 			normalized = accountScoped
 		}
-		upstreamModel := normalizeOpenAIModelForUpstream(account, account.GetMappedModel(originalModel))
+		upstreamModel := originalModel
+		if !account.IsOpenAIPassthroughModelFilterEnabled() {
+			upstreamModel = normalizeOpenAIModelForUpstream(account, account.GetMappedModel(originalModel))
+		}
 		if modelMissing || upstreamModel != originalModel {
 			next, setErr := applyPayloadMutation(normalized, "model", upstreamModel)
 			if setErr != nil {
@@ -3547,7 +3553,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		mappedModel := ""
 		var mappedModelBytes []byte
 		if originalModel != "" {
-			mappedModel = normalizeOpenAIModelForUpstream(account, account.GetMappedModel(originalModel))
+			mappedModel = openAIWSPayloadStringFromRaw(payload, "model")
 			needModelReplace = mappedModel != "" && mappedModel != originalModel
 			if needModelReplace {
 				mappedModelBytes = []byte(mappedModel)

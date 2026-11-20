@@ -659,7 +659,9 @@ export default {
         testMode: 'Test mode',
         testModeDefault: 'Default request',
         testModeCompact: 'Compact probe',
-        modelRestrictionDisabledByPassthrough: 'Automatic passthrough is enabled: model whitelist/mapping will not take effect.',
+        passthroughModelFilter: 'Filter passthrough accounts by model',
+        passthroughModelFilterDesc: 'Use the whitelist and mapping source names for account selection only. Targets do not rename requests. An empty list allows all models.',
+        modelRestrictionDisabledByPassthrough: 'Automatic passthrough ignores model restrictions unless account model filtering is enabled.',
       },
       anthropic: {
         apiKeyPassthrough: 'Auto passthrough (auth only)',

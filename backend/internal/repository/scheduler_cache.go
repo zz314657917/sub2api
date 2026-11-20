@@ -569,6 +569,7 @@ func filterSchedulerExtra(extra map[string]any) map[string]any {
 		// Account.IsModelSupported 依赖这两个字段短路过期的 model_mapping 白名单。
 		"openai_passthrough",
 		"openai_oauth_passthrough",
+		"openai_passthrough_model_filter",
 		"image_input_transport",
 		"image_upload_limit_bytes",
 		"image_url_fields_supported",

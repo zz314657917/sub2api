@@ -274,13 +274,30 @@ func (s *OpenAIGatewayService) FetchCodexModelsManifest(ctx context.Context, acc
 		url: requestURL.String(), headers: headers, proxyURL: proxyURL, accountID: account.ID,
 		credentialAccount: credAccount, accountConcurrency: account.Concurrency, useAPIKeyUpstream: apiKeyUpstream,
 	}
-	if apiKeyUpstream {
-		return s.fetchCachedAPIKeyCodexModelsManifest(ctx, request, ifNoneMatch)
+	// Project after the upstream cache so a changed allowlist cannot reuse an
+	// older projected body or ETag. OAuth remains verbatim when unrestricted.
+	filterModels := account.IsOpenAIPassthroughModelFilterEnabled() && len(account.GetModelMapping()) != 0
+	upstreamIfNoneMatch := ifNoneMatch
+	if filterModels {
+		upstreamIfNoneMatch = ""
 	}
-	manifest, fetchErr := s.fetchCodexModelsManifestUpstream(ctx, request, ifNoneMatch)
+	project := func(manifest *CodexModelsManifest, err error) (*CodexModelsManifest, error) {
+		if err != nil || !filterModels {
+			return manifest, err
+		}
+		body, err := filterPassthroughCodexModels(manifest.Body, account)
+		if err != nil {
+			return nil, err
+		}
+		return codexModelsManifestForClient(&CodexModelsManifest{Body: body, ETag: codexModelsManifestBodyETag(body)}, ifNoneMatch), nil
+	}
+	if apiKeyUpstream {
+		return project(s.fetchCachedAPIKeyCodexModelsManifest(ctx, request, upstreamIfNoneMatch))
+	}
+	manifest, fetchErr := s.fetchCodexModelsManifestUpstream(ctx, request, upstreamIfNoneMatch)
 	if !credAccount.IsOpenAIAgentIdentity() || !isAgentIdentityTaskInvalidCodexModelsError(fetchErr) {
 		s.handleCodexModelsManifestAccountAuthError(ctx, account, credAccount, fetchErr)
-		return manifest, fetchErr
+		return project(manifest, fetchErr)
 	}
 	if recoverErr := s.recoverAgentIdentityTask(ctx, credAccount, strings.TrimSpace(credAccount.GetCredential("task_id"))); recoverErr != nil {
 		return nil, infraerrors.Newf(http.StatusBadGateway, "OPENAI_CODEX_MODELS_AUTH_FAILED", "agent identity task recovery failed: %v", recoverErr)
@@ -297,7 +314,33 @@ func (s *OpenAIGatewayService) FetchCodexModelsManifest(ctx context.Context, acc
 		}
 	}
 	setOpenAIChatGPTAccountHeaders(request.headers, credAccount)
-	return s.fetchCodexModelsManifestUpstream(ctx, request, ifNoneMatch)
+	return project(s.fetchCodexModelsManifestUpstream(ctx, request, upstreamIfNoneMatch))
+}
+
+func filterPassthroughCodexModels(body []byte, account *Account) ([]byte, error) {
+	var envelope map[string]json.RawMessage
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		return nil, err
+	}
+	var models []json.RawMessage
+	if err := json.Unmarshal(envelope["models"], &models); err != nil {
+		return nil, err
+	}
+	filtered := make([]json.RawMessage, 0, len(models))
+	for _, entry := range models {
+		var model struct {
+			Slug string `json:"slug"`
+		}
+		if json.Unmarshal(entry, &model) == nil && model.Slug != "" && account.IsModelSupported(model.Slug) {
+			filtered = append(filtered, entry)
+		}
+	}
+	var err error
+	envelope["models"], err = json.Marshal(filtered)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(envelope)
 }
 
 func isAgentIdentityTaskInvalidCodexModelsError(err error) bool {

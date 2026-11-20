@@ -167,6 +167,16 @@ describe('mounted group Fast create/save', () => {
     expect(api.create).toHaveBeenCalledWith(expect.objectContaining({ platform: 'openai', force_openai_fast: true }))
   })
 
+  it('can save Fast and Ultra Fast together', async () => {
+    const view = await openCreate()
+    const ultra = view.get('[data-testid="create-force-openai-ultrafast"]')
+    expect(ultra.attributes('aria-checked')).toBe('false')
+    await ultra.trigger('click')
+    await view.get('[data-testid="create-force-openai-fast"]').trigger('click')
+    await save(view, 'create')
+    expect(api.create).toHaveBeenCalledWith(expect.objectContaining({ force_openai_fast: true, force_openai_ultrafast: true }))
+  })
+
   it('clears enabled state after switching away and back', async () => {
     const view = await openCreate()
     await view.get('[data-testid="create-force-openai-fast"]').trigger('click')

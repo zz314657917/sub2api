@@ -95,8 +95,10 @@ type Group struct {
 	AllowMessagesDispatch bool `json:"allow_messages_dispatch,omitempty"`
 	// 是否允许此 OpenAI 分组访问 Live 接口
 	AllowLive bool `json:"allow_live,omitempty"`
-	// Force priority before the global Fast policy for trusted OpenAI requests.
+	// Force priority for trusted OpenAI requests before the global Fast policy
 	ForceOpenaiFast bool `json:"force_openai_fast,omitempty"`
+	// Force Ultra Fast for supported models before the global Fast policy
+	ForceOpenaiUltrafast bool `json:"force_openai_ultrafast,omitempty"`
 	// 仅允许非 apikey 类型账号关联到此分组
 	RequireOauthOnly bool `json:"require_oauth_only,omitempty"`
 	// 调度时仅允许 privacy 已成功设置的账号
@@ -265,7 +267,7 @@ func (*Group) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case group.FieldModelRouting, group.FieldModelMatchPatterns, group.FieldSupportedModelScopes, group.FieldMessagesDispatchModelConfig, group.FieldModelsListConfig, group.FieldModelPricing:
 			values[i] = new([]byte)
-		case group.FieldPeakRateEnabled, group.FieldIsExclusive, group.FieldAllowImageGeneration, group.FieldImageRateIndependent, group.FieldClaudeCodeOnly, group.FieldModelRoutingEnabled, group.FieldMcpXMLInject, group.FieldAllowMessagesDispatch, group.FieldAllowLive, group.FieldForceOpenaiFast, group.FieldRequireOauthOnly, group.FieldRequirePrivacySet, group.FieldLongContextPricingEnabled:
+		case group.FieldPeakRateEnabled, group.FieldIsExclusive, group.FieldAllowImageGeneration, group.FieldImageRateIndependent, group.FieldClaudeCodeOnly, group.FieldModelRoutingEnabled, group.FieldMcpXMLInject, group.FieldAllowMessagesDispatch, group.FieldAllowLive, group.FieldForceOpenaiFast, group.FieldForceOpenaiUltrafast, group.FieldRequireOauthOnly, group.FieldRequirePrivacySet, group.FieldLongContextPricingEnabled:
 			values[i] = new(sql.NullBool)
 		case group.FieldRateMultiplier, group.FieldPeakRateMultiplier, group.FieldDailyLimitUsd, group.FieldWeeklyLimitUsd, group.FieldMonthlyLimitUsd, group.FieldImageRateMultiplier, group.FieldImagePrice1k, group.FieldImagePrice2k, group.FieldImagePrice4k:
 			values[i] = new(sql.NullFloat64)
@@ -546,6 +548,12 @@ func (_m *Group) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field force_openai_fast", values[i])
 			} else if value.Valid {
 				_m.ForceOpenaiFast = value.Bool
+			}
+		case group.FieldForceOpenaiUltrafast:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field force_openai_ultrafast", values[i])
+			} else if value.Valid {
+				_m.ForceOpenaiUltrafast = value.Bool
 			}
 		case group.FieldRequireOauthOnly:
 			if value, ok := values[i].(*sql.NullBool); !ok {
@@ -835,6 +843,9 @@ func (_m *Group) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("force_openai_fast=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ForceOpenaiFast))
+	builder.WriteString(", ")
+	builder.WriteString("force_openai_ultrafast=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ForceOpenaiUltrafast))
 	builder.WriteString(", ")
 	builder.WriteString("require_oauth_only=")
 	builder.WriteString(fmt.Sprintf("%v", _m.RequireOauthOnly))

@@ -49,6 +49,23 @@ func TestAccount_IsOpenAIPassthroughEnabled(t *testing.T) {
 	})
 }
 
+func TestAccount_OpenAIPassthroughModelFilterUsesSourceKeys(t *testing.T) {
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+		Extra:       map[string]any{"openai_passthrough": true},
+		Credentials: map[string]any{"model_mapping": map[string]any{"input-model": "target", "gpt-6.*": "target"}},
+	}
+	require.True(t, account.IsModelSupported("target"))
+	account.Extra["openai_passthrough_model_filter"] = "true"
+	require.True(t, account.IsModelSupported("target"))
+	account.Extra["openai_passthrough_model_filter"] = true
+	require.True(t, account.IsModelSupported("input-model"))
+	require.True(t, account.IsModelSupported("gpt-6.1-sol"))
+	require.False(t, account.IsModelSupported("target"))
+	require.False(t, account.IsModelSupported("gpt-5.6-sol"))
+	delete(account.Credentials, "model_mapping")
+	require.True(t, account.IsModelSupported("target"))
+}
+
 func TestAccount_IsOpenAIOAuthPassthroughEnabled(t *testing.T) {
 	t.Run("仅OAuth类型允许返回开启", func(t *testing.T) {
 		oauthAccount := &Account{

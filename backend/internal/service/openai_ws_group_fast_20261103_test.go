@@ -41,8 +41,32 @@ func TestGroupFast20261103WSRealFirstAndFollowup(t *testing.T) {
 		}
 	}
 }
-func runGroupFast20261103WSRelay(t *testing.T, passthrough bool, firstTier string, action string, enabled bool) openAIWSUserScopedFastPolicyCapture {
+func TestGroupUltrafastWSPassthroughWhitelist(t *testing.T) {
+	for _, tc := range []struct {
+		name, blockedFrame string
+		wantFrames         int
+	}{
+		{name: "first and inherited followup", wantFrames: 2},
+		{name: "explicit response model change", blockedFrame: `{"type":"response.create","model":"mapping-target"}`, wantFrames: 1},
+		{name: "binary session model change", blockedFrame: `{"type":"session.update","session":{"model":"mapping-target"}}`, wantFrames: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			capture := runGroupFast20261103WSRelay(t, true, "", BetaPolicyActionPass, true, tc.blockedFrame)
+			require.Len(t, capture.writes, tc.wantFrames)
+			require.Equal(t, "gpt-6.1-sol", capture.writes[0]["model"])
+			for _, payload := range capture.writes {
+				require.Equal(t, "ultrafast", payload["service_tier"])
+			}
+		})
+	}
+}
+
+func runGroupFast20261103WSRelay(t *testing.T, passthrough bool, firstTier string, action string, enabled bool, whitelistCase ...string) openAIWSUserScopedFastPolicyCapture {
 	t.Helper()
+	firstModel := "gpt-5.5"
+	if len(whitelistCase) > 0 {
+		firstModel = "gpt-6.1-sol"
+	}
 	trustedUserID, spoofedUserID := int64(42), int64(42)
 	gin.SetMode(gin.TestMode)
 
@@ -105,6 +129,11 @@ func runGroupFast20261103WSRelay(t *testing.T, passthrough bool, firstTier strin
 	if passthrough {
 		account.Extra["openai_apikey_responses_websockets_v2_mode"] = OpenAIWSIngressModePassthrough
 	}
+	if len(whitelistCase) > 0 {
+		account.Extra["openai_passthrough"] = true
+		account.Extra["openai_passthrough_model_filter"] = true
+		account.Credentials["model_mapping"] = map[string]any{"gpt-6.1-*": "mapping-target"}
+	}
 
 	serverErrCh := make(chan error, 1)
 	wsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -115,7 +144,10 @@ func runGroupFast20261103WSRelay(t *testing.T, passthrough bool, firstTier strin
 		}
 		defer func() { _ = conn.CloseNow() }()
 
-		trustedCtx := context.WithValue(groupFast20261103Context(PlatformComposite, enabled), ctxkey.APIKeyUserID, trustedUserID)
+		group := &Group{ID: 7, Platform: PlatformComposite, Status: StatusActive, Hydrated: true,
+			ForceOpenAIFast: enabled, ForceOpenAIUltrafast: len(whitelistCase) > 0,
+		}
+		trustedCtx := context.WithValue(context.WithValue(r.Context(), ctxkey.Group, group), ctxkey.APIKeyUserID, trustedUserID)
 		rec := httptest.NewRecorder()
 		ginCtx, _ := gin.CreateTestContext(rec)
 		req := r.Clone(trustedCtx)
@@ -164,17 +196,33 @@ func runGroupFast20261103WSRelay(t *testing.T, passthrough bool, firstTier strin
 		}
 	}
 
-	writeMessage(fmt.Sprintf(`{"type":"response.create","model":"gpt-5.5","stream":false,%s"user_id":%d,"metadata":{"user_id":%d}}`, firstTier, spoofedUserID, spoofedUserID))
+	writeMessage(fmt.Sprintf(`{"type":"response.create","model":%q,"stream":false,%s"user_id":%d,"metadata":{"user_id":%d}}`, firstModel, firstTier, spoofedUserID, spoofedUserID))
 	readMessage("resp_user_scope_1")
-	if action != BetaPolicyActionBlock {
-		writeMessage(fmt.Sprintf(`{"type":"response.create","stream":false,"user_id":%d,"metadata":{"user_id":%d},"previous_response_id":"resp_user_scope_1"}`, spoofedUserID, spoofedUserID))
-		readMessage("resp_user_scope_2")
+	blocked := len(whitelistCase) > 0 && whitelistCase[0] != ""
+	if blocked {
+		msgType := coderws.MessageText
+		if gjson.Get(whitelistCase[0], "type").String() == "session.update" {
+			msgType = coderws.MessageBinary
+		}
+		writeCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		err := clientConn.Write(writeCtx, msgType, []byte(whitelistCase[0]))
+		cancel()
+		require.NoError(t, err)
+	} else {
+		if action != BetaPolicyActionBlock {
+			writeMessage(fmt.Sprintf(`{"type":"response.create","stream":false,"user_id":%d,"metadata":{"user_id":%d},"previous_response_id":"resp_user_scope_1"}`, spoofedUserID, spoofedUserID))
+			readMessage("resp_user_scope_2")
+		}
+		_ = clientConn.Close(coderws.StatusNormalClosure, "done")
 	}
-	_ = clientConn.Close(coderws.StatusNormalClosure, "done")
 
 	select {
 	case serverErr := <-serverErrCh:
-		if serverErr != nil && action != BetaPolicyActionBlock {
+		if blocked {
+			var closeErr *OpenAIWSClientCloseError
+			require.ErrorAs(t, serverErr, &closeErr)
+			require.Equal(t, coderws.StatusPolicyViolation, closeErr.StatusCode())
+		} else if serverErr != nil && action != BetaPolicyActionBlock {
 			require.Contains(t, serverErr.Error(), "StatusNormalClosure")
 		}
 	case <-time.After(5 * time.Second):

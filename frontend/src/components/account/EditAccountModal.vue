@@ -1395,6 +1395,16 @@
             />
           </button>
         </div>
+        <label v-if="openaiPassthroughEnabled" class="mt-3 flex items-start gap-2">
+          <input v-model="openaiPassthroughModelFilterEnabled" type="checkbox"
+            data-testid="edit-openai-passthrough-model-filter"
+            class="mt-1 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+          <span class="text-sm">{{ t('admin.accounts.openai.passthroughModelFilter') }}
+            <span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.openai.passthroughModelFilterDesc') }}
+            </span>
+          </span>
+        </label>
       </div>
 
       <div
@@ -2799,6 +2809,7 @@ const customBaseUrl = ref('')
 
 // OpenAI 自动透传开关（OAuth/API Key）
 const openaiPassthroughEnabled = ref(false)
+const openaiPassthroughModelFilterEnabled = ref(false)
 const openAILongContextBillingEnabled = ref(false)
 type CodexFingerprintMode = 'off' | 'device' | 'session' | 'full'
 const codexFingerprintMode = ref<CodexFingerprintMode>('off')
@@ -3218,7 +3229,7 @@ const normalizeOpenAIResponsesMode = (mode: unknown): OpenAIResponsesMode => {
   return 'auto'
 }
 const isOpenAIModelRestrictionDisabled = computed(() =>
-  props.account?.platform === 'openai' && openaiPassthroughEnabled.value
+  props.account?.platform === 'openai' && openaiPassthroughEnabled.value && !openaiPassthroughModelFilterEnabled.value
 )
 const openAIResponsesStatusKey = computed(() => {
   if (openAIResponsesMode.value === 'force_responses') {
@@ -3434,6 +3445,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
 
   // Load OpenAI passthrough toggle (OpenAI OAuth/API Key)
   openaiPassthroughEnabled.value = false
+  openaiPassthroughModelFilterEnabled.value = false
   openAICompactMode.value = 'auto'
   openAIResponsesMode.value = 'auto'
   openAIEndpointCapabilities.value = ['chat_completions', 'embeddings']
@@ -3459,7 +3471,9 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     codexImageToolPolicyMode.value = resolveCodexImageToolPolicyMode(extra)
   }
   if (newAccount.platform === 'openai' && (newAccount.type === 'oauth' || newAccount.type === 'apikey')) {
-    openaiPassthroughEnabled.value = extra?.openai_passthrough === true || extra?.openai_oauth_passthrough === true
+    openaiPassthroughEnabled.value = typeof extra?.openai_passthrough === 'boolean'
+      ? extra.openai_passthrough : extra?.openai_oauth_passthrough === true
+    openaiPassthroughModelFilterEnabled.value = extra?.openai_passthrough_model_filter === true
     openAILongContextBillingEnabled.value = extra?.openai_long_context_billing_enabled === true
     openAICompactMode.value = (extra?.openai_compact_mode as OpenAICompactMode) || 'auto'
     if (newAccount.type === 'apikey') {
@@ -4249,7 +4263,7 @@ const handleSubmit = async () => {
     if (props.account.type === 'apikey') {
       const currentCredentials = (props.account.credentials as Record<string, unknown>) || {}
       const newBaseUrl = editBaseUrl.value.trim() || defaultBaseUrl.value
-      const shouldApplyModelMapping = !(props.account.platform === 'openai' && openaiPassthroughEnabled.value)
+      const shouldApplyModelMapping = !isOpenAIModelRestrictionDisabled.value
 
       // Always update credentials for apikey type to handle model mapping changes
       const newCredentials: Record<string, unknown> = {
@@ -4455,7 +4469,7 @@ const handleSubmit = async () => {
       const currentCredentials = (updatePayload.credentials as Record<string, unknown>) ||
         ((props.account.credentials as Record<string, unknown>) || {})
       const newCredentials: Record<string, unknown> = { ...currentCredentials }
-      const shouldApplyModelMapping = !openaiPassthroughEnabled.value
+      const shouldApplyModelMapping = !isOpenAIModelRestrictionDisabled.value
 
       if (shouldApplyModelMapping) {
         const modelMapping = buildModelRestrictionMapping()
@@ -4650,6 +4664,11 @@ const handleSubmit = async () => {
       } else {
         delete newExtra.openai_passthrough
         delete newExtra.openai_oauth_passthrough
+      }
+      if (openaiPassthroughEnabled.value && openaiPassthroughModelFilterEnabled.value) {
+        newExtra.openai_passthrough_model_filter = true
+      } else {
+        delete newExtra.openai_passthrough_model_filter
       }
       if (isSparkShadow.value) {
         delete newExtra.openai_long_context_billing_enabled

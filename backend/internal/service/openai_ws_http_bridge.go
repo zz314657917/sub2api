@@ -354,7 +354,12 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
 	needModelReplace := false
 	var mappedModelBytes []byte
 	if originalModel != "" {
-		mappedModel = normalizeOpenAIModelForUpstream(account, account.GetMappedModel(originalModel))
+		if account.IsOpenAIPassthroughModelFilterEnabled() {
+			// The WS ingress already selected and authorized the wire model.
+			mappedModel = strings.TrimSpace(gjson.GetBytes(body, "model").String())
+		} else {
+			mappedModel = normalizeOpenAIModelForUpstream(account, account.GetMappedModel(originalModel))
+		}
 		needModelReplace = mappedModel != "" && mappedModel != originalModel
 		if needModelReplace {
 			mappedModelBytes = []byte(mappedModel)

@@ -425,11 +425,12 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 
 	// 使用 gjson 只读提取字段做校验，避免完整 Unmarshal
 	modelResult := gjson.GetBytes(body, "model")
-	if !modelResult.Exists() || modelResult.Type != gjson.String || modelResult.String() == "" {
+	reqModel := modelResult.String()
+	if !modelResult.Exists() || modelResult.Type != gjson.String || reqModel == "" ||
+		(strings.TrimSpace(reqModel) == "" && isBareOpenAIResponsesPath(c)) {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "model is required")
 		return
 	}
-	reqModel := modelResult.String()
 
 	reqStream, ok := parseOpenAICompatibleStream(body)
 	if !ok {

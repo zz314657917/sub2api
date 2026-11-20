@@ -696,6 +696,20 @@ func (_u *GroupUpdate) SetNillableForceOpenaiFast(v *bool) *GroupUpdate {
 	return _u
 }
 
+// SetForceOpenaiUltrafast sets the "force_openai_ultrafast" field.
+func (_u *GroupUpdate) SetForceOpenaiUltrafast(v bool) *GroupUpdate {
+	_u.mutation.SetForceOpenaiUltrafast(v)
+	return _u
+}
+
+// SetNillableForceOpenaiUltrafast sets the "force_openai_ultrafast" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableForceOpenaiUltrafast(v *bool) *GroupUpdate {
+	if v != nil {
+		_u.SetForceOpenaiUltrafast(*v)
+	}
+	return _u
+}
+
 // SetRequireOauthOnly sets the "require_oauth_only" field.
 func (_u *GroupUpdate) SetRequireOauthOnly(v bool) *GroupUpdate {
 	_u.mutation.SetRequireOauthOnly(v)
@@ -1483,6 +1497,9 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.ForceOpenaiFast(); ok {
 		_spec.SetField(group.FieldForceOpenaiFast, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ForceOpenaiUltrafast(); ok {
+		_spec.SetField(group.FieldForceOpenaiUltrafast, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.RequireOauthOnly(); ok {
 		_spec.SetField(group.FieldRequireOauthOnly, field.TypeBool, value)
@@ -2668,6 +2685,20 @@ func (_u *GroupUpdateOne) SetNillableForceOpenaiFast(v *bool) *GroupUpdateOne {
 	return _u
 }
 
+// SetForceOpenaiUltrafast sets the "force_openai_ultrafast" field.
+func (_u *GroupUpdateOne) SetForceOpenaiUltrafast(v bool) *GroupUpdateOne {
+	_u.mutation.SetForceOpenaiUltrafast(v)
+	return _u
+}
+
+// SetNillableForceOpenaiUltrafast sets the "force_openai_ultrafast" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableForceOpenaiUltrafast(v *bool) *GroupUpdateOne {
+	if v != nil {
+		_u.SetForceOpenaiUltrafast(*v)
+	}
+	return _u
+}
+
 // SetRequireOauthOnly sets the "require_oauth_only" field.
 func (_u *GroupUpdateOne) SetRequireOauthOnly(v bool) *GroupUpdateOne {
 	_u.mutation.SetRequireOauthOnly(v)
@@ -3485,6 +3516,9 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 	}
 	if value, ok := _u.mutation.ForceOpenaiFast(); ok {
 		_spec.SetField(group.FieldForceOpenaiFast, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ForceOpenaiUltrafast(); ok {
+		_spec.SetField(group.FieldForceOpenaiUltrafast, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.RequireOauthOnly(); ok {
 		_spec.SetField(group.FieldRequireOauthOnly, field.TypeBool, value)

@@ -1098,7 +1098,7 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 		return
 	}
 
-	if len(availableModels) > 0 {
+	if availableModels != nil {
 		writeModelsList(c, availableModels)
 		return
 	}
@@ -1250,7 +1250,7 @@ func (h *GatewayHandler) modelCatalogCandidatesForRoute(ctx context.Context, gro
 		return nil, false
 	}
 	models := h.gatewayService.GetAvailableModels(ctx, &group.ID, group.Platform)
-	if len(models) > 0 {
+	if models != nil {
 		return models, true
 	}
 	if group.EffectiveRoutingScope() == service.GroupRoutingScopeImage && group.Platform == service.PlatformOpenAI && group.AllowImageGeneration {
@@ -1483,7 +1483,7 @@ func filterModelsByCustomList(availableModels, fallbackModels, selectedModels []
 		return availableModels
 	}
 	source := availableModels
-	if len(source) == 0 {
+	if source == nil {
 		source = fallbackModels
 	}
 	if len(source) == 0 {

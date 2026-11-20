@@ -1,6 +1,28 @@
 package service
 
-import "strings"
+import (
+	"errors"
+	"strings"
+)
+
+// validateOpenAIPassthroughModel checks the requested source model before a
+// protocol bridge can normalize or rewrite it. Empty mappings still allow all.
+func validateOpenAIPassthroughModel(account *Account, requestedModel string) error {
+	if account.IsOpenAIPassthroughModelFilterEnabled() && !account.IsModelSupported(requestedModel) {
+		return errors.New("model is not supported by the selected account")
+	}
+	return nil
+}
+
+// resolveOpenAITextForwardModel applies to Responses and its Chat/Messages
+// bridges. A nonempty passthrough whitelist controls eligibility, not rewrites.
+// Protocol normalization and compact-only mapping remain separate steps.
+func resolveOpenAITextForwardModel(account *Account, requestedModel, defaultMappedModel string) string {
+	if account.IsOpenAIPassthroughModelFilterEnabled() && len(account.GetModelMapping()) != 0 {
+		return requestedModel
+	}
+	return resolveOpenAIForwardModel(account, requestedModel, defaultMappedModel)
+}
 
 // resolveOpenAIForwardModel 解析 OpenAI 兼容转发使用的模型。
 // defaultMappedModel 只服务于 /v1/messages 的 Claude 系列显式调度映射，

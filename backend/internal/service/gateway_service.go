@@ -151,7 +151,7 @@ func anthropicStreamEventIsTerminal(eventName, data string) bool {
 }
 
 func cloneStringSlice(src []string) []string {
-	if len(src) == 0 {
+	if src == nil {
 		return nil
 	}
 	dst := make([]string, len(src))
@@ -3940,10 +3940,6 @@ func (s *GatewayService) isModelSupportedByAccount(account *Account, requestedMo
 	if account.IsBedrock() {
 		_, ok := ResolveBedrockModelID(account, requestedModel)
 		return ok
-	}
-	// OpenAI 透传模式：仅替换认证，允许所有模型
-	if account.Platform == PlatformOpenAI && account.IsOpenAIPassthroughEnabled() {
-		return true
 	}
 	// OAuth/SetupToken 账号使用 Anthropic 标准映射（短ID → 长ID）
 	if account.Platform == PlatformAnthropic && account.Type != AccountTypeAPIKey {
@@ -10325,6 +10321,9 @@ func (s *GatewayService) isUpstreamModelRestrictedByChannel(ctx context.Context,
 
 // resolveAccountUpstreamModel 确定账号将请求模型映射为什么上游模型。
 func resolveAccountUpstreamModel(account *Account, requestedModel string) string {
+	if account.IsOpenAIPassthroughModelFilterEnabled() {
+		return requestedModel
+	}
 	if account.Platform == PlatformAntigravity {
 		return mapAntigravityModel(account, requestedModel)
 	}
@@ -10987,26 +10986,52 @@ func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64,
 	// Collect unique models from all accounts and the active channel.
 	modelSet := make(map[string]struct{})
 	hasUnmappedOpenAIAccount := false
+	var restrictedPassthrough []*Account
 
 	for _, acc := range accounts {
-		// Passthrough routing accepts models independently of model_mapping. Treat
-		// it like an unmapped OpenAI account so its defaults do not hide mappings
-		// from ordinary accounts in the same group.
-		if platform == PlatformOpenAI && acc.IsOpenAIPassthroughEnabled() {
+		mapping := acc.GetModelMapping()
+		restricted := acc.IsOpenAIPassthroughModelFilterEnabled() && len(mapping) > 0
+		if restricted {
+			restrictedPassthrough = append(restrictedPassthrough, &acc)
+		}
+		// Unrestricted passthrough uses the same catalog fallback as an unmapped
+		// OpenAI account, regardless of stale ordinary mappings.
+		if platform == PlatformOpenAI && acc.IsOpenAIPassthroughEnabled() && !restricted {
 			hasUnmappedOpenAIAccount = true
 			continue
 		}
-
-		mapping := acc.GetModelMapping()
 		if len(mapping) > 0 {
 			for model := range mapping {
+				if restricted && (strings.TrimSpace(model) == "" || strings.Contains(model, "*")) {
+					continue
+				}
 				modelSet[model] = struct{}{}
 			}
 		} else if platform == PlatformOpenAI {
 			hasUnmappedOpenAIAccount = true
 		}
 	}
-	if len(accounts) > 0 {
+	allRestricted := len(restrictedPassthrough) > 0 && len(restrictedPassthrough) == len(accounts)
+	if len(restrictedPassthrough) > 0 {
+		candidates := make(map[string]struct{})
+		s.addChannelSupportedModels(ctx, groupID, platform, candidates)
+		for model := range candidates {
+			if !allRestricted {
+				modelSet[model] = struct{}{}
+			}
+		}
+		for _, model := range openai.DefaultModelIDs() {
+			candidates[model] = struct{}{}
+		}
+		for model := range candidates {
+			for _, account := range restrictedPassthrough {
+				if account.IsModelSupported(model) {
+					modelSet[model] = struct{}{}
+					break
+				}
+			}
+		}
+	} else if len(accounts) > 0 {
 		s.addChannelSupportedModels(ctx, groupID, platform, modelSet)
 	}
 	if platform == PlatformOpenAI && hasUnmappedOpenAIAccount && len(modelSet) > 0 {
@@ -11015,8 +11040,9 @@ func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64,
 		}
 	}
 
-	// If neither source provides explicit models, return nil (use defaults).
-	if len(modelSet) == 0 {
+	// A non-nil empty slice means restricted accounts expose no known IDs;
+	// callers must not replace that result with unrestricted defaults.
+	if len(modelSet) == 0 && !allRestricted {
 		if s.modelsListCache != nil {
 			s.modelsListCache.Set(cacheKey, []string(nil), s.modelsListCacheTTL)
 			modelsListCacheStoreTotal.Add(1)

@@ -1359,6 +1359,29 @@
           <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
             {{ t("admin.groups.openaiFast.hint") }}
           </p>
+          <div class="flex items-center justify-between gap-4">
+            <label class="text-sm text-gray-600 dark:text-gray-400">
+              {{ t("admin.groups.openaiFast.forceUltrafast") }}
+            </label>
+            <button
+              type="button"
+              role="switch"
+              :aria-checked="createForm.force_openai_ultrafast"
+              :aria-label="t('admin.groups.openaiFast.forceUltrafast')"
+              data-testid="create-force-openai-ultrafast"
+              @click="createForm.force_openai_ultrafast = !createForm.force_openai_ultrafast"
+              class="relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
+              :class="createForm.force_openai_ultrafast ? 'bg-primary-500' : 'bg-gray-300 dark:bg-dark-600'"
+            >
+              <span
+                class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                :class="createForm.force_openai_ultrafast ? 'translate-x-6' : 'translate-x-1'"
+              />
+            </button>
+          </div>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            {{ t("admin.groups.openaiFast.ultrafastHint") }}
+          </p>
         </div>
 
         <!-- ChatGPT Live 实时会话配置（仅 openai 平台） -->
@@ -2935,6 +2958,29 @@
           <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
             {{ t("admin.groups.openaiFast.hint") }}
           </p>
+          <div class="flex items-center justify-between gap-4">
+            <label class="text-sm text-gray-600 dark:text-gray-400">
+              {{ t("admin.groups.openaiFast.forceUltrafast") }}
+            </label>
+            <button
+              type="button"
+              role="switch"
+              :aria-checked="editForm.force_openai_ultrafast"
+              :aria-label="t('admin.groups.openaiFast.forceUltrafast')"
+              data-testid="edit-force-openai-ultrafast"
+              @click="editForm.force_openai_ultrafast = !editForm.force_openai_ultrafast"
+              class="relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
+              :class="editForm.force_openai_ultrafast ? 'bg-primary-500' : 'bg-gray-300 dark:bg-dark-600'"
+            >
+              <span
+                class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                :class="editForm.force_openai_ultrafast ? 'translate-x-6' : 'translate-x-1'"
+              />
+            </button>
+          </div>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            {{ t("admin.groups.openaiFast.ultrafastHint") }}
+          </p>
         </div>
 
         <!-- ChatGPT Live 实时会话配置（仅 openai 平台） -->
@@ -4153,6 +4199,7 @@ const createForm = reactive({
   monthly_limit_usd: null as number | null,
   long_context_pricing_enabled: true,
   force_openai_fast: false,
+  force_openai_ultrafast: false,
   model_pricing: [] as PricingFormEntry[],
   // 图片生成计费配置
   allow_image_generation: false,
@@ -4496,6 +4543,7 @@ const editForm = reactive({
   monthly_limit_usd: null as number | null,
   long_context_pricing_enabled: true,
   force_openai_fast: false,
+  force_openai_ultrafast: false,
   model_pricing: [] as PricingFormEntry[],
   // 图片生成计费配置
   allow_image_generation: false,
@@ -5151,6 +5199,7 @@ const closeCreateModal = () => {
   createForm.monthly_limit_usd = null;
   createForm.long_context_pricing_enabled = true;
   createForm.force_openai_fast = false;
+  createForm.force_openai_ultrafast = false;
   createForm.model_pricing = [];
   createForm.allow_image_generation = false;
   createForm.image_rate_independent = false;
@@ -5294,6 +5343,10 @@ const handleCreateGroup = async () => {
         createForm.platform,
         createForm.force_openai_fast,
       ),
+      force_openai_ultrafast: normalizeGroupOpenAIFast(
+        createForm.platform,
+        createForm.force_openai_ultrafast,
+      ),
       model_pricing: groupPricingToAPI(createForm.model_pricing, createForm.platform),
       daily_limit_usd: normalizeGroupLimit(
         createForm.access_mode,
@@ -5387,6 +5440,10 @@ const handleEdit = async (group: AdminGroup) => {
     group.platform,
     group.force_openai_fast,
   );
+  editForm.force_openai_ultrafast = normalizeGroupOpenAIFast(
+    group.platform,
+    group.force_openai_ultrafast,
+  );
   editForm.model_pricing = groupPricingFromAPI(group.model_pricing);
   editForm.allow_image_generation = group.allow_image_generation ?? false;
   editForm.image_rate_independent = group.image_rate_independent ?? false;
@@ -5454,6 +5511,7 @@ const closeEditModal = () => {
   editForm.model_match_patterns_text = "";
   editForm.long_context_pricing_enabled = true;
   editForm.force_openai_fast = false;
+  editForm.force_openai_ultrafast = false;
   editForm.model_pricing = [];
   resetMessagesDispatchFormState(editForm);
   resetModelsListState(editModelsListState);
@@ -5481,6 +5539,10 @@ const handleUpdateGroup = async () => {
       force_openai_fast: normalizeGroupOpenAIFast(
         editForm.platform,
         editForm.force_openai_fast,
+      ),
+      force_openai_ultrafast: normalizeGroupOpenAIFast(
+        editForm.platform,
+        editForm.force_openai_ultrafast,
       ),
       model_pricing: groupPricingToAPI(editForm.model_pricing, editForm.platform),
       daily_limit_usd: normalizeGroupLimit(
@@ -5661,6 +5723,7 @@ watch(
   () => createForm.platform,
   (newVal) => {
     createForm.force_openai_fast = normalizeGroupOpenAIFast(newVal, createForm.force_openai_fast);
+    createForm.force_openai_ultrafast = normalizeGroupOpenAIFast(newVal, createForm.force_openai_ultrafast);
     if (!["anthropic", "antigravity"].includes(newVal)) {
       createForm.fallback_group_id_on_invalid_request = null;
     }
@@ -5680,6 +5743,7 @@ watch(
   () => editForm.platform,
   (newVal) => {
     editForm.force_openai_fast = normalizeGroupOpenAIFast(newVal, editForm.force_openai_fast);
+    editForm.force_openai_ultrafast = normalizeGroupOpenAIFast(newVal, editForm.force_openai_ultrafast);
     if (!["anthropic", "antigravity"].includes(newVal)) {
       editForm.fallback_group_id_on_invalid_request = null;
     }

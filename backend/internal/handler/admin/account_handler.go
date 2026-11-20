@@ -2067,7 +2067,7 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 	// Handle OpenAI accounts
 	if account.IsOpenAI() {
 		// OpenAI 自动透传会绕过常规模型改写，测试/模型列表也应回落到默认模型集。
-		if account.IsOpenAIPassthroughEnabled() {
+		if account.IsOpenAIPassthroughEnabled() && !account.IsOpenAIPassthroughModelFilterEnabled() {
 			response.Success(c, openai.DefaultModels)
 			return
 		}
@@ -2078,9 +2078,24 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 			return
 		}
 
-		// Return mapped models
-		var models []openai.Model
+		// Return source IDs, expanding restricted wildcard rules over known model IDs.
+		models := make([]openai.Model, 0)
+		listed := make(map[string]struct{})
+		if account.IsOpenAIPassthroughModelFilterEnabled() {
+			for _, model := range openai.DefaultModels {
+				if account.IsModelSupported(model.ID) {
+					models = append(models, model)
+					listed[model.ID] = struct{}{}
+				}
+			}
+		}
 		for requestedModel := range mapping {
+			if account.IsOpenAIPassthroughModelFilterEnabled() {
+				_, known := listed[requestedModel]
+				if known || strings.Contains(requestedModel, "*") {
+					continue
+				}
+			}
 			var found bool
 			for _, dm := range openai.DefaultModels {
 				if dm.ID == requestedModel {

@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 21 // v21: reload authenticated API-key OpenAI Fast policy
+const apiKeyAuthSnapshotVersion = 22 // v22: add group Ultra Fast to the authenticated snapshot
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -366,6 +366,7 @@ func apiKeyAuthGroupSnapshotFromGroup(group *Group) *APIKeyAuthGroupSnapshot {
 		MCPXMLInject:                    group.MCPXMLInject,
 		SupportedModelScopes:            group.SupportedModelScopes,
 		ForceOpenAIFast:                 group.ForceOpenAIFast,
+		ForceOpenAIUltrafast:            group.ForceOpenAIUltrafast,
 		AllowMessagesDispatch:           group.AllowMessagesDispatch,
 		AllowLive:                       group.AllowLive,
 		DefaultMappedModel:              group.DefaultMappedModel,
@@ -472,6 +473,7 @@ func groupFromAPIKeyAuthSnapshot(snapshot *APIKeyAuthGroupSnapshot) *Group {
 		MCPXMLInject:                    snapshot.MCPXMLInject,
 		SupportedModelScopes:            snapshot.SupportedModelScopes,
 		ForceOpenAIFast:                 snapshot.ForceOpenAIFast,
+		ForceOpenAIUltrafast:            snapshot.ForceOpenAIUltrafast,
 		AllowMessagesDispatch:           snapshot.AllowMessagesDispatch,
 		AllowLive:                       snapshot.AllowLive,
 		DefaultMappedModel:              snapshot.DefaultMappedModel,

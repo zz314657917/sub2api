@@ -186,6 +186,9 @@ func (Group) Fields() []ent.Field {
 		field.Bool("force_openai_fast").
 			Default(false).
 			Comment("Force priority for trusted OpenAI requests before the global Fast policy"),
+		field.Bool("force_openai_ultrafast").
+			Default(false).
+			Comment("Force Ultra Fast for supported models before the global Fast policy"),
 		field.Bool("require_oauth_only").
 			Default(false).
 			Comment("仅允许非 apikey 类型账号关联到此分组"),

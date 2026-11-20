@@ -702,6 +702,22 @@ func TestGetAvailableModels_OpenAIUnmappedAccounts(t *testing.T) {
 			want: []string{"channel-model", "configured-model"},
 		},
 		{
+			name: "restricted passthrough expands sources not targets", platform: PlatformOpenAI,
+			accounts: []Account{{
+				Platform: PlatformOpenAI, Extra: map[string]any{"openai_passthrough": true, "openai_passthrough_model_filter": true},
+				Credentials: map[string]any{"model_mapping": map[string]any{"model-*": "blocked-channel-model", "alias": "target"}},
+			}},
+			channelModel: "model-custom", want: []string{"alias", "model-custom"},
+		},
+		{
+			name: "restricted passthrough with no known matches remains empty", platform: PlatformOpenAI,
+			accounts: []Account{{
+				Platform: PlatformOpenAI, Extra: map[string]any{"openai_passthrough": true, "openai_passthrough_model_filter": true},
+				Credentials: map[string]any{"model_mapping": map[string]any{"unknown-*": "blocked-channel-model"}},
+			}},
+			channelModel: "blocked-channel-model", want: []string{},
+		},
+		{
 			name: "ordinary unmapped only retains nil fallback", platform: PlatformOpenAI,
 			accounts: []Account{unmapped, emptyMapping},
 		},

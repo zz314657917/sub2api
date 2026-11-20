@@ -1336,11 +1336,12 @@ func (s *BillingService) applyModelSpecificPricingPolicy(model string, pricing *
 	needsCacheCreationPolicy := (isGPT56 || isGPT6) && !pricing.CacheCreationPriceExplicit &&
 		(pricing.CacheCreationPricePerToken <= 0 ||
 			(pricing.InputPricePerTokenPriority > 0 && pricing.CacheCreationPricePerTokenPriority <= 0))
-	if !needsLongContextPolicy && !needsCacheCreationPolicy && !isAstra {
+	usesUltrafast := isAstra || openAIModelSupportsUltrafast(model)
+	if !needsLongContextPolicy && !needsCacheCreationPolicy && !usesUltrafast {
 		return pricing
 	}
 	cloned := *pricing
-	if isAstra {
+	if usesUltrafast {
 		cloned.UltrafastMultiplier = 6
 	}
 	if needsCacheCreationPolicy {

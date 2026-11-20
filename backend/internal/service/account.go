@@ -924,13 +924,26 @@ func resolveRequestedModelInMapping(mapping map[string]string, requestedModel st
 	return matchWildcardMappingResult(mapping, requestedModel)
 }
 
+// IsOpenAIPassthroughModelFilterEnabled reports an explicit Boolean opt-in.
+func (a *Account) IsOpenAIPassthroughModelFilterEnabled() bool {
+	if !a.IsOpenAIPassthroughEnabled() {
+		return false
+	}
+	enabled, _ := a.Extra["openai_passthrough_model_filter"].(bool)
+	return enabled
+}
+
 // IsModelSupported 检查模型是否在 model_mapping 中（支持通配符）
 // 如果未配置 mapping，返回 true（允许所有模型）
 func (a *Account) IsModelSupported(requestedModel string) bool {
-	// Passthrough replaces authentication only; the upstream owns model
-	// semantics. Ignore stale allowlists left behind when this mode is enabled.
+	// Passthrough never rewrites model names. An explicit opt-in uses only
+	// the source keys (including wildcard patterns) for account eligibility.
 	if a.IsOpenAIPassthroughEnabled() {
-		return true
+		if !a.IsOpenAIPassthroughModelFilterEnabled() {
+			return true
+		}
+		mapping := a.GetModelMapping()
+		return len(mapping) == 0 || mappingSupportsRequestedModel(mapping, strings.TrimSpace(requestedModel))
 	}
 	mapping := a.GetModelMapping()
 	if len(mapping) == 0 {

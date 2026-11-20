@@ -43,6 +43,29 @@ func (s *codexManifestHTTPStub) Do(req *http.Request, _ string, _ int64, _ int) 
 	}, nil
 }
 
+func TestFetchCodexModelsManifestPassthroughAllowlistProjectsWarmCache(t *testing.T) {
+	upstream := &codexManifestHTTPStub{body: `{"models":[{"slug":"foo-2"},{"slug":"target"}],"extra":true}`}
+	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+	account := &Account{ID: 194, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+		Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://provider.example/v1", "model_mapping": map[string]any{"foo-*": "target"}},
+		Extra:       map[string]any{"openai_passthrough": true, "openai_passthrough_model_filter": true},
+	}
+	first, err := svc.FetchCodexModelsManifest(context.Background(), account, "0.125.0", "")
+	require.NoError(t, err)
+	require.Contains(t, string(first.Body), "foo-2")
+	require.NotContains(t, string(first.Body), "target")
+	same, err := svc.FetchCodexModelsManifest(context.Background(), account, "0.125.0", first.ETag)
+	require.NoError(t, err)
+	require.True(t, same.NotModified)
+	account.Credentials["model_mapping"] = map[string]any{"target": "foo-2"}
+	changed, err := svc.FetchCodexModelsManifest(context.Background(), account, "0.125.0", first.ETag)
+	require.NoError(t, err)
+	require.False(t, changed.NotModified)
+	require.NotEqual(t, first.ETag, changed.ETag)
+	require.Contains(t, string(changed.Body), "target")
+	require.NotContains(t, string(changed.Body), "foo-2")
+}
+
 func TestFetchCodexModelsManifestAPIKeyFallsBackForStaleHeaderVersion(t *testing.T) {
 	upstream := &codexManifestHTTPStub{body: `{"models":[{"slug":"gpt-5.6-sol"}]}`}
 	service := &OpenAIGatewayService{

@@ -52,6 +52,15 @@ func TestNormalizeOpenAICodexCompactReasoningEffortGPT56MaxScopes(t *testing.T) 
 		{name: "oauth responses", path: "/openai/v1/responses", account: &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}, want: "max"},
 		{name: "api key compact", path: "/openai/v1/responses/compact", account: &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}, want: "max"},
 		{name: "grok oauth compact", path: "/openai/v1/responses/compact", account: &Account{Platform: PlatformGrok, Type: AccountTypeOAuth}, want: "max"},
+		{
+			name: "whitelist target does not decide compact effort", path: "/openai/v1/responses/compact",
+			account: &Account{
+				Platform: PlatformOpenAI, Type: AccountTypeOAuth,
+				Credentials: map[string]any{"model_mapping": map[string]any{"gpt-5.6-sol": "gpt-5.5"}},
+				Extra:       map[string]any{"openai_passthrough": true, "openai_passthrough_model_filter": true},
+			},
+			changed: true, want: "xhigh",
+		},
 	}
 
 	for _, tt := range tests {

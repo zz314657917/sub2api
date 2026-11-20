@@ -261,6 +261,7 @@ type CreateGroupInput struct {
 	SupportedModelScopes []string
 	// OpenAI Messages 调度配置（仅 openai 平台使用）
 	ForceOpenAIFast             bool
+	ForceOpenAIUltrafast        bool
 	AllowMessagesDispatch       bool
 	AllowLive                   bool
 	DefaultMappedModel          string
@@ -314,6 +315,7 @@ type UpdateGroupInput struct {
 	SupportedModelScopes *[]string
 	// OpenAI Messages 调度配置（仅 openai 平台使用）
 	ForceOpenAIFast             *bool
+	ForceOpenAIUltrafast        *bool
 	AllowMessagesDispatch       *bool
 	AllowLive                   *bool
 	DefaultMappedModel          *string
@@ -2215,6 +2217,7 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		MCPXMLInject:                    mcpXMLInject,
 		SupportedModelScopes:            input.SupportedModelScopes,
 		ForceOpenAIFast:                 input.ForceOpenAIFast,
+		ForceOpenAIUltrafast:            input.ForceOpenAIUltrafast,
 		AllowMessagesDispatch:           input.AllowMessagesDispatch,
 		AllowLive:                       input.AllowLive,
 		RequireOAuthOnly:                input.RequireOAuthOnly,
@@ -2549,6 +2552,9 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	// OpenAI Messages 调度配置
 	if input.ForceOpenAIFast != nil {
 		group.ForceOpenAIFast = *input.ForceOpenAIFast
+	}
+	if input.ForceOpenAIUltrafast != nil {
+		group.ForceOpenAIUltrafast = *input.ForceOpenAIUltrafast
 	}
 	if input.AllowMessagesDispatch != nil {
 		group.AllowMessagesDispatch = *input.AllowMessagesDispatch

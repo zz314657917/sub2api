@@ -2659,6 +2659,16 @@
             />
           </button>
         </div>
+        <label v-if="openaiPassthroughEnabled" class="mt-3 flex items-start gap-2">
+          <input v-model="openaiPassthroughModelFilterEnabled" type="checkbox"
+            data-testid="create-openai-passthrough-model-filter"
+            class="mt-1 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+          <span class="text-sm">{{ t('admin.accounts.openai.passthroughModelFilter') }}
+            <span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.openai.passthroughModelFilterDesc') }}
+            </span>
+          </span>
+        </label>
       </div>
 
       <div
@@ -3676,6 +3686,7 @@ const shareDisplay5hUsed = ref<number | null>(null)
 const shareDisplay7dLimit = ref<number | null>(null)
 const shareDisplay7dUsed = ref<number | null>(null)
 const openaiPassthroughEnabled = ref(false)
+const openaiPassthroughModelFilterEnabled = ref(false)
 const openAILongContextBillingEnabled = ref(false)
 const openAILongContextBillingTouched = ref(false)
 const openAICompactMode = ref<OpenAICompactMode>('auto')
@@ -3903,7 +3914,7 @@ const openAIWSModeConcurrencyHintKey = computed(() =>
 )
 
 const isOpenAIModelRestrictionDisabled = computed(() =>
-  form.platform === 'openai' && openaiPassthroughEnabled.value
+  form.platform === 'openai' && openaiPassthroughEnabled.value && !openaiPassthroughModelFilterEnabled.value
 )
 
 const mixedChannelWarningMessageText = computed(() => {
@@ -4139,6 +4150,7 @@ watch(
     }
     if (newPlatform !== 'openai') {
       openaiPassthroughEnabled.value = false
+      openaiPassthroughModelFilterEnabled.value = false
       openaiOAuthResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
       openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
       codexCLIOnlyEnabled.value = false
@@ -4563,6 +4575,7 @@ const resetForm = () => {
   shareDisplay7dLimit.value = null
   shareDisplay7dUsed.value = null
   openaiPassthroughEnabled.value = false
+  openaiPassthroughModelFilterEnabled.value = false
   openAILongContextBillingEnabled.value = false
   openAILongContextBillingTouched.value = false
   codexFingerprintMode.value = 'off'
@@ -4647,6 +4660,11 @@ const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknow
   } else {
     delete extra.openai_passthrough
     delete extra.openai_oauth_passthrough
+  }
+  if (openaiPassthroughEnabled.value && openaiPassthroughModelFilterEnabled.value) {
+    extra.openai_passthrough_model_filter = true
+  } else {
+    delete extra.openai_passthrough_model_filter
   }
 
   if (accountCategory.value === 'oauth-based' && codexCLIOnlyEnabled.value) {
