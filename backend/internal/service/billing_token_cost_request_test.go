@@ -93,6 +93,29 @@ func TestCalculateTokenCostForRequest_LegacyRuleFollowsGroupToggle(t *testing.T)
 	}
 }
 
+func TestVertexMultiRegionMultiplierOnlyScalesDefaultTokenPricing(t *testing.T) {
+	billing := NewBillingService(&config.Config{}, nil)
+	for _, source := range []string{PricingSourceFallback, PricingSourceGroup, PricingSourceChannel} {
+		t.Run(source, func(t *testing.T) {
+			req := TokenCostRequest{Model: "gemini-3.5-flash", Tokens: UsageTokens{InputTokens: 1000, OutputTokens: 100, CacheReadTokens: 50}, RateMultiplier: 2,
+				Resolved: &ResolvedPricing{Mode: BillingModeToken, Source: source, BasePricing: &ModelPricing{InputPricePerToken: 2e-6, OutputPricePerToken: 10e-6, CacheReadPricePerToken: 1e-7}},
+			}
+			base, err := billing.CalculateTokenCostForRequest(req)
+			require.NoError(t, err)
+			req.UpstreamPriceMultiplier = 1.1
+			got, err := billing.CalculateTokenCostForRequest(req)
+			require.NoError(t, err)
+			factor := 1.0
+			if source == PricingSourceFallback {
+				factor = 1.1
+			}
+			require.InDelta(t, base.TotalCost*factor, got.TotalCost, 1e-12)
+			require.InDelta(t, base.ActualCost*factor, got.ActualCost, 1e-12)
+			require.InDelta(t, base.CacheReadCost*factor, got.CacheReadCost, 1e-12)
+		})
+	}
+}
+
 func TestCalculateTokenCostForRequest_NoResolverFallsBackToCatalog(t *testing.T) {
 	billing := NewBillingService(&config.Config{}, nil)
 	tokens := UsageTokens{InputTokens: 1000, OutputTokens: 10}

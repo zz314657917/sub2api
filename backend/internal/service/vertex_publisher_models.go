@@ -27,10 +27,7 @@ func buildVertexPublisherModelsURL(location, pageToken string) (string, error) {
 	if len(pageToken) > vertexPublisherPageTokenMaxBytes {
 		return "", errors.New("vertex model list page token is too large")
 	}
-	host := location + "-aiplatform.googleapis.com"
-	if location == "global" {
-		host = "aiplatform.googleapis.com"
-	}
+	host := vertexAPIHost(location)
 	query := url.Values{"pageSize": {strconv.Itoa(vertexPublisherModelsPageSize)}}
 	if pageToken != "" {
 		query.Set("pageToken", pageToken)

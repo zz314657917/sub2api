@@ -31,6 +31,7 @@ const (
 )
 
 var (
+	vertexCachedContentName              = regexp.MustCompile(`^projects/[a-zA-Z0-9_-]+/locations/([a-z0-9]+(?:-[a-z0-9]+)*)/cachedContents/[a-zA-Z0-9_-]+$`)
 	vertexLocationPattern                = regexp.MustCompile(`^[a-z0-9-]+$`)
 	vertexAnthropicDatedModelIDPattern   = regexp.MustCompile(`^(.+)-([0-9]{8})$`)
 	vertexAnthropicAlreadyDatedIDPattern = regexp.MustCompile(`^.+@[0-9]{8}$`)
@@ -82,6 +83,14 @@ func (a *Account) VertexLocation(model string) string {
 			}
 		}
 	}
+	location := a.vertexAccountLocation()
+	if a.Platform == PlatformGemini && isVertexMultiRegion(location) && !vertexModelSupportsMultiRegion(model, location) {
+		return "global"
+	}
+	return location
+}
+
+func (a *Account) vertexAccountLocation() string {
 	if v := strings.TrimSpace(a.GetCredential("location")); v != "" {
 		return v
 	}
@@ -282,6 +291,52 @@ func exchangeVertexServiceAccountToken(ctx context.Context, key *vertexServiceAc
 	return parsed.AccessToken, ttl, nil
 }
 
+func isVertexMultiRegion(location string) bool {
+	return location == "us" || location == "eu"
+}
+
+func vertexAPIHost(location string) string {
+	switch {
+	case location == "global":
+		return "aiplatform.googleapis.com"
+	case isVertexMultiRegion(location):
+		return "aiplatform." + location + ".rep.googleapis.com"
+	default:
+		return location + "-aiplatform.googleapis.com"
+	}
+}
+
+func vertexDiscoveryLocation(location string) string {
+	if isVertexMultiRegion(location) {
+		return "global"
+	}
+	return location
+}
+
+func vertexModelSupportsMultiRegion(model, location string) bool {
+	if !isVertexMultiRegion(location) {
+		return false
+	}
+	model = strings.TrimSpace(model)
+	if i := strings.LastIndexByte(model, '/'); i >= 0 {
+		model = model[i+1:]
+	}
+	switch model {
+	case "gemini-3.1-flash-image", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.5-flash-lite",
+		"gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash", "gemini-4-argon":
+		return true
+	default:
+		return false
+	}
+}
+
+func vertexGeminiPriceMultiplier(account *Account, model, location string) float64 {
+	if account.IsVertexServiceAccount() && account.Platform == PlatformGemini && vertexModelSupportsMultiRegion(model, location) {
+		return 1.1
+	}
+	return 1
+}
+
 func buildVertexGeminiURL(projectID, location, model, action string, stream bool) (string, error) {
 	projectID = strings.TrimSpace(projectID)
 	location = strings.TrimSpace(location)
@@ -304,10 +359,7 @@ func buildVertexGeminiURL(projectID, location, model, action string, stream bool
 	default:
 		return "", fmt.Errorf("unsupported vertex gemini action: %s", action)
 	}
-	host := fmt.Sprintf("%s-aiplatform.googleapis.com", location)
-	if location == "global" {
-		host = "aiplatform.googleapis.com"
-	}
+	host := vertexAPIHost(location)
 	u := fmt.Sprintf(
 		"https://%s/v1/projects/%s/locations/%s/publishers/google/models/%s:%s",
 		host,
@@ -342,10 +394,7 @@ func buildVertexAnthropicURL(projectID, location, model string, stream bool) (st
 	if stream {
 		action = "streamRawPredict"
 	}
-	host := fmt.Sprintf("%s-aiplatform.googleapis.com", location)
-	if location == "global" {
-		host = "aiplatform.googleapis.com"
-	}
+	host := vertexAPIHost(location)
 	escapedModel := strings.ReplaceAll(url.PathEscape(model), "%40", "@")
 	return fmt.Sprintf(
 		"https://%s/v1/projects/%s/locations/%s/publishers/anthropic/models/%s:%s",

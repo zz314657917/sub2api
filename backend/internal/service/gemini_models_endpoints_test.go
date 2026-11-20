@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/gemini"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/tlsfingerprint"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
 
@@ -64,8 +66,61 @@ func vertexModelsService(upstream HTTPUpstream) *GeminiMessagesCompatService {
 		NewGeminiTokenProvider(nil, &vertexModelsTokenCache{}, nil), nil, upstream, nil, &config.Config{})
 }
 
+func TestVertexMultiRegionNativeAndCompatRouting(t *testing.T) {
+	const geminiResp = `{"candidates":[{"content":{"role":"model","parts":[{"text":"ok"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":1}}`
+	for _, tc := range []struct {
+		name, entry, mapped, region, pin, wantHost, wantRegion string
+		factor                                                 float64
+	}{
+		{"native us", "native", "gemini-3.5-flash", "us", "", "aiplatform.us.rep.googleapis.com", "us", 1.1},
+		{"messages eu", "messages", "gemini-3.5-flash", "eu", "", "aiplatform.eu.rep.googleapis.com", "eu", 1.1},
+		{"chat eu", "chat", "gemini-3.5-flash", "eu", "", "aiplatform.eu.rep.googleapis.com", "eu", 1.1},
+		{"native global fallback", "native", "gemini-4-carbon", "us", "", "aiplatform.googleapis.com", "global", 1},
+		{"native explicit region", "native", "gemini-4-carbon", "global", "explicit", "aiplatform.eu.rep.googleapis.com", "eu", 1},
+		{"native cached pin", "native", "gemini-3.5-flash", "us", "global", "aiplatform.googleapis.com", "global", 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			account := vertexModelsAccount()
+			account.Credentials["location"] = tc.region
+			account.Credentials["model_mapping"] = map[string]any{"alias": tc.mapped}
+			if tc.pin == "explicit" {
+				account.Credentials["vertex_model_locations"] = map[string]any{tc.mapped: "eu"}
+			}
+			calls := 0
+			svc := vertexModelsService(vertexModelsUpstream{do: func(r *http.Request, _ string, _ int64, _ int) (*http.Response, error) {
+				calls++
+				require.Equal(t, tc.wantHost, r.URL.Host)
+				require.Equal(t, "/v1/projects/fixture/locations/"+tc.wantRegion+"/publishers/google/models/"+tc.mapped+":generateContent", r.URL.Path)
+				return vertexModelsResponse(200, geminiResp), nil
+			}})
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request = httptest.NewRequest(http.MethodPost, "/", nil)
+			ctx := context.Background()
+			claude := []byte(`{"model":"alias","max_tokens":20,"messages":[{"role":"user","content":"hello"}]}`)
+			var result *ForwardResult
+			var err error
+			switch tc.entry {
+			case "native":
+				body := []byte(`{"contents":[{"role":"user","parts":[{"text":"hello"}]}]}`)
+				if tc.pin == "global" {
+					body = append([]byte(`{"cachedContent":"projects/client-project/locations/global/cachedContents/42",`), body[1:]...)
+				}
+				result, err = svc.ForwardNative(ctx, c, account, "alias", "generateContent", false, body)
+			case "messages":
+				result, err = svc.Forward(ctx, c, account, claude)
+			case "chat":
+				result, err = svc.forwardClaudeBodyAsChatCompletions(ctx, c, account, claude, "alias", false, false, time.Now(), nil)
+			}
+			require.NoError(t, err)
+			require.Equal(t, 1, calls)
+			require.Equal(t, tc.factor, result.UpstreamPriceMultiplier)
+		})
+	}
+}
+
 func TestForwardListModelsVertexPaginationAndTransport(t *testing.T) {
 	account := vertexModelsAccount()
+	account.Credentials["location"] = "us"
 	proxyID := int64(9)
 	account.ProxyID = &proxyID
 	account.Proxy = &Proxy{Protocol: "http", Host: "proxy.example.test", Port: 8080}

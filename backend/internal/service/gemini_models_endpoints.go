@@ -36,7 +36,7 @@ func (s *GeminiMessagesCompatService) ForwardListModels(ctx context.Context, acc
 	if !account.IsVertexServiceAccount() {
 		return s.forwardGeminiModelsGET(ctx, account, "/v1beta/models")
 	}
-	modelIDs, failure, err := s.listVertexGeminiModels(ctx, account, account.VertexLocation(""))
+	modelIDs, failure, err := s.listVertexGeminiModels(ctx, account, vertexDiscoveryLocation(account.VertexLocation("")))
 	if err != nil || failure != nil {
 		return failure, err
 	}
@@ -57,7 +57,7 @@ func (s *GeminiMessagesCompatService) ForwardGetModel(ctx context.Context, accou
 	if !account.IsVertexServiceAccount() {
 		return s.forwardGeminiModelsGET(ctx, account, "/v1beta/models/"+model)
 	}
-	modelIDs, failure, err := s.listVertexGeminiModels(ctx, account, account.VertexLocation(model))
+	modelIDs, failure, err := s.listVertexGeminiModels(ctx, account, vertexDiscoveryLocation(account.VertexLocation(model)))
 	if err != nil || failure != nil {
 		return failure, err
 	}

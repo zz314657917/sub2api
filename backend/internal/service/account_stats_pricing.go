@@ -28,6 +28,14 @@ func resolveAccountStatsCost(
 	totalCost float64,
 	disableModelLongContextPricing ...bool,
 ) *float64 {
+	return resolveAccountStatsCostWithFactor(ctx, channelService, billingService, accountID, groupID, upstreamModel, tokens, requestCount, totalCost, 1, disableModelLongContextPricing...)
+}
+
+func resolveAccountStatsCostWithFactor(
+	ctx context.Context, channelService *ChannelService, billingService *BillingService,
+	accountID, groupID int64, upstreamModel string, tokens UsageTokens, requestCount int,
+	totalCost, upstreamPriceMultiplier float64, disableModelLongContextPricing ...bool,
+) *float64 {
 	if channelService == nil || upstreamModel == "" {
 		return nil
 	}
@@ -54,7 +62,11 @@ func resolveAccountStatsCost(
 
 	// 优先级 3：模型定价文件（LiteLLM）默认价格
 	if billingService != nil {
-		return tryModelFilePricingAt(ctx, billingService, upstreamModel, tokens, disableModelLongContextPricing...)
+		cost := tryModelFilePricingAt(ctx, billingService, upstreamModel, tokens, disableModelLongContextPricing...)
+		if cost != nil && upstreamPriceMultiplier > 1 {
+			*cost *= upstreamPriceMultiplier
+		}
+		return cost
 	}
 
 	return nil
@@ -267,6 +279,14 @@ func applyAccountStatsCost(
 	totalCost float64,
 	disableModelLongContextPricing ...bool,
 ) {
+	applyAccountStatsCostWithFactor(ctx, usageLog, cs, bs, accountID, groupID, upstreamModel, requestedModel, tokens, totalCost, 1, disableModelLongContextPricing...)
+}
+
+func applyAccountStatsCostWithFactor(
+	ctx context.Context, usageLog *UsageLog, cs *ChannelService, bs *BillingService,
+	accountID, groupID int64, upstreamModel, requestedModel string, tokens UsageTokens,
+	totalCost, upstreamPriceMultiplier float64, disableModelLongContextPricing ...bool,
+) {
 	model := upstreamModel
 	if model == "" {
 		model = requestedModel
@@ -275,7 +295,7 @@ func applyAccountStatsCost(
 	if usageLog != nil && usageLog.ImageCount > 0 {
 		requestCount = usageLog.ImageCount
 	}
-	usageLog.AccountStatsCost = resolveAccountStatsCost(
-		ctx, cs, bs, accountID, groupID, model, tokens, requestCount, totalCost, disableModelLongContextPricing...,
+	usageLog.AccountStatsCost = resolveAccountStatsCostWithFactor(
+		ctx, cs, bs, accountID, groupID, model, tokens, requestCount, totalCost, upstreamPriceMultiplier, disableModelLongContextPricing...,
 	)
 }

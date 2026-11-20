@@ -30,16 +30,17 @@ func (s *BillingService) LegacyLongContextRule(platform string) *LegacyLongConte
 
 // TokenCostRequest 是网关 token 计费的统一路径选择输入。
 type TokenCostRequest struct {
-	PricingAt         time.Time
-	Ctx               context.Context
-	Model             string
-	GroupID           *int64
-	Group             *Group
-	Tokens            UsageTokens
-	RateMultiplier    float64
-	Resolver          *ModelPricingResolver
-	Resolved          *ResolvedPricing
-	LegacyLongContext *LegacyLongContextRule
+	PricingAt               time.Time
+	Ctx                     context.Context
+	Model                   string
+	GroupID                 *int64
+	Group                   *Group
+	Tokens                  UsageTokens
+	RateMultiplier          float64
+	Resolver                *ModelPricingResolver
+	Resolved                *ResolvedPricing
+	LegacyLongContext       *LegacyLongContextRule
+	UpstreamPriceMultiplier float64
 }
 
 func legacyLongContextApplies(resolved *ResolvedPricing, group *Group, rule *LegacyLongContextRule) bool {
@@ -62,7 +63,10 @@ func (s *BillingService) CalculateTokenCostForRequest(req TokenCostRequest) (*Co
 	req.PricingAt = billingReferenceTime(req.PricingAt)
 	// Resolve before selecting the legacy path so GroupID-only gates and catalog
 	// metadata work even when the gateway did not pre-resolve pricing.
-	if req.Resolved == nil && req.Resolver != nil {
+	if req.Resolved == nil && (req.Resolver != nil || (req.UpstreamPriceMultiplier > 1 && matchGroupModelPricing(req.Group, req.Model) != nil)) {
+		if req.Resolver == nil {
+			req.Resolver = NewModelPricingResolver(nil, s)
+		}
 		input := s.tokenCostInput(req)
 		req.Resolved = req.Resolver.Resolve(req.Ctx, PricingInput{
 			Model: req.Model, GroupID: input.GroupID, Group: req.Group,
@@ -71,6 +75,29 @@ func (s *BillingService) CalculateTokenCostForRequest(req TokenCostRequest) (*Co
 	if req.Resolved != nil && (req.Resolved.Source == PricingSourceGroup || req.Resolved.Source == PricingSourceChannel) {
 		return s.CalculateCostUnified(s.tokenCostInput(req))
 	}
+	cost, err := s.calculateDefaultTokenCost(req)
+	if err == nil && defaultAccountStatsTokenPriceFactor(cost, req.UpstreamPriceMultiplier) > 1 {
+		factor := req.UpstreamPriceMultiplier
+		cost.InputCost *= factor
+		cost.ImageInputCost *= factor
+		cost.OutputCost *= factor
+		cost.ImageOutputCost *= factor
+		cost.CacheCreationCost *= factor
+		cost.CacheReadCost *= factor
+		cost.TotalCost *= factor
+		cost.ActualCost *= factor
+	}
+	return cost, err
+}
+
+func defaultAccountStatsTokenPriceFactor(cost *CostBreakdown, factor float64) float64 {
+	if factor > 1 && cost != nil && (cost.BillingMode == "" || cost.BillingMode == string(BillingModeToken)) {
+		return factor
+	}
+	return 1
+}
+
+func (s *BillingService) calculateDefaultTokenCost(req TokenCostRequest) (*CostBreakdown, error) {
 	pricing := (*ModelPricing)(nil)
 	if req.Resolved != nil {
 		pricing = req.Resolved.BasePricing

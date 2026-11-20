@@ -508,6 +508,8 @@ type ForwardResult struct {
 	FirstTokenMs                  *int // 首字时间（流式请求）
 	ClientDisconnect              bool // 客户端是否在流式传输过程中断开
 	ReasoningEffort               *string
+	// UpstreamPriceMultiplier applies to default token prices only. Zero means no adjustment.
+	UpstreamPriceMultiplier float64
 
 	// 图片生成计费字段（图片生成模型使用）
 	ImageCount         int    // 生成的图片数量
@@ -9840,7 +9842,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 
 	// 计算账号统计定价费用（使用最终上游模型匹配自定义规则）
 	if apiKey.GroupID != nil {
-		applyAccountStatsCost(ctx, usageLog, s.channelService, s.billingService,
+		applyAccountStatsCostWithFactor(ctx, usageLog, s.channelService, s.billingService,
 			account.ID, *apiKey.GroupID, result.UpstreamModel, result.Model,
 			// Anthropic's input_tokens excludes cache_read and cache_creation (billed separately);
 			// OpenAI gateway uses actualInputTokens which also excludes cache_read for the same reason.
@@ -9851,7 +9853,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 				CacheReadTokens:     result.Usage.CacheReadInputTokens,
 				ImageOutputTokens:   result.Usage.ImageOutputTokens,
 			},
-			cost.TotalCost,
+			cost.TotalCost, defaultAccountStatsTokenPriceFactor(cost, result.UpstreamPriceMultiplier),
 		)
 	}
 
@@ -10111,15 +10113,16 @@ func (s *GatewayService) calculateTokenCost(
 	}
 
 	cost, err := s.billingService.CalculateTokenCostForRequest(TokenCostRequest{
-		Ctx:               ctx,
-		Model:             billingModel,
-		GroupID:           groupID,
-		Group:             group,
-		Tokens:            tokens,
-		RateMultiplier:    rateMultiplier,
-		Resolver:          s.resolver,
-		Resolved:          resolved,
-		LegacyLongContext: legacy,
+		Ctx:                     ctx,
+		Model:                   billingModel,
+		GroupID:                 groupID,
+		Group:                   group,
+		Tokens:                  tokens,
+		RateMultiplier:          rateMultiplier,
+		Resolver:                s.resolver,
+		Resolved:                resolved,
+		LegacyLongContext:       legacy,
+		UpstreamPriceMultiplier: result.UpstreamPriceMultiplier,
 	})
 	if err != nil {
 		logger.LegacyPrintf("service.gateway", "Calculate cost failed: %v", err)

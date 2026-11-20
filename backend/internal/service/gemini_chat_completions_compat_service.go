@@ -325,6 +325,7 @@ func (s *GeminiMessagesCompatService) forwardClaudeBodyAsChatCompletions(
 		ImageSize:                     imageSize,
 		ImageInputSize:                imageInputSize,
 		ClientDisconnect:              clientDisconnect,
+		UpstreamPriceMultiplier:       vertexGeminiPriceMultiplier(account, mappedModel, account.VertexLocation(mappedModel)),
 	}, nil
 }
 

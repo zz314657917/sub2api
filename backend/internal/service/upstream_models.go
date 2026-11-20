@@ -144,7 +144,7 @@ func (s *AccountTestService) FetchUpstreamSupportedModels(ctx context.Context, a
 }
 
 func (s *AccountTestService) fetchVertexGeminiUpstreamModels(ctx context.Context, account *Account) ([]string, error) {
-	location := account.VertexLocation("")
+	location := vertexDiscoveryLocation(account.VertexLocation(""))
 	if err := validateVertexPublisherAccount(account, location); err != nil {
 		return nil, newUpstreamModelSyncConfigError("Invalid Vertex service account configuration", err)
 	}

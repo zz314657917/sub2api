@@ -1203,6 +1203,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 		UpstreamResponseModel:         observedUpstreamResponseModel(c),
 		UpstreamResponseModelConflict: observedUpstreamResponseModelConflict(c),
 		Stream:                        req.Stream,
+		UpstreamPriceMultiplier:       vertexGeminiPriceMultiplier(account, mappedModel, account.VertexLocation(mappedModel)),
 		Duration:                      time.Since(startTime),
 		FirstTokenMs:                  firstTokenMs,
 		ClientDisconnect:              clientDisconnect,
@@ -1272,6 +1273,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 
 	var requestIDHeader string
 	var buildReq func(ctx context.Context) (*http.Request, string, error)
+	var vertexRequestLocation string
 
 	switch account.Type {
 	case AccountTypeAPIKey:
@@ -1381,7 +1383,11 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 				return nil, "", err
 			}
 
-			fullURL, err := buildVertexGeminiURL(account.VertexProjectID(), account.VertexLocation(mappedModel), mappedModel, upstreamAction, useUpstreamStream)
+			vertexRequestLocation = account.VertexLocation(mappedModel)
+			if location := geminiVertexCachedContentLocation(body); location != "" {
+				vertexRequestLocation = location
+			}
+			fullURL, err := buildVertexGeminiURL(account.VertexProjectID(), vertexRequestLocation, mappedModel, upstreamAction, useUpstreamStream)
 			if err != nil {
 				return nil, "", err
 			}
@@ -1788,6 +1794,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 		UpstreamResponseModel:         observedUpstreamResponseModel(c),
 		UpstreamResponseModelConflict: observedUpstreamResponseModelConflict(c),
 		Stream:                        stream,
+		UpstreamPriceMultiplier:       vertexGeminiPriceMultiplier(account, mappedModel, vertexRequestLocation),
 		Duration:                      time.Since(startTime),
 		FirstTokenMs:                  firstTokenMs,
 		ClientDisconnect:              clientDisconnect,
@@ -1795,6 +1802,18 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 		ImageSize:                     imageSize,
 		ImageInputSize:                imageInputSize,
 	}, nil
+}
+
+// geminiVertexCachedContentLocation uses only the location segment of a
+// project-qualified cache reference. The account owns the connection project.
+func geminiVertexCachedContentLocation(body []byte) string {
+	for _, path := range [...]string{"cachedContent", "generateContentRequest.cachedContent"} {
+		name := strings.TrimSpace(gjson.GetBytes(body, path).String())
+		if match := vertexCachedContentName.FindStringSubmatch(name); match != nil {
+			return match[1]
+		}
+	}
+	return ""
 }
 
 // cachedContentNotFoundInLoop inspects 403 before policy/retries and restores the body.
