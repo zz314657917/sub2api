@@ -81,9 +81,9 @@ func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
 		agModels = append(agModels, gemini.FallbackModel(id))
 	}
 
-	account, err := h.geminiCompatService.SelectAccountForAIStudioEndpoints(c.Request.Context(), apiKey.GroupID)
+	account, err := h.geminiCompatService.SelectAccountForModelsEndpoints(c.Request.Context(), apiKey.GroupID)
 	if err != nil {
-		if len(agModels) > 0 {
+		if len(agModels) > 0 && !errors.Is(err, service.ErrCafeAccountUnavailable) {
 			c.JSON(http.StatusOK, gemini.ModelsListResponse{Models: agModels})
 			return
 		}
@@ -92,12 +92,12 @@ func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
 		return
 	}
 
-	res, err := h.geminiCompatService.ForwardAIStudioGET(c.Request.Context(), account, "/v1beta/models")
+	res, err := h.geminiCompatService.ForwardListModels(c.Request.Context(), account)
 	if err != nil {
 		googleError(c, http.StatusBadGateway, err.Error())
 		return
 	}
-	if shouldFallbackGeminiModels(res) {
+	if !account.IsVertexServiceAccount() && shouldFallbackGeminiModels(res) {
 		c.JSON(http.StatusOK, gemini.ModelsListResponse{Models: mergeGeminiModelLists(gemini.DefaultModels(), agModels)})
 		return
 	}
@@ -207,10 +207,13 @@ func (h *GatewayHandler) GeminiV1BetaGetModel(c *gin.Context) {
 		return
 	}
 
-	account, err := h.geminiCompatService.SelectAccountForAIStudioEndpoints(c.Request.Context(), apiKey.GroupID)
+	account, err := h.geminiCompatService.SelectAccountForModelsEndpoints(c.Request.Context(), apiKey.GroupID)
 	if err != nil {
 		// 没有 gemini 账户，检查是否有 antigravity 账户可用
-		hasAntigravity, _ := h.geminiCompatService.HasAntigravityAccounts(c.Request.Context(), apiKey.GroupID)
+		hasAntigravity := false
+		if !errors.Is(err, service.ErrCafeAccountUnavailable) {
+			hasAntigravity, _ = h.geminiCompatService.HasAntigravityAccounts(c.Request.Context(), apiKey.GroupID)
+		}
 		if hasAntigravity {
 			// antigravity 账户使用静态模型信息
 			c.JSON(http.StatusOK, gemini.FallbackModel(modelName))
@@ -221,12 +224,12 @@ func (h *GatewayHandler) GeminiV1BetaGetModel(c *gin.Context) {
 		return
 	}
 
-	res, err := h.geminiCompatService.ForwardAIStudioGET(c.Request.Context(), account, "/v1beta/models/"+modelName)
+	res, err := h.geminiCompatService.ForwardGetModel(c.Request.Context(), account, modelName)
 	if err != nil {
 		googleError(c, http.StatusBadGateway, err.Error())
 		return
 	}
-	if shouldFallbackGeminiModel(modelName, res) {
+	if !account.IsVertexServiceAccount() && shouldFallbackGeminiModel(modelName, res) {
 		c.JSON(http.StatusOK, gemini.FallbackModel(modelName))
 		return
 	}

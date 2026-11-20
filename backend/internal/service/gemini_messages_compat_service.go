@@ -553,15 +553,15 @@ func (s *GeminiMessagesCompatService) HasAntigravityAccounts(ctx context.Context
 	return len(accounts) > 0, nil
 }
 
-// SelectAccountForAIStudioEndpoints selects an account that is likely to succeed against
-// generativelanguage.googleapis.com (e.g. GET /v1beta/models).
+// SelectAccountForModelsEndpoints selects an account for native model list/detail requests.
 //
 // Preference order:
 // 1) API key accounts (AI Studio)
 // 2) OAuth accounts without project_id (AI Studio OAuth)
 // 3) OAuth accounts explicitly marked as ai_studio
-// 4) Any remaining Gemini accounts (fallback)
-func (s *GeminiMessagesCompatService) SelectAccountForAIStudioEndpoints(ctx context.Context, groupID *int64) (*Account, error) {
+// 4) Any remaining AI Studio-compatible accounts
+// 5) Vertex JSON service accounts
+func (s *GeminiMessagesCompatService) SelectAccountForModelsEndpoints(ctx context.Context, groupID *int64) (*Account, error) {
 	if pinnedID, ok := pinnedAccountIDFromContext(ctx); ok {
 		return s.selectPinnedGeminiAccount(ctx, pinnedID, groupID, "", nil)
 	}
@@ -593,9 +593,7 @@ func (s *GeminiMessagesCompatService) SelectAccountForAIStudioEndpoints(ctx cont
 			// Code Assist OAuth tokens often lack AI Studio scopes for models listing.
 			return 3
 		case AccountTypeServiceAccount:
-			// Vertex service accounts use aiplatform.googleapis.com, not the AI Studio
-			// endpoint (generativelanguage.googleapis.com), so they cannot serve these requests.
-			return 999
+			return 11
 		default:
 			return 10
 		}
@@ -3090,11 +3088,11 @@ func (s *GeminiMessagesCompatService) handleNativeStreamingResponse(c *gin.Conte
 	return streamResult(false, false), nil
 }
 
-// ForwardAIStudioGET forwards a GET request to AI Studio (generativelanguage.googleapis.com) for
+// forwardGeminiModelsGET forwards a GET request to AI Studio (generativelanguage.googleapis.com) for
 // endpoints like /v1beta/models and /v1beta/models/{model}.
 //
 // This is used to support Gemini SDKs that call models listing endpoints before generation.
-func (s *GeminiMessagesCompatService) ForwardAIStudioGET(ctx context.Context, account *Account, path string) (*UpstreamHTTPResult, error) {
+func (s *GeminiMessagesCompatService) forwardGeminiModelsGET(ctx context.Context, account *Account, path string) (*UpstreamHTTPResult, error) {
 	if account == nil {
 		return nil, errors.New("account is nil")
 	}
@@ -3110,11 +3108,6 @@ func (s *GeminiMessagesCompatService) ForwardAIStudioGET(ctx context.Context, ac
 		return nil, err
 	}
 	fullURL := strings.TrimRight(normalizedBaseURL, "/") + path
-
-	var proxyURL string
-	if account.ProxyID != nil && account.Proxy != nil {
-		proxyURL = account.Proxy.URL()
-	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL, nil)
 	if err != nil {
@@ -3141,23 +3134,7 @@ func (s *GeminiMessagesCompatService) ForwardAIStudioGET(ctx context.Context, ac
 		return nil, fmt.Errorf("unsupported account type: %s", account.Type)
 	}
 
-	resp, err := s.httpUpstream.Do(req, proxyURL, account.ID, account.Concurrency)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
-	wwwAuthenticate := resp.Header.Get("Www-Authenticate")
-	filteredHeaders := responseheaders.FilterHeaders(resp.Header, s.responseHeaderFilter)
-	if wwwAuthenticate != "" {
-		filteredHeaders.Set("Www-Authenticate", wwwAuthenticate)
-	}
-	return &UpstreamHTTPResult{
-		StatusCode: resp.StatusCode,
-		Headers:    filteredHeaders,
-		Body:       body,
-	}, nil
+	return s.doGeminiModelsGET(req, account)
 }
 
 // unwrapGeminiResponse 解包 Gemini OAuth 响应中的 response 字段

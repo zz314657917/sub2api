@@ -87,6 +87,9 @@ func (s *AccountTestService) FetchUpstreamSupportedModels(ctx context.Context, a
 	if s.httpUpstream == nil {
 		return nil, newUpstreamModelSyncConfigError("Upstream HTTP client is not configured", nil)
 	}
+	if account.IsGemini() && account.IsVertexServiceAccount() {
+		return s.fetchVertexGeminiUpstreamModels(ctx, account)
+	}
 
 	req, err := s.buildUpstreamModelsRequest(ctx, account)
 	if err != nil {
@@ -137,6 +140,48 @@ func (s *AccountTestService) FetchUpstreamSupportedModels(ctx context.Context, a
 		sort.Strings(models)
 	}
 
+	return models, nil
+}
+
+func (s *AccountTestService) fetchVertexGeminiUpstreamModels(ctx context.Context, account *Account) ([]string, error) {
+	location := account.VertexLocation("")
+	if err := validateVertexPublisherAccount(account, location); err != nil {
+		return nil, newUpstreamModelSyncConfigError("Invalid Vertex service account configuration", err)
+	}
+	if s.geminiTokenProvider == nil {
+		return nil, newUpstreamModelSyncConfigError("Gemini token provider is not configured", nil)
+	}
+	token, err := s.geminiTokenProvider.GetAccessToken(ctx, account)
+	if err != nil {
+		return nil, newUpstreamModelSyncUpstreamError("Failed to get Vertex access token", err)
+	}
+	if strings.TrimSpace(token) == "" {
+		return nil, newUpstreamModelSyncConfigError("No Vertex access token is available", nil)
+	}
+	models, err := listVertexGeminiPublisherModels(location, func(_ int, listURL string) ([]byte, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, listURL, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Accept", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+		resp, err := s.doUpstreamModelsRequest(req, upstreamModelsProxyURL(account), account)
+		if err != nil {
+			return nil, err
+		}
+		defer func() { _ = resp.Body.Close() }()
+		body, err := readModelsResponseBody(resp.Body, resolveModelsListReadLimit(s.cfg))
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+			return nil, fmt.Errorf("upstream model list returned HTTP %d", resp.StatusCode)
+		}
+		return body, nil
+	})
+	if err != nil {
+		return nil, newUpstreamModelSyncUpstreamError("Failed to fetch Vertex model list", err)
+	}
 	return models, nil
 }
 
