@@ -88,7 +88,7 @@ func TestGroupUltrafastPrecedenceAndBilling(t *testing.T) {
 				require.NoError(t, err)
 				effective, err := billing.CalculateCostWithServiceTier(tc.model, tokens, 1, tc.want)
 				require.NoError(t, err)
-				require.InDelta(t, base.TotalCost*6, effective.TotalCost, 1e-12)
+				require.InDelta(t, base.TotalCost*3, effective.TotalCost, 1e-12)
 			}
 		})
 	}

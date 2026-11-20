@@ -1342,7 +1342,7 @@ func (s *BillingService) applyModelSpecificPricingPolicy(model string, pricing *
 	}
 	cloned := *pricing
 	if usesUltrafast {
-		cloned.UltrafastMultiplier = 6
+		cloned.UltrafastMultiplier = 3
 	}
 	if needsCacheCreationPolicy {
 		if cloned.CacheCreationPricePerToken <= 0 {

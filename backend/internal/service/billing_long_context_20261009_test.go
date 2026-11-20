@@ -90,8 +90,8 @@ func TestBillingLongContext20261009TiersGatesCache(t *testing.T) {
 								ServiceTier: tier, RateMultiplier: 1, LongContextBillingEnabled: &accountGate})
 							require.NoError(t, err)
 							mult := serviceTierCostMultiplier(tier)
-							if tier == "ultrafast" && isOpenAIGPT6AstraPricingModel(model) {
-								mult = 6
+							if tier == "ultrafast" && (isOpenAIGPT6AstraPricingModel(model) || model == "gpt-6.1-sol") {
+								mult = 3
 							}
 							im, om := 1.0, 1.0
 							if n > 272000 && groupGate && accountGate {
@@ -172,7 +172,7 @@ func TestBillingLongContext20261009OverridesIntervals(t *testing.T) {
 							if tier == "ultrafast" {
 								m = 2
 								if isOpenAIGPT6AstraPricingModel(model) {
-									m = 6
+									m = 3
 								}
 							}
 							lm := 1.0

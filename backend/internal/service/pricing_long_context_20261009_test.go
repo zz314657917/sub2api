@@ -178,7 +178,7 @@ func TestPricingLongContext20261009LegacyDefaultsAndOriginalAliases(t *testing.T
 		require.NoError(t, err)
 		require.True(t, card.LongContextMetadataPresent)
 		require.Zero(t, card.LongContextInputThreshold)
-		require.Equal(t, 6.0, card.UltrafastMultiplier)
+		require.Equal(t, 3.0, card.UltrafastMultiplier)
 	}
 }
 
