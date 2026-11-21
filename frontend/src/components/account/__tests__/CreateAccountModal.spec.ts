@@ -68,6 +68,50 @@ function mountModal() {
   })
 }
 
+describe('CreateAccountModal Grok API key', () => {
+  it('defaults to OAuth, then creates an API key account with the xAI URL and a trimmed key', async () => {
+    createAccount.mockReset().mockResolvedValue({ id: 7 })
+    const wrapper = mountModal()
+    const grokButton = wrapper.findAll('[data-tour="account-form-platform"] button').find(button => button.text() === 'Grok')!
+    await grokButton.trigger('click')
+
+    const apiKeyType = wrapper.get('[data-testid="grok-account-type-api-key"]')
+    expect(apiKeyType.attributes('aria-pressed')).toBe('false')
+    expect(wrapper.find('input[type="password"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('admin.accounts.oauth.grok.oauthOnlyHint')
+
+    await wrapper.get('[data-tour="account-form-name"]').setValue('Grok account')
+    await wrapper.get('#create-account-form').trigger('submit.prevent')
+    expect(wrapper.find('[data-testid="import-codex-session"]').exists()).toBe(true)
+    expect(createAccount).not.toHaveBeenCalled()
+    wrapper.unmount()
+
+    const apiKeyModal = mountModal()
+    await apiKeyModal.findAll('[data-tour="account-form-platform"] button').find(button => button.text() === 'Grok')!.trigger('click')
+    await apiKeyModal.get('[data-testid="grok-account-type-api-key"]').trigger('click')
+    await apiKeyModal.get('[data-tour="account-form-name"]').setValue('Grok API key')
+
+    const baseUrl = apiKeyModal.get<HTMLInputElement>('input[placeholder="https://api.x.ai/v1"]')
+    expect(baseUrl.element.value).toBe('https://api.x.ai/v1')
+    await baseUrl.setValue('  ')
+    const apiKey = apiKeyModal.get('input[type="password"]')
+    await apiKey.setValue('  ')
+    await apiKeyModal.get('#create-account-form').trigger('submit.prevent')
+    expect(createAccount).not.toHaveBeenCalled()
+
+    await apiKey.setValue('  xai-fixture  ')
+    await apiKeyModal.get('#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(createAccount).toHaveBeenCalledTimes(1)
+    expect(createAccount).toHaveBeenCalledWith(expect.objectContaining({
+      platform: 'grok',
+      type: 'apikey',
+      credentials: expect.objectContaining({ base_url: 'https://api.x.ai/v1', api_key: 'xai-fixture' }),
+    }))
+    apiKeyModal.unmount()
+  })
+})
+
 describe('CreateAccountModal OpenAI billing default', () => {
   beforeEach(() => {
     createAccount.mockReset().mockResolvedValue({ id: 7 })

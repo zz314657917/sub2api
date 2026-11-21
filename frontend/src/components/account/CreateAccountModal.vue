@@ -373,7 +373,7 @@
         </div>
       </div>
 
-      <!-- Account Type Selection (Grok - OAuth only) -->
+      <!-- Account Type Selection (Grok) -->
       <div v-if="form.platform === 'grok'">
         <label class="input-label">{{ t('admin.accounts.accountType') }}</label>
         <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2" data-tour="account-form-type">
@@ -402,10 +402,34 @@
               <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.accounts.types.grokOauth') }}</span>
             </div>
           </button>
+          <button
+            type="button"
+            data-testid="grok-account-type-api-key"
+            :aria-pressed="accountCategory === 'apikey'"
+            @click="accountCategory = 'apikey'"
+            :class="[
+              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
+              accountCategory === 'apikey'
+                ? 'border-slate-500 bg-slate-50 dark:bg-slate-900/20'
+                : 'border-gray-200 hover:border-slate-300 dark:border-dark-600 dark:hover:border-slate-700'
+            ]"
+          >
+            <div
+              :class="[
+                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+                accountCategory === 'apikey'
+                  ? 'bg-slate-700 text-white'
+                  : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
+              ]"
+            >
+              <Icon name="key" size="sm" />
+            </div>
+            <div>
+              <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.accounts.apiKey') }}</span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.accounts.types.responsesApi') }}</span>
+            </div>
+          </button>
         </div>
-        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-          {{ t('admin.accounts.oauth.grok.oauthOnlyHint') }}
-        </p>
       </div>
 
       <!-- Account Type Selection (Gemini) -->
@@ -1130,7 +1154,7 @@
             class="input"
             :placeholder="apiKeyBaseUrlPlaceholder"
           />
-          <p class="input-hint">{{ baseUrlHint }}</p>
+          <p v-if="baseUrlHint" class="input-hint">{{ baseUrlHint }}</p>
           <CnBaseUrlPresets
             v-if="isCNPlatform"
             class="mt-2"
@@ -1150,7 +1174,7 @@
             class="input font-mono"
             :placeholder="apiKeyPlaceholder"
           />
-          <p class="input-hint">{{ apiKeyHint }}</p>
+          <p v-if="apiKeyHint" class="input-hint">{{ apiKeyHint }}</p>
         </div>
 
         <div class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600">
@@ -3470,14 +3494,14 @@ const oauthStepTitle = computed(() => {
 const baseUrlHint = computed(() => {
   if (form.platform === 'openai') return t('admin.accounts.openai.baseUrlHint')
   if (form.platform === 'gemini') return t('admin.accounts.gemini.baseUrlHint')
-  if (form.platform === 'grok') return t('admin.accounts.grok.baseUrlHint')
+  if (form.platform === 'grok') return ''
   return t('admin.accounts.baseUrlHint')
 })
 
 const apiKeyHint = computed(() => {
   if (form.platform === 'openai') return t('admin.accounts.openai.apiKeyHint')
   if (form.platform === 'gemini') return t('admin.accounts.gemini.apiKeyHint')
-  if (form.platform === 'grok') return t('admin.accounts.grok.apiKeyHint')
+  if (form.platform === 'grok') return ''
   return t('admin.accounts.apiKeyHint')
 })
 
@@ -3585,8 +3609,14 @@ const cnProtocolOptions = computed(() => [
 ])
 const cnProtocolDescriptionKey = computed(() => cnProtocolOptions.value.find(option => option.value === apiProtocol.value)?.labelKey || 'chatCompletions')
 const cnActiveClass = computed(() => form.platform === 'kimi' ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/20' : form.platform === 'zhipu' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-teal-500 bg-teal-50 dark:bg-teal-900/20')
-const apiKeyBaseUrlPlaceholder = computed(() => isCNPlatform.value ? defaultCNBaseUrl(form.platform, accountMode.value, apiProtocol.value) : form.platform === 'openai' ? 'https://api.openai.com' : form.platform === 'gemini' ? 'https://generativelanguage.googleapis.com' : 'https://api.anthropic.com')
-const apiKeyPlaceholder = computed(() => form.platform === 'zhipu' ? '<api-key>.<secret>' : form.platform === 'gemini' ? 'AIza...' : 'sk-...')
+const apiKeyBaseUrlPlaceholder = computed(() => {
+  if (isCNPlatform.value) return defaultCNBaseUrl(form.platform, accountMode.value, apiProtocol.value)
+  if (form.platform === 'openai') return 'https://api.openai.com'
+  if (form.platform === 'gemini') return 'https://generativelanguage.googleapis.com'
+  if (form.platform === 'grok') return 'https://api.x.ai/v1'
+  return 'https://api.anthropic.com'
+})
+const apiKeyPlaceholder = computed(() => form.platform === 'zhipu' ? '<api-key>.<secret>' : form.platform === 'gemini' ? 'AIza...' : form.platform === 'grok' ? 'xai-...' : 'sk-...')
 
 function selectCNPlatform(platform: 'kimi' | 'zhipu' | 'deepseek') {
   form.platform = platform
@@ -5033,19 +5063,9 @@ const handleSubmit = async () => {
     return
   }
 
-  // Determine default base URL based on platform
-  const defaultBaseUrl =
-    isCNPlatform.value
-      ? defaultCNBaseUrl(form.platform, accountMode.value, apiProtocol.value)
-      : form.platform === 'openai'
-      ? 'https://api.openai.com'
-      : form.platform === 'gemini'
-        ? 'https://generativelanguage.googleapis.com'
-        : 'https://api.anthropic.com'
-
   // Build credentials with optional model mapping
   const credentials: Record<string, unknown> = {
-    base_url: apiKeyBaseUrl.value.trim() || defaultBaseUrl,
+    base_url: apiKeyBaseUrl.value.trim() || apiKeyBaseUrlPlaceholder.value,
     api_key: apiKeyValue.value.trim()
   }
   if (form.platform === 'gemini') {

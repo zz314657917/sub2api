@@ -192,6 +192,54 @@ func TestForwardAsChatCompletionsForGrokUsesXAIChatCompletionsAndSnapshots(t *te
 	require.Equal(t, http.StatusOK, recorder.Code)
 }
 
+func TestForwardGrokAPIKeyResponses(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Setenv(xai.EnvAllowUnsafeURLOverrides, "false")
+	body := []byte(`{"model":"grok-4.3","input":"hi"}`)
+	for _, tc := range []struct {
+		name, key, baseURL, wantError string
+	}{
+		{"success", "  xai-fixture  ", "https://api.x.ai", ""},
+		{"blank key", "  ", xai.DefaultBaseURL, "api_key not found in credentials"},
+		{"invalid host", "xai-fixture", "https://example.invalid/v1", "invalid base url"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			account := &Account{
+				Platform:    PlatformGrok,
+				Type:        AccountTypeAPIKey,
+				Credentials: map[string]any{"api_key": tc.key, "base_url": tc.baseURL},
+			}
+			recorder := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(recorder)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
+			c.Request.Header.Set("Content-Type", "application/json")
+			upstream := &httpUpstreamRecorder{resp: &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(`{"id":"resp_grok_apikey","object":"response","model":"grok-4.3","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"ok"}]}],"usage":{"input_tokens":5,"output_tokens":3}}`)),
+			}}
+			svc := &OpenAIGatewayService{httpUpstream: upstream}
+
+			result, err := svc.Forward(c.Request.Context(), c, account, body)
+			if tc.wantError != "" {
+				require.ErrorContains(t, err, tc.wantError)
+				require.Nil(t, upstream.lastReq)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, upstream.lastReq)
+			require.Equal(t, "https://api.x.ai/v1/responses", upstream.lastReq.URL.String())
+			require.Equal(t, "Bearer xai-fixture", upstream.lastReq.Header.Get("Authorization"))
+			require.Empty(t, upstream.lastReq.UserAgent())
+			require.Equal(t, http.StatusOK, recorder.Code)
+			require.Equal(t, "ok", gjson.Get(recorder.Body.String(), "output.0.content.0.text").String())
+			require.Equal(t, "resp_grok_apikey", result.ResponseID)
+			require.Equal(t, 5, result.Usage.InputTokens)
+			require.Equal(t, 3, result.Usage.OutputTokens)
+		})
+	}
+}
+
 func TestForwardGrokResponsesStreamingUsesXAIResponsesAndSnapshots(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

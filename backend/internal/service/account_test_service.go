@@ -727,14 +727,14 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 	return s.processOpenAIStream(c, resp.Body)
 }
 
-// testGrokAccountConnection tests a Grok OAuth account through xAI's Responses API.
+// testGrokAccountConnection tests a Grok OAuth or API key account through xAI's Responses API.
 func (s *AccountTestService) testGrokAccountConnection(c *gin.Context, account *Account, modelID string) error {
 	ctx := c.Request.Context()
 
-	if account.Type != AccountTypeOAuth {
+	if account.Type != AccountTypeOAuth && account.Type != AccountTypeAPIKey {
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Unsupported Grok account type: %s", account.Type))
 	}
-	if s.grokTokenProvider == nil {
+	if account.IsGrokOAuth() && s.grokTokenProvider == nil {
 		return s.sendErrorAndEnd(c, "Grok token provider not configured")
 	}
 	if s.httpUpstream == nil {
@@ -749,9 +749,18 @@ func (s *AccountTestService) testGrokAccountConnection(c *gin.Context, account *
 		testModelID = mapped
 	}
 
-	authToken, err := s.grokTokenProvider.GetAccessToken(ctx, account)
-	if err != nil {
-		return s.sendErrorAndEnd(c, fmt.Sprintf("Failed to get Grok access token: %s", err.Error()))
+	var authToken string
+	if account.Type == AccountTypeAPIKey {
+		authToken = strings.TrimSpace(account.GetCredential("api_key"))
+		if authToken == "" {
+			return s.sendErrorAndEnd(c, "Grok API key is missing")
+		}
+	} else {
+		var err error
+		authToken, err = s.grokTokenProvider.GetAccessToken(ctx, account)
+		if err != nil {
+			return s.sendErrorAndEnd(c, fmt.Sprintf("Failed to get Grok access token: %s", err.Error()))
+		}
 	}
 
 	apiURL, err := xai.BuildResponsesURL(account.GetGrokBaseURL())
@@ -783,7 +792,9 @@ func (s *AccountTestService) testGrokAccountConnection(c *gin.Context, account *
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json, text/event-stream")
 	req.Header.Set("Authorization", "Bearer "+authToken)
-	req.Header.Set("User-Agent", grokOfficialOAuthUserAgent)
+	if account.IsGrokOAuth() {
+		req.Header.Set("User-Agent", grokOfficialOAuthUserAgent)
+	}
 
 	proxyURL := ""
 	if account.ProxyID != nil && account.Proxy != nil {

@@ -226,6 +226,41 @@ function mountModal(account = buildAccount()) {
   })
 }
 
+describe('EditAccountModal Grok API key', () => {
+  it.each([
+    { baseUrl: 'https://api.x.ai', legacyKey: 'xai-fixture-existing', editedBaseUrl: undefined, newKey: '  ', expectedBaseUrl: 'https://api.x.ai', expectedKey: undefined },
+    { baseUrl: undefined, legacyKey: undefined, editedBaseUrl: '  ', newKey: '  xai-fixture-replacement  ', expectedBaseUrl: 'https://api.x.ai/v1', expectedKey: 'xai-fixture-replacement' },
+  ])('edits a Grok API key account with base URL $baseUrl', async ({ baseUrl, legacyKey, editedBaseUrl, newKey, expectedBaseUrl, expectedKey }) => {
+    const account = buildAccount()
+    account.platform = 'grok'
+    account.credentials = { base_url: baseUrl, ...(legacyKey ? { api_key: legacyKey } : {}) }
+    if (legacyKey) delete account.credentials_status
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(account)
+    const urlInput = wrapper.get<HTMLInputElement>('input[placeholder="https://api.x.ai/v1"]')
+    const keyInput = wrapper.get<HTMLInputElement>('input[placeholder="xai-..."]')
+    expect(urlInput.element.value).toBe(baseUrl || 'https://api.x.ai/v1')
+    expect(keyInput.element.value).toBe('')
+    if (editedBaseUrl !== undefined) await urlInput.setValue(editedBaseUrl)
+    await keyInput.setValue(newKey)
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    const [id, payload] = updateAccountMock.mock.calls[0]!
+    expect(id).toBe(account.id)
+    expect(payload.credentials.base_url).toBe(expectedBaseUrl)
+    if (expectedKey) {
+      expect(payload.credentials.api_key).toBe(expectedKey)
+    } else {
+      expect(payload.credentials).not.toHaveProperty('api_key')
+    }
+    wrapper.unmount()
+  })
+})
+
 describe('EditAccountModal', () => {
 	it('places account settings on the left and group controls on the right on wide screens', async () => {
 		authStoreMock.isSimpleMode = false

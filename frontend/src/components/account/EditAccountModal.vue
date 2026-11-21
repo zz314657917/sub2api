@@ -73,7 +73,7 @@
             class="input"
             :placeholder="editBaseUrlPlaceholder"
           />
-          <p class="input-hint">{{ baseUrlHint }}</p>
+          <p v-if="baseUrlHint" class="input-hint">{{ baseUrlHint }}</p>
           <CnBaseUrlPresets
             v-if="isCNApiKeyAccount"
             class="mt-2"
@@ -2673,6 +2673,7 @@ const baseUrlHint = computed(() => {
   if (!props.account) return t('admin.accounts.baseUrlHint')
   if (props.account.platform === 'openai') return t('admin.accounts.openai.baseUrlHint')
   if (props.account.platform === 'gemini') return t('admin.accounts.gemini.baseUrlHint')
+  if (props.account.platform === 'grok') return ''
   return t('admin.accounts.baseUrlHint')
 })
 
@@ -2717,8 +2718,10 @@ const cnProtocolOptions = computed(() => [
 ])
 const cnProtocolDescriptionKey = computed(() => cnProtocolOptions.value.find(option => option.value === editApiProtocol.value)?.labelKey || 'chatCompletions')
 const cnActiveClass = computed(() => props.account?.platform === 'kimi' ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/20' : props.account?.platform === 'zhipu' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-teal-500 bg-teal-50 dark:bg-teal-900/20')
-const editBaseUrlPlaceholder = computed(() => isCNApiKeyAccount.value ? defaultCNBaseUrl(props.account!.platform, editAccountMode.value, editApiProtocol.value) : props.account?.platform === 'openai' ? 'https://api.openai.com' : props.account?.platform === 'gemini' ? 'https://generativelanguage.googleapis.com' : props.account?.platform === 'antigravity' ? 'https://cloudcode-pa.googleapis.com' : 'https://api.anthropic.com')
-const editApiKeyPlaceholder = computed(() => props.account?.platform === 'zhipu' ? '<api-key>.<secret>' : props.account?.platform === 'gemini' ? 'AIza...' : 'sk-...')
+const editBaseUrlPlaceholder = computed(() =>
+  props.account?.platform === 'antigravity' ? 'https://cloudcode-pa.googleapis.com' : defaultBaseUrl.value
+)
+const editApiKeyPlaceholder = computed(() => props.account?.platform === 'zhipu' ? '<api-key>.<secret>' : props.account?.platform === 'gemini' ? 'AIza...' : props.account?.platform === 'grok' ? 'xai-...' : 'sk-...')
 
 function onCnPresetSelect(preset: { mode: CnAccountMode; protocol: CnApiProtocol; url: string }) {
   editAccountMode.value = preset.mode
@@ -3300,6 +3303,7 @@ const defaultBaseUrl = computed(() => {
   }
   if (props.account?.platform === 'openai') return 'https://api.openai.com'
   if (props.account?.platform === 'gemini') return 'https://generativelanguage.googleapis.com'
+  if (props.account?.platform === 'grok') return 'https://api.x.ai/v1'
   return 'https://api.anthropic.com'
 })
 
@@ -3658,15 +3662,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   // Initialize API Key fields for apikey type
   if (newAccount.type === 'apikey' && newAccount.credentials) {
     const credentials = newAccount.credentials as Record<string, unknown>
-    const platformDefaultUrl =
-      newAccount.platform === 'openai'
-        ? 'https://api.openai.com'
-        : newAccount.platform === 'gemini'
-          ? 'https://generativelanguage.googleapis.com'
-          : newAccount.platform === 'kimi' || newAccount.platform === 'zhipu' || newAccount.platform === 'deepseek'
-            ? defaultCNBaseUrl(newAccount.platform, editAccountMode.value, editApiProtocol.value)
-          : 'https://api.anthropic.com'
-    editBaseUrl.value = (credentials.base_url as string) || platformDefaultUrl
+    editBaseUrl.value = (credentials.base_url as string) || defaultBaseUrl.value
 
     // Load model mappings and detect mode
     loadModelRestrictionFromMapping(credentials.model_mapping as Record<string, unknown> | undefined)
@@ -3735,7 +3731,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
           : newAccount.platform === 'kimi' || newAccount.platform === 'zhipu' || newAccount.platform === 'deepseek'
             ? defaultCNBaseUrl(newAccount.platform, editAccountMode.value, editApiProtocol.value)
           : 'https://api.anthropic.com'
-    editBaseUrl.value = platformDefaultUrl
+    editBaseUrl.value = newAccount.platform === 'grok' ? defaultBaseUrl.value : platformDefaultUrl
 
     // Load model mappings for OpenAI OAuth accounts
     if (newAccount.platform === 'openai' && newAccount.credentials) {
@@ -4287,6 +4283,9 @@ const handleSubmit = async () => {
       } else if (!hasExistingApiKey) {
         appStore.showError(t('admin.accounts.apiKeyIsRequired'))
         return
+      } else if (props.account.platform === 'grok') {
+        // The update API preserves an omitted key, even if a legacy response included it.
+        delete newCredentials.api_key
       }
 
       // Add model mapping if configured（OpenAI 开启自动透传时保留现有映射，不再编辑）
